@@ -22,6 +22,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   /// 顶部tab
   late int _tabIndex = -1;
 
+  /// 今日星期
+  int get _today => DateTime.now().weekday - 1;
+
   /// 请求数据
   List<CalendarItem> calendarData = [];
 
@@ -30,7 +33,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     super.initState();
     _client.getToday().then((value) {
       calendarData = value;
-      _tabIndex = DateTime.now().weekday - 1;
+      _tabIndex = _today;
       setState(() {});
     });
   }
@@ -42,8 +45,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         for (var item in calendarData)
           Tab(
             text: Text(item.weekday.cn),
-            icon: Icon(FluentIcons.calendar),
+            icon: item.weekday.id == _today
+                ? Icon(FluentIcons.away_status)
+                : Icon(FluentIcons.calendar),
             body: NavCalendarDay(data: item),
+            semanticLabel: item.weekday.cn,
           ),
       ],
       currentIndex: _tabIndex,

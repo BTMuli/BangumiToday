@@ -1,10 +1,8 @@
-/// bangumi.tv 的 API
-/// 详细文档请参考 https://bangumi.github.io/api/
-
 import '../../models/bangumi/get_calendar.dart';
 import '../core/client.dart';
 
-/// Bangumi API
+/// bangumi.tv 的 API
+/// 详细文档请参考 https://bangumi.github.io/api/
 class BangumiAPI {
   /// 请求客户端
   late final BTRequestClient client;
