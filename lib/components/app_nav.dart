@@ -1,6 +1,9 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../pages/calendar_page.dart';
+import '../pages/test_page.dart';
 import '../store/app_store.dart';
 import '../utils/get_theme_label.dart';
 
@@ -40,6 +43,42 @@ class _AppNavState extends ConsumerState<AppNav> {
     );
   }
 
+  /// 获取导航项
+  List<PaneItem> getNavItems() {
+    return [
+      PaneItem(
+        icon: Icon(FluentIcons.calendar),
+        title: Text('Today'),
+        body: CalendarPage(),
+      ),
+    ];
+  }
+
+  /// 构建调试项
+  PaneItem buildDebugItem() {
+    return PaneItem(
+      icon: Icon(FluentIcons.bug),
+      title: Text('Debug'),
+      body: TestPage(),
+    );
+  }
+
+  /// 获取底部项
+  List<PaneItem> getFooterItems() {
+    var footerItems = [
+      buildThemeModeItem(),
+      PaneItem(
+        icon: Icon(FluentIcons.settings),
+        title: Text('Settings'),
+        body: Center(child: Text('Settings')),
+      ),
+    ];
+    if (kDebugMode) {
+      footerItems.insert(0, buildDebugItem());
+    }
+    return footerItems;
+  }
+
   /// 导航面板
   NavigationPane buildNavPane() {
     return NavigationPane(
@@ -50,21 +89,8 @@ class _AppNavState extends ConsumerState<AppNav> {
         });
       },
       displayMode: PaneDisplayMode.compact,
-      items: [
-        PaneItem(
-          icon: Icon(FluentIcons.home),
-          title: Text('Home'),
-          body: Center(child: Text('Home')),
-        ),
-      ],
-      footerItems: [
-        buildThemeModeItem(),
-        PaneItem(
-          icon: Icon(FluentIcons.settings),
-          title: Text('Settings'),
-          body: Center(child: Text('Settings')),
-        ),
-      ],
+      items: getNavItems(),
+      footerItems: getFooterItems(),
     );
   }
 
