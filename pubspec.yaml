@@ -113,3 +113,4 @@ flutter:
 # lint-staged
 lint_staged:
   '**/*.dart': 'dart analyze --fatal-infos --fatal-warnings'
+  '!lib/**/*.g.dart': 'dart format --set-exit-if-changed .'
