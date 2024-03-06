@@ -11,11 +11,55 @@ final appStoreProvider = ChangeNotifierProvider<BTAppStore>((ref) {
 
 /// 应用状态
 class BTAppStore extends ChangeNotifier {
+  /// 构造函数
+  BTAppStore() {
+    initTheme();
+    initAccentColor();
+    initSource();
+  }
+
+  /// 初始化主题
+  void initTheme() {
+    var themeMode = BTConfigTool.readConfigThemeMode();
+    switch (themeMode) {
+      case 'ThemeMode.system':
+        _themeMode = ThemeMode.system;
+        break;
+      case 'ThemeMode.light':
+        _themeMode = ThemeMode.light;
+        break;
+      case 'ThemeMode.dark':
+        _themeMode = ThemeMode.dark;
+        break;
+      default:
+        _themeMode = ThemeMode.system;
+        break;
+    }
+    notifyListeners();
+  }
+
+  /// 初始化主题色
+  void initAccentColor() {
+    var accentColor = BTConfigTool.readConfigAccentColor();
+    _accentColor = Color(accentColor).toAccentColor();
+    notifyListeners();
+  }
+
+  /// 初始化番剧数据源
+  void initSource() {
+    var source = BTConfigTool.readConfigSource();
+    _source = source;
+    notifyListeners();
+  }
+
   /// 主题
   ThemeMode _themeMode = ThemeMode.system;
 
   /// 主题色
   AccentColor _accentColor = Colors.blue.toAccentColor();
+
+  /// 番剧数据源
+  String _source = 'bangumi';
 
   /// 获取主题
   ThemeMode get themeMode => _themeMode;
@@ -40,6 +84,16 @@ class BTAppStore extends ChangeNotifier {
   Future<void> setAccentColor(AccentColor value) async {
     _accentColor = value;
     await BTConfigTool.writeConfigAccentColor(value);
+    notifyListeners();
+  }
+
+  /// 获取番剧数据源
+  String get source => _source;
+
+  /// 设置番剧数据源
+  Future<void> setSource(String value) async {
+    _source = value;
+    await BTConfigTool.writeConfigSource(value);
     notifyListeners();
   }
 }

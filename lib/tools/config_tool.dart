@@ -25,6 +25,7 @@ class BTConfigTool {
       'themeMode': ThemeMode.system.toString(),
       'accentColor': Colors.blue.toAccentColor().value,
       'language': 'zh',
+      'source': 'bangumi',
     };
     return jsonEncode(defaultConfig);
   }
@@ -108,5 +109,25 @@ class BTConfigTool {
   /// 写入主题色
   static Future<void> writeConfigAccentColor(AccentColor value) async {
     await writeConfig('accentColor', value.value);
+  }
+
+  /// 写入番剧数据源
+  static Future<void> writeConfigSource(String value) async {
+    await writeConfig('source', value);
+  }
+
+  /// 读取主题模式
+  static String readConfigThemeMode() {
+    return readConfig(key: 'themeMode');
+  }
+
+  /// 读取主题色
+  static int readConfigAccentColor() {
+    return readConfig(key: 'accentColor');
+  }
+
+  /// 读取番剧数据源
+  static String readConfigSource() {
+    return readConfig(key: 'source');
   }
 }
