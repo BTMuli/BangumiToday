@@ -48,6 +48,27 @@ class _CalendarPageBangumiState extends ConsumerState<CalendarPageBangumi> {
     return Row(
       children: [
         Tooltip(
+          message: '切换数据源',
+          child: DropDownButton(
+            title: Icon(FluentIcons.dataverse),
+            items: [
+              MenuFlyoutItem(
+                text: Text('bangumi'),
+                onPressed: () {
+                  ref.read(appStoreProvider.notifier).setSource('bangumi');
+                },
+              ),
+              MenuFlyoutItem(
+                text: Text('AGE'),
+                onPressed: () {
+                  ref.read(appStoreProvider.notifier).setSource('agefans');
+                },
+              ),
+            ],
+          ),
+        ),
+        SizedBox(width: 8.sp),
+        Tooltip(
           message: '刷新',
           child: IconButton(
             icon: Icon(FluentIcons.refresh),
@@ -58,27 +79,6 @@ class _CalendarPageBangumiState extends ConsumerState<CalendarPageBangumi> {
                 setState(() {});
               });
             },
-          ),
-        ),
-        SizedBox(width: 8.sp),
-        Tooltip(
-          message: '切换数据源',
-          child: DropDownButton(
-            title: Icon(FluentIcons.data_management_settings),
-            items: [
-              MenuFlyoutItem(
-                text: Text('bangumi'),
-                onPressed: () {
-                  ref.read(appStoreProvider.notifier).setSource('bangumi');
-                },
-              ),
-              MenuFlyoutItem(
-                text: Text('agefans'),
-                onPressed: () {
-                  ref.read(appStoreProvider.notifier).setSource('agefans');
-                },
-              ),
-            ],
           ),
         ),
         SizedBox(width: 8.sp),
@@ -147,7 +147,7 @@ class CalendarDayBangumi extends StatelessWidget {
         controller: ScrollController(),
         padding: EdgeInsets.all(12.sp),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 4,
+          crossAxisCount: 6,
           crossAxisSpacing: 12.sp,
           mainAxisSpacing: 12.sp,
           childAspectRatio: 2 / 3,
@@ -180,9 +180,9 @@ class CalendarCardBangumi extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: data.images!.large,
       fit: BoxFit.cover,
-      progressIndicatorBuilder: (context, url, progress) => Center(
+      progressIndicatorBuilder: (context, url, dp) => Center(
         child: ProgressRing(
-          value: progress.progress == null ? 0 : progress.progress! * 100,
+          value: dp.progress == null ? 0 : dp.progress! * 100,
         ),
       ),
       errorWidget: (context, url, error) => Icon(FluentIcons.error),
@@ -210,6 +210,28 @@ class CalendarCardBangumi extends StatelessWidget {
     );
   }
 
+  /// 构建交互
+  Widget buildAction(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        Tooltip(
+          message: data.url,
+          child: IconButton(
+            icon: Icon(FluentIcons.edge_logo),
+            onPressed: () async {
+              if (await canLaunchUrlString(data.url)) {
+                await launchUrlString(data.url);
+              } else {
+                throw 'Could not launch ${data.url}';
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   /// 构建番剧信息
   Widget buildItemInfo(BuildContext context) {
     return Container(
@@ -226,19 +248,7 @@ class CalendarCardBangumi extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Tooltip(
-            message: data.url,
-            child: IconButton(
-              icon: Icon(FluentIcons.edge_logo),
-              onPressed: () async {
-                if (await canLaunchUrlString(data.url)) {
-                  await launchUrlString(data.url);
-                } else {
-                  throw 'Could not launch ${data.url}';
-                }
-              },
-            ),
-          ),
+          buildAction(context),
         ],
       ),
     );

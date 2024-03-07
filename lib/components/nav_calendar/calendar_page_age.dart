@@ -1,9 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../models/agefans/get_home_list.dart';
-import '../../request/agefans/agefans_api.dart';
+import '../../models/age/get_home_list.dart';
+import '../../request/age/age_api.dart';
 import '../../store/app_store.dart';
 
 /// 今日放送-age数据源
@@ -32,7 +33,7 @@ class _CalendarPageAgeState extends ConsumerState<CalendarPageAge> {
   /// 获取星期x的数据
   String getDay(int index) {
     var dayList = ['一', '二', '三', '四', '五', '六', '日'];
-    return '星期${dayList[index % 7]}';
+    return '星期${dayList[index]}';
   }
 
   /// load
@@ -56,17 +57,9 @@ class _CalendarPageAgeState extends ConsumerState<CalendarPageAge> {
     return Row(
       children: [
         Tooltip(
-          message: '刷新',
-          child: IconButton(
-            icon: Icon(FluentIcons.refresh),
-            onPressed: load,
-          ),
-        ),
-        SizedBox(width: 8.sp),
-        Tooltip(
           message: '切换数据源',
           child: DropDownButton(
-            title: Icon(FluentIcons.data_management_settings),
+            title: Icon(FluentIcons.dataverse),
             items: [
               MenuFlyoutItem(
                 text: Text('bangumi'),
@@ -75,12 +68,20 @@ class _CalendarPageAgeState extends ConsumerState<CalendarPageAge> {
                 },
               ),
               MenuFlyoutItem(
-                text: Text('agefans'),
+                text: Text('AGE'),
                 onPressed: () {
                   ref.read(appStoreProvider.notifier).setSource('agefans');
                 },
               ),
             ],
+          ),
+        ),
+        SizedBox(width: 8.sp),
+        Tooltip(
+          message: '刷新',
+          child: IconButton(
+            icon: Icon(FluentIcons.refresh),
+            onPressed: load,
           ),
         ),
         SizedBox(width: 8.sp),
@@ -98,7 +99,7 @@ class _CalendarPageAgeState extends ConsumerState<CalendarPageAge> {
             icon: i == _today
                 ? Icon(FluentIcons.away_status)
                 : Icon(FluentIcons.calendar),
-            body: CalendarDayAge(data: calendarData?['${i + 1}'] ?? []),
+            body: CalendarDayAge(data: calendarData?['${(i + 1) % 7}'] ?? []),
             semanticLabel: getDay(i),
           ),
       ],
@@ -149,7 +150,7 @@ class CalendarDayAge extends StatelessWidget {
         controller: ScrollController(),
         padding: EdgeInsets.all(12.sp),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
+          crossAxisCount: 6,
           crossAxisSpacing: 12.sp,
           mainAxisSpacing: 12.sp,
           childAspectRatio: 2 / 3,
@@ -177,7 +178,17 @@ class CalendarCardAge extends StatelessWidget {
 
   /// 构建封面
   Widget buildCover(BuildContext context) {
-    return Icon(FluentIcons.photo_error);
+    var link = agePicUrl.replaceAll('{aid}', data.id.toString());
+    return CachedNetworkImage(
+      imageUrl: link,
+      fit: BoxFit.cover,
+      progressIndicatorBuilder: (context, url, dp) => Center(
+        child: ProgressRing(
+          value: dp.progress == null ? 0 : dp.progress! * 100,
+        ),
+      ),
+      errorWidget: (context, url, error) => Icon(FluentIcons.error),
+    );
   }
 
   /// 构建渐变层
@@ -213,9 +224,12 @@ class CalendarCardAge extends StatelessWidget {
             child: Text(
               data.name,
               maxLines: 1,
-              style: FluentTheme.of(context).typography.subtitle,
               overflow: TextOverflow.ellipsis,
             ),
+          ),
+          Tooltip(
+            message: data.nameForNew,
+            child: Text(data.nameForNew),
           ),
         ],
       ),
@@ -224,12 +238,17 @@ class CalendarCardAge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(child: buildCover(context)),
-        Positioned.fill(child: buildGradient(context)),
-        Positioned(bottom: 0, left: 0, right: 0, child: buildItemInfo(context)),
-      ],
+    return SizedBox(
+      width: 200.sp,
+      height: 300.sp,
+      child: Stack(
+        children: [
+          Positioned.fill(child: buildCover(context)),
+          Positioned.fill(child: buildGradient(context)),
+          Positioned(
+              bottom: 0, left: 0, right: 0, child: buildItemInfo(context)),
+        ],
+      ),
     );
   }
 }

@@ -1,8 +1,11 @@
-import '../../models/agefans/get_detail.dart';
-import '../../models/agefans/get_home_list.dart';
-import '../../models/agefans/get_update.dart';
+import '../../models/age/get_detail.dart';
+import '../../models/age/get_home_list.dart';
+import '../../models/age/get_update.dart';
 import '../../models/app/err.dart';
 import '../core/client.dart';
+
+/// 常量
+const agePicUrl = 'https://cdn.aqdstatic.com:966/age/{aid}.jpg';
 
 /// age 的 api
 /// 参考：https://github.com/xihan123/AGE/blob/master/app/src/main/kotlin/cn/xihan/age/util/Api.kt
