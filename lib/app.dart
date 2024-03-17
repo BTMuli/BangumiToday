@@ -1,7 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'components/app/app_nav.dart';
+import 'router/router.dart';
 import 'store/app_store.dart';
 
 /// 应用入口
@@ -37,11 +37,11 @@ class BTApp extends ConsumerWidget {
       designSize: const Size(1920, 1080),
       builder: (_, child) {
         // todo 国际化
-        return FluentApp(
+        return FluentApp.router(
           title: 'BangumiToday',
           themeMode: appStore.themeMode,
           theme: getTheme(context, appStore),
-          home: AppNav(),
+          routerConfig: router,
         );
       },
     );

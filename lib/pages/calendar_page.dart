@@ -1,6 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../components/nav_calendar/calendar_day.dart';
+import '../components/nav_calendar/calendar_tab.dart';
 import '../models/bangumi/get_calendar.dart';
 import '../request/bangumi/bangumi_api.dart';
 
@@ -14,81 +15,81 @@ class CalendarPage extends StatefulWidget {
 }
 
 /// 今日放送状态
-class _CalendarPageState extends State<CalendarPage> {
+class _CalendarPageState extends State<CalendarPage>
+    with AutomaticKeepAliveClientMixin {
   /// 请求客户端
   final _client = BangumiAPI();
 
-  /// 顶部 tab
-  late int _tabIndex = -1;
-
-  /// 今日星期
-  int get _today => DateTime.now().weekday - 1;
+  /// 正在请求数据
+  bool isRequesting = false;
 
   /// 请求数据
   List<CalendarItem> calendarData = [];
+
+  /// 保存状态
+  @override
+  bool get wantKeepAlive => true;
 
   /// 初始化
   @override
   void initState() {
     super.initState();
-    _client.getToday().then((value) {
-      calendarData = value;
-      _tabIndex = _today;
-      setState(() {});
-    });
   }
 
-  /// 构建刷新按钮
-  Widget buildRefresh() {
-    return Tooltip(
-      message: '刷新',
-      child: IconButton(
-        icon: Icon(FluentIcons.refresh),
-        onPressed: () async {
-          // todo load悬浮窗
-          var value = await _client.getToday();
-          calendarData = value;
-          _tabIndex = _today;
-          setState(() {});
-        },
-      ),
-    );
+  /// dispose 保留状态
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   /// 构建日历
-  Widget _buildCalendar() {
-    return TabView(
-      tabs: [
-        for (var item in calendarData)
-          Tab(
-            text: Text(item.weekday.cn),
-            icon: item.weekday.id == _today + 1
-                ? Icon(FluentIcons.away_status)
-                : Icon(FluentIcons.calendar),
-            body: CalendarDay(data: item),
-            semanticLabel: item.weekday.cn,
-          ),
-      ],
-      header: Row(children: [
-        Text(calendarData[_today].weekday.cn),
-        buildRefresh(),
-      ]),
-      currentIndex: _tabIndex,
-      onChanged: (index) {
-        setState(() {
-          _tabIndex = index;
-        });
-      },
-      closeButtonVisibility: CloseButtonVisibilityMode.never,
-      tabWidthBehavior: TabWidthBehavior.sizeToContent,
+  Future<bool> calendarBuilder() async {
+    if (calendarData.isEmpty && !isRequesting) {
+      isRequesting = true;
+      var value = await _client.getToday();
+      calendarData = value;
+      isRequesting = false;
+      setState(() {});
+    } else if (isRequesting) {
+      return false;
+    }
+    return true;
+  }
+
+  /// 页面刷新
+  Future<void> onRefresh() async {
+    calendarData = [];
+    setState(() {});
+  }
+
+  /// 刷新
+  Widget buildLoading() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [ProgressRing(), SizedBox(height: 20.h), Text('正在加载数据...')],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (calendarData.isNotEmpty) {
-      return _buildCalendar();
-    }
-    return Center(child: ProgressRing());
+    super.build(context);
+    return FutureBuilder(
+      future: calendarBuilder(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          var data = snapshot.data;
+          if (data == false) {
+            return buildLoading();
+          }
+          return CalendarTab(
+            data: calendarData,
+            onRefresh: onRefresh,
+          );
+        }
+        return buildLoading();
+      },
+    );
   }
 }

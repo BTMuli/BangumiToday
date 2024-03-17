@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../models/bangumi/get_calendar.dart';
@@ -68,6 +69,15 @@ class CalendarCard extends StatelessWidget {
               } else {
                 throw 'Could not launch ${data.url}';
               }
+            },
+          ),
+        ),
+        Tooltip(
+          message: '查看详情',
+          child: IconButton(
+            icon: Icon(FluentIcons.info),
+            onPressed: () {
+              GoRouter.of(context).go('/bangumi/${data.id}');
             },
           ),
         ),
