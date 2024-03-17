@@ -1,7 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'components/app_nav.dart';
+import 'components/app/app_nav.dart';
 import 'store/app_store.dart';
 
 /// 应用入口
@@ -24,9 +24,9 @@ class BTApp extends ConsumerWidget {
         break;
     }
     return FluentThemeData(
-      brightness: brightness,
-      accentColor: appStore.accentColor,
-    );
+        brightness: brightness,
+        accentColor: appStore.accentColor,
+        fontFamily: 'SMonoSC');
   }
 
   @override
