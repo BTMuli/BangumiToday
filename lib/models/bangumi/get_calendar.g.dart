@@ -37,62 +37,6 @@ Map<String, dynamic> _$CalendarItemWeekdayToJson(
       'id': instance.id,
     };
 
-CalendarItemBangumiImages _$CalendarItemBangumiImagesFromJson(
-        Map<String, dynamic> json) =>
-    CalendarItemBangumiImages(
-      large: json['large'] as String,
-      common: json['common'] as String,
-      medium: json['medium'] as String,
-      small: json['small'] as String,
-      grid: json['grid'] as String,
-    );
-
-Map<String, dynamic> _$CalendarItemBangumiImagesToJson(
-        CalendarItemBangumiImages instance) =>
-    <String, dynamic>{
-      'large': instance.large,
-      'common': instance.common,
-      'medium': instance.medium,
-      'small': instance.small,
-      'grid': instance.grid,
-    };
-
-CalendarItemBangumiRating _$CalendarItemBangumiRatingFromJson(
-        Map<String, dynamic> json) =>
-    CalendarItemBangumiRating(
-      total: json['total'] as int,
-      count: Map<String, int>.from(json['count'] as Map),
-      score: (json['score'] as num).toDouble(),
-    );
-
-Map<String, dynamic> _$CalendarItemBangumiRatingToJson(
-        CalendarItemBangumiRating instance) =>
-    <String, dynamic>{
-      'total': instance.total,
-      'count': instance.count,
-      'score': instance.score,
-    };
-
-CalendarItemBangumiCollection _$CalendarItemBangumiCollectionFromJson(
-        Map<String, dynamic> json) =>
-    CalendarItemBangumiCollection(
-      wish: json['wish'] as int?,
-      collect: json['collect'] as int?,
-      doing: json['doing'] as int?,
-      onHold: json['on_hold'] as int?,
-      dropped: json['dropped'] as int?,
-    );
-
-Map<String, dynamic> _$CalendarItemBangumiCollectionToJson(
-        CalendarItemBangumiCollection instance) =>
-    <String, dynamic>{
-      'wish': instance.wish,
-      'collect': instance.collect,
-      'doing': instance.doing,
-      'on_hold': instance.onHold,
-      'dropped': instance.dropped,
-    };
-
 CalendarItemBangumi _$CalendarItemBangumiFromJson(Map<String, dynamic> json) =>
     CalendarItemBangumi(
       id: json['id'] as int,
@@ -105,18 +49,16 @@ CalendarItemBangumi _$CalendarItemBangumiFromJson(Map<String, dynamic> json) =>
       airWeekday: json['air_weekday'] as int,
       images: json['images'] == null
           ? null
-          : CalendarItemBangumiImages.fromJson(
-              json['images'] as Map<String, dynamic>),
+          : BangumiImage.fromJson(json['images'] as Map<String, dynamic>),
       eps: json['eps'] as int?,
       epsCount: json['eps_count'] as int?,
       rating: json['rating'] == null
           ? null
-          : CalendarItemBangumiRating.fromJson(
-              json['rating'] as Map<String, dynamic>),
+          : BangumiRating.fromJson(json['rating'] as Map<String, dynamic>),
       rank: json['rank'] as int?,
       collection: json['collection'] == null
           ? null
-          : CalendarItemBangumiCollection.fromJson(
+          : BangumiCollection.fromJson(
               json['collection'] as Map<String, dynamic>),
     );
 

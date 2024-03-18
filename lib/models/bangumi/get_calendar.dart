@@ -1,5 +1,7 @@
 import 'package:json_annotation/json_annotation.dart';
 
+import 'common_model.dart';
+
 part 'get_calendar.g.dart';
 
 /// 获取每日放送
@@ -64,116 +66,6 @@ class CalendarItemWeekday {
   Map<String, dynamic> toJson() => _$CalendarItemWeekdayToJson(this);
 }
 
-/// 番剧图片
-@JsonSerializable()
-class CalendarItemBangumiImages {
-  /// large
-  @JsonKey(name: 'large')
-  String large;
-
-  /// common
-  @JsonKey(name: 'common')
-  String common;
-
-  /// medium
-  @JsonKey(name: 'medium')
-  String medium;
-
-  /// small
-  @JsonKey(name: 'small')
-  String small;
-
-  /// grid
-  @JsonKey(name: 'grid')
-  String grid;
-
-  /// constructor
-  CalendarItemBangumiImages({
-    required this.large,
-    required this.common,
-    required this.medium,
-    required this.small,
-    required this.grid,
-  });
-
-  /// from json
-  factory CalendarItemBangumiImages.fromJson(Map<String, dynamic> json) =>
-      _$CalendarItemBangumiImagesFromJson(json);
-
-  /// to json
-  Map<String, dynamic> toJson() => _$CalendarItemBangumiImagesToJson(this);
-}
-
-/// 番剧评分
-@JsonSerializable()
-class CalendarItemBangumiRating {
-  /// total
-  @JsonKey(name: 'total')
-  int total;
-
-  /// count
-  @JsonKey(name: 'count')
-  Map<String, int> count;
-
-  /// score
-  @JsonKey(name: 'score')
-  double score;
-
-  /// constructor
-  CalendarItemBangumiRating({
-    required this.total,
-    required this.count,
-    required this.score,
-  });
-
-  /// from json
-  factory CalendarItemBangumiRating.fromJson(Map<String, dynamic> json) =>
-      _$CalendarItemBangumiRatingFromJson(json);
-
-  /// to json
-  Map<String, dynamic> toJson() => _$CalendarItemBangumiRatingToJson(this);
-}
-
-/// 番剧收藏
-@JsonSerializable()
-class CalendarItemBangumiCollection {
-  /// wish
-  @JsonKey(name: 'wish')
-  int? wish;
-
-  /// collect
-  @JsonKey(name: 'collect')
-  int? collect;
-
-  /// doing
-  @JsonKey(name: 'doing')
-  int? doing;
-
-  /// on_hold
-  @JsonKey(name: 'on_hold')
-  int? onHold;
-
-  /// dropped
-  @JsonKey(name: 'dropped')
-  int? dropped;
-
-  /// constructor
-  CalendarItemBangumiCollection({
-    required this.wish,
-    required this.collect,
-    required this.doing,
-    required this.onHold,
-    required this.dropped,
-  });
-
-  /// from json
-  factory CalendarItemBangumiCollection.fromJson(Map<String, dynamic> json) =>
-      _$CalendarItemBangumiCollectionFromJson(json);
-
-  /// to json
-  Map<String, dynamic> toJson() => _$CalendarItemBangumiCollectionToJson(this);
-}
-
 /// 番剧信息
 @JsonSerializable()
 class CalendarItemBangumi {
@@ -213,7 +105,7 @@ class CalendarItemBangumi {
 
   /// images
   @JsonKey(name: 'images')
-  CalendarItemBangumiImages? images;
+  BangumiImage? images;
 
   /// eps
   @JsonKey(name: 'eps')
@@ -225,7 +117,7 @@ class CalendarItemBangumi {
 
   /// rating
   @JsonKey(name: 'rating')
-  CalendarItemBangumiRating? rating;
+  BangumiRating? rating;
 
   /// rank
   @JsonKey(name: 'rank')
@@ -233,7 +125,7 @@ class CalendarItemBangumi {
 
   /// collection，可能为null
   @JsonKey(name: 'collection')
-  CalendarItemBangumiCollection? collection;
+  BangumiCollection? collection;
 
   /// constructor
   CalendarItemBangumi({

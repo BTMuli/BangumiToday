@@ -3,6 +3,7 @@ import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:system_theme/system_theme.dart';
+import 'package:video_player_win/video_player_win_plugin.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
@@ -16,6 +17,7 @@ void main() async {
     debugPrint('isMobile');
   } else {
     debugPrint('isPC');
+    WindowsVideoPlayer.registerWith();
     await windowManager.ensureInitialized();
     await Window.initialize();
   }

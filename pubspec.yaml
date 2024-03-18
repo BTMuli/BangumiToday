@@ -51,6 +51,7 @@ dependencies:
   provider: ^6.1.2
   system_theme: ^2.3.1
   url_launcher: ^6.2.5
+  video_player_control_panel: ^1.1.1
   window_manager: ^0.3.8
 
 dev_dependencies:
