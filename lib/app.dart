@@ -32,7 +32,6 @@ class BTApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appStore = ref.watch(appStoreProvider);
-    // todo 平台适配
     return ScreenUtilInit(
       designSize: const Size(1920, 1080),
       builder: (_, child) {
