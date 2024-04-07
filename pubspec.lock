@@ -33,6 +33,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.1.0"
+  app_links:
+    dependency: "direct main"
+    description:
+      name: app_links
+      sha256: "42dc15aecf2618ace4ffb74a2e58a50e45cd1b9f2c17c8f0cafe4c297f08c815"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "4.0.1"
   archive:
     dependency: transitive
     description:
@@ -358,6 +366,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.3.1"
+  flutter_dotenv:
+    dependency: "direct main"
+    description:
+      name: flutter_dotenv
+      sha256: "9357883bdd153ab78cbf9ffa07656e336b8bbb2b5a3ca596b0b27e119f7c7d77"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "5.1.0"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -445,6 +461,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.3.1"
+  gtk:
+    dependency: transitive
+    description:
+      name: gtk
+      sha256: e8ce9ca4b1df106e4d72dad201d345ea1a036cc12c360f1a7d5a758f78ffa42c
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "2.1.0"
   html:
     dependency: transitive
     description:
@@ -1211,7 +1235,7 @@ packages:
     source: hosted
     version: "5.4.0"
   win32_registry:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: win32_registry
       sha256: "41fd8a189940d8696b1b810efb9abcf60827b6cbfab90b0c43e8439e3a39d85a"

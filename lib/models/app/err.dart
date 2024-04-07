@@ -1,3 +1,5 @@
+import '../../tools/log_tool.dart';
+
 /// 自定义错误类型枚举
 enum BTErrorType {
   /// 未知错误
@@ -25,7 +27,9 @@ class BTError implements Exception {
   String message;
 
   /// 构造函数
-  BTError({this.type = BTErrorType.unknownError, this.message = '未知错误'});
+  BTError({this.type = BTErrorType.unknownError, this.message = '未知错误'}) {
+    BTLogTool.error(toString());
+  }
 
   /// 构造函数-从异常
   static BTError fromException(Exception e) {

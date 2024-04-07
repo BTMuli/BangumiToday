@@ -40,4 +40,4 @@ app.*.map.json
 nuget.exe
 
 # secret
-.env.dev
+.env

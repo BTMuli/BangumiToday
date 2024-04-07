@@ -24,9 +24,10 @@ class BTApp extends ConsumerWidget {
         break;
     }
     return FluentThemeData(
-        brightness: brightness,
-        accentColor: appStore.accentColor,
-        fontFamily: 'SMonoSC');
+      brightness: brightness,
+      accentColor: appStore.accentColor,
+      fontFamily: 'SMonoSC',
+    );
   }
 
   @override

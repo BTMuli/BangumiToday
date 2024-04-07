@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  app_links
   flutter_acrylic
   fullscreen_window
   screen_retriever
