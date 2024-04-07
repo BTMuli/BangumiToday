@@ -1,6 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../pages/app/setting_page.dart';
 import '../../pages/app/test_page.dart';
@@ -49,12 +50,15 @@ class _AppNavState extends ConsumerState<AppNav> {
   List<PaneItem> getNavItems() {
     return [
       PaneItem(
-        icon: Icon(FluentIcons.calendar),
-        title: Text('Today'),
+        icon: Image.asset('assets/images/platforms/bangumi-favicon.ico'),
+        title: Text('Bangumi'),
         body: CalendarPage(),
       ),
       PaneItem(
-        icon: Image.asset('assets/images/platforms/mikan-favicon.ico'),
+        icon: Image.asset(
+          'assets/images/platforms/mikan-favicon.ico',
+          height: 16.spMax,
+        ),
         title: Text('蜜柑计划'),
         body: MikanRSSPage(),
       ),

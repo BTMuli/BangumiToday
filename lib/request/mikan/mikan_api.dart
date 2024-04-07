@@ -11,7 +11,7 @@ class MikanAPI {
   late final BTRequestClient client;
 
   /// 基础 URL
-  final String baseUrl = 'https://mikanani.hacgn.fun/RSS';
+  final String baseUrl = 'https://mikanime.tv/RSS';
 
   /// 构造函数
   MikanAPI() {

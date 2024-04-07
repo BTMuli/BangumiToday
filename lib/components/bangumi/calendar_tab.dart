@@ -1,4 +1,5 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../models/bangumi/get_calendar.dart';
 import 'calendar_day.dart';
@@ -52,8 +53,14 @@ class _CalendarTabState extends State<CalendarTab> {
           ),
       ],
       header: Row(children: [
+        Image.asset('assets/images/platforms/bangumi-text.png'),
+        SizedBox(width: 8.w),
         Text(widget.data[today].weekday.cn),
         buildRefresh(),
+      ]),
+      footer: Row(children: [
+        Image.asset('assets/images/platforms/bangumi-logo.png'),
+        SizedBox(width: 16.w),
       ]),
       currentIndex: _tabIndex,
       onChanged: (index) {
