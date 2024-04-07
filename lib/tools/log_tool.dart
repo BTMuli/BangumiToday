@@ -15,7 +15,7 @@ class BTLogTool {
   /// 获取日志目录
   static Future<String> _getDefaultDir() async {
     var dir = await BTFileTool.getAppDataDir();
-    return path.join('$dir', 'app', 'log');
+    return path.join('$dir', 'log');
   }
 
   /// 获取文件名称 yyyy-MM-dd.log
@@ -25,7 +25,6 @@ class BTLogTool {
   }
 
   /// 获取日志文件
-  /// todo 更改目录
   static Future<File> _getLogFile() async {
     var dir = await _getDefaultDir();
     var file = path.join('$dir', _getFileName());

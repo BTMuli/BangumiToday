@@ -38,4 +38,14 @@ class BTFileTool {
   static Future<File> writeFile(String path, String content) async {
     return File(path).writeAsString(content);
   }
+
+  /// 检测目录是否存在
+  static Future<bool> isDirExist(String defaultPath) {
+    return Directory(defaultPath).exists();
+  }
+
+  /// 创建目录
+  static Future<Directory> createDir(String defaultPath) {
+    return Directory(defaultPath).create(recursive: true);
+  }
 }

@@ -96,7 +96,7 @@ class CalendarCard extends StatelessWidget {
             message: data.nameCn == '' ? data.name : data.nameCn,
             child: Text(
               data.nameCn == '' ? data.name : data.nameCn,
-              maxLines: 1,
+              maxLines: 2,
               style: FluentTheme.of(context).typography.subtitle,
               overflow: TextOverflow.ellipsis,
             ),
