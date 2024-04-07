@@ -1,9 +1,9 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../components/nav_calendar/calendar_tab.dart';
-import '../models/bangumi/get_calendar.dart';
-import '../request/bangumi/bangumi_api.dart';
+import '../../components/bangumi/calendar_tab.dart';
+import '../../models/bangumi/get_calendar.dart';
+import '../../request/bangumi/bangumi_api.dart';
 
 /// 今日放送
 class CalendarPage extends StatefulWidget {

@@ -2,10 +2,10 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
-import '../models/app/err.dart';
-import '../models/bangumi/common_model.dart';
-import '../models/bangumi/get_subject.dart';
-import '../request/bangumi/bangumi_api.dart';
+import '../../models/app/err.dart';
+import '../../models/bangumi/common_model.dart';
+import '../../models/bangumi/get_subject.dart';
+import '../../request/bangumi/bangumi_api.dart';
 
 /// 番剧详情
 class BangumiDetail extends StatefulWidget {

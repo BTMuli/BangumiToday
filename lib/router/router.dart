@@ -1,7 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../components/app/app_nav.dart';
-import '../pages/bangumi_detail.dart';
+import '../pages/bangumi/bangumi_detail.dart';
 import 'switch_animate.dart';
 
 /// 路由

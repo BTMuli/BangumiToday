@@ -2,8 +2,10 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../pages/calendar_page.dart';
-import '../../pages/test_page.dart';
+import '../../pages/app/setting_page.dart';
+import '../../pages/app/test_page.dart';
+import '../../pages/bangumi/bangumi_calendar.dart';
+import '../../pages/mikan/mikan_rss.dart';
 import '../../store/app_store.dart';
 import '../../utils/get_theme_label.dart';
 
@@ -32,7 +34,7 @@ class _AppNavState extends ConsumerState<AppNav> {
 
   /// 构建主题模式项
   PaneItemAction buildThemeModeItem() {
-    var config = getNavThemeModeConfig(_curThemeMode);
+    var config = getThemeModeConfig(_curThemeMode);
     return PaneItemAction(
       icon: Icon(config.icon),
       title: Text(config.label),
@@ -50,6 +52,11 @@ class _AppNavState extends ConsumerState<AppNav> {
         icon: Icon(FluentIcons.calendar),
         title: Text('Today'),
         body: CalendarPage(),
+      ),
+      PaneItem(
+        icon: Image.asset('assets/images/platforms/mikan-favicon.ico'),
+        title: Text('蜜柑计划'),
+        body: MikanRSSPage(),
       ),
     ];
   }
@@ -70,7 +77,7 @@ class _AppNavState extends ConsumerState<AppNav> {
       PaneItem(
         icon: Icon(FluentIcons.settings),
         title: Text('Settings'),
-        body: Center(child: Text('Settings')),
+        body: SettingPage(),
       ),
     ];
     if (kDebugMode) {

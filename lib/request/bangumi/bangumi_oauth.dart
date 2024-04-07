@@ -3,20 +3,20 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/app/err.dart';
 import '../../models/bangumi/oauth.dart';
 import '../../utils/get_bgm_secret.dart';
-import '../core/client.dart';
+import 'bangumi_client.dart';
 
 /// bangumi.tv 的 OAuth
 /// 参考: https://github.com/bangumi/api/blob/master/docs-raw/How-to-Auth.md
 class BangumiOauth {
   /// 请求客户端
-  late final BTRequestClient client;
+  late final BangumiClient client;
 
   /// 基础 url
   final String baseUrl = 'https://bgm.tv/oauth';
 
   /// 构造函数
   BangumiOauth() {
-    client = BTRequestClient();
+    client = BangumiClient();
     client.dio.options.baseUrl = baseUrl;
   }
 

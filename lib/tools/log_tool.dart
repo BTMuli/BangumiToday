@@ -25,6 +25,7 @@ class BTLogTool {
   }
 
   /// 获取日志文件
+  /// todo 更改目录
   static Future<File> _getLogFile() async {
     var dir = await _getDefaultDir();
     var file = path.join('$dir', _getFileName());
