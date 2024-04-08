@@ -6,7 +6,8 @@ part of 'get_subject.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-Subject _$SubjectFromJson(Map<String, dynamic> json) => Subject(
+BangumiSubject _$BangumiSubjectFromJson(Map<String, dynamic> json) =>
+    BangumiSubject(
       id: json['id'] as int,
       type: json['type'] as int,
       platform: json['platform'] as String,
@@ -18,12 +19,13 @@ Subject _$SubjectFromJson(Map<String, dynamic> json) => Subject(
       eps: json['eps'] as int,
       volumes: json['volumes'] as int,
       tags: (json['tags'] as List<dynamic>)
-          .map((e) => SubjectTag.fromJson(e as Map<String, dynamic>))
+          .map((e) => BangumiSubjectTag.fromJson(e as Map<String, dynamic>))
           .toList(),
       infobox: (json['infobox'] as List<dynamic>)
-          .map((e) => SubjectInfoBox.fromJson(e as Map<String, dynamic>))
+          .map((e) => BangumiSubjectInfoBox.fromJson(e as Map<String, dynamic>))
           .toList(),
-      rating: SubjectRating.fromJson(json['rating'] as Map<String, dynamic>),
+      rating:
+          BangumiSubjectRating.fromJson(json['rating'] as Map<String, dynamic>),
       totalEpisodes: json['total_episodes'] as int,
       collection: BangumiCollection.fromJson(
           json['collection'] as Map<String, dynamic>),
@@ -31,7 +33,8 @@ Subject _$SubjectFromJson(Map<String, dynamic> json) => Subject(
       nsfw: json['nsfw'] as bool,
     );
 
-Map<String, dynamic> _$SubjectToJson(Subject instance) => <String, dynamic>{
+Map<String, dynamic> _$BangumiSubjectToJson(BangumiSubject instance) =>
+    <String, dynamic>{
       'id': instance.id,
       'type': instance.type,
       'platform': instance.platform,
@@ -51,38 +54,43 @@ Map<String, dynamic> _$SubjectToJson(Subject instance) => <String, dynamic>{
       'nsfw': instance.nsfw,
     };
 
-SubjectTag _$SubjectTagFromJson(Map<String, dynamic> json) => SubjectTag(
+BangumiSubjectTag _$BangumiSubjectTagFromJson(Map<String, dynamic> json) =>
+    BangumiSubjectTag(
       name: json['name'] as String,
       count: json['count'] as int,
     );
 
-Map<String, dynamic> _$SubjectTagToJson(SubjectTag instance) =>
+Map<String, dynamic> _$BangumiSubjectTagToJson(BangumiSubjectTag instance) =>
     <String, dynamic>{
       'name': instance.name,
       'count': instance.count,
     };
 
-SubjectInfoBox _$SubjectInfoBoxFromJson(Map<String, dynamic> json) =>
-    SubjectInfoBox(
+BangumiSubjectInfoBox _$BangumiSubjectInfoBoxFromJson(
+        Map<String, dynamic> json) =>
+    BangumiSubjectInfoBox(
       key: json['key'] as String,
       value: json['value'],
     );
 
-Map<String, dynamic> _$SubjectInfoBoxToJson(SubjectInfoBox instance) =>
+Map<String, dynamic> _$BangumiSubjectInfoBoxToJson(
+        BangumiSubjectInfoBox instance) =>
     <String, dynamic>{
       'key': instance.key,
       'value': instance.value,
     };
 
-SubjectRating _$SubjectRatingFromJson(Map<String, dynamic> json) =>
-    SubjectRating(
+BangumiSubjectRating _$BangumiSubjectRatingFromJson(
+        Map<String, dynamic> json) =>
+    BangumiSubjectRating(
       total: json['total'] as int,
       count: Map<String, int>.from(json['count'] as Map),
       score: (json['score'] as num).toDouble(),
       rank: json['rank'] as int?,
     );
 
-Map<String, dynamic> _$SubjectRatingToJson(SubjectRating instance) =>
+Map<String, dynamic> _$BangumiSubjectRatingToJson(
+        BangumiSubjectRating instance) =>
     <String, dynamic>{
       'total': instance.total,
       'count': instance.count,

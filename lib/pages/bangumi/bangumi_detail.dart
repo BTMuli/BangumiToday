@@ -2,6 +2,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../components/bangumi/detail_card.dart';
 import '../../models/app/err.dart';
 import '../../models/bangumi/common_model.dart';
 import '../../models/bangumi/get_subject.dart';
@@ -22,7 +23,7 @@ class BangumiDetail extends StatefulWidget {
 /// 番剧详情状态
 class _BangumiDetailState extends State<BangumiDetail> {
   /// 番剧数据
-  Subject? data;
+  BangumiSubject? data;
 
   /// 是否加载中
   bool isLoading = true;
@@ -57,7 +58,7 @@ class _BangumiDetailState extends State<BangumiDetail> {
     if (data == null) {
       title = 'ID: ${widget.id}';
     } else {
-      title = data?.name;
+      title = data?.nameCn;
     }
     return PageHeader(
       title: Text('番剧详情：$title'),
@@ -108,88 +109,67 @@ class _BangumiDetailState extends State<BangumiDetail> {
     );
   }
 
-  /// 构建封面&基本信息
-  Widget buildBasicInfo(Subject bangumi) {
-    // 封面
-    var cover = getCover(bangumi.images);
-    return Row(
+  /// 构建简介
+  Widget buildSummary(String summary) {
+    var text = '没有简介';
+    if (summary != '') {
+      text = summary;
+    }
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 封面
-        Container(
-          width: 200.w,
-          height: 300.h,
-          decoration: BoxDecoration(
-            image: DecorationImage(
-              image: NetworkImage(cover),
-              fit: BoxFit.cover,
-            ),
-          ),
-        ),
-        SizedBox(width: 12.w),
-        // 基本信息
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 名称
-              Text(
-                bangumi.name,
-                style: TextStyle(
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 12.h),
-              // 基本信息
-              Text(
-                'ID: ${bangumi.id}',
-                style: TextStyle(
-                  fontSize: 16.sp,
-                ),
-              ),
-              SizedBox(height: 12.h),
-              Text(
-                '评分: ${bangumi.rating.score}',
-                style: TextStyle(
-                  fontSize: 16.sp,
-                ),
-              ),
-              SizedBox(height: 12.h),
-              Text(
-                '评分人数: ${bangumi.rating.total}',
-                style: TextStyle(
-                  fontSize: 16.sp,
-                ),
-              ),
-            ],
-          ),
-        ),
+        Text('简介',
+            style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold)),
+        SizedBox(height: 12.h),
+        Text(text, style: TextStyle(fontSize: 20.sp)),
       ],
     );
   }
 
+  /// 构建其他信息
+  List<Widget> buildOtherInfo(List<BangumiSubjectInfoBox> infobox) {
+    var res = <Widget>[];
+    res.add(
+      Text(
+        '其他信息',
+        style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
+      ),
+    );
+    res.add(SizedBox(height: 12.h));
+    // 换行加tab
+    var gap = "\n    ";
+    for (var item in infobox) {
+      var value;
+      if (item.value is List) {
+        var list = item.value as List;
+        value = list.map((e) => e['v']).toList().join(gap);
+        res.add(
+            Text('${item.key}:$gap$value', style: TextStyle(fontSize: 20.sp)));
+      } else {
+        value = item.value;
+        res.add(Text('${item.key}: $value', style: TextStyle(fontSize: 20.sp)));
+      }
+
+      res.add(SizedBox(height: 12.h));
+    }
+    return res;
+  }
+
   /// 构建内容
-  Widget buildContent(Subject bangumi) {
+  Widget buildContent(BangumiSubject bangumi) {
     return ScaffoldPage(
       header: buildHeader(),
-      padding: EdgeInsets.only(
-        top: 12.h,
-        left: 12.w,
-        right: 12.w,
-        bottom: 12.h,
-      ),
-      content: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      content: ListView(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
         children: [
-          // 封面&基本信息
-          buildBasicInfo(bangumi),
-          // 简介
-          // buildSummary(),
+          BangumiDetailCard(bangumi),
+          SizedBox(height: 12.h),
+          buildSummary(bangumi.summary),
+          SizedBox(height: 12.h),
           // 章节
           // buildEpisodes(),
-          // 其他信息
-          // buildOtherInfo(),
+          ...buildOtherInfo(bangumi.infobox),
         ],
       ),
     );

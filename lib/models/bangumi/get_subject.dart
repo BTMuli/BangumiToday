@@ -8,7 +8,7 @@ part 'get_subject.g.dart';
 /// 详细文档请参考 https://bangumi.github.io/api/
 /// get => https://api.bgm.tv/v0/subject/:id
 @JsonSerializable()
-class Subject {
+class BangumiSubject {
   /// id
   @JsonKey(name: 'id')
   int id;
@@ -51,15 +51,15 @@ class Subject {
 
   /// tags
   @JsonKey(name: 'tags')
-  List<SubjectTag> tags;
+  List<BangumiSubjectTag> tags;
 
   /// infobox
   @JsonKey(name: 'infobox')
-  List<SubjectInfoBox> infobox;
+  List<BangumiSubjectInfoBox> infobox;
 
   /// rating
   @JsonKey(name: 'rating')
-  SubjectRating rating;
+  BangumiSubjectRating rating;
 
   /// total_episodes
   @JsonKey(name: 'total_episodes')
@@ -78,7 +78,7 @@ class Subject {
   bool nsfw;
 
   /// constructor
-  Subject({
+  BangumiSubject({
     required this.id,
     required this.type,
     required this.platform,
@@ -99,16 +99,16 @@ class Subject {
   });
 
   /// from json
-  factory Subject.fromJson(Map<String, dynamic> json) =>
-      _$SubjectFromJson(json);
+  factory BangumiSubject.fromJson(Map<String, dynamic> json) =>
+      _$BangumiSubjectFromJson(json);
 
   /// to json
-  Map<String, dynamic> toJson() => _$SubjectToJson(this);
+  Map<String, dynamic> toJson() => _$BangumiSubjectToJson(this);
 }
 
 /// 标签
 @JsonSerializable()
-class SubjectTag {
+class BangumiSubjectTag {
   /// name
   @JsonKey(name: 'name')
   String name;
@@ -118,22 +118,22 @@ class SubjectTag {
   int count;
 
   /// constructor
-  SubjectTag({
+  BangumiSubjectTag({
     required this.name,
     required this.count,
   });
 
   /// from json
-  factory SubjectTag.fromJson(Map<String, dynamic> json) =>
-      _$SubjectTagFromJson(json);
+  factory BangumiSubjectTag.fromJson(Map<String, dynamic> json) =>
+      _$BangumiSubjectTagFromJson(json);
 
   /// to json
-  Map<String, dynamic> toJson() => _$SubjectTagToJson(this);
+  Map<String, dynamic> toJson() => _$BangumiSubjectTagToJson(this);
 }
 
 /// 信息
 @JsonSerializable()
-class SubjectInfoBox {
+class BangumiSubjectInfoBox {
   /// key
   @JsonKey(name: 'key')
   String key;
@@ -144,28 +144,28 @@ class SubjectInfoBox {
   dynamic value;
 
   /// constructor
-  SubjectInfoBox({
+  BangumiSubjectInfoBox({
     required this.key,
     required this.value,
   });
 
   /// from json
-  factory SubjectInfoBox.fromJson(Map<String, dynamic> json) =>
-      _$SubjectInfoBoxFromJson(json);
+  factory BangumiSubjectInfoBox.fromJson(Map<String, dynamic> json) =>
+      _$BangumiSubjectInfoBoxFromJson(json);
 
   /// to json
-  Map<String, dynamic> toJson() => _$SubjectInfoBoxToJson(this);
+  Map<String, dynamic> toJson() => _$BangumiSubjectInfoBoxToJson(this);
 }
 
 /// 评分
 @JsonSerializable()
-class SubjectRating extends BangumiRating {
+class BangumiSubjectRating extends BangumiRating {
   /// rank
   @JsonKey(name: 'rank')
   int? rank;
 
   /// constructor
-  SubjectRating({
+  BangumiSubjectRating({
     required super.total,
     required super.count,
     required super.score,
@@ -173,9 +173,9 @@ class SubjectRating extends BangumiRating {
   });
 
   /// from json
-  factory SubjectRating.fromJson(Map<String, dynamic> json) =>
-      _$SubjectRatingFromJson(json);
+  factory BangumiSubjectRating.fromJson(Map<String, dynamic> json) =>
+      _$BangumiSubjectRatingFromJson(json);
 
   /// to json
-  Map<String, dynamic> toJson() => _$SubjectRatingToJson(this);
+  Map<String, dynamic> toJson() => _$BangumiSubjectRatingToJson(this);
 }

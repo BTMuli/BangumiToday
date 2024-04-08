@@ -89,10 +89,11 @@ class BangumiAPI {
   }
 
   /// 获取番剧详情
-  Future<Subject> getDetail(String id) async {
+  Future<BangumiSubject> getDetail(String id) async {
     var response = await getWithAuth('/v0/subjects/$id');
     if (response.statusCode == 200) {
-      return Subject.fromJson(response.data as Map<String, dynamic>);
+      debugPrint('data: ${response.data}');
+      return BangumiSubject.fromJson(response.data as Map<String, dynamic>);
     } else {
       throw BTError.requestError(msg: 'Failed to load detail');
     }
