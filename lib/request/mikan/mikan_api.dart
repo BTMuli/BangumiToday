@@ -1,4 +1,5 @@
 import 'package:dart_rss/dart_rss.dart';
+import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../models/app/err.dart';
 import '../core/client.dart';
@@ -38,6 +39,7 @@ class MikanAPI {
     if (response.statusCode != 200) {
       throw BTError.requestError(msg: 'Failed to load user RSS');
     }
+    debugPrint(response.data);
     final channel = RssFeed.parse(response.data.toString());
     return channel.items;
   }

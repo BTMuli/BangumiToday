@@ -1,9 +1,13 @@
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
+import '../../components/app/app_dialog.dart';
+import '../../components/app/app_infobar.dart';
 import '../../components/mikan/mk_rss_card.dart';
 import '../../request/mikan/mikan_api.dart';
+import '../../tools/config_tool.dart';
 
 /// 负责 MikanProject RSS 页面的显示
 /// 包括 RSSClassic 和 RSSPersonal
@@ -25,6 +29,15 @@ class _MikanRSSPageState extends State<MikanRSSPage>
   /// RSS 数据
   late List<RssItem> rssItems = [];
 
+  /// RSS 数据
+  late List<RssItem> userItems = [];
+
+  /// 用户订阅的 token
+  late String token = '';
+
+  /// 是否使用用户订阅
+  late bool useUserRSS = false;
+
   /// 保存状态
   @override
   bool get wantKeepAlive => true;
@@ -34,10 +47,55 @@ class _MikanRSSPageState extends State<MikanRSSPage>
   void initState() {
     super.initState();
     Future.delayed(Duration.zero, () async {
-      var res = await mikanAPI.getClassicRSS();
-      rssItems = res;
-      setState(() {});
+      await init();
     });
+  }
+
+  /// 刷新
+  Future<void> refreshMikanRSS() async {
+    rssItems.clear();
+    setState(() {});
+    var res = await mikanAPI.getClassicRSS();
+    rssItems = res;
+    setState(() {});
+  }
+
+  /// 刷新
+  Future<void> refreshUserRSS() async {
+    userItems.clear();
+    setState(() {});
+    var res = await mikanAPI.getUserRSS(token);
+    userItems = res;
+    setState(() {});
+  }
+
+  /// 初始化
+  Future<void> init() async {
+    var mikan = await BTConfigTool.readConfig(key: 'mikan');
+    if (mikan == null) {
+      useUserRSS = false;
+      await BTConfigTool.writeConfig('mikan', {'enable': false});
+      await refreshMikanRSS();
+      return;
+    }
+    token = await getToken(mikan['token'] ?? '');
+    useUserRSS = mikan['enable'] ?? false;
+    if (useUserRSS && token != '') {
+      await refreshUserRSS();
+    } else {
+      await refreshMikanRSS();
+    }
+  }
+
+  /// 解析 token
+  Future<String> getToken(String token) async {
+    if (await canLaunchUrlString(token)) {
+      var link = Uri.parse(token);
+      debugPrint(link.toString());
+      // todo 站点校验
+      return link.queryParameters['token'] ?? token;
+    }
+    return token;
   }
 
   /// 构建刷新按钮
@@ -47,9 +105,11 @@ class _MikanRSSPageState extends State<MikanRSSPage>
       child: IconButton(
         icon: Icon(FluentIcons.refresh),
         onPressed: () async {
-          var res = await mikanAPI.getClassicRSS();
-          rssItems.addAll(res);
-          setState(() {});
+          if (useUserRSS) {
+            await refreshUserRSS();
+          } else {
+            await refreshMikanRSS();
+          }
         },
       ),
     );
@@ -82,13 +142,68 @@ class _MikanRSSPageState extends State<MikanRSSPage>
             setState(() {});
           },
         ),
+        SizedBox(width: 10.w),
+        ...buildTokenBar()
       ],
     );
   }
 
+  /// 构建 Token 栏
+  List<Widget> buildTokenBar() {
+    return [
+      ToggleSwitch(
+        checked: useUserRSS,
+        onChanged: (v) async {
+          var old = useUserRSS;
+          useUserRSS = v;
+          if (token == '' && v) {
+            useUserRSS = false;
+          } else if (!v && rssItems.isEmpty) {
+            await refreshMikanRSS();
+          } else if (v && userItems.isEmpty) {
+            await refreshUserRSS();
+          }
+          if (v != old) {
+            if (v) {
+              await showInfoBar(context, text: '已切换到用户列表');
+            } else {
+              await showInfoBar(context, text: '已切换到Mikan列表');
+            }
+          }
+          setState(() {});
+        },
+      ),
+      SizedBox(width: 10.w),
+      FilledButton(
+        child: Text('Token: $token'),
+        onPressed: null,
+      ),
+      SizedBox(width: 10.w),
+      Button(
+        onPressed: () async {
+          await showInputDialog(
+            context,
+            title: '输入 Token',
+            content: '请输入你的 Token'
+                '（在蜜柑计划的个人中心可以找到）',
+            onSubmit: (value) async {
+              token = await getToken(value);
+              await BTConfigTool.writeConfig('mikan', {
+                'enable': true,
+                'token': token,
+              });
+              await refreshUserRSS();
+            },
+          );
+        },
+        child: Text('编辑Token'),
+      )
+    ];
+  }
+
   /// 构建内容
-  Widget buildContent() {
-    if (rssItems.isEmpty) {
+  Widget buildContent(List<RssItem> data) {
+    if (data.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -101,9 +216,9 @@ class _MikanRSSPageState extends State<MikanRSSPage>
       );
     } else {
       return ListView.builder(
-        itemCount: rssItems.length,
+        itemCount: data.length,
         itemBuilder: (context, index) {
-          var item = rssItems[index];
+          var item = data[index];
           return MikanRssCard(item);
         },
       );
@@ -115,7 +230,10 @@ class _MikanRSSPageState extends State<MikanRSSPage>
   Widget build(BuildContext context) {
     super.build(context);
     return ScaffoldPage(
-        header: PageHeader(title: buildTitle()),
-        content: Center(child: buildContent()));
+      header: PageHeader(title: buildTitle()),
+      content: Center(
+        child: buildContent(useUserRSS ? userItems : rssItems),
+      ),
+    );
   }
 }
