@@ -33,36 +33,19 @@ class CalendarCard extends StatelessWidget {
     );
   }
 
-  /// 构建渐变层
-  Widget buildGradient(BuildContext context) {
-    final brightness = FluentTheme.of(context).brightness;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.center,
-          end: Alignment.bottomCenter,
-          colors: [
-            brightness == Brightness.light
-                ? Colors.white.withOpacity(0)
-                : Colors.black.withOpacity(0),
-            brightness == Brightness.light
-                ? Colors.white.withOpacity(0.75)
-                : Colors.black.withOpacity(0.75),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// 构建交互
   Widget buildAction(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Tooltip(
           message: data.url,
           child: IconButton(
-            icon: Icon(FluentIcons.edge_logo),
+            icon: Icon(
+              FluentIcons.edge_logo,
+              color: FluentTheme.of(context).accentColor.light,
+            ),
             onPressed: () async {
               if (await canLaunchUrlString(data.url)) {
                 await launchUrlString(data.url);
@@ -75,7 +58,10 @@ class CalendarCard extends StatelessWidget {
         Tooltip(
           message: '查看详情',
           child: IconButton(
-            icon: Icon(FluentIcons.info),
+            icon: Icon(
+              FluentIcons.info,
+              color: FluentTheme.of(context).accentColor.light,
+            ),
             onPressed: () {
               GoRouter.of(context).go('/bangumi/${data.id}');
             },
@@ -85,37 +71,46 @@ class CalendarCard extends StatelessWidget {
     );
   }
 
-  /// 构建番剧信息
-  Widget buildItemInfo(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(8.sp),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Tooltip(
-            message: data.nameCn == '' ? data.name : data.nameCn,
-            child: Text(
-              data.nameCn == '' ? data.name : data.nameCn,
-              maxLines: 2,
-              style: FluentTheme.of(context).typography.subtitle,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          buildAction(context),
-        ],
-      ),
-    );
-  }
-
   /// 构建番剧项
   @override
   Widget build(BuildContext context) {
-    // stack 布局，由底到上分别是封面、渐变层、番剧信息及操作按钮
-    return Stack(
+    var rateStr = '';
+    if (data.rating != null) {
+      rateStr = '评分：${data.rating?.score}';
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        Positioned.fill(child: buildCover(context)),
-        Positioned.fill(child: buildGradient(context)),
-        Positioned(bottom: 0, left: 0, right: 0, child: buildItemInfo(context)),
+        Expanded(child: buildCover(context)),
+        SizedBox(width: 5.w),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                data.nameCn == '' ? data.name : data.nameCn,
+                style: TextStyle(
+                  fontSize: 28.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              data.nameCn == ''
+                  ? Container()
+                  : Text(
+                      data.name,
+                      style: TextStyle(
+                        color: FluentTheme.of(context).accentColor.darker,
+                      ),
+                    ),
+              rateStr == ''
+                  ? Text(data.airDate)
+                  : Text('${data.airDate} $rateStr'),
+              buildAction(context),
+            ],
+          ),
+        )
       ],
     );
   }

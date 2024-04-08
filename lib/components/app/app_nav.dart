@@ -2,6 +2,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../pages/app/setting_page.dart';
 import '../../pages/app/test_page.dart';
@@ -10,6 +11,7 @@ import '../../pages/comicat/comicat_rss.dart';
 import '../../pages/mikan/mikan_rss.dart';
 import '../../store/app_store.dart';
 import '../../utils/get_theme_label.dart';
+import 'app_infobar.dart';
 
 /// 应用导航
 class AppNav extends ConsumerStatefulWidget {
@@ -34,13 +36,34 @@ class _AppNavState extends ConsumerState<AppNav> {
     curIndex = 0;
   }
 
+  /// 构建重置窗口大小项
+  PaneItemAction buildResetWinItem() {
+    return PaneItemAction(
+      icon: Icon(FluentIcons.reset_device),
+      title: Text('ResetWin'),
+      onTap: () async {
+        var size = await windowManager.getSize();
+        var target = Size(1280, 720);
+        if (size == target) {
+          await showInfoBar(
+            context,
+            text: '无需重置大小！',
+            severity: InfoBarSeverity.warning,
+          );
+          return;
+        }
+        await windowManager.setSize(Size(1280, 720));
+        await showInfoBar(context, text: '已成功重置窗口大小！');
+      },
+    );
+  }
+
   /// 构建主题模式项
   PaneItemAction buildThemeModeItem() {
     var config = getThemeModeConfig(_curThemeMode);
     return PaneItemAction(
       icon: Icon(config.icon),
       title: Text(config.label),
-      body: Center(child: Text(config.label)),
       onTap: () async {
         await ref.read(appStoreProvider).setThemeMode(config.next);
       },
@@ -83,6 +106,7 @@ class _AppNavState extends ConsumerState<AppNav> {
   /// 获取底部项
   List<PaneItem> getFooterItems() {
     var footerItems = [
+      buildResetWinItem(),
       buildThemeModeItem(),
       PaneItem(
         icon: Icon(FluentIcons.settings),
