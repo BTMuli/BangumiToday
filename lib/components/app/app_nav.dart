@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../pages/app/setting_page.dart';
 import '../../pages/app/test_page.dart';
 import '../../pages/bangumi/bangumi_calendar.dart';
+import '../../pages/comicat/comicat_rss.dart';
 import '../../pages/mikan/mikan_rss.dart';
 import '../../store/app_store.dart';
 import '../../utils/get_theme_label.dart';
@@ -59,8 +60,13 @@ class _AppNavState extends ConsumerState<AppNav> {
           'assets/images/platforms/mikan-favicon.ico',
           height: 16.spMax,
         ),
-        title: Text('蜜柑计划'),
+        title: Text('Mikan'),
         body: MikanRSSPage(),
+      ),
+      PaneItem(
+        icon: Image.asset('assets/images/platforms/comicat-favicon.ico'),
+        title: Text('Comicat'),
+        body: ComicatRSSPage(),
       ),
     ];
   }

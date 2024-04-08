@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+// import 'package:path/path.dart' as path;
 import 'package:crypto/crypto.dart';
 import 'package:dart_rss/dart_rss.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -40,12 +41,28 @@ class MikanRssCard extends StatelessWidget {
               item.enclosure!.url!,
               title,
             );
+            // var transUrl = Uri.encodeComponent(item.enclosure!.url!);
+            // var saveDir = path.join(BTDownloadTool.defaultBgmPath, title);
+            // var transTorrent = Uri.encodeComponent('$savePath');
+            // 重命名文件 out=${transOut}
+            // var transOut = Uri.encodeComponent(item.title!);
+            // 保存目录
+            // var transDir = Uri.encodeComponent(saveDir);
             if (savePath != '') {
-              // await launchUrlString('mo://new-task/?type=torrent&'
-              //     'url=${Uri.encodeComponent(savePath)}');
+              // await launchUrlString(
+              //     'mo://new-task/?type=torrent&dir=$transDir&torrent=$transTorrent&selectFile=$transTorrent');
               // 调用 motrix 打开文件
               await launchUrlString('file://$savePath');
             }
+          },
+        ),
+        IconButton(
+          icon: Icon(FluentIcons.edge_logo),
+          onPressed: () async {
+            if (item.link == null || item.link == '') {
+              return;
+            }
+            await launchUrlString(item.link!);
           },
         ),
       ],
@@ -78,6 +95,7 @@ class MikanRssCard extends StatelessWidget {
           ),
           SizedBox(height: 8.h),
           Text(item.link ?? ''),
+          // todo 时间解析
           Text('发布时间: $pubDate'),
           Text('资源类型: ${item.enclosure?.type ?? ''}'),
           Text('资源大小: $sizeStr'),

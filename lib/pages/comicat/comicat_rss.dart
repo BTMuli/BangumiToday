@@ -2,25 +2,23 @@ import 'package:dart_rss/domain/rss_item.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../components/mikan/mk_rss_card.dart';
-import '../../request/mikan/mikan_api.dart';
+import '../../components/comicat/cmc_rss_card.dart';
+import '../../request/comicat/comicat_api.dart';
 
-/// 负责 MikanProject RSS 页面的显示
-/// 包括 RSSClassic 和 RSSPersonal
-/// 前者是列表模式显示站点的RSS更新，后者是个人订阅的RSS更新
-class MikanRSSPage extends StatefulWidget {
+/// 负责 ComicatProject RSS 页面的显示
+class ComicatRSSPage extends StatefulWidget {
   /// 构造函数
-  const MikanRSSPage({super.key});
+  const ComicatRSSPage({super.key});
 
   @override
-  State<MikanRSSPage> createState() => _MikanRSSPageState();
+  State<ComicatRSSPage> createState() => _ComicatRSSPageState();
 }
 
-/// MikanRSS 页面状态
-class _MikanRSSPageState extends State<MikanRSSPage>
+/// ComicatRSS 页面状态
+class _ComicatRSSPageState extends State<ComicatRSSPage>
     with AutomaticKeepAliveClientMixin {
   /// 请求客户端
-  final MikanAPI mikanAPI = MikanAPI();
+  final ComicatAPI comicatAPI = ComicatAPI();
 
   /// RSS 数据
   late List<RssItem> rssItems = [];
@@ -34,7 +32,7 @@ class _MikanRSSPageState extends State<MikanRSSPage>
   void initState() {
     super.initState();
     Future.delayed(Duration.zero, () async {
-      var res = await mikanAPI.getClassicRSS();
+      var res = await comicatAPI.getHomeRSS();
       rssItems = res;
       setState(() {});
     });
@@ -47,7 +45,7 @@ class _MikanRSSPageState extends State<MikanRSSPage>
       child: IconButton(
         icon: Icon(FluentIcons.refresh),
         onPressed: () async {
-          var res = await mikanAPI.getClassicRSS();
+          var res = await comicatAPI.getHomeRSS();
           rssItems.addAll(res);
           setState(() {});
         },
@@ -58,26 +56,19 @@ class _MikanRSSPageState extends State<MikanRSSPage>
   /// 构建标题
   Widget buildTitle() {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        Image.asset(
-          'assets/images/platforms/mikan-logo.png',
-          height: 60.h,
-          fit: BoxFit.cover,
-        ),
-        Image.asset(
-          'assets/images/platforms/mikan-text.png',
-          height: 60.h,
-          fit: BoxFit.cover,
-        ),
+        Image.asset('assets/images/platforms/comicat-favicon.ico'),
+        SizedBox(width: 10.w),
+        Text('Comicat'),
         SizedBox(width: 20.w),
         IconButton(
-          icon: Icon(FluentIcons.refresh, size: 30.h),
+          icon: Icon(FluentIcons.refresh),
           onPressed: () async {
             rssItems.clear();
             setState(() {});
-            var res = await mikanAPI.getClassicRSS();
+            var res = await comicatAPI.getHomeRSS();
             rssItems = res;
             setState(() {});
           },
@@ -104,7 +95,7 @@ class _MikanRSSPageState extends State<MikanRSSPage>
         itemCount: rssItems.length,
         itemBuilder: (context, index) {
           var item = rssItems[index];
-          return MikanRssCard(item);
+          return ComicatRssCard(item);
         },
       );
     }
@@ -115,7 +106,26 @@ class _MikanRSSPageState extends State<MikanRSSPage>
   Widget build(BuildContext context) {
     super.build(context);
     return ScaffoldPage(
-        header: PageHeader(title: buildTitle()),
-        content: Center(child: buildContent()));
+      header: PageHeader(title: buildTitle()),
+      content: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: buildContent(),
+          ),
+          Positioned(
+            bottom: 8.h,
+            right: 8.w,
+            child: SizedBox(
+              width: 200.w,
+              child: Image.asset('assets/images/platforms/comicat-kb.png'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

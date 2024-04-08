@@ -28,4 +28,17 @@ class MikanAPI {
     final channel = RssFeed.parse(response.data.toString());
     return channel.items;
   }
+
+  /// 获取用户的 RSS
+  Future<List<RssItem>> getUserRSS(String token) async {
+    var response = await client.dio.get(
+      '/MyBangumi',
+      queryParameters: {'token': token},
+    );
+    if (response.statusCode != 200) {
+      throw BTError.requestError(msg: 'Failed to load user RSS');
+    }
+    final channel = RssFeed.parse(response.data.toString());
+    return channel.items;
+  }
 }
