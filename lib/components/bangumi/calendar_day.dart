@@ -21,10 +21,11 @@ class CalendarDay extends StatelessWidget {
         controller: ScrollController(),
         padding: EdgeInsets.all(12.sp),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            childAspectRatio: 400 / 280,
-            mainAxisSpacing: 8.h,
-            crossAxisSpacing: 8.w),
+          crossAxisCount: 3,
+          childAspectRatio: 400.w / 280.h,
+          mainAxisSpacing: 8.h,
+          crossAxisSpacing: 7.w,
+        ),
         children: data.items.map((e) => CalendarCard(data: e)).toList(),
       ),
     );

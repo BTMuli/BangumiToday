@@ -19,7 +19,32 @@ class CalendarCard extends StatelessWidget {
     if (data.images == null ||
         data.images?.large == null ||
         data.images?.large == '') {
-      return Icon(FluentIcons.photo_error);
+      return Container(
+        decoration: BoxDecoration(
+          color: FluentTheme.of(context).brightness.isDark
+              ? Colors.white.withAlpha(900)
+              : Colors.black.withAlpha(900),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                FluentIcons.photo_error,
+                color: FluentTheme.of(context).accentColor,
+              ),
+              Text(
+                '暂无封面',
+                style: TextStyle(
+                  fontSize: 28.sp,
+                  color: FluentTheme.of(context).accentColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     return CachedNetworkImage(
       imageUrl: data.images!.large,
@@ -76,7 +101,7 @@ class CalendarCard extends StatelessWidget {
   Widget build(BuildContext context) {
     var rateStr = '';
     if (data.rating != null) {
-      rateStr = '评分：${data.rating?.score}';
+      rateStr = '评分：${data.rating?.score}(${data.rating?.total})';
     }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -96,17 +121,20 @@ class CalendarCard extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              data.nameCn == ''
+              data.nameCn == '' || data.name.length > 40
                   ? Container()
                   : Text(
                       data.name,
                       style: TextStyle(
-                        color: FluentTheme.of(context).accentColor.darker,
+                        color: FluentTheme.of(context).accentColor.lighter,
                       ),
                     ),
               rateStr == ''
                   ? Text(data.airDate)
                   : Text('${data.airDate} $rateStr'),
+              data.collection?.doing != null
+                  ? Text('${data.collection?.doing}人在看')
+                  : Container(),
               buildAction(context),
             ],
           ),

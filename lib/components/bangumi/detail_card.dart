@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../models/bangumi/common_model.dart';
 import '../../models/bangumi/get_subject.dart';
+import 'rate_bar_chart.dart';
 
 /// 详情页面的信息卡片
 class BangumiDetailCard extends StatelessWidget {
@@ -17,7 +18,7 @@ class BangumiDetailCard extends StatelessWidget {
   Widget buildCover(BangumiImage images) {
     return SizedBox(
       width: 200.w,
-      height: 300.w,
+      height: 300.h,
       child: CachedNetworkImage(
         imageUrl: images.common,
         fit: BoxFit.cover,
@@ -49,9 +50,17 @@ class BangumiDetailCard extends StatelessWidget {
       SizedBox(height: 12.h),
       buildText('集数: ${item.eps}/${item.totalEpisodes}'),
       SizedBox(height: 12.h),
-      buildText('评分: ${item.rating.score}'),
+      buildText('平台: ${item.platform}'),
       SizedBox(height: 12.h),
-      buildText('评分人数: ${item.rating.total}'),
+      buildText('追番情况：'),
+      SizedBox(height: 12.h),
+      buildText(
+        '想看：${item.collection.wish} '
+        '在看：${item.collection.collect} '
+        '看过：${item.collection.doing} '
+        '抛弃：${item.collection.onHold} '
+        '搁置：${item.collection.dropped} ',
+      ),
     ]);
   }
 
@@ -64,6 +73,8 @@ class BangumiDetailCard extends StatelessWidget {
         buildCover(item.images),
         SizedBox(width: 12.w),
         Expanded(child: buildInfo()),
+        BangumiRateBarChart(item.rating),
+        SizedBox(width: 12.w),
       ],
     );
   }

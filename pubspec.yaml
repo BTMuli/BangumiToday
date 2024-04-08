@@ -35,6 +35,7 @@ dependencies:
   device_info_plus: ^9.1.2
   dio: ^5.4.1
   filesize: ^2.0.1
+  fl_chart: ^0.67.0
   fluent_ui: ^4.8.6
   fluentui_system_icons: ^1.1.229
   flutter:
@@ -119,9 +120,10 @@ lint_staged:
 msix:
   store: false
   sign_msix: false
-  display_name: "Bangumi Today"
-  publisher: "CN=5FE33156-C3CE-4E71-A036-81BAA99521CB"
-  publisher_display_name: "Bangumi Today"
+  display_name: Bangumi Today
+  publisher: CN=5FE33156-C3CE-4E71-A036-81BAA99521CB
+  publisher_display_name: BTMuli
+  output_name: Bangumi Today
   languages: en-us, zh-cn
-  identity_name: "BangumiToday"
-  description: "Bangumi Source Aggregation Parser for Personal Use"
+  identity_name: BangumiToday
+  description: Better Bangumi Helper

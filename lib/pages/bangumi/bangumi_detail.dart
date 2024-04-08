@@ -61,7 +61,10 @@ class _BangumiDetailState extends State<BangumiDetail> {
       title = data?.nameCn;
     }
     return PageHeader(
-      title: Text('番剧详情：$title'),
+      title: Text(
+        '番剧详情：$title',
+        overflow: TextOverflow.ellipsis,
+      ),
       leading: IconButton(
         icon: Icon(FluentIcons.back),
         onPressed: () {
