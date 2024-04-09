@@ -14,37 +14,43 @@ class CalendarCard extends StatelessWidget {
   /// 构造函数
   const CalendarCard({super.key, required this.data});
 
+  /// 构建无封面的卡片
+  Widget buildCoverError(BuildContext context, {String? err}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: FluentTheme.of(context).brightness.isDark
+            ? Colors.white.withAlpha(900)
+            : Colors.black.withAlpha(900),
+      ),
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              FluentIcons.photo_error,
+              color: FluentTheme.of(context).accentColor,
+            ),
+            Text(
+              err ?? '无封面',
+              style: TextStyle(
+                fontSize: err == null ? 28.sp : 18.sp,
+                color: FluentTheme.of(context).accentColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// 构建封面
   Widget buildCover(BuildContext context) {
     if (data.images == null ||
         data.images?.large == null ||
         data.images?.large == '') {
-      return Container(
-        decoration: BoxDecoration(
-          color: FluentTheme.of(context).brightness.isDark
-              ? Colors.white.withAlpha(900)
-              : Colors.black.withAlpha(900),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(
-                FluentIcons.photo_error,
-                color: FluentTheme.of(context).accentColor,
-              ),
-              Text(
-                '暂无封面',
-                style: TextStyle(
-                  fontSize: 28.sp,
-                  color: FluentTheme.of(context).accentColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      return buildCoverError(context);
     }
     // bangumi 在线切图
     // see: https://github.com/bangumi/img-proxy
@@ -58,7 +64,10 @@ class CalendarCard extends StatelessWidget {
           value: dp.progress == null ? 0 : dp.progress! * 100,
         ),
       ),
-      errorWidget: (context, url, error) => Icon(FluentIcons.error),
+      errorWidget: (context, url, error) => buildCoverError(
+        context,
+        err: error.toString(),
+      ),
     );
   }
 
