@@ -46,8 +46,12 @@ class CalendarCard extends StatelessWidget {
         ),
       );
     }
+    // bangumi 在线切图
+    // see: https://github.com/bangumi/img-proxy
+    var pathGet = Uri.parse(data.images!.large).path;
+    var link = 'https://lain.bgm.tv/r/0x600$pathGet';
     return CachedNetworkImage(
-      imageUrl: data.images!.large,
+      imageUrl: link,
       fit: BoxFit.cover,
       progressIndicatorBuilder: (context, url, dp) => Center(
         child: ProgressRing(

@@ -16,11 +16,15 @@ class BangumiDetailCard extends StatelessWidget {
 
   /// 构建封面
   Widget buildCover(BangumiImage images) {
+    // bangumi 在线切图
+    // see: https://github.com/bangumi/img-proxy
+    var pathGet = Uri.parse(images.large).path;
+    var link = 'https://lain.bgm.tv/r/0x600$pathGet';
     return SizedBox(
       width: 200.w,
       height: 300.h,
       child: CachedNetworkImage(
-        imageUrl: images.common,
+        imageUrl: link,
         fit: BoxFit.cover,
         progressIndicatorBuilder: (context, url, dp) => Center(
           child: ProgressRing(

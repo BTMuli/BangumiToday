@@ -58,6 +58,7 @@ class _MikanRSSPageState extends State<MikanRSSPage>
     var res = await mikanAPI.getClassicRSS();
     rssItems = res;
     setState(() {});
+    await showInfoBar(context, text: '已刷新Mikan列表');
   }
 
   /// 刷新
@@ -67,6 +68,7 @@ class _MikanRSSPageState extends State<MikanRSSPage>
     var res = await mikanAPI.getUserRSS(token);
     userItems = res;
     setState(() {});
+    await showInfoBar(context, text: '已刷新用户列表');
   }
 
   /// 初始化
@@ -135,11 +137,11 @@ class _MikanRSSPageState extends State<MikanRSSPage>
         IconButton(
           icon: Icon(FluentIcons.refresh, size: 30.h),
           onPressed: () async {
-            rssItems.clear();
-            setState(() {});
-            var res = await mikanAPI.getClassicRSS();
-            rssItems = res;
-            setState(() {});
+            if (useUserRSS) {
+              await refreshUserRSS();
+            } else {
+              await refreshMikanRSS();
+            }
           },
         ),
         SizedBox(width: 10.w),
