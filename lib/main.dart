@@ -6,6 +6,7 @@ import 'package:system_theme/system_theme.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
+import 'database/bt_sqlite.dart';
 import 'tools/config_tool.dart';
 import 'tools/log_tool.dart';
 import 'tools/scheme_tool.dart';
@@ -21,6 +22,7 @@ void main() async {
   await BTLogTool().init();
   await BTConfigTool().init();
   await BTSchemeTool().init();
+  await BTSqlite().init();
   runApp(ProviderScope(child: BTApp()));
   Window.setEffect(effect: WindowEffect.acrylic);
 }

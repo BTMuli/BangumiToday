@@ -5,7 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../models/age/get_home_list.dart';
 import '../../request/age/age_api.dart';
-import '../../store/app_store.dart';
+// import '../../store/app_store.dart';
 
 /// 今日放送-age数据源
 class CalendarPageAge extends ConsumerStatefulWidget {
@@ -64,13 +64,13 @@ class _CalendarPageAgeState extends ConsumerState<CalendarPageAge> {
               MenuFlyoutItem(
                 text: Text('bangumi'),
                 onPressed: () {
-                  ref.read(appStoreProvider.notifier).setSource('bangumi');
+                  // ref.read(appStoreProvider.notifier).setSource('bangumi');
                 },
               ),
               MenuFlyoutItem(
                 text: Text('AGE'),
                 onPressed: () {
-                  ref.read(appStoreProvider.notifier).setSource('agefans');
+                  // ref.read(appStoreProvider.notifier).setSource('agefans');
                 },
               ),
             ],
