@@ -1,7 +1,6 @@
 import 'package:path/path.dart' as path;
 
 import '../request/core/client.dart';
-import 'config_tool.dart';
 import 'file_tool.dart';
 import 'log_tool.dart';
 
@@ -9,68 +8,50 @@ import 'log_tool.dart';
 class BTDownloadTool {
   BTDownloadTool._();
 
+  /// 实例
+  static final BTDownloadTool _instance = BTDownloadTool._();
+
   /// 默认 torrent 下载路径
-  static late String _defaultPath;
-
-  /// 默认番剧保存路径
-  static late String _defaultBgmPath;
-
-  /// 获取保存路径
-  static String get defaultBgmPath => _defaultBgmPath;
+  late String _defaultPath;
 
   /// 是否初始化
-  static late bool _isInit = false;
+  late bool _isInit = false;
+
+  /// 获取实例
+  factory BTDownloadTool() => _instance;
+
+  /// 文件工具
+  final BTFileTool _fileTool = BTFileTool();
 
   /// 获取默认路径
-  static Future<String> _getDefaultPath() async {
-    var dir = await BTFileTool.getAppDataDir();
+  Future<String> _getDefaultPath() async {
+    var dir = await _instance._fileTool.getAppDataDir();
     return path.join('$dir', 'download');
   }
 
-  /// 获取默认番剧路径
-  static Future<String> _getDefaultBgmPath() async {
-    // 尝试读取配置文件
-    var config = await BTConfigTool.readConfig(key: 'download_dir');
-    if (config == null) {
-      // 读取失败，使用默认路径
-      return path.join(_defaultPath, 'bangumi');
-    } else {
-      // 读取成功，使用配置路径
-      return config;
-    }
-  }
-
-  /// 检测是否已经初始化
-  static bool get isInit => _isInit;
-
   /// 初始化
-  static Future<void> init() async {
-    if (_isInit) {
+  Future<void> init() async {
+    if (_instance._isInit) {
       BTLogTool.info('BTDownloadTool has been initialized');
       return;
     }
     BTLogTool.info('BTDownloadTool init');
-    _defaultPath = await _getDefaultPath();
-    if (!await BTFileTool.isDirExist(_defaultPath)) {
+    _instance._defaultPath = await _instance._getDefaultPath();
+    if (!await _instance._fileTool.isDirExist(_instance._defaultPath)) {
       BTLogTool.info('Create default download dir');
-      await BTFileTool.createDir(_defaultPath);
+      await _instance._fileTool.createDir(_instance._defaultPath);
     }
-    _defaultBgmPath = await _getDefaultBgmPath();
-    if (!await BTFileTool.isDirExist(_defaultBgmPath)) {
-      BTLogTool.info('Create default bangumi dir');
-      await BTFileTool.createDir(_defaultBgmPath);
-    }
-    _isInit = true;
+    _instance._isInit = true;
   }
 
   /// 下载文件
-  static Future<String> downloadFile(String url, String savePath) async {
-    if (!_isInit) {
-      BTLogTool.error('BTDownloadTool has not been initialized');
-      return '';
+  Future<String> downloadFile(String url, String savePath) async {
+    if (!_instance._isInit) {
+      BTLogTool.warn('BTDownloadTool has not been initialized');
+      await _instance.init();
     }
     var client = BTRequestClient();
-    var saveDetailPath = path.join(_defaultPath, '$savePath.torrent');
+    var saveDetailPath = path.join(_instance._defaultPath, '$savePath.torrent');
     await client.dio.download(url, saveDetailPath);
     return saveDetailPath;
   }

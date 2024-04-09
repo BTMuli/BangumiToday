@@ -13,18 +13,28 @@ import 'log_tool.dart';
 class BTSchemeTool {
   BTSchemeTool._();
 
+  /// 实例
+  static final BTSchemeTool _instance = BTSchemeTool._();
+
+  /// APP 链接
   static final AppLinks _appLinks = AppLinks();
 
+  /// 获取实例
+  factory BTSchemeTool() => _instance;
+
+  /// 配置工具
+  final BTConfigTool _configTool = BTConfigTool();
+
   /// 初始化
-  static Future<void> init() async {
-    await register();
+  Future<void> init() async {
+    await _instance.register();
     BTLogTool.info('BTSchemeTool init');
     listen();
     BTLogTool.info('BTSchemeTool listening');
   }
 
   /// 注册链接
-  static Future<void> register() async {
+  Future<void> register() async {
     var appPath = Platform.resolvedExecutable;
 
     var protocolRegKey = 'Software\\Classes\\BangumiToday';
@@ -46,19 +56,19 @@ class BTSchemeTool {
   }
 
   /// 监听
-  static void listen() {
+  void listen() {
     _appLinks.uriLinkStream.listen(uriHandler);
   }
 
   /// 处理链接
-  static void uriHandler(Uri uri) {
+  void uriHandler(Uri uri) {
     if (uri.toString().startsWith('bangumitoday://oauth')) {
       handleOAuth(uri);
     }
   }
 
   /// 处理 OAuth 回调
-  static Future<void> handleOAuth(Uri uri) async {
+  Future<void> handleOAuth(Uri uri) async {
     var code = uri.queryParameters['code'];
     if (code != null) {
       BTLogTool.info('OAuth code: $code');
@@ -81,7 +91,7 @@ class BTSchemeTool {
       var status = await bangumiOauth.getStatus(res.accessToken);
       BTLogTool.info('OAuth status: $status');
       oauthConfig.appId = status.clientId;
-      BTConfigTool.writeConfig('bgm_oauth', oauthConfig.toJson());
+      _instance._configTool.writeConfig('bgm_oauth', oauthConfig.toJson());
       BTLogTool.info('OAuth success');
     }
   }

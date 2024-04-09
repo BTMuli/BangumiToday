@@ -18,9 +18,9 @@ void main() async {
   await dotenv.load(fileName: ".env");
 
   /// 初始化配置
-  await BTLogTool.init();
-  await BTConfigTool.init();
-  await BTSchemeTool.init();
+  await BTLogTool().init();
+  await BTConfigTool().init();
+  await BTSchemeTool().init();
   runApp(ProviderScope(child: BTApp()));
   Window.setEffect(effect: WindowEffect.acrylic);
 }

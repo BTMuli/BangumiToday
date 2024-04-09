@@ -32,12 +32,9 @@ class MikanRssCard extends StatelessWidget {
             if (item.title == null || item.title == '') {
               return;
             }
-            if (!BTDownloadTool.isInit) {
-              await BTDownloadTool.init();
-            }
             // md5 title
             var title = md5.convert(utf8.encode(item.title!)).toString();
-            var savePath = await BTDownloadTool.downloadFile(
+            var savePath = await BTDownloadTool().downloadFile(
               item.enclosure!.url!,
               title,
             );

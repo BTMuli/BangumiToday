@@ -11,6 +11,9 @@ final appStoreProvider = ChangeNotifierProvider<BTAppStore>((ref) {
 
 /// 应用状态
 class BTAppStore extends ChangeNotifier {
+  /// 配置工具
+  final BTConfigTool _configTool = BTConfigTool();
+
   /// 构造函数
   BTAppStore() {
     initTheme();
@@ -20,7 +23,7 @@ class BTAppStore extends ChangeNotifier {
 
   /// 初始化主题
   void initTheme() {
-    var themeMode = BTConfigTool.readConfigThemeMode();
+    var themeMode = _configTool.readConfig(key: 'themeMode');
     switch (themeMode) {
       case 'ThemeMode.system':
         _themeMode = ThemeMode.system;
@@ -40,14 +43,14 @@ class BTAppStore extends ChangeNotifier {
 
   /// 初始化主题色
   void initAccentColor() {
-    var accentColor = BTConfigTool.readConfigAccentColor();
+    var accentColor = _configTool.readConfig(key: 'accentColor');
     _accentColor = Color(accentColor).toAccentColor();
     notifyListeners();
   }
 
   /// 初始化番剧数据源
   void initSource() {
-    var source = BTConfigTool.readConfigSource();
+    var source = _configTool.readConfig(key: 'source');
     _source = source;
     notifyListeners();
   }
@@ -67,7 +70,7 @@ class BTAppStore extends ChangeNotifier {
   /// 设置主题
   Future<void> setThemeMode(ThemeMode value) async {
     _themeMode = value;
-    await BTConfigTool.writeConfigThemeMode(value);
+    await _configTool.writeConfig('themeMode', value.toString());
     notifyListeners();
   }
 
@@ -83,7 +86,7 @@ class BTAppStore extends ChangeNotifier {
   /// 设置主题色
   Future<void> setAccentColor(AccentColor value) async {
     _accentColor = value;
-    await BTConfigTool.writeConfigAccentColor(value);
+    await _configTool.writeConfig('accentColor', value.value);
     notifyListeners();
   }
 
@@ -93,7 +96,7 @@ class BTAppStore extends ChangeNotifier {
   /// 设置番剧数据源
   Future<void> setSource(String value) async {
     _source = value;
-    await BTConfigTool.writeConfigSource(value);
+    await _configTool.writeConfig('source', value);
     notifyListeners();
   }
 }

@@ -10,11 +10,21 @@ import 'file_tool.dart';
 class BTLogTool {
   BTLogTool._();
 
-  static late Logger _logger;
+  /// 实例
+  static final BTLogTool _instance = BTLogTool._();
+
+  /// 日志
+  late Logger _logger;
+
+  /// 获取实例
+  factory BTLogTool() => _instance;
+
+  /// 文件工具
+  final BTFileTool _fileTool = BTFileTool();
 
   /// 获取日志目录
-  static Future<String> _getDefaultDir() async {
-    var dir = await BTFileTool.getAppDataDir();
+  Future<String> _getDefaultDir() async {
+    var dir = await _instance._fileTool.getAppDataDir();
     return path.join('$dir', 'log');
   }
 
@@ -25,17 +35,17 @@ class BTLogTool {
   }
 
   /// 获取日志文件
-  static Future<File> _getLogFile() async {
+  Future<File> _getLogFile() async {
     var dir = await _getDefaultDir();
     var file = path.join('$dir', _getFileName());
-    if (!await BTFileTool.isFileExist(file)) {
-      await BTFileTool.createFile(file);
+    if (!await _instance._fileTool.isFileExist(file)) {
+      await _instance._fileTool.createFile(file);
     }
     return File(file);
   }
 
   /// 初始化
-  static Future<void> init() async {
+  Future<void> init() async {
     var outputC = ConsoleOutput();
     var outputs = <LogOutput>[outputC];
     var printer;
@@ -63,21 +73,21 @@ class BTLogTool {
 
   /// 打印调试日志
   static void debug(dynamic message) {
-    _logger.log(Level.debug, message);
+    _instance._logger.log(Level.debug, message);
   }
 
   /// 打印信息日志
   static void info(dynamic message) {
-    _logger.log(Level.info, message);
+    _instance._logger.log(Level.info, message);
   }
 
   /// 打印警告日志
   static void warn(dynamic message) {
-    _logger.log(Level.warning, message);
+    _instance._logger.log(Level.warning, message);
   }
 
   /// 打印错误日志
   static void error(dynamic message) {
-    _logger.log(Level.error, message);
+    _instance._logger.log(Level.error, message);
   }
 }

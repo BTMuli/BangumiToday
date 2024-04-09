@@ -8,25 +8,30 @@ import 'package:path_provider/path_provider.dart';
 class BTFileTool {
   BTFileTool._();
 
+  static final BTFileTool _instance = BTFileTool._();
+
+  /// 获取实例
+  factory BTFileTool() => _instance;
+
   /// 获取应用数据目录
-  static Future<String> getAppDataDir() async {
+  Future<String> getAppDataDir() async {
     var dir = await getApplicationDocumentsDirectory();
     return path.join(dir.path, 'BangumiToday');
   }
 
   /// 检测文件是否存在
-  static Future<bool> isFileExist(String path) async {
+  Future<bool> isFileExist(String path) async {
     return File(path).exists();
   }
 
   /// 创建文件
-  static Future<File> createFile(String path) async {
+  Future<File> createFile(String path) async {
     return File(path).create(recursive: true);
   }
 
   /// 读取文件
-  static Future<String> readFile(String path) async {
-    if (await isFileExist(path)) {
+  Future<String> readFile(String path) async {
+    if (await _instance.isFileExist(path)) {
       return File(path).readAsString();
     } else {
       debugPrint('File not exist: $path');
@@ -35,17 +40,17 @@ class BTFileTool {
   }
 
   /// 写入文件
-  static Future<File> writeFile(String path, String content) async {
+  Future<File> writeFile(String path, String content) async {
     return File(path).writeAsString(content);
   }
 
   /// 检测目录是否存在
-  static Future<bool> isDirExist(String defaultPath) {
+  Future<bool> isDirExist(String defaultPath) {
     return Directory(defaultPath).exists();
   }
 
   /// 创建目录
-  static Future<Directory> createDir(String defaultPath) {
+  Future<Directory> createDir(String defaultPath) {
     return Directory(defaultPath).create(recursive: true);
   }
 }

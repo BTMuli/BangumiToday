@@ -38,6 +38,9 @@ class _MikanRSSPageState extends State<MikanRSSPage>
   /// 是否使用用户订阅
   late bool useUserRSS = false;
 
+  /// 配置工具
+  final BTConfigTool configTool = BTConfigTool();
+
   /// 保存状态
   @override
   bool get wantKeepAlive => true;
@@ -73,10 +76,10 @@ class _MikanRSSPageState extends State<MikanRSSPage>
 
   /// 初始化
   Future<void> init() async {
-    var mikan = await BTConfigTool.readConfig(key: 'mikan');
+    var mikan = await configTool.readConfig(key: 'mikan');
     if (mikan == null) {
       useUserRSS = false;
-      await BTConfigTool.writeConfig('mikan', {'enable': false});
+      await configTool.writeConfig('mikan', {'enable': false});
       await refreshMikanRSS();
       return;
     }
@@ -190,7 +193,7 @@ class _MikanRSSPageState extends State<MikanRSSPage>
                 '（在蜜柑计划的个人中心可以找到）',
             onSubmit: (value) async {
               token = await getToken(value);
-              await BTConfigTool.writeConfig('mikan', {
+              await configTool.writeConfig('mikan', {
                 'enable': true,
                 'token': token,
               });

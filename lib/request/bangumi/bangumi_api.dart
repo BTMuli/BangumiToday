@@ -60,7 +60,7 @@ class BangumiAPI {
       accessToken = token;
       return;
     }
-    var bgmOauth = BTConfigTool.readConfig(key: 'bgm_oauth');
+    var bgmOauth = BTConfigTool().readConfig(key: 'bgm_oauth');
     if (bgmOauth != null) {
       try {
         var data = BangumiOauthConfig.fromJson(bgmOauth);
