@@ -43,3 +43,37 @@ Future<void> showInputDialog(
     },
   );
 }
+
+/// 确认框对话框
+/// [title] 标题，[content] 内容，[onSubmit] 提交回调
+Future<void> showConfirmDialog(
+  BuildContext context, {
+  required String title,
+  required String content,
+  required Function() onSubmit,
+}) {
+  return showDialog(
+    context: context,
+    builder: (context) {
+      return ContentDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          Button(
+            onPressed: () {
+              onSubmit();
+              Navigator.of(context).pop();
+            },
+            child: Text('确定'),
+          ),
+          Button(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Text('取消'),
+          ),
+        ],
+      );
+    },
+  );
+}
