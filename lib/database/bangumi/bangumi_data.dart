@@ -145,7 +145,7 @@ class BtsBangumiData {
     );
     if (result.isEmpty) return null;
     BTLogTool.info('Read item data: $title');
-    return BangumiDataItem.fromJson(result.first);
+    return BangumiDataItem.fromSqlJson(result.first);
   }
 
   /// 写入/更新站点元数据

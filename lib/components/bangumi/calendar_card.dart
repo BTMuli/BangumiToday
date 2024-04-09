@@ -4,15 +4,51 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+import '../../database/bangumi/bangumi_data.dart';
 import '../../models/bangumi/get_calendar.dart';
 
 /// 今日放送-番剧卡片
-class CalendarCard extends StatelessWidget {
+class CalendarCard extends StatefulWidget {
   /// 数据
   final CalendarItemBangumi data;
 
   /// 构造函数
   const CalendarCard({super.key, required this.data});
+
+  @override
+  State<CalendarCard> createState() => _CalendarCardState();
+}
+
+class _CalendarCardState extends State<CalendarCard> {
+  /// 数据
+  CalendarItemBangumi get data => widget.data;
+
+  /// 放送时间
+  String upTime = '';
+
+  /// 初始化
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration.zero, () async {
+      await getTime();
+    });
+  }
+
+  /// 格式化时间
+  String fmtInt(int time) {
+    return time.toString().padLeft(2, '0');
+  }
+
+  /// 获取放送时间
+  Future<void> getTime() async {
+    var itemGet = await BtsBangumiData().readItem(data.name);
+    if (itemGet == null) return;
+    upTime = itemGet.begin;
+    var time = DateTime.parse(upTime);
+    upTime = '${fmtInt(time.hour)}:${fmtInt(time.minute)}';
+    setState(() {});
+  }
 
   /// 构建无封面的卡片
   Widget buildCoverError(BuildContext context, {String? err}) {
@@ -145,6 +181,7 @@ class CalendarCard extends StatelessWidget {
               rateStr == ''
                   ? Text(data.airDate)
                   : Text('${data.airDate} $rateStr'),
+              upTime == '' ? Container() : Text('放送时间：$upTime'),
               data.collection?.doing != null
                   ? Text('${data.collection?.doing}人在看')
                   : Container(),

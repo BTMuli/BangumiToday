@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:json_annotation/json_annotation.dart';
 
 part 'data_item.g.dart';
@@ -72,7 +74,7 @@ class BangumiDataItem {
   /// toSqlJson
   Map<String, dynamic> toSqlJson() => {
         'title': title,
-        'titleTranslate': titleTranslate.toJson().toString(),
+        'titleTranslate': jsonEncode(titleTranslate.toJson()),
         'type': type,
         'lang': lang,
         'officialSite': officialSite,
@@ -80,8 +82,29 @@ class BangumiDataItem {
         'broadcast': broadcast,
         'end': end,
         'comment': comment,
-        'sites': sites.toString(),
+        'sites': jsonEncode(sites.map((e) => e.toJson()).toList()),
       };
+
+  /// fromSqlJson
+  factory BangumiDataItem.fromSqlJson(Map<String, dynamic> json) {
+    var titleTranslate = BangumiDataItemTitleTranslate.fromJson(
+        jsonDecode(json['titleTranslate']) as Map<String, dynamic>);
+    var sites = (jsonDecode(json['sites']) as List<dynamic>)
+        .map((e) => BangumiDataItemSite.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return BangumiDataItem(
+      title: json['title'],
+      titleTranslate: titleTranslate,
+      type: json['type'],
+      lang: json['lang'],
+      officialSite: json['officialSite'],
+      begin: json['begin'],
+      broadcast: json['broadcast'],
+      end: json['end'],
+      comment: json['comment'],
+      sites: sites,
+    );
+  }
 }
 
 /// bangumi-data条目标题翻译
@@ -99,6 +122,12 @@ class BangumiDataItemTitleTranslate {
   /// from json
   factory BangumiDataItemTitleTranslate.fromJson(Map<String, dynamic> json) =>
       _$BangumiDataItemTitleTranslateFromJson(json);
+
+  /// from sql json
+  factory BangumiDataItemTitleTranslate.fromSqlJson(String json) {
+    var map = jsonDecode(json);
+    return BangumiDataItemTitleTranslate.fromJson(map);
+  }
 
   /// to json
   Map<String, dynamic> toJson() => _$BangumiDataItemTitleTranslateToJson(this);
