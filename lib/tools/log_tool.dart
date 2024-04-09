@@ -1,10 +1,22 @@
 import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart' as path;
 
 import 'file_tool.dart';
+
+/// 因为Release模式下，日志文件是限制的
+/// 详见：https://github.com/SourceHorizon/logger?tab=readme-ov-file#logfilter
+/// 因此需要自己写一个LogFilter
+class BTLogFilter extends LogFilter {
+  @override
+  bool shouldLog(LogEvent event) {
+    if (kDebugMode) {
+      return true;
+    }
+    return event.level.index > Level.info.index;
+  }
+}
 
 /// 日志工具
 class BTLogTool {
@@ -39,18 +51,20 @@ class BTLogTool {
     var dir = await _getDefaultDir();
     var file = path.join('$dir', _getFileName());
     if (!await _instance._fileTool.isFileExist(file)) {
-      await _instance._fileTool.createFile(file);
+      return await _instance._fileTool.createFile(file);
     }
     return File(file);
   }
 
   /// 初始化
+  /// todo bug Release模式下，日志文件无法写入
   Future<void> init() async {
     var outputC = ConsoleOutput();
     var outputs = <LogOutput>[outputC];
     var printer;
     if (!kDebugMode) {
-      var outputF = FileOutput(file: await _getLogFile());
+      var file = await _getLogFile();
+      var outputF = FileOutput(file: file, overrideExisting: false);
       outputs.add(outputF);
       printer = PrettyPrinter(
         methodCount: 0,
@@ -64,6 +78,7 @@ class BTLogTool {
       printer = PrettyPrinter(printTime: true);
     }
     _logger = Logger(
+      filter: BTLogFilter(),
       level: Level.all,
       output: MultiOutput(outputs),
       printer: printer,

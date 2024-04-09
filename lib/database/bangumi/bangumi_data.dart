@@ -143,7 +143,10 @@ class BtsBangumiData {
       where: 'title = ?',
       whereArgs: [title],
     );
-    if (result.isEmpty) return null;
+    if (result.isEmpty) {
+      BTLogTool.warn('Can\'t find item data: $title');
+      return null;
+    }
     BTLogTool.info('Read item data: $title');
     return BangumiDataItem.fromSqlJson(result.first);
   }

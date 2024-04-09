@@ -30,9 +30,15 @@ class _CalendarCardState extends State<CalendarCard> {
   @override
   void initState() {
     super.initState();
+    // todo bug 当页面切换时，会重新获取时间
     Future.delayed(Duration.zero, () async {
       await getTime();
     });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   /// 格式化时间
