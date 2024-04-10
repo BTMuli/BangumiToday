@@ -19,21 +19,11 @@ class ProgressController extends ChangeNotifier {
     this.progress,
   });
 
-  /// 开始
-  void start() {
-    notifyListeners();
-  }
-
   /// 更新
   void update(String? title, String? text, double? progress) {
     if (title != null) this.title = title;
     if (text != null) this.text = text;
-    if (progress != null) this.progress = progress;
-    notifyListeners();
-  }
-
-  /// 结束
-  void end() {
+    this.progress = progress;
     notifyListeners();
   }
 }
@@ -115,7 +105,7 @@ class AppProgress {
   AppProgress(
     this.context, {
     required String title,
-    required String text,
+    String text = '',
     double? progress,
   }) {
     controller = ProgressController(

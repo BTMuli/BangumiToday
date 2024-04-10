@@ -1,11 +1,14 @@
 import 'package:dio/dio.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
+import '../../database/bangumi/bangumi_user.dart';
 import '../../models/app/err.dart';
+import '../../models/app/response.dart';
+import '../../models/bangumi/common_response.dart';
 import '../../models/bangumi/get_calendar.dart';
 import '../../models/bangumi/get_subject.dart';
-import '../../models/bangumi/oauth.dart';
-import '../../tools/config_tool.dart';
+import '../../models/bangumi/user_request.dart';
+import '../../tools/log_tool.dart';
 import 'bangumi_client.dart';
 
 /// bangumi.tv 的 API
@@ -16,6 +19,9 @@ class BangumiAPI {
 
   /// 基础 URL
   final String baseUrl = 'https://api.bgm.tv';
+
+  /// 数据库
+  final BtsBangumiUser sqlite = BtsBangumiUser();
 
   /// access token
   static late String accessToken = '';
@@ -38,6 +44,7 @@ class BangumiAPI {
           ...client.dio.options.headers,
           'Authorization': 'Bearer $accessToken'
         },
+        contentType: 'application/json',
       ),
     );
   }
@@ -60,19 +67,9 @@ class BangumiAPI {
       accessToken = token;
       return;
     }
-    var bgmOauth = BTConfigTool().readConfig(key: 'bgm_oauth');
-    if (bgmOauth != null) {
-      try {
-        var data = BangumiOauthConfig.fromJson(bgmOauth);
-        if (data.accessToken != "") {
-          accessToken = data.accessToken;
-          return;
-        }
-        accessToken = '';
-      } on Exception catch (e) {
-        debugPrint(e.toString());
-        accessToken = '';
-      }
+    var atRead = await sqlite.readAccessToken();
+    if (atRead != null) {
+      accessToken = atRead;
     }
   }
 
@@ -96,6 +93,34 @@ class BangumiAPI {
       return BangumiSubject.fromJson(response.data as Map<String, dynamic>);
     } else {
       throw BTError.requestError(msg: 'Failed to load detail');
+    }
+  }
+
+  /// 获取用户信息
+  Future<BTResponse> getUserInfo() async {
+    var response = await getWithAuth(
+      '/v0/me',
+    );
+    if (response.statusCode == 200) {
+      debugPrint('data: ${response.data}');
+      return BangumiUserInfoResponse.success(
+        data: BangumiUserInfo.fromJson(response.data as Map<String, dynamic>),
+      );
+    }
+    try {
+      var errResp = BangumiErrResponse.fromJson(response.data);
+      return BTResponse<BangumiErrResponse>(
+        code: response.statusCode ?? 666,
+        message: 'Failed to load user info',
+        data: errResp,
+      );
+    } on Exception catch (e) {
+      BTLogTool.error('Failed to load user info: $e');
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to load user info',
+        data: null,
+      );
     }
   }
 }

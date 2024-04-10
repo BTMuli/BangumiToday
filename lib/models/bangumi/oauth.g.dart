@@ -117,9 +117,24 @@ Map<String, dynamic> _$BangumiTokenRResponseToJson(
       'refresh_token': instance.refreshToken,
     };
 
-BangumiTokenSResponse _$BangumiTokenSResponseFromJson(
-        Map<String, dynamic> json) =>
-    BangumiTokenSResponse(
+BangumiTstResponse _$BangumiTstResponseFromJson(Map<String, dynamic> json) =>
+    BangumiTstResponse(
+      code: json['code'] as int,
+      message: json['message'] as String,
+      data: json['data'] == null
+          ? null
+          : BangumiTstrData.fromJson(json['data'] as Map<String, dynamic>),
+    );
+
+Map<String, dynamic> _$BangumiTstResponseToJson(BangumiTstResponse instance) =>
+    <String, dynamic>{
+      'code': instance.code,
+      'message': instance.message,
+      'data': instance.data,
+    };
+
+BangumiTstrData _$BangumiTstrDataFromJson(Map<String, dynamic> json) =>
+    BangumiTstrData(
       accessToken: json['access_token'] as String,
       clientId: json['client_id'] as String,
       expires: json['expires'] as int,
@@ -127,8 +142,7 @@ BangumiTokenSResponse _$BangumiTokenSResponseFromJson(
       userId: json['user_id'] as int,
     );
 
-Map<String, dynamic> _$BangumiTokenSResponseToJson(
-        BangumiTokenSResponse instance) =>
+Map<String, dynamic> _$BangumiTstrDataToJson(BangumiTstrData instance) =>
     <String, dynamic>{
       'access_token': instance.accessToken,
       'client_id': instance.clientId,

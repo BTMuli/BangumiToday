@@ -1,5 +1,7 @@
 import 'package:json_annotation/json_annotation.dart';
 
+import '../app/response.dart';
+
 part 'oauth.g.dart';
 
 /// 配置文件中的 bangumi oauth 数据
@@ -232,9 +234,29 @@ class BangumiTokenRResponse {
   Map<String, dynamic> toJson() => _$BangumiTokenRResponseToJson(this);
 }
 
+/// token status 请求返回
+@JsonSerializable()
+class BangumiTstResponse extends BTResponse<BangumiTstrData> {
+  /// constructor
+  @override
+  BangumiTstResponse({
+    required int code,
+    required String message,
+    required BangumiTstrData? data,
+  }) : super(code: code, message: message, data: data);
+
+  /// success
+  static BangumiTstResponse success({required BangumiTstrData data}) =>
+      BangumiTstResponse(code: 0, message: 'success', data: data);
+
+  /// from json
+  factory BangumiTstResponse.fromJson(Map<String, dynamic> json) =>
+      _$BangumiTstResponseFromJson(json);
+}
+
 /// 获取 token status 返回
 @JsonSerializable()
-class BangumiTokenSResponse {
+class BangumiTstrData {
   /// access_token
   @JsonKey(name: 'access_token')
   String accessToken;
@@ -256,7 +278,7 @@ class BangumiTokenSResponse {
   int userId;
 
   /// constructor
-  BangumiTokenSResponse({
+  BangumiTstrData({
     required this.accessToken,
     required this.clientId,
     required this.expires,
@@ -265,9 +287,9 @@ class BangumiTokenSResponse {
   });
 
   /// from json
-  factory BangumiTokenSResponse.fromJson(Map<String, dynamic> json) =>
-      _$BangumiTokenSResponseFromJson(json);
+  factory BangumiTstrData.fromJson(Map<String, dynamic> json) =>
+      _$BangumiTstrDataFromJson(json);
 
   /// to json
-  Map<String, dynamic> toJson() => _$BangumiTokenSResponseToJson(this);
+  Map<String, dynamic> toJson() => _$BangumiTstrDataToJson(this);
 }

@@ -1,7 +1,10 @@
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/app/err.dart';
+import '../../models/app/response.dart';
+import '../../models/bangumi/common_response.dart';
 import '../../models/bangumi/oauth.dart';
+import '../../tools/log_tool.dart';
 import '../../utils/get_bgm_secret.dart';
 import 'bangumi_client.dart';
 
@@ -35,6 +38,7 @@ class BangumiOauth {
   }
 
   /// 获取 AccessToken
+  /// todo 重构
   Future<BangumiTokenGResponse> getAccessToken(String code) async {
     var appId = getBgmAppId();
     var appSecret = getBgmAppSecret();
@@ -74,15 +78,29 @@ class BangumiOauth {
   }
 
   /// 查询授权信息
-  Future<BangumiTokenSResponse> getStatus(String accessToken) async {
+  Future<BTResponse> getStatus(String accessToken) async {
     var response = await client.dio.get('/token_status', queryParameters: {
       'access_token': accessToken,
     });
     if (response.statusCode == 200) {
-      return BangumiTokenSResponse.fromJson(
-          response.data as Map<String, dynamic>);
-    } else {
-      throw BTError.requestError(msg: 'Failed to query bangumi access token');
+      return BangumiTstResponse.success(
+        data: BangumiTstrData.fromJson(response.data as Map<String, dynamic>),
+      );
+    }
+    try {
+      var errResp = BangumiErrResponse.fromJson(response.data);
+      return BTResponse<BangumiErrResponse>(
+        code: response.statusCode ?? 666,
+        message: 'Bangumi token status error',
+        data: errResp,
+      );
+    } on Exception catch (e) {
+      BTLogTool.error('Failed to load bangumi token status: $e');
+      return BTResponse.error(
+        code: 666,
+        message: 'Bangumi token status error',
+        data: null,
+      );
     }
   }
 }
