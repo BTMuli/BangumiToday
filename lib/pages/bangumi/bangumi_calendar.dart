@@ -1,30 +1,43 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../components/bangumi/calendar_tab.dart';
+import '../../components/bangumi/calendar_day.dart';
 import '../../models/bangumi/get_calendar.dart';
 import '../../request/bangumi/bangumi_api.dart';
+import '../../store/nav_store.dart';
+import 'bangumi_data.dart';
+import 'bangumi_user.dart';
 
 /// 今日放送
-class CalendarPage extends StatefulWidget {
+class CalendarPage extends ConsumerStatefulWidget {
   /// 构造函数
   const CalendarPage({super.key});
 
   @override
-  State<CalendarPage> createState() => _CalendarPageState();
+  ConsumerState<CalendarPage> createState() => _CalendarPageState();
 }
 
 /// 今日放送状态
-class _CalendarPageState extends State<CalendarPage>
+class _CalendarPageState extends ConsumerState<CalendarPage>
     with AutomaticKeepAliveClientMixin {
   /// 请求客户端
   final _client = BangumiAPI();
 
   /// 正在请求数据
-  bool isRequesting = false;
+  bool isRequesting = true;
 
   /// 请求数据
   List<CalendarItem> calendarData = [];
+
+  /// tabIndex
+  int tabIndex = 0;
+
+  /// 星期列表
+  List<String> weekday = ['一', '二', '三', '四', '五', '六', '日'];
+
+  /// 今天
+  int get today => DateTime.now().weekday - 1;
 
   /// 保存状态
   @override
@@ -34,6 +47,9 @@ class _CalendarPageState extends State<CalendarPage>
   @override
   void initState() {
     super.initState();
+    Future.microtask(() async {
+      await getData();
+    });
   }
 
   /// dispose 保留状态
@@ -42,24 +58,20 @@ class _CalendarPageState extends State<CalendarPage>
     super.dispose();
   }
 
-  /// 构建日历
-  Future<bool> calendarBuilder() async {
-    if (calendarData.isEmpty && !isRequesting) {
-      isRequesting = true;
-      var value = await _client.getToday();
-      calendarData = value;
-      isRequesting = false;
-      setState(() {});
-    } else if (isRequesting) {
-      return false;
-    }
-    return true;
+  /// 获取数据
+  Future<void> getData() async {
+    isRequesting = true;
+    calendarData.clear();
+    setState(() {});
+    calendarData = await _client.getToday();
+    isRequesting = false;
+    setState(() {});
   }
 
-  /// 页面刷新
-  Future<void> onRefresh() async {
-    calendarData = [];
-    setState(() {});
+  /// 获取 Tab 数据
+  CalendarItem? getTabData(int index) {
+    if (index >= calendarData.length) return null;
+    return calendarData[index];
   }
 
   /// 刷新
@@ -72,24 +84,98 @@ class _CalendarPageState extends State<CalendarPage>
     );
   }
 
+  /// 构建 Tab 头部
+  Widget buildTabHeader() {
+    return Row(
+      children: [
+        Image.asset('assets/images/platforms/bangumi-text.png'),
+        SizedBox(width: 8.w),
+        Text('星期${weekday[today]}'),
+        Tooltip(
+          message: '刷新',
+          child: IconButton(
+            icon: Icon(FluentIcons.refresh),
+            onPressed: () async {
+              await getData();
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 构建用户按钮
+  Widget buildUserButton(BuildContext context) {
+    return Tooltip(
+      message: 'Bangumi 用户界面',
+      child: FilledButton(
+        child: Icon(FluentIcons.contact),
+        onPressed: () {
+          var paneItem = PaneItem(
+            icon: Icon(FluentIcons.contact),
+            title: Text('Bangumi 用户界面'),
+            body: BangumiUser(),
+          );
+          ref.read(navStoreProvider).addNavItem(paneItem);
+        },
+      ),
+    );
+  }
+
+  /// 构建数据库按钮
+  Widget buildDataBaseButton(BuildContext context) {
+    return Tooltip(
+      message: 'BangumiData',
+      child: FilledButton(
+        child: Icon(FluentIcons.database_source),
+        onPressed: () {
+          var paneItem = PaneItem(
+            icon: Icon(FluentIcons.database_source),
+            title: Text('BangumiData'),
+            body: BangumiDataPage(),
+          );
+          ref.read(navStoreProvider).addNavItem(paneItem);
+        },
+      ),
+    );
+  }
+
+  /// 构建 Tab 底部
+  Widget buildTabFooter() {
+    return Row(children: [
+      buildUserButton(context),
+      SizedBox(width: 16.w),
+      buildDataBaseButton(context),
+      SizedBox(width: 16.w),
+      Image.asset('assets/images/platforms/bangumi-logo.png'),
+      SizedBox(width: 16.w),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return FutureBuilder(
-      future: calendarBuilder(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done) {
-          var data = snapshot.data;
-          if (data == false) {
-            return buildLoading();
-          }
-          return CalendarTab(
-            data: calendarData,
-            onRefresh: onRefresh,
-          );
-        }
-        return buildLoading();
+    return TabView(
+      tabs: [
+        for (var i = 0; i < 7; i++)
+          Tab(
+            text: Text('星期${weekday[i]}'),
+            icon: i == today
+                ? Icon(FluentIcons.away_status)
+                : Icon(FluentIcons.calendar),
+            body: CalendarDay(data: getTabData(i), loading: isRequesting),
+            semanticLabel: '星期${weekday[i]}',
+          ),
+      ],
+      header: buildTabHeader(),
+      footer: buildTabFooter(),
+      currentIndex: tabIndex,
+      onChanged: (index) {
+        tabIndex = index;
+        setState(() {});
       },
+      closeButtonVisibility: CloseButtonVisibilityMode.never,
+      tabWidthBehavior: TabWidthBehavior.sizeToContent,
     );
   }
 }

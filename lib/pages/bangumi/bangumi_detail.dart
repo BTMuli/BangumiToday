@@ -22,12 +22,23 @@ class BangumiDetail extends ConsumerStatefulWidget {
 }
 
 /// 番剧详情状态
-class _BangumiDetailState extends ConsumerState<BangumiDetail> {
+class _BangumiDetailState extends ConsumerState<BangumiDetail>
+    with AutomaticKeepAliveClientMixin {
   /// 番剧数据
   BangumiSubject? data;
 
-  /// 是否加载中
-  bool isLoading = true;
+  @override
+  bool get wantKeepAlive => true;
+
+  /// 当id改变时, 重新加载数据
+  @override
+  void didUpdateWidget(BangumiDetail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.id != widget.id) {
+      data = null;
+      init();
+    }
+  }
 
   /// 构建函数
   @override
@@ -59,7 +70,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail> {
     if (data == null) {
       title = 'ID: ${widget.id}';
     } else {
-      title = data?.nameCn;
+      title = data?.nameCn == '' ? data?.name : data?.nameCn;
     }
     return PageHeader(
       title: Text(
@@ -112,32 +123,32 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail> {
 
   /// 构建简介
   Widget buildSummary(String summary) {
-    var text = '没有简介';
-    if (summary != '') {
-      text = summary;
+    if (summary == '') {
+      return ListTile(
+        leading: Icon(FluentIcons.error_badge),
+        title: Text('没有简介', style: TextStyle(fontSize: 24.sp)),
+      );
     }
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('简介',
-            style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold)),
-        SizedBox(height: 12.h),
-        Text(text, style: TextStyle(fontSize: 20.sp)),
-      ],
+    return Container(
+      margin: EdgeInsets.only(right: 12.w),
+      child: Expander(
+        initiallyExpanded: true,
+        leading: Icon(FluentIcons.info),
+        header: Text('简介', style: TextStyle(fontSize: 24.sp)),
+        content: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(summary, style: TextStyle(fontSize: 20.sp)),
+          ],
+        ),
+      ),
     );
   }
 
   /// 构建其他信息
-  List<Widget> buildOtherInfo(List<BangumiSubjectInfoBox> infobox) {
+  Widget buildOtherInfo(List<BangumiSubjectInfoBox> infobox) {
     var res = <Widget>[];
-    res.add(
-      Text(
-        '其他信息',
-        style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
-      ),
-    );
-    res.add(SizedBox(height: 12.h));
     // 换行加tab
     var gap = "\n    ";
     for (var item in infobox) {
@@ -151,10 +162,20 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail> {
         value = item.value;
         res.add(Text('${item.key}: $value', style: TextStyle(fontSize: 20.sp)));
       }
-
       res.add(SizedBox(height: 12.h));
     }
-    return res;
+    return Container(
+      margin: EdgeInsets.only(right: 12.w),
+      child: Expander(
+        leading: Icon(FluentIcons.info),
+        header: Text('其他信息', style: TextStyle(fontSize: 24.sp)),
+        content: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: res,
+        ),
+      ),
+    );
   }
 
   /// 构建内容
@@ -170,7 +191,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail> {
           SizedBox(height: 12.h),
           // 章节
           // buildEpisodes(),
-          ...buildOtherInfo(bangumi.infobox),
+          buildOtherInfo(bangumi.infobox),
         ],
       ),
     );
@@ -178,6 +199,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return FutureBuilder<String>(
       future: init(),
       builder: (context, snapshot) {

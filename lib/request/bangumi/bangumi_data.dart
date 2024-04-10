@@ -1,6 +1,6 @@
 import '../../models/app/err.dart';
 import '../../models/bangumi/data_meta.dart';
-import 'client.dart';
+import '../core/client.dart';
 
 /// 负责BangumiData的请求
 /// Repo: https://github.com/bangumi-data/bangumi-data

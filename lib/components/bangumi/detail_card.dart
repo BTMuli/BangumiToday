@@ -82,12 +82,18 @@ class BangumiDetailCard extends StatelessWidget {
 
   /// 构建基本信息
   Widget buildInfo() {
+    var nameW = List<Widget>.empty(growable: true);
+    if (item.nameCn == '') {
+      nameW.add(buildText('名称: ${item.name}'));
+    } else {
+      nameW.add(buildText('中文名: ${item.nameCn}'));
+      nameW.add(SizedBox(height: 12.h));
+      nameW.add(buildText('名称: ${item.name}'));
+    }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       buildText('ID: ${item.id}'),
       SizedBox(height: 12.h),
-      buildText('中文名: ${item.nameCn}'),
-      SizedBox(height: 12.h),
-      buildText('原名: ${item.name}'),
+      ...nameW,
       SizedBox(height: 12.h),
       buildText('首播: ${item.date}'),
       SizedBox(height: 12.h),

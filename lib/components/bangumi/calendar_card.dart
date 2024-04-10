@@ -21,12 +21,16 @@ class CalendarCard extends ConsumerStatefulWidget {
   ConsumerState<CalendarCard> createState() => _CalendarCardState();
 }
 
-class _CalendarCardState extends ConsumerState<CalendarCard> {
+class _CalendarCardState extends ConsumerState<CalendarCard>
+    with AutomaticKeepAliveClientMixin {
   /// 数据
   CalendarItemBangumi get data => widget.data;
 
   /// 放送时间
   String upTime = '';
+
+  @override
+  bool get wantKeepAlive => true;
 
   /// 初始化
   @override
@@ -166,10 +170,12 @@ class _CalendarCardState extends ConsumerState<CalendarCard> {
   /// 构建番剧项
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     var rateStr = '';
     if (data.rating != null) {
       rateStr = '评分：${data.rating?.score}(${data.rating?.total})';
     }
+    // todo，部分数据放到封面下方
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisAlignment: MainAxisAlignment.start,
