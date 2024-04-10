@@ -1,15 +1,16 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../components/bangumi/detail_card.dart';
 import '../../models/app/err.dart';
 import '../../models/bangumi/common_model.dart';
 import '../../models/bangumi/get_subject.dart';
 import '../../request/bangumi/bangumi_api.dart';
+import '../../store/nav_store.dart';
 
 /// 番剧详情
-class BangumiDetail extends StatefulWidget {
+class BangumiDetail extends ConsumerStatefulWidget {
   /// 番剧 id
   final String id;
 
@@ -17,11 +18,11 @@ class BangumiDetail extends StatefulWidget {
   const BangumiDetail({super.key, required this.id});
 
   @override
-  State<BangumiDetail> createState() => _BangumiDetailState();
+  ConsumerState<BangumiDetail> createState() => _BangumiDetailState();
 }
 
 /// 番剧详情状态
-class _BangumiDetailState extends State<BangumiDetail> {
+class _BangumiDetailState extends ConsumerState<BangumiDetail> {
   /// 番剧数据
   BangumiSubject? data;
 
@@ -68,11 +69,8 @@ class _BangumiDetailState extends State<BangumiDetail> {
       leading: IconButton(
         icon: Icon(FluentIcons.back),
         onPressed: () {
-          if (GoRouter.of(context).canPop()) {
-            GoRouter.of(context).pop();
-          } else {
-            GoRouter.of(context).go('/');
-          }
+          var title = Text('番剧详情');
+          ref.read(navStoreProvider).removeNavItemByTitle(title.toString());
         },
       ),
     );

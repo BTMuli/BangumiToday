@@ -10,6 +10,7 @@ import '../../pages/bangumi/bangumi_calendar.dart';
 import '../../pages/comicat/comicat_rss.dart';
 import '../../pages/mikan/mikan_rss.dart';
 import '../../store/app_store.dart';
+import '../../store/nav_store.dart';
 import '../../utils/get_theme_label.dart';
 import 'app_infobar.dart';
 
@@ -25,15 +26,17 @@ class AppNav extends ConsumerStatefulWidget {
 /// 导航状态
 class _AppNavState extends ConsumerState<AppNav> {
   /// 当前索引
-  late int curIndex;
+  int get curIndex => ref.watch(navStoreProvider).curIndex;
 
   /// 当前主题模式
   ThemeMode get _curThemeMode => ref.watch(appStoreProvider).themeMode;
 
+  /// 侧边动态组件
+  List<PaneItem> get _navItems => ref.watch(navStoreProvider).navItems;
+
   @override
   void initState() {
     super.initState();
-    curIndex = 0;
   }
 
   /// 构建重置窗口大小项
@@ -70,8 +73,8 @@ class _AppNavState extends ConsumerState<AppNav> {
     );
   }
 
-  /// 获取导航项
-  List<PaneItem> getNavItems() {
+  /// 获取常量项
+  List<PaneItem> getConstItems() {
     return [
       PaneItem(
         icon: Image.asset('assets/images/platforms/bangumi-favicon.ico'),
@@ -94,6 +97,17 @@ class _AppNavState extends ConsumerState<AppNav> {
     ];
   }
 
+  /// 获取导航项
+  List<PaneItem> getNavItems(BuildContext context) {
+    var navStore = ref.read(navStoreProvider);
+    navStore.addListener(() {
+      setState(() {});
+    });
+    var constItems = getConstItems();
+    var items = [...constItems, ..._navItems];
+    return items;
+  }
+
   /// 构建调试项
   PaneItem buildDebugItem() {
     return PaneItem(
@@ -101,6 +115,28 @@ class _AppNavState extends ConsumerState<AppNav> {
       title: Text('Debug'),
       body: TestPage(),
     );
+  }
+
+  /// 构建自定义面板
+  NavigationPaneWidget buildCustomPane(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(height: 10.h),
+          Text(
+            'Custom Pane',
+            style: FluentTheme.of(context).typography.subtitle,
+          ),
+          SizedBox(height: 10.h),
+          Text(
+            'Custom Pane Content',
+            style: FluentTheme.of(context).typography.body,
+          ),
+        ],
+      ),
+    ) as NavigationPaneWidget;
   }
 
   /// 获取底部项
@@ -121,22 +157,20 @@ class _AppNavState extends ConsumerState<AppNav> {
   }
 
   /// 导航面板
-  NavigationPane buildNavPane() {
+  NavigationPane buildNavPane(BuildContext context) {
     return NavigationPane(
       selected: curIndex,
       onChanged: (index) {
-        setState(() {
-          curIndex = index;
-        });
+        ref.read(navStoreProvider).setCurIndex(index);
       },
       displayMode: PaneDisplayMode.compact,
-      items: getNavItems(),
+      items: getNavItems(context),
       footerItems: getFooterItems(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return NavigationView(pane: buildNavPane());
+    return NavigationView(pane: buildNavPane(context));
   }
 }

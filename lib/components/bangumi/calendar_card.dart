@@ -1,14 +1,16 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../database/bangumi/bangumi_data.dart';
 import '../../models/bangumi/get_calendar.dart';
+import '../../pages/bangumi/bangumi_detail.dart';
+import '../../store/nav_store.dart';
 
 /// 今日放送-番剧卡片
-class CalendarCard extends StatefulWidget {
+class CalendarCard extends ConsumerStatefulWidget {
   /// 数据
   final CalendarItemBangumi data;
 
@@ -16,10 +18,10 @@ class CalendarCard extends StatefulWidget {
   const CalendarCard({super.key, required this.data});
 
   @override
-  State<CalendarCard> createState() => _CalendarCardState();
+  ConsumerState<CalendarCard> createState() => _CalendarCardState();
 }
 
-class _CalendarCardState extends State<CalendarCard> {
+class _CalendarCardState extends ConsumerState<CalendarCard> {
   /// 数据
   CalendarItemBangumi get data => widget.data;
 
@@ -113,6 +115,15 @@ class _CalendarCardState extends State<CalendarCard> {
     );
   }
 
+  /// 获取 PaneItem
+  PaneItem getPaneItem(BuildContext context) {
+    return PaneItem(
+      icon: Icon(FluentIcons.info),
+      title: Text('番剧详情'),
+      body: BangumiDetail(id: data.id.toString()),
+    );
+  }
+
   /// 构建交互
   Widget buildAction(BuildContext context) {
     return Row(
@@ -143,7 +154,8 @@ class _CalendarCardState extends State<CalendarCard> {
               color: FluentTheme.of(context).accentColor.light,
             ),
             onPressed: () {
-              GoRouter.of(context).go('/bangumi/${data.id}');
+              var paneItem = getPaneItem(context);
+              ref.read(navStoreProvider).addNavItem(paneItem);
             },
           ),
         ),
