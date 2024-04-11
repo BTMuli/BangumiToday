@@ -15,10 +15,10 @@ class BTNavStore extends ChangeNotifier {
   int lastIndex = 0;
 
   /// 侧边栏动态组件
-  final List<PaneItem> _navItems = [];
+  final Map<String, PaneItem> _navMap = {};
 
   /// 获取侧边栏动态组件
-  List<PaneItem> get navItems => _navItems;
+  List<PaneItem> get navItems => _navMap.values.toList();
 
   /// 设置当前索引
   void setCurIndex(int index) {
@@ -28,7 +28,7 @@ class BTNavStore extends ChangeNotifier {
   }
 
   /// 添加侧边栏动态组件
-  void addNavItem(PaneItem item) {
+  void addNavItem(PaneItem item, String title) {
     item = PaneItem(
       title: item.title,
       body: item.body,
@@ -36,30 +36,22 @@ class BTNavStore extends ChangeNotifier {
       trailing: IconButton(
         icon: Icon(FluentIcons.clear),
         onPressed: () {
-          removeNavItem(item);
+          removeNavItem(title);
         },
       ),
     );
-    // 查找是否已经存在
-    final index = _navItems.indexWhere(
-      (element) => element.title.toString() == item.title.toString(),
-    );
-    if (index != -1) {
-      // 存在则更新
-      _navItems[index] = item;
+    if (_navMap.containsKey(title)) {
+      _navMap[title] = item;
     } else {
-      // 不存在则添加
-      _navItems.add(item);
+      _navMap.putIfAbsent(title, () => item);
     }
     notifyListeners();
-    toNav(item.title.toString());
+    toNav(title);
   }
 
   /// 跳转到指定侧边栏
   void toNav(String title) {
-    final index = _navItems.indexWhere(
-      (element) => element.title.toString() == title,
-    );
+    final index = _navMap.keys.toList().indexOf(title);
     if (index != -1) {
       lastIndex = curIndex;
       curIndex = index + 3;
@@ -67,26 +59,11 @@ class BTNavStore extends ChangeNotifier {
     }
   }
 
-  /// 移除侧边栏组件-通过title
-  void removeNavItemByTitle(String title) {
-    final index = _navItems.indexWhere(
-      (element) => element.title.toString() == title,
-    );
-    if (index != -1) {
-      _navItems.removeAt(index);
-      if (lastIndex > _navItems.length + 2) {
-        curIndex = 0;
-      } else {
-        curIndex = lastIndex;
-      }
-      notifyListeners();
-    }
-  }
-
   /// 移除侧边栏动态组件
-  void removeNavItem(PaneItem item) {
-    _navItems.remove(item);
-    if (lastIndex > _navItems.length + 2) {
+  void removeNavItem(String title) {
+    if (!_navMap.containsKey(title)) return;
+    _navMap.remove(title);
+    if (lastIndex > _navMap.length + 2) {
       curIndex = 0;
     } else {
       curIndex = lastIndex;

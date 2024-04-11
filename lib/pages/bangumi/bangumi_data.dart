@@ -23,7 +23,8 @@ class BangumiDataPage extends ConsumerStatefulWidget {
 }
 
 /// BangumiData相关页面状态
-class _BangumiDataPageState extends ConsumerState<BangumiDataPage> {
+class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
+    with AutomaticKeepAliveClientMixin {
   /// 数据库-AppConfig
   final BtsAppConfig appConfig = BtsAppConfig();
 
@@ -35,6 +36,10 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage> {
 
   /// 版本号
   late String? version = 'unknown';
+
+  /// 保持状态
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -144,8 +149,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage> {
       leading: IconButton(
         icon: Icon(FluentIcons.back),
         onPressed: () {
-          var title = Text('BangumiData');
-          ref.read(navStoreProvider).removeNavItemByTitle(title.toString());
+          ref.read(navStoreProvider).removeNavItem('BangumiData');
         },
       ),
     );
@@ -153,6 +157,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return ScaffoldPage(
       header: buildHeader(),
       content: ListView(

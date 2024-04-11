@@ -117,7 +117,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
             title: Text('Bangumi 用户界面'),
             body: BangumiUser(),
           );
-          ref.read(navStoreProvider).addNavItem(paneItem);
+          ref.read(navStoreProvider).addNavItem(paneItem, 'Bangumi 用户界面');
         },
       ),
     );
@@ -135,7 +135,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
             title: Text('BangumiData'),
             body: BangumiDataPage(),
           );
-          ref.read(navStoreProvider).addNavItem(paneItem);
+          ref.read(navStoreProvider).addNavItem(paneItem, 'BangumiData');
         },
       ),
     );

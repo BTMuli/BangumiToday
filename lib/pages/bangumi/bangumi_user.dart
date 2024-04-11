@@ -49,9 +49,8 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
   /// 进度条
   late ProgressController progress = ProgressController();
 
-  /// todo 完善后设为true
   @override
-  bool get wantKeepAlive => false;
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -59,6 +58,12 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
     Future.delayed(Duration.zero, () async {
       await init();
     });
+  }
+
+  @override
+  void dispose() {
+    // 这边不销毁controller，是因为每次使用都会重新创建
+    super.dispose();
   }
 
   /// 初始化
@@ -197,7 +202,7 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
       leading: IconButton(
         icon: Icon(FluentIcons.back),
         onPressed: () {
-          ref.read(navStoreProvider).removeNavItemByTitle(titleW.toString());
+          ref.read(navStoreProvider).removeNavItem('Bangumi 用户界面');
         },
       ),
     );

@@ -159,7 +159,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
             ),
             onPressed: () {
               var paneItem = getPaneItem(context);
-              ref.read(navStoreProvider).addNavItem(paneItem);
+              ref.read(navStoreProvider).addNavItem(paneItem, '番剧详情');
             },
           ),
         ),
