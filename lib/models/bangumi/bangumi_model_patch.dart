@@ -20,11 +20,16 @@ class BangumiPatchRating {
   @JsonKey(name: 'score')
   double score;
 
+  /// rank
+  @JsonKey(name: 'rank')
+  int? rank;
+
   /// constructor
   BangumiPatchRating({
     required this.total,
     required this.count,
     required this.score,
+    required this.rank,
   });
 
   /// from json
@@ -40,23 +45,23 @@ class BangumiPatchRating {
 class BangumiPatchCollection {
   /// wish
   @JsonKey(name: 'wish')
-  int wish;
+  int? wish;
 
   /// collect
   @JsonKey(name: 'collect')
-  int collect;
+  int? collect;
 
   /// doing
   @JsonKey(name: 'doing')
-  int doing;
+  int? doing;
 
   /// on_hold
   @JsonKey(name: 'on_hold')
-  int onHold;
+  int? onHold;
 
   /// dropped
   @JsonKey(name: 'dropped')
-  int dropped;
+  int? dropped;
 
   /// constructor
   BangumiPatchCollection({

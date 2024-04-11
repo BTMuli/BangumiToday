@@ -41,6 +41,6 @@ class BTResponse<T> {
       _$BTResponseFromJson(json, fromJsonT);
 
   /// to json
-  Map<String, dynamic> toJson(Object? Function(T value) toJsonT) =>
+  Map<String, dynamic> toJson(dynamic Function(T value) toJsonT) =>
       _$BTResponseToJson(this, toJsonT);
 }

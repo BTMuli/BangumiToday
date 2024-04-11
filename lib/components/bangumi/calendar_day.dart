@@ -1,13 +1,13 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../models/bangumi/get_calendar.dart';
+import '../../models/bangumi/request_subject.dart';
 import 'calendar_card.dart';
 
 /// 今日放送-单日
 class CalendarDay extends StatelessWidget {
   /// 数据
-  final CalendarItem? data;
+  final BangumiCalendarRespData? data;
 
   /// 是否在加载中
   final bool loading;

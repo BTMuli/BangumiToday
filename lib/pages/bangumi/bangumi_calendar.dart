@@ -2,8 +2,9 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../components/app/app_dialog_resp.dart';
 import '../../components/bangumi/calendar_day.dart';
-import '../../models/bangumi/get_calendar.dart';
+import '../../models/bangumi/request_subject.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/nav_store.dart';
 import 'bangumi_data.dart';
@@ -28,7 +29,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   bool isRequesting = true;
 
   /// 请求数据
-  List<CalendarItem> calendarData = [];
+  List<BangumiCalendarRespData> calendarData = [];
 
   /// tabIndex
   int tabIndex = 0;
@@ -64,13 +65,21 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     calendarData.clear();
     tabIndex = today;
     setState(() {});
-    calendarData = await _client.getToday();
+    var calendarGet = await _client.getToday();
+    if (calendarGet.code != 0 || calendarGet.data == null) {
+      isRequesting = false;
+      setState(() {});
+      showRespErr(calendarGet, context);
+      return;
+    }
+    assert(calendarGet.data != null);
+    calendarData = calendarGet.data as List<BangumiCalendarRespData>;
     isRequesting = false;
     setState(() {});
   }
 
   /// 获取 Tab 数据
-  CalendarItem? getTabData(int index) {
+  BangumiCalendarRespData? getTabData(int index) {
     if (index >= calendarData.length) return null;
     return calendarData[index];
   }

@@ -11,6 +11,7 @@ BangumiPatchRating _$BangumiPatchRatingFromJson(Map<String, dynamic> json) =>
       total: json['total'] as int,
       count: Map<String, int>.from(json['count'] as Map),
       score: (json['score'] as num).toDouble(),
+      rank: json['rank'] as int?,
     );
 
 Map<String, dynamic> _$BangumiPatchRatingToJson(BangumiPatchRating instance) =>
@@ -18,16 +19,17 @@ Map<String, dynamic> _$BangumiPatchRatingToJson(BangumiPatchRating instance) =>
       'total': instance.total,
       'count': instance.count,
       'score': instance.score,
+      'rank': instance.rank,
     };
 
 BangumiPatchCollection _$BangumiPatchCollectionFromJson(
         Map<String, dynamic> json) =>
     BangumiPatchCollection(
-      wish: json['wish'] as int,
-      collect: json['collect'] as int,
-      doing: json['doing'] as int,
-      onHold: json['on_hold'] as int,
-      dropped: json['dropped'] as int,
+      wish: json['wish'] as int?,
+      collect: json['collect'] as int?,
+      doing: json['doing'] as int?,
+      onHold: json['on_hold'] as int?,
+      dropped: json['dropped'] as int?,
     );
 
 Map<String, dynamic> _$BangumiPatchCollectionToJson(

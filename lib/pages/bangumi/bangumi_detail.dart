@@ -2,10 +2,9 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../components/app/app_dialog_resp.dart';
 import '../../components/bangumi/detail_card.dart';
-import '../../models/app/err.dart';
-import '../../models/bangumi/common_model.dart';
-import '../../models/bangumi/get_subject.dart';
+import '../../models/bangumi/bangumi_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/nav_store.dart';
 import '../../utils/tool_func.dart';
@@ -31,6 +30,9 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
   @override
   bool get wantKeepAlive => true;
 
+  /// 是否显示错误组件
+  bool showError = false;
+
   /// 当id改变时, 重新加载数据
   @override
   void didUpdateWidget(BangumiDetail oldWidget) {
@@ -45,23 +47,29 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
   @override
   void initState() {
     super.initState();
+    Future.microtask(() async {
+      await init();
+    });
   }
 
-  /// future
-  Future<String> init() async {
-    if (data != null) return 'success';
-    final api = BangumiAPI();
-    try {
-      data = await api.getDetail(widget.id);
+  Future<void> init() async {
+    if (showError) {
+      showError = false;
       setState(() {});
-      return 'success';
-    } on BTError catch (e) {
-      return '[${e.type}] ${e.message}';
     }
+    final api = BangumiAPI();
+    var detailGet = await api.getDetail(widget.id);
+    if (detailGet.code != 0 || detailGet.data == null) {
+      await showRespErr(detailGet, context);
+      showError = true;
+      return;
+    }
+    data = detailGet.data;
+    setState(() {});
   }
 
   /// 获取封面
-  String getCover(BangumiImage images) {
+  String getCover(BangumiImages images) {
     return images.large;
   }
 
@@ -89,34 +97,26 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
 
   /// 构建加载中
   Widget buildLoading() {
-    return ScaffoldPage(
-      header: buildHeader(),
-      content: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ProgressRing(),
-            SizedBox(height: 12.h),
-            Text('Loading...'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 构建错误
-  Widget buildError(String message) {
-    return ScaffoldPage(
-      header: buildHeader(),
-      content: Center(
+    if (showError) {
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(FluentIcons.error),
             SizedBox(height: 12.h),
-            Text('Error: $message'),
+            Text('Error: 加载失败'),
           ],
         ),
+      );
+    }
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ProgressRing(),
+          SizedBox(height: 12.h),
+          Text('Loading...'),
+        ],
       ),
     );
   }
@@ -147,7 +147,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
   }
 
   /// 构建其他信息
-  Widget buildOtherInfo(List<BangumiSubjectInfoBox> infobox) {
+  Widget buildOtherInfo(List<BangumiInfoBoxItem> infobox) {
     var res = <Widget>[];
     // 换行加tab
     var gap = "\n    ";
@@ -184,44 +184,26 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
   }
 
   /// 构建内容
-  Widget buildContent(BangumiSubject bangumi) {
-    return ScaffoldPage(
-      header: buildHeader(),
-      content: ListView(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-        children: [
-          BangumiDetailCard(bangumi),
-          SizedBox(height: 12.h),
-          buildSummary(bangumi.summary),
-          SizedBox(height: 12.h),
-          // 章节
-          // buildEpisodes(),
-          buildOtherInfo(bangumi.infobox),
-        ],
-      ),
+  Widget buildContent() {
+    if (data == null) return buildLoading();
+    assert(data != null);
+    return ListView(
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+      children: [
+        BangumiDetailCard(data!),
+        SizedBox(height: 12.h),
+        buildSummary(data!.summary),
+        SizedBox(height: 12.h),
+        // 章节
+        // buildEpisodes(),
+        buildOtherInfo(data!.infobox),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return FutureBuilder<String>(
-      future: init(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return buildLoading();
-        }
-        if (snapshot.hasError) {
-          return buildError(snapshot.error.toString());
-        }
-        if (snapshot.hasData) {
-          if (snapshot.data == 'success' && data != null) {
-            return buildContent(data!);
-          }
-          return buildError(snapshot.data ?? 'Unknown');
-        }
-        return buildLoading();
-      },
-    );
+    return ScaffoldPage(header: buildHeader(), content: buildContent());
   }
 }

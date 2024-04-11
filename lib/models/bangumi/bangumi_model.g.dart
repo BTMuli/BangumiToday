@@ -17,14 +17,20 @@ BangumiLegacySubjectSmall _$BangumiLegacySubjectSmallFromJson(
       summary: json['summary'] as String,
       airDate: json['air_date'] as String,
       airWeekday: json['air_weekday'] as int,
-      images:
-          BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
-      eps: json['eps'] as int,
-      epsCount: json['eps_count'] as int,
-      rating:
-          BangumiPatchRating.fromJson(json['rating'] as Map<String, dynamic>),
-      collection: BangumiPatchCollection.fromJson(
-          json['collection'] as Map<String, dynamic>),
+      images: json['images'] == null
+          ? null
+          : BangumiPersonImages.fromJson(
+              json['images'] as Map<String, dynamic>),
+      eps: json['eps'] as int?,
+      epsCount: json['eps_count'] as int?,
+      rating: json['rating'] == null
+          ? null
+          : BangumiPatchRating.fromJson(json['rating'] as Map<String, dynamic>),
+      rank: json['rank'] as int?,
+      collection: json['collection'] == null
+          ? null
+          : BangumiPatchCollection.fromJson(
+              json['collection'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$BangumiLegacySubjectSmallToJson(
@@ -42,6 +48,7 @@ Map<String, dynamic> _$BangumiLegacySubjectSmallToJson(
       'eps': instance.eps,
       'eps_count': instance.epsCount,
       'rating': instance.rating,
+      'rank': instance.rank,
       'collection': instance.collection,
     };
 
@@ -138,14 +145,20 @@ BangumiLegacySubjectMedium _$BangumiLegacySubjectMediumFromJson(
       summary: json['summary'] as String,
       airDate: json['air_date'] as String,
       airWeekday: json['air_weekday'] as int,
-      images:
-          BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
-      eps: json['eps'] as int,
-      epsCount: json['eps_count'] as int,
-      rating:
-          BangumiPatchRating.fromJson(json['rating'] as Map<String, dynamic>),
-      collection: BangumiPatchCollection.fromJson(
-          json['collection'] as Map<String, dynamic>),
+      images: json['images'] == null
+          ? null
+          : BangumiPersonImages.fromJson(
+              json['images'] as Map<String, dynamic>),
+      eps: json['eps'] as int?,
+      epsCount: json['eps_count'] as int?,
+      rating: json['rating'] == null
+          ? null
+          : BangumiPatchRating.fromJson(json['rating'] as Map<String, dynamic>),
+      rank: json['rank'] as int?,
+      collection: json['collection'] == null
+          ? null
+          : BangumiPatchCollection.fromJson(
+              json['collection'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$BangumiLegacySubjectMediumToJson(
@@ -165,6 +178,7 @@ Map<String, dynamic> _$BangumiLegacySubjectMediumToJson(
       'eps': instance.eps,
       'eps_count': instance.epsCount,
       'rating': instance.rating,
+      'rank': instance.rank,
       'collection': instance.collection,
     };
 
@@ -185,14 +199,20 @@ BangumiLegacySubjectLarge _$BangumiLegacySubjectLargeFromJson(
       summary: json['summary'] as String,
       airDate: json['air_date'] as String,
       airWeekday: json['air_weekday'] as int,
-      images:
-          BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
-      eps: json['eps'] as int,
-      epsCount: json['eps_count'] as int,
-      rating:
-          BangumiPatchRating.fromJson(json['rating'] as Map<String, dynamic>),
-      collection: BangumiPatchCollection.fromJson(
-          json['collection'] as Map<String, dynamic>),
+      images: json['images'] == null
+          ? null
+          : BangumiPersonImages.fromJson(
+              json['images'] as Map<String, dynamic>),
+      eps: json['eps'] as int?,
+      epsCount: json['eps_count'] as int?,
+      rating: json['rating'] == null
+          ? null
+          : BangumiPatchRating.fromJson(json['rating'] as Map<String, dynamic>),
+      rank: json['rank'] as int?,
+      collection: json['collection'] == null
+          ? null
+          : BangumiPatchCollection.fromJson(
+              json['collection'] as Map<String, dynamic>),
       crt: (json['crt'] as List<dynamic>)
           .map((e) =>
               BangumiLegacySubjectCharacter.fromJson(e as Map<String, dynamic>))
@@ -220,6 +240,7 @@ Map<String, dynamic> _$BangumiLegacySubjectLargeToJson(
       'eps': instance.eps,
       'eps_count': instance.epsCount,
       'rating': instance.rating,
+      'rank': instance.rank,
       'collection': instance.collection,
       'crt': instance.crt,
       'staff': instance.staff,
@@ -1283,7 +1304,7 @@ BangumiSubject _$BangumiSubjectFromJson(Map<String, dynamic> json) =>
       nsfw: json['nsfw'] as bool,
       locked: json['locked'] as bool,
       date: json['date'] as String,
-      platform: json['platform'] as int,
+      platform: json['platform'] as String,
       images: BangumiImages.fromJson(json['images'] as Map<String, dynamic>),
       infobox: (json['infobox'] as List<dynamic>)
           .map((e) => BangumiInfoBoxItem.fromJson(e as Map<String, dynamic>))

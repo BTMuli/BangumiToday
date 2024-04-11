@@ -3,7 +3,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../models/bangumi/get_subject.dart';
+import '../../models/bangumi/bangumi_model_patch.dart';
 import '../../store/app_store.dart';
 
 /// 番剧评分折线图
@@ -14,7 +14,7 @@ import '../../store/app_store.dart';
 /// 代码：https://github.com/imaNNeo/fl_chart/blob/main/example/lib/presentation/samples/bar/bar_chart_sample1.dart
 class BangumiRateBarChart extends ConsumerStatefulWidget {
   /// 评分数据
-  final BangumiSubjectRating? rating;
+  final BangumiPatchRating? rating;
 
   /// 构造函数
   const BangumiRateBarChart(this.rating, {super.key});
@@ -26,7 +26,7 @@ class BangumiRateBarChart extends ConsumerStatefulWidget {
 
 class _BangumiRateBarChartState extends ConsumerState<BangumiRateBarChart> {
   /// 数据
-  BangumiSubjectRating? get rating => widget.rating;
+  BangumiPatchRating? get rating => widget.rating;
 
   /// 是否有数据
   bool get empty => rating == null;

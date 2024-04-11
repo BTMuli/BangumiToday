@@ -5,14 +5,14 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../database/bangumi/bangumi_data.dart';
-import '../../models/bangumi/get_calendar.dart';
+import '../../models/bangumi/bangumi_model.dart';
 import '../../pages/bangumi/bangumi_detail.dart';
 import '../../store/nav_store.dart';
 
 /// 今日放送-番剧卡片
 class CalendarCard extends ConsumerStatefulWidget {
   /// 数据
-  final CalendarItemBangumi data;
+  final BangumiLegacySubjectSmall data;
 
   /// 构造函数
   const CalendarCard({super.key, required this.data});
@@ -24,7 +24,7 @@ class CalendarCard extends ConsumerStatefulWidget {
 class _CalendarCardState extends ConsumerState<CalendarCard>
     with AutomaticKeepAliveClientMixin {
   /// 数据
-  CalendarItemBangumi get data => widget.data;
+  BangumiLegacySubjectSmall get data => widget.data;
 
   /// 放送时间
   String upTime = '';
@@ -36,7 +36,6 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
   @override
   void initState() {
     super.initState();
-    // todo bug 当页面切换时，会重新获取时间
     Future.delayed(Duration.zero, () async {
       await getTime();
     });

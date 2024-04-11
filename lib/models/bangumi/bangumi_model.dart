@@ -47,23 +47,27 @@ class BangumiLegacySubjectSmall {
 
   /// images
   @JsonKey(name: 'images')
-  BangumiPersonImages images;
+  BangumiPersonImages? images;
 
   /// eps
   @JsonKey(name: 'eps')
-  int eps;
+  int? eps;
 
   /// eps_count
   @JsonKey(name: 'eps_count')
-  int epsCount;
+  int? epsCount;
 
   /// rating
   @JsonKey(name: 'rating')
-  BangumiPatchRating rating;
+  BangumiPatchRating? rating;
+
+  /// rank
+  @JsonKey(name: 'rank')
+  int? rank;
 
   /// collection
   @JsonKey(name: 'collection')
-  BangumiPatchCollection collection;
+  BangumiPatchCollection? collection;
 
   /// constructor
   BangumiLegacySubjectSmall({
@@ -79,6 +83,7 @@ class BangumiLegacySubjectSmall {
     required this.eps,
     required this.epsCount,
     required this.rating,
+    required this.rank,
     required this.collection,
   });
 
@@ -268,23 +273,27 @@ class BangumiLegacySubjectMedium {
 
   /// images
   @JsonKey(name: 'images')
-  BangumiPersonImages images;
+  BangumiPersonImages? images;
 
   /// eps
   @JsonKey(name: 'eps')
-  int eps;
+  int? eps;
 
   /// eps_count
   @JsonKey(name: 'eps_count')
-  int epsCount;
+  int? epsCount;
 
   /// rating
   @JsonKey(name: 'rating')
-  BangumiPatchRating rating;
+  BangumiPatchRating? rating;
+
+  /// rank
+  @JsonKey(name: 'rank')
+  int? rank;
 
   /// collection
   @JsonKey(name: 'collection')
-  BangumiPatchCollection collection;
+  BangumiPatchCollection? collection;
 
   /// constructor
   BangumiLegacySubjectMedium({
@@ -302,6 +311,7 @@ class BangumiLegacySubjectMedium {
     required this.eps,
     required this.epsCount,
     required this.rating,
+    required this.rank,
     required this.collection,
   });
 
@@ -362,23 +372,27 @@ class BangumiLegacySubjectLarge {
 
   /// images
   @JsonKey(name: 'images')
-  BangumiPersonImages images;
+  BangumiPersonImages? images;
 
   /// eps
   @JsonKey(name: 'eps')
-  int eps;
+  int? eps;
 
   /// eps_count
   @JsonKey(name: 'eps_count')
-  int epsCount;
+  int? epsCount;
 
   /// rating
   @JsonKey(name: 'rating')
-  BangumiPatchRating rating;
+  BangumiPatchRating? rating;
+
+  /// rank
+  @JsonKey(name: 'rank')
+  int? rank;
 
   /// collection
   @JsonKey(name: 'collection')
-  BangumiPatchCollection collection;
+  BangumiPatchCollection? collection;
 
   /// crt 角色信息
   @JsonKey(name: 'crt')
@@ -404,6 +418,7 @@ class BangumiLegacySubjectLarge {
     required this.eps,
     required this.epsCount,
     required this.rating,
+    required this.rank,
     required this.collection,
     required this.crt,
     required this.staff,
@@ -2482,7 +2497,7 @@ class BangumiSubject {
 
   /// platform
   @JsonKey(name: 'platform')
-  int platform;
+  String platform;
 
   /// images
   @JsonKey(name: 'images')

@@ -252,16 +252,6 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
               await freshUserInfo();
             },
           ),
-          SizedBox(width: 8.w),
-          FilledButton(
-            child: Tooltip(
-              message: '查看授权信息',
-              child: Icon(FluentIcons.authenticator_app),
-            ),
-            onPressed: () async {
-              await launchUrlString("https://next.bgm.tv/demo/access-token");
-            },
-          ),
         ],
       ),
     );
