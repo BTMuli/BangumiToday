@@ -48,15 +48,11 @@ class _AppNavState extends ConsumerState<AppNav> {
         var size = await windowManager.getSize();
         var target = Size(1280, 720);
         if (size == target) {
-          await showInfoBar(
-            context,
-            text: '无需重置大小！',
-            severity: InfoBarSeverity.warning,
-          );
+          await BtInfobar.warn(context, '无需重置大小！');
           return;
         }
         await windowManager.setSize(Size(1280, 720));
-        await showInfoBar(context, text: '已成功重置窗口大小！');
+        await BtInfobar.success(context, '已成功重置窗口大小！');
       },
     );
   }

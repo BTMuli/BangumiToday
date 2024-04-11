@@ -4,20 +4,23 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 /// 输入框对话框
 /// [title] 标题，[content] 内容，[onSubmit] 提交回调
-Future<void> showInputDialog(
+Future<String?> showInputDialog(
   BuildContext context, {
   required String title,
   required String content,
-  required Function(String) onSubmit,
-}) {
+}) async {
+  var confirm = false;
   final controller = TextEditingController();
-  return showDialog(
+  await showDialog(
+    barrierDismissible: true,
     context: context,
     builder: (context) {
       return ContentDialog(
         title: Text(title),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(content),
             SizedBox(height: 12.0),
@@ -27,7 +30,7 @@ Future<void> showInputDialog(
         actions: [
           Button(
             onPressed: () {
-              onSubmit(controller.text);
+              confirm = true;
               Navigator.of(context).pop();
             },
             child: Text('提交'),
@@ -42,17 +45,20 @@ Future<void> showInputDialog(
       );
     },
   );
+  if (!confirm) return null;
+  return controller.text;
 }
 
 /// 确认框对话框
 /// [title] 标题，[content] 内容，[onSubmit] 提交回调
-Future<void> showConfirmDialog(
+Future<bool> showConfirmDialog(
   BuildContext context, {
   required String title,
   required String content,
-  required Function() onSubmit,
-}) {
-  return showDialog(
+}) async {
+  var confirm = false;
+  await showDialog(
+    barrierDismissible: true,
     context: context,
     builder: (context) {
       return ContentDialog(
@@ -61,19 +67,20 @@ Future<void> showConfirmDialog(
         actions: [
           Button(
             onPressed: () {
-              onSubmit();
-              Navigator.of(context).pop();
-            },
-            child: Text('确定'),
-          ),
-          Button(
-            onPressed: () {
               Navigator.of(context).pop();
             },
             child: Text('取消'),
+          ),
+          Button(
+            onPressed: () {
+              confirm = true;
+              Navigator.of(context).pop();
+            },
+            child: Text('确定'),
           ),
         ],
       );
     },
   );
+  return confirm;
 }

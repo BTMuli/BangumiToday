@@ -62,6 +62,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   Future<void> getData() async {
     isRequesting = true;
     calendarData.clear();
+    tabIndex = today;
     setState(() {});
     calendarData = await _client.getToday();
     isRequesting = false;

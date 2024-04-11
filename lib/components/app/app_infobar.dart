@@ -1,59 +1,43 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
-/// 一级封装
-Future<void> showInfoBar(
-  BuildContext context, {
-  InfoBarSeverity severity = InfoBarSeverity.success,
-  required String text,
-}) async {
-  return await displayInfoBar(context, builder: (context, close) {
-    return InfoBar(title: Text(text), severity: severity);
-  });
-}
-
-/// 二级封装
-class BTInfoBar {
-  BTInfoBar._();
+/// 对InfoBar的封装
+class BtInfobar {
+  BtInfobar._();
 
   /// 实例
-  static final BTInfoBar _instance = BTInfoBar._();
+  static final BtInfobar _instance = BtInfobar._();
 
   /// 获取实例
-  factory BTInfoBar() => _instance;
+  factory BtInfobar() => _instance;
+
+  /// show
+  static Future<void> show(
+    BuildContext context,
+    String text,
+    InfoBarSeverity severity,
+  ) async {
+    return await displayInfoBar(context, builder: (context, close) {
+      return InfoBar(title: Text(text), severity: severity);
+    });
+  }
 
   /// success
   static Future<void> success(BuildContext context, String text) async {
-    return await showInfoBar(
-      context,
-      text: text,
-      severity: InfoBarSeverity.success,
-    );
+    return await show(context, text, InfoBarSeverity.success);
   }
 
   /// error
   static Future<void> error(BuildContext context, String text) async {
-    return await showInfoBar(
-      context,
-      text: text,
-      severity: InfoBarSeverity.error,
-    );
+    return await show(context, text, InfoBarSeverity.error);
   }
 
   /// warning
   static Future<void> warn(BuildContext context, String text) async {
-    return await showInfoBar(
-      context,
-      text: text,
-      severity: InfoBarSeverity.warning,
-    );
+    return await show(context, text, InfoBarSeverity.warning);
   }
 
   /// info
   static Future<void> info(BuildContext context, String text) async {
-    return await showInfoBar(
-      context,
-      text: text,
-      severity: InfoBarSeverity.info,
-    );
+    return await show(context, text, InfoBarSeverity.info);
   }
 }

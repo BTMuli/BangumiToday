@@ -64,14 +64,10 @@ class _BangumiUserState extends ConsumerState<BangumiUser> {
       progress.update(text: '未找到访问令牌');
       await Future.delayed(Duration(milliseconds: 500));
       progress.end();
-      var oauthConfirm = false;
-      await showConfirmDialog(
+      var oauthConfirm = await showConfirmDialog(
         context,
         title: '未找到访问令牌',
         content: '是否前往授权页面？',
-        onSubmit: () {
-          oauthConfirm = true;
-        },
       );
       if (!oauthConfirm) return;
       await oauthUser();
@@ -110,7 +106,7 @@ class _BangumiUserState extends ConsumerState<BangumiUser> {
         progress.update(title: '处理授权回调');
         var code = uri.queryParameters['code'];
         if (code == null) {
-          await BTInfoBar.error(context, '授权失败：未找到授权码');
+          await BtInfobar.error(context, '授权失败：未找到授权码');
           progress.end();
           // 停止监听
           _appLinks.uriLinkStream.listen((_) {});

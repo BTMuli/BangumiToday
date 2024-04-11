@@ -62,6 +62,15 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage> {
       return;
     }
     progress.update(title: '未获取到本地版本', text: '开始获取远程版本');
+    var confirm = await showConfirmDialog(
+      context,
+      title: '未获取到本地版本',
+      content: '是否强制更新数据？',
+    );
+    if (!confirm) {
+      progress.end();
+      return;
+    }
     var verRemote = await GithubAPI().getLatestRelease(
       'bangumi-data',
       'bangumi-data',
@@ -178,17 +187,11 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage> {
               progress.end();
               // 等待0.5秒
               await Future.delayed(Duration(milliseconds: 500));
-              var confirm = false;
-              if (remote == version) {
-                showConfirmDialog(
-                  context,
-                  title: '确认更新？',
-                  content: '远程数据版本与本地版本一致($version)，是否强制更新？',
-                  onSubmit: () {
-                    confirm = true;
-                  },
-                );
-              }
+              var confirm = await showConfirmDialog(
+                context,
+                title: '确认更新？',
+                content: '远程版本：$remote，本地版本：$version',
+              );
               if (confirm) {
                 await updateData(null);
                 await appConfig.write('bangumiDataVersion', remote);

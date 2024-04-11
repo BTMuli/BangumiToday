@@ -61,7 +61,7 @@ class _MikanRSSPageState extends State<MikanRSSPage>
     var res = await mikanAPI.getClassicRSS();
     rssItems = res;
     setState(() {});
-    await showInfoBar(context, text: '已刷新Mikan列表');
+    await BtInfobar.success(context, '已刷新Mikan列表');
   }
 
   /// 刷新
@@ -71,7 +71,7 @@ class _MikanRSSPageState extends State<MikanRSSPage>
     var res = await mikanAPI.getUserRSS(token);
     userItems = res;
     setState(() {});
-    await showInfoBar(context, text: '已刷新用户列表');
+    await BtInfobar.success(context, '已刷新用户列表');
   }
 
   /// 初始化
@@ -170,9 +170,9 @@ class _MikanRSSPageState extends State<MikanRSSPage>
           }
           if (v != old) {
             if (v) {
-              await showInfoBar(context, text: '已切换到用户列表');
+              await BtInfobar.success(context, '已切换到用户列表');
             } else {
-              await showInfoBar(context, text: '已切换到Mikan列表');
+              await BtInfobar.success(context, '已切换到Mikan列表');
             }
           }
           setState(() {});
@@ -186,20 +186,22 @@ class _MikanRSSPageState extends State<MikanRSSPage>
       SizedBox(width: 10.w),
       Button(
         onPressed: () async {
-          await showInputDialog(
+          var input = await showInputDialog(
             context,
             title: '输入 Token',
-            content: '请输入你的 Token'
-                '（在蜜柑计划的个人中心可以找到）',
-            onSubmit: (value) async {
-              token = await getToken(value);
-              await configTool.writeConfig('mikan', {
-                'enable': true,
-                'token': token,
-              });
-              await refreshUserRSS();
-            },
+            content: '请输入你的 Token\n（在蜜柑计划的个人中心可以找到）',
           );
+          if (input == null || input == "") {
+            BtInfobar.warn(context, '未输入 Token');
+            return;
+          }
+          token = await getToken(input);
+          // todo 迁移到数据库
+          await configTool.writeConfig('mikan', {
+            'enable': true,
+            'token': token,
+          });
+          await refreshUserRSS();
         },
         child: Text('编辑Token'),
       )
