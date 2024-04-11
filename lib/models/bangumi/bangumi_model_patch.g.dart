@@ -1,0 +1,41 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'bangumi_model_patch.dart';
+
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
+
+BangumiPatchRating _$BangumiPatchRatingFromJson(Map<String, dynamic> json) =>
+    BangumiPatchRating(
+      total: json['total'] as int,
+      count: Map<String, int>.from(json['count'] as Map),
+      score: (json['score'] as num).toDouble(),
+    );
+
+Map<String, dynamic> _$BangumiPatchRatingToJson(BangumiPatchRating instance) =>
+    <String, dynamic>{
+      'total': instance.total,
+      'count': instance.count,
+      'score': instance.score,
+    };
+
+BangumiPatchCollection _$BangumiPatchCollectionFromJson(
+        Map<String, dynamic> json) =>
+    BangumiPatchCollection(
+      wish: json['wish'] as int,
+      collect: json['collect'] as int,
+      doing: json['doing'] as int,
+      onHold: json['on_hold'] as int,
+      dropped: json['dropped'] as int,
+    );
+
+Map<String, dynamic> _$BangumiPatchCollectionToJson(
+        BangumiPatchCollection instance) =>
+    <String, dynamic>{
+      'wish': instance.wish,
+      'collect': instance.collect,
+      'doing': instance.doing,
+      'on_hold': instance.onHold,
+      'dropped': instance.dropped,
+    };
