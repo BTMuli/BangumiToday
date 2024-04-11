@@ -55,6 +55,7 @@ dependencies:
   video_player_control_panel: ^1.1.1
   window_manager: ^0.3.8
   win32_registry: ^1.1.2
+  windows_taskbar: ^1.1.2
 
 dev_dependencies:
   flutter_test:

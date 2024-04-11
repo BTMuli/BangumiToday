@@ -1,5 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:windows_taskbar/windows_taskbar.dart';
 
 /// 进度条 controller
 class ProgressController extends ChangeNotifier {
@@ -9,14 +11,18 @@ class ProgressController extends ChangeNotifier {
   /// 文本
   late String text;
 
-  /// 进度
+  /// 进度，百分比
   late double? progress;
+
+  /// 是否在任务栏显示
+  late bool onTaskbar;
 
   /// 构造
   ProgressController({
     this.title = '加载中',
     this.text = '请稍后',
     this.progress,
+    this.onTaskbar = false,
   });
 
   /// 更新
@@ -24,6 +30,14 @@ class ProgressController extends ChangeNotifier {
     if (title != null) this.title = title;
     if (text != null) this.text = text;
     this.progress = progress;
+    if (onTaskbar) {
+      if (progress == null) {
+        WindowsTaskbar.setProgressMode(TaskbarProgressMode.indeterminate);
+      } else {
+        WindowsTaskbar.setProgressMode(TaskbarProgressMode.normal);
+        WindowsTaskbar.setProgress(progress.toInt(), 100);
+      }
+    }
     notifyListeners();
   }
 }
@@ -80,6 +94,8 @@ class _ProgressWidgetState extends State<ProgressWidget> {
             Text(
               controller.text,
               style: FluentTheme.of(context).typography.body,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
             SizedBox(height: 10),
             SizedBox(
@@ -107,12 +123,23 @@ class AppProgress {
     required String title,
     String text = '',
     double? progress,
+    bool onTaskbar = false,
   }) {
-    controller = ProgressController(
-      title: title,
-      text: text,
-      progress: progress,
-    );
+    if (!onTaskbar || defaultTargetPlatform != TargetPlatform.windows) {
+      controller = ProgressController(
+        title: title,
+        text: text,
+        progress: progress,
+      );
+    } else {
+      WindowsTaskbar.setProgressMode(TaskbarProgressMode.indeterminate);
+      controller = ProgressController(
+        title: title,
+        text: text,
+        progress: progress,
+        onTaskbar: true,
+      );
+    }
   }
 
   /// 开始
@@ -122,6 +149,22 @@ class AppProgress {
       context: context,
       builder: (context) => ProgressWidget(controller),
     );
+  }
+
+  /// taskbar 的 getter
+  bool get onTaskbar => controller.onTaskbar;
+
+  /// taskbar 的 setter
+  set onTaskbar(bool value) {
+    if (value && defaultTargetPlatform == TargetPlatform.windows) {
+      controller.onTaskbar = value;
+      update(progress: controller.progress);
+      return;
+    }
+    if (!value && defaultTargetPlatform == TargetPlatform.windows) {
+      WindowsTaskbar.setProgressMode(TaskbarProgressMode.noProgress);
+    }
+    controller.onTaskbar = false;
   }
 
   /// 更新
@@ -135,6 +178,9 @@ class AppProgress {
 
   /// 结束
   void end() {
+    if (controller.onTaskbar) {
+      WindowsTaskbar.setProgressMode(TaskbarProgressMode.noProgress);
+    }
     Navigator.of(context).pop();
   }
 }

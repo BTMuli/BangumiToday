@@ -71,6 +71,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage> {
       progress.end();
       return;
     }
+    progress.onTaskbar = true;
     var verRemote = await GithubAPI().getLatestRelease(
       'bangumi-data',
       'bangumi-data',
@@ -85,16 +86,18 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage> {
 
   /// 更新数据
   Future<void> updateData(AppProgress? ap) async {
-    var progress;
-    if (ap == null) {
-      progress = AppProgress(
-        context,
-        title: '开始获取数据',
-        text: '正在获取JSON数据',
-        progress: null,
-      );
-    } else {
+    var progress = AppProgress(
+      context,
+      title: '开始获取数据',
+      text: '正在获取JSON数据',
+      progress: null,
+      onTaskbar: true,
+    );
+    if (ap != null) {
       progress = ap;
+      progress.onTaskbar = true;
+    } else {
+      progress.start();
     }
     var client = BTBangumiData();
     var rawData = await client.getBangumiData();
@@ -105,7 +108,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage> {
       sites.add(BangumiDataSiteFull.fromSite(entry.key, entry.value));
     }
     total = sites.length;
-    cnt = 0;
+    cnt = 1;
     for (var site in sites) {
       progress.update(
         title: '写入站点数据 $cnt/$total',
@@ -118,7 +121,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage> {
     }
     var items = rawData.items;
     total = items.length;
-    cnt = 0;
+    cnt = 1;
     for (var item in items) {
       progress.update(
         title: '写入条目数据 $cnt/$total',
