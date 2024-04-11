@@ -155,9 +155,13 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       var value;
       if (item.value is List) {
         var list = item.value as List;
-        value = list.map((e) => e['v']).toList().join(gap);
+        value = list
+            .map((e) => e['k'] != null ? '${e['k']}:${e['v']}' : e['v'])
+            .toList()
+            .join(gap);
         res.add(
-            Text('${item.key}:$gap$value', style: TextStyle(fontSize: 20.sp)));
+          Text('${item.key}:$gap$value', style: TextStyle(fontSize: 20.sp)),
+        );
       } else {
         value = item.value;
         res.add(Text('${item.key}: $value', style: TextStyle(fontSize: 20.sp)));

@@ -1,6 +1,5 @@
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../models/app/err.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/common_response.dart';
 import '../../models/bangumi/oauth.dart';
@@ -38,8 +37,7 @@ class BangumiOauth {
   }
 
   /// 获取 AccessToken
-  /// todo 重构
-  Future<BangumiTokenGResponse> getAccessToken(String code) async {
+  Future<BTResponse> getAccessToken(String code) async {
     var appId = getBgmAppId();
     var appSecret = getBgmAppSecret();
     var params = BangumiTokenGParams(
@@ -48,18 +46,36 @@ class BangumiOauth {
       code: code,
       state: '',
     );
-    var response =
-        await client.dio.post('/access_token', data: params.toJson());
-    if (response.statusCode == 200) {
-      return BangumiTokenGResponse.fromJson(
-          response.data as Map<String, dynamic>);
-    } else {
-      throw BTError.requestError(msg: 'Failed to get bangumi access token');
+    try {
+      var response = await client.dio.post(
+        '/access_token',
+        data: params.toJson(),
+      );
+      if (response.statusCode == 200) {
+        return BangumiTatResponse.success(
+          data: BangumiTatRespData.fromJson(
+            response.data as Map<String, dynamic>,
+          ),
+        );
+      }
+      var errResp = BangumiErrResponse.fromJson(response.data);
+      return BTResponse<BangumiErrResponse>(
+        code: response.statusCode ?? 666,
+        message: 'Bangumi token get error',
+        data: errResp,
+      );
+    } on Exception catch (e) {
+      BTLogTool.error('Failed to load bangumi token get: $e');
+      return BTResponse.error(
+        code: 666,
+        message: 'Bangumi token get error',
+        data: null,
+      );
     }
   }
 
   /// 刷新 AccessToken
-  Future<BangumiTokenRResponse> refreshToken(String refreshToken) async {
+  Future<BTResponse> refreshToken(String refreshToken) async {
     var appId = getBgmAppId();
     var appSecret = getBgmAppSecret();
     var params = BangumiTokenRParams(
@@ -67,27 +83,45 @@ class BangumiOauth {
       appSecret: appSecret,
       refreshToken: refreshToken,
     );
-    var response =
-        await client.dio.post('/access_token', data: params.toJson());
-    if (response.statusCode == 200) {
-      return BangumiTokenRResponse.fromJson(
-          response.data as Map<String, dynamic>);
-    } else {
-      throw BTError.requestError(msg: 'Failed to refresh bangumi access token');
+    try {
+      var response = await client.dio.post(
+        '/access_token',
+        data: params.toJson(),
+      );
+      if (response.statusCode == 200) {
+        return BangumiRtResponse.success(
+          data: BangumiRtRespData.fromJson(
+            response.data as Map<String, dynamic>,
+          ),
+        );
+      }
+      var errResp = BangumiErrResponse.fromJson(response.data);
+      return BTResponse<BangumiErrResponse>(
+        code: response.statusCode ?? 666,
+        message: 'Bangumi token refresh error',
+        data: errResp,
+      );
+    } on Exception catch (e) {
+      BTLogTool.error('Failed to load bangumi token refresh: $e');
+      return BTResponse.error(
+        code: 666,
+        message: 'Bangumi token refresh error',
+        data: e.toString(),
+      );
     }
   }
 
   /// 查询授权信息
   Future<BTResponse> getStatus(String accessToken) async {
-    var response = await client.dio.get('/token_status', queryParameters: {
-      'access_token': accessToken,
-    });
-    if (response.statusCode == 200) {
-      return BangumiTstResponse.success(
-        data: BangumiTstrData.fromJson(response.data as Map<String, dynamic>),
-      );
-    }
     try {
+      var response = await client.dio.get('/token_status', queryParameters: {
+        'access_token': accessToken,
+      });
+      if (response.statusCode == 200) {
+        return BangumiTstResponse.success(
+          data: BangumiTstrData.fromJson(response.data as Map<String, dynamic>),
+        );
+      }
       var errResp = BangumiErrResponse.fromJson(response.data);
       return BTResponse<BangumiErrResponse>(
         code: response.statusCode ?? 666,

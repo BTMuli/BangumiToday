@@ -78,7 +78,7 @@ class BtsBangumiUser {
         _tableNameUser,
         {'key': 'user', 'value': jsonEncode(user)},
       );
-      BTLogTool.info('Write user info: $user');
+      BTLogTool.info('Write user info: ${jsonEncode(user)}');
     } else {
       await _instance.sqlite.db.update(
         _tableNameUser,
@@ -86,7 +86,7 @@ class BtsBangumiUser {
         where: 'key = ?',
         whereArgs: ['user'],
       );
-      BTLogTool.info('Update user info: $user');
+      BTLogTool.info('Update user info: ${jsonEncode(user)}');
     }
   }
 
@@ -147,5 +147,38 @@ class BtsBangumiUser {
       );
       BTLogTool.info('Update $key: $value');
     }
+  }
+
+  /// 读取过期时间
+  Future<DateTime?> readExpireTime() async {
+    var expireTime = await readToken('expireTime');
+    if (expireTime == null) return null;
+    try {
+      return DateTime.fromMillisecondsSinceEpoch(int.parse(expireTime));
+    } on Exception catch (e) {
+      BTLogTool.error('Failed to parse expireTime: $e');
+      return null;
+    }
+  }
+
+  /// 写入/更新过期时间
+  Future<void> writeExpireTime(int expiresIn, {bool isTs = false}) {
+    var relativeTime = expiresIn * 1000 - 300000;
+    var expireTime;
+    if (isTs) {
+      var timeParse = DateTime.fromMillisecondsSinceEpoch(relativeTime);
+      expireTime = timeParse.millisecondsSinceEpoch;
+    } else {
+      expireTime = DateTime.now().millisecondsSinceEpoch + relativeTime;
+    }
+    return writeToken('expireTime', expireTime.toString());
+  }
+
+  /// 判断是否过期
+  Future<bool> isTokenExpired() async {
+    var expireTime = await readToken('expireTime');
+    if (expireTime == null) return true;
+    var now = DateTime.now().millisecondsSinceEpoch;
+    return now > int.parse(expireTime);
   }
 }

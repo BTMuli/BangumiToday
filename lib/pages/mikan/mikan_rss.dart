@@ -6,8 +6,8 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../components/app/app_dialog.dart';
 import '../../components/app/app_infobar.dart';
 import '../../components/mikan/mk_rss_card.dart';
+import '../../database/app/app_config.dart';
 import '../../request/mikan/mikan_api.dart';
-import '../../tools/config_tool.dart';
 
 /// 负责 MikanProject RSS 页面的显示
 /// 包括 RSSClassic 和 RSSPersonal
@@ -38,8 +38,8 @@ class _MikanRSSPageState extends State<MikanRSSPage>
   /// 是否使用用户订阅
   late bool useUserRSS = false;
 
-  /// 配置工具
-  final BTConfigTool configTool = BTConfigTool();
+  /// 数据库
+  final BtsAppConfig sqlite = BtsAppConfig();
 
   /// 保存状态
   @override
@@ -76,28 +76,21 @@ class _MikanRSSPageState extends State<MikanRSSPage>
 
   /// 初始化
   Future<void> init() async {
-    var mikan = await configTool.readConfig(key: 'mikan');
-    if (mikan == null) {
+    var mikan = await sqlite.readMikanToken();
+    if (mikan == null || mikan.isEmpty) {
       useUserRSS = false;
-      await configTool.writeConfig('mikan', {'enable': false});
       await refreshMikanRSS();
       return;
     }
-    token = await getToken(mikan['token'] ?? '');
-    useUserRSS = mikan['enable'] ?? false;
-    if (useUserRSS && token != '') {
-      await refreshUserRSS();
-    } else {
-      await refreshMikanRSS();
-    }
+    token = mikan;
+    useUserRSS = true;
+    await refreshUserRSS();
   }
 
   /// 解析 token
   Future<String> getToken(String token) async {
     if (await canLaunchUrlString(token)) {
       var link = Uri.parse(token);
-      debugPrint(link.toString());
-      // todo 站点校验
       return link.queryParameters['token'] ?? token;
     }
     return token;
@@ -163,6 +156,8 @@ class _MikanRSSPageState extends State<MikanRSSPage>
           useUserRSS = v;
           if (token == '' && v) {
             useUserRSS = false;
+            await BtInfobar.warn(context, '未设置 Token');
+            return;
           } else if (!v && rssItems.isEmpty) {
             await refreshMikanRSS();
           } else if (v && userItems.isEmpty) {
@@ -195,13 +190,15 @@ class _MikanRSSPageState extends State<MikanRSSPage>
             BtInfobar.warn(context, '未输入 Token');
             return;
           }
-          token = await getToken(input);
-          // todo 迁移到数据库
-          await configTool.writeConfig('mikan', {
-            'enable': true,
-            'token': token,
-          });
-          await refreshUserRSS();
+          var parsed = await getToken(input);
+          if (parsed == token) {
+            BtInfobar.warn(context, 'Token 未变更');
+            return;
+          }
+          token = parsed;
+          await sqlite.writeMikanToken(token);
+          await BtInfobar.success(context, 'Token 已保存');
+          useUserRSS = true;
         },
         child: Text('编辑Token'),
       )

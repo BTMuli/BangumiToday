@@ -7,7 +7,6 @@ import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'database/bt_sqlite.dart';
-import 'tools/config_tool.dart';
 import 'tools/log_tool.dart';
 import 'tools/scheme_tool.dart';
 
@@ -20,7 +19,6 @@ void main() async {
 
   /// 初始化配置
   await BTLogTool().init();
-  await BTConfigTool().init();
   await BTSchemeTool().init();
   await BTSqlite().init();
   runApp(ProviderScope(child: BTApp()));

@@ -17,16 +17,41 @@ class ProgressController extends ChangeNotifier {
   /// 是否在任务栏显示
   late bool onTaskbar;
 
+  /// 是否显示
+  bool get isShow => hasListeners;
+
+  /// onTaskbar 的 getter
+  bool get taskbar => onTaskbar;
+
+  /// onTaskbar 的 setter
+  set taskbar(bool value) {
+    if (value && defaultTargetPlatform == TargetPlatform.windows) {
+      onTaskbar = value;
+      update(title: title, text: text, progress: progress);
+      return;
+    }
+    if (!value && defaultTargetPlatform == TargetPlatform.windows) {
+      WindowsTaskbar.setProgressMode(TaskbarProgressMode.noProgress);
+    }
+    onTaskbar = false;
+  }
+
   /// 构造
   ProgressController({
     this.title = '加载中',
     this.text = '请稍后',
     this.progress,
     this.onTaskbar = false,
-  });
+  }) {
+    if (onTaskbar && defaultTargetPlatform == TargetPlatform.windows) {
+      WindowsTaskbar.setProgressMode(TaskbarProgressMode.indeterminate);
+      return;
+    }
+    onTaskbar = false;
+  }
 
   /// 更新
-  void update(String? title, String? text, double? progress) {
+  void update({String? title, String? text, double? progress}) {
     if (title != null) this.title = title;
     if (text != null) this.text = text;
     this.progress = progress;
@@ -40,6 +65,16 @@ class ProgressController extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  /// 结束
+  void end(BuildContext context) {
+    if (!isShow) return;
+    if (onTaskbar) {
+      WindowsTaskbar.setProgressMode(TaskbarProgressMode.noProgress);
+    }
+    Navigator.of(context).pop();
+    notifyListeners();
+  }
 }
 
 /// 进度条组件
@@ -49,6 +84,28 @@ class ProgressWidget extends StatefulWidget {
 
   /// 构造
   const ProgressWidget(this.controller, {super.key});
+
+  /// 显示
+  static ProgressController show(
+    BuildContext context, {
+    String? title,
+    String? text,
+    double? progress,
+    bool onTaskbar = false,
+  }) {
+    final controller = ProgressController(
+      title: title ?? '加载中',
+      text: text ?? '请稍后',
+      progress: progress,
+      onTaskbar: onTaskbar,
+    );
+    showDialog(
+      barrierDismissible: false,
+      context: context,
+      builder: (context) => ProgressWidget(controller),
+    );
+    return controller;
+  }
 
   @override
   State<ProgressWidget> createState() => _ProgressWidgetState();
@@ -75,6 +132,9 @@ class _ProgressWidgetState extends State<ProgressWidget> {
 
   @override
   void dispose() {
+    widget.controller.removeListener(() {
+      setState(() {});
+    });
     widget.controller.dispose();
     super.dispose();
   }
@@ -125,21 +185,12 @@ class AppProgress {
     double? progress,
     bool onTaskbar = false,
   }) {
-    if (!onTaskbar || defaultTargetPlatform != TargetPlatform.windows) {
-      controller = ProgressController(
-        title: title,
-        text: text,
-        progress: progress,
-      );
-    } else {
-      WindowsTaskbar.setProgressMode(TaskbarProgressMode.indeterminate);
-      controller = ProgressController(
-        title: title,
-        text: text,
-        progress: progress,
-        onTaskbar: true,
-      );
-    }
+    controller = ProgressController(
+      title: title,
+      text: text,
+      progress: progress,
+      onTaskbar: onTaskbar,
+    );
   }
 
   /// 开始
@@ -156,31 +207,16 @@ class AppProgress {
 
   /// taskbar 的 setter
   set onTaskbar(bool value) {
-    if (value && defaultTargetPlatform == TargetPlatform.windows) {
-      controller.onTaskbar = value;
-      update(progress: controller.progress);
-      return;
-    }
-    if (!value && defaultTargetPlatform == TargetPlatform.windows) {
-      WindowsTaskbar.setProgressMode(TaskbarProgressMode.noProgress);
-    }
-    controller.onTaskbar = false;
+    controller.taskbar = value;
   }
 
   /// 更新
-  void update({
-    String? title,
-    String? text,
-    double? progress,
-  }) {
-    controller.update(title, text, progress);
+  void update({String? title, String? text, double? progress}) {
+    controller.update(title: title, text: text, progress: progress);
   }
 
   /// 结束
   void end() {
-    if (controller.onTaskbar) {
-      WindowsTaskbar.setProgressMode(TaskbarProgressMode.noProgress);
-    }
-    Navigator.of(context).pop();
+    controller.end(context);
   }
 }

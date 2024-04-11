@@ -149,9 +149,29 @@ class BangumiTokenRParams {
   Map<String, dynamic> toJson() => _$BangumiTokenRParamsToJson(this);
 }
 
+/// access token 请求返回
+@JsonSerializable()
+class BangumiTatResponse extends BTResponse<BangumiTatRespData> {
+  /// constructor
+  @override
+  BangumiTatResponse({
+    required int code,
+    required String message,
+    required BangumiTatRespData? data,
+  }) : super(code: code, message: message, data: data);
+
+  /// success
+  static BangumiTatResponse success({required BangumiTatRespData data}) =>
+      BangumiTatResponse(code: 0, message: 'success', data: data);
+
+  /// from json
+  factory BangumiTatResponse.fromJson(Map<String, dynamic> json) =>
+      _$BangumiTatResponseFromJson(json);
+}
+
 /// access token 返回
 @JsonSerializable()
-class BangumiTokenGResponse {
+class BangumiTatRespData {
   /// access_token
   @JsonKey(name: 'access_token')
   String accessToken;
@@ -177,7 +197,7 @@ class BangumiTokenGResponse {
   int userId;
 
   /// constructor
-  BangumiTokenGResponse({
+  BangumiTatRespData({
     required this.accessToken,
     required this.expiresIn,
     required this.tokenType,
@@ -187,16 +207,36 @@ class BangumiTokenGResponse {
   });
 
   /// from json
-  factory BangumiTokenGResponse.fromJson(Map<String, dynamic> json) =>
-      _$BangumiTokenGResponseFromJson(json);
+  factory BangumiTatRespData.fromJson(Map<String, dynamic> json) =>
+      _$BangumiTatRespDataFromJson(json);
 
   /// to json
-  Map<String, dynamic> toJson() => _$BangumiTokenGResponseToJson(this);
+  Map<String, dynamic> toJson() => _$BangumiTatRespDataToJson(this);
 }
 
 /// refresh token 返回
 @JsonSerializable()
-class BangumiTokenRResponse {
+class BangumiRtResponse extends BTResponse<BangumiRtRespData> {
+  /// constructor
+  @override
+  BangumiRtResponse({
+    required int code,
+    required String message,
+    required BangumiRtRespData? data,
+  }) : super(code: code, message: message, data: data);
+
+  /// success
+  static BangumiRtResponse success({required BangumiRtRespData data}) =>
+      BangumiRtResponse(code: 0, message: 'success', data: data);
+
+  /// from json
+  factory BangumiRtResponse.fromJson(Map<String, dynamic> json) =>
+      _$BangumiRtResponseFromJson(json);
+}
+
+/// refresh token 返回
+@JsonSerializable()
+class BangumiRtRespData {
   /// access_token
   @JsonKey(name: 'access_token')
   String accessToken;
@@ -218,7 +258,7 @@ class BangumiTokenRResponse {
   String refreshToken;
 
   /// constructor
-  BangumiTokenRResponse({
+  BangumiRtRespData({
     required this.accessToken,
     required this.expiresIn,
     required this.tokenType,
@@ -227,11 +267,11 @@ class BangumiTokenRResponse {
   });
 
   /// from json
-  factory BangumiTokenRResponse.fromJson(Map<String, dynamic> json) =>
-      _$BangumiTokenRResponseFromJson(json);
+  factory BangumiRtRespData.fromJson(Map<String, dynamic> json) =>
+      _$BangumiRtRespDataFromJson(json);
 
   /// to json
-  Map<String, dynamic> toJson() => _$BangumiTokenRResponseToJson(this);
+  Map<String, dynamic> toJson() => _$BangumiRtRespDataToJson(this);
 }
 
 /// token status 请求返回

@@ -139,7 +139,7 @@ class BangumiSubjectInfoBox {
   String key;
 
   /// value
-  /// string | Array<{v:string}>
+  /// string | Array<{v:string,k?:string}>
   @JsonKey(name: 'value')
   dynamic value;
 

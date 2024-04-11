@@ -134,4 +134,14 @@ class BtsAppConfig {
   Future<void> writeAccentColor(AccentColor value) async {
     await _instance.write('accentColor', value.value.toString());
   }
+
+  /// 读取 mikan token
+  Future<String?> readMikanToken() async {
+    return _instance.read('mikanToken');
+  }
+
+  /// 写入/更新 mikan token
+  Future<void> writeMikanToken(String token) async {
+    await _instance.write('mikanToken', token);
+  }
 }

@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../models/bangumi/common_model.dart';
 import '../../models/bangumi/get_subject.dart';
@@ -91,7 +92,21 @@ class BangumiDetailCard extends StatelessWidget {
       nameW.add(buildText('名称: ${item.name}'));
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      buildText('ID: ${item.id}'),
+      Row(
+        children: [
+          buildText('ID: ${item.id}'),
+          SizedBox(width: 12.w),
+          Tooltip(
+            message: '前往Bangumi',
+            child: IconButton(
+              icon: Icon(FluentIcons.edge_logo),
+              onPressed: () async {
+                await launchUrlString('https://bgm.tv/subject/${item.id}');
+              },
+            ),
+          ),
+        ],
+      ),
       SizedBox(height: 12.h),
       ...nameW,
       SizedBox(height: 12.h),

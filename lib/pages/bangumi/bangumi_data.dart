@@ -156,7 +156,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage> {
     return ScaffoldPage(
       header: buildHeader(),
       content: ListView(
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
         children: [
           ListTile(
             leading: Icon(FluentIcons.git_graph),

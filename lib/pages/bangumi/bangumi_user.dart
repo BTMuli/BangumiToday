@@ -1,6 +1,9 @@
 import 'package:app_links/app_links.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../components/app/app_dialog.dart';
 import '../../components/app/app_dialog_resp.dart';
@@ -23,7 +26,8 @@ class BangumiUser extends ConsumerStatefulWidget {
 }
 
 /// bangumi 用户界面状态
-class _BangumiUserState extends ConsumerState<BangumiUser> {
+class _BangumiUserState extends ConsumerState<BangumiUser>
+    with AutomaticKeepAliveClientMixin {
   /// 用户数据
   BangumiUserInfo? user;
 
@@ -39,6 +43,16 @@ class _BangumiUserState extends ConsumerState<BangumiUser> {
   /// app-link 监听
   final AppLinks _appLinks = AppLinks();
 
+  /// 授权过期时间
+  late DateTime expireTime = DateTime.now();
+
+  /// 进度条
+  late ProgressController progress = ProgressController();
+
+  /// todo 完善后设为true
+  @override
+  bool get wantKeepAlive => false;
+
   @override
   void initState() {
     super.initState();
@@ -49,21 +63,18 @@ class _BangumiUserState extends ConsumerState<BangumiUser> {
 
   /// 初始化
   Future<void> init() async {
-    var progress = AppProgress(context, title: '读取本地数据库');
-    progress.start();
-    user = await sqlite.readUser();
-    if (user != null) {
-      progress.update(title: '读取本地数据库成功', text: '用户信息：${user!.username}');
-      await Future.delayed(Duration(milliseconds: 500));
-      progress.end();
-      return;
-    }
-    progress.update(title: '读取用户数据失败', text: '尝试刷新数据');
+    progress = ProgressWidget.show(
+      context,
+      title: '读取本地数据库',
+      text: '读取tokens',
+    );
     var atGet = await sqlite.readAccessToken();
-    if (atGet == null) {
+    var rtGet = await sqlite.readRefreshToken();
+    var etGet = await sqlite.readExpireTime();
+    if (atGet == null || rtGet == null || etGet == null) {
       progress.update(text: '未找到访问令牌');
       await Future.delayed(Duration(milliseconds: 500));
-      progress.end();
+      progress.end(context);
       var oauthConfirm = await showConfirmDialog(
         context,
         title: '未找到访问令牌',
@@ -73,32 +84,57 @@ class _BangumiUserState extends ConsumerState<BangumiUser> {
       await oauthUser();
       return;
     }
-    var atResp = await oauth.getStatus(atGet);
-    if (atResp.code != 0 || atResp.data == null) {
-      progress.end();
-      showRespErr(atResp, context);
+    expireTime = etGet;
+    setState(() {});
+    progress.update(text: '读取用户信息...');
+    user = await sqlite.readUser();
+    setState(() {});
+    if (user != null) {
+      progress.update(text: '用户信息：${user!.username}');
+      await Future.delayed(Duration(milliseconds: 500));
+      progress.end(context);
       return;
     }
-    progress.update(title: '访问令牌有效', text: '尝试获取用户信息');
-    var atRespd = atResp.data! as BangumiTstrData;
-    var at = atRespd.accessToken;
-    await api.refreshGetAccessToken(token: at);
-    var userResp = await api.getUserInfo();
-    if (userResp.code != 0 || userResp.data == null) {
-      progress.end();
-      showRespErr(userResp, context);
+    progress.update(text: '尝试获取用户信息');
+    var isExpired = await sqlite.isTokenExpired();
+    if (isExpired) {
+      progress.update(text: '访问令牌已过期, 尝试刷新');
+      progress.end(context);
+      await freshToken();
+    }
+    await freshUserInfo();
+  }
+
+  /// 刷新访问令牌
+  Future<void> freshToken() async {
+    progress = ProgressWidget.show(context, title: '刷新访问令牌');
+    var rt = await sqlite.readRefreshToken();
+    if (rt == null) {
+      progress.end(context);
+      await BtInfobar.error(context, '未找到刷新令牌');
       return;
     }
-    user = userResp.data! as BangumiUserInfo;
-    progress.update(title: '获取用户信息成功', text: '用户信息：${user!.username}');
-    await sqlite.writeUser(user!);
-    progress.end();
+    var res = await oauth.refreshToken(rt);
+    if (res.code != 0 || res.data == null) {
+      progress.end(context);
+      showRespErr(res, context);
+      return;
+    }
+    assert(res.data != null);
+    var at = res.data as BangumiRtRespData;
+    progress.update(title: '刷新访问令牌成功', text: '访问令牌：${at.accessToken}');
+    await sqlite.writeAccessToken(at.accessToken);
+    await sqlite.writeRefreshToken(at.refreshToken);
+    await sqlite.writeExpireTime(at.expiresIn);
+    expireTime = (await sqlite.readExpireTime())!;
+    setState(() {});
+    await Future.delayed(Duration(milliseconds: 500));
+    progress.end(context);
   }
 
   /// 认证用户
   Future<void> oauthUser() async {
-    var progress = AppProgress(context, title: '前往授权页面');
-    progress.start();
+    progress = ProgressWidget.show(context, title: '前往授权页面');
     await oauth.openAuthorizePage();
     progress.update(title: '等待授权回调');
     _appLinks.uriLinkStream.listen((uri) async {
@@ -107,39 +143,50 @@ class _BangumiUserState extends ConsumerState<BangumiUser> {
         var code = uri.queryParameters['code'];
         if (code == null) {
           await BtInfobar.error(context, '授权失败：未找到授权码');
-          progress.end();
+          progress.end(context);
           // 停止监听
           _appLinks.uriLinkStream.listen((_) {});
           return;
         }
-        progress.update(title: '获取访问令牌');
-        await freshUser(code, progress);
+        progress.update(title: '获取访问令牌', text: '授权码：$code');
+        var res = await oauth.getAccessToken(code);
+        if (res.code != 0 || res.data == null) {
+          progress.end(context);
+          showRespErr(res, context);
+          return;
+        }
+        assert(res.data != null);
+        var at = res.data as BangumiTatRespData;
+        await sqlite.writeAccessToken(at.accessToken);
+        await sqlite.writeRefreshToken(at.refreshToken);
+        await sqlite.writeExpireTime(at.expiresIn);
+        progress.end(context);
+        await freshUserInfo();
       }
     });
   }
 
-  /// 刷新用户
-  Future<void> freshUser(String code, AppProgress progress) async {
-    progress.update(text: '获取AccessToken');
-    var res = await oauth.getAccessToken(code);
-    await sqlite.writeAccessToken(res.accessToken);
-    await api.refreshGetAccessToken(token: res.accessToken);
-    await sqlite.writeRefreshToken(res.refreshToken);
-    progress.update(text: '获取用户信息');
+  /// 刷新用户信息
+  Future<void> freshUserInfo() async {
+    progress = ProgressWidget.show(context, title: '获取用户信息');
+    var at = await sqlite.readAccessToken();
+    if (at == null) {
+      progress.end(context);
+      await BtInfobar.error(context, '未找到访问令牌');
+      return;
+    }
+    await api.refreshGetAccessToken(token: at);
     var userResp = await api.getUserInfo();
     if (userResp.code != 0 || userResp.data == null) {
-      progress.end();
+      progress.end(context);
       showRespErr(userResp, context);
       return;
     }
     user = userResp.data! as BangumiUserInfo;
-    progress.update(
-      title: '获取用户信息成功',
-      text: '请关闭授权页面',
-    );
+    progress.update(title: '获取用户信息成功', text: '用户信息：${user!.username}');
     await sqlite.writeUser(user!);
-    await Future.delayed(Duration(seconds: 1));
-    progress.end();
+    await Future.delayed(Duration(milliseconds: 500));
+    progress.end(context);
   }
 
   /// 构建顶部栏
@@ -156,12 +203,113 @@ class _BangumiUserState extends ConsumerState<BangumiUser> {
     );
   }
 
+  /// 构建用户
+  Widget buildUser() {
+    if (user == null) {
+      return ListTile(
+        leading: Icon(FluentIcons.user_window),
+        title: Text('用户信息'),
+        subtitle: Text('未找到用户信息'),
+        trailing: FilledButton(
+          child: Text('前往授权'),
+          onPressed: () async {
+            await oauthUser();
+          },
+        ),
+      );
+    }
+    assert(user != null);
+    return ListTile(
+      leading: CachedNetworkImage(
+        imageUrl: user!.avatar.large,
+        width: 32.spMax,
+        height: 32.spMax,
+        placeholder: (context, url) => ProgressRing(),
+        errorWidget: (context, url, error) => Icon(FluentIcons.error),
+      ),
+      title: Text(user?.nickname ?? '用户信息'),
+      subtitle: Text('ID: ${user?.id ?? 'unknown'}'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FilledButton(
+            child: Tooltip(
+              message: '刷新用户信息',
+              child: Icon(FluentIcons.refresh),
+            ),
+            onPressed: () async {
+              var freshConfirm = await showConfirmDialog(
+                context,
+                title: '刷新用户信息',
+                content: '是否刷新用户信息？',
+              );
+              if (!freshConfirm) return;
+              await freshUserInfo();
+            },
+          ),
+          SizedBox(width: 8.w),
+          FilledButton(
+            child: Tooltip(
+              message: '查看授权信息',
+              child: Icon(FluentIcons.authenticator_app),
+            ),
+            onPressed: () async {
+              await launchUrlString("https://next.bgm.tv/demo/access-token");
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建授权信息
+  Widget buildOauth() {
+    return ListTile(
+      leading: Icon(FluentIcons.authenticator_app),
+      title: Text('授权信息'),
+      subtitle: expireTime == DateTime.now()
+          ? Text('未找到授权信息')
+          : Text(
+              '授权过期时间：$expireTime',
+            ),
+      trailing: Row(
+        children: [
+          FilledButton(
+            child: Text('刷新授权'),
+            onPressed: () async {
+              await freshToken();
+            },
+          ),
+          SizedBox(width: 8.w),
+          FilledButton(
+            child: Text('重新授权'),
+            onPressed: () async {
+              await oauthUser();
+            },
+          ),
+          SizedBox(width: 8.w),
+          FilledButton(
+            child: Text('查看授权'),
+            onPressed: () async {
+              await launchUrlString("https://next.bgm.tv/demo/access-token");
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return ScaffoldPage(
       header: buildHeader(),
-      content: Center(
-        child: Text('bangumi 用户界面'),
+      content: ListView(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+        children: [
+          buildUser(),
+          buildOauth(),
+        ],
       ),
     );
   }
