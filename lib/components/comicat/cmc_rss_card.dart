@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../tools/download_tool.dart';
+import '../../utils/tool_func.dart';
 
 /// Mikan Rss Card
 class ComicatRssCard extends StatelessWidget {
@@ -18,48 +19,54 @@ class ComicatRssCard extends StatelessWidget {
   const ComicatRssCard(this.item, {super.key});
 
   /// 构建操作按钮
-  Widget buildAct() {
+  Widget buildAct(BuildContext context) {
+    var color = FluentTheme.of(context).accentColor;
     return Row(
       children: [
-        IconButton(
-          // 调用磁力链接下载
-          icon: Icon(FluentIcons.link),
-          onPressed: () async {
-            if (item.enclosure?.url == null || item.enclosure?.url == '') {
-              return;
-            }
-            if (item.title == null || item.title == '') {
-              return;
-            }
-            // md5 title
-            var title = md5.convert(utf8.encode(item.title!)).toString();
-            var savePath = await BTDownloadTool().downloadFile(
-              item.enclosure!.url!,
-              title,
-            );
-            // var transUrl = Uri.encodeComponent(item.enclosure!.url!);
-            // var saveDir = path.join(BTDownloadTool.defaultBgmPath, title);
-            // var transTorrent = Uri.encodeComponent('$savePath');
-            // 重命名文件 out=${transOut}
-            // var transOut = Uri.encodeComponent(item.title!);
-            // 保存目录
-            // var transDir = Uri.encodeComponent(saveDir);
-            if (savePath != '') {
-              // await launchUrlString(
-              //     'mo://new-task/?type=torrent&dir=$transDir&torrent=$transTorrent&selectFile=$transTorrent');
-              // 调用 motrix 打开文件
-              await launchUrlString('file://$savePath');
-            }
-          },
+        Tooltip(
+          message: '下载',
+          child: IconButton(
+            icon: Icon(FluentIcons.link, color: color),
+            onPressed: () async {
+              if (item.enclosure?.url == null || item.enclosure?.url == '') {
+                return;
+              }
+              if (item.title == null || item.title == '') {
+                return;
+              }
+              // md5 title
+              var title = md5.convert(utf8.encode(item.title!)).toString();
+              var savePath = await BTDownloadTool().downloadFile(
+                item.enclosure!.url!,
+                title,
+              );
+              // var transUrl = Uri.encodeComponent(item.enclosure!.url!);
+              // var saveDir = path.join(BTDownloadTool.defaultBgmPath, title);
+              // var transTorrent = Uri.encodeComponent('$savePath');
+              // 重命名文件 out=${transOut}
+              // var transOut = Uri.encodeComponent(item.title!);
+              // 保存目录
+              // var transDir = Uri.encodeComponent(saveDir);
+              if (savePath != '') {
+                // await launchUrlString(
+                //     'mo://new-task/?type=torrent&dir=$transDir&torrent=$transTorrent&selectFile=$transTorrent');
+                // 调用 motrix 打开文件
+                await launchUrlString('file://$savePath');
+              }
+            },
+          ),
         ),
-        IconButton(
-          icon: Icon(FluentIcons.edge_logo),
-          onPressed: () async {
-            if (item.link == null || item.link == '') {
-              return;
-            }
-            await launchUrlString(item.link!);
-          },
+        Tooltip(
+          message: '打开链接',
+          child: IconButton(
+            icon: Icon(FluentIcons.edge_logo, color: color),
+            onPressed: () async {
+              if (item.link == null || item.link == '') {
+                return;
+              }
+              await launchUrlString(item.link!);
+            },
+          ),
         ),
       ],
     );
@@ -68,9 +75,8 @@ class ComicatRssCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var title = '';
-    // title 可能存在类似 &amp; 的转义字符
     if (item.title != null && item.title != '') {
-      title = item.title!.replaceAll('&amp;', '&');
+      title = replaceEscape(item.title!);
     }
     return Card(
       padding: const EdgeInsets.all(12.0),
@@ -89,7 +95,7 @@ class ComicatRssCard extends StatelessWidget {
           Text('资源类型: ${item.enclosure?.type ?? ''}'),
           Text('资源链接: ${item.enclosure?.url ?? ''}'),
           SizedBox(height: 8.h),
-          buildAct(),
+          buildAct(context),
         ],
       ),
     );

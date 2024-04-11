@@ -38,21 +38,6 @@ class _ComicatRSSPageState extends State<ComicatRSSPage>
     });
   }
 
-  /// 构建刷新按钮
-  Widget buildAct() {
-    return Tooltip(
-      message: '刷新',
-      child: IconButton(
-        icon: Icon(FluentIcons.refresh),
-        onPressed: () async {
-          var res = await comicatAPI.getHomeRSS();
-          rssItems.addAll(res);
-          setState(() {});
-        },
-      ),
-    );
-  }
-
   /// 构建标题
   Widget buildTitle() {
     return Row(

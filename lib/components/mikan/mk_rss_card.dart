@@ -19,48 +19,55 @@ class MikanRssCard extends StatelessWidget {
   const MikanRssCard(this.item, {super.key});
 
   /// 构建操作按钮
-  Widget buildAct() {
+  Widget buildAct(BuildContext context) {
+    var color = FluentTheme.of(context).accentColor;
     return Row(
       children: [
-        IconButton(
-          // 调用磁力链接下载
-          icon: Icon(FluentIcons.link),
-          onPressed: () async {
-            if (item.enclosure?.url == null || item.enclosure?.url == '') {
-              return;
-            }
-            if (item.title == null || item.title == '') {
-              return;
-            }
-            // md5 title
-            var title = md5.convert(utf8.encode(item.title!)).toString();
-            var savePath = await BTDownloadTool().downloadFile(
-              item.enclosure!.url!,
-              title,
-            );
-            // var transUrl = Uri.encodeComponent(item.enclosure!.url!);
-            // var saveDir = path.join(BTDownloadTool.defaultBgmPath, title);
-            // var transTorrent = Uri.encodeComponent('$savePath');
-            // 重命名文件 out=${transOut}
-            // var transOut = Uri.encodeComponent(item.title!);
-            // 保存目录
-            // var transDir = Uri.encodeComponent(saveDir);
-            if (savePath != '') {
-              // await launchUrlString(
-              //     'mo://new-task/?type=torrent&dir=$transDir&torrent=$transTorrent&selectFile=$transTorrent');
-              // 调用 motrix 打开文件
-              await launchUrlString('file://$savePath');
-            }
-          },
+        Tooltip(
+          message: '下载',
+          child: IconButton(
+            // 调用磁力链接下载
+            icon: Icon(FluentIcons.link, color: color),
+            onPressed: () async {
+              if (item.enclosure?.url == null || item.enclosure?.url == '') {
+                return;
+              }
+              if (item.title == null || item.title == '') {
+                return;
+              }
+              // md5 title
+              var title = md5.convert(utf8.encode(item.title!)).toString();
+              var savePath = await BTDownloadTool().downloadFile(
+                item.enclosure!.url!,
+                title,
+              );
+              // var transUrl = Uri.encodeComponent(item.enclosure!.url!);
+              // var saveDir = path.join(BTDownloadTool.defaultBgmPath, title);
+              // var transTorrent = Uri.encodeComponent('$savePath');
+              // 重命名文件 out=${transOut}
+              // var transOut = Uri.encodeComponent(item.title!);
+              // 保存目录
+              // var transDir = Uri.encodeComponent(saveDir);
+              if (savePath != '') {
+                // await launchUrlString(
+                //     'mo://new-task/?type=torrent&dir=$transDir&torrent=$transTorrent&selectFile=$transTorrent');
+                // 调用 motrix 打开文件
+                await launchUrlString('file://$savePath');
+              }
+            },
+          ),
         ),
-        IconButton(
-          icon: Icon(FluentIcons.edge_logo),
-          onPressed: () async {
-            if (item.link == null || item.link == '') {
-              return;
-            }
-            await launchUrlString(item.link!);
-          },
+        Tooltip(
+          message: '打开链接',
+          child: IconButton(
+            icon: Icon(FluentIcons.edge_logo, color: color),
+            onPressed: () async {
+              if (item.link == null || item.link == '') {
+                return;
+              }
+              await launchUrlString(item.link!);
+            },
+          ),
         ),
       ],
     );
@@ -98,7 +105,7 @@ class MikanRssCard extends StatelessWidget {
           Text('资源大小: $sizeStr'),
           Text('资源链接: ${item.enclosure?.url ?? ''}'),
           SizedBox(height: 8.h),
-          buildAct(),
+          buildAct(context),
         ],
       ),
     );

@@ -8,6 +8,7 @@ import '../../models/bangumi/common_model.dart';
 import '../../models/bangumi/get_subject.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/nav_store.dart';
+import '../../utils/tool_func.dart';
 
 /// 番剧详情
 class BangumiDetail extends ConsumerStatefulWidget {
@@ -157,12 +158,13 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
         value = list
             .map((e) => e['k'] != null ? '${e['k']}:${e['v']}' : e['v'])
             .toList()
+            .map((e) => replaceEscape(e as String))
             .join(gap);
         res.add(
           Text('${item.key}:$gap$value', style: TextStyle(fontSize: 20.sp)),
         );
       } else {
-        value = item.value;
+        value = replaceEscape(item.value as String);
         res.add(Text('${item.key}: $value', style: TextStyle(fontSize: 20.sp)));
       }
       res.add(SizedBox(height: 12.h));

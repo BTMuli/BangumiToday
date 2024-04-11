@@ -9,6 +9,17 @@ String bytes2size(int bytes) {
   return '${(bytes / pow(k, i)).toStringAsFixed(2)} ${sizes[i]}';
 }
 
+/// 替换转义字符
+String replaceEscape(String str) {
+  return str
+      .replaceAll('&amp;', '&')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&#39;', '\'')
+      .replaceAll('&nbsp;', ' ');
+}
+
 /// date trans
 /// 2021-08-01T00:00:00.000 => 2021-08-01 00:00:00
 String dateTransMikan(String date) {
