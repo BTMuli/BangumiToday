@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'oauth.dart';
+part of 'bangumi_oauth_model.dart';
 
 // **************************************************************************
 // JsonSerializableGenerator
@@ -38,8 +38,9 @@ Map<String, dynamic> _$BangumiOauthParamsToJson(BangumiOauthParams instance) =>
       'redirect_uri': instance.redirectUri,
     };
 
-BangumiTokenGParams _$BangumiTokenGParamsFromJson(Map<String, dynamic> json) =>
-    BangumiTokenGParams(
+BangumiOauthTokenGetParams _$BangumiOauthTokenGetParamsFromJson(
+        Map<String, dynamic> json) =>
+    BangumiOauthTokenGetParams(
       appId: json['client_id'] as String,
       appSecret: json['client_secret'] as String,
       code: json['code'] as String,
@@ -48,8 +49,8 @@ BangumiTokenGParams _$BangumiTokenGParamsFromJson(Map<String, dynamic> json) =>
       ..grantType = json['grant_type'] as String
       ..redirectUri = json['redirect_uri'] as String;
 
-Map<String, dynamic> _$BangumiTokenGParamsToJson(
-        BangumiTokenGParams instance) =>
+Map<String, dynamic> _$BangumiOauthTokenGetParamsToJson(
+        BangumiOauthTokenGetParams instance) =>
     <String, dynamic>{
       'grant_type': instance.grantType,
       'client_id': instance.appId,
@@ -59,40 +60,28 @@ Map<String, dynamic> _$BangumiTokenGParamsToJson(
       'state': instance.state,
     };
 
-BangumiTokenRParams _$BangumiTokenRParamsFromJson(Map<String, dynamic> json) =>
-    BangumiTokenRParams(
-      appId: json['client_id'] as String,
-      appSecret: json['client_secret'] as String,
-      refreshToken: json['refresh_token'] as String,
-    )..grantType = json['grant_type'] as String;
-
-Map<String, dynamic> _$BangumiTokenRParamsToJson(
-        BangumiTokenRParams instance) =>
-    <String, dynamic>{
-      'grant_type': instance.grantType,
-      'client_id': instance.appId,
-      'client_secret': instance.appSecret,
-      'refresh_token': instance.refreshToken,
-    };
-
-BangumiTatResponse _$BangumiTatResponseFromJson(Map<String, dynamic> json) =>
-    BangumiTatResponse(
+BangumiOauthTokenGetResp _$BangumiOauthTokenGetRespFromJson(
+        Map<String, dynamic> json) =>
+    BangumiOauthTokenGetResp(
       code: json['code'] as int,
       message: json['message'] as String,
       data: json['data'] == null
           ? null
-          : BangumiTatRespData.fromJson(json['data'] as Map<String, dynamic>),
+          : BangumiOauthTokenGetData.fromJson(
+              json['data'] as Map<String, dynamic>),
     );
 
-Map<String, dynamic> _$BangumiTatResponseToJson(BangumiTatResponse instance) =>
+Map<String, dynamic> _$BangumiOauthTokenGetRespToJson(
+        BangumiOauthTokenGetResp instance) =>
     <String, dynamic>{
       'code': instance.code,
       'message': instance.message,
       'data': instance.data,
     };
 
-BangumiTatRespData _$BangumiTatRespDataFromJson(Map<String, dynamic> json) =>
-    BangumiTatRespData(
+BangumiOauthTokenGetData _$BangumiOauthTokenGetDataFromJson(
+        Map<String, dynamic> json) =>
+    BangumiOauthTokenGetData(
       accessToken: json['access_token'] as String,
       expiresIn: json['expires_in'] as int,
       tokenType: json['token_type'] as String,
@@ -101,7 +90,8 @@ BangumiTatRespData _$BangumiTatRespDataFromJson(Map<String, dynamic> json) =>
       userId: json['user_id'] as int,
     );
 
-Map<String, dynamic> _$BangumiTatRespDataToJson(BangumiTatRespData instance) =>
+Map<String, dynamic> _$BangumiOauthTokenGetDataToJson(
+        BangumiOauthTokenGetData instance) =>
     <String, dynamic>{
       'access_token': instance.accessToken,
       'expires_in': instance.expiresIn,
@@ -111,24 +101,45 @@ Map<String, dynamic> _$BangumiTatRespDataToJson(BangumiTatRespData instance) =>
       'user_id': instance.userId,
     };
 
-BangumiRtResponse _$BangumiRtResponseFromJson(Map<String, dynamic> json) =>
-    BangumiRtResponse(
+BangumiOauthTokenRefreshParams _$BangumiOauthTokenRefreshParamsFromJson(
+        Map<String, dynamic> json) =>
+    BangumiOauthTokenRefreshParams(
+      appId: json['client_id'] as String,
+      appSecret: json['client_secret'] as String,
+      refreshToken: json['refresh_token'] as String,
+    )..grantType = json['grant_type'] as String;
+
+Map<String, dynamic> _$BangumiOauthTokenRefreshParamsToJson(
+        BangumiOauthTokenRefreshParams instance) =>
+    <String, dynamic>{
+      'grant_type': instance.grantType,
+      'client_id': instance.appId,
+      'client_secret': instance.appSecret,
+      'refresh_token': instance.refreshToken,
+    };
+
+BangumiOauthTokenRefreshResp _$BangumiOauthTokenRefreshRespFromJson(
+        Map<String, dynamic> json) =>
+    BangumiOauthTokenRefreshResp(
       code: json['code'] as int,
       message: json['message'] as String,
       data: json['data'] == null
           ? null
-          : BangumiRtRespData.fromJson(json['data'] as Map<String, dynamic>),
+          : BangumiOauthTokenRefreshData.fromJson(
+              json['data'] as Map<String, dynamic>),
     );
 
-Map<String, dynamic> _$BangumiRtResponseToJson(BangumiRtResponse instance) =>
+Map<String, dynamic> _$BangumiOauthTokenRefreshRespToJson(
+        BangumiOauthTokenRefreshResp instance) =>
     <String, dynamic>{
       'code': instance.code,
       'message': instance.message,
       'data': instance.data,
     };
 
-BangumiRtRespData _$BangumiRtRespDataFromJson(Map<String, dynamic> json) =>
-    BangumiRtRespData(
+BangumiOauthTokenRefreshData _$BangumiOauthTokenRefreshDataFromJson(
+        Map<String, dynamic> json) =>
+    BangumiOauthTokenRefreshData(
       accessToken: json['access_token'] as String,
       expiresIn: json['expires_in'] as int,
       tokenType: json['token_type'] as String,
@@ -136,7 +147,8 @@ BangumiRtRespData _$BangumiRtRespDataFromJson(Map<String, dynamic> json) =>
       refreshToken: json['refresh_token'] as String,
     );
 
-Map<String, dynamic> _$BangumiRtRespDataToJson(BangumiRtRespData instance) =>
+Map<String, dynamic> _$BangumiOauthTokenRefreshDataToJson(
+        BangumiOauthTokenRefreshData instance) =>
     <String, dynamic>{
       'access_token': instance.accessToken,
       'expires_in': instance.expiresIn,
@@ -145,24 +157,28 @@ Map<String, dynamic> _$BangumiRtRespDataToJson(BangumiRtRespData instance) =>
       'refresh_token': instance.refreshToken,
     };
 
-BangumiTstResponse _$BangumiTstResponseFromJson(Map<String, dynamic> json) =>
-    BangumiTstResponse(
+BangumiOauthTokenStatusResp _$BangumiOauthTokenStatusRespFromJson(
+        Map<String, dynamic> json) =>
+    BangumiOauthTokenStatusResp(
       code: json['code'] as int,
       message: json['message'] as String,
       data: json['data'] == null
           ? null
-          : BangumiTstrData.fromJson(json['data'] as Map<String, dynamic>),
+          : BangumiOauthTokenStatusData.fromJson(
+              json['data'] as Map<String, dynamic>),
     );
 
-Map<String, dynamic> _$BangumiTstResponseToJson(BangumiTstResponse instance) =>
+Map<String, dynamic> _$BangumiOauthTokenStatusRespToJson(
+        BangumiOauthTokenStatusResp instance) =>
     <String, dynamic>{
       'code': instance.code,
       'message': instance.message,
       'data': instance.data,
     };
 
-BangumiTstrData _$BangumiTstrDataFromJson(Map<String, dynamic> json) =>
-    BangumiTstrData(
+BangumiOauthTokenStatusData _$BangumiOauthTokenStatusDataFromJson(
+        Map<String, dynamic> json) =>
+    BangumiOauthTokenStatusData(
       accessToken: json['access_token'] as String,
       clientId: json['client_id'] as String,
       expires: json['expires'] as int,
@@ -170,7 +186,8 @@ BangumiTstrData _$BangumiTstrDataFromJson(Map<String, dynamic> json) =>
       userId: json['user_id'] as int,
     );
 
-Map<String, dynamic> _$BangumiTstrDataToJson(BangumiTstrData instance) =>
+Map<String, dynamic> _$BangumiOauthTokenStatusDataToJson(
+        BangumiOauthTokenStatusData instance) =>
     <String, dynamic>{
       'access_token': instance.accessToken,
       'client_id': instance.clientId,

@@ -2,7 +2,9 @@ import 'package:json_annotation/json_annotation.dart';
 
 import '../app/response.dart';
 
-part 'oauth.g.dart';
+/// Bangumi.tv 的 OAuth 相关数据结构
+/// 参考: https://github.com/bangumi/api/blob/master/docs-raw/How-to-Auth.md
+part 'bangumi_oauth_model.g.dart';
 
 /// 配置文件中的 bangumi oauth 数据
 @JsonSerializable()
@@ -74,7 +76,7 @@ class BangumiOauthParams {
 
 /// 获取 token 的请求参数
 @JsonSerializable()
-class BangumiTokenGParams {
+class BangumiOauthTokenGetParams {
   /// grant_type
   @JsonKey(name: 'grant_type')
   String grantType = 'authorization_code';
@@ -100,7 +102,7 @@ class BangumiTokenGParams {
   String? state;
 
   /// constructor
-  BangumiTokenGParams({
+  BangumiOauthTokenGetParams({
     required this.appId,
     required this.appSecret,
     required this.code,
@@ -108,70 +110,37 @@ class BangumiTokenGParams {
   });
 
   /// from json
-  factory BangumiTokenGParams.fromJson(Map<String, dynamic> json) =>
-      _$BangumiTokenGParamsFromJson(json);
+  factory BangumiOauthTokenGetParams.fromJson(Map<String, dynamic> json) =>
+      _$BangumiOauthTokenGetParamsFromJson(json);
 
   /// to json
-  Map<String, dynamic> toJson() => _$BangumiTokenGParamsToJson(this);
-}
-
-/// 刷新 token 的请求参数
-@JsonSerializable()
-class BangumiTokenRParams {
-  /// grant_type
-  @JsonKey(name: 'grant_type')
-  String grantType = 'refresh_token';
-
-  /// client_id
-  @JsonKey(name: 'client_id')
-  String appId;
-
-  /// client_secret
-  @JsonKey(name: 'client_secret')
-  String appSecret;
-
-  /// refresh_token
-  @JsonKey(name: 'refresh_token')
-  String refreshToken;
-
-  /// constructor
-  BangumiTokenRParams({
-    required this.appId,
-    required this.appSecret,
-    required this.refreshToken,
-  });
-
-  /// from json
-  factory BangumiTokenRParams.fromJson(Map<String, dynamic> json) =>
-      _$BangumiTokenRParamsFromJson(json);
-
-  /// to json
-  Map<String, dynamic> toJson() => _$BangumiTokenRParamsToJson(this);
+  Map<String, dynamic> toJson() => _$BangumiOauthTokenGetParamsToJson(this);
 }
 
 /// access token 请求返回
 @JsonSerializable()
-class BangumiTatResponse extends BTResponse<BangumiTatRespData> {
+class BangumiOauthTokenGetResp extends BTResponse<BangumiOauthTokenGetData> {
   /// constructor
   @override
-  BangumiTatResponse({
+  BangumiOauthTokenGetResp({
     required int code,
     required String message,
-    required BangumiTatRespData? data,
+    required BangumiOauthTokenGetData? data,
   }) : super(code: code, message: message, data: data);
 
   /// success
-  static BangumiTatResponse success({required BangumiTatRespData data}) =>
-      BangumiTatResponse(code: 0, message: 'success', data: data);
+  static BangumiOauthTokenGetResp success(
+          {required BangumiOauthTokenGetData data}) =>
+      BangumiOauthTokenGetResp(code: 0, message: 'success', data: data);
 
   /// from json
-  factory BangumiTatResponse.fromJson(Map<String, dynamic> json) =>
-      _$BangumiTatResponseFromJson(json);
+  factory BangumiOauthTokenGetResp.fromJson(Map<String, dynamic> json) =>
+      _$BangumiOauthTokenGetRespFromJson(json);
 }
 
-/// access token 返回
+/// access token 返回数据
 @JsonSerializable()
-class BangumiTatRespData {
+class BangumiOauthTokenGetData {
   /// access_token
   @JsonKey(name: 'access_token')
   String accessToken;
@@ -197,7 +166,7 @@ class BangumiTatRespData {
   int userId;
 
   /// constructor
-  BangumiTatRespData({
+  BangumiOauthTokenGetData({
     required this.accessToken,
     required this.expiresIn,
     required this.tokenType,
@@ -207,36 +176,72 @@ class BangumiTatRespData {
   });
 
   /// from json
-  factory BangumiTatRespData.fromJson(Map<String, dynamic> json) =>
-      _$BangumiTatRespDataFromJson(json);
+  factory BangumiOauthTokenGetData.fromJson(Map<String, dynamic> json) =>
+      _$BangumiOauthTokenGetDataFromJson(json);
 
   /// to json
-  Map<String, dynamic> toJson() => _$BangumiTatRespDataToJson(this);
+  Map<String, dynamic> toJson() => _$BangumiOauthTokenGetDataToJson(this);
+}
+
+/// 刷新 token 的请求参数
+@JsonSerializable()
+class BangumiOauthTokenRefreshParams {
+  /// grant_type
+  @JsonKey(name: 'grant_type')
+  String grantType = 'refresh_token';
+
+  /// client_id
+  @JsonKey(name: 'client_id')
+  String appId;
+
+  /// client_secret
+  @JsonKey(name: 'client_secret')
+  String appSecret;
+
+  /// refresh_token
+  @JsonKey(name: 'refresh_token')
+  String refreshToken;
+
+  /// constructor
+  BangumiOauthTokenRefreshParams({
+    required this.appId,
+    required this.appSecret,
+    required this.refreshToken,
+  });
+
+  /// from json
+  factory BangumiOauthTokenRefreshParams.fromJson(Map<String, dynamic> json) =>
+      _$BangumiOauthTokenRefreshParamsFromJson(json);
+
+  /// to json
+  Map<String, dynamic> toJson() => _$BangumiOauthTokenRefreshParamsToJson(this);
 }
 
 /// refresh token 返回
 @JsonSerializable()
-class BangumiRtResponse extends BTResponse<BangumiRtRespData> {
+class BangumiOauthTokenRefreshResp
+    extends BTResponse<BangumiOauthTokenRefreshData> {
   /// constructor
   @override
-  BangumiRtResponse({
+  BangumiOauthTokenRefreshResp({
     required int code,
     required String message,
-    required BangumiRtRespData? data,
+    required BangumiOauthTokenRefreshData? data,
   }) : super(code: code, message: message, data: data);
 
   /// success
-  static BangumiRtResponse success({required BangumiRtRespData data}) =>
-      BangumiRtResponse(code: 0, message: 'success', data: data);
+  static BangumiOauthTokenRefreshResp success(
+          {required BangumiOauthTokenRefreshData data}) =>
+      BangumiOauthTokenRefreshResp(code: 0, message: 'success', data: data);
 
   /// from json
-  factory BangumiRtResponse.fromJson(Map<String, dynamic> json) =>
-      _$BangumiRtResponseFromJson(json);
+  factory BangumiOauthTokenRefreshResp.fromJson(Map<String, dynamic> json) =>
+      _$BangumiOauthTokenRefreshRespFromJson(json);
 }
 
 /// refresh token 返回
 @JsonSerializable()
-class BangumiRtRespData {
+class BangumiOauthTokenRefreshData {
   /// access_token
   @JsonKey(name: 'access_token')
   String accessToken;
@@ -258,7 +263,7 @@ class BangumiRtRespData {
   String refreshToken;
 
   /// constructor
-  BangumiRtRespData({
+  BangumiOauthTokenRefreshData({
     required this.accessToken,
     required this.expiresIn,
     required this.tokenType,
@@ -267,36 +272,38 @@ class BangumiRtRespData {
   });
 
   /// from json
-  factory BangumiRtRespData.fromJson(Map<String, dynamic> json) =>
-      _$BangumiRtRespDataFromJson(json);
+  factory BangumiOauthTokenRefreshData.fromJson(Map<String, dynamic> json) =>
+      _$BangumiOauthTokenRefreshDataFromJson(json);
 
   /// to json
-  Map<String, dynamic> toJson() => _$BangumiRtRespDataToJson(this);
+  Map<String, dynamic> toJson() => _$BangumiOauthTokenRefreshDataToJson(this);
 }
 
 /// token status 请求返回
 @JsonSerializable()
-class BangumiTstResponse extends BTResponse<BangumiTstrData> {
+class BangumiOauthTokenStatusResp
+    extends BTResponse<BangumiOauthTokenStatusData> {
   /// constructor
   @override
-  BangumiTstResponse({
+  BangumiOauthTokenStatusResp({
     required int code,
     required String message,
-    required BangumiTstrData? data,
+    required BangumiOauthTokenStatusData? data,
   }) : super(code: code, message: message, data: data);
 
   /// success
-  static BangumiTstResponse success({required BangumiTstrData data}) =>
-      BangumiTstResponse(code: 0, message: 'success', data: data);
+  static BangumiOauthTokenStatusResp success(
+          {required BangumiOauthTokenStatusData data}) =>
+      BangumiOauthTokenStatusResp(code: 0, message: 'success', data: data);
 
   /// from json
-  factory BangumiTstResponse.fromJson(Map<String, dynamic> json) =>
-      _$BangumiTstResponseFromJson(json);
+  factory BangumiOauthTokenStatusResp.fromJson(Map<String, dynamic> json) =>
+      _$BangumiOauthTokenStatusRespFromJson(json);
 }
 
 /// 获取 token status 返回
 @JsonSerializable()
-class BangumiTstrData {
+class BangumiOauthTokenStatusData {
   /// access_token
   @JsonKey(name: 'access_token')
   String accessToken;
@@ -318,7 +325,7 @@ class BangumiTstrData {
   int userId;
 
   /// constructor
-  BangumiTstrData({
+  BangumiOauthTokenStatusData({
     required this.accessToken,
     required this.clientId,
     required this.expires,
@@ -327,9 +334,9 @@ class BangumiTstrData {
   });
 
   /// from json
-  factory BangumiTstrData.fromJson(Map<String, dynamic> json) =>
-      _$BangumiTstrDataFromJson(json);
+  factory BangumiOauthTokenStatusData.fromJson(Map<String, dynamic> json) =>
+      _$BangumiOauthTokenStatusDataFromJson(json);
 
   /// to json
-  Map<String, dynamic> toJson() => _$BangumiTstrDataToJson(this);
+  Map<String, dynamic> toJson() => _$BangumiOauthTokenStatusDataToJson(this);
 }

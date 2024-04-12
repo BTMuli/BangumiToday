@@ -10,7 +10,7 @@ import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../controller/app/progress_controller.dart';
 import '../../database/bangumi/bangumi_user.dart';
-import '../../models/bangumi/oauth.dart';
+import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../models/bangumi/user_request.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
@@ -129,7 +129,7 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
       return;
     }
     assert(res.data != null);
-    var at = res.data as BangumiRtRespData;
+    var at = res.data as BangumiOauthTokenRefreshData;
     progress.update(title: '刷新访问令牌成功', text: '访问令牌：${at.accessToken}');
     await sqlite.writeAccessToken(at.accessToken);
     await sqlite.writeRefreshToken(at.refreshToken);
@@ -168,7 +168,7 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
           return;
         }
         assert(res.data != null);
-        var at = res.data as BangumiTatRespData;
+        var at = res.data as BangumiOauthTokenGetData;
         await sqlite.writeAccessToken(at.accessToken);
         await sqlite.writeRefreshToken(at.refreshToken);
         await sqlite.writeExpireTime(at.expiresIn);

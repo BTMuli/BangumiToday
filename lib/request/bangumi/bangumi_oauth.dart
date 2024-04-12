@@ -2,7 +2,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
-import '../../models/bangumi/oauth.dart';
+import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../tools/log_tool.dart';
 import '../../utils/get_bgm_secret.dart';
 import 'bangumi_client.dart';
@@ -40,7 +40,7 @@ class BtrBangumiOauth {
   Future<BTResponse> getAccessToken(String code) async {
     var appId = getBgmAppId();
     var appSecret = getBgmAppSecret();
-    var params = BangumiTokenGParams(
+    var params = BangumiOauthTokenGetParams(
       appId: appId,
       appSecret: appSecret,
       code: code,
@@ -52,8 +52,8 @@ class BtrBangumiOauth {
         data: params.toJson(),
       );
       if (response.statusCode == 200) {
-        return BangumiTatResponse.success(
-          data: BangumiTatRespData.fromJson(
+        return BangumiOauthTokenGetResp.success(
+          data: BangumiOauthTokenGetData.fromJson(
             response.data as Map<String, dynamic>,
           ),
         );
@@ -78,7 +78,7 @@ class BtrBangumiOauth {
   Future<BTResponse> refreshToken(String refreshToken) async {
     var appId = getBgmAppId();
     var appSecret = getBgmAppSecret();
-    var params = BangumiTokenRParams(
+    var params = BangumiOauthTokenRefreshParams(
       appId: appId,
       appSecret: appSecret,
       refreshToken: refreshToken,
@@ -89,8 +89,8 @@ class BtrBangumiOauth {
         data: params.toJson(),
       );
       if (response.statusCode == 200) {
-        return BangumiRtResponse.success(
-          data: BangumiRtRespData.fromJson(
+        return BangumiOauthTokenRefreshResp.success(
+          data: BangumiOauthTokenRefreshData.fromJson(
             response.data as Map<String, dynamic>,
           ),
         );
@@ -118,8 +118,10 @@ class BtrBangumiOauth {
         'access_token': accessToken,
       });
       if (response.statusCode == 200) {
-        return BangumiTstResponse.success(
-          data: BangumiTstrData.fromJson(response.data as Map<String, dynamic>),
+        return BangumiOauthTokenStatusResp.success(
+          data: BangumiOauthTokenStatusData.fromJson(
+            response.data as Map<String, dynamic>,
+          ),
         );
       }
       var errResp = BangumiErrorDetail.fromJson(response.data);
