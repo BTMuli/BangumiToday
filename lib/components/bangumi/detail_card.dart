@@ -1,9 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../app/app_dialog_resp.dart';
 import 'rate_bar_chart.dart';
 
 /// 详情页面的信息卡片
@@ -81,7 +84,7 @@ class BangumiDetailCard extends StatelessWidget {
   }
 
   /// 构建基本信息
-  Widget buildInfo() {
+  Widget buildInfo(BuildContext context) {
     var nameW = List<Widget>.empty(growable: true);
     if (item.nameCn == '') {
       nameW.add(buildText('名称: ${item.name}'));
@@ -98,8 +101,19 @@ class BangumiDetailCard extends StatelessWidget {
           Tooltip(
             message: '前往Bangumi',
             child: IconButton(
-              icon: Icon(FluentIcons.edge_logo),
+              icon: Icon(
+                FluentIcons.edge_logo,
+                color: FluentTheme.of(context).accentColor,
+              ),
               onPressed: () async {
+                if (kDebugMode) {
+                  await showRespErr(
+                    BTResponse.success(data: item),
+                    context,
+                    title: '详细数据，ID: ${item.id}',
+                  );
+                  return;
+                }
                 await launchUrlString('https://bgm.tv/subject/${item.id}');
               },
             ),
@@ -135,7 +149,7 @@ class BangumiDetailCard extends StatelessWidget {
       children: [
         buildCover(context, item.images),
         SizedBox(width: 12.w),
-        Expanded(child: buildInfo()),
+        Expanded(child: buildInfo(context)),
         BangumiRateBarChart(item.rating),
         SizedBox(width: 12.w),
       ],

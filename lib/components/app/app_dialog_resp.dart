@@ -62,13 +62,23 @@ Widget buildContent(BTResponse resp) {
 }
 
 /// 处理响应失败的回调
-Future<void> showRespErr<T>(BTResponse<T> resp, BuildContext context) async {
+Future<void> showRespErr<T>(
+  BTResponse<T> resp,
+  BuildContext context, {
+  String? title,
+}) async {
+  var til;
+  if (title != null) {
+    til = title;
+  } else {
+    til = resp.code == 0 ? '请求成功' : '请求失败';
+  }
   showDialog(
     barrierDismissible: true,
     context: context,
     builder: (context) {
       return ContentDialog(
-        title: resp.code == 0 ? Text('请求成功') : Text('请求失败'),
+        title: Text(til),
         content: buildContent(resp),
         actions: [
           Button(

@@ -57,6 +57,8 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       showError = false;
       setState(() {});
     }
+    data = null;
+    setState(() {});
     final api = BtrBangumiApi();
     var detailGet = await api.getDetail(widget.id);
     if (detailGet.code != 0 || detailGet.data == null) {
@@ -82,14 +84,23 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       title = data?.nameCn == '' ? data?.name : data?.nameCn;
     }
     return PageHeader(
-      title: Text(
-        '番剧详情：$title',
-        overflow: TextOverflow.ellipsis,
-      ),
       leading: IconButton(
         icon: Icon(FluentIcons.back),
         onPressed: () {
           ref.read(navStoreProvider).removeNavItem('番剧详情');
+        },
+      ),
+      title: Tooltip(
+        message: title,
+        child: Text(
+          '番剧详情：$title',
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      commandBar: IconButton(
+        icon: Icon(FluentIcons.refresh),
+        onPressed: () async {
+          await init();
         },
       ),
     );

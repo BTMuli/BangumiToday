@@ -1,13 +1,18 @@
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../database/bangumi/bangumi_data.dart';
+import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../pages/bangumi/bangumi_detail.dart';
 import '../../store/nav_store.dart';
+import '../app/app_dialog_resp.dart';
 
 /// 今日放送-番剧卡片
 class CalendarCard extends ConsumerStatefulWidget {
@@ -63,6 +68,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
 
   /// 构建无封面的卡片
   Widget buildCoverError(BuildContext context, {String? err}) {
+    var color = FluentTheme.of(context).accentColor.darkest;
     return Container(
       decoration: BoxDecoration(
         color: FluentTheme.of(context).brightness.isDark
@@ -75,15 +81,12 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(
-              FluentIcons.photo_error,
-              color: FluentTheme.of(context).accentColor,
-            ),
+            Icon(FluentIcons.photo_error, color: color),
             Text(
               err ?? '无封面',
               style: TextStyle(
                 fontSize: err == null ? 28.sp : 18.sp,
-                color: FluentTheme.of(context).accentColor,
+                color: color,
               ),
             ),
           ],
@@ -93,7 +96,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
   }
 
   /// 构建封面
-  Widget buildCover(BuildContext context) {
+  Widget buildCoverImage(BuildContext context) {
     if (data.images == null ||
         data.images?.large == null ||
         data.images?.large == '') {
@@ -141,6 +144,14 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
               color: FluentTheme.of(context).accentColor.light,
             ),
             onPressed: () async {
+              if (kDebugMode) {
+                showRespErr(
+                  BTResponse.success(data: data),
+                  context,
+                  title: '番剧详情',
+                );
+                return;
+              }
               if (await canLaunchUrlString(data.url)) {
                 await launchUrlString(data.url);
               } else {
@@ -166,52 +177,105 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
     );
   }
 
+  /// 构建封面信息，包括评分、放送时间
+  Widget buildCoverInfo(BuildContext context) {
+    var rateWidget = <Widget>[];
+    Widget viewWidget = Container();
+    if (data.rating != null) {
+      var score = data.rating!.score / 2;
+      rateWidget.add(RatingBar(
+        rating: score,
+        iconSize: 20.sp,
+        starSpacing: 1.sp,
+        unratedIconColor: FluentTheme.of(context).accentColor.withOpacity(0.5),
+      ));
+      rateWidget.add(SizedBox(height: 5.h));
+      rateWidget.add(Text('${data.rating?.score}(${data.rating?.total})'));
+    }
+    if (data.collection?.doing != null) {
+      viewWidget = Row(
+        children: [
+          Expanded(child: Container()),
+          Text('${data.collection?.doing}人在看'),
+        ],
+      );
+    }
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...rateWidget,
+        viewWidget,
+      ],
+    );
+  }
+
+  /// 构建封面
+  Widget buildCover(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(child: buildCoverImage(context)),
+        Positioned(
+          right: -1.w,
+          left: 0,
+          bottom: -1.h,
+          child: ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: FluentTheme.of(context).brightness.isDark
+                      ? Colors.black.withAlpha(900)
+                      : Colors.white.withAlpha(900),
+                ),
+                child: buildCoverInfo(context),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 构建右侧内容
+  Widget buildInfo(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          data.nameCn == '' ? data.name : data.nameCn,
+          style: TextStyle(
+            fontSize: 28.sp,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        data.nameCn == '' || data.name.length > 40
+            ? Container()
+            : Text(
+                data.name,
+                style: TextStyle(
+                  color: FluentTheme.of(context).accentColor.lighter,
+                ),
+              ),
+        upTime == '' ? Container() : Text('放送时间：$upTime'),
+        buildAction(context),
+      ],
+    );
+  }
+
   /// 构建番剧项
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    var rateStr = '';
-    if (data.rating != null) {
-      rateStr = '评分：${data.rating?.score}(${data.rating?.total})';
-    }
-    // todo，部分数据放到封面下方
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
         Expanded(child: buildCover(context)),
         SizedBox(width: 5.w),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                data.nameCn == '' ? data.name : data.nameCn,
-                style: TextStyle(
-                  fontSize: 28.sp,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              data.nameCn == '' || data.name.length > 40
-                  ? Container()
-                  : Text(
-                      data.name,
-                      style: TextStyle(
-                        color: FluentTheme.of(context).accentColor.lighter,
-                      ),
-                    ),
-              rateStr == ''
-                  ? Text(data.airDate)
-                  : Text('${data.airDate} $rateStr'),
-              upTime == '' ? Container() : Text('放送时间：$upTime'),
-              data.collection?.doing != null
-                  ? Text('${data.collection?.doing}人在看')
-                  : Container(),
-              buildAction(context),
-            ],
-          ),
-        )
+        Expanded(child: buildInfo(context))
       ],
     );
   }
