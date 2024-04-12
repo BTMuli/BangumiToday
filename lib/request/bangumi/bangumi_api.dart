@@ -5,7 +5,7 @@ import '../../database/bangumi/bangumi_user.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_subject.dart';
-import '../../models/bangumi/user_request.dart';
+import '../../models/bangumi/request_user.dart';
 import '../../tools/log_tool.dart';
 import 'bangumi_client.dart';
 
@@ -140,8 +140,8 @@ class BtrBangumiApi {
     if (response.statusCode == 200) {
       debugPrint('data: ${response.data}');
       assert(response.data is Map<String, dynamic>);
-      return BangumiUserInfoResponse.success(
-        data: BangumiUserInfo.fromJson(response.data),
+      return BangumiUserInfoResp.success(
+        data: BangumiUser.fromJson(response.data),
       );
     }
     try {

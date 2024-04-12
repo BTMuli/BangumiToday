@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import '../../models/bangumi/user_request.dart';
+import '../../models/bangumi/bangumi_model.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
 
@@ -51,7 +51,7 @@ class BtsBangumiUser {
   }
 
   /// 读取用户信息
-  Future<BangumiUserInfo?> readUser() async {
+  Future<BangumiUser?> readUser() async {
     await _instance.preCheck();
     var result = await _instance.sqlite.db.query(
       _tableNameUser,
@@ -62,11 +62,11 @@ class BtsBangumiUser {
     var value = result.first['value'];
     BTLogTool.info('Read user info: $value');
     if (value == null || value == '') return null;
-    return BangumiUserInfo.fromJson(jsonDecode(value as String));
+    return BangumiUser.fromJson(jsonDecode(value as String));
   }
 
   /// 写入/更新用户信息
-  Future<void> writeUser(BangumiUserInfo user) async {
+  Future<void> writeUser(BangumiUser user) async {
     await _instance.preCheck();
     var result = await _instance.sqlite.db.query(
       _tableNameUser,

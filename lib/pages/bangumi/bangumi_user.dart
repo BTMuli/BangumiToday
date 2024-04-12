@@ -10,26 +10,26 @@ import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../controller/app/progress_controller.dart';
 import '../../database/bangumi/bangumi_user.dart';
+import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
-import '../../models/bangumi/user_request.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
 import '../../store/nav_store.dart';
 
 /// bangumi 用户界面
-class BangumiUser extends ConsumerStatefulWidget {
+class BangumiUserPage extends ConsumerStatefulWidget {
   /// 构造函数
-  const BangumiUser({super.key});
+  const BangumiUserPage({super.key});
 
   @override
-  ConsumerState<BangumiUser> createState() => _BangumiUserState();
+  ConsumerState<BangumiUserPage> createState() => _BangumiUserState();
 }
 
 /// bangumi 用户界面状态
-class _BangumiUserState extends ConsumerState<BangumiUser>
+class _BangumiUserState extends ConsumerState<BangumiUserPage>
     with AutomaticKeepAliveClientMixin {
   /// 用户数据
-  BangumiUserInfo? user;
+  BangumiUser? user;
 
   /// 数据库
   final BtsBangumiUser sqlite = BtsBangumiUser();
@@ -197,7 +197,7 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
       showRespErr(userResp, context);
       return;
     }
-    user = userResp.data! as BangumiUserInfo;
+    user = userResp.data! as BangumiUser;
     progress.update(title: '获取用户信息成功', text: '用户信息：${user!.username}');
     await sqlite.writeUser(user!);
     await Future.delayed(Duration(milliseconds: 500));

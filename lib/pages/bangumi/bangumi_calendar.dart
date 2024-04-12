@@ -124,7 +124,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           var paneItem = PaneItem(
             icon: Icon(FluentIcons.contact),
             title: Text('Bangumi 用户界面'),
-            body: BangumiUser(),
+            body: BangumiUserPage(),
           );
           ref.read(navStoreProvider).addNavItem(paneItem, 'Bangumi 用户界面');
         },

@@ -3,7 +3,8 @@ import 'package:json_annotation/json_annotation.dart';
 import '../app/response.dart';
 import 'bangumi_model.dart';
 
-/// 条目相关请求的数据结构
+/// bangumi.tv请求-条目模块的相关数据结构
+/// 见：https://bangumi.github.io/api/#/条目
 part 'request_subject.g.dart';
 
 /// 获取每日放送的请求返回
