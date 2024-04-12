@@ -14,11 +14,14 @@ class ProgressController extends ChangeNotifier {
   /// 进度，百分比
   late double? progress;
 
+  /// isShow
+  bool isShow = false;
+
+  /// close
+  void Function()? close;
+
   /// 是否在任务栏显示
   late bool onTaskbar;
-
-  /// 是否显示
-  bool get isShow => hasListeners;
 
   /// onTaskbar 的 getter
   bool get taskbar => onTaskbar;
@@ -67,12 +70,11 @@ class ProgressController extends ChangeNotifier {
   }
 
   /// 结束
-  void end(BuildContext context) {
-    if (!isShow) return;
+  void end() {
     if (onTaskbar) {
       WindowsTaskbar.setProgressMode(TaskbarProgressMode.noProgress);
     }
-    Navigator.of(context).pop();
+    if (close != null) close!();
     notifyListeners();
   }
 }
@@ -93,7 +95,7 @@ class ProgressWidget extends StatefulWidget {
     double? progress,
     bool onTaskbar = false,
   }) {
-    final controller = ProgressController(
+    var controller = ProgressController(
       title: title ?? '加载中',
       text: text ?? '请稍后',
       progress: progress,
@@ -104,6 +106,7 @@ class ProgressWidget extends StatefulWidget {
       context: context,
       builder: (context) => ProgressWidget(controller),
     );
+    controller.isShow = true;
     return controller;
   }
 
@@ -113,18 +116,19 @@ class ProgressWidget extends StatefulWidget {
 
 /// 进度条组件状态
 class _ProgressWidgetState extends State<ProgressWidget> {
-  /// 宽度
-  double get width => 400.w;
-
-  /// 高度
-  double get height => 100.h;
-
   /// 数据
   ProgressController get controller => widget.controller;
 
   @override
   void initState() {
     super.initState();
+    widget.controller.close = () {
+      if (widget.controller.isShow) {
+        Navigator.of(context).pop();
+        widget.controller.isShow = false;
+        return;
+      }
+    };
     widget.controller.addListener(() {
       setState(() {});
     });
@@ -132,9 +136,6 @@ class _ProgressWidgetState extends State<ProgressWidget> {
 
   @override
   void dispose() {
-    widget.controller.removeListener(() {
-      setState(() {});
-    });
     widget.controller.dispose();
     super.dispose();
   }
@@ -144,12 +145,10 @@ class _ProgressWidgetState extends State<ProgressWidget> {
     return ContentDialog(
       title: Text(controller.title),
       content: SizedBox(
-        width: width,
-        height: height,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.max,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               controller.text,
@@ -157,66 +156,18 @@ class _ProgressWidgetState extends State<ProgressWidget> {
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
             ),
-            SizedBox(height: 10),
+            SizedBox(height: 10.h),
             SizedBox(
               width: double.infinity,
-              child: ProgressBar(value: controller.progress),
+              child: ProgressBar(
+                value: controller.progress,
+                backgroundColor: FluentTheme.of(context).accentColor.darkest,
+                activeColor: FluentTheme.of(context).accentColor,
+              ),
             ),
           ],
         ),
       ),
     );
-  }
-}
-
-/// 进度条调用
-class AppProgress {
-  /// controller
-  late ProgressController controller = ProgressController();
-
-  /// context
-  late BuildContext context;
-
-  /// 构造
-  AppProgress(
-    this.context, {
-    required String title,
-    String text = '',
-    double? progress,
-    bool onTaskbar = false,
-  }) {
-    controller = ProgressController(
-      title: title,
-      text: text,
-      progress: progress,
-      onTaskbar: onTaskbar,
-    );
-  }
-
-  /// 开始
-  void start() {
-    showDialog(
-      barrierDismissible: false,
-      context: context,
-      builder: (context) => ProgressWidget(controller),
-    );
-  }
-
-  /// taskbar 的 getter
-  bool get onTaskbar => controller.onTaskbar;
-
-  /// taskbar 的 setter
-  set onTaskbar(bool value) {
-    controller.taskbar = value;
-  }
-
-  /// 更新
-  void update({String? title, String? text, double? progress}) {
-    controller.update(title: title, text: text, progress: progress);
-  }
-
-  /// 结束
-  void end() {
-    controller.end(context);
   }
 }

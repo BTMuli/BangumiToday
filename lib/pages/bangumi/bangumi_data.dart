@@ -37,6 +37,9 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
   /// 版本号
   late String? version = 'unknown';
 
+  /// progress
+  late ProgressController progress = ProgressController();
+
   /// 保持状态
   @override
   bool get wantKeepAlive => true;
@@ -51,13 +54,12 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
 
   /// 初始化
   Future<void> init() async {
-    var progress = AppProgress(
+    progress = ProgressWidget.show(
       context,
       title: '开始获取数据',
       text: '正在获取本地数据库版本',
       progress: null,
     );
-    progress.start();
     version = await appConfig.read('bangumiDataVersion');
     setState(() {});
     if (version != '') {
@@ -82,7 +84,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
       'bangumi-data',
     );
     progress.update(text: '成功获取远程版本$verRemote，开始更新数据');
-    await updateData(progress);
+    await updateData();
     await appConfig.write('bangumiDataVersion', verRemote);
     progress.update(text: '已更新到最新版本');
     await Future.delayed(Duration(seconds: 1));
@@ -90,20 +92,9 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
   }
 
   /// 更新数据
-  Future<void> updateData(AppProgress? ap) async {
-    var progress = AppProgress(
-      context,
-      title: '开始获取数据',
-      text: '正在获取JSON数据',
-      progress: null,
-      onTaskbar: true,
-    );
-    if (ap != null) {
-      progress = ap;
-      progress.onTaskbar = true;
-    } else {
-      progress.start();
-    }
+  Future<void> updateData() async {
+    progress.update(title: '开始获取数据', text: '正在获取JSON数据', progress: null);
+    progress.onTaskbar = true;
     var client = BTBangumiData();
     var rawData = await client.getBangumiData();
     progress.update(title: '成功获取数据', text: '正在写入数据');
@@ -135,10 +126,6 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
       );
       await bangumiData.writeItem(item);
       cnt++;
-    }
-    progress.update(text: '写入完成');
-    if (ap == null) {
-      progress.end();
     }
   }
 
@@ -178,31 +165,38 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
             title: Text('检测更新'),
             subtitle: Text('更新BangumiData数据'),
             onPressed: () async {
-              var progress = AppProgress(
+              progress = ProgressWidget.show(
                 context,
                 title: '开始获取数据',
                 text: '正在获取远程版本',
                 progress: null,
               );
-              progress.start();
               var remote = await githubAPI.getLatestRelease(
                 'bangumi-data',
                 'bangumi-data',
               );
               progress.update(title: '成功获取远程版本', text: remote);
-              // 等待0.5秒
               await Future.delayed(Duration(milliseconds: 500));
               progress.end();
-              // 等待0.5秒
-              await Future.delayed(Duration(milliseconds: 500));
               var confirm = await showConfirmDialog(
                 context,
                 title: '确认更新？',
                 content: '远程版本：$remote，本地版本：$version',
               );
               if (confirm) {
-                await updateData(null);
+                progress = ProgressWidget.show(
+                  context,
+                  title: '开始更新数据',
+                  text: '正在更新数据',
+                  progress: null,
+                );
+                await updateData();
                 await appConfig.write('bangumiDataVersion', remote);
+                progress.update(text: '已更新到最新版本');
+                version = remote;
+                setState(() {});
+                await Future.delayed(Duration(seconds: 1));
+                progress.end();
               }
             },
           ),

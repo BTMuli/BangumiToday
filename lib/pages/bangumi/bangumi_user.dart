@@ -60,12 +60,6 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
     });
   }
 
-  @override
-  void dispose() {
-    // 这边不销毁controller，是因为每次使用都会重新创建
-    super.dispose();
-  }
-
   /// 初始化
   Future<void> init() async {
     progress = ProgressWidget.show(
@@ -79,7 +73,7 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
     if (atGet == null || rtGet == null || etGet == null) {
       progress.update(text: '未找到访问令牌');
       await Future.delayed(Duration(milliseconds: 500));
-      progress.end(context);
+      progress.end();
       var oauthConfirm = await showConfirmDialog(
         context,
         title: '未找到访问令牌',
@@ -97,14 +91,19 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
     if (user != null) {
       progress.update(text: '用户信息：${user!.username}');
       await Future.delayed(Duration(milliseconds: 500));
-      progress.end(context);
+      progress.end();
       return;
     }
     progress.update(text: '尝试获取用户信息');
     var isExpired = await sqlite.isTokenExpired();
     if (isExpired) {
-      progress.update(text: '访问令牌已过期, 尝试刷新');
-      progress.end(context);
+      progress.end();
+      var freshConfirm = await showConfirmDialog(
+        context,
+        title: '访问令牌已过期',
+        content: '是否尝试刷新？',
+      );
+      if (!freshConfirm) return;
       await freshToken();
     }
     await freshUserInfo();
@@ -112,16 +111,20 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
 
   /// 刷新访问令牌
   Future<void> freshToken() async {
-    progress = ProgressWidget.show(context, title: '刷新访问令牌');
+    if (progress.isShow) {
+      progress.update(title: '刷新访问令牌', text: '正在刷新访问令牌', progress: null);
+    } else {
+      progress = ProgressWidget.show(context, title: '刷新访问令牌');
+    }
     var rt = await sqlite.readRefreshToken();
     if (rt == null) {
-      progress.end(context);
+      progress.end();
       await BtInfobar.error(context, '未找到刷新令牌');
       return;
     }
     var res = await oauth.refreshToken(rt);
     if (res.code != 0 || res.data == null) {
-      progress.end(context);
+      progress.end();
       showRespErr(res, context);
       return;
     }
@@ -134,29 +137,33 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
     expireTime = (await sqlite.readExpireTime())!;
     setState(() {});
     await Future.delayed(Duration(milliseconds: 500));
-    progress.end(context);
+    progress.end();
   }
 
   /// 认证用户
   Future<void> oauthUser() async {
-    progress = ProgressWidget.show(context, title: '前往授权页面');
+    if (progress.isShow) {
+      progress.update(title: '处理用户授权', text: '正在前往授权页面', progress: null);
+    } else {
+      progress = ProgressWidget.show(context, title: '前往授权页面');
+    }
     await oauth.openAuthorizePage();
-    progress.update(title: '等待授权回调');
+    progress.update(text: '等待授权回调');
     _appLinks.uriLinkStream.listen((uri) async {
       if (uri.toString().startsWith('bangumitoday://oauth')) {
-        progress.update(title: '处理授权回调');
+        progress.update(text: '处理授权回调');
         var code = uri.queryParameters['code'];
         if (code == null) {
           await BtInfobar.error(context, '授权失败：未找到授权码');
-          progress.end(context);
+          progress.end();
           // 停止监听
           _appLinks.uriLinkStream.listen((_) {});
           return;
         }
-        progress.update(title: '获取访问令牌', text: '授权码：$code');
+        progress.update(text: '授权码：$code');
         var res = await oauth.getAccessToken(code);
         if (res.code != 0 || res.data == null) {
-          progress.end(context);
+          progress.end();
           showRespErr(res, context);
           return;
         }
@@ -165,7 +172,6 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
         await sqlite.writeAccessToken(at.accessToken);
         await sqlite.writeRefreshToken(at.refreshToken);
         await sqlite.writeExpireTime(at.expiresIn);
-        progress.end(context);
         await freshUserInfo();
       }
     });
@@ -173,17 +179,21 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
 
   /// 刷新用户信息
   Future<void> freshUserInfo() async {
-    progress = ProgressWidget.show(context, title: '获取用户信息');
+    if (progress.isShow) {
+      progress.update(title: '获取用户信息', text: '正在获取用户信息', progress: null);
+    } else {
+      progress = ProgressWidget.show(context, title: '获取用户信息');
+    }
     var at = await sqlite.readAccessToken();
     if (at == null) {
-      progress.end(context);
+      progress.end();
       await BtInfobar.error(context, '未找到访问令牌');
       return;
     }
     await api.refreshGetAccessToken(token: at);
     var userResp = await api.getUserInfo();
     if (userResp.code != 0 || userResp.data == null) {
-      progress.end(context);
+      progress.end();
       showRespErr(userResp, context);
       return;
     }
@@ -191,7 +201,7 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
     progress.update(title: '获取用户信息成功', text: '用户信息：${user!.username}');
     await sqlite.writeUser(user!);
     await Future.delayed(Duration(milliseconds: 500));
-    progress.end(context);
+    progress.end();
   }
 
   /// 构建顶部栏
