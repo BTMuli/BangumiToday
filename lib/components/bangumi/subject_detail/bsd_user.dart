@@ -3,20 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../database/bangumi/bangumi_user.dart';
-import '../../../models/app/response.dart';
-import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../request/bangumi/bangumi_api.dart';
-import '../../app/app_dialog_resp.dart';
 import 'bsd_episode.dart';
 
 /// SubjectDetail页面的用于模块
 class BsdUser extends ConsumerStatefulWidget {
-  /// subject id
-  final int id;
+  /// subjectInfo
+  final BangumiSubject subject;
 
   /// 构造函数
-  const BsdUser(this.id, {super.key});
+  const BsdUser(this.subject, {super.key});
 
   @override
   ConsumerState<BsdUser> createState() => _BsdUserState();
@@ -25,7 +22,7 @@ class BsdUser extends ConsumerStatefulWidget {
 class _BsdUserState extends ConsumerState<BsdUser>
     with AutomaticKeepAliveClientMixin {
   /// subject_id
-  int get subjectId => widget.id;
+  int get subjectId => widget.subject.id;
 
   /// 数据库
   final BtsBangumiUser sqlite = BtsBangumiUser();
@@ -45,6 +42,9 @@ class _BsdUserState extends ConsumerState<BsdUser>
   /// 用户章节信息
   List<BangumiUserEpisodeCollection> userEpisodes = [];
 
+  /// offset
+  int offset = 0;
+
   /// todo 后续差不多了改成true
   @override
   bool get wantKeepAlive => false;
@@ -63,62 +63,55 @@ class _BsdUserState extends ConsumerState<BsdUser>
     user = await sqlite.readUser();
     accessToken = await sqlite.readAccessToken();
     setState(() {});
-    var ep1Resp = await api.getEpisodeList(subjectId);
-    var ep2Resp = await api.getCollectionEpisodes(subjectId);
+    await loadMore();
+  }
+
+  /// 加载更多
+  Future<void> loadMore() async {
+    var ep1Resp = await api.getEpisodeList(
+      subjectId,
+      offset: offset,
+      limit: 30,
+    );
+    var ep2Resp = await api.getCollectionEpisodes(
+      subjectId,
+      offset: offset,
+      limit: 30,
+    );
     if (ep1Resp.code == 0) {
       var page = ep1Resp.data as BangumiPageT<BangumiEpisode>;
-      episodes = page.data;
+      episodes.addAll(page.data);
     }
     if (ep2Resp.code == 0) {
       var page = ep2Resp.data as BangumiPageT<BangumiUserEpisodeCollection>;
-      userEpisodes = page.data;
+      userEpisodes.addAll(page.data);
     }
+    offset += 30;
     setState(() {});
   }
 
-  /// 构建章节
-  Widget buildEpisode(BuildContext context, int index) {
-    var baseColor = FluentTheme.of(context).accentColor;
-    var episode = episodes[index];
-    var userEpisode = userEpisodes[index];
-    Color bgColor;
-    var userType = userEpisode.type;
-    switch (userType) {
-      case BangumiEpisodeCollectionType.none:
-        bgColor = Colors.transparent;
-        break;
-      case BangumiEpisodeCollectionType.wish:
-        bgColor = baseColor.light;
-        break;
-      case BangumiEpisodeCollectionType.done:
-        bgColor = baseColor;
-        break;
-      case BangumiEpisodeCollectionType.dropped:
-        bgColor = baseColor.dark;
-        break;
+  /// buildList
+  List<Widget> buildList() {
+    var res = <Widget>[];
+    for (var i = 0; i < episodes.length; i++) {
+      res.add(BsdEpisode(episodes[i], user: userEpisodes[i]));
     }
-    var sort = episode.sort.toStringAsFixed(0);
-    if (episode.sort.toInt() != episode.sort) {
-      sort = episode.sort.toStringAsFixed(1);
+    if (episodes.length < widget.subject.totalEpisodes) {
+      res.add(
+        Padding(
+          padding: EdgeInsets.only(top: 12.h),
+          child: Center(
+            child: Button(
+              onPressed: () async {
+                await loadMore();
+              },
+              child: Text('加载更多'),
+            ),
+          ),
+        ),
+      );
     }
-    return Button(
-      style: ButtonStyle(
-        backgroundColor: ButtonState.all(bgColor),
-      ),
-      child: Tooltip(
-        message: episode.nameCn,
-        child: Text('$sort'),
-      ),
-      onPressed: () async {
-        if (index < userEpisodes.length) {
-          showRespErr(
-            BTResponse.success(data: userEpisodes[index]),
-            context,
-            title: '章节信息',
-          );
-        }
-      },
-    );
+    return res;
   }
 
   @override
@@ -129,12 +122,6 @@ class _BsdUserState extends ConsumerState<BsdUser>
     }
 
     /// todo 添加整个subject的收藏信息
-    return Wrap(
-      spacing: 8.w,
-      children: List.generate(
-        episodes.length,
-        (index) => BsdEpisode(episodes[index], user: userEpisodes[index]),
-      ),
-    );
+    return Wrap(spacing: 8.w, runSpacing: 12.h, children: buildList());
   }
 }

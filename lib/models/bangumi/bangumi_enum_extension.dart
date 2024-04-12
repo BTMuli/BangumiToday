@@ -179,7 +179,47 @@ extension BangumiEpisodeCollectionTypeExtension
 }
 
 /// EpType
-/// 定义与 LegacySubjectType 一致，同样不需要扩展方法
+extension BangumiEpTypeExtension on BangumiEpType {
+  /// 获取值
+  int get value {
+    switch (this) {
+      case BangumiEpType.main:
+        return 0;
+      case BangumiEpType.sp:
+        return 1;
+      case BangumiEpType.op:
+        return 2;
+      case BangumiEpType.ed:
+        return 3;
+      case BangumiEpType.cm:
+        return 4;
+      case BangumiEpType.mad:
+        return 5;
+      case BangumiEpType.other:
+        return 6;
+    }
+  }
+
+  /// 获取值
+  String get label {
+    switch (this) {
+      case BangumiEpType.main:
+        return '本篇';
+      case BangumiEpType.sp:
+        return '特别篇';
+      case BangumiEpType.op:
+        return 'OP';
+      case BangumiEpType.ed:
+        return 'ED';
+      case BangumiEpType.cm:
+        return '预告/宣传/广告';
+      case BangumiEpType.mad:
+        return 'MAD';
+      case BangumiEpType.other:
+        return '其他';
+    }
+  }
+}
 
 /// PersonCareer
 extension BangumiPersonCareerTypeExtension on BangumiPersonCareerType {

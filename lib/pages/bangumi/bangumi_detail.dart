@@ -220,7 +220,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       children: [
         BangumiDetailCard(data!),
         SizedBox(height: 12.h),
-        BsdUser(data!.id),
+        BsdUser(data!),
         SizedBox(height: 12.h),
         buildSummary(data!.summary),
         SizedBox(height: 12.h),

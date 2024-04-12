@@ -37,6 +37,9 @@ class _BsdEpisodeState extends State<BsdEpisode> {
   /// flyout controller
   final FlyoutController controller = FlyoutController();
 
+  /// 章节text
+  late String text = getText();
+
   /// 获取背景颜色
   Color getBgColor() {
     if (userEpisode == null) {
@@ -87,7 +90,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
   Future<void> freshUserEpisodes() async {
     var resp = await api.getCollectionEpisode(episode.id);
     if (resp.code != 0) {
-      showRespErr(resp, context, title: '获取章节信息失败');
+      showRespErr(resp, context, title: '获取 $text 章节信息失败');
       return;
     }
     userEpisode = resp.data;
@@ -101,10 +104,10 @@ class _BsdEpisodeState extends State<BsdEpisode> {
       episode: episode.id,
     );
     if (resp.code != 0) {
-      showRespErr(resp, context, title: '更新状态失败');
+      showRespErr(resp, context, title: '更新 $text 状态失败');
       return;
     }
-    BtInfobar.success(context, '成功更新章节状态为 ${type.label}');
+    BtInfobar.success(context, '成功更新 $text 章节状态为 ${type.label}');
     await freshUserEpisodes();
   }
 
@@ -136,11 +139,11 @@ class _BsdEpisodeState extends State<BsdEpisode> {
       text: Text(type.label),
       onPressed: () async {
         if (userEpisode == null) {
-          BtInfobar.error(context, '未找到章节信息');
+          BtInfobar.error(context, '未找到 $text 话的章节信息');
         } else if (userEpisode!.type != type) {
           await updateType(type);
         } else {
-          BtInfobar.warn(context, '章节状态已经是 ${type.label}');
+          BtInfobar.warn(context, '章节 $text 状态已经是 ${type.label}');
         }
       },
       selected: userEpisode?.type == type,
@@ -150,6 +153,24 @@ class _BsdEpisodeState extends State<BsdEpisode> {
               color: FluentTheme.of(context).accentColor,
             )
           : null,
+    );
+  }
+
+  /// 构建章节详情
+  Widget buildEpisodeDetail(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('标题: ${episode.name}'),
+        Text('标题(中文): ${episode.nameCn}'),
+        Text('章节ID: ${episode.id}'),
+        Text('类型: ${episode.type.label}'),
+        Text('放送时间: ${episode.airDate}'),
+        Text('时长: ${episode.duration}'),
+        Text('收藏状态: ${userEpisode?.type.label ?? '未知'}'),
+        Text('简介：\n\n${episode.desc}'),
+      ],
     );
   }
 
@@ -163,10 +184,30 @@ class _BsdEpisodeState extends State<BsdEpisode> {
         buildEpStat(context, BangumiEpisodeCollectionType.done),
         buildEpStat(context, BangumiEpisodeCollectionType.dropped),
         MenuFlyoutItem(
-          leading: Icon(FluentIcons.edge_logo, color: color),
+          leading: Icon(FluentIcons.info, color: color),
           text: Text('查看详情'),
           onPressed: () async {
-            await launchUrlString('https://bgm.tv/ep/${episode.id}');
+            await showDialog(
+              barrierDismissible: true,
+              context: context,
+              builder: (_) => ContentDialog(
+                title: Text('章节详情'),
+                content: buildEpisodeDetail(context),
+                actions: [
+                  IconButton(
+                    onPressed: () async {
+                      await launchUrlString('https://bgm.tv/ep/${episode.id}');
+                      Navigator.of(context).pop();
+                    },
+                    icon: Icon(FluentIcons.edge_logo, color: color),
+                  ),
+                  Button(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text('关闭'),
+                  ),
+                ],
+              ),
+            );
           },
         ),
       ],
@@ -177,7 +218,6 @@ class _BsdEpisodeState extends State<BsdEpisode> {
   @override
   Widget build(BuildContext context) {
     final bgColor = getBgColor();
-    final text = getText();
     final tooltip = getTooltip();
     return FlyoutTarget(
       controller: controller,
