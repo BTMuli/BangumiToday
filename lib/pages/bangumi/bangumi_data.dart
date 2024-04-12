@@ -11,6 +11,7 @@ import '../../database/bangumi/bangumi_data.dart';
 import '../../models/bangumi/bangumi_data_model.dart';
 import '../../request/bangumi/bangumi_data.dart';
 import '../../store/nav_store.dart';
+import '../../tools/notifier_tool.dart';
 
 /// BangumiData相关页面
 /// Repo：https://github.com/bangumi-data/bangumi-data
@@ -139,6 +140,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
       await bgmDataSqlite.writeItem(item);
       cnt++;
     }
+    await BTNotifierTool.showMini(title: 'BangumiData', body: '数据更新完成');
   }
 
   /// 构建顶部栏

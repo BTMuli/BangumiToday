@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   flutter_acrylic
   fullscreen_window
+  local_notifier
   screen_retriever
   system_theme
   url_launcher_windows
