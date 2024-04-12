@@ -4,12 +4,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../components/app/app_dialog.dart';
+import '../../components/app/app_dialog_resp.dart';
 import '../../controller/app/progress_controller.dart';
 import '../../database/app/app_config.dart';
 import '../../database/bangumi/bangumi_data.dart';
-import '../../models/bangumi/data_meta.dart';
+import '../../models/bangumi/bangumi_data_model.dart';
 import '../../request/bangumi/bangumi_data.dart';
-import '../../request/core/github.dart';
 import '../../store/nav_store.dart';
 
 /// BangumiData相关页面
@@ -29,10 +29,10 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
   final BtsAppConfig appConfig = BtsAppConfig();
 
   /// 数据库-BangumiData
-  final BtsBangumiData bangumiData = BtsBangumiData();
+  final BtsBangumiData bgmDataSqlite = BtsBangumiData();
 
-  /// 客户端-GithubAPI
-  final GithubAPI githubAPI = GithubAPI();
+  /// 请求客户端
+  final BtrBangumiData bgmDataClient = BtrBangumiData();
 
   /// 版本号
   late String? version = 'unknown';
@@ -79,10 +79,15 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
       return;
     }
     progress.onTaskbar = true;
-    var verRemote = await GithubAPI().getLatestRelease(
-      'bangumi-data',
-      'bangumi-data',
-    );
+    var verGet = await bgmDataClient.getVersion();
+    if (verGet.code != 0 || verGet.data == null) {
+      progress.update(text: '获取远程版本失败');
+      await Future.delayed(Duration(seconds: 1));
+      progress.end();
+      showRespErr(verGet, context);
+      return;
+    }
+    var verRemote = verGet.data as String;
     progress.update(text: '成功获取远程版本$verRemote，开始更新数据');
     await updateData();
     await appConfig.write('bangumiDataVersion', verRemote);
@@ -95,8 +100,15 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
   Future<void> updateData() async {
     progress.update(title: '开始获取数据', text: '正在获取JSON数据', progress: null);
     progress.onTaskbar = true;
-    var client = BTBangumiData();
-    var rawData = await client.getBangumiData();
+    var dataGet = await bgmDataClient.getData();
+    if (dataGet.code != 0) {
+      progress.update(text: '获取数据失败');
+      await Future.delayed(Duration(seconds: 1));
+      progress.end();
+      showRespErr(dataGet, context);
+      return;
+    }
+    var rawData = dataGet.data as BangumiDataJson;
     progress.update(title: '成功获取数据', text: '正在写入数据');
     var cnt, total;
     var sites = [];
@@ -111,7 +123,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
         text: site.title,
         progress: (cnt / total) * 100,
       );
-      await bangumiData.writeSite(site);
+      await bgmDataSqlite.writeSite(site);
       cnt++;
       await Future.delayed(Duration(milliseconds: 200));
     }
@@ -124,7 +136,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
         text: item.title,
         progress: (cnt / total) * 100,
       );
-      await bangumiData.writeItem(item);
+      await bgmDataSqlite.writeItem(item);
       cnt++;
     }
   }
@@ -171,10 +183,15 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
                 text: '正在获取远程版本',
                 progress: null,
               );
-              var remote = await githubAPI.getLatestRelease(
-                'bangumi-data',
-                'bangumi-data',
-              );
+              var remoteGet = await bgmDataClient.getVersion();
+              if (remoteGet.code != 0 || remoteGet.data == null) {
+                progress.update(text: '获取远程版本失败');
+                await Future.delayed(Duration(seconds: 1));
+                progress.end();
+                showRespErr(remoteGet, context);
+                return;
+              }
+              var remote = remoteGet.data as String;
               progress.update(title: '成功获取远程版本', text: remote);
               await Future.delayed(Duration(milliseconds: 500));
               progress.end();

@@ -1,7 +1,7 @@
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/app/response.dart';
-import '../../models/bangumi/common_response.dart';
+import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/oauth.dart';
 import '../../tools/log_tool.dart';
 import '../../utils/get_bgm_secret.dart';
@@ -9,16 +9,16 @@ import 'bangumi_client.dart';
 
 /// bangumi.tv 的 OAuth
 /// 参考: https://github.com/bangumi/api/blob/master/docs-raw/How-to-Auth.md
-class BangumiOauth {
+class BtrBangumiOauth {
   /// 请求客户端
-  late final BangumiClient client;
+  late final BtrBangumi client;
 
   /// 基础 url
   final String baseUrl = 'https://bgm.tv/oauth';
 
   /// 构造函数
-  BangumiOauth() {
-    client = BangumiClient();
+  BtrBangumiOauth() {
+    client = BtrBangumi();
     client.dio.options.baseUrl = baseUrl;
   }
 
@@ -58,8 +58,8 @@ class BangumiOauth {
           ),
         );
       }
-      var errResp = BangumiErrResponse.fromJson(response.data);
-      return BTResponse<BangumiErrResponse>(
+      var errResp = BangumiErrorDetail.fromJson(response.data);
+      return BTResponse<BangumiErrorDetail>(
         code: response.statusCode ?? 666,
         message: 'Bangumi token get error',
         data: errResp,
@@ -95,8 +95,8 @@ class BangumiOauth {
           ),
         );
       }
-      var errResp = BangumiErrResponse.fromJson(response.data);
-      return BTResponse<BangumiErrResponse>(
+      var errResp = BangumiErrorDetail.fromJson(response.data);
+      return BTResponse<BangumiErrorDetail>(
         code: response.statusCode ?? 666,
         message: 'Bangumi token refresh error',
         data: errResp,
@@ -122,8 +122,8 @@ class BangumiOauth {
           data: BangumiTstrData.fromJson(response.data as Map<String, dynamic>),
         );
       }
-      var errResp = BangumiErrResponse.fromJson(response.data);
-      return BTResponse<BangumiErrResponse>(
+      var errResp = BangumiErrorDetail.fromJson(response.data);
+      return BTResponse<BangumiErrorDetail>(
         code: response.statusCode ?? 666,
         message: 'Bangumi token status error',
         data: errResp,

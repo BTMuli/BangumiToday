@@ -35,10 +35,10 @@ class _BangumiUserState extends ConsumerState<BangumiUser>
   final BtsBangumiUser sqlite = BtsBangumiUser();
 
   /// 认证相关客户端
-  final BangumiOauth oauth = BangumiOauth();
+  final BtrBangumiOauth oauth = BtrBangumiOauth();
 
   /// 一般请求客户端
-  final BangumiAPI api = BangumiAPI();
+  final BtrBangumiApi api = BtrBangumiApi();
 
   /// app-link 监听
   final AppLinks _appLinks = AppLinks();

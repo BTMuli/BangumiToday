@@ -4,7 +4,6 @@ import 'package:fluent_ui/fluent_ui.dart';
 import '../../database/bangumi/bangumi_user.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
-import '../../models/bangumi/common_response.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../models/bangumi/user_request.dart';
 import '../../tools/log_tool.dart';
@@ -12,10 +11,9 @@ import 'bangumi_client.dart';
 
 /// bangumi.tv 的 API
 /// 详细文档请参考 https://bangumi.github.io/api/
-/// todo，这边也应该根据api的分类进行拆分
-class BangumiAPI {
+class BtrBangumiApi {
   /// 请求客户端
-  late final BangumiClient client;
+  late final BtrBangumi client;
 
   /// 基础 URL
   final String baseUrl = 'https://api.bgm.tv';
@@ -27,8 +25,8 @@ class BangumiAPI {
   static late String accessToken = '';
 
   /// 构造函数
-  BangumiAPI() {
-    client = BangumiClient();
+  BtrBangumiApi() {
+    client = BtrBangumi();
     client.dio.options.baseUrl = baseUrl;
   }
 
@@ -90,8 +88,8 @@ class BangumiAPI {
             .toList();
         return BangumiCalendarResp.success(data: list);
       }
-      var errResp = BangumiErrResponse.fromJson(response.data);
-      return BTResponse<BangumiErrResponse>(
+      var errResp = BangumiErrorDetail.fromJson(response.data);
+      return BTResponse<BangumiErrorDetail>(
         code: response.statusCode ?? 666,
         message: 'Failed to load today',
         data: errResp,
@@ -117,8 +115,8 @@ class BangumiAPI {
           data: BangumiSubject.fromJson(response.data),
         );
       } else {
-        var errResp = BangumiErrResponse.fromJson(response.data);
-        return BTResponse<BangumiErrResponse>(
+        var errResp = BangumiErrorDetail.fromJson(response.data);
+        return BTResponse<BangumiErrorDetail>(
           code: response.statusCode ?? 666,
           message: 'Failed to load detail',
           data: errResp,
@@ -147,8 +145,8 @@ class BangumiAPI {
       );
     }
     try {
-      var errResp = BangumiErrResponse.fromJson(response.data);
-      return BTResponse<BangumiErrResponse>(
+      var errResp = BangumiErrorDetail.fromJson(response.data);
+      return BTResponse<BangumiErrorDetail>(
         code: response.statusCode ?? 666,
         message: 'Failed to load user info',
         data: errResp,

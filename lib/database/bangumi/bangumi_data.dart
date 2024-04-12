@@ -1,12 +1,10 @@
-import '../../models/bangumi/data_item.dart';
-import '../../models/bangumi/data_meta.dart';
+import '../../models/bangumi/bangumi_data_model.dart';
 import '../../tools/log_tool.dart';
 import '../app/app_config.dart';
 import '../bt_sqlite.dart';
 
 /// 负责bangumi-data相关处理
 /// 涉及 BangumiDataSite, BangumiDataItem, AppConfig三个表
-/// todo 目前没有记录数据源版本
 class BtsBangumiData {
   BtsBangumiData._();
 
@@ -54,7 +52,7 @@ class BtsBangumiData {
   }
 
   /// 初始化条目表
-  /// 数据类型参考：lib/models/bangumi/data_item.dart
+  /// 数据类型参考：lib/models/bangumi/bangumi_data_model.dart
   Future<void> initItem() async {
     var check = await _instance.sqlite.isTableExist(_tableNameItem);
     if (!check) {

@@ -2,7 +2,72 @@ import 'dart:convert';
 
 import 'package:json_annotation/json_annotation.dart';
 
-part 'data_item.g.dart';
+import '../app/response.dart';
+
+/// bangumi_data 相关的数据结构
+part 'bangumi_data_model.g.dart';
+
+/// bangumi-data JSON
+@JsonSerializable()
+class BangumiDataJson {
+  /// siteMeta 站点元数据
+  @JsonKey(name: 'siteMeta')
+  Map<String, BangumiDataSite> siteMeta;
+
+  /// items 条目
+  @JsonKey(name: 'items')
+  List<BangumiDataItem> items;
+
+  /// constructor
+  BangumiDataJson({
+    required this.siteMeta,
+    required this.items,
+  });
+
+  /// from json
+  factory BangumiDataJson.fromJson(Map<String, dynamic> json) =>
+      _$BangumiDataJsonFromJson(json);
+
+  /// to json
+  Map<String, dynamic> toJson() => _$BangumiDataJsonToJson(this);
+}
+
+/// bangumi-data站点元数据
+@JsonSerializable()
+class BangumiDataSite {
+  /// title 站点标题
+  @JsonKey(name: 'title')
+  String title;
+
+  /// urlTemplate 站点 URL 模板
+  /// 诸如 https://bgm.tv/subject/{id}
+  @JsonKey(name: 'urlTemplate')
+  String urlTemplate;
+
+  /// type 站点类型
+  /// info 表示咨讯站，onair 表示放送站
+  @JsonKey(name: 'type')
+  String type;
+
+  /// regions 地区
+  @JsonKey(name: 'regions')
+  List<String>? regions;
+
+  /// constructor
+  BangumiDataSite({
+    required this.title,
+    required this.urlTemplate,
+    required this.type,
+    required this.regions,
+  });
+
+  /// fromJson
+  factory BangumiDataSite.fromJson(Map<String, dynamic> json) =>
+      _$BangumiDataSiteFromJson(json);
+
+  /// toJson
+  Map<String, dynamic> toJson() => _$BangumiDataSiteToJson(this);
+}
 
 /// bangumi-data条目
 @JsonSerializable()
@@ -167,4 +232,71 @@ class BangumiDataItemSite {
 
   /// to json
   Map<String, dynamic> toJson() => _$BangumiDataItemSiteToJson(this);
+}
+
+/// 补充：站点元数据，用于存到数据库
+@JsonSerializable()
+class BangumiDataSiteFull extends BangumiDataSite {
+  /// key 站点键
+  @JsonKey(name: 'key')
+  String key;
+
+  /// constructor
+  BangumiDataSiteFull({
+    required this.key,
+    required String title,
+    required String urlTemplate,
+    required String type,
+    required List<String>? regions,
+  }) : super(
+          title: title,
+          urlTemplate: urlTemplate,
+          type: type,
+          regions: regions,
+        );
+
+  /// from json
+  factory BangumiDataSiteFull.fromJson(Map<String, dynamic> json) =>
+      _$BangumiDataSiteFullFromJson(json);
+
+  /// from site
+  factory BangumiDataSiteFull.fromSite(String key, BangumiDataSite site) =>
+      BangumiDataSiteFull(
+        key: key,
+        title: site.title,
+        urlTemplate: site.urlTemplate,
+        type: site.type,
+        regions: site.regions,
+      );
+
+  /// to json
+  Map<String, dynamic> toJson() => _$BangumiDataSiteFullToJson(this);
+
+  /// to sql json
+  Map<String, dynamic> toSqlJson() => {
+        'key': key,
+        'title': title,
+        'urlTemplate': urlTemplate,
+        'type': type,
+        'regions': regions.toString(),
+      };
+}
+
+/// 补充：返回数据，用于处理返回数据
+@JsonSerializable()
+class BangumiDataResp extends BTResponse<BangumiDataJson> {
+  /// constructor
+  BangumiDataResp({
+    required int code,
+    required String message,
+    required BangumiDataJson data,
+  }) : super(code: code, message: message, data: data);
+
+  /// success
+  static BangumiDataResp success({required BangumiDataJson data}) =>
+      BangumiDataResp(code: 0, message: 'success', data: data);
+
+  /// from json
+  factory BangumiDataResp.fromJson(Map<String, dynamic> json) =>
+      _$BangumiDataRespFromJson(json);
 }

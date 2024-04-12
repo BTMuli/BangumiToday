@@ -23,7 +23,7 @@ class CalendarPage extends ConsumerStatefulWidget {
 class _CalendarPageState extends ConsumerState<CalendarPage>
     with AutomaticKeepAliveClientMixin {
   /// 请求客户端
-  final _client = BangumiAPI();
+  final _client = BtrBangumiApi();
 
   /// 正在请求数据
   bool isRequesting = true;

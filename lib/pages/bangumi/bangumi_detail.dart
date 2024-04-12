@@ -57,7 +57,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       showError = false;
       setState(() {});
     }
-    final api = BangumiAPI();
+    final api = BtrBangumiApi();
     var detailGet = await api.getDetail(widget.id);
     if (detailGet.code != 0 || detailGet.data == null) {
       await showRespErr(detailGet, context);

@@ -3,9 +3,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../core/client.dart';
 
 /// 请求客户端
-class BangumiClient extends BTRequestClient {
+class BtrBangumi extends BTRequestClient {
   /// 构造函数
-  BangumiClient() {
+  BtrBangumi() {
     super.dio.options.headers['User-Agent'] = getClientUA();
   }
 
