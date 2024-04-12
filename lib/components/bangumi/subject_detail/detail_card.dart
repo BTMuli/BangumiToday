@@ -4,9 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-import '../../models/app/response.dart';
-import '../../models/bangumi/bangumi_model.dart';
-import '../app/app_dialog_resp.dart';
+import '../../../models/app/response.dart';
+import '../../../models/bangumi/bangumi_model.dart';
+import '../../app/app_dialog_resp.dart';
 import 'rate_bar_chart.dart';
 
 /// 详情页面的信息卡片
@@ -106,15 +106,15 @@ class BangumiDetailCard extends StatelessWidget {
                 color: FluentTheme.of(context).accentColor,
               ),
               onPressed: () async {
-                if (kDebugMode) {
-                  await showRespErr(
-                    BTResponse.success(data: item),
-                    context,
-                    title: '详细数据，ID: ${item.id}',
-                  );
-                  return;
-                }
                 await launchUrlString('https://bgm.tv/subject/${item.id}');
+              },
+              onLongPress: () async {
+                if (!kDebugMode) return;
+                await showRespErr(
+                  BTResponse.success(data: item),
+                  context,
+                  title: '详细数据，ID: ${item.id}',
+                );
               },
             ),
           ),

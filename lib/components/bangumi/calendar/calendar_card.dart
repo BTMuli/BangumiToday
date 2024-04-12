@@ -7,12 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-import '../../database/bangumi/bangumi_data.dart';
-import '../../models/app/response.dart';
-import '../../models/bangumi/bangumi_model.dart';
-import '../../pages/bangumi/bangumi_detail.dart';
-import '../../store/nav_store.dart';
-import '../app/app_dialog_resp.dart';
+import '../../../database/bangumi/bangumi_data.dart';
+import '../../../models/app/response.dart';
+import '../../../models/bangumi/bangumi_model.dart';
+import '../../../pages/bangumi/bangumi_detail.dart';
+import '../../../store/nav_store.dart';
+import '../../app/app_dialog_resp.dart';
 
 /// 今日放送-番剧卡片
 class CalendarCard extends ConsumerStatefulWidget {

@@ -12,7 +12,7 @@ final appStoreProvider = ChangeNotifierProvider<BTAppStore>((ref) {
 /// 应用状态
 class BTAppStore extends ChangeNotifier {
   /// 应用配置数据库
-  final sqlite = BtsAppConfig();
+  final BtsAppConfig sqlite = BtsAppConfig();
 
   /// 构造函数
   BTAppStore() {

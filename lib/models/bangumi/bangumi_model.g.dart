@@ -839,7 +839,7 @@ BangumiEpisode _$BangumiEpisodeFromJson(Map<String, dynamic> json) =>
       type: $enumDecode(_$BangumiEpTypeEnumMap, json['type']),
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
-      sort: json['sort'] as int,
+      sort: (json['sort'] as num).toDouble(),
       ep: json['ep'] as int,
       airDate: json['airdate'] as String,
       comment: json['comment'] as int,
@@ -1455,15 +1455,15 @@ Map<String, dynamic> _$BangumiUserSubjectCollectionModifyPayloadToJson(
       'tags': instance.tags,
     };
 
-BangumiEpisodeCollection _$BangumiEpisodeCollectionFromJson(
+BangumiUserEpisodeCollection _$BangumiUserEpisodeCollectionFromJson(
         Map<String, dynamic> json) =>
-    BangumiEpisodeCollection(
+    BangumiUserEpisodeCollection(
       episode: BangumiEpisode.fromJson(json['episode'] as Map<String, dynamic>),
       type: $enumDecode(_$BangumiEpisodeCollectionTypeEnumMap, json['type']),
     );
 
-Map<String, dynamic> _$BangumiEpisodeCollectionToJson(
-        BangumiEpisodeCollection instance) =>
+Map<String, dynamic> _$BangumiUserEpisodeCollectionToJson(
+        BangumiUserEpisodeCollection instance) =>
     <String, dynamic>{
       'episode': instance.episode.toJson(),
       'type': _$BangumiEpisodeCollectionTypeEnumMap[instance.type]!,

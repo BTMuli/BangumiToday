@@ -3,8 +3,8 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../models/bangumi/bangumi_model_patch.dart';
-import '../../store/app_store.dart';
+import '../../../models/bangumi/bangumi_model_patch.dart';
+import '../../../store/app_store.dart';
 
 /// 番剧评分折线图
 /// 参考：fl_chart的bar_chart_sample8.dart

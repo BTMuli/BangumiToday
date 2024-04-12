@@ -1578,7 +1578,7 @@ class BangumiEpisode {
 
   /// sort
   @JsonKey(name: 'sort')
-  int sort;
+  double sort;
 
   /// ep
   @JsonKey(name: 'ep')
@@ -2785,7 +2785,7 @@ class BangumiUserSubjectCollectionModifyPayload {
 
 /// UserEpisodeCollection
 @JsonSerializable(explicitToJson: true)
-class BangumiEpisodeCollection {
+class BangumiUserEpisodeCollection {
   /// episode
   @JsonKey(name: 'episode')
   BangumiEpisode episode;
@@ -2795,17 +2795,17 @@ class BangumiEpisodeCollection {
   BangumiEpisodeCollectionType type;
 
   /// constructor
-  BangumiEpisodeCollection({
+  BangumiUserEpisodeCollection({
     required this.episode,
     required this.type,
   });
 
   /// from json
-  factory BangumiEpisodeCollection.fromJson(Map<String, dynamic> json) =>
-      _$BangumiEpisodeCollectionFromJson(json);
+  factory BangumiUserEpisodeCollection.fromJson(Map<String, dynamic> json) =>
+      _$BangumiUserEpisodeCollectionFromJson(json);
 
   /// to json
-  Map<String, dynamic> toJson() => _$BangumiEpisodeCollectionToJson(this);
+  Map<String, dynamic> toJson() => _$BangumiUserEpisodeCollectionToJson(this);
 }
 
 /// RelatedSubject

@@ -6,9 +6,9 @@ part of 'request_collection.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-BangumiCollectionListResp _$BangumiCollectionListRespFromJson(
+BangumiCollectionSubjectListResp _$BangumiCollectionSubjectListRespFromJson(
         Map<String, dynamic> json) =>
-    BangumiCollectionListResp(
+    BangumiCollectionSubjectListResp(
       code: json['code'] as int,
       message: json['message'] as String,
       data: BangumiPageT<BangumiUserSubjectCollection>.fromJson(
@@ -17,11 +17,31 @@ BangumiCollectionListResp _$BangumiCollectionListRespFromJson(
               value as Map<String, dynamic>)),
     );
 
-BangumiCollectionItemResp _$BangumiCollectionItemRespFromJson(
+BangumiCollectionSubjectItemResp _$BangumiCollectionSubjectItemRespFromJson(
         Map<String, dynamic> json) =>
-    BangumiCollectionItemResp(
+    BangumiCollectionSubjectItemResp(
       code: json['code'] as int,
       message: json['message'] as String,
       data: BangumiUserSubjectCollection.fromJson(
+          json['data'] as Map<String, dynamic>),
+    );
+
+BangumiCollectionEpisodeListResp _$BangumiCollectionEpisodeListRespFromJson(
+        Map<String, dynamic> json) =>
+    BangumiCollectionEpisodeListResp(
+      code: json['code'] as int,
+      message: json['message'] as String,
+      data: BangumiPageT<BangumiUserEpisodeCollection>.fromJson(
+          json['data'] as Map<String, dynamic>,
+          (value) => BangumiUserEpisodeCollection.fromJson(
+              value as Map<String, dynamic>)),
+    );
+
+BangumiCollectionEpisodeItemResp _$BangumiCollectionEpisodeItemRespFromJson(
+        Map<String, dynamic> json) =>
+    BangumiCollectionEpisodeItemResp(
+      code: json['code'] as int,
+      message: json['message'] as String,
+      data: BangumiUserEpisodeCollection.fromJson(
           json['data'] as Map<String, dynamic>),
     );

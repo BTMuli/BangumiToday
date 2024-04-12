@@ -9,42 +9,88 @@ part 'request_collection.g.dart';
 
 /// 获取用户收藏的请求返回
 @JsonSerializable(createToJson: false)
-class BangumiCollectionListResp
+class BangumiCollectionSubjectListResp
     extends BTResponse<BangumiPageT<BangumiUserSubjectCollection>> {
   /// constructor
-  BangumiCollectionListResp({
+  BangumiCollectionSubjectListResp({
     required int code,
     required String message,
     required BangumiPageT<BangumiUserSubjectCollection> data,
   }) : super(code: code, message: message, data: data);
 
   /// success
-  static BangumiCollectionListResp success(
+  static BangumiCollectionSubjectListResp success(
           {required BangumiPageT<BangumiUserSubjectCollection> data}) =>
-      BangumiCollectionListResp(code: 0, message: 'success', data: data);
+      BangumiCollectionSubjectListResp(code: 0, message: 'success', data: data);
 
   /// from json
-  factory BangumiCollectionListResp.fromJson(Map<String, dynamic> json) =>
-      _$BangumiCollectionListRespFromJson(json);
+  factory BangumiCollectionSubjectListResp.fromJson(
+          Map<String, dynamic> json) =>
+      _$BangumiCollectionSubjectListRespFromJson(json);
 }
 
 /// 获取用户单个收藏的请求返回
 @JsonSerializable(createToJson: false)
-class BangumiCollectionItemResp
+class BangumiCollectionSubjectItemResp
     extends BTResponse<BangumiUserSubjectCollection> {
   /// constructor
-  BangumiCollectionItemResp({
+  BangumiCollectionSubjectItemResp({
     required int code,
     required String message,
     required BangumiUserSubjectCollection data,
   }) : super(code: code, message: message, data: data);
 
   /// success
-  static BangumiCollectionItemResp success(
+  static BangumiCollectionSubjectItemResp success(
           {required BangumiUserSubjectCollection data}) =>
-      BangumiCollectionItemResp(code: 0, message: 'success', data: data);
+      BangumiCollectionSubjectItemResp(code: 0, message: 'success', data: data);
 
   /// from json
-  factory BangumiCollectionItemResp.fromJson(Map<String, dynamic> json) =>
-      _$BangumiCollectionItemRespFromJson(json);
+  factory BangumiCollectionSubjectItemResp.fromJson(
+          Map<String, dynamic> json) =>
+      _$BangumiCollectionSubjectItemRespFromJson(json);
+}
+
+/// 获取用户章节收藏的请求返回
+@JsonSerializable(createToJson: false)
+class BangumiCollectionEpisodeListResp
+    extends BTResponse<BangumiPageT<BangumiUserEpisodeCollection>> {
+  /// constructor
+  BangumiCollectionEpisodeListResp({
+    required int code,
+    required String message,
+    required BangumiPageT<BangumiUserEpisodeCollection> data,
+  }) : super(code: code, message: message, data: data);
+
+  /// success
+  static BangumiCollectionEpisodeListResp success(
+          {required BangumiPageT<BangumiUserEpisodeCollection> data}) =>
+      BangumiCollectionEpisodeListResp(code: 0, message: 'success', data: data);
+
+  /// from json
+  factory BangumiCollectionEpisodeListResp.fromJson(
+          Map<String, dynamic> json) =>
+      _$BangumiCollectionEpisodeListRespFromJson(json);
+}
+
+/// 获取用户单个章节收藏的请求返回
+@JsonSerializable(createToJson: false)
+class BangumiCollectionEpisodeItemResp
+    extends BTResponse<BangumiUserEpisodeCollection> {
+  /// constructor
+  BangumiCollectionEpisodeItemResp({
+    required int code,
+    required String message,
+    required BangumiUserEpisodeCollection data,
+  }) : super(code: code, message: message, data: data);
+
+  /// success
+  static BangumiCollectionEpisodeItemResp success(
+          {required BangumiUserEpisodeCollection data}) =>
+      BangumiCollectionEpisodeItemResp(code: 0, message: 'success', data: data);
+
+  /// from json
+  factory BangumiCollectionEpisodeItemResp.fromJson(
+          Map<String, dynamic> json) =>
+      _$BangumiCollectionEpisodeItemRespFromJson(json);
 }

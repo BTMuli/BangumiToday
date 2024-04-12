@@ -90,6 +90,12 @@ class BtsBangumiUser {
     }
   }
 
+  /// 判断有没有登录
+  Future<bool> isLogin() async {
+    var accessToken = await readAccessToken();
+    return accessToken != null && accessToken.isNotEmpty;
+  }
+
   /// 读取 accessToken
   Future<String?> readAccessToken() async {
     return readToken('accessToken');

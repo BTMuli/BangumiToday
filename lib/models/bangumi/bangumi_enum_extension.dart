@@ -51,6 +51,30 @@ extension BangumiLegacyUserGroupExtension on BangumiLegacyUserGroupType {
         return 11;
     }
   }
+
+  /// 获取值
+  String get label {
+    switch (this) {
+      case BangumiLegacyUserGroupType.admin:
+        return '管理员';
+      case BangumiLegacyUserGroupType.bangumiAdmin:
+        return 'Bangumi 管理猿';
+      case BangumiLegacyUserGroupType.windowAdmin:
+        return '天窗管理猿';
+      case BangumiLegacyUserGroupType.mutedUser:
+        return '禁言用户';
+      case BangumiLegacyUserGroupType.bannedUser:
+        return '禁止访问用户';
+      case BangumiLegacyUserGroupType.personAdmin:
+        return '人物管理猿';
+      case BangumiLegacyUserGroupType.wikiAdmin:
+        return '维基条目管理猿';
+      case BangumiLegacyUserGroupType.user:
+        return '用户';
+      case BangumiLegacyUserGroupType.wikiUser:
+        return '维基人';
+    }
+  }
 }
 
 /// BloodType
@@ -104,10 +128,55 @@ extension BangumiCollectionTypeExtension on BangumiCollectionType {
         return 5;
     }
   }
+
+  /// 获取值
+  String get label {
+    switch (this) {
+      case BangumiCollectionType.wish:
+        return '想看';
+      case BangumiCollectionType.collect:
+        return '看过';
+      case BangumiCollectionType.doing:
+        return '在看';
+      case BangumiCollectionType.onHold:
+        return '搁置';
+      case BangumiCollectionType.dropped:
+        return '抛弃';
+    }
+  }
 }
 
 /// EpisodeCollectionType
-/// 因为这边的索引与定义索引一致，所以不需要扩展方法
+extension BangumiEpisodeCollectionTypeExtension
+    on BangumiEpisodeCollectionType {
+  /// 获取值
+  int get value {
+    switch (this) {
+      case BangumiEpisodeCollectionType.none:
+        return 0;
+      case BangumiEpisodeCollectionType.wish:
+        return 1;
+      case BangumiEpisodeCollectionType.done:
+        return 2;
+      case BangumiEpisodeCollectionType.dropped:
+        return 3;
+    }
+  }
+
+  /// 获取值
+  String get label {
+    switch (this) {
+      case BangumiEpisodeCollectionType.none:
+        return '未收藏';
+      case BangumiEpisodeCollectionType.wish:
+        return '想看';
+      case BangumiEpisodeCollectionType.done:
+        return '看过';
+      case BangumiEpisodeCollectionType.dropped:
+        return '抛弃';
+    }
+  }
+}
 
 /// EpType
 /// 定义与 LegacySubjectType 一致，同样不需要扩展方法

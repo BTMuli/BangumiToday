@@ -10,6 +10,7 @@ import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../controller/app/progress_controller.dart';
 import '../../database/bangumi/bangumi_user.dart';
+import '../../models/bangumi/bangumi_enum_extension.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
@@ -242,8 +243,8 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
         placeholder: (context, url) => ProgressRing(),
         errorWidget: (context, url, error) => Icon(FluentIcons.error),
       ),
-      title: Text(user?.nickname ?? '用户信息'),
-      subtitle: Text('ID: ${user?.id ?? 'unknown'}'),
+      title: Text(user!.nickname),
+      subtitle: Text('ID: ${user!.id}(${user!.userGroup.label})'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

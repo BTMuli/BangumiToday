@@ -1,7 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../models/bangumi/request_subject.dart';
+import '../../../models/bangumi/request_subject.dart';
 import 'calendar_card.dart';
 
 /// 今日放送-单日

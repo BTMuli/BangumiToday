@@ -6,6 +6,7 @@ import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_collection.dart';
+import '../../models/bangumi/request_episode.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../models/bangumi/request_user.dart';
 import '../../tools/log_tool.dart';
@@ -54,6 +55,8 @@ class BtrBangumiApi {
       accessToken = atRead;
     }
   }
+
+  /// 条目模块
 
   /// 每日放送
   Future<BTResponse> getToday() async {
@@ -117,6 +120,52 @@ class BtrBangumiApi {
     }
   }
 
+  /// 章节模块
+
+  /// 获取某条目的章节信息
+  Future<BTResponse> getEpisodeList(
+    int id, {
+    BangumiLegacyEpisodeType? type,
+    int? limit,
+    int? offset,
+  }) async {
+    try {
+      var authHeader = await getAuthHeader();
+      var resp = await client.dio.get(
+        '/v0/episodes',
+        queryParameters: {
+          'subject_id': id,
+          'type': type?.value,
+          'limit': limit,
+          'offset': offset,
+        },
+        options: Options(headers: authHeader, contentType: 'application/json'),
+      );
+      var dataList = BangumiPageT<BangumiEpisode>.fromJson(
+        resp.data as Map<String, dynamic>,
+        (e) => BangumiEpisode.fromJson(
+          e as Map<String, dynamic>,
+        ),
+      );
+      debugPrint(dataList.data.map((e) => e.toJson()).toList().toString());
+      return BangumiEpisodeListResp.success(data: dataList);
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      return BTResponse<BangumiErrorDetail>(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to load episode list',
+        data: errResp,
+      );
+    } on Exception catch (e) {
+      BTLogTool.error('Failed to load episode list: $e');
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to load episode list',
+        data: null,
+      );
+    }
+  }
+
   /// 用户模块
 
   /// 获取用户信息
@@ -152,7 +201,7 @@ class BtrBangumiApi {
   /// 收藏模块
 
   /// 获取用户收藏
-  Future<BTResponse> getUserCollections({
+  Future<BTResponse> getCollectionSubjects({
     required String username,
     BangumiSubjectType? subjectType,
     BangumiCollectionType? collectionType,
@@ -178,7 +227,7 @@ class BtrBangumiApi {
           e as Map<String, dynamic>,
         ),
       );
-      return BangumiCollectionListResp.success(data: dataList);
+      return BangumiCollectionSubjectListResp.success(data: dataList);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       return BTResponse<BangumiErrorDetail>(
@@ -197,7 +246,7 @@ class BtrBangumiApi {
   }
 
   /// 获取用户单个收藏
-  Future<BTResponse> getUserCollectionItem(
+  Future<BTResponse> getCollectionSubject(
     String username,
     int subjectId,
   ) async {
@@ -209,7 +258,7 @@ class BtrBangumiApi {
       );
       debugPrint('data: ${resp.data}');
       assert(resp.data is Map<String, dynamic>);
-      return BangumiCollectionItemResp.success(
+      return BangumiCollectionSubjectItemResp.success(
         data: BangumiUserSubjectCollection.fromJson(resp.data),
       );
     } on DioException catch (e) {
@@ -225,6 +274,113 @@ class BtrBangumiApi {
         code: 666,
         message: 'Failed to load user collection item',
         data: null,
+      );
+    }
+  }
+
+  /// 获取用户章节收藏
+  Future<BTResponse> getCollectionEpisodes(
+    int subjectId, {
+    int? offset,
+    int? limit,
+    BangumiLegacyEpisodeType? type,
+  }) async {
+    try {
+      var authHeader = await getAuthHeader();
+      var resp = await client.dio.get(
+        '/v0/users/-/collections/$subjectId/episodes',
+        queryParameters: {
+          'subject_id': subjectId,
+          'type': type?.value,
+          'limit': limit,
+          'offset': offset,
+        },
+        options: Options(headers: authHeader, contentType: 'application/json'),
+      );
+      var dataList = BangumiPageT<BangumiUserEpisodeCollection>.fromJson(
+        resp.data as Map<String, dynamic>,
+        (e) => BangumiUserEpisodeCollection.fromJson(
+          e as Map<String, dynamic>,
+        ),
+      );
+      return BangumiCollectionEpisodeListResp.success(data: dataList);
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      return BTResponse<BangumiErrorDetail>(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to load user collection episodes',
+        data: errResp,
+      );
+    } on Exception catch (e) {
+      BTLogTool.error('Failed to load user collection episodes: $e');
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to load user collection episodes',
+        data: null,
+      );
+    }
+  }
+
+  /// 获取用户单个章节收藏
+  Future<BTResponse> getCollectionEpisode(int episodeId) async {
+    try {
+      var authHeader = await getAuthHeader();
+      var resp = await client.dio.get(
+        '/v0/users/-/collections/-/episodes/$episodeId',
+        options: Options(headers: authHeader, contentType: 'application/json'),
+      );
+      debugPrint('data: ${resp.data}');
+      assert(resp.data is Map<String, dynamic>);
+      return BangumiCollectionEpisodeItemResp.success(
+        data: BangumiUserEpisodeCollection.fromJson(resp.data),
+      );
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      return BTResponse<BangumiErrorDetail>(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to load user collection episode item',
+        data: errResp,
+      );
+    } on Exception catch (e) {
+      BTLogTool.error('Failed to load user collection episode item: $e');
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to load user collection episode item',
+        data: null,
+      );
+    }
+  }
+
+  /// 更新用户单个收藏信息
+  Future<BTResponse> updateCollectionEpisode({
+    required BangumiEpisodeCollectionType type,
+    required int episode,
+  }) async {
+    try {
+      var authHeader = await getAuthHeader();
+      var resp = await client.dio.put(
+        '/v0/users/-/collections/-/episodes/$episode',
+        queryParameters: {
+          'episode_id': episode,
+        },
+        data: {
+          'type': type.value,
+        },
+        options: Options(headers: authHeader, contentType: 'application/json'),
+      );
+      debugPrint('data: ${resp.data}');
+      return BTResponse.success(data: null);
+    } on DioException catch (e) {
+      return BTResponse.error(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to update user collection episode item',
+        data: null,
+      );
+    } on Exception catch (e) {
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to update user collection episode item',
+        data: e.toString(),
       );
     }
   }

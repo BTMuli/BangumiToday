@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../components/app/app_dialog_resp.dart';
-import '../../components/bangumi/calendar_day.dart';
+import '../../components/bangumi/calendar/calendar_day.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/nav_store.dart';
