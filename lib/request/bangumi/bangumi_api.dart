@@ -3,7 +3,9 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../database/bangumi/bangumi_user.dart';
 import '../../models/app/response.dart';
+import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../models/bangumi/request_collection.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../models/bangumi/request_user.dart';
 import '../../tools/log_tool.dart';
@@ -30,36 +32,15 @@ class BtrBangumiApi {
     client.dio.options.baseUrl = baseUrl;
   }
 
-  /// 需要访问令牌的请求
-  Future<Response<T>> getWithAuth<T>(String path) async {
+  /// 获取需要访问令牌的 header 项
+  Future<Map<String, dynamic>> getAuthHeader() async {
     if (accessToken == '') {
       await refreshGetAccessToken();
     }
-    return client.dio.get<T>(
-      path,
-      options: Options(
-        headers: {
-          ...client.dio.options.headers,
-          'Authorization': 'Bearer $accessToken'
-        },
-        contentType: 'application/json',
-      ),
-    );
-  }
-
-  /// 需要访问令牌的请求
-  Future<Response<T>> postWithAuth<T>(String path, {dynamic data}) async {
-    if (accessToken == '') {
-      await refreshGetAccessToken();
-    }
-    return client.dio.post<T>(
-      path,
-      data: data,
-      options: Options(
-        headers: {'Authorization': 'Bearer $accessToken'},
-        contentType: 'application/json',
-      ),
-    );
+    return {
+      ...client.dio.options.headers,
+      'Authorization': 'Bearer $accessToken',
+    };
   }
 
   /// 尝试获取访问令牌
@@ -82,9 +63,11 @@ class BtrBangumiApi {
         assert(response.data is List);
         var data = response.data as List;
         var list = data
-            .map((e) => BangumiCalendarRespData.fromJson(
-                  e as Map<String, dynamic>,
-                ))
+            .map(
+              (e) => BangumiCalendarRespData.fromJson(
+                e as Map<String, dynamic>,
+              ),
+            )
             .toList();
         return BangumiCalendarResp.success(data: list);
       }
@@ -105,49 +88,54 @@ class BtrBangumiApi {
   }
 
   /// 获取番剧详情
-  Future<BTResponse> getDetail(String id) async {
+  Future<BTResponse> getSubjectDetail(String id) async {
     try {
-      var response = await getWithAuth('/v0/subjects/$id');
-      if (response.statusCode == 200) {
-        debugPrint('data: ${response.data}');
-        assert(response.data is Map<String, dynamic>);
-        return BangumiSubjectResp.success(
-          data: BangumiSubject.fromJson(response.data),
-        );
-      } else {
-        var errResp = BangumiErrorDetail.fromJson(response.data);
-        return BTResponse<BangumiErrorDetail>(
-          code: response.statusCode ?? 666,
-          message: 'Failed to load detail',
-          data: errResp,
-        );
-      }
+      var authHeader = await getAuthHeader();
+      var resp = await client.dio.get(
+        '/v0/subjects/$id',
+        options: Options(headers: authHeader, contentType: 'application/json'),
+      );
+      debugPrint('data: ${resp.data}');
+      assert(resp.data is Map<String, dynamic>);
+      return BangumiSubjectResp.success(
+        data: BangumiSubject.fromJson(resp.data),
+      );
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      return BTResponse<BangumiErrorDetail>(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to load subject detail',
+        data: errResp,
+      );
     } on Exception catch (e) {
-      BTLogTool.error('Failed to load detail: $e');
+      BTLogTool.error('Failed to load subject detail: $e');
       return BTResponse.error(
         code: 666,
-        message: 'Failed to load detail',
+        message: 'Failed to load subject detail',
         data: null,
       );
     }
   }
 
+  /// 用户模块
+
   /// 获取用户信息
   Future<BTResponse> getUserInfo() async {
-    var response = await getWithAuth(
-      '/v0/me',
-    );
-    if (response.statusCode == 200) {
-      debugPrint('data: ${response.data}');
-      assert(response.data is Map<String, dynamic>);
-      return BangumiUserInfoResp.success(
-        data: BangumiUser.fromJson(response.data),
-      );
-    }
     try {
-      var errResp = BangumiErrorDetail.fromJson(response.data);
+      var authHeader = await getAuthHeader();
+      var resp = await client.dio.get(
+        '/v0/me',
+        options: Options(headers: authHeader, contentType: 'application/json'),
+      );
+      debugPrint('data: ${resp.data}');
+      assert(resp.data is Map<String, dynamic>);
+      return BangumiUserInfoResp.success(
+        data: BangumiUser.fromJson(resp.data),
+      );
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       return BTResponse<BangumiErrorDetail>(
-        code: response.statusCode ?? 666,
+        code: e.response?.statusCode ?? 666,
         message: 'Failed to load user info',
         data: errResp,
       );
@@ -156,6 +144,86 @@ class BtrBangumiApi {
       return BTResponse.error(
         code: 666,
         message: 'Failed to load user info',
+        data: null,
+      );
+    }
+  }
+
+  /// 收藏模块
+
+  /// 获取用户收藏
+  Future<BTResponse> getUserCollections({
+    required String username,
+    BangumiSubjectType? subjectType,
+    BangumiCollectionType? collectionType,
+    int? limit,
+    int? offset,
+  }) async {
+    try {
+      var authHeader = await getAuthHeader();
+      var resp = await client.dio.get(
+        '/v0/users/$username/collections',
+        queryParameters: {
+          'username': username,
+          'subject_type': subjectType?.value,
+          'type': collectionType?.value,
+          'limit': limit,
+          'offset': offset,
+        },
+        options: Options(headers: authHeader, contentType: 'application/json'),
+      );
+      var dataList = BangumiPageT<BangumiUserSubjectCollection>.fromJson(
+        resp.data as Map<String, dynamic>,
+        (e) => BangumiUserSubjectCollection.fromJson(
+          e as Map<String, dynamic>,
+        ),
+      );
+      return BangumiCollectionListResp.success(data: dataList);
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      return BTResponse<BangumiErrorDetail>(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to load user collections',
+        data: errResp,
+      );
+    } on Exception catch (e) {
+      BTLogTool.error('Failed to load user collections: $e');
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to load user collections',
+        data: null,
+      );
+    }
+  }
+
+  /// 获取用户单个收藏
+  Future<BTResponse> getUserCollectionItem(
+    String username,
+    int subjectId,
+  ) async {
+    try {
+      var authHeader = await getAuthHeader();
+      var resp = await client.dio.get(
+        '/v0/users/$username/collections/$subjectId',
+        options: Options(headers: authHeader, contentType: 'application/json'),
+      );
+      debugPrint('data: ${resp.data}');
+      assert(resp.data is Map<String, dynamic>);
+      return BangumiCollectionItemResp.success(
+        data: BangumiUserSubjectCollection.fromJson(resp.data),
+      );
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      return BTResponse<BangumiErrorDetail>(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to load user collection item',
+        data: errResp,
+      );
+    } on Exception catch (e) {
+      BTLogTool.error('Failed to load user collection item: $e');
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to load user collection item',
         data: null,
       );
     }

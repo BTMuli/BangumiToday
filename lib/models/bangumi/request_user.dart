@@ -8,7 +8,7 @@ import 'bangumi_model.dart';
 part 'request_user.g.dart';
 
 /// 获取用户信息的请求返回
-@JsonSerializable()
+@JsonSerializable(createToJson: false)
 class BangumiUserInfoResp extends BTResponse<BangumiUser> {
   /// constructor
   BangumiUserInfoResp({

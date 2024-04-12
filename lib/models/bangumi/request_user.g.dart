@@ -12,11 +12,3 @@ BangumiUserInfoResp _$BangumiUserInfoRespFromJson(Map<String, dynamic> json) =>
       message: json['message'] as String,
       data: BangumiUser.fromJson(json['data'] as Map<String, dynamic>),
     );
-
-Map<String, dynamic> _$BangumiUserInfoRespToJson(
-        BangumiUserInfoResp instance) =>
-    <String, dynamic>{
-      'code': instance.code,
-      'message': instance.message,
-      'data': instance.data,
-    };

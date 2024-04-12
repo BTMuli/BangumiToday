@@ -1,4 +1,5 @@
 import 'package:dart_rss/domain/rss_feed.dart';
+import 'package:dio/dio.dart';
 
 import '../../models/app/response.dart';
 import '../core/client.dart';
@@ -22,14 +23,13 @@ class ComicatAPI {
   Future<BTResponse> getHomeRSS() async {
     try {
       var resp = await client.dio.get('/rss.xml');
-      if (resp.statusCode == 200) {
-        final channel = RssFeed.parse(resp.data.toString());
-        return BTResponse.success(data: channel.items);
-      }
+      final channel = RssFeed.parse(resp.data.toString());
+      return BTResponse.success(data: channel.items);
+    } on DioException catch (e) {
       return BTResponse.error(
-        code: resp.statusCode ?? 666,
+        code: e.response?.statusCode ?? 666,
         message: 'Failed to load comicat RSS',
-        data: null,
+        data: e.response?.data,
       );
     } on Exception catch (e) {
       return BTResponse.error(

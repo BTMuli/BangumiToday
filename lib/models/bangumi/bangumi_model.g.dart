@@ -1395,7 +1395,7 @@ BangumiUserSubjectCollection _$BangumiUserSubjectCollectionFromJson(
           $enumDecode(_$BangumiSubjectTypeEnumMap, json['subject_type']),
       rate: json['rate'] as int,
       type: $enumDecode(_$BangumiCollectionTypeEnumMap, json['type']),
-      comment: json['comment'] as String,
+      comment: json['comment'] as String?,
       tags: (json['tags'] as List<dynamic>).map((e) => e as String).toList(),
       epStatus: json['ep_status'] as int,
       volStatus: json['vol_status'] as int,

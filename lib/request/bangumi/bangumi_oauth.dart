@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/app/response.dart';
@@ -51,16 +52,14 @@ class BtrBangumiOauth {
         '/access_token',
         data: params.toJson(),
       );
-      if (response.statusCode == 200) {
-        return BangumiOauthTokenGetResp.success(
-          data: BangumiOauthTokenGetData.fromJson(
-            response.data as Map<String, dynamic>,
-          ),
-        );
-      }
-      var errResp = BangumiErrorDetail.fromJson(response.data);
+      assert(response.data is Map<String, dynamic>);
+      return BangumiOauthTokenGetResp.success(
+        data: BangumiOauthTokenGetData.fromJson(response.data),
+      );
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       return BTResponse<BangumiErrorDetail>(
-        code: response.statusCode ?? 666,
+        code: e.response?.statusCode ?? 666,
         message: 'Bangumi token get error',
         data: errResp,
       );
@@ -88,16 +87,14 @@ class BtrBangumiOauth {
         '/access_token',
         data: params.toJson(),
       );
-      if (response.statusCode == 200) {
-        return BangumiOauthTokenRefreshResp.success(
-          data: BangumiOauthTokenRefreshData.fromJson(
-            response.data as Map<String, dynamic>,
-          ),
-        );
-      }
-      var errResp = BangumiErrorDetail.fromJson(response.data);
+      assert(response.data is Map<String, dynamic>);
+      return BangumiOauthTokenRefreshResp.success(
+        data: BangumiOauthTokenRefreshData.fromJson(response.data),
+      );
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       return BTResponse<BangumiErrorDetail>(
-        code: response.statusCode ?? 666,
+        code: e.response?.statusCode ?? 666,
         message: 'Bangumi token refresh error',
         data: errResp,
       );
@@ -117,16 +114,16 @@ class BtrBangumiOauth {
       var response = await client.dio.get('/token_status', queryParameters: {
         'access_token': accessToken,
       });
-      if (response.statusCode == 200) {
-        return BangumiOauthTokenStatusResp.success(
-          data: BangumiOauthTokenStatusData.fromJson(
-            response.data as Map<String, dynamic>,
-          ),
-        );
-      }
-      var errResp = BangumiErrorDetail.fromJson(response.data);
+      assert(response.data is Map<String, dynamic>);
+      return BangumiOauthTokenStatusResp.success(
+        data: BangumiOauthTokenStatusData.fromJson(
+          response.data as Map<String, dynamic>,
+        ),
+      );
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       return BTResponse<BangumiErrorDetail>(
-        code: response.statusCode ?? 666,
+        code: e.response?.statusCode ?? 666,
         message: 'Bangumi token status error',
         data: errResp,
       );

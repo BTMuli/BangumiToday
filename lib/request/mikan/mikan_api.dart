@@ -1,4 +1,5 @@
 import 'package:dart_rss/dart_rss.dart';
+import 'package:dio/dio.dart';
 import '../../models/app/response.dart';
 import '../core/client.dart';
 
@@ -22,14 +23,13 @@ class MikanAPI {
   Future<BTResponse> getClassicRSS() async {
     try {
       var resp = await client.dio.get('/Classic');
-      if (resp.statusCode == 200) {
-        final channel = RssFeed.parse(resp.data.toString());
-        return BTResponse.success(data: channel.items);
-      }
+      final channel = RssFeed.parse(resp.data.toString());
+      return BTResponse.success(data: channel.items);
+    } on DioException catch (e) {
       return BTResponse.error(
-        code: resp.statusCode ?? 666,
+        code: e.response?.statusCode ?? 666,
         message: 'Failed to load mikan classic RSS',
-        data: null,
+        data: e.response?.data,
       );
     } on Exception catch (e) {
       return BTResponse.error(
@@ -47,14 +47,13 @@ class MikanAPI {
         '/MyBangumi',
         queryParameters: {'token': token},
       );
-      if (resp.statusCode == 200) {
-        final channel = RssFeed.parse(resp.data.toString());
-        return BTResponse.success(data: channel.items);
-      }
+      final channel = RssFeed.parse(resp.data.toString());
+      return BTResponse.success(data: channel.items);
+    } on DioException catch (e) {
       return BTResponse.error(
-        code: resp.statusCode ?? 666,
+        code: e.response?.statusCode ?? 666,
         message: 'Failed to load user RSS',
-        data: null,
+        data: e.response?.data,
       );
     } on Exception catch (e) {
       return BTResponse.error(

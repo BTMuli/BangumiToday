@@ -29,23 +29,19 @@ class BtrBangumiData {
       var response = await client.dio.request(
         jsonUrl,
         options: Options(
-          headers: {
-            'Accept': 'application/json',
-          },
+          headers: {'Accept': 'application/json'},
           method: 'GET',
         ),
       );
-      if (response.statusCode == 200) {
-        return BangumiDataResp.success(
-          data: BangumiDataJson.fromJson(
-            response.data as Map<String, dynamic>,
-          ),
-        );
-      }
+      assert(response.data is Map<String, dynamic>);
+      return BangumiDataResp.success(
+        data: BangumiDataJson.fromJson(response.data),
+      );
+    } on DioException catch (e) {
       return BTResponse.error(
-        code: response.statusCode ?? 666,
+        code: e.response?.statusCode ?? 666,
         message: 'Failed to load bangumi data',
-        data: response.data,
+        data: e.response?.data,
       );
     } on Exception catch (e) {
       return BTResponse.error(
@@ -62,20 +58,17 @@ class BtrBangumiData {
       var response = await client.dio.request(
         repoUrl,
         options: Options(
-          headers: {
-            'Accept': 'application/json',
-          },
+          headers: {'Accept': 'application/json'},
           method: 'GET',
         ),
       );
-      if (response.statusCode == 200) {
-        var data = response.data['tag_name'] as String;
-        return BTResponse.success(data: data);
-      }
+      assert(response.data['tag_name'] is String);
+      return BTResponse.success(data: response.data['tag_name']);
+    } on DioException catch (e) {
       return BTResponse.error(
-        code: response.statusCode ?? 666,
+        code: e.response?.statusCode ?? 666,
         message: 'Failed to load bangumi data version',
-        data: response.data,
+        data: e.response?.data,
       );
     } on Exception catch (e) {
       return BTResponse.error(

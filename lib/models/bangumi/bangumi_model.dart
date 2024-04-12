@@ -2682,7 +2682,7 @@ class BangumiUserSubjectCollection {
 
   /// comment
   @JsonKey(name: 'comment')
-  String comment;
+  String? comment;
 
   /// tags
   @JsonKey(name: 'tags')
