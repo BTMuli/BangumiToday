@@ -32,6 +32,14 @@ Widget buildContent(BTResponse resp) {
       children: codeWidgets,
     );
   }
+  var text;
+  try {
+    text = JsonEncoder.withIndent('  ').convert(resp.data);
+
+    /// ignore: empty_catches, avoid_catches_without_on_clauses
+  } catch (e) {
+    text = resp.data.toString();
+  }
   return Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,10 +54,7 @@ Widget buildContent(BTResponse resp) {
           color: Colors.white.withAlpha(20),
         ),
         child: SingleChildScrollView(
-          child: Text(
-            JsonEncoder.withIndent('  ').convert(resp.data),
-            style: TextStyle(fontSize: 20.sp),
-          ),
+          child: Text(text, style: TextStyle(fontSize: 20.sp)),
         ),
       )
     ],
@@ -59,6 +64,7 @@ Widget buildContent(BTResponse resp) {
 /// 处理响应失败的回调
 Future<void> showRespErr<T>(BTResponse<T> resp, BuildContext context) async {
   showDialog(
+    barrierDismissible: true,
     context: context,
     builder: (context) {
       return ContentDialog(

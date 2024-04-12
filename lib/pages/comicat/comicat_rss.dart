@@ -2,6 +2,7 @@ import 'package:dart_rss/domain/rss_item.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../components/app/app_dialog_resp.dart';
 import '../../components/comicat/cmc_rss_card.dart';
 import '../../request/comicat/comicat_api.dart';
 
@@ -32,10 +33,21 @@ class _ComicatRSSPageState extends State<ComicatRSSPage>
   void initState() {
     super.initState();
     Future.delayed(Duration.zero, () async {
-      var res = await comicatAPI.getHomeRSS();
-      rssItems = res;
-      setState(() {});
+      await refresh();
     });
+  }
+
+  /// 刷新数据
+  Future<void> refresh() async {
+    rssItems.clear();
+    setState(() {});
+    var resGet = await comicatAPI.getHomeRSS();
+    if (resGet.code != 0 || resGet.data == null) {
+      showRespErr(resGet, context);
+      return;
+    }
+    rssItems = resGet.data!;
+    setState(() {});
   }
 
   /// 构建标题
@@ -51,11 +63,7 @@ class _ComicatRSSPageState extends State<ComicatRSSPage>
         IconButton(
           icon: Icon(FluentIcons.refresh),
           onPressed: () async {
-            rssItems.clear();
-            setState(() {});
-            var res = await comicatAPI.getHomeRSS();
-            rssItems = res;
-            setState(() {});
+            await refresh();
           },
         ),
       ],

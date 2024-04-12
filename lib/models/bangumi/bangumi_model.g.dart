@@ -44,12 +44,12 @@ Map<String, dynamic> _$BangumiLegacySubjectSmallToJson(
       'summary': instance.summary,
       'air_date': instance.airDate,
       'air_weekday': instance.airWeekday,
-      'images': instance.images,
+      'images': instance.images?.toJson(),
       'eps': instance.eps,
       'eps_count': instance.epsCount,
-      'rating': instance.rating,
+      'rating': instance.rating?.toJson(),
       'rank': instance.rank,
-      'collection': instance.collection,
+      'collection': instance.collection?.toJson(),
     };
 
 const _$BangumiLegacySubjectTypeEnumMap = {
@@ -86,11 +86,11 @@ Map<String, dynamic> _$BangumiLegacySubjectCharacterToJson(
       'url': instance.url,
       'name': instance.name,
       'name_cn': instance.nameCn,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'comment': instance.comment,
       'collects': instance.collects,
-      'info': instance.info,
-      'actors': instance.actors,
+      'info': instance.info.toJson(),
+      'actors': instance.actors.map((e) => e.toJson()).toList(),
       'role_name': instance.roleName,
     };
 
@@ -118,10 +118,10 @@ Map<String, dynamic> _$BangumiLegacySubjectStaffToJson(
       'url': instance.url,
       'name': instance.name,
       'name_cn': instance.nameCn,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'comment': instance.comment,
       'collects': instance.collects,
-      'info': instance.info,
+      'info': instance.info.toJson(),
       'role_name': instance.roleName,
       'jobs': instance.jobs,
     };
@@ -164,8 +164,8 @@ BangumiLegacySubjectMedium _$BangumiLegacySubjectMediumFromJson(
 Map<String, dynamic> _$BangumiLegacySubjectMediumToJson(
         BangumiLegacySubjectMedium instance) =>
     <String, dynamic>{
-      'crt': instance.crt,
-      'staff': instance.staff,
+      'crt': instance.crt.map((e) => e.toJson()).toList(),
+      'staff': instance.staff.map((e) => e.toJson()).toList(),
       'id': instance.id,
       'url': instance.url,
       'type': _$BangumiLegacySubjectTypeEnumMap[instance.type]!,
@@ -174,12 +174,12 @@ Map<String, dynamic> _$BangumiLegacySubjectMediumToJson(
       'summary': instance.summary,
       'air_date': instance.airDate,
       'air_weekday': instance.airWeekday,
-      'images': instance.images,
+      'images': instance.images?.toJson(),
       'eps': instance.eps,
       'eps_count': instance.epsCount,
-      'rating': instance.rating,
+      'rating': instance.rating?.toJson(),
       'rank': instance.rank,
-      'collection': instance.collection,
+      'collection': instance.collection?.toJson(),
     };
 
 BangumiLegacySubjectLarge _$BangumiLegacySubjectLargeFromJson(
@@ -226,8 +226,8 @@ BangumiLegacySubjectLarge _$BangumiLegacySubjectLargeFromJson(
 Map<String, dynamic> _$BangumiLegacySubjectLargeToJson(
         BangumiLegacySubjectLarge instance) =>
     <String, dynamic>{
-      'topic': instance.topic,
-      'blog': instance.blog,
+      'topic': instance.topic.map((e) => e.toJson()).toList(),
+      'blog': instance.blog.map((e) => e.toJson()).toList(),
       'id': instance.id,
       'url': instance.url,
       'type': _$BangumiLegacySubjectTypeEnumMap[instance.type]!,
@@ -236,14 +236,14 @@ Map<String, dynamic> _$BangumiLegacySubjectLargeToJson(
       'summary': instance.summary,
       'air_date': instance.airDate,
       'air_weekday': instance.airWeekday,
-      'images': instance.images,
+      'images': instance.images?.toJson(),
       'eps': instance.eps,
       'eps_count': instance.epsCount,
-      'rating': instance.rating,
+      'rating': instance.rating?.toJson(),
       'rank': instance.rank,
-      'collection': instance.collection,
-      'crt': instance.crt,
-      'staff': instance.staff,
+      'collection': instance.collection?.toJson(),
+      'crt': instance.crt.map((e) => e.toJson()).toList(),
+      'staff': instance.staff.map((e) => e.toJson()).toList(),
     };
 
 BangumiLegacyEpisode _$BangumiLegacyEpisodeFromJson(
@@ -316,7 +316,7 @@ Map<String, dynamic> _$BangumiLegacyTopicToJson(BangumiLegacyTopic instance) =>
       'timestamp': instance.timestamp,
       'lastpost': instance.lastPost,
       'replies': instance.replies,
-      'user': instance.user,
+      'user': instance.user.toJson(),
     };
 
 BangumiLegacyBlog _$BangumiLegacyBlogFromJson(Map<String, dynamic> json) =>
@@ -342,7 +342,7 @@ Map<String, dynamic> _$BangumiLegacyBlogToJson(BangumiLegacyBlog instance) =>
       'replies': instance.replies,
       'timestamp': instance.timestamp,
       'dateline': instance.dateline,
-      'user': instance.user,
+      'user': instance.user.toJson(),
     };
 
 BangumiLegacyUser _$BangumiLegacyUserFromJson(Map<String, dynamic> json) =>
@@ -363,7 +363,7 @@ Map<String, dynamic> _$BangumiLegacyUserToJson(BangumiLegacyUser instance) =>
       'url': instance.url,
       'username': instance.username,
       'nickname': instance.nickname,
-      'avatar': instance.avatar,
+      'avatar': instance.avatar.toJson(),
       'sign': instance.sign,
       'usergroup': _$BangumiLegacyUserGroupTypeEnumMap[instance.userGroup]!,
     };
@@ -401,10 +401,10 @@ Map<String, dynamic> _$BangumiLegacyPersonToJson(
       'url': instance.url,
       'name': instance.name,
       'name_cn': instance.nameCn,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'comment': instance.comment,
       'collects': instance.collects,
-      'info': instance.info,
+      'info': instance.info.toJson(),
     };
 
 BangumiLegacyCharacter _$BangumiLegacyCharacterFromJson(
@@ -432,11 +432,11 @@ Map<String, dynamic> _$BangumiLegacyCharacterToJson(
       'url': instance.url,
       'name': instance.name,
       'name_cn': instance.nameCn,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'comment': instance.comment,
       'collects': instance.collects,
-      'info': instance.info,
-      'actors': instance.actors,
+      'info': instance.info.toJson(),
+      'actors': instance.actors.map((e) => e.toJson()).toList(),
     };
 
 BangumiLegacyMonoBase _$BangumiLegacyMonoBaseFromJson(
@@ -455,7 +455,7 @@ Map<String, dynamic> _$BangumiLegacyMonoBaseToJson(
       'id': instance.id,
       'url': instance.url,
       'name': instance.name,
-      'images': instance.images,
+      'images': instance.images.toJson(),
     };
 
 BangumiLegacyMono _$BangumiLegacyMonoFromJson(Map<String, dynamic> json) =>
@@ -476,7 +476,7 @@ Map<String, dynamic> _$BangumiLegacyMonoToJson(BangumiLegacyMono instance) =>
       'url': instance.url,
       'name': instance.name,
       'name_cn': instance.nameCn,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'comment': instance.comment,
       'collects': instance.collects,
     };
@@ -521,7 +521,7 @@ Map<String, dynamic> _$BangumiUserToJson(BangumiUser instance) =>
       'username': instance.username,
       'nickname': instance.nickname,
       'user_group': _$BangumiLegacyUserGroupTypeEnumMap[instance.userGroup]!,
-      'avatar': instance.avatar,
+      'avatar': instance.avatar.toJson(),
       'sign': instance.sign,
     };
 
@@ -564,7 +564,7 @@ Map<String, dynamic> _$BangumiCharacterDetailToJson(
       'id': instance.id,
       'name': instance.name,
       'type': _$BangumiCharacterTypeEnumMap[instance.type]!,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'summary': instance.summary,
       'locked': instance.locked,
       'infobox': instance.infobox,
@@ -573,7 +573,7 @@ Map<String, dynamic> _$BangumiCharacterDetailToJson(
       'birth_year': instance.birthYear,
       'birth_mon': instance.birthMon,
       'birth_day': instance.birthDay,
-      'stat': instance.stat,
+      'stat': instance.stat.toJson(),
     };
 
 const _$BangumiCharacterTypeEnumMap = {
@@ -610,7 +610,7 @@ Map<String, dynamic> _$BangumiCharacterPersonToJson(
       'id': instance.id,
       'name': instance.name,
       'type': _$BangumiCharacterTypeEnumMap[instance.type]!,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'subject_id': instance.subjectId,
       'subject_name': instance.subjectName,
       'subject_name_cn': instance.subjectNameCn,
@@ -645,7 +645,7 @@ Map<String, dynamic> _$BangumiDetailedRevisionToJson(
     <String, dynamic>{
       'id': instance.id,
       'type': instance.type,
-      'creator': instance.creator,
+      'creator': instance.creator.toJson(),
       'summary': instance.summary,
       'created_at': instance.createdAt,
       'data': instance.data,
@@ -670,10 +670,10 @@ Map<String, dynamic> _$BangumiPersonRevisionToJson(
     <String, dynamic>{
       'id': instance.id,
       'type': instance.type,
-      'creator': instance.creator,
+      'creator': instance.creator.toJson(),
       'summary': instance.summary,
       'created_at': instance.createdAt,
-      'data': instance.data,
+      'data': instance.data.map((k, e) => MapEntry(k, e.toJson())),
     };
 
 BangumiPersonRevisionDataItem _$BangumiPersonRevisionDataItemFromJson(
@@ -693,8 +693,8 @@ Map<String, dynamic> _$BangumiPersonRevisionDataItemToJson(
     <String, dynamic>{
       'prsn_infobox': instance.personInfoBox,
       'prsn_summary': instance.personSummary,
-      'profession': instance.profession,
-      'extra': instance.extra,
+      'profession': instance.profession.toJson(),
+      'extra': instance.extra.toJson(),
       'prsn_name': instance.personName,
     };
 
@@ -751,10 +751,10 @@ Map<String, dynamic> _$BangumiSubjectRevisionToJson(
     <String, dynamic>{
       'id': instance.id,
       'type': instance.type,
-      'creator': instance.creator,
+      'creator': instance.creator.toJson(),
       'summary': instance.summary,
       'created_at': instance.createdAt,
-      'data': instance.data,
+      'data': instance.data.toJson(),
     };
 
 BangumiSubjectRevisionData _$BangumiSubjectRevisionDataFromJson(
@@ -808,10 +808,10 @@ Map<String, dynamic> _$BangumiCharacterRevisionToJson(
     <String, dynamic>{
       'id': instance.id,
       'type': instance.type,
-      'creator': instance.creator,
+      'creator': instance.creator.toJson(),
       'summary': instance.summary,
       'created_at': instance.createdAt,
-      'data': instance.data,
+      'data': instance.data.map((k, e) => MapEntry(k, e.toJson())),
     };
 
 BangumiCharacterRevisionDataItem _$BangumiCharacterRevisionDataItemFromJson(
@@ -830,7 +830,7 @@ Map<String, dynamic> _$BangumiCharacterRevisionDataItemToJson(
       'infobox': instance.infoBox,
       'summary': instance.summary,
       'name': instance.name,
-      'extra': instance.extra,
+      'extra': instance.extra.toJson(),
     };
 
 BangumiEpisode _$BangumiEpisodeFromJson(Map<String, dynamic> json) =>
@@ -959,10 +959,10 @@ Map<String, dynamic> _$BangumiIndexToJson(BangumiIndex instance) =>
       'title': instance.title,
       'desc': instance.desc,
       'total': instance.total,
-      'stat': instance.stat,
+      'stat': instance.stat.toJson(),
       'created_at': instance.createdAt,
       'updated_at': instance.updatedAt,
-      'creator': instance.creator,
+      'creator': instance.creator.toJson(),
       'nsfw': instance.nsfw,
     };
 
@@ -986,8 +986,8 @@ Map<String, dynamic> _$BangumiIndexSubjectToJson(
       'id': instance.id,
       'type': _$BangumiSubjectTypeEnumMap[instance.type]!,
       'name': instance.name,
-      'images': instance.images,
-      'infobox': instance.infobox,
+      'images': instance.images.toJson(),
+      'infobox': instance.infobox.map((e) => e.toJson()).toList(),
       'date': instance.date,
       'comment': instance.comment,
       'added_at': instance.addedAt,
@@ -1110,7 +1110,7 @@ Map<String, dynamic> _$BangumiPersonToJson(BangumiPerson instance) =>
       'name': instance.name,
       'type': _$BangumiPersonTypeEnumMap[instance.type]!,
       'career': _$BangumiPersonCareerTypeEnumMap[instance.career]!,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'short_summary': instance.shortSummary,
       'locked': instance.locked,
     };
@@ -1151,7 +1151,7 @@ Map<String, dynamic> _$BangumiPersonCharacterToJson(
       'id': instance.id,
       'name': instance.name,
       'type': _$BangumiCharacterTypeEnumMap[instance.type]!,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'subject_id': instance.subjectId,
       'subject_name': instance.subjectName,
       'subject_name_cn': instance.subjectNameCn,
@@ -1187,17 +1187,17 @@ Map<String, dynamic> _$BangumiPersonDetailToJson(
       'name': instance.name,
       'type': _$BangumiPersonTypeEnumMap[instance.type]!,
       'career': _$BangumiPersonCareerTypeEnumMap[instance.career]!,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'summary': instance.summary,
       'locked': instance.locked,
       'last_modified': instance.lastModified,
-      'infobox': instance.infobox,
+      'infobox': instance.infobox.map((e) => e.toJson()).toList(),
       'gender': instance.gender,
       'blood_type': _$BangumiBloodTypeEnumMap[instance.bloodType]!,
       'birth_year': instance.birthYear,
       'birth_mon': instance.birthMon,
       'birth_day': instance.birthDay,
-      'stat': instance.stat,
+      'stat': instance.stat.toJson(),
     };
 
 BangumiPersonImages _$BangumiPersonImagesFromJson(Map<String, dynamic> json) =>
@@ -1237,9 +1237,9 @@ Map<String, dynamic> _$BangumiRelatedCharacterToJson(
       'id': instance.id,
       'name': instance.name,
       'type': _$BangumiCharacterTypeEnumMap[instance.type]!,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'relation': instance.relation,
-      'actors': instance.actors,
+      'actors': instance.actors.map((e) => e.toJson()).toList(),
     };
 
 BangumiRelatedPerson _$BangumiRelatedPersonFromJson(
@@ -1261,7 +1261,7 @@ Map<String, dynamic> _$BangumiRelatedPersonToJson(
       'name': instance.name,
       'type': _$BangumiPersonTypeEnumMap[instance.type]!,
       'career': _$BangumiPersonCareerTypeEnumMap[instance.career]!,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'relation': instance.relation,
     };
 
@@ -1278,7 +1278,7 @@ Map<String, dynamic> _$BangumiRevisionToJson(BangumiRevision instance) =>
     <String, dynamic>{
       'id': instance.id,
       'type': instance.type,
-      'creator': instance.creator,
+      'creator': instance.creator.toJson(),
       'summary': instance.summary,
       'created_at': instance.createdAt,
     };
@@ -1332,14 +1332,14 @@ Map<String, dynamic> _$BangumiSubjectToJson(BangumiSubject instance) =>
       'locked': instance.locked,
       'date': instance.date,
       'platform': instance.platform,
-      'images': instance.images,
-      'infobox': instance.infobox,
+      'images': instance.images.toJson(),
+      'infobox': instance.infobox.map((e) => e.toJson()).toList(),
       'volumes': instance.volumes,
       'eps': instance.eps,
       'total_episodes': instance.totalEpisodes,
-      'rating': instance.rating,
-      'collection': instance.collection,
-      'tags': instance.tags,
+      'rating': instance.rating.toJson(),
+      'collection': instance.collection.toJson(),
+      'tags': instance.tags.map((e) => e.toJson()).toList(),
     };
 
 BangumiSlimSubject _$BangumiSlimSubjectFromJson(Map<String, dynamic> json) =>
@@ -1368,12 +1368,12 @@ Map<String, dynamic> _$BangumiSlimSubjectToJson(BangumiSlimSubject instance) =>
       'name_cn': instance.nameCn,
       'short_summary': instance.shortSummary,
       'date': instance.date,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'volumes': instance.volumes,
       'eps': instance.eps,
       'collection_total': instance.collectionTotal,
       'score': instance.score,
-      'tags': instance.tags,
+      'tags': instance.tags.map((e) => e.toJson()).toList(),
     };
 
 BangumiTag _$BangumiTagFromJson(Map<String, dynamic> json) => BangumiTag(
@@ -1418,7 +1418,7 @@ Map<String, dynamic> _$BangumiUserSubjectCollectionToJson(
       'vol_status': instance.volStatus,
       'updated_at': instance.updatedAt,
       'private': instance.private,
-      'subject': instance.subject,
+      'subject': instance.subject.toJson(),
     };
 
 const _$BangumiCollectionTypeEnumMap = {
@@ -1465,7 +1465,7 @@ BangumiEpisodeCollection _$BangumiEpisodeCollectionFromJson(
 Map<String, dynamic> _$BangumiEpisodeCollectionToJson(
         BangumiEpisodeCollection instance) =>
     <String, dynamic>{
-      'episode': instance.episode,
+      'episode': instance.episode.toJson(),
       'type': _$BangumiEpisodeCollectionTypeEnumMap[instance.type]!,
     };
 
@@ -1514,6 +1514,6 @@ Map<String, dynamic> _$BangumiSubjectRelationToJson(
       'type': _$BangumiSubjectTypeEnumMap[instance.type]!,
       'name': instance.name,
       'name_cn': instance.nameCn,
-      'images': instance.images,
+      'images': instance.images.toJson(),
       'relation': instance.relation,
     };

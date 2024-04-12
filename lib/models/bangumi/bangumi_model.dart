@@ -10,7 +10,7 @@ import 'bangumi_model_patch.dart';
 part 'bangumi_model.g.dart';
 
 /// Legacy_SubjectSmall
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiLegacySubjectSmall {
   /// id
   @JsonKey(name: 'id')
@@ -96,7 +96,7 @@ class BangumiLegacySubjectSmall {
 }
 
 /// Legacy_SubjectMedium的角色信息
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiLegacySubjectCharacter {
   /// id
   @JsonKey(name: 'id')
@@ -161,7 +161,7 @@ class BangumiLegacySubjectCharacter {
 }
 
 /// Legacy_SubjectMedium的制作信息
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiLegacySubjectStaff {
   /// id
   @JsonKey(name: 'id')
@@ -227,7 +227,7 @@ class BangumiLegacySubjectStaff {
 
 /// Legacy_SubjectMedium
 /// 与 Legacy_SubjectSmall 的区别是增加了 crt 和 staff 两个字段
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiLegacySubjectMedium {
   /// crt 角色信息
   @JsonKey(name: 'crt')
@@ -325,7 +325,7 @@ class BangumiLegacySubjectMedium {
 
 /// Legacy_SubjectLarge
 /// 与 Legacy_SubjectMedium 的区别是增加了 topic 和 blog 两个字段
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiLegacySubjectLarge {
   /// topic
   @JsonKey(name: 'topic')
@@ -503,7 +503,7 @@ class BangumiLegacyEpisode {
 }
 
 /// Legacy_Topic
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiLegacyTopic {
   /// id
   @JsonKey(name: 'id')
@@ -558,7 +558,7 @@ class BangumiLegacyTopic {
 }
 
 /// Legacy_Blog
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiLegacyBlog {
   /// id
   @JsonKey(name: 'id')
@@ -619,7 +619,7 @@ class BangumiLegacyBlog {
 }
 
 /// Legacy_User
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiLegacyUser {
   /// id
   @JsonKey(name: 'id')
@@ -669,7 +669,7 @@ class BangumiLegacyUser {
 }
 
 /// Legacy_Person
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiLegacyPerson {
   /// id
   @JsonKey(name: 'id')
@@ -724,7 +724,7 @@ class BangumiLegacyPerson {
 }
 
 /// Legacy_Character
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiLegacyCharacter {
   /// id
   @JsonKey(name: 'id')
@@ -784,7 +784,7 @@ class BangumiLegacyCharacter {
 }
 
 /// Legacy_MonoBase
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiLegacyMonoBase {
   /// id
   @JsonKey(name: 'id')
@@ -819,7 +819,7 @@ class BangumiLegacyMonoBase {
 }
 
 /// LegacyMono
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiLegacyMono {
   /// id
   @JsonKey(name: 'id')
@@ -921,7 +921,7 @@ class BangumiLegacyMonoInfo {
 }
 
 /// User
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiUser {
   /// id
   @JsonKey(name: 'id')
@@ -996,7 +996,7 @@ class BangumiAvatar {
 }
 
 /// CharacterDetail
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiCharacterDetail {
   /// id
   @JsonKey(name: 'id')
@@ -1077,7 +1077,7 @@ class BangumiCharacterDetail {
 }
 
 /// CharacterPerson
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiCharacterPerson {
   /// id
   @JsonKey(name: 'id')
@@ -1157,7 +1157,7 @@ class BangumiCreator {
 }
 
 /// DetailedRevision
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiDetailedRevision {
   /// id
   @JsonKey(name: 'id')
@@ -1204,7 +1204,7 @@ class BangumiDetailedRevision {
 }
 
 /// PersonRevision
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiPersonRevision {
   /// id
   @JsonKey(name: 'id')
@@ -1251,7 +1251,7 @@ class BangumiPersonRevision {
 }
 
 /// PersonRevisionDataItem
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiPersonRevisionDataItem {
   /// prsn_infobox
   @JsonKey(name: 'prsn_infobox')
@@ -1362,7 +1362,7 @@ class BangumiRevisionExtra {
 }
 
 /// SubjectRevision
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiSubjectRevision {
   /// id
   @JsonKey(name: 'id')
@@ -1475,7 +1475,7 @@ class BangumiSubjectRevisionData {
 }
 
 /// CharacterRevision
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiCharacterRevision {
   /// id
   @JsonKey(name: 'id')
@@ -1521,7 +1521,7 @@ class BangumiCharacterRevision {
 }
 
 /// CharacterRevisionDataItem
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiCharacterRevisionDataItem {
   /// infobox
   @JsonKey(name: 'infobox')
@@ -1779,7 +1779,7 @@ class BangumiImages {
 }
 
 /// Index
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiIndex {
   /// id
   @JsonKey(name: 'id')
@@ -1839,7 +1839,7 @@ class BangumiIndex {
 }
 
 /// IndexSubject
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiIndexSubject {
   /// id
   @JsonKey(name: 'id')
@@ -2036,7 +2036,7 @@ class BangumiPage {
 /// Paged[Episode]、Paged[IndexSubject]、Paged[Revision]、Paged[UserCollection]
 /// 采用泛型，分别对应的数据为：
 /// Episode、IndexSubject、Revision、UserSubjectCollection
-@JsonSerializable(genericArgumentFactories: true)
+@JsonSerializable(genericArgumentFactories: true, explicitToJson: true)
 class BangumiPageT<T> {
   /// total
   @JsonKey(name: 'total')
@@ -2070,12 +2070,12 @@ class BangumiPageT<T> {
       _$BangumiPageTFromJson(json, fromJsonT);
 
   /// to json
-  Map<String, dynamic> toJson(Object Function(T value) toJsonT) =>
+  Map<String, dynamic> toJson(dynamic Function(T value) toJsonT) =>
       _$BangumiPageTToJson(this, toJsonT);
 }
 
 /// Person
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiPerson {
   /// id
   @JsonKey(name: 'id')
@@ -2125,7 +2125,7 @@ class BangumiPerson {
 }
 
 /// PersonCharacter
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiPersonCharacter {
   /// id
   @JsonKey(name: 'id')
@@ -2180,7 +2180,7 @@ class BangumiPersonCharacter {
 }
 
 /// PersonDetail
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiPersonDetail {
   /// id
   @JsonKey(name: 'id')
@@ -2305,7 +2305,7 @@ class BangumiPersonImages {
 }
 
 /// RelatedCharacter
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiRelatedCharacter {
   /// id
   @JsonKey(name: 'id')
@@ -2350,7 +2350,7 @@ class BangumiRelatedCharacter {
 }
 
 /// RelatedPerson
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiRelatedPerson {
   /// id
   @JsonKey(name: 'id')
@@ -2395,7 +2395,7 @@ class BangumiRelatedPerson {
 }
 
 /// Revision
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiRevision {
   /// id
   @JsonKey(name: 'id')
@@ -2436,7 +2436,7 @@ class BangumiRevision {
 }
 
 /// Stat
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiStat {
   /// comments
   @JsonKey(name: 'comments')
@@ -2461,7 +2461,7 @@ class BangumiStat {
 }
 
 /// Subject
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiSubject {
   /// id
   @JsonKey(name: 'id')
@@ -2561,7 +2561,7 @@ class BangumiSubject {
 }
 
 /// SlimSubject
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiSlimSubject {
   /// id
   @JsonKey(name: 'id')
@@ -2662,7 +2662,7 @@ class BangumiTag {
 }
 
 /// UserSubjectCollection
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiUserSubjectCollection {
   /// subject_id
   @JsonKey(name: 'subject_id')
@@ -2784,7 +2784,7 @@ class BangumiUserSubjectCollectionModifyPayload {
 }
 
 /// UserEpisodeCollection
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiEpisodeCollection {
   /// episode
   @JsonKey(name: 'episode')
@@ -2849,7 +2849,7 @@ class BangumiRelatedSubject {
 }
 
 /// SubjectRelation
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiSubjectRelation {
   /// id
   @JsonKey(name: 'id')

@@ -118,7 +118,7 @@ class BangumiOauthTokenGetParams {
 }
 
 /// access token 请求返回
-@JsonSerializable()
+@JsonSerializable(createToJson: false)
 class BangumiOauthTokenGetResp extends BTResponse<BangumiOauthTokenGetData> {
   /// constructor
   @override
@@ -218,7 +218,7 @@ class BangumiOauthTokenRefreshParams {
 }
 
 /// refresh token 返回
-@JsonSerializable()
+@JsonSerializable(createToJson: false)
 class BangumiOauthTokenRefreshResp
     extends BTResponse<BangumiOauthTokenRefreshData> {
   /// constructor
@@ -280,7 +280,7 @@ class BangumiOauthTokenRefreshData {
 }
 
 /// token status 请求返回
-@JsonSerializable()
+@JsonSerializable(createToJson: false)
 class BangumiOauthTokenStatusResp
     extends BTResponse<BangumiOauthTokenStatusData> {
   /// constructor

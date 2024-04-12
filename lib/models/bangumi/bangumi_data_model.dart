@@ -8,7 +8,7 @@ import '../app/response.dart';
 part 'bangumi_data_model.g.dart';
 
 /// bangumi-data JSON
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiDataJson {
   /// siteMeta 站点元数据
   @JsonKey(name: 'siteMeta')
@@ -70,7 +70,7 @@ class BangumiDataSite {
 }
 
 /// bangumi-data条目
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiDataItem {
   /// title 日文标题
   @JsonKey(name: 'title')
@@ -283,7 +283,7 @@ class BangumiDataSiteFull extends BangumiDataSite {
 }
 
 /// 补充：返回数据，用于处理返回数据
-@JsonSerializable()
+@JsonSerializable(createToJson: false)
 class BangumiDataResp extends BTResponse<BangumiDataJson> {
   /// constructor
   BangumiDataResp({

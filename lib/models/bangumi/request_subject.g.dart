@@ -16,27 +16,12 @@ BangumiCalendarResp _$BangumiCalendarRespFromJson(Map<String, dynamic> json) =>
           .toList(),
     );
 
-Map<String, dynamic> _$BangumiCalendarRespToJson(
-        BangumiCalendarResp instance) =>
-    <String, dynamic>{
-      'code': instance.code,
-      'message': instance.message,
-      'data': instance.data,
-    };
-
 BangumiSubjectResp _$BangumiSubjectRespFromJson(Map<String, dynamic> json) =>
     BangumiSubjectResp(
       code: json['code'] as int,
       message: json['message'] as String,
       data: BangumiSubject.fromJson(json['data'] as Map<String, dynamic>),
     );
-
-Map<String, dynamic> _$BangumiSubjectRespToJson(BangumiSubjectResp instance) =>
-    <String, dynamic>{
-      'code': instance.code,
-      'message': instance.message,
-      'data': instance.data,
-    };
 
 BangumiCalendarRespData _$BangumiCalendarRespDataFromJson(
         Map<String, dynamic> json) =>
@@ -52,8 +37,8 @@ BangumiCalendarRespData _$BangumiCalendarRespDataFromJson(
 Map<String, dynamic> _$BangumiCalendarRespDataToJson(
         BangumiCalendarRespData instance) =>
     <String, dynamic>{
-      'weekday': instance.weekday,
-      'items': instance.items,
+      'weekday': instance.weekday.toJson(),
+      'items': instance.items.map((e) => e.toJson()).toList(),
     };
 
 BangumiCalendarRespWeek _$BangumiCalendarRespWeekFromJson(

@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../components/app/app_dialog.dart';
+import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../components/mikan/mk_rss_card.dart';
 import '../../database/app/app_config.dart';
@@ -58,8 +59,12 @@ class _MikanRSSPageState extends State<MikanRSSPage>
   Future<void> refreshMikanRSS() async {
     rssItems.clear();
     setState(() {});
-    var res = await mikanAPI.getClassicRSS();
-    rssItems = res;
+    var resGet = await mikanAPI.getClassicRSS();
+    if (resGet.code != 0 || resGet.data == null) {
+      showRespErr(resGet, context);
+      return;
+    }
+    rssItems = resGet.data!;
     setState(() {});
     await BtInfobar.success(context, '已刷新Mikan列表');
   }
@@ -68,8 +73,12 @@ class _MikanRSSPageState extends State<MikanRSSPage>
   Future<void> refreshUserRSS() async {
     userItems.clear();
     setState(() {});
-    var res = await mikanAPI.getUserRSS(token);
-    userItems = res;
+    var resGet = await mikanAPI.getUserRSS(token);
+    if (resGet.code != 0 || resGet.data == null) {
+      showRespErr(resGet, context);
+      return;
+    }
+    userItems = resGet.data!;
     setState(() {});
     await BtInfobar.success(context, '已刷新用户列表');
   }

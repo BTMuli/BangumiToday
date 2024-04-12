@@ -1,7 +1,5 @@
 import 'package:dart_rss/dart_rss.dart';
-import 'package:fluent_ui/fluent_ui.dart';
-
-import '../../models/app/err.dart';
+import '../../models/app/response.dart';
 import '../core/client.dart';
 
 /// 蜜柑计划的API，主要是 rss 订阅
@@ -21,26 +19,49 @@ class MikanAPI {
   }
 
   /// 更新列表的 RSS
-  Future<List<RssItem>> getClassicRSS() async {
-    var response = await client.dio.get('/Classic');
-    if (response.statusCode != 200) {
-      throw BTError.requestError(msg: 'Failed to load classic RSS');
+  Future<BTResponse> getClassicRSS() async {
+    try {
+      var resp = await client.dio.get('/Classic');
+      if (resp.statusCode == 200) {
+        final channel = RssFeed.parse(resp.data.toString());
+        return BTResponse.success(data: channel.items);
+      }
+      return BTResponse.error(
+        code: resp.statusCode ?? 666,
+        message: 'Failed to load mikan classic RSS',
+        data: null,
+      );
+    } on Exception catch (e) {
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to load mikan classic RSS',
+        data: e.toString(),
+      );
     }
-    final channel = RssFeed.parse(response.data.toString());
-    return channel.items;
   }
 
   /// 获取用户的 RSS
-  Future<List<RssItem>> getUserRSS(String token) async {
-    var response = await client.dio.get(
-      '/MyBangumi',
-      queryParameters: {'token': token},
-    );
-    if (response.statusCode != 200) {
-      throw BTError.requestError(msg: 'Failed to load user RSS');
+  Future<BTResponse> getUserRSS(String token) async {
+    try {
+      var resp = await client.dio.get(
+        '/MyBangumi',
+        queryParameters: {'token': token},
+      );
+      if (resp.statusCode == 200) {
+        final channel = RssFeed.parse(resp.data.toString());
+        return BTResponse.success(data: channel.items);
+      }
+      return BTResponse.error(
+        code: resp.statusCode ?? 666,
+        message: 'Failed to load user RSS',
+        data: null,
+      );
+    } on Exception catch (e) {
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to load user RSS',
+        data: e.toString(),
+      );
     }
-    debugPrint(response.data);
-    final channel = RssFeed.parse(response.data.toString());
-    return channel.items;
   }
 }

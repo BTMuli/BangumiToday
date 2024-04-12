@@ -71,14 +71,6 @@ BangumiOauthTokenGetResp _$BangumiOauthTokenGetRespFromJson(
               json['data'] as Map<String, dynamic>),
     );
 
-Map<String, dynamic> _$BangumiOauthTokenGetRespToJson(
-        BangumiOauthTokenGetResp instance) =>
-    <String, dynamic>{
-      'code': instance.code,
-      'message': instance.message,
-      'data': instance.data,
-    };
-
 BangumiOauthTokenGetData _$BangumiOauthTokenGetDataFromJson(
         Map<String, dynamic> json) =>
     BangumiOauthTokenGetData(
@@ -129,14 +121,6 @@ BangumiOauthTokenRefreshResp _$BangumiOauthTokenRefreshRespFromJson(
               json['data'] as Map<String, dynamic>),
     );
 
-Map<String, dynamic> _$BangumiOauthTokenRefreshRespToJson(
-        BangumiOauthTokenRefreshResp instance) =>
-    <String, dynamic>{
-      'code': instance.code,
-      'message': instance.message,
-      'data': instance.data,
-    };
-
 BangumiOauthTokenRefreshData _$BangumiOauthTokenRefreshDataFromJson(
         Map<String, dynamic> json) =>
     BangumiOauthTokenRefreshData(
@@ -167,14 +151,6 @@ BangumiOauthTokenStatusResp _$BangumiOauthTokenStatusRespFromJson(
           : BangumiOauthTokenStatusData.fromJson(
               json['data'] as Map<String, dynamic>),
     );
-
-Map<String, dynamic> _$BangumiOauthTokenStatusRespToJson(
-        BangumiOauthTokenStatusResp instance) =>
-    <String, dynamic>{
-      'code': instance.code,
-      'message': instance.message,
-      'data': instance.data,
-    };
 
 BangumiOauthTokenStatusData _$BangumiOauthTokenStatusDataFromJson(
         Map<String, dynamic> json) =>

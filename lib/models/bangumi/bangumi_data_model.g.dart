@@ -19,8 +19,8 @@ BangumiDataJson _$BangumiDataJsonFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$BangumiDataJsonToJson(BangumiDataJson instance) =>
     <String, dynamic>{
-      'siteMeta': instance.siteMeta,
-      'items': instance.items,
+      'siteMeta': instance.siteMeta.map((k, e) => MapEntry(k, e.toJson())),
+      'items': instance.items.map((e) => e.toJson()).toList(),
     };
 
 BangumiDataSite _$BangumiDataSiteFromJson(Map<String, dynamic> json) =>
@@ -60,7 +60,7 @@ BangumiDataItem _$BangumiDataItemFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$BangumiDataItemToJson(BangumiDataItem instance) =>
     <String, dynamic>{
       'title': instance.title,
-      'titleTranslate': instance.titleTranslate,
+      'titleTranslate': instance.titleTranslate.toJson(),
       'type': instance.type,
       'lang': instance.lang,
       'officialSite': instance.officialSite,
@@ -68,7 +68,7 @@ Map<String, dynamic> _$BangumiDataItemToJson(BangumiDataItem instance) =>
       'broadcast': instance.broadcast,
       'end': instance.end,
       'comment': instance.comment,
-      'sites': instance.sites,
+      'sites': instance.sites.map((e) => e.toJson()).toList(),
     };
 
 BangumiDataItemTitleTranslate _$BangumiDataItemTitleTranslateFromJson(
@@ -126,10 +126,3 @@ BangumiDataResp _$BangumiDataRespFromJson(Map<String, dynamic> json) =>
       message: json['message'] as String,
       data: BangumiDataJson.fromJson(json['data'] as Map<String, dynamic>),
     );
-
-Map<String, dynamic> _$BangumiDataRespToJson(BangumiDataResp instance) =>
-    <String, dynamic>{
-      'code': instance.code,
-      'message': instance.message,
-      'data': instance.data,
-    };

@@ -1,7 +1,6 @@
 import 'package:dart_rss/domain/rss_feed.dart';
-import 'package:dart_rss/domain/rss_item.dart';
 
-import '../../models/app/err.dart';
+import '../../models/app/response.dart';
 import '../core/client.dart';
 
 /// 漫猫动漫的API。主要是 rss 订阅
@@ -20,12 +19,24 @@ class ComicatAPI {
   }
 
   /// 获取首页的 RSS
-  Future<List<RssItem>> getHomeRSS() async {
-    var response = await client.dio.get('/rss.xml');
-    if (response.statusCode != 200) {
-      throw BTError.requestError(msg: 'Failed to load home RSS');
+  Future<BTResponse> getHomeRSS() async {
+    try {
+      var resp = await client.dio.get('/rss.xml');
+      if (resp.statusCode == 200) {
+        final channel = RssFeed.parse(resp.data.toString());
+        return BTResponse.success(data: channel.items);
+      }
+      return BTResponse.error(
+        code: resp.statusCode ?? 666,
+        message: 'Failed to load comicat RSS',
+        data: null,
+      );
+    } on Exception catch (e) {
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to load comicat RSS',
+        data: e.toString(),
+      );
     }
-    final channel = RssFeed.parse(response.data.toString());
-    return channel.items;
   }
 }

@@ -8,7 +8,7 @@ import 'bangumi_model.dart';
 part 'request_subject.g.dart';
 
 /// 获取每日放送的请求返回
-@JsonSerializable()
+@JsonSerializable(createToJson: false)
 class BangumiCalendarResp extends BTResponse<List<BangumiCalendarRespData>> {
   /// constructor
   BangumiCalendarResp({
@@ -28,7 +28,7 @@ class BangumiCalendarResp extends BTResponse<List<BangumiCalendarRespData>> {
 }
 
 /// 获取单个条目的请求返回
-@JsonSerializable()
+@JsonSerializable(createToJson: false)
 class BangumiSubjectResp extends BTResponse<BangumiSubject> {
   /// constructor
   BangumiSubjectResp({
@@ -47,7 +47,7 @@ class BangumiSubjectResp extends BTResponse<BangumiSubject> {
 }
 
 /// 获取每日放送返回数据
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class BangumiCalendarRespData {
   /// weekday
   @JsonKey(name: 'weekday')
