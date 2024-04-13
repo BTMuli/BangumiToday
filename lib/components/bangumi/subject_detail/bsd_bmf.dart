@@ -353,7 +353,11 @@ class _BsdBmfState extends ConsumerState<BsdBmf> {
         Wrap(
           spacing: 12.w,
           runSpacing: 12.h,
-          children: rssItems.map(MikanRssCard.new).toList(),
+          children: rssItems
+              .map(
+                (e) => MikanRssCard(e, dir: bmf.download),
+              )
+              .toList(),
         ),
       );
     }
