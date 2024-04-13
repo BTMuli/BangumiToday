@@ -46,6 +46,27 @@ class BangumiSubjectResp extends BTResponse<BangumiSubject> {
       _$BangumiSubjectRespFromJson(json);
 }
 
+/// 获取条目关联条目的请求返回
+@JsonSerializable(createToJson: false)
+class BangumiSubjectRelationsResp
+    extends BTResponse<List<BangumiSubjectRelation>> {
+  /// constructor
+  BangumiSubjectRelationsResp({
+    required int code,
+    required String message,
+    required List<BangumiSubjectRelation> data,
+  }) : super(code: code, message: message, data: data);
+
+  /// success
+  static BangumiSubjectRelationsResp success(
+          {required List<BangumiSubjectRelation> data}) =>
+      BangumiSubjectRelationsResp(code: 0, message: 'success', data: data);
+
+  /// from json
+  factory BangumiSubjectRelationsResp.fromJson(Map<String, dynamic> json) =>
+      _$BangumiSubjectRelationsRespFromJson(json);
+}
+
 /// 获取每日放送返回数据
 @JsonSerializable(explicitToJson: true)
 class BangumiCalendarRespData {

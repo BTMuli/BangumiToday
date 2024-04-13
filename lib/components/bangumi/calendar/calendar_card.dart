@@ -125,7 +125,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
   PaneItem getPaneItem(BuildContext context) {
     return PaneItem(
       icon: Icon(FluentIcons.info),
-      title: Text('番剧详情 ${data.id}'),
+      title: Text('动画详情 ${data.id}'),
       body: BangumiDetail(id: data.id.toString()),
     );
   }
@@ -148,7 +148,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
                 showRespErr(
                   BTResponse.success(data: data),
                   context,
-                  title: '番剧详情',
+                  title: '动画详情',
                 );
                 return;
               }
@@ -171,7 +171,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
               var paneItem = getPaneItem(context);
               ref.read(navStoreProvider).addNavItem(
                     paneItem,
-                    '番剧详情 ${data.id}',
+                    '动画详情 ${data.id}',
                   );
             },
           ),

@@ -29,6 +29,7 @@ class BTNavStore extends ChangeNotifier {
 
   /// 添加侧边栏动态组件
   void addNavItem(PaneItem item, String title) {
+    debugPrint("addNavItem $title");
     item = PaneItem(
       title: item.title,
       body: item.body,
@@ -61,6 +62,7 @@ class BTNavStore extends ChangeNotifier {
 
   /// 移除侧边栏动态组件
   void removeNavItem(String title) {
+    debugPrint("removeNavItem $title");
     if (!_navMap.containsKey(title)) return;
     _navMap.remove(title);
     if (lastIndex > _navMap.length + 2) {

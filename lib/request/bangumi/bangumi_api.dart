@@ -120,6 +120,41 @@ class BtrBangumiApi {
     }
   }
 
+  /// 获取条目关联条目
+  Future<BTResponse> getSubjectRelations(int id) async {
+    try {
+      var authHeader = await getAuthHeader();
+      var resp = await client.dio.get(
+        '/v0/subjects/$id/subjects',
+        options: Options(headers: authHeader, contentType: 'application/json'),
+      );
+      var data = resp.data as List;
+      return BangumiSubjectRelationsResp.success(
+        data: data
+            .map(
+              (e) => BangumiSubjectRelation.fromJson(
+                e as Map<String, dynamic>,
+              ),
+            )
+            .toList(),
+      );
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      return BTResponse<BangumiErrorDetail>(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to load subject relations',
+        data: errResp,
+      );
+    } on Exception catch (e) {
+      BTLogTool.error('Failed to load subject relations: $e');
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to load subject relations',
+        data: null,
+      );
+    }
+  }
+
   /// 章节模块
 
   /// 获取某条目的章节信息
@@ -278,6 +313,32 @@ class BtrBangumiApi {
     }
   }
 
+  /// 新增用户单个条目的收藏
+  Future<BTResponse> addCollectionSubject(int subjectId) async {
+    try {
+      var authHeader = await getAuthHeader();
+      await client.dio.post(
+        '/v0/users/-/collections/$subjectId',
+        data: {'type': BangumiCollectionType.wish.value},
+        options: Options(headers: authHeader, contentType: 'application/json'),
+      );
+      return BTResponse.success(data: null);
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      return BTResponse.error(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to add user collection item',
+        data: errResp,
+      );
+    } on Exception catch (e) {
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to add user collection item',
+        data: e.toString(),
+      );
+    }
+  }
+
   /// 更新用户单个条目收藏信息
   /// 直接修改完成度可能会造成预期外的错误，这边建议只修改状态\评分等信息
   Future<BTResponse> updateCollectionSubject(
@@ -308,10 +369,11 @@ class BtrBangumiApi {
       debugPrint('data: ${resp.data}');
       return BTResponse.success(data: null);
     } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to update user collection item',
-        data: null,
+        data: errResp,
       );
     } on Exception catch (e) {
       return BTResponse.error(

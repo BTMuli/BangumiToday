@@ -23,6 +23,17 @@ BangumiSubjectResp _$BangumiSubjectRespFromJson(Map<String, dynamic> json) =>
       data: BangumiSubject.fromJson(json['data'] as Map<String, dynamic>),
     );
 
+BangumiSubjectRelationsResp _$BangumiSubjectRelationsRespFromJson(
+        Map<String, dynamic> json) =>
+    BangumiSubjectRelationsResp(
+      code: json['code'] as int,
+      message: json['message'] as String,
+      data: (json['data'] as List<dynamic>)
+          .map(
+              (e) => BangumiSubjectRelation.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
 BangumiCalendarRespData _$BangumiCalendarRespDataFromJson(
         Map<String, dynamic> json) =>
     BangumiCalendarRespData(

@@ -281,6 +281,22 @@ extension BangumiSubjectTypeExtension on BangumiSubjectType {
         return 6;
     }
   }
+
+  /// 获取值
+  String get label {
+    switch (this) {
+      case BangumiSubjectType.book:
+        return '书籍';
+      case BangumiSubjectType.anime:
+        return '动画';
+      case BangumiSubjectType.music:
+        return '音乐';
+      case BangumiSubjectType.game:
+        return '游戏';
+      case BangumiSubjectType.real:
+        return '三次元';
+    }
+  }
 }
 
 /// 下面的枚举类没有在Bangumi API文档中专门说明

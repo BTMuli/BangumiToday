@@ -2,6 +2,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../database/bangumi/bangumi_user.dart';
+import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import 'bsd_episode.dart';
@@ -52,7 +53,9 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
   void initState() {
     super.initState();
     Future.microtask(() async {
-      await load();
+      if (widget.subject.type == BangumiSubjectType.anime) {
+        await load();
+      }
     });
   }
 
@@ -80,7 +83,9 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
       }
     }
     offset += 30;
-    setState(() {});
+    if (context.mounted) {
+      setState(() {});
+    }
   }
 
   /// buildList

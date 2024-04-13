@@ -62,8 +62,8 @@ Widget buildContent(BTResponse resp) {
 }
 
 /// 处理响应失败的回调
-Future<void> showRespErr<T>(
-  BTResponse<T> resp,
+Future<void> showRespErr(
+  BTResponse resp,
   BuildContext context, {
   String? title,
 }) async {

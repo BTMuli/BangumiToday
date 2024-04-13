@@ -2,7 +2,8 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:dart_rss/dart_rss.dart';
-import 'package:file_picker/file_picker.dart';
+// import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -35,7 +36,9 @@ class ComicatRssCard extends StatelessWidget {
               if (item.title == null || item.title == '') {
                 return;
               }
-              var saveDir = await FilePicker.platform.getDirectoryPath();
+              // todo bug file_picker 会导致 crash
+              // var saveDir = await FilePicker.platform.getDirectoryPath();
+              var saveDir = await getDirectoryPath();
               if (saveDir == null || saveDir.isEmpty) {
                 await BtInfobar.error(context, '未选择下载目录');
                 return;

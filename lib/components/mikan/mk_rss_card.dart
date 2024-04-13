@@ -2,7 +2,8 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:dart_rss/dart_rss.dart';
-import 'package:file_picker/file_picker.dart';
+// import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -33,7 +34,9 @@ class MikanRssCard extends StatelessWidget {
     }
     var saveDir;
     if (dir == null || dir!.isEmpty) {
-      saveDir = await FilePicker.platform.getDirectoryPath();
+      // todo bug，选择目录后 crash
+      // saveDir = await FilePicker.platform.getDirectoryPath();
+      saveDir = await getDirectoryPath();
     } else {
       saveDir = dir;
     }

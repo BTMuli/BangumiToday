@@ -218,9 +218,43 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
     );
   }
 
+  MenuFlyoutItem buildFlyoutItemDetail(BuildContext context) {
+    var color = FluentTheme.of(context).accentColor;
+    return MenuFlyoutItem(
+      leading: Icon(FluentIcons.info),
+      text: Text('查看详情'),
+      onPressed: () async {
+        if (userCollection == null) {
+          await BtInfobar.error(context, '未获取到收藏信息');
+          return;
+        }
+        await showDialog(
+          barrierDismissible: true,
+          context: context,
+          builder: (_) => ContentDialog(
+            title: Text('收藏详情'),
+            content: buildCollectionDetail(context),
+            actions: [
+              IconButton(
+                onPressed: () async {
+                  await launchUrlString('https://bgm.tv/subject/${subject.id}');
+                  Navigator.of(context).pop();
+                },
+                icon: Icon(FluentIcons.edge_logo, color: color),
+              ),
+              Button(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('关闭'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   /// 构建Flyout-通用
   Widget buildFlyoutCommon(BuildContext context) {
-    var color = FluentTheme.of(context).accentColor;
     return MenuFlyout(
       items: [
         buildSubjStat(context, BangumiCollectionType.wish),
@@ -228,44 +262,13 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
         buildSubjStat(context, BangumiCollectionType.doing),
         buildSubjStat(context, BangumiCollectionType.onHold),
         buildSubjStat(context, BangumiCollectionType.dropped),
-        MenuFlyoutItem(
-          leading: Icon(FluentIcons.info),
-          text: Text('查看详情'),
-          onPressed: () async {
-            if (userCollection == null) {
-              await BtInfobar.error(context, '未获取到收藏信息');
-              return;
-            }
-            await showDialog(
-              barrierDismissible: true,
-              context: context,
-              builder: (_) => ContentDialog(
-                title: Text('收藏详情'),
-                content: buildCollectionDetail(context),
-                actions: [
-                  IconButton(
-                    onPressed: () async {
-                      await launchUrlString(
-                          'https://bgm.tv/subject/${subject.id}');
-                      Navigator.of(context).pop();
-                    },
-                    icon: Icon(FluentIcons.edge_logo, color: color),
-                  ),
-                  Button(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text('关闭'),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+        buildFlyoutItemDetail(context),
       ],
     );
   }
 
   /// 未收藏
-  Widget buildUnCollection() {
+  Widget buildUnCollection(BuildContext context) {
     return Row(
       children: [
         FlyoutTarget(
@@ -281,7 +284,42 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
                 barrierDismissible: true,
                 dismissOnPointerMoveAway: false,
                 dismissWithEsc: true,
-                builder: buildFlyoutCommon,
+                builder: (context) => MenuFlyout(
+                  items: [
+                    buildFlyoutItemDetail(context),
+                    MenuFlyoutItem(
+                      leading: Icon(
+                        FluentIcons.add_bookmark,
+                        color: FluentTheme.of(context).accentColor,
+                      ),
+                      text: Text('添加到收藏列表'),
+                      onPressed: () async {
+                        if (user == null) {
+                          await BtInfobar.error(
+                            this.context,
+                            '未获取到用户信息，请登录后重试',
+                          );
+                          return;
+                        } else {
+                          var resp = await api.addCollectionSubject(subject.id);
+                          if (resp.code != 0) {
+                            await showRespErr(
+                              resp,
+                              this.context,
+                              title: '添加收藏失败',
+                            );
+                          } else {
+                            await BtInfobar.success(
+                              this.context,
+                              '条目 ${subject.id} 添加到收藏列表成功',
+                            );
+                            await init();
+                          }
+                        }
+                      },
+                    ),
+                  ],
+                ),
               );
             },
           ),
@@ -309,7 +347,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   }
 
   /// buildCollection
-  Widget buildCollection() {
+  Widget buildCollection(BuildContext context) {
     var icon = getIcon(collectionType);
     var color = getBgColor();
     return Row(
@@ -404,8 +442,8 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
       );
     }
     if (collectionType == BangumiCollectionType.unknown) {
-      return buildUnCollection();
+      return buildUnCollection(context);
     }
-    return buildCollection();
+    return buildCollection(context);
   }
 }

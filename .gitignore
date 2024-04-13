@@ -37,7 +37,6 @@ app.*.symbols
 app.*.map.json
 
 # Windows build
-nuget.exe
 sqlite3.dll
 
 # secret

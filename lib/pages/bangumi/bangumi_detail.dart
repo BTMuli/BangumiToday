@@ -3,11 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../components/app/app_dialog_resp.dart';
+import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/subject_detail/bsd_bmf.dart';
 import '../../components/bangumi/subject_detail/bsd_overview.dart';
+import '../../components/bangumi/subject_detail/bsd_relation.dart';
 import '../../components/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../components/bangumi/subject_detail/bsd_user_episodes.dart';
 import '../../database/bangumi/bangumi_user.dart';
+import '../../models/bangumi/bangumi_enum_extension.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/nav_store.dart';
@@ -98,13 +101,19 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       leading: IconButton(
         icon: Icon(FluentIcons.back),
         onPressed: () {
-          ref.read(navStoreProvider).removeNavItem('番剧详情 ${widget.id}');
+          if (data == null) {
+            BtInfobar.error(context, '数据为空');
+            return;
+          }
+          ref.read(navStoreProvider).removeNavItem(
+                '${data!.type.label}详情 ${widget.id}',
+              );
         },
       ),
       title: Tooltip(
         message: title,
         child: Text(
-          '番剧详情：$title',
+          '${data?.type.label ?? '条目'}详情：$title',
           overflow: TextOverflow.ellipsis,
         ),
       ),
@@ -228,6 +237,8 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
         BsdUserEpisodes(data!, user: user),
         SizedBox(height: 12.h),
         BsdBmf(data!.id),
+        SizedBox(height: 12.h),
+        BsdRelation(data!.id),
         SizedBox(height: 12.h),
         buildSummary(data!.summary),
         SizedBox(height: 12.h),
