@@ -1,5 +1,4 @@
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../database/bangumi/bangumi_user.dart';
@@ -8,7 +7,7 @@ import '../../../request/bangumi/bangumi_api.dart';
 import 'bsd_episode.dart';
 
 /// SubjectDetail页面的用于模块
-class BsdUser extends ConsumerStatefulWidget {
+class BsdUser extends StatefulWidget {
   /// subjectInfo
   final BangumiSubject subject;
 
@@ -16,11 +15,10 @@ class BsdUser extends ConsumerStatefulWidget {
   const BsdUser(this.subject, {super.key});
 
   @override
-  ConsumerState<BsdUser> createState() => _BsdUserState();
+  State<BsdUser> createState() => _BsdUserState();
 }
 
-class _BsdUserState extends ConsumerState<BsdUser>
-    with AutomaticKeepAliveClientMixin {
+class _BsdUserState extends State<BsdUser> with AutomaticKeepAliveClientMixin {
   /// subject_id
   int get subjectId => widget.subject.id;
 

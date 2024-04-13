@@ -225,6 +225,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.1.1"
+  cross_file:
+    dependency: transitive
+    description:
+      name: cross_file
+      sha256: "55d7b444feb71301ef6b8838dbc1ae02e63dd48c8773f3810ff53bb1e2945b32"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.3.4+1"
   crypto:
     dependency: transitive
     description:
@@ -329,6 +337,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "7.0.0"
+  file_picker:
+    dependency: "direct main"
+    description:
+      name: file_picker
+      sha256: d1d0ac3966b36dc3e66eeefb40280c17feb87fa2099c6e22e6a1fc959327bd03
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "8.0.0+1"
   filesize:
     dependency: "direct main"
     description:
@@ -411,6 +427,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_plugin_android_lifecycle:
+    dependency: transitive
+    description:
+      name: flutter_plugin_android_lifecycle
+      sha256: "592dc01a18961a51c24ae5d963b724b2b7fa4a95c100fe8eb6ca8a5a4732cadf"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "2.0.18"
   flutter_rating_bar:
     dependency: "direct main"
     description:
@@ -1179,7 +1203,7 @@ packages:
     source: hosted
     version: "0.1.1"
   video_player:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: video_player
       sha256: efa2e24042166906ddf836dd131258d0371d0009cdf0476f6a83fd992a17f5d0
@@ -1227,7 +1251,7 @@ packages:
     source: hosted
     version: "2.3.0"
   video_player_win:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: video_player_win
       sha256: b99e8dfe7fa87a6732b5c91caef4955ae3453fd6255fb8860a7686beccdcfe43

@@ -53,4 +53,14 @@ class BTFileTool {
   Future<Directory> createDir(String defaultPath) {
     return Directory(defaultPath).create(recursive: true);
   }
+
+  /// 获取目录下的文件名（不包括子目录）
+  Future<List<String>> getFileNames(String dirPath) async {
+    var dir = Directory(dirPath);
+    if (await dir.exists()) {
+      return dir.list().map((e) => path.basename(e.path)).toList();
+    } else {
+      return [];
+    }
+  }
 }

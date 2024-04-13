@@ -1,14 +1,15 @@
 import 'dart:convert';
 
-// import 'package:path/path.dart' as path;
 import 'package:crypto/crypto.dart';
 import 'package:dart_rss/dart_rss.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../tools/download_tool.dart';
 import '../../utils/tool_func.dart';
+import '../app/app_infobar.dart';
 
 /// Mikan Rss Card
 class ComicatRssCard extends StatelessWidget {
@@ -34,23 +35,21 @@ class ComicatRssCard extends StatelessWidget {
               if (item.title == null || item.title == '') {
                 return;
               }
+              var saveDir = await FilePicker.platform.getDirectoryPath();
+              if (saveDir == null || saveDir.isEmpty) {
+                await BtInfobar.error(context, '未选择下载目录');
+                return;
+              }
               // md5 title
               var title = md5.convert(utf8.encode(item.title!)).toString();
               var savePath = await BTDownloadTool().downloadFile(
                 item.enclosure!.url!,
                 title,
               );
-              // var transUrl = Uri.encodeComponent(item.enclosure!.url!);
-              // var saveDir = path.join(BTDownloadTool.defaultBgmPath, title);
-              // var transTorrent = Uri.encodeComponent('$savePath');
-              // 重命名文件 out=${transOut}
-              // var transOut = Uri.encodeComponent(item.title!);
-              // 保存目录
-              // var transDir = Uri.encodeComponent(saveDir);
               if (savePath != '') {
-                // await launchUrlString(
-                //     'mo://new-task/?type=torrent&dir=$transDir&torrent=$transTorrent&selectFile=$transTorrent');
-                // 调用 motrix 打开文件
+                await launchUrlString(
+                  'mo://new-task/?type=torrent&dir=$saveDir',
+                );
                 await launchUrlString('file://$savePath');
               }
             },
@@ -79,8 +78,8 @@ class ComicatRssCard extends StatelessWidget {
       title = replaceEscape(item.title!);
     }
     return Card(
-      padding: const EdgeInsets.all(12.0),
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+      padding: EdgeInsets.symmetric(vertical: 16.w, horizontal: 16.h),
+      margin: EdgeInsets.symmetric(vertical: 8.w, horizontal: 8.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

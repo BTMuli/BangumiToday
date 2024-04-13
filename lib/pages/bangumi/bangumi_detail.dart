@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../components/app/app_dialog_resp.dart';
+import '../../components/bangumi/subject_detail/bsd_bmf.dart';
+import '../../components/bangumi/subject_detail/bsd_overview.dart';
 import '../../components/bangumi/subject_detail/bsd_user.dart';
-import '../../components/bangumi/subject_detail/detail_card.dart';
 import '../../database/bangumi/bangumi_user.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
@@ -218,9 +219,11 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     return ListView(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
       children: [
-        BangumiDetailCard(data!),
+        BsdOverview(data!),
         SizedBox(height: 12.h),
         BsdUser(data!),
+        SizedBox(height: 12.h),
+        BsdBmf(data!.id),
         SizedBox(height: 12.h),
         buildSummary(data!.summary),
         SizedBox(height: 12.h),

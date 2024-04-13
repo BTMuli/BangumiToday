@@ -5,6 +5,7 @@ import '../bt_sqlite.dart';
 
 /// 负责bangumi-data相关处理
 /// 涉及 BangumiDataSite, BangumiDataItem, AppConfig三个表
+/// AppConfig 里存储数据版本，数据库见 lib/database/app/app_config.dart
 class BtsBangumiData {
   BtsBangumiData._();
 

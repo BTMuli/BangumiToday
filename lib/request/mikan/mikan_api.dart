@@ -63,4 +63,26 @@ class MikanAPI {
       );
     }
   }
+
+  /// 获取自定义 RSS
+  Future<BTResponse> getCustomRSS(String url) async {
+    try {
+      /// 没有baseUrl
+      var resp = await client.dio.get(url);
+      final channel = RssFeed.parse(resp.data.toString());
+      return BTResponse.success(data: channel.items);
+    } on DioException catch (e) {
+      return BTResponse.error(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to load custom RSS',
+        data: e.response?.data,
+      );
+    } on Exception catch (e) {
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to load custom RSS',
+        data: e.toString(),
+      );
+    }
+  }
 }

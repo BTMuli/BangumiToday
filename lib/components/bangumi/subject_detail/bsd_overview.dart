@@ -10,12 +10,12 @@ import '../../app/app_dialog_resp.dart';
 import 'rate_bar_chart.dart';
 
 /// 详情页面的信息卡片
-class BangumiDetailCard extends StatelessWidget {
+class BsdOverview extends StatelessWidget {
   /// 番剧数据
   final BangumiSubject item;
 
   /// 构造函数
-  const BangumiDetailCard(this.item, {super.key});
+  const BsdOverview(this.item, {super.key});
 
   /// 构建无封面的卡片
   Widget buildCoverError(BuildContext context, {String? err}) {

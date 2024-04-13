@@ -1,22 +1,27 @@
 import 'dart:convert';
 
-// import 'package:path/path.dart' as path;
 import 'package:crypto/crypto.dart';
 import 'package:dart_rss/dart_rss.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../tools/download_tool.dart';
 import '../../utils/tool_func.dart';
+import '../app/app_infobar.dart';
 
 /// Mikan Rss Card
 class MikanRssCard extends StatelessWidget {
   /// rss item
   final RssItem item;
 
+  /// 目录，可选
+  final String? dir;
+
   /// 构造函数
-  const MikanRssCard(this.item, {super.key});
+  const MikanRssCard(this.item, {super.key, this.dir});
 
   /// 构建操作按钮
   Widget buildAct(BuildContext context) {
@@ -26,7 +31,6 @@ class MikanRssCard extends StatelessWidget {
         Tooltip(
           message: '下载',
           child: IconButton(
-            // 调用磁力链接下载
             icon: Icon(FluentIcons.link, color: color),
             onPressed: () async {
               if (item.enclosure?.url == null || item.enclosure?.url == '') {
@@ -35,23 +39,26 @@ class MikanRssCard extends StatelessWidget {
               if (item.title == null || item.title == '') {
                 return;
               }
+              var saveDir;
+              if (dir == null || dir!.isEmpty) {
+                saveDir = await FilePicker.platform.getDirectoryPath();
+              } else {
+                saveDir = dir;
+              }
+              if (saveDir == null || saveDir.isEmpty) {
+                await BtInfobar.error(context, '未选择下载目录');
+                return;
+              }
               // md5 title
               var title = md5.convert(utf8.encode(item.title!)).toString();
               var savePath = await BTDownloadTool().downloadFile(
                 item.enclosure!.url!,
                 title,
               );
-              // var transUrl = Uri.encodeComponent(item.enclosure!.url!);
-              // var saveDir = path.join(BTDownloadTool.defaultBgmPath, title);
-              // var transTorrent = Uri.encodeComponent('$savePath');
-              // 重命名文件 out=${transOut}
-              // var transOut = Uri.encodeComponent(item.title!);
-              // 保存目录
-              // var transDir = Uri.encodeComponent(saveDir);
               if (savePath != '') {
-                // await launchUrlString(
-                //     'mo://new-task/?type=torrent&dir=$transDir&torrent=$transTorrent&selectFile=$transTorrent');
-                // 调用 motrix 打开文件
+                await launchUrlString(
+                  'mo://new-task/?type=torrent&dir=$saveDir',
+                );
                 await launchUrlString('file://$savePath');
               }
             },
@@ -78,28 +85,23 @@ class MikanRssCard extends StatelessWidget {
     var sizeStr = '', pubDate = '';
     if (item.enclosure?.length != null) {
       var size = item.enclosure!.length;
-      sizeStr = bytes2size(size);
+      sizeStr = filesize(size);
     }
     if (item.pubDate != null) {
       pubDate = dateTransMikan(item.pubDate!);
     }
-    // todo 尝试点击下载torrent文件并调用motrix下载
     return Card(
-      padding: const EdgeInsets.all(12.0),
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+      padding: EdgeInsets.symmetric(vertical: 16.w, horizontal: 16.h),
+      margin: EdgeInsets.symmetric(vertical: 8.w, horizontal: 8.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             item.title ?? '',
-            style: TextStyle(
-              fontSize: 24.sp,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 8.h),
           Text(item.link ?? ''),
-          // todo 时间解析
           Text('发布时间: $pubDate'),
           Text('资源类型: ${item.enclosure?.type ?? ''}'),
           Text('资源大小: $sizeStr'),

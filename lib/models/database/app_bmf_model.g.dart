@@ -1,0 +1,22 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'app_bmf_model.dart';
+
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
+
+AppBmfModel _$AppBmfModelFromJson(Map<String, dynamic> json) => AppBmfModel(
+      id: json['id'] as int? ?? -1,
+      subject: json['subject'] as int,
+      rss: json['rss'] as String?,
+      download: json['download'] as String?,
+    );
+
+Map<String, dynamic> _$AppBmfModelToJson(AppBmfModel instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'subject': instance.subject,
+      'rss': instance.rss,
+      'download': instance.download,
+    };

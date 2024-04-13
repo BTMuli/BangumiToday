@@ -50,9 +50,12 @@ class BTDownloadTool {
       BTLogTool.warn('BTDownloadTool has not been initialized');
       await _instance.init();
     }
-    var client = BTRequestClient();
     var saveDetailPath = path.join(_instance._defaultPath, '$savePath.torrent');
-    await client.dio.download(url, saveDetailPath);
+    var fileCheck = await _instance._fileTool.isFileExist(saveDetailPath);
+    if (!fileCheck) {
+      var client = BTRequestClient();
+      await client.dio.download(url, saveDetailPath);
+    }
     return saveDetailPath;
   }
 }
