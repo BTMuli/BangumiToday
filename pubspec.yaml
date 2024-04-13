@@ -61,6 +61,7 @@ dependencies:
   window_manager: ^0.3.8
   win32_registry: ^1.1.2
   windows_taskbar: ^1.1.2
+  file_selector: ^1.0.3
 
 dev_dependencies:
   flutter_test:

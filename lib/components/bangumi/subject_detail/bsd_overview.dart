@@ -133,8 +133,8 @@ class BsdOverview extends StatelessWidget {
       SizedBox(height: 12.h),
       buildText(
         '想看：${item.collection.wish} '
-        '在看：${item.collection.collect} '
-        '看过：${item.collection.doing} '
+        '在看：${item.collection.doing} '
+        '看过：${item.collection.collect} '
         '抛弃：${item.collection.onHold} '
         '搁置：${item.collection.dropped} ',
       ),

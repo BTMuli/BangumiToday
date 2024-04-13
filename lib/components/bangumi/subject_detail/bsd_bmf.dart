@@ -1,5 +1,6 @@
 import 'package:dart_rss/domain/rss_item.dart';
-import 'package:file_picker/file_picker.dart';
+// import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -157,7 +158,8 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
               bmf = read;
               setState(() {});
             }
-            await BtInfobar.success(context, '成功设置 MikanRSS，请手动刷新');
+            await BtInfobar.success(context, '成功设置 MikanRSS');
+            await freshRss(bmf);
           },
         ),
         SizedBox(width: 12.w),
@@ -170,7 +172,9 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
               content: '将会结合RSS对照观看进度',
             );
             if (!confirm) return;
-            var dir = await FilePicker.platform.getDirectoryPath();
+            // todo bug，选择目录后 crash
+            // var dir = await FilePicker.platform.getDirectoryPath();
+            var dir = await getDirectoryPath();
             if (dir == null) return;
             bmf.download = dir;
             await sqlite.write(bmf);
@@ -179,7 +183,8 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
               bmf = read;
               setState(() {});
             }
-            await BtInfobar.success(context, '成功设置下载目录，请手动刷新');
+            await BtInfobar.success(context, '成功设置下载目录');
+            await freshFiles(bmf);
           },
         ),
         SizedBox(width: 12.w),
