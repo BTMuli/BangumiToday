@@ -116,6 +116,9 @@ extension BangumiCollectionTypeExtension on BangumiCollectionType {
   /// 获取值
   int get value {
     switch (this) {
+      /// todo: 该case未在Bangumi API文档中定义，但是加了方便处理未收藏的情况
+      case BangumiCollectionType.unknown:
+        return 0;
       case BangumiCollectionType.wish:
         return 1;
       case BangumiCollectionType.collect:
@@ -132,6 +135,8 @@ extension BangumiCollectionTypeExtension on BangumiCollectionType {
   /// 获取值
   String get label {
     switch (this) {
+      case BangumiCollectionType.unknown:
+        return '未知';
       case BangumiCollectionType.wish:
         return '想看';
       case BangumiCollectionType.collect:

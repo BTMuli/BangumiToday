@@ -23,6 +23,38 @@ class MikanRssCard extends StatelessWidget {
   /// 构造函数
   const MikanRssCard(this.item, {super.key, this.dir});
 
+  /// 下载
+  Future<void> download(BuildContext context) async {
+    if (item.enclosure?.url == null || item.enclosure?.url == '') {
+      return;
+    }
+    if (item.title == null || item.title == '') {
+      return;
+    }
+    var saveDir;
+    if (dir == null || dir!.isEmpty) {
+      saveDir = await FilePicker.platform.getDirectoryPath();
+    } else {
+      saveDir = dir;
+    }
+    if (saveDir == null || saveDir.isEmpty) {
+      await BtInfobar.error(context, '未选择下载目录');
+      return;
+    }
+    // md5 title
+    var title = md5.convert(utf8.encode(item.title!)).toString();
+    var savePath = await BTDownloadTool().downloadFile(
+      item.enclosure!.url!,
+      title,
+    );
+    if (savePath != '') {
+      await launchUrlString(
+        'mo://new-task/?type=torrent&dir=$saveDir',
+      );
+      await launchUrlString('file://$savePath');
+    }
+  }
+
   /// 构建操作按钮
   Widget buildAct(BuildContext context) {
     var color = FluentTheme.of(context).accentColor;
@@ -33,34 +65,7 @@ class MikanRssCard extends StatelessWidget {
           child: IconButton(
             icon: Icon(FluentIcons.link, color: color),
             onPressed: () async {
-              if (item.enclosure?.url == null || item.enclosure?.url == '') {
-                return;
-              }
-              if (item.title == null || item.title == '') {
-                return;
-              }
-              var saveDir;
-              if (dir == null || dir!.isEmpty) {
-                saveDir = await FilePicker.platform.getDirectoryPath();
-              } else {
-                saveDir = dir;
-              }
-              if (saveDir == null || saveDir.isEmpty) {
-                await BtInfobar.error(context, '未选择下载目录');
-                return;
-              }
-              // md5 title
-              var title = md5.convert(utf8.encode(item.title!)).toString();
-              var savePath = await BTDownloadTool().downloadFile(
-                item.enclosure!.url!,
-                title,
-              );
-              if (savePath != '') {
-                await launchUrlString(
-                  'mo://new-task/?type=torrent&dir=$saveDir',
-                );
-                await launchUrlString('file://$savePath');
-              }
+              await download(context);
             },
           ),
         ),
@@ -70,6 +75,7 @@ class MikanRssCard extends StatelessWidget {
             icon: Icon(FluentIcons.edge_logo, color: color),
             onPressed: () async {
               if (item.link == null || item.link == '') {
+                await BtInfobar.error(context, '链接为空');
                 return;
               }
               await launchUrlString(item.link!);
@@ -90,25 +96,30 @@ class MikanRssCard extends StatelessWidget {
     if (item.pubDate != null) {
       pubDate = dateTransMikan(item.pubDate!);
     }
-    return Card(
-      padding: EdgeInsets.symmetric(vertical: 16.w, horizontal: 16.h),
-      margin: EdgeInsets.symmetric(vertical: 8.w, horizontal: 8.h),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            item.title ?? '',
-            style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 8.h),
-          Text(item.link ?? ''),
-          Text('发布时间: $pubDate'),
-          Text('资源类型: ${item.enclosure?.type ?? ''}'),
-          Text('资源大小: $sizeStr'),
-          Text('资源链接: ${item.enclosure?.url ?? ''}'),
-          SizedBox(height: 8.h),
-          buildAct(context),
-        ],
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: 420.w),
+      child: Card(
+        padding: EdgeInsets.symmetric(vertical: 16.w, horizontal: 16.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Tooltip(
+              message: item.title ?? '',
+              child: Text(
+                item.title ?? '',
+                style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Text('发布时间: $pubDate'),
+            SizedBox(height: 8.h),
+            Text('资源大小: $sizeStr'),
+            SizedBox(height: 8.h),
+            buildAct(context),
+          ],
+        ),
       ),
     );
   }

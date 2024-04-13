@@ -78,8 +78,8 @@ class ComicatRssCard extends StatelessWidget {
       title = replaceEscape(item.title!);
     }
     return Card(
-      padding: EdgeInsets.symmetric(vertical: 16.w, horizontal: 16.h),
-      margin: EdgeInsets.symmetric(vertical: 8.w, horizontal: 8.h),
+      padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 16.w),
+      margin: EdgeInsets.symmetric(vertical: 8.h, horizontal: 16.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

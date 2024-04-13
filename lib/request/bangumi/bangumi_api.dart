@@ -278,6 +278,50 @@ class BtrBangumiApi {
     }
   }
 
+  /// 更新用户单个条目收藏信息
+  /// 直接修改完成度可能会造成预期外的错误，这边建议只修改状态\评分等信息
+  Future<BTResponse> updateCollectionSubject(
+    int subjectId, {
+    BangumiCollectionType? type,
+    int? rate,
+    int? ep,
+    int? vol,
+    String? comment,
+    bool? private,
+    List<String>? tags,
+  }) async {
+    var data = <String, dynamic>{};
+    if (type != null) data['type'] = type.value;
+    if (rate != null) data['rating'] = rate;
+    if (ep != null) data['ep_status'] = ep;
+    if (vol != null) data['vol_status'] = vol;
+    if (comment != null) data['comment'] = comment;
+    if (private != null) data['private'] = private;
+    if (tags != null) data['tags'] = tags;
+    try {
+      var authHeader = await getAuthHeader();
+      var resp = await client.dio.patch(
+        '/v0/users/-/collections/$subjectId',
+        data: data,
+        options: Options(headers: authHeader, contentType: 'application/json'),
+      );
+      debugPrint('data: ${resp.data}');
+      return BTResponse.success(data: null);
+    } on DioException catch (e) {
+      return BTResponse.error(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to update user collection item',
+        data: null,
+      );
+    } on Exception catch (e) {
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to update user collection item',
+        data: e.toString(),
+      );
+    }
+  }
+
   /// 获取用户章节收藏
   Future<BTResponse> getCollectionEpisodes(
     int subjectId, {
@@ -351,7 +395,7 @@ class BtrBangumiApi {
     }
   }
 
-  /// 更新用户单个收藏信息
+  /// 更新用户单个章节收藏信息
   Future<BTResponse> updateCollectionEpisode({
     required BangumiEpisodeCollectionType type,
     required int episode,

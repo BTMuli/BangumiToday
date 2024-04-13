@@ -228,12 +228,20 @@ class _MikanRSSPageState extends State<MikanRSSPage>
         ),
       );
     } else {
-      return ListView.builder(
-        itemCount: data.length,
-        itemBuilder: (context, index) {
-          var item = data[index];
-          return MikanRssCard(item);
-        },
+      return SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: double.infinity),
+          child: Wrap(
+            alignment: WrapAlignment.start,
+            crossAxisAlignment: WrapCrossAlignment.start,
+            direction: Axis.horizontal,
+            runAlignment: WrapAlignment.start,
+            spacing: 12.w,
+            runSpacing: 12.h,
+            children: data.map(MikanRssCard.new).toList(),
+          ),
+        ),
       );
     }
   }
@@ -244,9 +252,7 @@ class _MikanRSSPageState extends State<MikanRSSPage>
     super.build(context);
     return ScaffoldPage(
       header: PageHeader(title: buildTitle()),
-      content: Center(
-        child: buildContent(useUserRSS ? userItems : rssItems),
-      ),
+      content: buildContent(useUserRSS ? userItems : rssItems),
     );
   }
 }

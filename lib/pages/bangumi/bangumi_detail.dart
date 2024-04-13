@@ -5,7 +5,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../components/app/app_dialog_resp.dart';
 import '../../components/bangumi/subject_detail/bsd_bmf.dart';
 import '../../components/bangumi/subject_detail/bsd_overview.dart';
-import '../../components/bangumi/subject_detail/bsd_user.dart';
+import '../../components/bangumi/subject_detail/bsd_user_collection.dart';
+import '../../components/bangumi/subject_detail/bsd_user_episodes.dart';
 import '../../database/bangumi/bangumi_user.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
@@ -66,6 +67,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       showError = false;
       setState(() {});
     }
+    user = await sqlite.readUser();
     data = null;
     setState(() {});
     final api = BtrBangumiApi();
@@ -221,14 +223,14 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       children: [
         BsdOverview(data!),
         SizedBox(height: 12.h),
-        BsdUser(data!),
+        BsdUserCollection(data!, user: user),
+        SizedBox(height: 12.h),
+        BsdUserEpisodes(data!, user: user),
         SizedBox(height: 12.h),
         BsdBmf(data!.id),
         SizedBox(height: 12.h),
         buildSummary(data!.summary),
         SizedBox(height: 12.h),
-        // 章节
-        // buildEpisodes(),
         buildOtherInfo(data!.infobox),
       ],
     );

@@ -1422,6 +1422,7 @@ Map<String, dynamic> _$BangumiUserSubjectCollectionToJson(
     };
 
 const _$BangumiCollectionTypeEnumMap = {
+  BangumiCollectionType.unknown: 0,
   BangumiCollectionType.wish: 1,
   BangumiCollectionType.collect: 2,
   BangumiCollectionType.doing: 3,

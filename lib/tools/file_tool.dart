@@ -63,4 +63,18 @@ class BTFileTool {
       return [];
     }
   }
+
+  /// 文件删除
+  Future<void> deleteFile(String path) async {
+    if (await isFileExist(path)) {
+      await File(path).delete();
+    }
+  }
+
+  /// 获取文件大小-调用FileStat
+  int getFileSize(String path) {
+    var stat = FileStat.statSync(path);
+    debugPrint(stat.toString());
+    return stat.size;
+  }
 }

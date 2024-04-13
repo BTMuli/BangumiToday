@@ -105,6 +105,13 @@ class _BangumiPlayPageState extends ConsumerState<BangumiPlayPage> {
     );
   }
 
+  /// dispose
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
   /// 构建函数
   @override
   Widget build(BuildContext context) {

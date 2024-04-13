@@ -140,6 +140,11 @@ enum BangumiCharacterType {
 /// CollectionType
 @JsonEnum(valueField: 'value')
 enum BangumiCollectionType {
+  /// 未知 0，用于处理未收藏的情况
+  /// todo，该枚举值并未在Bangumi API文档中出现
+  /// 但是为了便于处理未收藏的情况，故在这里定义
+  unknown(0),
+
   /// 想看 1
   wish(1),
 

@@ -1,4 +1,5 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../models/bangumi/bangumi_enum.dart';
@@ -139,11 +140,11 @@ class _BsdEpisodeState extends State<BsdEpisode> {
       text: Text(type.label),
       onPressed: () async {
         if (userEpisode == null) {
-          BtInfobar.error(context, '未找到 $text 话的章节信息');
+          await BtInfobar.error(context, '未找到 $text 话的章节信息');
         } else if (userEpisode!.type != type) {
           await updateType(type);
         } else {
-          BtInfobar.warn(context, '章节 $text 状态已经是 ${type.label}');
+          await BtInfobar.warn(context, '章节 $text 状态已经是 ${type.label}');
         }
       },
       selected: userEpisode?.type == type,
@@ -161,6 +162,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text('标题: ${episode.name}'),
         Text('标题(中文): ${episode.nameCn}'),
@@ -169,7 +171,34 @@ class _BsdEpisodeState extends State<BsdEpisode> {
         Text('放送时间: ${episode.airDate}'),
         Text('时长: ${episode.duration}'),
         Text('收藏状态: ${userEpisode?.type.label ?? '未知'}'),
-        Text('简介：\n\n${episode.desc}'),
+        Text('简介：'),
+        SizedBox(height: 8.h),
+        if (episode.desc.isNotEmpty)
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: 200.h),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(episode.desc),
+              ),
+            ),
+          ),
+        if (episode.desc.isEmpty)
+          Row(
+            children: [
+              Icon(
+                FluentIcons.error,
+                color: FluentTheme.of(context).accentColor,
+              ),
+              SizedBox(width: 8.w),
+              Text('暂无简介'),
+            ],
+          ),
       ],
     );
   }

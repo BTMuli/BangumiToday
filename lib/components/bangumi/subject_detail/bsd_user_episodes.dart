@@ -6,33 +6,34 @@ import '../../../models/bangumi/bangumi_model.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import 'bsd_episode.dart';
 
-/// SubjectDetail页面的用于模块
-class BsdUser extends StatefulWidget {
+/// SubjectDetail页面的章节模块，负责显示/操作章节信息
+class BsdUserEpisodes extends StatefulWidget {
   /// subjectInfo
   final BangumiSubject subject;
 
+  /// 用户
+  final BangumiUser? user;
+
   /// 构造函数
-  const BsdUser(this.subject, {super.key});
+  const BsdUserEpisodes(this.subject, {super.key, this.user});
 
   @override
-  State<BsdUser> createState() => _BsdUserState();
+  State<BsdUserEpisodes> createState() => _BsdUserEpisodesState();
 }
 
-class _BsdUserState extends State<BsdUser> with AutomaticKeepAliveClientMixin {
+class _BsdUserEpisodesState extends State<BsdUserEpisodes>
+    with AutomaticKeepAliveClientMixin {
   /// subject_id
   int get subjectId => widget.subject.id;
+
+  /// 用户
+  BangumiUser? get user => widget.user;
 
   /// 数据库
   final BtsBangumiUser sqlite = BtsBangumiUser();
 
   /// 请求客户端
   final BtrBangumiApi api = BtrBangumiApi();
-
-  /// user
-  BangumiUser? user;
-
-  /// accessToken
-  String? accessToken;
 
   /// 章节信息
   List<BangumiEpisode> episodes = [];
@@ -43,35 +44,22 @@ class _BsdUserState extends State<BsdUser> with AutomaticKeepAliveClientMixin {
   /// offset
   int offset = 0;
 
-  /// todo 后续差不多了改成true
   @override
-  bool get wantKeepAlive => false;
+  bool get wantKeepAlive => true;
 
   /// 初始化
   @override
   void initState() {
     super.initState();
     Future.microtask(() async {
-      await init();
+      await load();
     });
   }
 
-  /// 初始化
-  Future<void> init() async {
-    user = await sqlite.readUser();
-    accessToken = await sqlite.readAccessToken();
-    setState(() {});
-    await loadMore();
-  }
-
   /// 加载更多
-  Future<void> loadMore() async {
+  Future<void> load() async {
+    assert(user != null);
     var ep1Resp = await api.getEpisodeList(
-      subjectId,
-      offset: offset,
-      limit: 30,
-    );
-    var ep2Resp = await api.getCollectionEpisodes(
       subjectId,
       offset: offset,
       limit: 30,
@@ -80,9 +68,16 @@ class _BsdUserState extends State<BsdUser> with AutomaticKeepAliveClientMixin {
       var page = ep1Resp.data as BangumiPageT<BangumiEpisode>;
       episodes.addAll(page.data);
     }
-    if (ep2Resp.code == 0) {
-      var page = ep2Resp.data as BangumiPageT<BangumiUserEpisodeCollection>;
-      userEpisodes.addAll(page.data);
+    if (user != null) {
+      var ep2Resp = await api.getCollectionEpisodes(
+        subjectId,
+        offset: offset,
+        limit: 30,
+      );
+      if (ep2Resp.code == 0) {
+        var page = ep2Resp.data as BangumiPageT<BangumiUserEpisodeCollection>;
+        userEpisodes.addAll(page.data);
+      }
     }
     offset += 30;
     setState(() {});
@@ -91,21 +86,22 @@ class _BsdUserState extends State<BsdUser> with AutomaticKeepAliveClientMixin {
   /// buildList
   List<Widget> buildList() {
     var res = <Widget>[];
+    episodes.sort((a, b) => a.sort.compareTo(b.sort));
+    userEpisodes.sort((a, b) => a.episode.sort.compareTo(b.episode.sort));
     for (var i = 0; i < episodes.length; i++) {
-      res.add(BsdEpisode(episodes[i], user: userEpisodes[i]));
+      if (i >= userEpisodes.length) {
+        res.add(BsdEpisode(episodes[i]));
+      } else {
+        res.add(BsdEpisode(episodes[i], user: userEpisodes[i]));
+      }
     }
     if (episodes.length < widget.subject.totalEpisodes) {
       res.add(
-        Padding(
-          padding: EdgeInsets.only(top: 12.h),
-          child: Center(
-            child: Button(
-              onPressed: () async {
-                await loadMore();
-              },
-              child: Text('加载更多'),
-            ),
-          ),
+        Button(
+          onPressed: () async {
+            await load();
+          },
+          child: Text('加载更多'),
         ),
       );
     }
@@ -115,11 +111,9 @@ class _BsdUserState extends State<BsdUser> with AutomaticKeepAliveClientMixin {
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (user == null) {
+    if (episodes.isEmpty) {
       return Container();
     }
-
-    /// todo 添加整个subject的收藏信息
     return Wrap(spacing: 8.w, runSpacing: 12.h, children: buildList());
   }
 }
