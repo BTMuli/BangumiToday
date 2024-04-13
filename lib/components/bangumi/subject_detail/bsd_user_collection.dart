@@ -27,7 +27,8 @@ class BsdUserCollection extends StatefulWidget {
 }
 
 /// State
-class _BsdUserCollectionState extends State<BsdUserCollection> {
+class _BsdUserCollectionState extends State<BsdUserCollection>
+    with AutomaticKeepAliveClientMixin {
   /// subjectInfo
   BangumiSubject get subject => widget.subject;
 
@@ -49,6 +50,9 @@ class _BsdUserCollectionState extends State<BsdUserCollection> {
   /// 用户评分
   late int rating = 0;
 
+  @override
+  bool get wantKeepAlive => true;
+
   /// 初始化
   @override
   void initState() {
@@ -56,6 +60,13 @@ class _BsdUserCollectionState extends State<BsdUserCollection> {
     Future.microtask(() async {
       await init();
     });
+  }
+
+  /// dispose
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
   }
 
   /// 初始化
@@ -375,6 +386,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection> {
   /// 构建函数
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (user == null) {
       return Row(
         children: [

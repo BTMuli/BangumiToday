@@ -94,7 +94,7 @@ class MikanRssCard extends StatelessWidget {
       sizeStr = filesize(size);
     }
     if (item.pubDate != null) {
-      pubDate = dateTransMikan(item.pubDate!);
+      pubDate = dateTransLocal(item.pubDate!);
     }
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: 420.w),

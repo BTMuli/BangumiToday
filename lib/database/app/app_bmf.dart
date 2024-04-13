@@ -71,4 +71,15 @@ class BtsAppBmf {
     }
     BTLogTool.info('Write $_tableName subject: ${model.subject}');
   }
+
+  /// 删除配置
+  Future<void> delete(int subject) async {
+    await _instance.preCheck();
+    await _instance.sqlite.db.delete(
+      _tableName,
+      where: 'subject = ?',
+      whereArgs: [subject],
+    );
+    BTLogTool.info('Delete $_tableName subject: $subject');
+  }
 }

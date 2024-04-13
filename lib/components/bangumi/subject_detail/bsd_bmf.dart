@@ -32,7 +32,8 @@ class BsdBmf extends ConsumerStatefulWidget {
 }
 
 /// BsdBmfState
-class _BsdBmfState extends ConsumerState<BsdBmf> {
+class _BsdBmfState extends ConsumerState<BsdBmf>
+    with AutomaticKeepAliveClientMixin {
   /// 数据库
   final BtsAppBmf sqlite = BtsAppBmf();
 
@@ -57,6 +58,10 @@ class _BsdBmfState extends ConsumerState<BsdBmf> {
   /// aria2 文件
   late List<String> aria2Files = [];
 
+  /// 是否保持状态
+  @override
+  bool get wantKeepAlive => true;
+
   /// 初始化
   @override
   void initState() {
@@ -64,6 +69,13 @@ class _BsdBmfState extends ConsumerState<BsdBmf> {
     Future.delayed(Duration.zero, () async {
       await init();
     });
+  }
+
+  /// dispose
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
   }
 
   /// 初始化
@@ -140,8 +152,12 @@ class _BsdBmfState extends ConsumerState<BsdBmf> {
             if (input == null) return;
             bmf.rss = input;
             await sqlite.write(bmf);
-            await BtInfobar.success(context, '成功设置 MikanRSS');
-            await freshRss(bmf);
+            var read = await sqlite.read(bmf.subject);
+            if (read != null) {
+              bmf = read;
+              setState(() {});
+            }
+            await BtInfobar.success(context, '成功设置 MikanRSS，请手动刷新');
           },
         ),
         SizedBox(width: 12.w),
@@ -163,8 +179,27 @@ class _BsdBmfState extends ConsumerState<BsdBmf> {
               bmf = read;
               setState(() {});
             }
-            await BtInfobar.success(context, '成功设置下载目录');
-            await freshFiles(bmf);
+            await BtInfobar.success(context, '成功设置下载目录，请手动刷新');
+          },
+        ),
+        SizedBox(width: 12.w),
+        Button(
+          child: Text('删除'),
+          onPressed: () async {
+            var confirm = await showConfirmDialog(
+              context,
+              title: '删除 BMF',
+              content: '确定删除 BMF 信息吗？',
+            );
+            if (!confirm) return;
+            await sqlite.delete(bmf.subject);
+            await BtInfobar.success(context, '成功删除 BMF 信息');
+            setState(() {
+              bmf = AppBmfModel(subject: widget.subjectId);
+              rssItems = [];
+              files = [];
+              aria2Files = [];
+            });
           },
         ),
       ],
@@ -239,9 +274,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf> {
         await freshFiles(bmf);
       });
       return [
-        Expanded(
-            child: SizedBox(
-                width: double.infinity, child: ProgressBar(value: null))),
+        SizedBox(width: double.infinity, child: ProgressBar(value: null)),
         SizedBox(height: 12.h),
         Text('下载中：${filesize(size)}'),
       ];
@@ -367,11 +400,15 @@ class _BsdBmfState extends ConsumerState<BsdBmf> {
   /// build
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (bmf.id == -1) {
-      return ListTile(
-        leading: Icon(FluentIcons.error_badge),
-        title: Text('没有找到对应的 RSS 信息'),
-        trailing: buildHeaderAction(context),
+      return Container(
+        margin: EdgeInsets.only(right: 12.w),
+        child: ListTile(
+          leading: Icon(FluentIcons.error_badge),
+          title: Text('没有找到对应的 BMF 配置信息'),
+          trailing: buildHeaderAction(context),
+        ),
       );
     }
     return Container(
