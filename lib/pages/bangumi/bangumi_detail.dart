@@ -98,7 +98,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       leading: IconButton(
         icon: Icon(FluentIcons.back),
         onPressed: () {
-          ref.read(navStoreProvider).removeNavItem('番剧详情');
+          ref.read(navStoreProvider).removeNavItem('番剧详情 ${widget.id}');
         },
       ),
       title: Tooltip(

@@ -125,7 +125,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
   PaneItem getPaneItem(BuildContext context) {
     return PaneItem(
       icon: Icon(FluentIcons.info),
-      title: Text('番剧详情'),
+      title: Text('番剧详情 ${data.id}'),
       body: BangumiDetail(id: data.id.toString()),
     );
   }
@@ -169,7 +169,10 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
             ),
             onPressed: () {
               var paneItem = getPaneItem(context);
-              ref.read(navStoreProvider).addNavItem(paneItem, '番剧详情');
+              ref.read(navStoreProvider).addNavItem(
+                    paneItem,
+                    '番剧详情 ${data.id}',
+                  );
             },
           ),
         ),
