@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:json_annotation/json_annotation.dart';
 import 'bangumi_enum.dart';
 import 'bangumi_model_patch.dart';
@@ -2729,6 +2731,42 @@ class BangumiUserSubjectCollection {
 
   /// to json
   Map<String, dynamic> toJson() => _$BangumiUserSubjectCollectionToJson(this);
+
+  /// toSqlJson
+  /// 参照：libs/database/bangumi/bangumi_collection.dart的表格定义
+  Map<String, dynamic> toSqlJson() {
+    return {
+      'subjectId': subjectId,
+      'subjectType': subjectType.value,
+      'rate': rate,
+      'collectionType': type.value,
+      'comment': comment,
+      'tags': jsonEncode(tags),
+      'epStat': epStatus,
+      'volStat': volStatus,
+      'updatedAt': updatedAt,
+      'private': private ? 1 : 0,
+      'subject': jsonEncode(subject.toJson()),
+    };
+  }
+
+  /// fromSqlJson
+  /// 参照：libs/database/bangumi/bangumi_collection.dart的表格定义
+  factory BangumiUserSubjectCollection.fromSqlJson(Map<String, dynamic> json) {
+    return BangumiUserSubjectCollection.fromJson({
+      'subject_id': json['subjectId'],
+      'subject_type': json['subjectType'],
+      'rate': json['rate'],
+      'type': json['collectionType'],
+      'comment': json['comment'],
+      'tags': jsonDecode(json['tags']),
+      'ep_status': json['epStat'],
+      'vol_status': json['volStat'],
+      'updated_at': json['updatedAt'],
+      'private': json['private'] == 1,
+      'subject': jsonDecode(json['subject']),
+    });
+  }
 }
 
 /// UserSubjectCollectionModifyPayload

@@ -74,7 +74,7 @@ class _AppNavState extends ConsumerState<AppNav> {
     return [
       PaneItem(
         icon: Image.asset('assets/images/platforms/bangumi-favicon.ico'),
-        title: Text('Bangumi'),
+        title: Text('Bangumi-今日放送'),
         body: CalendarPage(),
       ),
       PaneItem(
