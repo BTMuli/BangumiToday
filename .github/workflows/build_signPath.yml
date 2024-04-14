@@ -8,6 +8,8 @@ jobs:
     runs-on: windows-latest
     env:
       TOKEN: ${{ secrets.SIGN_PATH_TOKEN }}
+      BANGUMI_APP_ID: ${{ secrets.BANGUMI_APP_ID }}
+      BANGUMI_APP_SECRET: ${{ secrets.BANGUMI_APP_SECRET }}
     steps:
 
       - name: 签出仓库
@@ -28,6 +30,13 @@ jobs:
 
       - name: 拉取依赖
         run: flutter pub get
+
+      - name: 写入 .env
+        shell: pwsh
+        run: |
+          New-Item -Path . -Name .env -ItemType File -Force
+          Add-Content -Path .env -Value "BANGUMI_APP_ID=${env:BANGUMI_APP_ID}"
+          Add-Content -Path .env -Value "BANGUMI_APP_SECRET=${env:BANGUMI_APP_SECRET}"
 
       - name: 构建项目
         run: flutter build windows
