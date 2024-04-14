@@ -55,7 +55,7 @@ jobs:
         shell: pwsh
         run: |
           Submit-SigningRequest `
-            -InputArtifactPath "BangumiToday.msix" `
+            -InputArtifactPath "build/windows/x64/runner/Release/BangumiToday.msix" `
             -ApiToken "${env:TOKEN}" `
             -OrganizationId "df493769-e8b5-461d-84a8-e9cc2071d9b2" `
             -ProjectSlug "BangumiToday" `
