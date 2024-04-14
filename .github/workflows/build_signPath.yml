@@ -48,7 +48,7 @@ jobs:
         if: env.TOKEN != ''
         shell: pwsh
         run: |
-          Install-Module -Name SignPath
+          Install-Module -Name SignPath -Force -AllowClobber -Scope CurrentUser
 
       - name: SignPath 签名
         if: env.TOKEN != ''
