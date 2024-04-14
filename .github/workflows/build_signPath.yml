@@ -42,7 +42,7 @@ jobs:
         run: flutter build windows
 
       - name: 构建 MSIX
-        run: dart run msix:create --sign_msix false
+        run: dart run msix:create --sign-msix false
 
       - name: 安装 SignPath CLI
         if: env.TOKEN != ''
@@ -64,7 +64,7 @@ jobs:
             -WaitForCompletion
 
       - name: 上传 MSIX
-        if: env.CERTIFICATE != ''
+        if: env.TOKEN != ''
         uses: actions/upload-artifact@v3
         with:
           name: BangumiToday(SignPath)

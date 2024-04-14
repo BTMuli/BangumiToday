@@ -41,11 +41,9 @@ jobs:
         run: flutter build windows
 
       - name: 构建 MSIX
-        if: env.CERTIFICATE != ''
         run: dart run msix:create --publisher CN=5FE33156-C3CE-4E71-A036-81BAA99521CB --store true
 
       - name: 上传 MSIX
-        if: env.CERTIFICATE != ''
         uses: actions/upload-artifact@v4
         with:
           name: BangumiToday.msix(Store)
