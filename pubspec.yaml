@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 0.1.0+1
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -125,13 +125,10 @@ lint_staged:
 
 # msix
 msix_config:
-  store: false
-  sign_msix: true
-  msix_version: 0.1.5.0
-  display_name: Bangumi Today
-  publisher: CN=5FE33156-C3CE-4E71-A036-81BAA99521CB
+  display_name: BangumiToday
+  publisher: CN=目棃, C=CN, E=bt-muli@outlook.com
   publisher_display_name: BTMuli
-  output_name: Bangumi Today
+  output_name: BangumiToday
   languages: en-us, zh-cn
   identity_name: BangumiToday
   description: Better Bangumi Helper

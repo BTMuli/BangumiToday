@@ -1,0 +1,62 @@
+name: Build SignPath Version
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    name: Build Windows
+    runs-on: windows-latest
+    env:
+      TOKEN: ${{ secrets.SIGN_PATH_TOKEN }}
+    steps:
+
+      - name: 签出仓库
+        uses: actions/checkout@v3.3.0
+        with:
+          fetch-depth: 0
+          ref: master
+
+      - name: 初始化 Flutter 环境
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+          architecture: x64
+
+      - name: 检查环境
+        run: flutter doctor
+
+      - name: 拉取依赖
+        run: flutter pub get
+
+      - name: 构建项目
+        run: flutter build windows
+
+      - name: 构建 MSIX
+        run: dart run msix:create --sign_msix false
+
+      - name: 安装 SignPath CLI
+        if: env.TOKEN != ''
+        shell: pwsh
+        run: |
+          Install-Module -Name SignPath
+
+      - name: SignPath 签名
+        if: env.TOKEN != ''
+        shell: pwsh
+        run: |
+          Submit-SigningRequest `
+            -InputArtifactPath "build/windows/x64/runner/Release/BangumiToday.msix" `
+            -ApiToken $env:TOKEN `
+            -OrganizationId "df493769-e8b5-461d-84a8-e9cc2071d9b2" `
+            -ProjectSlug "BangumiToday" `
+            -SigningPolicySlug "Dev" `
+            -OutputArtifactPath "BangumiToday.msix"
+            -WaitForCompletion
+
+      - name: 上传 MSIX
+        if: env.CERTIFICATE != ''
+        uses: actions/upload-artifact@v3
+        with:
+          name: BangumiToday(SignPath)
+          path: BangumiToday.msix
