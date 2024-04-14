@@ -17,6 +17,7 @@ import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
 import '../../store/nav_store.dart';
+import 'bangumi_collection.dart';
 
 /// bangumi 用户界面
 class BangumiUserPage extends ConsumerStatefulWidget {
@@ -38,6 +39,9 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
 
   /// 数据库-收藏
   final BtsBangumiCollection sqliteCollection = BtsBangumiCollection();
+
+  /// 总收藏数
+  late int collectionCount = 0;
 
   /// 认证相关客户端
   final BtrBangumiOauth oauth = BtrBangumiOauth();
@@ -92,6 +96,8 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     setState(() {});
     progress.update(text: '读取用户信息...');
     user = await sqliteUser.readUser();
+    var collectionCountGet = await sqliteCollection.getCount();
+    collectionCount = collectionCountGet;
     setState(() {});
     if (user != null) {
       progress.update(text: '用户信息：${user!.username}');
@@ -211,15 +217,41 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
 
   /// 构建顶部栏
   Widget buildHeader() {
-    var titleW = Text('Bangumi 用户界面');
-    return PageHeader(
-      title: titleW,
-      leading: IconButton(
-        icon: Icon(FluentIcons.back),
-        onPressed: () {
-          ref.read(navStoreProvider).removeNavItem('Bangumi 用户界面');
-        },
-      ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        Tooltip(
+          message: '返回',
+          child: IconButton(
+            icon: Icon(FluentIcons.back),
+            onPressed: () {
+              ref.read(navStoreProvider).removeNavItem('Bangumi 用户界面');
+            },
+          ),
+        ),
+        SizedBox(width: 16.w),
+        Image.asset('assets/images/platforms/bangumi-text.png'),
+        SizedBox(width: 16.w),
+        Tooltip(
+          message: '刷新',
+          child: IconButton(
+            icon: Icon(FluentIcons.refresh),
+            onPressed: () async {
+              await init();
+            },
+          ),
+        ),
+        Expanded(child: SizedBox()),
+        SizedBox(
+          height: 36.spMax,
+          child: Image.asset(
+            'assets/images/platforms/bangumi-logo.png',
+            fit: BoxFit.contain,
+          ),
+        ),
+        SizedBox(width: 16.w),
+      ],
     );
   }
 
@@ -314,9 +346,21 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     return ListTile(
       leading: Icon(FluentIcons.favorite_star),
       title: Text('收藏信息'),
-      subtitle: Text('收藏信息'),
+      subtitle: Text('收藏数：$collectionCount'),
       trailing: Row(
         children: [
+          FilledButton(
+            child: Text('查看收藏'),
+            onPressed: () async {
+              var paneItem = PaneItem(
+                icon: Icon(FluentIcons.favorite_star),
+                title: Text('Bangumi-用户收藏'),
+                body: BangumiCollectionPage(),
+              );
+              ref.read(navStoreProvider).addNavItem(paneItem, 'Bangumi-用户收藏');
+            },
+          ),
+          SizedBox(width: 8.w),
           FilledButton(
             child: Text('刷新收藏'),
             onPressed: () async {

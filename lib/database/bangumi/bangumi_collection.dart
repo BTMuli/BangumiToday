@@ -66,6 +66,13 @@ class BtsBangumiCollection {
     return resp.map(BangumiUserSubjectCollection.fromSqlJson).toList();
   }
 
+  /// 获取收藏数量
+  Future<int> getCount() async {
+    await _instance.preCheck();
+    var resp = await _instance.sqlite.db.query(_tableName);
+    return resp.length;
+  }
+
   /// 获取指定收藏类型的收藏
   Future<List<BangumiUserSubjectCollection>> getByType(
     BangumiCollectionType type,
