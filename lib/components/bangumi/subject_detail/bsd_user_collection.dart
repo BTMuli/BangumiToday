@@ -2,6 +2,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
@@ -37,6 +38,9 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
 
   /// 客户端
   final BtrBangumiApi api = BtrBangumiApi();
+
+  /// 用户收藏数据库
+  final BtsBangumiCollection sqlite = BtsBangumiCollection();
 
   /// flyout controller
   final FlyoutController controller = FlyoutController();
@@ -83,6 +87,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
       await showRespErr(resp, context);
     } else {
       userCollection = resp.data;
+      await sqlite.write(userCollection!);
       collectionType = userCollection!.type;
       rating = userCollection?.rate ?? 0;
       setState(() {});

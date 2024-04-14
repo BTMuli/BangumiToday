@@ -9,6 +9,7 @@ import '../../components/app/app_dialog.dart';
 import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../controller/app/progress_controller.dart';
+import '../../database/bangumi/bangumi_collection.dart';
 import '../../database/bangumi/bangumi_user.dart';
 import '../../models/bangumi/bangumi_enum_extension.dart';
 import '../../models/bangumi/bangumi_model.dart';
@@ -32,8 +33,11 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
   /// 用户数据
   BangumiUser? user;
 
-  /// 数据库
-  final BtsBangumiUser sqlite = BtsBangumiUser();
+  /// 数据库-用户
+  final BtsBangumiUser sqliteUser = BtsBangumiUser();
+
+  /// 数据库-收藏
+  final BtsBangumiCollection sqliteCollection = BtsBangumiCollection();
 
   /// 认证相关客户端
   final BtrBangumiOauth oauth = BtrBangumiOauth();
@@ -68,9 +72,9 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
       title: '读取本地数据库',
       text: '读取tokens',
     );
-    var atGet = await sqlite.readAccessToken();
-    var rtGet = await sqlite.readRefreshToken();
-    var etGet = await sqlite.readExpireTime();
+    var atGet = await sqliteUser.readAccessToken();
+    var rtGet = await sqliteUser.readRefreshToken();
+    var etGet = await sqliteUser.readExpireTime();
     if (atGet == null || rtGet == null || etGet == null) {
       progress.update(text: '未找到访问令牌');
       await Future.delayed(Duration(milliseconds: 500));
@@ -87,7 +91,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     expireTime = etGet;
     setState(() {});
     progress.update(text: '读取用户信息...');
-    user = await sqlite.readUser();
+    user = await sqliteUser.readUser();
     setState(() {});
     if (user != null) {
       progress.update(text: '用户信息：${user!.username}');
@@ -96,7 +100,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
       return;
     }
     progress.update(text: '尝试获取用户信息');
-    var isExpired = await sqlite.isTokenExpired();
+    var isExpired = await sqliteUser.isTokenExpired();
     if (isExpired) {
       progress.end();
       var freshConfirm = await showConfirmDialog(
@@ -117,7 +121,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     } else {
       progress = ProgressWidget.show(context, title: '刷新访问令牌');
     }
-    var rt = await sqlite.readRefreshToken();
+    var rt = await sqliteUser.readRefreshToken();
     if (rt == null) {
       progress.end();
       await BtInfobar.error(context, '未找到刷新令牌');
@@ -132,10 +136,10 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     assert(res.data != null);
     var at = res.data as BangumiOauthTokenRefreshData;
     progress.update(title: '刷新访问令牌成功', text: '访问令牌：${at.accessToken}');
-    await sqlite.writeAccessToken(at.accessToken);
-    await sqlite.writeRefreshToken(at.refreshToken);
-    await sqlite.writeExpireTime(at.expiresIn);
-    expireTime = (await sqlite.readExpireTime())!;
+    await sqliteUser.writeAccessToken(at.accessToken);
+    await sqliteUser.writeRefreshToken(at.refreshToken);
+    await sqliteUser.writeExpireTime(at.expiresIn);
+    expireTime = (await sqliteUser.readExpireTime())!;
     setState(() {});
     await Future.delayed(Duration(milliseconds: 500));
     progress.end();
@@ -170,9 +174,9 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
         }
         assert(res.data != null);
         var at = res.data as BangumiOauthTokenGetData;
-        await sqlite.writeAccessToken(at.accessToken);
-        await sqlite.writeRefreshToken(at.refreshToken);
-        await sqlite.writeExpireTime(at.expiresIn);
+        await sqliteUser.writeAccessToken(at.accessToken);
+        await sqliteUser.writeRefreshToken(at.refreshToken);
+        await sqliteUser.writeExpireTime(at.expiresIn);
         await freshUserInfo();
       }
     });
@@ -185,7 +189,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     } else {
       progress = ProgressWidget.show(context, title: '获取用户信息');
     }
-    var at = await sqlite.readAccessToken();
+    var at = await sqliteUser.readAccessToken();
     if (at == null) {
       progress.end();
       await BtInfobar.error(context, '未找到访问令牌');
@@ -200,7 +204,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     }
     user = userResp.data! as BangumiUser;
     progress.update(title: '获取用户信息成功', text: '用户信息：${user!.username}');
-    await sqlite.writeUser(user!);
+    await sqliteUser.writeUser(user!);
     await Future.delayed(Duration(milliseconds: 500));
     progress.end();
   }
@@ -305,16 +309,100 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     );
   }
 
+  /// 构建收藏
+  Widget buildCollection() {
+    return ListTile(
+      leading: Icon(FluentIcons.favorite_star),
+      title: Text('收藏信息'),
+      subtitle: Text('收藏信息'),
+      trailing: Row(
+        children: [
+          FilledButton(
+            child: Text('刷新收藏'),
+            onPressed: () async {
+              if (user == null) {
+                await BtInfobar.error(context, '未找到用户信息');
+                return;
+              }
+              progress = ProgressWidget.show(
+                context,
+                title: '刷新收藏信息',
+                text: '正在刷新收藏信息',
+                onTaskbar: true,
+              );
+              final limit = 50;
+              var offset = 0;
+              var resp = await api.getCollectionSubjects(
+                username: user!.id.toString(),
+                limit: limit,
+                offset: offset,
+              );
+              if (resp.code != 0 || resp.data == null) {
+                progress.end();
+                showRespErr(resp, context);
+                return;
+              }
+              await sqliteCollection.preCheck();
+              var checkFlag = true;
+              var cnt = 1;
+              var pageResp =
+                  resp.data as BangumiPageT<BangumiUserSubjectCollection>;
+              var total = pageResp.total;
+              while (checkFlag) {
+                offset += pageResp.data.length;
+                for (var item in pageResp.data) {
+                  progress.update(
+                    title: '正在写入收藏信息：$cnt/$total',
+                    text: '[${item.subject.id}] ${item.subject.name}',
+                    progress: cnt / total,
+                  );
+                  await sqliteCollection.write(item, check: false);
+                  cnt++;
+                }
+                if (offset >= total) {
+                  checkFlag = false;
+                  progress.end();
+                  BtInfobar.success(context, '收藏信息写入完成');
+                  break;
+                }
+                progress.update(
+                  title: '正在获取收藏信息',
+                  text: '偏移：$offset，总计：$total',
+                  progress: null,
+                );
+                resp = await api.getCollectionSubjects(
+                  username: user!.id.toString(),
+                  limit: limit,
+                  offset: offset,
+                );
+                if (resp.code != 0 || resp.data == null) {
+                  progress.end();
+                  showRespErr(resp, context);
+                  return;
+                }
+                pageResp =
+                    resp.data as BangumiPageT<BangumiUserSubjectCollection>;
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     return ScaffoldPage(
       header: buildHeader(),
       content: ListView(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
         children: [
-          buildUser(),
-          buildOauth(),
+          Card(padding: EdgeInsets.zero, child: buildUser()),
+          SizedBox(height: 16.h),
+          Card(padding: EdgeInsets.zero, child: buildOauth()),
+          SizedBox(height: 16.h),
+          Card(padding: EdgeInsets.zero, child: buildCollection()),
         ],
       ),
     );

@@ -50,11 +50,6 @@ class BTSqlite {
     ''';
     var result = await _instance.db.rawQuery(sql);
     var exist = result.first['count'] == 1;
-    if (exist) {
-      BTLogTool.debug('Table $table exist');
-    } else {
-      BTLogTool.warn('Table $table not exist');
-    }
     return exist;
   }
 

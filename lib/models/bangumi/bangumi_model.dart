@@ -2587,7 +2587,7 @@ class BangumiSlimSubject {
 
   /// date
   @JsonKey(name: 'date')
-  String date;
+  String? date;
 
   /// images
   @JsonKey(name: 'images')

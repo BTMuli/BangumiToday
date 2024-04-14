@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../components/app/app_dialog_resp.dart';
 import '../../components/bangumi/calendar/calendar_day.dart';
+import '../../database/bangumi/bangumi_collection.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/nav_store.dart';
@@ -30,6 +31,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
 
   /// 请求数据
   List<BangumiCalendarRespData> calendarData = [];
+
+  /// 是否只显示收藏
+  bool isShowCollection = false;
+
+  /// 收藏数据库
+  final BtsBangumiCollection sqlite = BtsBangumiCollection();
 
   /// tabIndex
   int tabIndex = 0;
@@ -73,7 +80,16 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       return;
     }
     assert(calendarGet.data != null);
-    calendarData = calendarGet.data as List<BangumiCalendarRespData>;
+    var data = calendarGet.data as List<BangumiCalendarRespData>;
+    if (isShowCollection) {
+      for (var d in data) {
+        for (var item in d.items.toList()) {
+          var check = await sqlite.isCollected(item.id);
+          if (!check) d.items.remove(item);
+        }
+      }
+    }
+    calendarData = data;
     isRequesting = false;
     setState(() {});
   }
@@ -153,6 +169,19 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   /// 构建 Tab 底部
   Widget buildTabFooter() {
     return Row(children: [
+      Tooltip(
+        message: '只显示收藏',
+        child: ToggleButton(
+          checked: isShowCollection,
+          onChanged: (v) async {
+            isShowCollection = v;
+            setState(() {});
+            await getData();
+          },
+          child: Icon(FluentIcons.favorite_star, color: Colors.white),
+        ),
+      ),
+      SizedBox(width: 16.w),
       buildUserButton(context),
       SizedBox(width: 16.w),
       buildDataBaseButton(context),

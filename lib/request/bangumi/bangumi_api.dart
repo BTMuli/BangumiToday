@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:fluent_ui/fluent_ui.dart';
+// import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../database/bangumi/bangumi_user.dart';
 import '../../models/app/response.dart';
@@ -98,7 +98,7 @@ class BtrBangumiApi {
         '/v0/subjects/$id',
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      debugPrint('data: ${resp.data}');
+      // debugPrint('data: ${resp.data}');
       assert(resp.data is Map<String, dynamic>);
       return BangumiSubjectResp.success(
         data: BangumiSubject.fromJson(resp.data),
@@ -182,7 +182,7 @@ class BtrBangumiApi {
           e as Map<String, dynamic>,
         ),
       );
-      debugPrint(dataList.data.map((e) => e.toJson()).toList().toString());
+      // debugPrint(dataList.data.map((e) => e.toJson()).toList().toString());
       return BangumiEpisodeListResp.success(data: dataList);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
@@ -211,7 +211,7 @@ class BtrBangumiApi {
         '/v0/me',
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      debugPrint('data: ${resp.data}');
+      // debugPrint('data: ${resp.data}');
       assert(resp.data is Map<String, dynamic>);
       return BangumiUserInfoResp.success(
         data: BangumiUser.fromJson(resp.data),
@@ -243,17 +243,16 @@ class BtrBangumiApi {
     int? limit,
     int? offset,
   }) async {
+    var params = <String, dynamic>{};
+    if (subjectType != null) params['subject_type'] = subjectType.value;
+    if (collectionType != null) params['type'] = collectionType.value;
+    if (limit != null) params['limit'] = limit;
+    if (offset != null) params['offset'] = offset;
     try {
       var authHeader = await getAuthHeader();
       var resp = await client.dio.get(
         '/v0/users/$username/collections',
-        queryParameters: {
-          'username': username,
-          'subject_type': subjectType?.value,
-          'type': collectionType?.value,
-          'limit': limit,
-          'offset': offset,
-        },
+        queryParameters: params,
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
       var dataList = BangumiPageT<BangumiUserSubjectCollection>.fromJson(
@@ -291,7 +290,7 @@ class BtrBangumiApi {
         '/v0/users/$username/collections/$subjectId',
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      debugPrint('data: ${resp.data}');
+      // debugPrint('data: ${resp.data}');
       assert(resp.data is Map<String, dynamic>);
       return BangumiCollectionSubjectItemResp.success(
         data: BangumiUserSubjectCollection.fromJson(resp.data),
@@ -366,8 +365,8 @@ class BtrBangumiApi {
         data: data,
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      debugPrint('data: ${resp.data}');
-      return BTResponse.success(data: null);
+      // debugPrint('data: ${resp.data}');
+      return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       return BTResponse.error(
@@ -435,7 +434,7 @@ class BtrBangumiApi {
         '/v0/users/-/collections/-/episodes/$episodeId',
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      debugPrint('data: ${resp.data}');
+      // debugPrint('data: ${resp.data}');
       assert(resp.data is Map<String, dynamic>);
       return BangumiCollectionEpisodeItemResp.success(
         data: BangumiUserEpisodeCollection.fromJson(resp.data),
@@ -474,8 +473,8 @@ class BtrBangumiApi {
         },
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      debugPrint('data: ${resp.data}');
-      return BTResponse.success(data: null);
+      // debugPrint('data: ${resp.data}');
+      return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,

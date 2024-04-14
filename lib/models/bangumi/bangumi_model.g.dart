@@ -1349,7 +1349,7 @@ BangumiSlimSubject _$BangumiSlimSubjectFromJson(Map<String, dynamic> json) =>
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
       shortSummary: json['short_summary'] as String,
-      date: json['date'] as String,
+      date: json['date'] as String?,
       images: BangumiImages.fromJson(json['images'] as Map<String, dynamic>),
       volumes: json['volumes'] as int,
       eps: json['eps'] as int,

@@ -79,6 +79,17 @@ class BtsBangumiCollection {
     return resp.map(BangumiUserSubjectCollection.fromSqlJson).toList();
   }
 
+  /// 判断是否在收藏列表中
+  Future<bool> isCollected(int subjectId) async {
+    await _instance.preCheck();
+    var resp = await _instance.sqlite.db.query(
+      _tableName,
+      where: 'subjectId = ?',
+      whereArgs: [subjectId],
+    );
+    return resp.isNotEmpty;
+  }
+
   /// 添加/更新收藏
   Future<void> write(
     BangumiUserSubjectCollection collection, {
