@@ -3,11 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../components/app/app_dialog_resp.dart';
+import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/calendar/calendar_day.dart';
 import '../../database/bangumi/bangumi_collection.dart';
+import '../../database/bangumi/bangumi_user.dart';
+import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/nav_store.dart';
+import 'bangumi_collection.dart';
 import 'bangumi_data.dart';
 import 'bangumi_user.dart';
 
@@ -38,6 +42,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   /// 收藏数据库
   final BtsBangumiCollection sqlite = BtsBangumiCollection();
 
+  /// 用户数据库
+  final BtsBangumiUser sqliteUser = BtsBangumiUser();
+
   /// tabIndex
   int tabIndex = 0;
 
@@ -46,6 +53,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
 
   /// 今天
   int get today => DateTime.now().weekday - 1;
+
+  /// flyout controller
+  final FlyoutController controller = FlyoutController();
+
+  /// 用户
+  BangumiUser? user;
 
   /// 保存状态
   @override
@@ -56,6 +69,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   void initState() {
     super.initState();
     Future.microtask(() async {
+      user = await sqliteUser.readUser();
       await getData();
     });
   }
@@ -67,10 +81,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   }
 
   /// 获取数据
-  Future<void> getData() async {
+  Future<void> getData({bool freshTab = true}) async {
     isRequesting = true;
     calendarData.clear();
-    tabIndex = today;
+    if (freshTab) {
+      tabIndex = today;
+    }
     setState(() {});
     var calendarGet = await _client.getToday();
     if (calendarGet.code != 0 || calendarGet.data == null) {
@@ -130,63 +146,126 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     );
   }
 
+  /// 构建收藏按钮
+  MenuFlyoutItem buildFlyoutCollection(BuildContext context) {
+    var color = FluentTheme.of(context).accentColor;
+    var title = "Bangumi-用户收藏";
+    var pane = PaneItem(
+      icon: Icon(FluentIcons.favorite_star, color: color),
+      title: Text(title),
+      body: BangumiCollectionPage(),
+    );
+    return MenuFlyoutItem(
+      leading: Icon(
+        FluentIcons.favorite_star,
+        color: user == null ? null : color,
+      ),
+      text: Text('查看用户收藏'),
+      onPressed: () async {
+        if (user == null) {
+          await BtInfobar.warn(context, '请前往用户界面登录');
+          return;
+        }
+        ref.read(navStoreProvider).addNavItem(pane, title);
+      },
+    );
+  }
+
   /// 构建用户按钮
-  Widget buildUserButton(BuildContext context) {
-    return Tooltip(
-      message: 'Bangumi 用户界面',
-      child: FilledButton(
-        child: Icon(FluentIcons.contact),
-        onPressed: () {
-          var paneItem = PaneItem(
-            icon: Icon(FluentIcons.contact),
-            title: Text('Bangumi 用户界面'),
-            body: BangumiUserPage(),
-          );
-          ref.read(navStoreProvider).addNavItem(paneItem, 'Bangumi 用户界面');
-        },
+  MenuFlyoutItem buildFlyoutUser(BuildContext context) {
+    var color = FluentTheme.of(context).accentColor;
+    var title = "Bangumi 用户界面";
+    var pane = PaneItem(
+      icon: Icon(FluentIcons.contact, color: color),
+      title: Text(title),
+      body: BangumiUserPage(),
+    );
+    return MenuFlyoutItem(
+      leading: Icon(
+        FluentIcons.contact,
+        color: color,
+      ),
+      text: Text('查看用户界面'),
+      onPressed: () async {
+        ref.read(navStoreProvider).addNavItem(pane, title);
+      },
+    );
+  }
+
+  /// 构建数据按钮
+  MenuFlyoutItem buildFlyoutData(BuildContext context) {
+    var color = FluentTheme.of(context).accentColor;
+    var title = "BangumiData";
+    var pane = PaneItem(
+      icon: Icon(FluentIcons.database_source, color: color),
+      title: Text(title),
+      body: BangumiDataPage(),
+    );
+    return MenuFlyoutItem(
+      leading: Icon(
+        FluentIcons.database_source,
+        color: color,
+      ),
+      text: Text('BangumiData 数据库'),
+      onPressed: () async {
+        ref.read(navStoreProvider).addNavItem(pane, title);
+      },
+    );
+  }
+
+  /// 构建flyout
+  void buildFlyout() {
+    controller.showFlyout(
+      barrierDismissible: true,
+      dismissOnPointerMoveAway: false,
+      dismissWithEsc: true,
+      builder: (context) => MenuFlyout(
+        items: [
+          buildFlyoutCollection(context),
+          buildFlyoutUser(context),
+          buildFlyoutData(context),
+        ],
       ),
     );
   }
 
-  /// 构建数据库按钮
-  Widget buildDataBaseButton(BuildContext context) {
+  /// 构建 flyout 按钮
+  Widget buildFlyoutButton(BuildContext context) {
+    return FlyoutTarget(
+      controller: controller,
+      child: Button(
+        style: ButtonStyle(
+          backgroundColor: ButtonState.all(FluentTheme.of(context).accentColor),
+        ),
+        child: Tooltip(message: '更多', child: Icon(FluentIcons.more)),
+        onPressed: buildFlyout,
+      ),
+    );
+  }
+
+  /// 构建收藏按钮
+  Widget buildCollectSwitch(BuildContext context) {
     return Tooltip(
-      message: 'BangumiData',
-      child: FilledButton(
-        child: Icon(FluentIcons.database_source),
-        onPressed: () {
-          var paneItem = PaneItem(
-            icon: Icon(FluentIcons.database_source),
-            title: Text('BangumiData'),
-            body: BangumiDataPage(),
-          );
-          ref.read(navStoreProvider).addNavItem(paneItem, 'BangumiData');
+      message: '只显示收藏',
+      child: ToggleButton(
+        checked: isShowCollection,
+        onChanged: (v) async {
+          isShowCollection = v;
+          setState(() {});
+          await getData(freshTab: false);
         },
+        child: Icon(FluentIcons.favorite_star, color: Colors.white),
       ),
     );
   }
 
   /// 构建 Tab 底部
   Widget buildTabFooter() {
-    // todo 改成flyout，然后加上用户收藏、搜索
     return Row(children: [
-      Tooltip(
-        message: '只显示收藏',
-        child: ToggleButton(
-          checked: isShowCollection,
-          onChanged: (v) async {
-            isShowCollection = v;
-            setState(() {});
-            await getData();
-          },
-          child: Icon(FluentIcons.favorite_star, color: Colors.white),
-        ),
-      ),
-      SizedBox(width: 16.w),
-      buildUserButton(context),
-      SizedBox(width: 16.w),
-      buildDataBaseButton(context),
-      SizedBox(width: 16.w),
+      buildCollectSwitch(context),
+      SizedBox(width: 8.w),
+      buildFlyoutButton(context),
+      SizedBox(width: 8.w),
       Image.asset('assets/images/platforms/bangumi-logo.png'),
       SizedBox(width: 16.w),
     ]);

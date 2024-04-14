@@ -120,17 +120,16 @@ class BsdOverview extends StatelessWidget {
           ),
         ],
       ),
-      SizedBox(height: 12.h),
       ...nameW,
-      SizedBox(height: 12.h),
+      SizedBox(height: 8.h),
       buildText('首播: ${item.date}'),
-      SizedBox(height: 12.h),
+      SizedBox(height: 8.h),
       buildText('集数: ${item.eps}/${item.totalEpisodes}'),
-      SizedBox(height: 12.h),
+      SizedBox(height: 8.h),
       buildText('平台: ${item.platform}'),
-      SizedBox(height: 12.h),
-      buildText('追番情况：'),
-      SizedBox(height: 12.h),
+      SizedBox(height: 8.h),
+      buildText('收藏情况：'),
+      SizedBox(height: 8.h),
       buildText(
         '想看：${item.collection.wish} '
         '在看：${item.collection.doing} '

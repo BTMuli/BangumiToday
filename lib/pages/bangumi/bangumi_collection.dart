@@ -2,6 +2,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/user/collection_card.dart';
 import '../../database/bangumi/bangumi_collection.dart';
 import '../../database/bangumi/bangumi_user.dart';
@@ -154,7 +155,11 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
       tabs: buildTabs(),
       header: buildHeader(),
       currentIndex: tabIndex,
-      onChanged: (index) {
+      onChanged: (index) async {
+        if(index == tabIndex) {
+          await BtInfobar.warn(context, '已经在当前标签页');
+          return;
+        }
         tabIndex = index;
         setState(() {});
       },

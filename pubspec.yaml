@@ -125,6 +125,7 @@ lint_staged:
 
 # msix
 msix_config:
+  store: false
   display_name: BangumiToday
   publisher: CN=目棃, C=CN, E=bt-muli@outlook.com
   publisher_display_name: BTMuli
