@@ -168,7 +168,15 @@ class _BsdRelationState extends ConsumerState<BsdRelation> {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(child: buildCover(data.images)),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: 120.w,
+                  minHeight: 200.h,
+                  maxWidth: 200.w,
+                  maxHeight: 200.h,
+                ),
+                child: buildCover(data.images),
+              ),
               SizedBox(width: 8.w),
               Expanded(child: buildCardInfo(data)),
             ],
