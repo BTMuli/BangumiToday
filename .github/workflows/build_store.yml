@@ -46,5 +46,5 @@ jobs:
       - name: 上传 MSIX
         uses: actions/upload-artifact@v4
         with:
-          name: BangumiToday.msix(Store)
+          name: BangumiToday(Store).msix
           path: build/windows/x64/runner/Release/BangumiToday.msix
