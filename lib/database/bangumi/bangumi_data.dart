@@ -110,7 +110,7 @@ class BtsBangumiData {
     await _instance.preCheckSite();
     var result = await _instance.sqlite.db.query(_tableNameSite);
     BTLogTool.info('Read site data all: ${result.length}');
-    return result.map(BangumiDataSite.fromJson).toList();
+    return result.map(BangumiDataSiteFull.fromSqlJson).toList();
   }
 
   /// 读取全部条目
@@ -118,7 +118,7 @@ class BtsBangumiData {
     await _instance.preCheckItem();
     var result = await _instance.sqlite.db.query(_tableNameItem);
     BTLogTool.info('Read item data all: ${result.length}');
-    return result.map(BangumiDataItem.fromJson).toList();
+    return result.map(BangumiDataItem.fromSqlJson).toList();
   }
 
   /// 读取特定站点元数据

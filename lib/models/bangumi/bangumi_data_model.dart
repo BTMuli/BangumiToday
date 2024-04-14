@@ -278,8 +278,25 @@ class BangumiDataSiteFull extends BangumiDataSite {
         'title': title,
         'urlTemplate': urlTemplate,
         'type': type,
-        'regions': regions.toString(),
+        'regions': jsonEncode(regions),
       };
+
+  /// from sql json
+  factory BangumiDataSiteFull.fromSqlJson(Map<String, dynamic> json) {
+    var regions = jsonDecode(json['regions']);
+    if (regions is List) {
+      regions = regions.map((e) => e as String).toList();
+    } else {
+      regions = null;
+    }
+    return BangumiDataSiteFull(
+      key: json['key'],
+      title: json['title'],
+      urlTemplate: json['urlTemplate'],
+      type: json['type'],
+      regions: regions,
+    );
+  }
 }
 
 /// 补充：返回数据，用于处理返回数据
