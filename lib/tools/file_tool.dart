@@ -74,7 +74,6 @@ class BTFileTool {
   /// 获取文件大小-调用FileStat
   int getFileSize(String path) {
     var stat = FileStat.statSync(path);
-    debugPrint(stat.toString());
     return stat.size;
   }
 }

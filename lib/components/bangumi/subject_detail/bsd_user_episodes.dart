@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../database/bangumi/bangumi_user.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
+import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import 'bsd_episode.dart';
@@ -22,6 +23,7 @@ class BsdUserEpisodes extends StatefulWidget {
   State<BsdUserEpisodes> createState() => _BsdUserEpisodesState();
 }
 
+// todo，当条目章节数量过多时，需要分页加载，比如名侦探柯南(id:899)
 class _BsdUserEpisodesState extends State<BsdUserEpisodes>
     with AutomaticKeepAliveClientMixin {
   /// subject_id
@@ -88,12 +90,43 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
     }
   }
 
+  /// buildEpHint 用于表示章节的提示信息
+  Widget buildEpHint(BangumiEpType type) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        color: FluentTheme.of(context).accentColor,
+      ),
+      child: Text(
+        '${type.label} →',
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
   /// buildList
   List<Widget> buildList() {
     var res = <Widget>[];
-    episodes.sort((a, b) => a.sort.compareTo(b.sort));
-    userEpisodes.sort((a, b) => a.episode.sort.compareTo(b.episode.sort));
+    episodes.sort(
+      (a, b) => a.type == b.type
+          ? a.sort.compareTo(b.sort)
+          : b.type.value.compareTo(a.type.value),
+    );
+    userEpisodes.sort(
+      (a, b) => a.episode.type == b.episode.type
+          ? a.episode.sort.compareTo(b.episode.sort)
+          : a.episode.type.value.compareTo(b.episode.type.value),
+    );
+    var curType = episodes[0].type;
+    if (curType != BangumiEpType.main) {
+      res.add(buildEpHint(curType));
+    }
     for (var i = 0; i < episodes.length; i++) {
+      if (curType != episodes[i].type) {
+        curType = episodes[i].type;
+        res.add(buildEpHint(curType));
+      }
       if (i >= userEpisodes.length) {
         res.add(BsdEpisode(episodes[i]));
       } else {

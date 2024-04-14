@@ -840,7 +840,7 @@ BangumiEpisode _$BangumiEpisodeFromJson(Map<String, dynamic> json) =>
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
       sort: (json['sort'] as num).toDouble(),
-      ep: json['ep'] as int,
+      ep: (json['ep'] as num).toDouble(),
       airDate: json['airdate'] as String,
       comment: json['comment'] as int,
       duration: json['duration'] as String,
@@ -1303,7 +1303,7 @@ BangumiSubject _$BangumiSubjectFromJson(Map<String, dynamic> json) =>
       summary: json['summary'] as String,
       nsfw: json['nsfw'] as bool,
       locked: json['locked'] as bool,
-      date: json['date'] as String,
+      date: json['date'] as String?,
       platform: json['platform'] as String,
       images: BangumiImages.fromJson(json['images'] as Map<String, dynamic>),
       infobox: (json['infobox'] as List<dynamic>)

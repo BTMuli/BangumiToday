@@ -1584,7 +1584,7 @@ class BangumiEpisode {
 
   /// ep
   @JsonKey(name: 'ep')
-  int ep;
+  double ep;
 
   /// airdate
   @JsonKey(name: 'airdate')
@@ -2495,7 +2495,7 @@ class BangumiSubject {
 
   /// date
   @JsonKey(name: 'date')
-  String date;
+  String? date;
 
   /// platform
   @JsonKey(name: 'platform')

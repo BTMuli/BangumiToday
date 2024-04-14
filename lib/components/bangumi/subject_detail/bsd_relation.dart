@@ -26,7 +26,8 @@ class BsdRelation extends ConsumerStatefulWidget {
 }
 
 /// Bangumi Subject Detail 的 Relation 部件状态
-class _BsdRelationState extends ConsumerState<BsdRelation> {
+class _BsdRelationState extends ConsumerState<BsdRelation>
+    with AutomaticKeepAliveClientMixin {
   /// 条目id
   int get subjectId => widget.subjectId;
 
@@ -35,6 +36,9 @@ class _BsdRelationState extends ConsumerState<BsdRelation> {
 
   /// 关联条目
   List<BangumiSubjectRelation> relations = [];
+
+  @override
+  bool get wantKeepAlive => true;
 
   /// init
   @override
@@ -69,8 +73,8 @@ class _BsdRelationState extends ConsumerState<BsdRelation> {
 
   /// 构建信息
   Widget buildCardInfo(BangumiSubjectRelation data) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+    return Padding(
+      padding: EdgeInsets.all(8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,14 +85,14 @@ class _BsdRelationState extends ConsumerState<BsdRelation> {
             child: Text(
               '【${data.relation}】${replaceEscape(data.name)}',
               style: TextStyle(
-                fontSize: 20.sp,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          SizedBox(height: 4.h),
+          Spacer(),
           Text('类型：${data.type.label}'),
           SizedBox(height: 4.h),
           Row(
@@ -149,38 +153,50 @@ class _BsdRelationState extends ConsumerState<BsdRelation> {
 
   /// 构建关联条目卡片
   Widget buildRelationCard(BangumiSubjectRelation data) {
+    var color = FluentTheme.of(context).brightness == Brightness.light
+        ? Color(0xfcfcfc)
+        : Color(0xff3a3a3a);
+    var width = 275.0;
+    var height = 150.0;
     if (data.images.large.isEmpty) {
-      return SizedBox(
-        width: 430.w,
-        height: 200.h,
-        child: Card(
-          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
-          child: buildCardInfo(data),
+      return Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          color: color,
+          border: Border.all(color: Colors.black.withOpacity(0.1)),
+        ),
+        width: width,
+        height: height,
+        child: Row(
+          children: [Expanded(child: buildCardInfo(data))],
         ),
       );
     } else {
-      return SizedBox(
-        width: 430.w,
-        height: 200.h,
-        child: Card(
-          padding: EdgeInsets.all(0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: 120.w,
-                  minHeight: 200.h,
-                  maxWidth: 200.w,
-                  maxHeight: 200.h,
-                ),
-                child: buildCover(data.images),
+      return Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          color: color,
+          border: Border.all(color: Colors.black.withOpacity(0.1)),
+        ),
+        width: width,
+        height: height,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: 50,
+                minHeight: 200,
+                maxWidth: 100,
+                maxHeight: 200,
               ),
-              SizedBox(width: 8.w),
-              Expanded(child: buildCardInfo(data)),
-            ],
-          ),
+              child: buildCover(data.images),
+            ),
+            SizedBox(width: 8.w),
+            Expanded(child: buildCardInfo(data)),
+          ],
         ),
       );
     }
@@ -188,6 +204,7 @@ class _BsdRelationState extends ConsumerState<BsdRelation> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (relations.isEmpty) {
       return ListTile(
         leading: Icon(FluentIcons.error),
@@ -204,21 +221,19 @@ class _BsdRelationState extends ConsumerState<BsdRelation> {
     return Container(
       margin: EdgeInsets.only(right: 12.w),
       child: Expander(
-        header: ListTile(
-          leading: Icon(FluentIcons.link),
-          title: Text('关联条目'),
-          trailing: Tooltip(
-            message: '刷新',
-            child: IconButton(
-              icon: Icon(FluentIcons.refresh),
-              onPressed: load,
+        leading: Icon(FluentIcons.link),
+        header: Text('关联条目', style: TextStyle(fontSize: 24.sp)),
+        trailing: Button(child: Text('刷新'), onPressed: load),
+        content: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: 600.h),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.zero,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: relations.map(buildRelationCard).toList(),
             ),
           ),
-        ),
-        content: Wrap(
-          spacing: 12.w,
-          runSpacing: 12.h,
-          children: relations.map(buildRelationCard).toList(),
         ),
       ),
     );

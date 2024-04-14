@@ -2,18 +2,17 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:dart_rss/dart_rss.dart';
-// import 'package:file_picker/file_picker.dart';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../tools/download_tool.dart';
 import '../../utils/tool_func.dart';
 import '../app/app_infobar.dart';
 
-/// Mikan Rss Card
+/// MikanRss卡片，仅用于动画详情页面
 class MikanRssCard extends StatelessWidget {
   /// rss item
   final RssItem item;
@@ -34,8 +33,6 @@ class MikanRssCard extends StatelessWidget {
     }
     var saveDir;
     if (dir == null || dir!.isEmpty) {
-      // todo bug，选择目录后 crash
-      // saveDir = await FilePicker.platform.getDirectoryPath();
       saveDir = await getDirectoryPath();
     } else {
       saveDir = dir;
@@ -62,6 +59,7 @@ class MikanRssCard extends StatelessWidget {
   Widget buildAct(BuildContext context) {
     var color = FluentTheme.of(context).accentColor;
     return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Tooltip(
           message: '下载',
@@ -99,27 +97,38 @@ class MikanRssCard extends StatelessWidget {
     if (item.pubDate != null) {
       pubDate = dateTransLocal(item.pubDate!);
     }
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: 420.w),
+    var title = Tooltip(
+      message: item.title ?? '',
+      child: Text(
+        item.title ?? '',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+    return SizedBox(
+      width: 275,
+      height: 180,
       child: Card(
-        padding: EdgeInsets.symmetric(vertical: 16.w, horizontal: 16.h),
+        padding: EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Tooltip(
-              message: item.title ?? '',
-              child: Text(
-                item.title ?? '',
-                style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
+            title,
+            Spacer(),
+            Row(
+              children: [
+                Text('发布时间: '),
+                Text(pubDate, style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
             ),
-            SizedBox(height: 8.h),
-            Text('发布时间: $pubDate'),
-            SizedBox(height: 8.h),
-            Text('资源大小: $sizeStr'),
-            SizedBox(height: 8.h),
+            SizedBox(height: 4),
+            Row(
+              children: [
+                Text('资源大小: '),
+                Text(sizeStr, style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
             buildAct(context),
           ],
         ),

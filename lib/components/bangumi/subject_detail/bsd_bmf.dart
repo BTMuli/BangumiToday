@@ -1,8 +1,8 @@
 import 'package:dart_rss/domain/rss_item.dart';
-// import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path/path.dart' as path;
@@ -112,7 +112,6 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
 
   /// freshFiles
   Future<void> freshFiles(AppBmfModel data) async {
-    debugPrint('freshFiles');
     if (data.download == null || data.download!.isEmpty) return;
     var filesGet = await fileTool.getFileNames(data.download!);
 
@@ -188,86 +187,118 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
           },
         ),
         SizedBox(width: 12.w),
-        Button(
-          child: Text('删除'),
-          onPressed: () async {
-            var confirm = await showConfirmDialog(
-              context,
-              title: '删除 BMF',
-              content: '确定删除 BMF 信息吗？',
-            );
-            if (!confirm) return;
-            await sqlite.delete(bmf.subject);
-            await BtInfobar.success(context, '成功删除 BMF 信息');
-            setState(() {
-              bmf = AppBmfModel(subject: widget.subjectId);
-              rssItems = [];
-              files = [];
-              aria2Files = [];
-            });
-          },
-        ),
+        if (bmf.id != -1)
+          Button(
+            child: Text('删除'),
+            onPressed: () async {
+              var confirm = await showConfirmDialog(
+                context,
+                title: '删除 BMF',
+                content: '确定删除 BMF 信息吗？',
+              );
+              if (!confirm) return;
+              await sqlite.delete(bmf.subject);
+              await BtInfobar.success(context, '成功删除 BMF 信息');
+              setState(() {
+                bmf = AppBmfModel(subject: widget.subjectId);
+                rssItems = [];
+                files = [];
+                aria2Files = [];
+              });
+            },
+          ),
       ],
     );
   }
 
-  /// buildFileAct
-  List<Widget> buildFileAct(BuildContext context, String file) {
-    var potplayerBtn = Button(
+  /// openByPotPlayer
+  Future<void> openByPotPlayer(String file) async {
+    var filePath = path.join(bmf.download!, file);
+    filePath = filePath.replaceAll(r'\', '/');
+    var url = 'potplayer://$filePath';
+    debugPrint('url: $url');
+    await launchUrlString(url);
+  }
+
+  /// buildPotBtn
+  Widget buildPotBtn(String file) {
+    return Button(
       child: Row(
         children: [
-          Icon(FluentIcons.play),
+          Icon(FluentIcons.play, color: FluentTheme.of(context).accentColor),
           SizedBox(width: 8.w),
           Text('调用PotPlayer打开'),
         ],
       ),
       onPressed: () async {
-        var filePath = path.join(bmf.download!, file);
-        filePath = filePath.replaceAll(r'\', '/');
-        var url = 'potplayer://$filePath';
-        debugPrint('url: $url');
-        await launchUrlString(url);
+        await openByPotPlayer(file);
       },
     );
-    var innerPlayerBtn = Button(
+  }
+
+  /// openByInnerPlayer
+  void openByInnerPlayer(String file) {
+    var navStore = ref.read(navStoreProvider);
+    var filePath = path.join(bmf.download!, file);
+    var pane = PaneItem(
+      icon: Icon(FluentIcons.play),
+      title: Text('内置播放'),
+      body: BangumiPlayPage(filePath),
+    );
+    navStore.addNavItem(pane, '内置播放');
+  }
+
+  /// buildInnerBtn
+  Widget buildInnerBtn(String file) {
+    return Button(
       child: Row(
         children: [
-          Icon(FluentIcons.box_play_solid),
+          Icon(FluentIcons.box_play_solid,
+              color: FluentTheme.of(context).accentColor),
           SizedBox(width: 8.w),
           Text('内置播放器打开'),
         ],
       ),
       onPressed: () async {
-        var navStore = ref.read(navStoreProvider);
-        var filePath = path.join(bmf.download!, file);
-        var pane = PaneItem(
-          icon: Icon(FluentIcons.play),
-          title: Text('内置播放'),
-          body: BangumiPlayPage(filePath),
-        );
-        navStore.addNavItem(pane, '内置播放');
+        openByInnerPlayer(file);
       },
     );
-    var deleteBtn = Button(
+  }
+
+  /// deleteFile
+  Future<void> deleteFile(String file) async {
+    var confirm = await showConfirmDialog(
+      context,
+      title: '删除文件',
+      content: '确定删除文件 $file 吗？',
+    );
+    if (!confirm) return;
+    var filePath = path.join(bmf.download!, file);
+    await fileTool.deleteFile(filePath);
+    await freshFiles(bmf);
+  }
+
+  /// buildDelBtn
+  Widget buildDelBtn(String file) {
+    return Button(
       child: Row(
         children: [
-          Icon(FluentIcons.delete),
+          Icon(FluentIcons.delete, color: FluentTheme.of(context).accentColor),
           SizedBox(width: 8.w),
           Text('删除文件'),
         ],
       ),
       onPressed: () async {
-        var confirm = await showConfirmDialog(
-          context,
-          title: '删除文件',
-          content: '确定删除文件 $file 吗？',
-        );
-        if (!confirm) return;
-        var filePath = path.join(bmf.download!, file);
-        await fileTool.deleteFile(filePath);
-        await freshFiles(bmf);
+        await deleteFile(file);
       },
     );
+  }
+
+  /// buildFileAct
+  List<Widget> buildFileAct(BuildContext context, String file) {
+    var potplayerBtn = buildPotBtn(file);
+    var innerPlayerBtn = buildInnerBtn(file);
+    var deleteBtn = buildDelBtn(file);
     if (file.endsWith(".torrent")) {
       return [deleteBtn];
     }
@@ -280,15 +311,25 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
       });
       return [
         SizedBox(width: double.infinity, child: ProgressBar(value: null)),
-        SizedBox(height: 12.h),
-        Text('下载中：${filesize(size)}'),
+        SizedBox(height: 6),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          Text('下载中：${filesize(size)}'),
+        ]),
+      ];
+    }
+    // todo 优化内置播放样式
+    if (kDebugMode) {
+      return [
+        potplayerBtn,
+        SizedBox(height: 6),
+        innerPlayerBtn,
+        SizedBox(height: 6),
+        deleteBtn,
       ];
     }
     return [
       potplayerBtn,
-      SizedBox(height: 12.h),
-      innerPlayerBtn,
-      SizedBox(height: 12.h),
+      SizedBox(height: 6),
       deleteBtn,
     ];
   }
@@ -301,20 +342,21 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         message: file,
         child: Text(
           file,
-          style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
         ),
       );
       var card = SizedBox(
-        width: 420.w,
+        width: 275,
+        height: 200,
         child: Card(
-          padding: EdgeInsets.symmetric(vertical: 16.w, horizontal: 16.h),
+          padding: EdgeInsets.all(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               title,
-              SizedBox(height: 12.h),
+              Spacer(),
               ...buildFileAct(context, file),
             ],
           ),
@@ -358,11 +400,9 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     if (files.isEmpty) {
       res.add(Text('没有找到任何文件'));
     } else {
-      res.add(Wrap(
-        spacing: 12.w,
-        runSpacing: 12.h,
-        children: buildFileCards(context),
-      ));
+      res.add(
+        Wrap(spacing: 8, runSpacing: 8, children: buildFileCards(context)),
+      );
     }
     res.add(SizedBox(height: 12.h));
     var rssTitle = Row(

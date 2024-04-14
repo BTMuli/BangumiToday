@@ -163,17 +163,10 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     return Container(
       margin: EdgeInsets.only(right: 12.w),
       child: Expander(
-        initiallyExpanded: true,
-        leading: Icon(FluentIcons.info),
-        header: Text('简介', style: TextStyle(fontSize: 24.sp)),
-        content: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(summary, style: TextStyle(fontSize: 20.sp)),
-          ],
-        ),
-      ),
+          initiallyExpanded: true,
+          leading: Icon(FluentIcons.info),
+          header: Text('简介', style: TextStyle(fontSize: 24.sp)),
+          content: Text(summary)),
     );
   }
 
@@ -192,11 +185,11 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
             .map((e) => replaceEscape(e as String))
             .join(gap);
         res.add(
-          Text('${item.key}:$gap$value', style: TextStyle(fontSize: 20.sp)),
+          Text('${item.key}:$gap$value'),
         );
       } else {
         value = replaceEscape(item.value as String);
-        res.add(Text('${item.key}: $value', style: TextStyle(fontSize: 20.sp)));
+        res.add(Text('${item.key}: $value'));
       }
       res.add(SizedBox(height: 12.h));
     }
