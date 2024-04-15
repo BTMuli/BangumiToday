@@ -2,12 +2,14 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2024-04-11
+Update: 2024-04-15
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-04-11 12:06:15`
+> 更新于 `2024-04-15 15:52:04`
+
+> **项目目前处于开发阶段，不保证稳定性。**
 
 # BangumiToday
 
@@ -24,12 +26,19 @@ dart run build_runner build --delete-conflicting-outputs
 dart run build_runner watch --delete-conflicting-outputs
 # build windows
 flutter build windows
-# build msix 
-dart run msix:create --version
+# build msix --version 0.1.0.0
+dart run msix:create
 ```
 
-因为数据库用的是 [`sqflite_common_ffi`](https://pub.dev/packages/sqflite_common_ffi)， 打包的时候需要 `sqlite3.dll`,
-详见 [sqflite_common_ffi](https://pub.dev/packages/sqflite_common_ffi#windows)。
+## 使用前提
+
+应用的良好使用体验**基于如下前提**：
+
+1. 用户已经拥有 [Bangumi.tv](https://bangumi.tv) 账号，并且通过应用相关页面完成了登录授权。
+2. 用户已经拥有 [蜜柑计划](https://mikanani.hacgn.fun/) 账号，并且在香港页面输入了订阅地址。
+3. 用户本地安装了 [Motrix](https://motrix.app/) 且将 `torrent` 默认关联到 Motrix。
+4. 用户本地安装了 [PotPlayer](https://potplayer.daum.net/)。
+5. 用户登录 Bangumi 账号后对收藏数据进行了同步。
 
 ## 参考（按照字典序）
 
@@ -44,3 +53,7 @@ dart run msix:create --version
 
 - [Bangumi.tv](https://bangumi.tv)
 - [BangumiData](https://github.com/bangumi-data/bangumi-data)
+
+## License
+
+[MIT](LICENSE)
