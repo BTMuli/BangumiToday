@@ -1,0 +1,46 @@
+name: 新功能
+description: 提交新功能请求
+title: "[Feat] "
+labels:
+  - Feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        在此填写新功能的详细信息，包括但不限于：
+        - 新功能名称
+        - 新功能描述
+        - 当前使用版本
+  - type: checkboxes
+    attributes:
+      label: Issue Check
+      options:
+        - label: 我确认查找过相关的 Issue
+          required: false
+        - label: 我确认这个问题是影响使用的
+          required: false
+        - label: 我阅读过[提问的艺术](https://github.com/betaseeker/How-To-Ask-Questions)
+          required: false
+  - type: textarea
+    id: description
+    attributes:
+      label: 新功能描述
+      description: 请详细描述新功能的内容
+      placeholder: 请详细描述新功能的内容
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 当前使用版本
+      description: 请填写当前使用版本
+    validations:
+      required: true
+  - type: textarea
+    id: additional
+    attributes:
+      label: 其他信息
+      description: 请填写其他信息
+      placeholder: 请填写其他信息
+    validations:
+      required: false
