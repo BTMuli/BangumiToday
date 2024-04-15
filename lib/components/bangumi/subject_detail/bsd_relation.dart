@@ -153,50 +153,38 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
 
   /// 构建关联条目卡片
   Widget buildRelationCard(BangumiSubjectRelation data) {
-    var color = FluentTheme.of(context).brightness == Brightness.light
-        ? Color(0xfcfcfc)
-        : Color(0xff3a3a3a);
     var width = 275.0;
     var height = 150.0;
     if (data.images.large.isEmpty) {
-      return Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-          color: color,
-          border: Border.all(color: Colors.black.withOpacity(0.1)),
-        ),
+      return SizedBox(
         width: width,
         height: height,
-        child: Row(
-          children: [Expanded(child: buildCardInfo(data))],
+        child: Card(
+          padding: EdgeInsets.zero,
+          child: Row(children: [Expanded(child: buildCardInfo(data))]),
         ),
       );
     } else {
-      return Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-          color: color,
-          border: Border.all(color: Colors.black.withOpacity(0.1)),
-        ),
+      return SizedBox(
         width: width,
         height: height,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                minWidth: 50,
-                minHeight: 200,
-                maxWidth: 100,
-                maxHeight: 200,
+        child: Card(
+          padding: EdgeInsets.zero,
+          child: Row(
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: 50,
+                  minHeight: 200,
+                  maxWidth: 100,
+                  maxHeight: 200,
+                ),
+                child: buildCover(data.images),
               ),
-              child: buildCover(data.images),
-            ),
-            SizedBox(width: 8.w),
-            Expanded(child: buildCardInfo(data)),
-          ],
+              SizedBox(width: 8.w),
+              Expanded(child: buildCardInfo(data)),
+            ],
+          ),
         ),
       );
     }
