@@ -254,7 +254,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           setState(() {});
           await getData();
         },
-        child: Icon(FluentIcons.favorite_star, color: Colors.white),
+        child: Icon(FluentIcons.favorite_star),
       ),
     );
   }

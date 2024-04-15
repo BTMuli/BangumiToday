@@ -379,6 +379,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   Widget buildCollection(BuildContext context) {
     var icon = getIcon(collectionType);
     var color = getBgColor();
+    var unratedColor = FluentTheme.of(context).accentColor.withOpacity(0.25);
     return Row(
       children: [
         FlyoutTarget(
@@ -400,6 +401,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           rating: rating.toDouble(),
           amount: 10,
           starSpacing: 2.w,
+          unratedIconColor: unratedColor,
           onChanged: (val) async {
             if (user == null) {
               await BtInfobar.error(context, '未获取到用户信息，请登录后重试');
