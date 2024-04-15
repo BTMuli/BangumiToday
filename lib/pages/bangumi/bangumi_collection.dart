@@ -156,7 +156,7 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
       header: buildHeader(),
       currentIndex: tabIndex,
       onChanged: (index) async {
-        if(index == tabIndex) {
+        if (index == tabIndex) {
           await BtInfobar.warn(context, '已经在当前标签页');
           return;
         }

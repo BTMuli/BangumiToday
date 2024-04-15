@@ -131,4 +131,15 @@ class BtsBangumiCollection {
       await write(collection, check: false);
     }
   }
+
+  /// 删除收藏
+  Future<void> delete(int subjectId) async {
+    await _instance.preCheck();
+    await _instance.sqlite.db.delete(
+      _tableName,
+      where: 'subjectId = ?',
+      whereArgs: [subjectId],
+    );
+    BTLogTool.info('Delete collection: $subjectId');
+  }
 }

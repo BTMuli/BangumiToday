@@ -82,6 +82,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
     );
     if (resp.code == 404) {
       collectionType = BangumiCollectionType.unknown;
+      await sqlite.delete(subject.id);
       setState(() {});
     } else if (resp.code != 0 || resp.data == null) {
       await showRespErr(resp, context);
