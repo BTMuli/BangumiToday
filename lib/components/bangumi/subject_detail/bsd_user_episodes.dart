@@ -32,6 +32,9 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
   /// 用户
   BangumiUser? get user => widget.user;
 
+  /// 是否收藏
+  late bool isCollection;
+
   /// 数据库
   final BtsBangumiUser sqlite = BtsBangumiUser();
 
@@ -56,9 +59,25 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
     super.initState();
     Future.microtask(() async {
       if (widget.subject.type == BangumiSubjectType.anime) {
+        await check();
         await load();
       }
     });
+  }
+
+  /// 检测是否收藏
+  Future<void> check() async {
+    if (user != null) {
+      var resp = await api.getCollectionSubject(
+        user!.id.toString(),
+        subjectId,
+      );
+      if (resp.code == 404) {
+        isCollection = false;
+      } else {
+        isCollection = true;
+      }
+    }
   }
 
   /// 加载更多
@@ -73,7 +92,7 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
       var page = ep1Resp.data as BangumiPageT<BangumiEpisode>;
       episodes.addAll(page.data);
     }
-    if (user != null) {
+    if (user != null && isCollection) {
       var ep2Resp = await api.getCollectionEpisodes(
         subjectId,
         offset: offset,

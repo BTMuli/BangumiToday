@@ -160,7 +160,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   }
 
   /// 构建Flyout-修改章节收藏状态
-  MenuFlyoutItem buildSubjStat(
+  MenuFlyoutItemBase buildSubjStat(
     BuildContext context,
     BangumiCollectionType type,
   ) {
@@ -224,6 +224,18 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
     );
   }
 
+  /// 删除收藏
+  /// todo 目前官方API不支持删除收藏，暂时不实现
+  MenuFlyoutItem buildFlyoutDelete(BuildContext context) {
+    return MenuFlyoutItem(
+      leading: Icon(FluentIcons.delete),
+      text: Text('删除收藏'),
+      onPressed: () async {
+        await BtInfobar.error(context, '暂不支持删除收藏');
+      },
+    );
+  }
+
   MenuFlyoutItem buildFlyoutItemDetail(BuildContext context) {
     var color = FluentTheme.of(context).accentColor;
     return MenuFlyoutItem(
@@ -263,11 +275,22 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   Widget buildFlyoutCommon(BuildContext context) {
     return MenuFlyout(
       items: [
-        buildSubjStat(context, BangumiCollectionType.wish),
-        buildSubjStat(context, BangumiCollectionType.collect),
-        buildSubjStat(context, BangumiCollectionType.doing),
-        buildSubjStat(context, BangumiCollectionType.onHold),
-        buildSubjStat(context, BangumiCollectionType.dropped),
+        buildSubjStat(context, userCollection!.type),
+        MenuFlyoutSubItem(
+          leading: Icon(
+            FluentIcons.edit,
+            color: FluentTheme.of(context).accentColor,
+          ),
+          text: Text('修改收藏状态'),
+          items: (context) => [
+            buildSubjStat(context, BangumiCollectionType.wish),
+            buildSubjStat(context, BangumiCollectionType.collect),
+            buildSubjStat(context, BangumiCollectionType.doing),
+            buildSubjStat(context, BangumiCollectionType.onHold),
+            buildSubjStat(context, BangumiCollectionType.dropped),
+          ],
+        ),
+        buildFlyoutDelete(context),
         buildFlyoutItemDetail(context),
       ],
     );

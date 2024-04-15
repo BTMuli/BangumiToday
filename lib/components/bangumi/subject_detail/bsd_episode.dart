@@ -135,6 +135,12 @@ class _BsdEpisodeState extends State<BsdEpisode> {
     BangumiEpisodeCollectionType type,
   ) {
     final icon = getIcon(type);
+    var selected = false;
+    if (userEpisode == null && type == BangumiEpisodeCollectionType.none) {
+      selected = true;
+    } else if (userEpisode?.type == type) {
+      selected = true;
+    }
     return MenuFlyoutItem(
       leading: Icon(icon, color: FluentTheme.of(context).accentColor),
       text: Text(type.label),
@@ -147,8 +153,8 @@ class _BsdEpisodeState extends State<BsdEpisode> {
           await BtInfobar.warn(context, '章节 $text 状态已经是 ${type.label}');
         }
       },
-      selected: userEpisode?.type == type,
-      trailing: userEpisode?.type == type
+      selected: selected,
+      trailing: selected
           ? Icon(
               FluentIcons.check_mark,
               color: FluentTheme.of(context).accentColor,

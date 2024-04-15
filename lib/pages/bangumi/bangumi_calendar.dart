@@ -70,7 +70,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     super.initState();
     Future.microtask(() async {
       user = await sqliteUser.readUser();
-      await getData();
+      await getData(freshTab: true);
     });
   }
 
@@ -81,7 +81,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   }
 
   /// 获取数据
-  Future<void> getData({bool freshTab = true}) async {
+  Future<void> getData({bool freshTab = false}) async {
     isRequesting = true;
     calendarData.clear();
     if (freshTab) {
@@ -252,7 +252,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         onChanged: (v) async {
           isShowCollection = v;
           setState(() {});
-          await getData(freshTab: false);
+          await getData();
         },
         child: Icon(FluentIcons.favorite_star, color: Colors.white),
       ),
