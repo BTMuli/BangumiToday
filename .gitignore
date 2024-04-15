@@ -37,7 +37,8 @@ app.*.symbols
 app.*.map.json
 
 # Windows build
-sqlite3.dll
+windows/sqlite3.zip
+windows/sqlite3.dll
 
 # secret
 .env

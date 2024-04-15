@@ -107,19 +107,18 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
 
-# Sqlite
-include(FetchContent)
-
-FetchContent_Declare(sqlite3
-        URL "https://www.sqlite.org/2023/sqlite-dll-win64-x64-3420000.zip"
-        URL_HASH SHA3_256=2425efa95556793a20761dfdab0d3b56a52e61716e8bb65e6a0a3590d41c97c0
-        DOWNLOAD_EXTRACT_TIMESTAMP true
-)
-find_file(SQLITE3 sqlite3)
-if(NOT SQLITE3)
-  message("sqlite3.dll not found, trying to download or use cached version.")
-  FetchContent_MakeAvailable(sqlite3)
-  set(SQLITE3 ${sqlite3_SOURCE_DIR}/sqlite3.dll)
+# Sqlite3.dll
+message("checking sqlite3.dll")
+find_file(Sqlite sqlite3.dll PATHS "${INSTALL_BUNDLE_LIB_DIR}")
+if(NOT Sqlite)
+  message("sqlite3.dll not found, trying to find zip file")
+  find_file(SqliteZip sqlite3.zip PATHS "${CMAKE_CURRENT_SOURCE_DIR}")
+  if(NOT SqliteZip)
+      message("sqlite3.zip not found, downloading")
+      file(DOWNLOAD "https://www.sqlite.org/2024/sqlite-dll-win-x64-3450200.zip" "${CMAKE_CURRENT_SOURCE_DIR}/sqlite3.zip")
+  endif()
+  message("extracting sqlite3.dll")
+  execute_process(COMMAND ${CMAKE_COMMAND} -E tar xvf sqlite3.zip sqlite3.dll WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
-
-install(FILES "${SQLITE3}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+message("installing sqlite3.dll")
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/sqlite3.dll" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
