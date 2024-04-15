@@ -22,7 +22,6 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
           architecture: x64
 
       - name: 检查环境
