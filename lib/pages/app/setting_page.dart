@@ -227,67 +227,44 @@ class _SettingPageState extends ConsumerState<SettingPage>
     );
   }
 
-  /// todo 构建 bangumi 用户数据
-
   /// 构建应用信息
   Widget buildAppInfo() {
+    var shadow = Shadow(
+      color: Colors.black,
+      offset: Offset(1, 1),
+      blurRadius: 2,
+    );
     return Container(
-      width: 360.w,
-      height: 320.h,
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
         color: curAccentColor,
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          Image.asset('assets/images/logo.png', width: 100.w),
           Text(
             'BangumiToday',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 24.sp,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  offset: Offset(1, 1),
-                  blurRadius: 2,
-                ),
-              ],
+              shadows: [shadow],
             ),
           ),
           SizedBox(height: 8.h),
           Text(
             'Version: ${packageInfo?.version} '
             'Build: ${packageInfo?.buildNumber}',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16.sp,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  offset: Offset(1, 1),
-                  blurRadius: 2,
-                ),
-              ],
-            ),
+            style: TextStyle(color: Colors.white, shadows: [shadow]),
           ),
           SizedBox(height: 8.h),
           Text(
             '©2024 BTMuli<bt-muli@outlook.com>',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16.sp,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  offset: Offset(1, 1),
-                  blurRadius: 2,
-                ),
-              ],
-            ),
+            style: TextStyle(color: Colors.white, shadows: [shadow]),
           ),
         ],
       ),
@@ -308,16 +285,14 @@ class _SettingPageState extends ConsumerState<SettingPage>
   Widget build(BuildContext context) {
     super.build(context);
     return ScaffoldPage(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
       content: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Expanded(child: ListView(children: buildConfigList())),
-          Container(
-            margin: EdgeInsets.only(left: 16.w),
-            child: buildAppInfo(),
-          ),
+          SizedBox(width: 16.w),
+          buildAppInfo(),
+          SizedBox(width: 16.w),
         ],
       ),
     );

@@ -2,16 +2,20 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2024-04-15
+Update: 2024-04-16
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-04-15 19:06:47`
+> 更新于 `2024-04-16 01:36:13`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
-# BangumiToday
+<div align="center">
+	<img alt="logo" src="./assets/images/logo.png" width="256" />
+</div>
+
+# BangumiToday 
 
 基于 [Bangumi.tv](https://bangumi.tv)、[蜜柑计划](https://mikanani.hacgn.fun/) 的番剧应用。
 

@@ -97,6 +97,7 @@ flutter:
     - .env
     - assets/images/platforms/
     - assets/fonts/
+    - assets/images/logo.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
@@ -127,6 +128,7 @@ lint_staged:
 msix_config:
   store: false
   display_name: BangumiToday
+  logo_path: assets/images/logo.png
   install_certificate: false
   publisher: CN=目棃, C=CN, E=bt-muli@outlook.com
   publisher_display_name: BTMuli
