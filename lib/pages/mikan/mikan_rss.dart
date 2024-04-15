@@ -128,10 +128,15 @@ class _MikanRSSPageState extends State<MikanRSSPage>
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        Image.asset(
-          'assets/images/platforms/mikan-logo.png',
-          height: 60.h,
-          fit: BoxFit.cover,
+        IconButton(
+          icon: Image.asset(
+            'assets/images/platforms/mikan-logo.png',
+            height: 60.h,
+            fit: BoxFit.cover,
+          ),
+          onPressed: () async {
+            await launchUrlString('https://mikanani.me/');
+          },
         ),
         Image.asset(
           'assets/images/platforms/mikan-text.png',

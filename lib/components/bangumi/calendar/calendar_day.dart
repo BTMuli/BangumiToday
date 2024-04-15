@@ -1,13 +1,13 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../../models/bangumi/request_subject.dart';
+import '../../../models/bangumi/bangumi_model.dart';
 import 'calendar_card.dart';
 
 /// 今日放送-单日
 class CalendarDay extends StatelessWidget {
   /// 数据
-  final BangumiCalendarRespData? data;
+  final List<BangumiLegacySubjectSmall> data;
 
   /// 是否在加载中
   final bool loading;
@@ -20,11 +20,11 @@ class CalendarDay extends StatelessWidget {
   });
 
   /// 构建错误
-  Widget buildError() {
+  Widget buildError(BuildContext context) {
     if (loading) {
       return Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             ProgressRing(),
             SizedBox(height: 20.h),
@@ -34,7 +34,14 @@ class CalendarDay extends StatelessWidget {
       );
     }
     return Center(
-      child: Text('加载失败'),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(FluentIcons.error, color: FluentTheme.of(context).accentColor),
+          SizedBox(width: 10.w),
+          Text('没有放送数据'),
+        ],
+      ),
     );
   }
 
@@ -42,14 +49,14 @@ class CalendarDay extends StatelessWidget {
   Widget buildList() {
     return GridView(
       controller: ScrollController(),
-      padding: EdgeInsets.all(12.sp),
+      padding: EdgeInsets.all(8),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        childAspectRatio: 400.w / 280.h,
-        mainAxisSpacing: 8.h,
-        crossAxisSpacing: 7.w,
+        childAspectRatio: 10 / 7,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
       ),
-      children: data!.items.map((e) => CalendarCard(data: e)).toList(),
+      children: data.map((e) => CalendarCard(data: e)).toList(),
     );
   }
 
@@ -58,7 +65,7 @@ class CalendarDay extends StatelessWidget {
   Widget build(BuildContext context) {
     return ScaffoldPage(
       padding: EdgeInsets.zero,
-      content: data == null ? buildError() : buildList(),
+      content: data.isEmpty ? buildError(context) : buildList(),
     );
   }
 }

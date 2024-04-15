@@ -97,7 +97,7 @@ class _BangumiRateBarChartState extends ConsumerState<BangumiRateBarChart> {
             TextStyle(
               color: color.lighter,
               fontWeight: FontWeight.bold,
-              fontSize: 16.sp,
+              fontSize: 14,
             ),
           );
         },
@@ -115,7 +115,7 @@ class _BangumiRateBarChartState extends ConsumerState<BangumiRateBarChart> {
           sideTitles: SideTitles(
             showTitles: true,
             getTitlesWidget: getTiles,
-            reservedSize: 30,
+            reservedSize: 20,
           ),
         ),
         leftTitles: AxisTitles(
@@ -132,26 +132,22 @@ class _BangumiRateBarChartState extends ConsumerState<BangumiRateBarChart> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 450.w,
       height: 300.h,
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        color: FluentTheme.of(context).brightness.isLight
-            ? Colors.white.withAlpha(900)
-            : Colors.black.withAlpha(900),
-        borderRadius: BorderRadius.circular(8.sp),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            empty ? '暂无评分' : '${rating!.score}(${rating!.total}人评分)',
-            style: FluentTheme.of(context).typography.subtitle,
-          ),
-          SizedBox(height: 20.h),
-          Expanded(child: BarChart(getData(context))),
-        ],
+      child: Card(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              empty ? '暂无评分' : '${rating!.score}(${rating!.total}人评分)',
+              style: FluentTheme.of(context).typography.subtitle,
+            ),
+            SizedBox(height: 20.h),
+            Expanded(child: BarChart(getData(context))),
+          ],
+        ),
       ),
     );
   }

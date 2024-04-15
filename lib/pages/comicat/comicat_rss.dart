@@ -1,6 +1,8 @@
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../components/app/app_dialog_resp.dart';
 import '../../components/comicat/cmc_rss_card.dart';
@@ -56,7 +58,15 @@ class _ComicatRSSPageState extends State<ComicatRSSPage>
       crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        Image.asset('assets/images/platforms/comicat-favicon.ico'),
+        IconButton(
+          icon: Image.asset(
+            'assets/images/platforms/comicat-favicon.ico',
+            fit: BoxFit.cover,
+          ),
+          onPressed: () async {
+            await launchUrlString('https://comicat.org');
+          },
+        ),
         SizedBox(width: 10.w),
         Text('Comicat'),
         SizedBox(width: 20.w),

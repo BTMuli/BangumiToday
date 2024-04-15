@@ -3,6 +3,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../database/bangumi/bangumi_collection.dart';
+import '../../../database/bangumi/bangumi_data.dart';
+import '../../../models/bangumi/bangumi_data_model.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
@@ -42,6 +44,9 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   /// 用户收藏数据库
   final BtsBangumiCollection sqlite = BtsBangumiCollection();
 
+  /// bangumi-data数据库
+  final BtsBangumiData sqliteData = BtsBangumiData();
+
   /// flyout controller
   final FlyoutController controller = FlyoutController();
 
@@ -50,6 +55,9 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
 
   /// 用户收藏状态
   late BangumiCollectionType collectionType = BangumiCollectionType.unknown;
+
+  /// 站点数据
+  late List<BangumiDataSiteFull> sites = [];
 
   /// 用户评分
   late int rating = 0;
@@ -296,6 +304,24 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
     );
   }
 
+  /// 刷新状态的button
+  Widget buildFreshBtn(BuildContext context) {
+    return Button(
+      child: Text('刷新状态'),
+      onPressed: () async {
+        if (user == null) {
+          await BtInfobar.error(context, '未获取到用户信息，请登录后重试');
+          return;
+        } else {
+          await init();
+          await BtInfobar.success(context, '条目 ${subject.id} 状态刷新成功');
+        }
+      },
+    );
+  }
+
+  /// 构建站点按钮
+
   /// 未收藏
   Widget buildUnCollection(BuildContext context) {
     return Row(
@@ -353,24 +379,13 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
             },
           ),
         ),
-        SizedBox(width: 10.w),
+        SizedBox(width: 8.w),
         Text(
           '未收藏',
           style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
         ),
-        SizedBox(width: 10.w),
-        Button(
-          child: Text('刷新状态'),
-          onPressed: () async {
-            if (user == null) {
-              await BtInfobar.error(context, '未获取到用户信息，请登录后重试');
-              return;
-            } else {
-              await init();
-              await BtInfobar.success(context, '条目 ${subject.id} 状态刷新成功');
-            }
-          },
-        ),
+        SizedBox(width: 8.w),
+        buildFreshBtn(context),
       ],
     );
   }
@@ -436,18 +451,8 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           },
         ),
         SizedBox(width: 8.w),
-        Button(
-          child: Text('刷新状态'),
-          onPressed: () async {
-            if (user == null) {
-              await BtInfobar.error(context, '未获取到用户信息，请登录后重试');
-              return;
-            } else {
-              await init();
-              await BtInfobar.success(context, '条目 ${subject.id} 状态刷新成功');
-            }
-          },
-        ),
+        buildFreshBtn(context),
+        SizedBox(width: 8.w),
       ],
     );
   }

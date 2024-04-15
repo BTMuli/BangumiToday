@@ -105,10 +105,10 @@ class _BsdEpisodeState extends State<BsdEpisode> {
       episode: episode.id,
     );
     if (resp.code != 0) {
-      showRespErr(resp, context, title: '更新 $text 状态失败');
+      showRespErr(resp, context, title: '更新章节 $text 状态失败');
       return;
     }
-    BtInfobar.success(context, '成功更新 $text 章节状态为 ${type.label}');
+    BtInfobar.success(context, '成功更新章节 $text 状态为 ${type.label}');
     await freshUserEpisodes();
   }
 
@@ -146,7 +146,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
       text: Text(type.label),
       onPressed: () async {
         if (userEpisode == null) {
-          await BtInfobar.error(context, '未找到 $text 话的章节信息');
+          await BtInfobar.error(context, '未找到章节 $text 的章节信息');
         } else if (userEpisode!.type != type) {
           await updateType(type);
         } else {

@@ -69,12 +69,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
   /// 构建无封面的卡片
   Widget buildCoverError(BuildContext context, {String? err}) {
     var color = FluentTheme.of(context).accentColor.darkest;
-    return Container(
-      decoration: BoxDecoration(
-        color: FluentTheme.of(context).brightness.isDark
-            ? Colors.white.withAlpha(900)
-            : Colors.black.withAlpha(900),
-      ),
+    return Card(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
       child: Center(
         child: Column(
@@ -133,7 +128,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
   /// 构建交互
   Widget buildAction(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Tooltip(
@@ -243,25 +238,31 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
 
   /// 构建右侧内容
   Widget buildInfo(BuildContext context) {
+    var title = data.nameCn == '' ? data.name : data.nameCn;
+    var subTitle = data.nameCn == '' ? '' : data.name;
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          data.nameCn == '' ? data.name : data.nameCn,
-          style: TextStyle(
-            fontSize: 28.sp,
-            fontWeight: FontWeight.bold,
+        Tooltip(
+          message: title,
+          child: Text(
+            title,
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
-        data.nameCn == '' || data.name.length > 40
-            ? Container()
-            : Text(
-                data.name,
-                style: TextStyle(
-                  color: FluentTheme.of(context).accentColor.lighter,
-                ),
-              ),
+        Tooltip(
+          message: subTitle,
+          child: Text(
+            subTitle,
+            style:
+                TextStyle(color: FluentTheme.of(context).accentColor.lighter),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
         upTime == '' ? Container() : Text('放送时间：$upTime'),
         buildAction(context),
       ],

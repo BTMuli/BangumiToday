@@ -111,9 +111,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   }
 
   /// 获取 Tab 数据
-  BangumiCalendarRespData? getTabData(int index) {
-    if (index >= calendarData.length) return null;
-    return calendarData[index];
+  List<BangumiLegacySubjectSmall> getTabData(int index) {
+    if (index >= calendarData.length) return [];
+    return calendarData[index].items;
   }
 
   /// 刷新
