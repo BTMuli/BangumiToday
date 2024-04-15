@@ -36,9 +36,5 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
-# Windows build
-windows/sqlite3.zip
-windows/sqlite3.dll
-
 # secret
 .env
