@@ -38,10 +38,7 @@ jobs:
           Add-Content -Path .env -Value "BANGUMI_APP_SECRET=${env:BANGUMI_APP_SECRET}"
 
       - name: 构建项目
-        run: flutter build windows
-
-      - name: 构建 MSIX
-        run: dart run msix:create
+        run: dart run msix:create --sign-msix false
 
       - name: 安装 SignPath CLI
         if: env.TOKEN != ''
@@ -68,3 +65,18 @@ jobs:
         with:
           name: BangumiToday(SignPath).msix
           path: BangumiToday.msix
+
+      - name: 上传证书
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTMuli.cer
+          path: $HOME/BTMuli.cer
+
+      - name: 添加Summary
+        shell: pwsh
+        run: |
+          $summary = "
+          > [!IMPORTANT]
+          > 请安装 BTMuli.crt 以安装测试版安装包
+          "
+          echo $summary >> $Env:GITHUB_STEP_SUMMARY
