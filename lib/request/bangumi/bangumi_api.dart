@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-// import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../database/bangumi/bangumi_user.dart';
 import '../../models/app/response.dart';
@@ -182,7 +181,6 @@ class BtrBangumiApi {
           e as Map<String, dynamic>,
         ),
       );
-      // debugPrint(dataList.data.map((e) => e.toJson()).toList().toString());
       return BangumiEpisodeListResp.success(data: dataList);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
@@ -211,7 +209,6 @@ class BtrBangumiApi {
         '/v0/me',
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      // debugPrint('data: ${resp.data}');
       assert(resp.data is Map<String, dynamic>);
       return BangumiUserInfoResp.success(
         data: BangumiUser.fromJson(resp.data),
@@ -290,7 +287,6 @@ class BtrBangumiApi {
         '/v0/users/$username/collections/$subjectId',
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      // debugPrint('data: ${resp.data}');
       assert(resp.data is Map<String, dynamic>);
       return BangumiCollectionSubjectItemResp.success(
         data: BangumiUserSubjectCollection.fromJson(resp.data),
@@ -340,6 +336,7 @@ class BtrBangumiApi {
 
   /// 更新用户单个条目收藏信息
   /// 直接修改完成度可能会造成预期外的错误，这边建议只修改状态\评分等信息
+  /// bug: 无法修改评分，见 https://github.com/bangumi/server/issues/530
   Future<BTResponse> updateCollectionSubject(
     int subjectId, {
     BangumiCollectionType? type,
@@ -352,7 +349,7 @@ class BtrBangumiApi {
   }) async {
     var data = <String, dynamic>{};
     if (type != null) data['type'] = type.value;
-    if (rate != null) data['rating'] = rate;
+    if (rate != null) data['rate'] = rate;
     if (ep != null) data['ep_status'] = ep;
     if (vol != null) data['vol_status'] = vol;
     if (comment != null) data['comment'] = comment;
@@ -365,7 +362,6 @@ class BtrBangumiApi {
         data: data,
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      // debugPrint('data: ${resp.data}');
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
@@ -434,7 +430,6 @@ class BtrBangumiApi {
         '/v0/users/-/collections/-/episodes/$episodeId',
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      // debugPrint('data: ${resp.data}');
       assert(resp.data is Map<String, dynamic>);
       return BangumiCollectionEpisodeItemResp.success(
         data: BangumiUserEpisodeCollection.fromJson(resp.data),
@@ -473,7 +468,6 @@ class BtrBangumiApi {
         },
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      // debugPrint('data: ${resp.data}');
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
       return BTResponse.error(

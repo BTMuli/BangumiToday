@@ -12,8 +12,8 @@ class BTRequestClient {
       request: false,
       requestBody: false,
       requestHeader: false,
-      responseBody: false,
-      responseHeader: false,
+      responseBody: true,
+      responseHeader: true,
       error: true,
       logPrint: (object) {
         if (object is String) {

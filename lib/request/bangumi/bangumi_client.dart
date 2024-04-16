@@ -6,7 +6,9 @@ import '../core/client.dart';
 class BtrBangumi extends BTRequestClient {
   /// 构造函数
   BtrBangumi() {
-    super.dio.options.headers['User-Agent'] = getClientUA();
+    Future.microtask(() async {
+      super.dio.options.headers['User-Agent'] = await getClientUA();
+    });
   }
 
   /// 获取 UA
