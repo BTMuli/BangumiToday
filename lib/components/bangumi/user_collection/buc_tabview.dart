@@ -5,7 +5,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../controller/app/progress_controller.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
+import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
+import '../../../pages/bangumi/bangumi_detail.dart';
+import '../../../store/nav_store.dart';
+import '../../app/app_infobar.dart';
 import 'buc_card.dart';
 
 /// 用户收藏 tab
@@ -36,7 +40,11 @@ class _BucTabState extends ConsumerState<BucTabView>
   /// todo 目前是采用全部加载，分页渲染的方式，后续可以考虑分页加载
   List<BangumiUserSubjectCollection> data = [];
 
-  /// todo 增加筛选条件
+  /// 查找
+  final TextEditingController searchController = TextEditingController();
+
+  /// 选中的数据
+  BangumiUserSubjectCollection? selectedData;
 
   /// 保存状态
   @override
@@ -48,6 +56,13 @@ class _BucTabState extends ConsumerState<BucTabView>
     super.initState();
     Future.delayed(Duration.zero, () async {
       await loadData();
+    });
+    // 监听搜索框
+    searchController.addListener(() {
+      if (searchController.text.isEmpty) {
+        selectedData = null;
+        setState(() {});
+      }
     });
   }
 
@@ -68,9 +83,79 @@ class _BucTabState extends ConsumerState<BucTabView>
     }
   }
 
+  /// 构建 item
+  Widget buildItem(
+    BuildContext context,
+    AutoSuggestBoxItem<dynamic> item,
+  ) {
+    var data = item.value as BangumiUserSubjectCollection;
+    return ListTile(
+      title: Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      onPressed: () {
+        searchController.text = item.label;
+        selectedData = data;
+        setState(() {});
+      },
+    );
+  }
+
+  /// 构建搜索框
+  Widget buildSearch(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8.w),
+      child: AutoSuggestBox<BangumiUserSubjectCollection>(
+        controller: searchController,
+        items: data.map((item) {
+          return AutoSuggestBoxItem<BangumiUserSubjectCollection>(
+            value: item,
+            label: item.subject.nameCn.isEmpty
+                ? item.subject.name
+                : item.subject.nameCn,
+            onFocusChange: (focus) {
+              if (focus) {
+                debugPrint('focus on $item');
+              }
+            },
+            semanticLabel: item.subject.nameCn.isEmpty
+                ? item.subject.name
+                : item.subject.nameCn,
+            onSelected: () {
+              searchController.text = item.subject.nameCn.isEmpty
+                  ? item.subject.name
+                  : item.subject.nameCn;
+            },
+          );
+        }).toList(),
+        itemBuilder: buildItem,
+      ),
+    );
+  }
+
+  /// 构建跳转
+  Widget buildJump(BuildContext context) {
+    return IconButton(
+      icon: Icon(FluentIcons.link),
+      onPressed: () async {
+        if (selectedData == null) {
+          BtInfobar.warn(context, '请选择一个条目');
+          return;
+        }
+        var title =
+            '${selectedData!.subjectType.label}详情 ${selectedData!.subjectId}';
+        var pane = PaneItem(
+          icon: Icon(FluentIcons.info),
+          title: Text(title),
+          body: BangumiDetail(id: selectedData!.subjectId.toString()),
+        );
+        ref.read(navStoreProvider).addNavItem(pane, title);
+      },
+    );
+  }
+
   /// 构建顶部
   Widget buildTop(BuildContext context) {
     return Container(
+      height: 60,
       padding: EdgeInsets.all(8),
       child: Row(
         children: [
@@ -79,10 +164,11 @@ class _BucTabState extends ConsumerState<BucTabView>
             style: FluentTheme.of(context).typography.subtitle,
           ),
           Spacer(),
-          IconButton(
-            icon: Icon(FluentIcons.refresh),
-            onPressed: loadData,
+          SizedBox(
+            width: 600.w,
+            child: buildSearch(context),
           ),
+          buildJump(context),
         ],
       ),
     );
@@ -114,10 +200,7 @@ class _BucTabState extends ConsumerState<BucTabView>
     super.build(context);
     return Column(children: [
       buildTop(context),
-      ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: 900.h),
-        child: buildList(),
-      ),
+      Expanded(child: buildList()),
     ]);
   }
 }
