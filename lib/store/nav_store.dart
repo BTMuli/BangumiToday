@@ -7,7 +7,11 @@ final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
 });
 
 /// 侧边栏状态，用于控制侧边栏动态组件的加载与卸载
+/// todo 拓展方法，提升侧边栏标题可读性
 class BTNavStore extends ChangeNotifier {
+  /// 保留的顶部固定侧边栏
+  final int topNavCount = 3;
+
   /// 当前索引
   int curIndex = 0;
 
@@ -55,7 +59,7 @@ class BTNavStore extends ChangeNotifier {
     final index = _navMap.keys.toList().indexOf(title);
     if (index != -1) {
       lastIndex = curIndex;
-      curIndex = index + 3;
+      curIndex = index + topNavCount;
       notifyListeners();
     }
   }
@@ -65,7 +69,7 @@ class BTNavStore extends ChangeNotifier {
     debugPrint("removeNavItem $title");
     if (!_navMap.containsKey(title)) return;
     _navMap.remove(title);
-    if (lastIndex > _navMap.length + 2) {
+    if (lastIndex > _navMap.length + topNavCount - 1) {
       curIndex = 0;
     } else {
       curIndex = lastIndex;

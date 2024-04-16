@@ -12,6 +12,7 @@ import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../store/nav_store.dart';
+import '../../../utils/bangumi_utils.dart';
 import '../../app/app_dialog_resp.dart';
 
 /// 收藏卡片
@@ -51,12 +52,7 @@ class _BucCardState extends ConsumerState<BucCard>
   /// 构建无封面的卡片
   Widget buildCoverError(BuildContext context, {String? err}) {
     var color = FluentTheme.of(context).accentColor.darkest;
-    return Container(
-      decoration: BoxDecoration(
-        color: FluentTheme.of(context).brightness.isDark
-            ? Colors.white.withAlpha(900)
-            : Colors.black.withAlpha(900),
-      ),
+    return Card(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
       child: Center(
         child: Column(
@@ -106,6 +102,7 @@ class _BucCardState extends ConsumerState<BucCard>
     var rateWidget = <Widget>[];
     Widget viewWidget = Container();
     var score = data.score / 2;
+    var label = getBangumiRateLabel(data.score);
     rateWidget.add(RatingBar(
       rating: score,
       iconSize: 20.sp,
@@ -113,7 +110,7 @@ class _BucCardState extends ConsumerState<BucCard>
       unratedIconColor: FluentTheme.of(context).accentColor.withOpacity(0.5),
     ));
     rateWidget.add(SizedBox(height: 5.h));
-    rateWidget.add(Text('${data.score}'));
+    rateWidget.add(Text('${data.score} $label'));
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,13 +133,8 @@ class _BucCardState extends ConsumerState<BucCard>
           child: ClipRect(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
+              child: Card(
                 padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-                decoration: BoxDecoration(
-                  color: FluentTheme.of(context).brightness.isDark
-                      ? Colors.black.withAlpha(900)
-                      : Colors.white.withAlpha(900),
-                ),
                 child: buildCoverInfo(context),
               ),
             ),
@@ -155,7 +147,7 @@ class _BucCardState extends ConsumerState<BucCard>
   /// 构建交互
   Widget buildAction(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Tooltip(
@@ -203,25 +195,33 @@ class _BucCardState extends ConsumerState<BucCard>
 
   /// 构建右侧内容
   Widget buildInfo(BuildContext context) {
+    var title = data.nameCn == '' ? data.name : data.nameCn;
+    var subTitle = data.nameCn == '' ? '' : data.name;
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          data.nameCn == '' ? data.name : data.nameCn,
-          style: TextStyle(
-            fontSize: 28.sp,
-            fontWeight: FontWeight.bold,
+        Tooltip(
+          message: title,
+          child: Text(
+            title,
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
-        data.nameCn == '' || data.name.length > 40
-            ? Container()
-            : Text(
-                data.name,
-                style: TextStyle(
-                  color: FluentTheme.of(context).accentColor.lighter,
-                ),
+        if (subTitle.isNotEmpty)
+          Tooltip(
+            message: subTitle,
+            child: Text(
+              subTitle,
+              style: TextStyle(
+                color: FluentTheme.of(context).accentColor.lighter,
               ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         buildAction(context),
       ],
     );

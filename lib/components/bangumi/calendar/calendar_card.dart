@@ -12,6 +12,7 @@ import '../../../models/app/response.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../store/nav_store.dart';
+import '../../../utils/bangumi_utils.dart';
 import '../../app/app_dialog_resp.dart';
 
 /// 今日放送-番剧卡片
@@ -181,6 +182,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
     Widget viewWidget = Container();
     if (data.rating != null) {
       var score = data.rating!.score / 2;
+      var label = getBangumiRateLabel(data.rating!.score);
       rateWidget.add(RatingBar(
         rating: score,
         iconSize: 20.sp,
@@ -188,7 +190,9 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
         unratedIconColor: FluentTheme.of(context).accentColor.withOpacity(0.5),
       ));
       rateWidget.add(SizedBox(height: 5.h));
-      rateWidget.add(Text('${data.rating?.score}(${data.rating?.total})'));
+      rateWidget.add(Text(
+        '${data.rating?.score} $label (${data.rating?.total}人评分)',
+      ));
     }
     if (data.collection?.doing != null) {
       viewWidget = Row(
@@ -220,13 +224,8 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
           child: ClipRect(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
+              child: Card(
                 padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-                decoration: BoxDecoration(
-                  color: FluentTheme.of(context).brightness.isDark
-                      ? Colors.black.withAlpha(900)
-                      : Colors.white.withAlpha(900),
-                ),
                 child: buildCoverInfo(context),
               ),
             ),
@@ -253,17 +252,19 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        Tooltip(
-          message: subTitle,
-          child: Text(
-            subTitle,
-            style:
-                TextStyle(color: FluentTheme.of(context).accentColor.lighter),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
+        if (subTitle.isNotEmpty)
+          Tooltip(
+            message: subTitle,
+            child: Text(
+              subTitle,
+              style: TextStyle(
+                color: FluentTheme.of(context).accentColor.lighter,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        ),
-        upTime == '' ? Container() : Text('放送时间：$upTime'),
+        if (upTime.isNotEmpty) Text('放送时间：$upTime'),
         buildAction(context),
       ],
     );

@@ -7,8 +7,8 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../../models/app/response.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../app/app_dialog_resp.dart';
+import 'bsd_rate_chart.dart';
 import 'bsd_sites.dart';
-import 'rate_bar_chart.dart';
 
 /// 详情页面的信息卡片
 class BsdOverview extends StatelessWidget {
@@ -153,7 +153,7 @@ class BsdOverview extends StatelessWidget {
         SizedBox(width: 12.w),
         BsdSites(item.name),
         SizedBox(width: 12.w),
-        BangumiRateBarChart(item.rating),
+        BsdRateChart(item.rating),
         SizedBox(width: 12.w),
       ],
     );

@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../models/bangumi/bangumi_model_patch.dart';
 import '../../../store/app_store.dart';
+import '../../../utils/bangumi_utils.dart';
 
 /// 番剧评分折线图
 /// 参考：fl_chart的bar_chart_sample8.dart
@@ -12,19 +13,18 @@ import '../../../store/app_store.dart';
 /// 代码：https://github.com/imaNNeo/fl_chart/blob/main/example/lib/presentation/samples/bar/bar_chart_sample8.dart
 /// 动画部分参考同类型下的 sample1
 /// 代码：https://github.com/imaNNeo/fl_chart/blob/main/example/lib/presentation/samples/bar/bar_chart_sample1.dart
-class BangumiRateBarChart extends ConsumerStatefulWidget {
+class BsdRateChart extends ConsumerStatefulWidget {
   /// 评分数据
   final BangumiPatchRating? rating;
 
   /// 构造函数
-  const BangumiRateBarChart(this.rating, {super.key});
+  const BsdRateChart(this.rating, {super.key});
 
   @override
-  ConsumerState<BangumiRateBarChart> createState() =>
-      _BangumiRateBarChartState();
+  ConsumerState<BsdRateChart> createState() => _BangumiRateBarChartState();
 }
 
-class _BangumiRateBarChartState extends ConsumerState<BangumiRateBarChart> {
+class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
   /// 数据
   BangumiPatchRating? get rating => widget.rating;
 
@@ -34,13 +34,33 @@ class _BangumiRateBarChartState extends ConsumerState<BangumiRateBarChart> {
   /// 颜色
   AccentColor get color => ref.read(appStoreProvider).accentColor;
 
+  /// 初始化
+  @override
+  void initState() {
+    super.initState();
+  }
+
   /// 获取Tiles
   Widget getTiles(double value, TitleMeta meta) {
     var style = TextStyle(fontWeight: FontWeight.bold, fontSize: 16.sp);
     return SideTitleWidget(
-      axisSide: meta.axisSide,
-      child: Text((value.toInt() + 1).toString(), style: style),
+      axisSide: AxisSide.left,
+      child: Text(value.toInt().toString(), style: style),
     );
+  }
+
+  Widget leftTitles(double value, TitleMeta meta) {
+    var style = TextStyle(fontWeight: FontWeight.bold);
+    var max = getMaxY();
+    var title5 = [0, max * 0.2, max * 0.4, max * 0.6, max * 0.8, max];
+    if (title5.contains(value)) {
+      return SideTitleWidget(
+        space: 0,
+        axisSide: meta.axisSide,
+        child: Text(value.toInt().toString(), style: style),
+      );
+    }
+    return SizedBox();
   }
 
   /// 制造数据-单项
@@ -51,15 +71,14 @@ class _BangumiRateBarChartState extends ConsumerState<BangumiRateBarChart> {
       end: Alignment.topCenter,
     );
     return BarChartGroupData(
-      x: i,
+      x: i + 1,
       barRods: [
         BarChartRodData(
           toY: val.toDouble(),
           color: color.light,
           gradient: gradient,
-          borderRadius: BorderRadius.all(Radius.circular(4.sp)),
-          width: 25.w,
-          borderSide: BorderSide(color: Colors.white, width: 2.w),
+          borderRadius: BorderRadius.all(Radius.circular(4)),
+          width: 35.w,
         ),
       ],
       showingTooltipIndicators: [0],
@@ -89,24 +108,49 @@ class _BangumiRateBarChartState extends ConsumerState<BangumiRateBarChart> {
       enabled: false,
       touchTooltipData: BarTouchTooltipData(
         getTooltipColor: (group) => Colors.transparent,
-        tooltipPadding: EdgeInsets.zero,
+        tooltipPadding: EdgeInsets.all(4),
         tooltipMargin: 0,
         getTooltipItem: (group, groupIndex, rod, rodIndex) {
-          return BarTooltipItem(
-            rod.toY.toInt().toString(),
-            TextStyle(
-              color: color.lighter,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          );
+          var val = rod.toY.toInt();
+          var text = val.toString();
+          if (rod.toY > 1000) {
+            text = '${(val / 1000).toStringAsFixed(1)}k';
+          }
+          var c = groupIndex % 2 == 0 ? color.dark : color.light;
+          return BarTooltipItem(text, TextStyle(color: c));
         },
       ),
     );
   }
 
+  /// 获取最大值
+  double getMaxY() {
+    var list = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+    var countMax = rating!.count.values.reduce(
+      (value, element) => value > element ? value : element,
+    );
+    var countMax5 = list.firstWhere(
+      (element) => element >= countMax,
+      orElse: () => 20000,
+    );
+    var countMaxList = [
+      countMax5 * 0,
+      countMax5 * 0.2,
+      countMax5 * 0.4,
+      countMax5 * 0.6,
+      countMax5 * 0.8,
+      countMax5,
+    ];
+    var countMaxIndex = countMaxList.indexWhere(
+      (element) => element >= countMax,
+    );
+    return countMaxList[countMaxIndex].toDouble();
+  }
+
   /// 获取数据
   BarChartData getData(BuildContext context) {
+    var maxY = getMaxY();
+    var maxLen = maxY.toInt().toString().length;
     return BarChartData(
       barTouchData: getTouchData(context),
       titlesData: FlTitlesData(
@@ -119,11 +163,17 @@ class _BangumiRateBarChartState extends ConsumerState<BangumiRateBarChart> {
           ),
         ),
         leftTitles: AxisTitles(
-          sideTitles: SideTitles(reservedSize: 40, showTitles: true),
+          sideTitles: SideTitles(
+            reservedSize: maxLen * 8.0,
+            showTitles: true,
+            interval: 1,
+            getTitlesWidget: leftTitles,
+          ),
         ),
         topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
         rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
       ),
+      maxY: maxY,
       borderData: FlBorderData(show: false),
       barGroups: makeData(context),
       gridData: FlGridData(show: false),
@@ -133,7 +183,7 @@ class _BangumiRateBarChartState extends ConsumerState<BangumiRateBarChart> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 450.w,
+      width: 500.w,
       height: 300.h,
       child: Card(
         child: Column(
@@ -141,7 +191,10 @@ class _BangumiRateBarChartState extends ConsumerState<BangumiRateBarChart> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              empty ? '暂无评分' : '${rating!.score}(${rating!.total}人评分)',
+              empty
+                  ? '暂无评分'
+                  : '${rating!.score} ${getBangumiRateLabel(rating!.score)}'
+                      '(${rating!.total}人评分)',
               style: FluentTheme.of(context).typography.subtitle,
             ),
             SizedBox(height: 20.h),

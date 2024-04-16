@@ -390,11 +390,51 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
     );
   }
 
+  /// buildRatingBar
+  Widget buildRatingBar(BuildContext context) {
+    var unratedColor = FluentTheme.of(context).accentColor.withOpacity(0.25);
+    return RatingBar(
+      rating: rating.toDouble(),
+      amount: 10,
+      starSpacing: 2.w,
+      unratedIconColor: unratedColor,
+      onChanged: (val) async {
+        if (user == null) {
+          await BtInfobar.error(context, '未获取到用户信息，请登录后重试');
+          return;
+        } else if (val.toInt() + 1 == rating) {
+          await BtInfobar.warn(context, '条目 ${subject.id} 评分与当前评分相同');
+          return;
+        } else {
+          var confirm = await showConfirmDialog(
+            context,
+            title: '确认评分',
+            content: '确认将条目 ${subject.id} 评分更新为 ${val.toInt() + 1} 分吗？',
+          );
+          if (!confirm) return;
+          var resp = await api.updateCollectionSubject(
+            subject.id,
+            rate: val.toInt() + 1,
+          );
+          if (resp.code != 0 || resp.data == null) {
+            await showRespErr(resp, context);
+          } else {
+            await BtInfobar.success(
+              context,
+              '条目 ${subject.id} 评分更新为 $rating 分',
+            );
+            setState(() {});
+            await init();
+          }
+        }
+      },
+    );
+  }
+
   /// buildCollection
   Widget buildCollection(BuildContext context) {
     var icon = getIcon(collectionType);
     var color = getBgColor();
-    var unratedColor = FluentTheme.of(context).accentColor.withOpacity(0.25);
     return Row(
       children: [
         FlyoutTarget(
@@ -412,44 +452,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           ),
         ),
         SizedBox(width: 8.w),
-        RatingBar(
-          rating: rating.toDouble(),
-          amount: 10,
-          starSpacing: 2.w,
-          unratedIconColor: unratedColor,
-          onChanged: (val) async {
-            if (user == null) {
-              await BtInfobar.error(context, '未获取到用户信息，请登录后重试');
-              return;
-            } else if (val.toInt() + 1 == rating) {
-              await BtInfobar.warn(context, '条目 ${subject.id} 评分与当前评分相同');
-              return;
-            } else {
-              var confirm = await showConfirmDialog(
-                context,
-                title: '确认评分',
-                content: '确认将条目 ${subject.id} 评分更新为 ${val.toInt() + 1} 分吗？',
-              );
-              if (!confirm) return;
-              var resp = await api.updateCollectionSubject(
-                subject.id,
-                rate: val.toInt() + 1,
-              );
-              if (resp.code != 0 || resp.data == null) {
-                await showRespErr(resp, context);
-              } else {
-                userCollection = resp.data;
-                rating = userCollection?.rate ?? val.toInt() + 1;
-                await BtInfobar.success(
-                  context,
-                  '条目 ${subject.id} 评分更新为 $rating 分',
-                );
-                setState(() {});
-                await init();
-              }
-            }
-          },
-        ),
+        buildRatingBar(context),
         SizedBox(width: 8.w),
         buildFreshBtn(context),
         SizedBox(width: 8.w),
