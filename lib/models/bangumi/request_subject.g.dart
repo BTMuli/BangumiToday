@@ -16,6 +16,17 @@ BangumiCalendarResp _$BangumiCalendarRespFromJson(Map<String, dynamic> json) =>
           .toList(),
     );
 
+BangumiSubjectSearchResp _$BangumiSubjectSearchRespFromJson(
+        Map<String, dynamic> json) =>
+    BangumiSubjectSearchResp(
+      code: json['code'] as int,
+      message: json['message'] as String,
+      data: BangumiPageT<BangumiSubjectSearchData>.fromJson(
+          json['data'] as Map<String, dynamic>,
+          (value) =>
+              BangumiSubjectSearchData.fromJson(value as Map<String, dynamic>)),
+    );
+
 BangumiSubjectResp _$BangumiSubjectRespFromJson(Map<String, dynamic> json) =>
     BangumiSubjectResp(
       code: json['code'] as int,
@@ -69,3 +80,43 @@ Map<String, dynamic> _$BangumiCalendarRespWeekToJson(
       'ja': instance.ja,
       'id': instance.id,
     };
+
+BangumiSubjectSearchData _$BangumiSubjectSearchDataFromJson(
+        Map<String, dynamic> json) =>
+    BangumiSubjectSearchData(
+      id: json['id'] as int,
+      type: $enumDecodeNullable(_$BangumiSubjectTypeEnumMap, json['type']),
+      date: json['date'] as String,
+      image: json['image'] as String,
+      summary: json['summary'] as String,
+      name: json['name'] as String,
+      nameCn: json['name_cn'] as String,
+      tags: (json['tags'] as List<dynamic>)
+          .map((e) => BangumiTag.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      score: (json['score'] as num).toDouble(),
+      rank: json['rank'] as int,
+    );
+
+Map<String, dynamic> _$BangumiSubjectSearchDataToJson(
+        BangumiSubjectSearchData instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'type': _$BangumiSubjectTypeEnumMap[instance.type],
+      'date': instance.date,
+      'image': instance.image,
+      'summary': instance.summary,
+      'name': instance.name,
+      'name_cn': instance.nameCn,
+      'tags': instance.tags.map((e) => e.toJson()).toList(),
+      'score': instance.score,
+      'rank': instance.rank,
+    };
+
+const _$BangumiSubjectTypeEnumMap = {
+  BangumiSubjectType.book: 1,
+  BangumiSubjectType.anime: 2,
+  BangumiSubjectType.music: 3,
+  BangumiSubjectType.game: 4,
+  BangumiSubjectType.real: 6,
+};

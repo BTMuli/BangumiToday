@@ -70,6 +70,7 @@ dart run msix:create --sign-msix true
 - [Comicat](https://comicat.org)
 - [czy0729/Bangumi](https://github.com/czy0729/Bangumi)
 - [FlChart](https://app.flchart.dev/)
+- [Fluent UI](https://bdlukaa.github.io/fluent_ui/)
 - [MikanProject](https://mikanime.tv)
 
 ## Special Thanks（按照字典序）

@@ -13,6 +13,7 @@ import '../../request/bangumi/bangumi_api.dart';
 import '../../store/nav_store.dart';
 import 'bangumi_collection.dart';
 import 'bangumi_data.dart';
+import 'bangumi_search.dart';
 import 'bangumi_user.dart';
 
 /// 今日放送
@@ -213,6 +214,27 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     );
   }
 
+  /// 构建搜索按钮
+  MenuFlyoutItem buildFlyoutSearch(BuildContext context) {
+    var color = FluentTheme.of(context).accentColor;
+    var title = "Bangumi-条目搜索";
+    var pane = PaneItem(
+      icon: Icon(FluentIcons.search, color: color),
+      title: Text(title),
+      body: BangumiSearchPage(),
+    );
+    return MenuFlyoutItem(
+      leading: Icon(
+        FluentIcons.search,
+        color: color,
+      ),
+      text: Text('Bangumi-条目搜索'),
+      onPressed: () async {
+        ref.read(navStoreProvider).addNavItem(pane, title);
+      },
+    );
+  }
+
   /// 构建flyout
   void buildFlyout() {
     controller.showFlyout(
@@ -224,6 +246,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           buildFlyoutCollection(context),
           buildFlyoutUser(context),
           buildFlyoutData(context),
+          buildFlyoutSearch(context),
         ],
       ),
     );

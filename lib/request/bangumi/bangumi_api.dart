@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 import '../../database/bangumi/bangumi_user.dart';
@@ -6,6 +8,7 @@ import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_collection.dart';
 import '../../models/bangumi/request_episode.dart';
+import '../../models/bangumi/request_search.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../models/bangumi/request_user.dart';
 import '../../tools/log_tool.dart';
@@ -84,6 +87,70 @@ class BtrBangumiApi {
       return BTResponse.error(
         code: 666,
         message: 'Failed to load today',
+        data: null,
+      );
+    }
+  }
+
+  /// 条目搜索
+  /// [sort] 为排序规则，有 match(默认)-匹配度, heat-收藏人数，rank-排名，score-评分
+  /// 其余属性都是 filter
+  /// [type] 为条目类型，或关系
+  /// [tag] 为标签，且关系
+  /// [airdate] 为放送日期，且关系，例：[">=2020-07-01", "<2020-10-01"]
+  /// [rating] 为评分，且关系，例：[">=6", "<8"]
+  /// [rank] 为排名，且关系，例：[">=100", "<=200"]
+  /// [nsfw] 为是否显示 nsfw 内容，无权限与 nsfw 为 false 时无法获取 nsfw 内容
+  /// 默认或者 null 会包括所有类型，true 为只返回 nsfw 内容
+  Future<dynamic> searchSubjects(
+    String keyword, {
+    String sort = 'match',
+    List<BangumiSubjectType> type = const [BangumiSubjectType.anime],
+    List<String>? tag,
+    List<String>? airdate,
+    List<String>? rating,
+    List<String>? rank,
+    bool? nsfw = false,
+  }) async {
+    var params = <String, dynamic>{
+      'keyword': keyword,
+      'sort': sort,
+    };
+    var filter = <String, dynamic>{};
+    if (type.isNotEmpty) filter['type'] = type.map((e) => e.value).toList();
+    if (tag != null) filter['tag'] = tag;
+    if (airdate != null) filter['airdate'] = airdate;
+    if (rating != null) filter['rating'] = rating;
+    if (rank != null) filter['rank'] = rank;
+    filter['nsfw'] = nsfw;
+    params['filter'] = filter;
+    BTLogTool.info('searchSubjects: ${jsonEncode(params)}');
+    try {
+      var authHeader = await getAuthHeader();
+      var resp = await client.dio.post(
+        '/v0/search/subjects',
+        data: params,
+        options: Options(contentType: 'application/json', headers: authHeader),
+      );
+      var list = BangumiPageT<BangumiSubjectSearchData>.fromJson(
+        resp.data as Map<String, dynamic>,
+        (e) => BangumiSubjectSearchData.fromJson(
+          e as Map<String, dynamic>,
+        ),
+      );
+      return BangumiSubjectSearchResp.success(data: list);
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      return BTResponse<BangumiErrorDetail>(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to search subjects',
+        data: errResp,
+      );
+    } on Exception catch (e) {
+      BTLogTool.error('Failed to search subjects: $e');
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to search subjects',
         data: null,
       );
     }
@@ -480,6 +547,51 @@ class BtrBangumiApi {
         code: 666,
         message: 'Failed to update user collection episode item',
         data: e.toString(),
+      );
+    }
+  }
+
+  /// 搜索模块 ///
+  /// 可以指定返回数据大小 [group] 为 small, medium, large
+  /// 对应 BangumiLegacySubject(Small|Medium|Large)
+  /// 由于返回内容没有 `nsfw` 字段，不支持过滤，故实际采用另一个接口
+  /// 该接口测试通过，仍然保留，但是不使用
+  Future<BTResponse> searchSubjectsOld(
+    String keyword, {
+    BangumiSubjectType type = BangumiSubjectType.anime,
+    String group = 'small',
+    int? start,
+    int? maxResults,
+  }) async {
+    var params = <String, dynamic>{
+      'type': type.value,
+      'responseGroup': group,
+    };
+    if (start != null) params['start'] = start;
+    if (maxResults != null && maxResults >= 1 && maxResults <= 25) {
+      params['max_results'] = maxResults;
+    }
+    try {
+      var resp = await client.dio.get(
+        '/search/subject/$keyword',
+        queryParameters: params,
+        options: Options(contentType: 'application/json'),
+      );
+      var data = BangumiSearchListData.fromJson(resp.data);
+      return BangumiSearchListResp.success(data: data);
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      return BTResponse<BangumiErrorDetail>(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to search subjects',
+        data: errResp,
+      );
+    } on Exception catch (e) {
+      BTLogTool.error('Failed to search subjects: $e');
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to search subjects',
+        data: null,
       );
     }
   }

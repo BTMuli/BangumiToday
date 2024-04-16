@@ -86,6 +86,31 @@ class BtsBangumiCollection {
     return resp.map(BangumiUserSubjectCollection.fromSqlJson).toList();
   }
 
+  /// 搜索收藏
+  Future<List<BangumiUserSubjectCollection>> search(
+    String keyword, {
+    bool check = true,
+    BangumiCollectionType? type,
+  }) async {
+    if (check) {
+      await _instance.preCheck();
+    }
+    if (type != null) {
+      var resp = await _instance.sqlite.db.query(
+        _tableName,
+        where: 'subject LIKE ? AND collectionType = ?',
+        whereArgs: ['%$keyword%', type.value],
+      );
+      return resp.map(BangumiUserSubjectCollection.fromSqlJson).toList();
+    }
+    var resp = await _instance.sqlite.db.query(
+      _tableName,
+      where: 'subject LIKE ?',
+      whereArgs: ['%$keyword%'],
+    );
+    return resp.map(BangumiUserSubjectCollection.fromSqlJson).toList();
+  }
+
   /// 判断是否在收藏列表中
   Future<bool> isCollected(int subjectId) async {
     await _instance.preCheck();
