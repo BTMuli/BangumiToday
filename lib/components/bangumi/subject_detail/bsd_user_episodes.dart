@@ -132,11 +132,6 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
           ? a.sort.compareTo(b.sort)
           : b.type.value.compareTo(a.type.value),
     );
-    userEpisodes.sort(
-      (a, b) => a.episode.type == b.episode.type
-          ? a.episode.sort.compareTo(b.episode.sort)
-          : a.episode.type.value.compareTo(b.episode.type.value),
-    );
     var curType = episodes[0].type;
     if (curType != BangumiEpType.main) {
       res.add(buildEpHint(curType));
@@ -146,10 +141,14 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
         curType = episodes[i].type;
         res.add(buildEpHint(curType));
       }
-      if (i >= userEpisodes.length) {
-        res.add(BsdEpisode(episodes[i]));
+      // 在userEpisodes中找到对应的章节信息
+      var find = userEpisodes.indexWhere(
+        (element) => element.episode.id == episodes[i].id,
+      );
+      if(find != -1) {
+        res.add(BsdEpisode(episodes[i], user: userEpisodes[find]));
       } else {
-        res.add(BsdEpisode(episodes[i], user: userEpisodes[i]));
+        res.add(BsdEpisode(episodes[i]));
       }
     }
     if (episodes.length < widget.subject.totalEpisodes) {
