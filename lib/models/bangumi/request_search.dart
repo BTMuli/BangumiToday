@@ -45,4 +45,7 @@ class BangumiSearchListData {
   /// from json
   factory BangumiSearchListData.fromJson(Map<String, dynamic> json) =>
       _$BangumiSearchListDataFromJson(json);
+
+  /// to json
+  Map<String, dynamic> toJson() => _$BangumiSearchListDataToJson(this);
 }

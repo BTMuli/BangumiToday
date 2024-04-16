@@ -52,7 +52,7 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
   /// 加载
   Future<void> load() async {
     var resp = await api.getSubjectRelations(subjectId);
-    if (resp.code != 0 || resp.data.isEmpty) {
+    if (resp.code != 0 || resp.data == null) {
       showRespErr(resp, context);
       return;
     }

@@ -145,7 +145,7 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
       var find = userEpisodes.indexWhere(
         (element) => element.episode.id == episodes[i].id,
       );
-      if(find != -1) {
+      if (find != -1) {
         res.add(BsdEpisode(episodes[i], user: userEpisodes[find]));
       } else {
         res.add(BsdEpisode(episodes[i]));
