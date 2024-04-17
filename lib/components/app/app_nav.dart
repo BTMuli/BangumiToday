@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../pages/app/bmf_page.dart';
 import '../../pages/app/setting_page.dart';
 import '../../pages/app/test_page.dart';
 import '../../pages/bangumi/bangumi_calendar.dart';
@@ -90,6 +91,11 @@ class _AppNavState extends ConsumerState<AppNav> {
         title: Text('Comicat'),
         body: ComicatRSSPage(),
       ),
+      PaneItem(
+        icon: Image.asset('assets/images/logo.png'),
+        title: Text('BMF配置'),
+        body: BmfPage(),
+      )
     ];
   }
 
@@ -111,28 +117,6 @@ class _AppNavState extends ConsumerState<AppNav> {
       title: Text('Debug'),
       body: TestPage(),
     );
-  }
-
-  /// 构建自定义面板
-  NavigationPaneWidget buildCustomPane(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(height: 10.h),
-          Text(
-            'Custom Pane',
-            style: FluentTheme.of(context).typography.subtitle,
-          ),
-          SizedBox(height: 10.h),
-          Text(
-            'Custom Pane Content',
-            style: FluentTheme.of(context).typography.body,
-          ),
-        ],
-      ),
-    ) as NavigationPaneWidget;
   }
 
   /// 获取底部项

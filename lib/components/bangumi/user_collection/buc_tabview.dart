@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../controller/app/progress_controller.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
+import '../../../models/app/nav_model.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
@@ -147,7 +148,12 @@ class _BucTabState extends ConsumerState<BucTabView>
           title: Text(title),
           body: BangumiDetail(id: selectedData!.subjectId.toString()),
         );
-        ref.read(navStoreProvider).addNavItem(pane, title);
+        ref.read(navStoreProvider).addNavItem(
+              pane,
+              title,
+              type: BtmAppNavItemType.bangumiSubject,
+              param: 'subjectDetail_${selectedData!.subjectId}',
+            );
       },
     );
   }

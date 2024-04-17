@@ -36,6 +36,13 @@ class BtsAppBmf {
     }
   }
 
+  /// 读取全部配置
+  Future<List<AppBmfModel>> readAll() async {
+    await _instance.preCheck();
+    var result = await _instance.sqlite.db.query(_tableName);
+    return result.map(AppBmfModel.fromJson).toList();
+  }
+
   /// 读取配置
   Future<AppBmfModel?> read(int subject) async {
     await _instance.preCheck();

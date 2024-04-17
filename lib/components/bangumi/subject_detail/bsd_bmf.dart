@@ -9,7 +9,9 @@ import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../database/app/app_bmf.dart';
+import '../../../models/app/nav_model.dart';
 import '../../../models/database/app_bmf_model.dart';
+import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../pages/bangumi/bangumi_play.dart';
 import '../../../request/mikan/mikan_api.dart';
 import '../../../store/nav_store.dart';
@@ -25,8 +27,11 @@ class BsdBmf extends ConsumerStatefulWidget {
   /// subjectId
   final int subjectId;
 
+  /// 模式-是用于详情页还是用于配置页
+  final bool isConfig;
+
   /// 构造函数
-  const BsdBmf(this.subjectId, {super.key});
+  const BsdBmf(this.subjectId, {super.key, this.isConfig = false});
 
   @override
   ConsumerState<BsdBmf> createState() => _BsdBmfState();
@@ -125,88 +130,108 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     setState(() {});
   }
 
+  /// buildHeaderActRss
+  Widget buildHeaderActRss(BuildContext context) {
+    var text = '';
+    if (bmf.rss == null || bmf.rss!.isEmpty) {
+      text = '设置 RSS';
+    } else {
+      text = '修改 RSS';
+    }
+    return Button(
+      child: Text(text),
+      onPressed: () async {
+        var input = await showInputDialog(
+          context,
+          title: '设置 MikanRSS',
+          content: '建议精准到字幕组',
+        );
+        if (input == null) return;
+        bmf.rss = input;
+        await sqlite.write(bmf);
+        var read = await sqlite.read(bmf.subject);
+        if (read != null) {
+          bmf = read;
+          setState(() {});
+        }
+        await BtInfobar.success(context, '成功设置 MikanRSS');
+        await freshRss(bmf);
+      },
+    );
+  }
+
+  /// buildHeaderActFile
+  Widget buildHeaderActFile(BuildContext context) {
+    var text = '';
+    if (bmf.download == null || bmf.download!.isEmpty) {
+      text = '设置下载目录';
+    } else {
+      text = '修改下载目录';
+    }
+    return Button(
+      child: Text(text),
+      onPressed: () async {
+        var dir = await getDirectoryPath();
+        if (dir == null) return;
+        bmf.download = dir;
+        await sqlite.write(bmf);
+        var read = await sqlite.read(bmf.subject);
+        if (read != null) {
+          bmf = read;
+          setState(() {});
+        }
+        await BtInfobar.success(context, '成功设置下载目录');
+        await freshFiles(bmf);
+      },
+      onLongPress: () async {
+        if (bmf.download == null || bmf.download!.isEmpty) {
+          await BtInfobar.error(context, '请先设置下载目录');
+          return;
+        }
+        var res = await fileTool.openDir(bmf.download!);
+        if (res == null) {
+          await BtInfobar.error(context, '打开目录失败：不支持该平台');
+          return;
+        }
+        if (!res) {
+          await BtInfobar.error(context, '打开目录失败：未检测到该目录');
+        }
+      },
+    );
+  }
+
+  /// buildHeaderDel
+  Widget buildHeaderDel(BuildContext context) {
+    return Button(
+      child: Text('删除'),
+      onPressed: () async {
+        var confirm = await showConfirmDialog(
+          context,
+          title: '删除 BMF',
+          content: '确定删除 BMF 信息吗？',
+        );
+        if (!confirm) return;
+        await sqlite.delete(bmf.subject);
+        await BtInfobar.success(context, '成功删除 BMF 信息');
+        setState(() {
+          bmf = AppBmfModel(subject: widget.subjectId);
+          rssItems = [];
+          files = [];
+          aria2Files = [];
+        });
+      },
+    );
+  }
+
   /// buildHeaderAction
   Widget buildHeaderAction(BuildContext context) {
-    var rssText = '';
-    var downloadText = '';
-    if (bmf.rss == null || bmf.rss!.isEmpty) {
-      rssText = '设置 RSS';
-    } else {
-      rssText = '修改 RSS';
-    }
-    if (bmf.download == null || bmf.download!.isEmpty) {
-      downloadText = '设置下载目录';
-    } else {
-      downloadText = '修改下载目录';
-    }
     return Row(
       children: [
-        Button(
-          child: Text(rssText),
-          onPressed: () async {
-            var input = await showInputDialog(
-              context,
-              title: '设置 MikanRSS',
-              content: '建议精准到字幕组',
-            );
-            if (input == null) return;
-            bmf.rss = input;
-            await sqlite.write(bmf);
-            var read = await sqlite.read(bmf.subject);
-            if (read != null) {
-              bmf = read;
-              setState(() {});
-            }
-            await BtInfobar.success(context, '成功设置 MikanRSS');
-            await freshRss(bmf);
-          },
-        ),
+        buildHeaderActRss(context),
         SizedBox(width: 12.w),
-        Button(
-          child: Text(downloadText),
-          onPressed: () async {
-            var confirm = await showConfirmDialog(
-              context,
-              title: '设置下载目录',
-              content: '将会结合RSS对照观看进度',
-            );
-            if (!confirm) return;
-            // todo bug，选择目录后 crash
-            // var dir = await FilePicker.platform.getDirectoryPath();
-            var dir = await getDirectoryPath();
-            if (dir == null) return;
-            bmf.download = dir;
-            await sqlite.write(bmf);
-            var read = await sqlite.read(bmf.subject);
-            if (read != null) {
-              bmf = read;
-              setState(() {});
-            }
-            await BtInfobar.success(context, '成功设置下载目录');
-            await freshFiles(bmf);
-          },
-        ),
+        buildHeaderActFile(context),
         SizedBox(width: 12.w),
-        if (bmf.id != -1)
-          Button(
-            child: Text('删除'),
-            onPressed: () async {
-              var confirm = await showConfirmDialog(
-                context,
-                title: '删除 BMF',
-                content: '确定删除 BMF 信息吗？',
-              );
-              if (!confirm) return;
-              await sqlite.delete(bmf.subject);
-              await BtInfobar.success(context, '成功删除 BMF 信息');
-              setState(() {
-                bmf = AppBmfModel(subject: widget.subjectId);
-                rssItems = [];
-                files = [];
-                aria2Files = [];
-              });
-            },
-          ),
+        if (bmf.id != -1) buildHeaderDel(context),
       ],
     );
   }
@@ -442,6 +467,22 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     return res;
   }
 
+  /// toSubjectDetail
+  void toSubjectDetail() {
+    var navStore = ref.read(navStoreProvider);
+    var pane = PaneItem(
+      icon: Icon(FluentIcons.info),
+      title: Text('条目详情 ${bmf.subject}'),
+      body: BangumiDetail(id: bmf.subject.toString()),
+    );
+    navStore.addNavItem(
+      pane,
+      '条目详情 ${bmf.subject}',
+      type: BtmAppNavItemType.bangumiSubject,
+      param: 'subjectDetail_${bmf.subject}',
+    );
+  }
+
   /// build
   @override
   Widget build(BuildContext context) {
@@ -456,11 +497,25 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         ),
       );
     }
+    var title = 'BMF Config';
+    if (widget.isConfig) {
+      title = bmf.subject.toString();
+    }
     return Container(
       margin: EdgeInsets.only(right: 12.w),
       child: Expander(
-        leading: Icon(FluentIcons.settings),
-        header: Text('BMF Config', style: TextStyle(fontSize: 24.sp)),
+        leading: widget.isConfig
+            ? IconButton(
+                icon: Icon(FluentIcons.settings),
+                onPressed: toSubjectDetail,
+              )
+            : IconButton(
+                icon: Icon(FluentIcons.settings),
+                onPressed: () {
+                  ref.read(navStoreProvider).goIndex(3);
+                },
+              ),
+        header: Text(title, style: TextStyle(fontSize: 24.sp)),
         content: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.start,

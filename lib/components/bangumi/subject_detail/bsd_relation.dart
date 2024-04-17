@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+import '../../../models/app/nav_model.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../pages/bangumi/bangumi_detail.dart';
@@ -68,7 +69,12 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
       title: Text(title),
       body: BangumiDetail(id: id.toString()),
     );
-    ref.read(navStoreProvider).addNavItem(pane, title);
+    ref.read(navStoreProvider).addNavItem(
+          pane,
+          title,
+          type: BtmAppNavItemType.bangumiSubject,
+          param: 'subjectDetail_$id',
+        );
   }
 
   /// 构建信息

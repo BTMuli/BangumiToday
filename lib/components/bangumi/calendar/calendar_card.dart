@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../database/bangumi/bangumi_data.dart';
+import '../../../models/app/nav_model.dart';
 import '../../../models/app/response.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../pages/bangumi/bangumi_detail.dart';
@@ -168,6 +169,8 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
               ref.read(navStoreProvider).addNavItem(
                     paneItem,
                     '动画详情 ${data.id}',
+                    type: BtmAppNavItemType.bangumiSubject,
+                    param: 'subjectDetail_${data.id}',
                   );
             },
           ),

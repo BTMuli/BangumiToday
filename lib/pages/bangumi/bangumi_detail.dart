@@ -10,6 +10,7 @@ import '../../components/bangumi/subject_detail/bsd_relation.dart';
 import '../../components/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../components/bangumi/subject_detail/bsd_user_episodes.dart';
 import '../../database/bangumi/bangumi_user.dart';
+import '../../models/app/nav_model.dart';
 import '../../models/bangumi/bangumi_enum_extension.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
@@ -106,8 +107,9 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
             return;
           }
           ref.read(navStoreProvider).removeNavItem(
-                '${data!.type.label}详情 ${widget.id}',
-              );
+              '${data!.type.label}详情 ${widget.id}',
+              type: BtmAppNavItemType.bangumiSubject,
+              param: 'subjectDetail_${widget.id}');
         },
       ),
       title: Tooltip(

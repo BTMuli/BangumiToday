@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+import '../../../models/app/nav_model.dart';
 import '../../../models/app/response.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/request_subject.dart';
@@ -163,7 +164,12 @@ class _BssCardState extends ConsumerState<BssCard> {
                 title: Text(title),
                 body: BangumiDetail(id: subject.id.toString()),
               );
-              ref.read(navStoreProvider).addNavItem(pane, title);
+              ref.read(navStoreProvider).addNavItem(
+                    pane,
+                    title,
+                    type: BtmAppNavItemType.bangumiSubject,
+                    param: 'subjectDetail_${subject.id}',
+                  );
             },
           ),
         ),

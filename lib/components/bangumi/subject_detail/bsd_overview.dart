@@ -20,32 +20,29 @@ class BsdOverview extends StatelessWidget {
 
   /// 构建无封面的卡片
   Widget buildCoverError(BuildContext context, {String? err}) {
-    return Container(
+    return SizedBox(
       width: 200.w,
       height: 300.h,
-      decoration: BoxDecoration(
-        color: FluentTheme.of(context).brightness.isDark
-            ? Colors.white.withAlpha(900)
-            : Colors.black.withAlpha(900),
-      ),
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(
-              FluentIcons.photo_error,
-              color: FluentTheme.of(context).accentColor,
-            ),
-            Text(
-              err ?? '无封面',
-              style: TextStyle(
-                fontSize: err == null ? 28.sp : 18.sp,
+      child: Card(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                FluentIcons.photo_error,
                 color: FluentTheme.of(context).accentColor,
               ),
-            ),
-          ],
+              Text(
+                err ?? '无封面',
+                style: TextStyle(
+                  fontSize: err == null ? 28.sp : 18.sp,
+                  color: FluentTheme.of(context).accentColor,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -61,10 +58,10 @@ class BsdOverview extends StatelessWidget {
     var pathGet = Uri.parse(images.large).path;
     var link = 'https://lain.bgm.tv/r/0x600$pathGet';
     return SizedBox(
-      width: 200.w,
+      height: 300.h,
       child: CachedNetworkImage(
         imageUrl: link,
-        fit: BoxFit.fitWidth,
+        fit: BoxFit.fitHeight,
         progressIndicatorBuilder: (context, url, dp) => Center(
           child: ProgressRing(
             value: dp.progress == null ? 0 : dp.progress! * 100,
@@ -149,8 +146,16 @@ class BsdOverview extends StatelessWidget {
       children: [
         buildCover(context, item.images),
         SizedBox(width: 12.w),
-        Expanded(child: buildInfo(context)),
-        SizedBox(width: 12.w),
+        Expanded(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: 300.h),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(right: 12.w),
+              scrollDirection: Axis.vertical,
+              child: buildInfo(context),
+            ),
+          ),
+        ),
         BsdSites(item.name),
         SizedBox(width: 12.w),
         BsdRateChart(item.rating),

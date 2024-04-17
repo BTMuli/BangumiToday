@@ -22,7 +22,8 @@ class BangumiSearchPage extends ConsumerStatefulWidget {
 }
 
 /// 搜索页面状态
-class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage> {
+class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
+    with AutomaticKeepAliveClientMixin {
   /// api
   final BtrBangumiApi api = BtrBangumiApi();
 
@@ -60,10 +61,9 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage> {
   /// 是否在加载中
   bool loading = false;
 
+  /// 保持状态
   @override
-  void initState() {
-    super.initState();
-  }
+  bool get wantKeepAlive => true;
 
   /// 搜索
   Future<void> search() async {
@@ -272,6 +272,7 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage> {
   /// 构建函数
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return ScaffoldPage(header: buildHeader(context), content: buildContent());
   }
 }

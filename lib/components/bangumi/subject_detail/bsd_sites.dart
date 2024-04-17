@@ -106,35 +106,26 @@ class _BsdSitesState extends State<BsdSites> {
     );
   }
 
-  /// 构建滚动站点
-  Widget buildScrollSites() {
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: 300.h),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var item in siteItems) ...[
-              buildSiteItem(item),
-              SizedBox(height: 8.h)
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
   /// 构建
   @override
   Widget build(BuildContext context) {
     if (siteItems.isEmpty) return Container();
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('播放站点', style: FluentTheme.of(context).typography.subtitle),
-        SizedBox(width: 8.w),
-        buildScrollSites(),
-      ],
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: 300.h),
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(right: 12.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('播放站点', style: FluentTheme.of(context).typography.subtitle),
+            SizedBox(height: 8.h),
+            for (var item in siteItems) ...[
+              buildSiteItem(item),
+              SizedBox(height: 8.h)
+            ]
+          ],
+        ),
+      ),
     );
   }
 }

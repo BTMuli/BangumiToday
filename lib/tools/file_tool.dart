@@ -76,4 +76,13 @@ class BTFileTool {
     var stat = FileStat.statSync(path);
     return stat.size;
   }
+
+  /// 打开目录
+  Future<bool?> openDir(String dirPath) async {
+    if (!Platform.isWindows) return null;
+    var check = await isDirExist(dirPath);
+    if (!check) return false;
+    Process.run('explorer', [dirPath]);
+    return true;
+  }
 }

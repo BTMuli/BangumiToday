@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2024-04-16
+Update: 2024-04-17
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-04-16 01:36:13`
+> 更新于 `2024-04-17 16:58:40`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -39,7 +39,7 @@ dart run msix:create --sign-msix true
 应用的良好使用体验**基于如下前提**：
 
 1. 用户已经拥有 [Bangumi.tv](https://bangumi.tv) 账号，并且通过应用相关页面完成了登录授权。
-2. 用户已经拥有 [蜜柑计划](https://mikanani.hacgn.fun/) 账号，并且在香港页面输入了订阅地址。
+2. ~~用户已经拥有 [蜜柑计划](https://mikanani.hacgn.fun/) 账号，并且在相关页面输入了订阅地址~~（非必需，单条目需要单独订阅）
 3. 用户本地安装了 [Motrix](https://motrix.app/) 且将 `torrent` 默认关联到 Motrix。
 4. 用户本地安装了 [PotPlayer](https://potplayer.daum.net/)。
 5. 用户登录 Bangumi 账号后对收藏数据进行了同步。
@@ -65,13 +65,13 @@ dart run msix:create --sign-msix true
 
 ## 参考（按照字典序）
 
-- [BangumiAPI](https://bangumi.github.io/api/)
+- [Ani](https://github.com/open-ani/ani)
+- [BangumiAPI(doc)](https://bangumi.github.io/api/)
+- [BangumiAPI(server)](https://github.com/bangumi/server)
 - [BangumiOAuth](https://github.com/bangumi/api/blob/master/docs-raw/How-to-Auth.md)
-- [Comicat](https://comicat.org)
 - [czy0729/Bangumi](https://github.com/czy0729/Bangumi)
 - [FlChart](https://app.flchart.dev/)
 - [Fluent UI](https://bdlukaa.github.io/fluent_ui/)
-- [MikanProject](https://mikanime.tv)
 
 ## Special Thanks（按照字典序）
 

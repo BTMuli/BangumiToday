@@ -6,6 +6,7 @@ import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../store/app_store.dart';
 import '../../utils/get_theme_label.dart';
@@ -227,8 +228,8 @@ class _SettingPageState extends ConsumerState<SettingPage>
     );
   }
 
-  /// 构建应用信息
-  Widget buildAppInfo() {
+  /// 构建应用徽章
+  Widget buildAppBadge(BuildContext context) {
     var shadow = Shadow(
       color: Colors.black,
       offset: Offset(1, 1),
@@ -245,7 +246,12 @@ class _SettingPageState extends ConsumerState<SettingPage>
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset('assets/images/logo.png', width: 100.w),
+          HyperlinkButton(
+            child: Image.asset('assets/images/logo.png', width: 100.w),
+            onPressed: () {
+              launchUrlString('https://github.com/BTMuli/BangumiToday');
+            },
+          ),
           Text(
             'BangumiToday',
             style: TextStyle(
@@ -268,6 +274,17 @@ class _SettingPageState extends ConsumerState<SettingPage>
           ),
         ],
       ),
+    );
+  }
+
+  /// 构建应用信息
+  Widget buildAppInfo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        buildAppBadge(context),
+      ],
     );
   }
 

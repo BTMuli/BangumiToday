@@ -1,16 +1,17 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/app/nav_model.dart';
+
 /// 侧边栏状态提供者
 final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
   return BTNavStore();
 });
 
 /// 侧边栏状态，用于控制侧边栏动态组件的加载与卸载
-/// todo 拓展方法，提升侧边栏标题可读性
 class BTNavStore extends ChangeNotifier {
   /// 保留的顶部固定侧边栏
-  final int topNavCount = 3;
+  final int topNavCount = 4;
 
   /// 当前索引
   int curIndex = 0;
@@ -19,10 +20,12 @@ class BTNavStore extends ChangeNotifier {
   int lastIndex = 0;
 
   /// 侧边栏动态组件
-  final Map<String, PaneItem> _navMap = {};
+  final List<BtmAppNavItem> _navItems = [];
 
   /// 获取侧边栏动态组件
-  List<PaneItem> get navItems => _navMap.values.toList();
+  List<PaneItem> get navItems {
+    return _navItems.map((e) => e.body).toList();
+  }
 
   /// 设置当前索引
   void setCurIndex(int index) {
@@ -31,9 +34,38 @@ class BTNavStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 获取navIndex
+  int getNavIndex(BtmAppNavItemType type, String? title, String? param) {
+    var res = -1;
+    if (type == BtmAppNavItemType.app) {
+      res = _navItems.indexWhere(
+        (element) =>
+            element.title == title && element.type == BtmAppNavItemType.app,
+      );
+    } else {
+      res = _navItems.indexWhere(
+        (element) =>
+            element.param == param &&
+            element.type == BtmAppNavItemType.bangumiSubject,
+      );
+    }
+    return res;
+  }
+
+  /// 前往指定index
+  void goIndex(int index) {
+    lastIndex = curIndex;
+    curIndex = index;
+    notifyListeners();
+  }
+
   /// 添加侧边栏动态组件
-  void addNavItem(PaneItem item, String title) {
-    debugPrint("addNavItem $title");
+  void addNavItem(
+    PaneItem item,
+    String title, {
+    BtmAppNavItemType type = BtmAppNavItemType.app,
+    String? param,
+  }) {
     item = PaneItem(
       title: item.title,
       body: item.body,
@@ -41,35 +73,42 @@ class BTNavStore extends ChangeNotifier {
       trailing: IconButton(
         icon: Icon(FluentIcons.clear),
         onPressed: () {
-          removeNavItem(title);
+          removeNavItem(title, type: type, param: param);
         },
       ),
     );
-    if (_navMap.containsKey(title)) {
-      _navMap[title] = item;
+    var navItem = BtmAppNavItem(
+      type: type,
+      title: title,
+      param: param,
+      body: item,
+    );
+    var findIndex = getNavIndex(type, title, param);
+    if (findIndex != -1) {
+      _navItems[findIndex] = navItem;
     } else {
-      _navMap.putIfAbsent(title, () => item);
+      _navItems.add(navItem);
     }
     notifyListeners();
-    toNav(title);
-  }
-
-  /// 跳转到指定侧边栏
-  void toNav(String title) {
-    final index = _navMap.keys.toList().indexOf(title);
-    if (index != -1) {
-      lastIndex = curIndex;
-      curIndex = index + topNavCount;
-      notifyListeners();
+    lastIndex = curIndex;
+    if (findIndex != -1) {
+      curIndex = findIndex + topNavCount;
+    } else {
+      curIndex = _navItems.length + topNavCount - 1;
     }
+    notifyListeners();
   }
 
   /// 移除侧边栏动态组件
-  void removeNavItem(String title) {
-    debugPrint("removeNavItem $title");
-    if (!_navMap.containsKey(title)) return;
-    _navMap.remove(title);
-    if (lastIndex > _navMap.length + topNavCount - 1) {
+  void removeNavItem(
+    String title, {
+    BtmAppNavItemType type = BtmAppNavItemType.app,
+    String? param,
+  }) {
+    var findIndex = getNavIndex(type, title, param);
+    if (findIndex == -1) return;
+    _navItems.removeAt(findIndex);
+    if (lastIndex > _navItems.length + topNavCount - 1) {
       curIndex = 0;
     } else {
       curIndex = lastIndex;
