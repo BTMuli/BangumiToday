@@ -109,7 +109,7 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
 
 # Sqlite3.dll
 message("checking sqlite3.dll")
-find_file(Sqlite sqlite3.dll PATHS "${INSTALL_BUNDLE_LIB_DIR}")
+find_file(Sqlite sqlite3.dll PATHS "${PROJECT_BUILD_DIR}" NO_DEFAULT_PATH NO_CACHE)
 if(NOT Sqlite)
     message("sqlite3.dll not found, trying to find zip file in ${PROJECT_BUILD_DIR}")
     find_file(SqliteZip sqlite3.zip PATHS "${PROJECT_BUILD_DIR}")
