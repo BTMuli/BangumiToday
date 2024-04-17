@@ -7,11 +7,11 @@ Update: 2024-04-17
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-04-17 16:58:40`
+> 更新于 `2024-04-17 18:06:17`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
-<div align="center">
+<div style="display:flex;justify-content:center;align-items:center">
 	<img alt="logo" src="./assets/images/logo.png" width="256" />
 </div>
 
@@ -46,16 +46,19 @@ dart run msix:create --sign-msix true
 
 ## 发行
 
+> 项目更新日志请查看 [CHANGELOG.md](./CHANGELOG.md)
+
 应用预期会有如下几个发行渠道：
 
+- [Github Release](https://github.com/BTMuli/BangumiToday/releases)：包括打包后的 `zip` 和 `msix` 文件（`msix` 视情况包括签名文件）。
 - `GitHub Release`：包括打包后的 `zip` 和 `msix` 文件（`msix` 视情况包括签名文件）。
 - `Microsoft Store`：如果没有申请到 SignPath 的 OSS，应用将会发行到 Microsoft Store。
   > 在这种情况下，Github Release 会提供用于上传到 Microsoft Store 的 `msix` 文件。
-- `Github Action`: CI 测试，如果没有申请到 SignPath 的 OSS，该渠道会废弃或者仅包括 `zip` 文件。
+- `Github Action`: 通过 Github Action 自动打包并发布到 Github Release。~~还在测试中~~
 
 ## 关于证书
 
-> 截止 2024-04-15，应用使用的证书为自签名证书，需要将证书导入到系统。
+> 截止 2024-04-17，应用使用的证书为自签名证书，需要将证书导入到系统。
 
 为了正常安装应用，需要将 [BTMuli.cer](./BTMuli.cer) 证书导入到系统。
 

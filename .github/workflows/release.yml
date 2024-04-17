@@ -1,7 +1,6 @@
-name: Build Release(Dev)
+name: Build Release
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'v*.*.*'
@@ -56,33 +55,34 @@ jobs:
       - name: 打包msix
         run: dart run msix:create --sign-msix false
 
-#      - name: SignPath 签名
-#        if: env.TOKEN != ''
-#        shell: pwsh
-#        run: |
-#          Install-Module -Name SignPath -Force -AllowClobber -Scope CurrentUser
-#          Submit-SigningRequest `
-#          -InputArtifactPath "build/windows/x64/runner/Release/BangumiToday.msix" `
-#          -ApiToken "${env:TOKEN}" `
-#          -OrganizationId "df493769-e8b5-461d-84a8-e9cc2071d9b2" `
-#          -ProjectSlug "BangumiToday" `
-#          -SigningPolicySlug "Dev" `
-#          -OutputArtifactPath "BangumiToday.msix" `
-#          -WaitForCompletion
-#
-#      - name: 上传 MSIX
-#        if: env.TOKEN != ''
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: BangumiToday(SignPath)
-#          path: BangumiToday.msix
-#
-#      - name: 上传证书
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: BTMuli.cer
-#          path: BTMuli.cer
-#
+      - name: SignPath 签名
+        if: env.TOKEN != ''
+        shell: pwsh
+        run: |
+          Install-Module -Name SignPath -Force -AllowClobber -Scope CurrentUser
+          Submit-SigningRequest `
+          -InputArtifactPath "build/windows/x64/runner/Release/BangumiToday.msix" `
+          -ApiToken "${env:TOKEN}" `
+          -OrganizationId "df493769-e8b5-461d-84a8-e9cc2071d9b2" `
+          -ProjectSlug "BangumiToday" `
+          -SigningPolicySlug "Dev" `
+          -OutputArtifactPath "BangumiToday.msix" `
+          -WaitForCompletion
+
+      - name: 上传 MSIX
+        if: env.TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: BangumiToday(SignPath)
+          path: BangumiToday.msix
+
+      - name: 上传证书
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTMuli.cer
+          path: BTMuli.cer
+
+#     这部分的代码跑了几次都没成功，所以先注释掉了
 #      - name: 发行Release
 #        uses: ncipollo/release-action@v1.5.0
 #        with:
