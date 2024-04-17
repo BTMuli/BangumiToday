@@ -80,7 +80,7 @@ class _AppNavState extends ConsumerState<AppNav> {
       PaneItem(
         icon: Image.asset(
           'assets/images/platforms/mikan-favicon.ico',
-          height: 32,
+          height: 16,
         ),
         title: Text('Mikan'),
         body: MikanRSSPage(),
@@ -91,7 +91,7 @@ class _AppNavState extends ConsumerState<AppNav> {
         body: ComicatRSSPage(),
       ),
       PaneItem(
-        icon: Image.asset('assets/images/logo.png', height: 32),
+        icon: Image.asset('assets/images/logo.png', height: 16),
         title: Text('BMF配置'),
         body: BmfPage(),
       )
