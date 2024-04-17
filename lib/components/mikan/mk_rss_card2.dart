@@ -1,0 +1,160 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+import 'package:dart_rss/dart_rss.dart';
+
+import 'package:file_selector/file_selector.dart';
+import 'package:filesize/filesize.dart';
+import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher_string.dart';
+
+import '../../store/dtt_store.dart';
+import '../../tools/download_tool.dart';
+import '../../utils/tool_func.dart';
+import '../app/app_infobar.dart';
+
+/// MikanRss卡片，仅用于动画详情页面
+class MikanRssCard2 extends ConsumerStatefulWidget {
+  /// rss item
+  final RssItem item;
+
+  /// 目录，可选
+  final String? dir;
+
+  /// 构造函数
+  const MikanRssCard2(this.item, {super.key, this.dir});
+
+  @override
+  ConsumerState<MikanRssCard2> createState() => _MikanRssCardState();
+}
+
+/// MikanRss卡片状态
+class _MikanRssCardState extends ConsumerState<MikanRssCard2> {
+  /// 获取item
+  RssItem get item => widget.item;
+
+  /// 获取目录
+  String? get dir => widget.dir;
+
+  /// 下载
+  Future<void> download(BuildContext context) async {
+    if (item.enclosure?.url == null || item.enclosure?.url == '') {
+      return;
+    }
+    if (item.title == null || item.title == '') {
+      return;
+    }
+    var saveDir;
+    if (dir == null || dir!.isEmpty) {
+      saveDir = await getDirectoryPath();
+    } else {
+      saveDir = dir;
+    }
+    if (saveDir == null || saveDir.isEmpty) {
+      await BtInfobar.error(context, '未选择下载目录');
+      return;
+    }
+    // md5 title
+    var title = md5.convert(utf8.encode(item.title!)).toString();
+    var savePath = await BTDownloadTool().downloadFile(
+      item.enclosure!.url!,
+      title,
+    );
+    if (savePath != '') {
+      var check = ref.read(dttStoreProvider.notifier).addTask(item, saveDir);
+      if (check) {
+        BtInfobar.success(context, '添加下载任务成功');
+      } else {
+        BtInfobar.warn(context, '已经在下载列表中');
+      }
+    }
+  }
+
+  /// 构建操作按钮
+  Widget buildAct(BuildContext context) {
+    var color = FluentTheme.of(context).accentColor;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Tooltip(
+          message: '下载',
+          child: IconButton(
+            icon: Icon(FluentIcons.link, color: color),
+            onPressed: () async {
+              await download(context);
+            },
+          ),
+        ),
+        Tooltip(
+          message: '打开链接',
+          child: IconButton(
+            icon: Icon(FluentIcons.edge_logo, color: color),
+            onPressed: () async {
+              if (item.link == null || item.link == '') {
+                await BtInfobar.error(context, '链接为空');
+                return;
+              }
+              await launchUrlString(item.link!);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// dispose
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var sizeStr = '', pubDate = '';
+    if (item.enclosure?.length != null) {
+      var size = item.enclosure!.length;
+      sizeStr = filesize(size);
+    }
+    if (item.pubDate != null) {
+      pubDate = dateTransLocal(item.pubDate!);
+    }
+    var title = Tooltip(
+      message: item.title ?? '',
+      child: Text(
+        item.title ?? '',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+    return SizedBox(
+      width: 275,
+      height: 180,
+      child: Card(
+        padding: EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            title,
+            Spacer(),
+            Row(
+              children: [
+                Text('发布时间: '),
+                Text(pubDate, style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+            SizedBox(height: 4),
+            Row(
+              children: [
+                Text('资源大小: '),
+                Text(sizeStr, style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+            buildAct(context),
+          ],
+        ),
+      ),
+    );
+  }
+}

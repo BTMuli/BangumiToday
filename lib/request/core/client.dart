@@ -23,6 +23,7 @@ class BTRequestClient {
         }
       },
     ));
+    _dio.options.connectTimeout = Duration(seconds: 5);
   }
 
   /// 获取 Dio 实例

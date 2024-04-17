@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../pages/app/bmf_page.dart';
+import '../../pages/app/download_page.dart';
 import '../../pages/app/setting_page.dart';
 import '../../pages/app/test_page.dart';
 import '../../pages/bangumi/bangumi_calendar.dart';
@@ -94,7 +95,12 @@ class _AppNavState extends ConsumerState<AppNav> {
         icon: Image.asset('assets/images/logo.png', height: 16),
         title: Text('BMF配置'),
         body: BmfPage(),
-      )
+      ),
+      PaneItem(
+        icon: Icon(FluentIcons.download),
+        title: Text('下载列表'),
+        body: DownloadPage(),
+      ),
     ];
   }
 

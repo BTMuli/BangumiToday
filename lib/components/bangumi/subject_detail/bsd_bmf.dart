@@ -19,7 +19,7 @@ import '../../../tools/file_tool.dart';
 import '../../app/app_dialog.dart';
 import '../../app/app_dialog_resp.dart';
 import '../../app/app_infobar.dart';
-import '../../mikan/mk_rss_card.dart';
+import '../../mikan/mk_rss_card2.dart';
 
 /// Bangumi Subject Detail 的 Bangumi-Mikan-File Widget
 /// 用于管理该 Subject 对应的 MikanRSS 及下载目录
@@ -392,15 +392,6 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     return res;
   }
 
-  /// buildRssCards
-  List<Widget> buildRssCards() {
-    var res = <Widget>[];
-    for (var item in rssItems) {
-      res.add(MikanRssCard(item));
-    }
-    return res;
-  }
-
   /// buildContent
   List<Widget> buildContent(BuildContext context) {
     var res = <Widget>[];
@@ -458,7 +449,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
           runSpacing: 12.h,
           children: rssItems
               .map(
-                (e) => MikanRssCard(e, dir: bmf.download),
+                (e) => MikanRssCard2(e, dir: bmf.download),
               )
               .toList(),
         ),

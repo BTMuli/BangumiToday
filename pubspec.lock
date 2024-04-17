@@ -65,6 +65,22 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.11.0"
+  b_encode_decode:
+    dependency: transitive
+    description:
+      name: b_encode_decode
+      sha256: "2382dc245ee57c28264bf2d0cb63404d7053f032039df85366999b04353a7289"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.0.4"
+  bittorrent_dht:
+    dependency: transitive
+    description:
+      name: bittorrent_dht
+      sha256: "0598418cc6fbb2bc9bc21dfacf013959ee10d985a7cf55baed84aa76bb83c66d"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.0.11"
   boolean_selector:
     dependency: transitive
     description:
@@ -257,6 +273,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.0.6"
+  dart_ipify:
+    dependency: transitive
+    description:
+      name: dart_ipify
+      sha256: "3b70d589504126107e81ad0703d91394cc8e2039cb0a11ebd92b9b824a5e9561"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.1.1"
   dart_rss:
     dependency: "direct main"
     description:
@@ -297,6 +321,38 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "5.4.2+1"
+  dtorrent_common:
+    dependency: "direct main"
+    description:
+      name: dtorrent_common
+      sha256: "8ca05e5f20a4bd9a754f9bb2b075d9dcc08141b35d03527bcf26487bfdd6d5b9"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.0.5"
+  dtorrent_parser:
+    dependency: "direct main"
+    description:
+      name: dtorrent_parser
+      sha256: "4b971c9b89733026dab8803c078d562f823d6ec8c73cd9222e603a16d4316a98"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.0.8"
+  dtorrent_task:
+    dependency: "direct main"
+    description:
+      name: dtorrent_task
+      sha256: "1b915b0f096d9ed3ba471beaa55bac176f3dd6febe9f59d77e69c050c23d3a56"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.3.5"
+  dtorrent_tracker:
+    dependency: transitive
+    description:
+      name: dtorrent_tracker
+      sha256: ac6f352d4972fdd39c5310079af4cf9367eaf27f9c75f453bb0c1487df08ab3f
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.3.17"
   effective_dart:
     dependency: "direct dev"
     description:
@@ -313,6 +369,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.0.5"
+  events_emitter2:
+    dependency: transitive
+    description:
+      name: events_emitter2
+      sha256: "1d2f7b249491e9a143a18992c9a500fc21ac5e271e59e157c12193553ccd3d57"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.0.4"
   fake_async:
     dependency: transitive
     description:
@@ -1242,6 +1306,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.1.1"
+  utp_protocol:
+    dependency: transitive
+    description:
+      name: utp_protocol
+      sha256: "69ce80f468a0934ece234c878ccb404b2fc6598d0190a4d486173569a9047645"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.0.3"
   uuid:
     dependency: transitive
     description:
