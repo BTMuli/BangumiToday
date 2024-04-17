@@ -1,7 +1,6 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../pages/app/bmf_page.dart';
@@ -81,7 +80,7 @@ class _AppNavState extends ConsumerState<AppNav> {
       PaneItem(
         icon: Image.asset(
           'assets/images/platforms/mikan-favicon.ico',
-          height: 16.spMax,
+          height: 32,
         ),
         title: Text('Mikan'),
         body: MikanRSSPage(),
@@ -92,7 +91,7 @@ class _AppNavState extends ConsumerState<AppNav> {
         body: ComicatRSSPage(),
       ),
       PaneItem(
-        icon: Image.asset('assets/images/logo.png'),
+        icon: Image.asset('assets/images/logo.png', height: 32),
         title: Text('BMF配置'),
         body: BmfPage(),
       )

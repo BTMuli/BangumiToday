@@ -40,16 +40,11 @@ jobs:
       - name: 构建项目
         run: dart run msix:create --sign-msix false
 
-      - name: 安装 SignPath CLI
-        if: env.TOKEN != ''
-        shell: pwsh
-        run: |
-          Install-Module -Name SignPath -Force -AllowClobber -Scope CurrentUser
-
       - name: SignPath 签名
         if: env.TOKEN != ''
         shell: pwsh
         run: |
+          Install-Module -Name SignPath -Force -AllowClobber -Scope CurrentUser
           Submit-SigningRequest `
             -InputArtifactPath "build/windows/x64/runner/Release/BangumiToday.msix" `
             -ApiToken "${env:TOKEN}" `
@@ -70,7 +65,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: BTMuli.cer
-          path: $HOME/BTMuli.cer
+          path: BTMuli.cer
 
       - name: 添加Summary
         shell: pwsh
