@@ -140,9 +140,6 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         notify = false;
         isNewList = List.filled(rssItems.length, true);
       });
-      await sqliteRss.write(
-        AppRssModel.fromRssFeed(bmf.rss!, feed),
-      );
     } else {
       setState(() {
         notify = false;
@@ -155,6 +152,9 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         }).toList();
       });
     }
+    await sqliteRss.write(
+      AppRssModel.fromRssFeed(bmf.rss!, feed),
+    );
   }
 
   /// freshFiles
