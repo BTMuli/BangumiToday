@@ -2,24 +2,26 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2024-04-17
+Update: 2024-04-18
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-04-17 20:15:21`
+> 更新于 `2024-04-18 22:26:14`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
-<div style="display:flex;justify-content:center;align-items:center">
-	<img alt="logo" src="./assets/images/logo.png" width="256" />
+<div style="width:100%;display:flex;justify-content:center;align-items:center">
+    <a href="./assets/images/logo.png">
+      <img src="https://s2.loli.net/2024/04/18/xe7bEKiQMBCtPZo.png" alt="logo">
+    </a>
 </div>
 
 [![](https://img.shields.io/github/license/BTMuli/BangumiToday)](./LICENSE)
 [![](https://img.shields.io/github/v/release/BTMuli/BangumiToday)](https://github.com/BTMuli/BangumiToday/releases/latest)
 [![](https://img.shields.io/github/last-commit/BTMuli/BangumiToday)](https://github.com/BTMuli/BangumiToday/commits/master/)
 
-# BangumiToday 
+# BangumiToday
 
 基于 [Bangumi.tv](https://bangumi.tv)、[蜜柑计划](https://mikanani.hacgn.fun/) 的番剧应用。
 
