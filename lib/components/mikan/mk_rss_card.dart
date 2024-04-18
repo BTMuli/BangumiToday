@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
 import 'package:dart_rss/dart_rss.dart';
 
 import 'package:file_selector/file_selector.dart';
@@ -25,12 +22,8 @@ class MikanRssCard extends StatelessWidget {
 
   /// 下载
   Future<void> download(BuildContext context) async {
-    if (item.enclosure?.url == null || item.enclosure?.url == '') {
-      return;
-    }
-    if (item.title == null || item.title == '') {
-      return;
-    }
+    assert(item.enclosure != null && item.enclosure!.url != null);
+    assert(item.title != null && item.title != '');
     var saveDir;
     if (dir == null || dir!.isEmpty) {
       saveDir = await getDirectoryPath();
@@ -41,11 +34,9 @@ class MikanRssCard extends StatelessWidget {
       await BtInfobar.error(context, '未选择下载目录');
       return;
     }
-    // md5 title
-    var title = md5.convert(utf8.encode(item.title!)).toString();
-    var savePath = await BTDownloadTool().downloadFile(
+    var savePath = await BTDownloadTool().downloadRssTorrent(
       item.enclosure!.url!,
-      title,
+      item.title!,
     );
     if (savePath != '') {
       await launchUrlString(

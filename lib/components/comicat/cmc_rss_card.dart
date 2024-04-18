@@ -1,8 +1,5 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
 import 'package:dart_rss/dart_rss.dart';
-// import 'package:file_picker/file_picker.dart';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -30,24 +27,16 @@ class ComicatRssCard extends StatelessWidget {
           child: IconButton(
             icon: Icon(FluentIcons.link, color: color),
             onPressed: () async {
-              if (item.enclosure?.url == null || item.enclosure?.url == '') {
-                return;
-              }
-              if (item.title == null || item.title == '') {
-                return;
-              }
-              // todo bug file_picker 会导致 crash
-              // var saveDir = await FilePicker.platform.getDirectoryPath();
+              assert(item.enclosure != null && item.enclosure!.url != null);
+              assert(item.title != null && item.title != '');
               var saveDir = await getDirectoryPath();
               if (saveDir == null || saveDir.isEmpty) {
                 await BtInfobar.error(context, '未选择下载目录');
                 return;
               }
-              // md5 title
-              var title = md5.convert(utf8.encode(item.title!)).toString();
-              var savePath = await BTDownloadTool().downloadFile(
+              var savePath = await BTDownloadTool().downloadRssTorrent(
                 item.enclosure!.url!,
-                title,
+                item.title!,
               );
               if (savePath != '') {
                 await launchUrlString(

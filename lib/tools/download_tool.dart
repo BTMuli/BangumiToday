@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
 
 import '../request/core/client.dart';
@@ -45,12 +47,13 @@ class BTDownloadTool {
   }
 
   /// 下载文件
-  Future<String> downloadFile(String url, String savePath) async {
+  Future<String> downloadRssTorrent(String url, String title) async {
     if (!_instance._isInit) {
       BTLogTool.warn('BTDownloadTool has not been initialized');
       await _instance.init();
     }
-    var saveDetailPath = path.join(_instance._defaultPath, '$savePath.torrent');
+    var hash = md5.convert(utf8.encode(title)).toString();
+    var saveDetailPath = path.join(_instance._defaultPath, '$hash.torrent');
     var fileCheck = await _instance._fileTool.isFileExist(saveDetailPath);
     if (!fileCheck) {
       var client = BTRequestClient();

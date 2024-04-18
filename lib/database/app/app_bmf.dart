@@ -89,4 +89,18 @@ class BtsAppBmf {
     );
     BTLogTool.info('Delete $_tableName subject: $subject');
   }
+
+  /// 根据RSS链接读取，如果有多个则返回第一个
+  Future<AppBmfModel?> readByRss(String rss) async {
+    await _instance.preCheck();
+    var result = await _instance.sqlite.db.query(
+      _tableName,
+      where: 'rss = ?',
+      whereArgs: [rss],
+    );
+    if (result.isEmpty) return null;
+    var value = result.first;
+    BTLogTool.info('Read $_tableName rss: $rss');
+    return AppBmfModel.fromJson(value);
+  }
 }

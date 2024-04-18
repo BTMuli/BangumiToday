@@ -1,7 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:dtorrent_common/dtorrent_common.dart';
 import 'package:dtorrent_parser/dtorrent_parser.dart';
@@ -20,6 +17,7 @@ import '../../tools/notifier_tool.dart';
 import 'app_dialog.dart';
 import 'app_infobar.dart';
 
+/// todo 改成 controller，优化状态管理，内存占用、性能等
 /// 控制 rss 下载的状态
 class RssDownloadCard extends ConsumerStatefulWidget {
   /// rssItem
@@ -65,7 +63,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   late Timer timer = Timer(Duration(hours: 1), () {});
 
   /// 下载进度
-  double progress = 0;
+  double? progress = 0;
 
   /// 平均下载速度
   double speed = 0;
@@ -133,11 +131,14 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
 
   /// 初始化下载
   Future<void> initDownload() async {
-    var title = md5.convert(utf8.encode(item.title!)).toString();
-    filePath = await BTDownloadTool().downloadFile(item.enclosure!.url!, title);
+    filePath = await BTDownloadTool().downloadRssTorrent(
+      item.enclosure!.url!,
+      item.title!,
+    );
     model = await Torrent.parse(filePath);
     task = TorrentTask.newTask(model, dir);
     startTime = DateTime.now().millisecondsSinceEpoch;
+    progress = null;
     setState(() {});
   }
 
@@ -236,7 +237,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
               SizedBox(width: 8.w),
               Text('种子数：$seeds'),
               SizedBox(width: 8.w),
-              Text('进度：${progress.toStringAsFixed(2)}%')
+              Text('进度：${progress?.toStringAsFixed(2)}%')
             ],
           ),
           SizedBox(height: 8.h),

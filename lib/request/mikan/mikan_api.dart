@@ -70,7 +70,7 @@ class MikanAPI {
       /// 没有baseUrl
       var resp = await client.dio.get(url);
       final channel = RssFeed.parse(resp.data.toString());
-      return BTResponse.success(data: channel.items);
+      return BTResponse.success(data: channel);
     } on DioException catch (e) {
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,

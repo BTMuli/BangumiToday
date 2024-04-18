@@ -1,4 +1,4 @@
-import 'package:dart_rss/domain/rss_item.dart';
+import 'package:dart_rss/dart_rss.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -9,8 +9,10 @@ import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../database/app/app_bmf.dart';
+import '../../../database/app/app_rss.dart';
 import '../../../models/app/nav_model.dart';
 import '../../../models/database/app_bmf_model.dart';
+import '../../../models/database/app_rss_model.dart';
 import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../pages/bangumi/bangumi_play.dart';
 import '../../../request/mikan/mikan_api.dart';
@@ -19,7 +21,7 @@ import '../../../tools/file_tool.dart';
 import '../../app/app_dialog.dart';
 import '../../app/app_dialog_resp.dart';
 import '../../app/app_infobar.dart';
-import '../../mikan/mk_rss_card2.dart';
+import '../../rss/rss_mk_card.dart';
 
 /// Bangumi Subject Detail 的 Bangumi-Mikan-File Widget
 /// 用于管理该 Subject 对应的 MikanRSS 及下载目录
@@ -41,7 +43,10 @@ class BsdBmf extends ConsumerStatefulWidget {
 class _BsdBmfState extends ConsumerState<BsdBmf>
     with AutomaticKeepAliveClientMixin {
   /// 数据库
-  final BtsAppBmf sqlite = BtsAppBmf();
+  final BtsAppBmf sqliteBmf = BtsAppBmf();
+
+  /// rss 数据库
+  final BtsAppRss sqliteRss = BtsAppRss();
 
   /// mikan请求客户端
   final MikanAPI mikanAPI = MikanAPI();
@@ -57,6 +62,12 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
 
   /// rss 数据
   late List<RssItem> rssItems = [];
+
+  /// isNew列表，索引与rssItems对应
+  late List<bool> isNewList = [];
+
+  /// 是否需要提醒
+  late bool notify = false;
 
   /// 本地文件
   late List<String> files = [];
@@ -86,7 +97,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
 
   /// 初始化
   Future<void> init() async {
-    var bmfGet = await sqlite.read(widget.subjectId);
+    var bmfGet = await sqliteBmf.read(widget.subjectId);
     if (bmfGet == null) return;
     setState(() {
       bmf = bmfGet;
@@ -111,7 +122,23 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     if (rssGet.code != 0 || rssGet.data == null) {
       showRespErr(rssGet, context);
     }
-    rssItems = rssGet.data!;
+    var feed = rssGet.data! as RssFeed;
+    rssItems = feed.items;
+    var rssList = await sqliteRss.read(bmf.rss!);
+    if (rssList == null) {
+      isNewList = List.filled(rssItems.length, true);
+      await sqliteRss.write(
+        AppRssModel.fromRssFeed(bmf.rss!, feed),
+      );
+    } else {
+      notify = true;
+      isNewList = rssItems.map((e) {
+        var index = rssList.data.indexWhere(
+          (element) => element.site == e.link,
+        );
+        return index == -1;
+      }).toList();
+    }
     setState(() {});
   }
 
@@ -148,8 +175,8 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         );
         if (input == null) return;
         bmf.rss = input;
-        await sqlite.write(bmf);
-        var read = await sqlite.read(bmf.subject);
+        await sqliteBmf.write(bmf);
+        var read = await sqliteBmf.read(bmf.subject);
         if (read != null) {
           bmf = read;
           setState(() {});
@@ -174,8 +201,8 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         var dir = await getDirectoryPath();
         if (dir == null) return;
         bmf.download = dir;
-        await sqlite.write(bmf);
-        var read = await sqlite.read(bmf.subject);
+        await sqliteBmf.write(bmf);
+        var read = await sqliteBmf.read(bmf.subject);
         if (read != null) {
           bmf = read;
           setState(() {});
@@ -211,7 +238,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
           content: '确定删除 BMF 信息吗？',
         );
         if (!confirm) return;
-        await sqlite.delete(bmf.subject);
+        await sqliteBmf.delete(bmf.subject);
         await BtInfobar.success(context, '成功删除 BMF 信息');
         setState(() {
           bmf = AppBmfModel(subject: widget.subjectId);
@@ -392,10 +419,9 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     return res;
   }
 
-  /// buildContent
-  List<Widget> buildContent(BuildContext context) {
-    var res = <Widget>[];
-    var dirTitle = Row(
+  /// buildDirTitle
+  Widget buildDirTitle() {
+    return Row(
       children: [
         Button(
             child: Text('刷新'),
@@ -411,17 +437,11 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         Text('下载目录: ${bmf.download}', style: TextStyle(fontSize: 24.sp)),
       ],
     );
-    res.add(dirTitle);
-    res.add(SizedBox(height: 12.h));
-    if (files.isEmpty) {
-      res.add(Text('没有找到任何文件'));
-    } else {
-      res.add(
-        Wrap(spacing: 8, runSpacing: 8, children: buildFileCards(context)),
-      );
-    }
-    res.add(SizedBox(height: 12.h));
-    var rssTitle = Row(
+  }
+
+  /// buildRssTitle
+  Widget buildRssTitle() {
+    return Row(
       children: [
         Button(
           child: Text('刷新'),
@@ -438,24 +458,52 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         Text('Mikan RSS: ${bmf.rss}', style: TextStyle(fontSize: 24.sp)),
       ],
     );
-    res.add(rssTitle);
-    res.add(SizedBox(height: 12.h));
-    if (rssItems.isEmpty) {
-      res.add(Text('没有找到任何 RSS 信息'));
-    } else {
-      res.add(
+  }
+
+  /// buildRssList
+  List<Widget> buildRssList(BuildContext context) {
+    var res = <Widget>[];
+    for (var i = 0; i < rssItems.length; i++) {
+      var item = rssItems[i];
+      var isNew = isNewList[i];
+      var card = RssMikanCard(
+        bmf.rss!,
+        item,
+        dir: bmf.download,
+        isNew: isNew,
+        notify: notify,
+        subject: bmf.subject,
+      );
+      res.add(card);
+    }
+    return res;
+  }
+
+  /// buildContent
+  List<Widget> buildContent(BuildContext context) {
+    return <Widget>[
+      buildDirTitle(),
+      SizedBox(height: 12.h),
+      if (files.isEmpty)
+        Text('没有找到任何文件')
+      else
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: buildFileCards(context),
+        ),
+      SizedBox(height: 12.h),
+      buildRssTitle(),
+      SizedBox(height: 12.h),
+      if (rssItems.isEmpty)
+        Text('没有找到任何 RSS 信息')
+      else
         Wrap(
           spacing: 12.w,
           runSpacing: 12.h,
-          children: rssItems
-              .map(
-                (e) => MikanRssCard2(e, dir: bmf.download),
-              )
-              .toList(),
+          children: buildRssList(context),
         ),
-      );
-    }
-    return res;
+    ];
   }
 
   /// toSubjectDetail
@@ -474,39 +522,52 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     );
   }
 
+  /// buildLeading
+  Widget buildLeading() {
+    if (widget.isConfig) {
+      return IconButton(
+        icon: Icon(FluentIcons.settings),
+        onPressed: toSubjectDetail,
+      );
+    }
+    return IconButton(
+      icon: Icon(FluentIcons.settings),
+      onPressed: () {
+        ref.read(navStoreProvider).goIndex(3);
+      },
+    );
+  }
+
+  /// buildHeader
+  Widget buildHeader() {
+    var title = 'BMF Config';
+    if (widget.isConfig) {
+      title = bmf.subject.toString();
+    }
+    return Text(title, style: TextStyle(fontSize: 24.sp));
+  }
+
+  /// buildEmpty
+  Widget buildEmpty() {
+    return ListTile(
+      leading: Icon(FluentIcons.error_badge),
+      title: Text('没有找到对应的 BMF 配置信息'),
+      trailing: buildHeaderAction(context),
+    );
+  }
+
   /// build
   @override
   Widget build(BuildContext context) {
     super.build(context);
     if (bmf.id == -1) {
-      return Container(
-        margin: EdgeInsets.only(right: 12.w),
-        child: ListTile(
-          leading: Icon(FluentIcons.error_badge),
-          title: Text('没有找到对应的 BMF 配置信息'),
-          trailing: buildHeaderAction(context),
-        ),
-      );
-    }
-    var title = 'BMF Config';
-    if (widget.isConfig) {
-      title = bmf.subject.toString();
+      return buildEmpty();
     }
     return Container(
       margin: EdgeInsets.only(right: 12.w),
       child: Expander(
-        leading: widget.isConfig
-            ? IconButton(
-                icon: Icon(FluentIcons.settings),
-                onPressed: toSubjectDetail,
-              )
-            : IconButton(
-                icon: Icon(FluentIcons.settings),
-                onPressed: () {
-                  ref.read(navStoreProvider).goIndex(3);
-                },
-              ),
-        header: Text(title, style: TextStyle(fontSize: 24.sp)),
+        leading: buildLeading(),
+        header: buildHeader(),
         content: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.start,
