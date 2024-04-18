@@ -17,7 +17,6 @@ import '../../tools/notifier_tool.dart';
 import 'app_dialog.dart';
 import 'app_infobar.dart';
 
-/// todo 改成 controller，优化状态管理，内存占用、性能等
 /// 控制 rss 下载的状态
 class RssDownloadCard extends ConsumerStatefulWidget {
   /// rssItem
@@ -65,23 +64,11 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   /// 下载进度
   double? progress = 0;
 
-  /// 平均下载速度
+  /// downloaded
+  int downloaded = 0;
+
+  /// 下载速度
   double speed = 0;
-
-  /// 最近下载速度
-  double recentSpeed = 0;
-
-  /// 上传速度
-  double uploadSpeed = 0;
-
-  /// UTP 协议下载速度
-  double utpSpeed = 0;
-
-  /// UTP 协议上传速度
-  double utpUploadSpeed = 0;
-
-  /// 连接数
-  int connections = 0;
 
   /// 已连接的节点数
   int connectedPeersNumber = 0;
@@ -113,10 +100,9 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   Future<void> completedTask(int startTime) async {
     var endTime = DateTime.now().millisecondsSinceEpoch;
     var time = (endTime - startTime) / 1000;
-    task!.stop();
-    BtInfobar.success(context, '下载完成，耗时：$time s，即将在1分钟后移除任务');
+    await task!.stop();
     await BTNotifierTool.showMini(
-      title: '下载完成',
+      title: '下载完成，耗时：$time s',
       body: '下载完成：${item.title}',
       onClick: () async {
         var file = path.join(dir, model.name);
@@ -125,6 +111,8 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       },
     );
     await Future.delayed(Duration(seconds: 5), () async {
+      var stateFile = path.join(dir, '${model.infoHash}.bt.state');
+      await fileTool.deleteFile(stateFile);
       ref.read(dttStoreProvider.notifier).removeTask(item);
     });
   }
@@ -147,15 +135,11 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     assert(task != null);
     setState(() {
       progress = task!.progress * 100;
-      speed = task!.averageDownloadSpeed * 1000;
-      recentSpeed = task!.currentDownloadSpeed * 1000;
-      uploadSpeed = task!.uploadSpeed * 1000;
-      utpSpeed = task!.utpDownloadSpeed * 1000;
-      utpUploadSpeed = task!.utpUploadSpeed * 1000;
-      connections = task!.utpPeerCount;
+      speed = task!.currentDownloadSpeed;
       connectedPeersNumber = task!.connectedPeersNumber;
       seeds = task!.seederNumber;
       nodes = task!.allPeersNumber;
+      downloaded = task!.downloaded ?? 0;
     });
     if (task!.progress == 1.0) {
       timer.cancel();
@@ -169,12 +153,9 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       BtInfobar.error(context, '任务初始化失败');
       return;
     }
-    if (timer.isActive) {
-      BtInfobar.error(context, '任务已经在下载中');
-      return;
-    }
+    debugPrint('task state: ${task!.state}');
     if (task!.state == TaskState.paused) {
-      resumeDownload();
+      await resumeDownload();
       return;
     }
     await task!.start();
@@ -186,20 +167,40 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     for (var node in model.nodes) {
       task!.addDHTNode(node);
     }
-    timer = Timer.periodic(Duration(seconds: 1), (timer) async {
+    timer = Timer.periodic(Duration(seconds: 2), (timer) async {
       await freshDownload();
     });
   }
 
   /// 暂停下载
-  void pauseDownload() {
+  Future<void> pauseDownload() async {
+    if (task == null) {
+      BtInfobar.error(context, '任务初始化失败');
+      return;
+    }
+    if (task!.state == TaskState.paused) {
+      BtInfobar.error(context, '任务已经暂停');
+      return;
+    }
+    if (task!.state == TaskState.stopped) {
+      BtInfobar.error(context, '任务已经停止');
+      return;
+    }
     task!.pause();
-    timer.cancel();
+    // timer.cancel();
     BtInfobar.success(context, '任务已经暂停');
   }
 
   /// 重新下载
-  void resumeDownload() {
+  Future<void> resumeDownload() async {
+    if (task == null) {
+      BtInfobar.error(context, '任务初始化失败');
+      return;
+    }
+    if (task?.state != TaskState.paused) {
+      BtInfobar.error(context, '任务未暂停');
+      return;
+    }
     task!.resume();
     timer = Timer.periodic(Duration(seconds: 1), (timer) async {
       await freshDownload();
@@ -208,10 +209,18 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   }
 
   /// 停止下载
-  void stopDownload() {
-    task!.stop();
-    timer.cancel();
-    BtInfobar.success(context, '任务已经停止');
+  Future<void> stopDownload() async {
+    if (task == null) {
+      BtInfobar.error(context, '任务初始化失败');
+      return;
+    }
+    if (task!.state == TaskState.stopped) {
+      BtInfobar.error(context, '任务已经停止');
+      return;
+    }
+    await task!.stop();
+    // timer.cancel();
+    await BtInfobar.success(context, '任务已经停止');
   }
 
   @override
@@ -221,19 +230,17 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
         children: [
           ListTile(
             title: Text(item.title ?? ''),
-            subtitle: Text(item.description ?? ''),
+            subtitle: Text('$dir\\${model.name}'),
           ),
           SizedBox(height: 8.h),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text('${filesize(recentSpeed.toInt())}/s'),
+              Text('${filesize((speed * 1000).toInt())}/s'),
               SizedBox(width: 8.w),
-              Text('平均：${filesize(speed.toInt())}/s'),
+              Text('已下载：${filesize(downloaded)}'),
               SizedBox(width: 8.w),
-              Text('连接数：$connections'),
-              SizedBox(width: 8.w),
-              Text('连接节点：$connectedPeersNumber/$nodes'),
+              Text('连接节点：$connectedPeersNumber'),
               SizedBox(width: 8.w),
               Text('种子数：$seeds'),
               SizedBox(width: 8.w),
@@ -258,6 +265,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
                     content: '是否重新下载该任务？',
                   );
                   if (confirm) {
+                    await stopDownload();
                     await initDownload();
                     await startDownload();
                     BtInfobar.success(context, '任务开始重新下载');
@@ -266,15 +274,21 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
               ),
               IconButton(
                 icon: Icon(FluentIcons.download),
-                onPressed: startDownload,
+                onPressed: () async {
+                  await startDownload();
+                },
               ),
               IconButton(
                 icon: Icon(FluentIcons.pause),
-                onPressed: pauseDownload,
+                onPressed: () async {
+                  await pauseDownload();
+                },
               ),
               IconButton(
                 icon: Icon(FluentIcons.stop),
-                onPressed: stopDownload,
+                onPressed: () async {
+                  await stopDownload();
+                },
               ),
             ],
           ),
