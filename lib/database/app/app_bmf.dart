@@ -103,4 +103,24 @@ class BtsAppBmf {
     BTLogTool.info('Read $_tableName rss: $rss');
     return AppBmfModel.fromJson(value);
   }
+
+  /// 检测RSS链接是否存在
+  Future<bool> checkRss(String input) async {
+    var res = await _instance.sqlite.db.query(
+      _tableName,
+      where: 'rss = ?',
+      whereArgs: [input],
+    );
+    return res.isNotEmpty;
+  }
+
+  /// 检测下载目录是否存在
+  Future<bool> checkDir(String dir) async {
+    var res = await _instance.sqlite.db.query(
+      _tableName,
+      where: 'download = ?',
+      whereArgs: [dir],
+    );
+    return res.isNotEmpty;
+  }
 }

@@ -50,13 +50,12 @@ class AppRssModel {
 
   /// fromSqlJson 用于从数据库读取
   factory AppRssModel.fromSqlJson(Map<String, dynamic> json) {
-    var list = jsonDecode(json['data']);
-    var data = list
+    var list = (jsonDecode(json['data']) as List<dynamic>)
         .map((e) => AppRssItemModel.fromJson(e as Map<String, dynamic>))
         .toList();
     return AppRssModel(
       rss: json['rss'],
-      data: data,
+      data: list,
       ttl: json['ttl'],
       updated: json['updated'],
     );
@@ -71,6 +70,7 @@ class AppRssModel {
       'rss': rss,
       'data': jsonEncode(data.map((e) => e.toJson()).toList()),
       'ttl': ttl,
+      'updated': updated,
     };
   }
 }

@@ -123,23 +123,30 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
       showRespErr(rssGet, context);
     }
     var feed = rssGet.data! as RssFeed;
-    rssItems = feed.items;
+    setState(() {
+      rssItems = feed.items;
+    });
     var rssList = await sqliteRss.read(bmf.rss!);
     if (rssList == null) {
-      isNewList = List.filled(rssItems.length, true);
+      setState(() {
+        notify = false;
+        isNewList = List.filled(rssItems.length, true);
+      });
       await sqliteRss.write(
         AppRssModel.fromRssFeed(bmf.rss!, feed),
       );
     } else {
-      notify = true;
-      isNewList = rssItems.map((e) {
-        var index = rssList.data.indexWhere(
-          (element) => element.site == e.link,
-        );
-        return index == -1;
-      }).toList();
+      setState(() {
+        notify = false;
+        notify = true;
+        isNewList = rssItems.map((e) {
+          var index = rssList.data.indexWhere(
+            (element) => element.site == e.link,
+          );
+          return index == -1;
+        }).toList();
+      });
     }
-    setState(() {});
   }
 
   /// freshFiles
@@ -174,6 +181,11 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
           content: '建议精准到字幕组',
         );
         if (input == null) return;
+        var check = await sqliteBmf.checkRss(input);
+        if (check) {
+          BtInfobar.error(context, '该RSS已经被其他BMF使用');
+          return;
+        }
         bmf.rss = input;
         await sqliteBmf.write(bmf);
         var read = await sqliteBmf.read(bmf.subject);
@@ -200,6 +212,11 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
       onPressed: () async {
         var dir = await getDirectoryPath();
         if (dir == null) return;
+        var check = await sqliteBmf.checkDir(dir);
+        if (check) {
+          BtInfobar.error(context, '该目录已经被其他BMF使用');
+          return;
+        }
         bmf.download = dir;
         await sqliteBmf.write(bmf);
         var read = await sqliteBmf.read(bmf.subject);
@@ -239,6 +256,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         );
         if (!confirm) return;
         await sqliteBmf.delete(bmf.subject);
+        await sqliteRss.delete(bmf.rss!);
         await BtInfobar.success(context, '成功删除 BMF 信息');
         setState(() {
           bmf = AppBmfModel(subject: widget.subjectId);
@@ -463,6 +481,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   /// buildRssList
   List<Widget> buildRssList(BuildContext context) {
     var res = <Widget>[];
+    if (isNewList.length != rssItems.length) return res;
     for (var i = 0; i < rssItems.length; i++) {
       var item = rssItems[i];
       var isNew = isNewList[i];
