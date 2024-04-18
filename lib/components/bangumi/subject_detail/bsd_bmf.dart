@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:dart_rss/dart_rss.dart';
 import 'package:file_selector/file_selector.dart';
-import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +19,7 @@ import '../../../pages/bangumi/bangumi_play.dart';
 import '../../../request/mikan/mikan_api.dart';
 import '../../../store/nav_store.dart';
 import '../../../tools/file_tool.dart';
+import '../../../tools/log_tool.dart';
 import '../../app/app_dialog.dart';
 import '../../app/app_dialog_resp.dart';
 import '../../app/app_infobar.dart';
@@ -72,8 +74,8 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   /// 本地文件
   late List<String> files = [];
 
-  /// aria2 文件
-  late List<String> aria2Files = [];
+  /// 定时器
+  late Timer timer;
 
   /// 是否保持状态
   @override
@@ -86,6 +88,21 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     Future.delayed(Duration.zero, () async {
       await init();
     });
+
+    /// 如果是设置页面，隔15min刷新一次，如果不是，隔5min刷新一次
+    if (widget.isConfig) {
+      timer = Timer.periodic(Duration(minutes: 15), (timer) async {
+        await freshRss();
+        BTLogTool.warn('BMF RSS 页面刷新 ${widget.subjectId}');
+        setState(() {});
+      });
+    } else {
+      timer = Timer.periodic(Duration(minutes: 5), (timer) async {
+        await freshRss();
+        BTLogTool.warn('BMF RSS 页面刷新 ${widget.subjectId}');
+        setState(() {});
+      });
+    }
   }
 
   /// dispose
@@ -99,24 +116,15 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   Future<void> init() async {
     var bmfGet = await sqliteBmf.read(widget.subjectId);
     if (bmfGet == null) return;
-    setState(() {
-      bmf = bmfGet;
-    });
-    if (bmfGet.rss == null || bmfGet.rss!.isEmpty) {
-      debugPrint('rss is empty');
-    } else {
-      await freshRss(bmfGet);
-    }
-    if (bmfGet.download == null || bmfGet.download!.isEmpty) {
-      debugPrint('download is empty');
-    } else {
-      await freshFiles(bmfGet);
-    }
+    bmf = bmfGet;
+    setState(() {});
+    await freshRss();
+    await freshFiles();
     setState(() {});
   }
 
   /// freshRss
-  Future<void> freshRss(AppBmfModel bmf) async {
+  Future<void> freshRss() async {
     if (bmf.rss == null || bmf.rss!.isEmpty) return;
     var rssGet = await mikanAPI.getCustomRSS(bmf.rss!);
     if (rssGet.code != 0 || rssGet.data == null) {
@@ -150,17 +158,9 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   }
 
   /// freshFiles
-  Future<void> freshFiles(AppBmfModel data) async {
-    if (data.download == null || data.download!.isEmpty) return;
-    var filesGet = await fileTool.getFileNames(data.download!);
-
-    /// 获取aria2文件，将移除了.aia2的文件名保存到aria2Files
-    aria2Files = filesGet
-        .where((element) => element.endsWith('.aria2'))
-        .map((e) => e.replaceAll('.aria2', ''))
-        .toList();
-    filesGet.removeWhere((element) => element.endsWith('.aria2'));
-    files = filesGet;
+  Future<void> freshFiles() async {
+    if (bmf.download == null || bmf.download!.isEmpty) return;
+    files = await fileTool.getFileNames(bmf.download!);
     setState(() {});
   }
 
@@ -194,7 +194,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
           setState(() {});
         }
         await BtInfobar.success(context, '成功设置 MikanRSS');
-        await freshRss(bmf);
+        await freshRss();
       },
     );
   }
@@ -225,7 +225,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
           setState(() {});
         }
         await BtInfobar.success(context, '成功设置下载目录');
-        await freshFiles(bmf);
+        await freshFiles();
       },
       onLongPress: () async {
         if (bmf.download == null || bmf.download!.isEmpty) {
@@ -264,7 +264,6 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
           bmf = AppBmfModel(subject: widget.subjectId);
           rssItems = [];
           files = [];
-          aria2Files = [];
         });
       },
     );
@@ -347,7 +346,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     if (!confirm) return;
     var filePath = path.join(bmf.download!, file);
     await fileTool.deleteFile(filePath);
-    await freshFiles(bmf);
+    await freshFiles();
   }
 
   /// buildDelBtn
@@ -374,22 +373,6 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     if (file.endsWith(".torrent")) {
       return [deleteBtn];
     }
-    if (aria2Files.contains(file)) {
-      var size = fileTool.getFileSize(path.join(bmf.download!, file));
-
-      /// 每隔1秒刷新一次
-      Future.delayed(Duration(seconds: 5), () async {
-        await freshFiles(bmf);
-      });
-      return [
-        SizedBox(width: double.infinity, child: ProgressBar(value: null)),
-        SizedBox(height: 6),
-        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-          Text('下载中：${filesize(size)}'),
-        ]),
-      ];
-    }
-    // todo 优化内置播放样式
     if (kDebugMode) {
       return [
         potplayerBtn,
@@ -450,7 +433,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
                 await BtInfobar.error(context, '请先设置下载目录');
                 return;
               }
-              await freshFiles(bmf);
+              await freshFiles();
               await BtInfobar.success(context, '刷新文件成功');
             }),
         SizedBox(width: 12.w),
@@ -470,7 +453,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
               await BtInfobar.error(context, '请先设置 RSS');
               return;
             }
-            await freshRss(bmf);
+            await freshRss();
             await BtInfobar.success(context, '刷新 RSS 成功');
           },
         ),
