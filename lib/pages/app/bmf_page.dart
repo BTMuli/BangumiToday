@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/subject_detail/bsd_bmf.dart';
 import '../../database/app/app_bmf.dart';
+import '../../tools/log_tool.dart';
 
 /// BMF 配置页面
 class BmfPage extends StatefulWidget {
@@ -22,6 +25,9 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
   /// Bmf 数据，只包括subject
   List<int> bmfList = [];
 
+  /// rss刷新定时器
+  late Timer rssTimer;
+
   /// 保存状态
   @override
   bool get wantKeepAlive => true;
@@ -32,11 +38,24 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
     super.initState();
     Future.microtask(() async {
       await init();
+      rssTimer = Timer.periodic(Duration(minutes: 15), (timer) async {
+        await init();
+        BTLogTool.warn('BMF刷新成功');
+      });
     });
+  }
+
+  /// 销毁
+  @override
+  void dispose() {
+    rssTimer.cancel();
+    super.dispose();
   }
 
   /// 初始化
   Future<void> init() async {
+    bmfList = [];
+    setState(() {});
     var read = await sqlite.readAll();
     var list = read.map((e) => e.subject).toList();
     bmfList = list;

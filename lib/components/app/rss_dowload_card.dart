@@ -64,26 +64,42 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   /// 下载进度
   double? progress = 0;
 
-  /// downloaded
-  int downloaded = 0;
+  /// 平均下载速度
+  double ads = 0;
 
-  /// 下载速度
-  double speed = 0;
+  /// 平均上传速度
+  double aps = 0;
+
+  /// 最近下载速度
+  double ds = 0;
+
+  /// 最近上传速度
+  double ps = 0;
+
+  /// utp的下载速度
+  double utpd = 0;
+
+  /// utp的上传速度
+  double utpu = 0;
+
+  /// utp的连接数
+  int utpc = 0;
 
   /// 已连接的节点数
-  int connectedPeersNumber = 0;
+  int active = 0;
 
-  /// 种子数
-  int seeds = 0;
+  /// 做种数
+  int seeders = 0;
 
-  /// 节点数
-  int nodes = 0;
+  /// 全部节点数
+  int all = 0;
 
   @override
   void initState() {
     super.initState();
     Future.delayed(Duration.zero, () async {
       await downloadTool.init();
+      startTime = DateTime.now().millisecondsSinceEpoch;
       await initDownload();
       await startDownload();
     });
@@ -97,7 +113,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   }
 
   /// 处理下载完成
-  Future<void> completedTask(int startTime) async {
+  Future<void> completedTask() async {
     var endTime = DateTime.now().millisecondsSinceEpoch;
     var time = (endTime - startTime) / 1000;
     await task!.stop();
@@ -125,7 +141,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     );
     model = await Torrent.parse(filePath);
     task = TorrentTask.newTask(model, dir);
-    startTime = DateTime.now().millisecondsSinceEpoch;
     progress = null;
     setState(() {});
   }
@@ -133,17 +148,21 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   /// 刷新下载进度
   Future<void> freshDownload() async {
     assert(task != null);
-    setState(() {
-      progress = task!.progress * 100;
-      speed = task!.currentDownloadSpeed;
-      connectedPeersNumber = task!.connectedPeersNumber;
-      seeds = task!.seederNumber;
-      nodes = task!.allPeersNumber;
-      downloaded = task!.downloaded ?? 0;
-    });
+    progress = task!.progress * 100;
+    ads = task!.averageDownloadSpeed;
+    aps = task!.averageUploadSpeed;
+    ds = task!.currentDownloadSpeed;
+    ps = task!.uploadSpeed;
+    utpd = task!.utpDownloadSpeed;
+    utpu = task!.utpUploadSpeed;
+    utpc = task!.utpPeerCount;
+    active = task!.connectedPeersNumber;
+    seeders = task!.seederNumber;
+    all = task!.allPeersNumber;
+    setState(() {});
     if (task!.progress == 1.0) {
       timer.cancel();
-      await completedTask(DateTime.now().millisecondsSinceEpoch);
+      await completedTask();
     }
   }
 
@@ -236,13 +255,16 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text('${filesize((speed * 1000).toInt())}/s'),
+              Text('${filesize((utpd * 1000).toInt())}/s('
+                  '${filesize((ads * 1000).toInt())}/'
+                  '${filesize((ds * 1000).toInt())})'),
               SizedBox(width: 8.w),
-              Text('已下载：${filesize(downloaded)}'),
+              Text('节点：$active/$seeders/$all'
+                  '(${filesize((utpu * 1000).toInt())})'),
               SizedBox(width: 8.w),
-              Text('连接节点：$connectedPeersNumber'),
-              SizedBox(width: 8.w),
-              Text('种子数：$seeds'),
+              Text('上传：${filesize((utpu * 1000).toInt())}/s('
+                  '${filesize((aps * 1000).toInt())}/'
+                  '${filesize((ps * 1000).toInt())})'),
               SizedBox(width: 8.w),
               Text('进度：${progress?.toStringAsFixed(2)}%')
             ],

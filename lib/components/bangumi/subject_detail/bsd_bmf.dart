@@ -256,7 +256,9 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         );
         if (!confirm) return;
         await sqliteBmf.delete(bmf.subject);
-        await sqliteRss.delete(bmf.rss!);
+        if (bmf.rss != null && bmf.rss!.isNotEmpty) {
+          await sqliteRss.delete(bmf.rss!);
+        }
         await BtInfobar.success(context, '成功删除 BMF 信息');
         setState(() {
           bmf = AppBmfModel(subject: widget.subjectId);
