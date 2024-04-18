@@ -130,6 +130,8 @@ lint_staged:
 # msix
 msix_config:
   store: false
+  capabilities: internetClient, privateNetworkClientServer
+  protocol_activation: BangumiToday
   display_name: BangumiToday
   logo_path: assets/images/logo.png
   install_certificate: false

@@ -9,7 +9,6 @@ import 'app.dart';
 import 'database/bt_sqlite.dart';
 import 'tools/log_tool.dart';
 import 'tools/notifier_tool.dart';
-import 'tools/scheme_tool.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +19,6 @@ void main() async {
 
   /// 初始化配置
   await BTLogTool().init();
-  await BTSchemeTool().init();
   await BTNotifierTool().init();
   await BTSqlite().init();
   runApp(ProviderScope(child: BTApp()));

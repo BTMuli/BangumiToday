@@ -8,7 +8,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+import '../../components/app/app_infobar.dart';
 import '../../store/app_store.dart';
+import '../../tools/scheme_tool.dart';
 import '../../utils/get_theme_label.dart';
 
 /// 设置页面
@@ -284,6 +286,56 @@ class _SettingPageState extends ConsumerState<SettingPage>
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
         buildAppBadge(context),
+        SizedBox(height: 16.h),
+        Row(
+          children: [
+            Button(
+              child: Row(
+                children: [
+                  Icon(FluentIcons.info),
+                  SizedBox(width: 4.w),
+                  Text('Github'),
+                ],
+              ),
+              onPressed: () async {
+                await launchUrlString('https://github.com/BTMuli/BangumiToday');
+              },
+            ),
+            SizedBox(width: 8.w),
+            Button(
+              child: Row(
+                children: [
+                  Icon(FluentIcons.mail),
+                  SizedBox(width: 4.w),
+                  Text('Email'),
+                ],
+              ),
+              onPressed: () async {
+                await launchUrlString('mailto:bt-muli@outlook.com');
+              },
+            ),
+          ],
+        ),
+        SizedBox(height: 8.h),
+        Row(
+          children: [
+            Button(
+              child: Text('测试 Protocol'),
+              onPressed: () async {
+                await BTSchemeTool().test(context);
+                await launchUrlString("bangumitoday://test");
+              },
+            ),
+            SizedBox(width: 8.w),
+            Button(
+              child: Text('添加 Protocol'),
+              onPressed: () async {
+                await BTSchemeTool().init();
+                BtInfobar.success(context, '添加成功');
+              },
+            ),
+          ],
+        )
       ],
     );
   }
