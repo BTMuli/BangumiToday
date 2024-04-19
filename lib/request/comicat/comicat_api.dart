@@ -2,6 +2,7 @@ import 'package:dart_rss/domain/rss_feed.dart';
 import 'package:dio/dio.dart';
 
 import '../../models/app/response.dart';
+import '../../tools/log_tool.dart';
 import '../core/client.dart';
 
 /// 漫猫动漫的API。主要是 rss 订阅
@@ -26,12 +27,14 @@ class ComicatAPI {
       final channel = RssFeed.parse(resp.data.toString());
       return BTResponse.success(data: channel.items);
     } on DioException catch (e) {
+      BTLogTool.error('Failed to load comicat RSS ${e.response?.data}');
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load comicat RSS',
         data: e.response?.data,
       );
     } on Exception catch (e) {
+      BTLogTool.error('Failed to load comicat RSS ${e.toString()}');
       return BTResponse.error(
         code: 666,
         message: 'Failed to load comicat RSS',

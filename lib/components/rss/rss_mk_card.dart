@@ -12,6 +12,7 @@ import '../../pages/bangumi/bangumi_detail.dart';
 import '../../store/dtt_store.dart';
 import '../../store/nav_store.dart';
 import '../../tools/download_tool.dart';
+import '../../tools/log_tool.dart';
 import '../../tools/notifier_tool.dart';
 import '../../utils/tool_func.dart';
 import '../app/app_infobar.dart';
@@ -85,14 +86,6 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     });
   }
 
-  /// 检查条目
-  Future<int?> getSubjectId(String rss) async {
-    if (subject != null) return subject;
-    var subjectData = await sqliteBmf.readByRss(rss);
-    if (subjectData == null) return null;
-    return subjectData.subject;
-  }
-
   /// 初始化
   Future<void> init() async {
     if (isNew && notify) {
@@ -100,26 +93,21 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
         title: 'RSS 订阅更新',
         body: '${item.title}',
         onClick: () async {
-          var subjectId = await getSubjectId(item.link!);
-          if (subjectId == null) {
-            await launchUrlString("BangumiToday://");
-            BtInfobar.warn(context, '未找到对应条目，请先添加条目');
-            return;
-          }
-          var title = '条目详情 $subjectId';
+          var title = '条目详情 $subject';
           var pane = PaneItem(
             icon: Icon(FluentIcons.info),
             title: Text(title),
-            body: BangumiDetail(id: subjectId.toString()),
+            body: BangumiDetail(id: subject.toString()),
           );
           ref.read(navStoreProvider.notifier).addNavItem(
                 pane,
                 title,
                 type: BtmAppNavItemType.bangumiSubject,
-                param: 'subjectDetail_$subjectId',
+                param: 'subjectDetail_$subject',
               );
         },
       );
+      BTLogTool.info('RSS 订阅更新: ${item.title}');
     }
   }
 
@@ -142,7 +130,6 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
   Future<String?> getSavePath(BuildContext context, String saveDir) async {
     assert(item.enclosure?.url != null && item.enclosure?.url != '');
     assert(item.title != null && item.title != '');
-
     var savePath = await BTDownloadTool().downloadRssTorrent(
       item.enclosure!.url!,
       item.title!,
@@ -254,9 +241,7 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
         Text('发布时间: '),
         Text(
           dateTransLocal(item.pubDate!),
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -270,9 +255,7 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
         Text('资源大小: '),
         Text(
           filesize(item.enclosure!.length),
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ],
     );

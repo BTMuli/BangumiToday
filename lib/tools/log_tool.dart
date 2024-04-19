@@ -11,10 +11,7 @@ import 'file_tool.dart';
 class BTLogFilter extends LogFilter {
   @override
   bool shouldLog(LogEvent event) {
-    if (kDebugMode) {
-      return true;
-    }
-    return event.level.index > Level.info.index;
+    return true;
   }
 }
 
@@ -57,7 +54,6 @@ class BTLogTool {
   }
 
   /// 初始化
-  /// todo bug Release模式下，日志文件无法写入
   Future<void> init() async {
     var outputC = ConsoleOutput();
     var outputs = <LogOutput>[outputC];
@@ -84,11 +80,6 @@ class BTLogTool {
       printer: printer,
     );
     info('BTLogTool init');
-  }
-
-  /// 打印调试日志
-  static void debug(dynamic message) {
-    _instance._logger.log(Level.debug, message);
   }
 
   /// 打印信息日志

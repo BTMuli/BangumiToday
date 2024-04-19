@@ -39,14 +39,11 @@ class BTNavStore extends ChangeNotifier {
     var res = -1;
     if (type == BtmAppNavItemType.app) {
       res = _navItems.indexWhere(
-        (element) =>
-            element.title == title && element.type == BtmAppNavItemType.app,
+        (e) => e.title == title && e.type == BtmAppNavItemType.app,
       );
     } else {
       res = _navItems.indexWhere(
-        (element) =>
-            element.param == param &&
-            element.type == BtmAppNavItemType.bangumiSubject,
+        (e) => e.param == param && e.type == BtmAppNavItemType.bangumiSubject,
       );
     }
     return res;

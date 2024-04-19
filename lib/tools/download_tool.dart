@@ -33,23 +33,20 @@ class BTDownloadTool {
 
   /// 初始化
   Future<void> init() async {
-    if (_instance._isInit) {
-      BTLogTool.info('BTDownloadTool has been initialized');
-      return;
-    }
-    BTLogTool.info('BTDownloadTool init');
+    if (_instance._isInit) return;
     _instance._defaultPath = await _instance._getDefaultPath();
-    if (!await _instance._fileTool.isDirExist(_instance._defaultPath)) {
+    var check = await _instance._fileTool.isDirExist(_instance._defaultPath);
+    if (!check) {
       BTLogTool.info('Create default download dir');
       await _instance._fileTool.createDir(_instance._defaultPath);
     }
     _instance._isInit = true;
+    BTLogTool.info('BTDownloadTool init success');
   }
 
   /// 下载文件
   Future<String> downloadRssTorrent(String url, String title) async {
     if (!_instance._isInit) {
-      BTLogTool.warn('BTDownloadTool has not been initialized');
       await _instance.init();
     }
     var hash = md5.convert(utf8.encode(title)).toString();

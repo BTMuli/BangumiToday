@@ -20,27 +20,24 @@ class BTNotifierQueue extends ChangeNotifier {
 
   /// 初始化
   Future<void> initTimer() async {
-    _timer = Timer.periodic(Duration(seconds: 5), (timer) {
+    _timer = Timer.periodic(Duration(seconds: 5), (timer) async {
       if (_notifications.isNotEmpty) {
         var notification = _notifications.first;
-        notification.show();
-        remove(notification);
+        await notification.show();
+        _notifications.remove(notification);
         notifyListeners();
+      } else {
+        timer.cancel();
       }
     });
   }
 
   /// 添加通知
-  void add(LocalNotification notification) {
+  Future<void> add(LocalNotification notification) async {
     _notifications.add(notification);
-    if (_timer == null || !_timer!.isActive) initTimer();
-    notifyListeners();
-  }
-
-  /// 移除通知
-  void remove(LocalNotification notification) {
-    _notifications.remove(notification);
-    if (_notifications.isEmpty) _timer?.cancel();
+    if (_timer == null || !_timer!.isActive) {
+      await initTimer();
+    }
     notifyListeners();
   }
 
@@ -78,6 +75,6 @@ class BTNotifierTool {
       body: body,
     );
     if (onClick != null) notification.onClick = onClick;
-    _notifications.add(notification);
+    await _notifications.add(notification);
   }
 }

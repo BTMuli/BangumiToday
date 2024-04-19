@@ -32,16 +32,16 @@ dependencies:
   cached_network_image: ^3.3.1
   cupertino_icons: ^1.0.6
   dart_rss: ^3.0.1
-  device_info_plus: ^9.1.2
-  dio: ^5.4.1
+  device_info_plus: ^10.1.0
+  dio: ^5.4.3+1
   dtorrent_common: ^1.0.5
   dtorrent_parser: ^1.0.8
   dtorrent_task: ^0.3.5
-  file_picker: ^8.0.0+1
+  file_picker: ^8.0.1
   filesize: ^2.0.1
   fl_chart: ^0.67.0
-  fluent_ui: ^4.8.6
-  fluentui_system_icons: ^1.1.229
+  fluent_ui: ^4.8.7
+  fluentui_system_icons: ^1.1.234
   flutter:
     sdk: flutter
   flutter_acrylic: ^1.1.3
@@ -49,20 +49,20 @@ dependencies:
   flutter_rating_bar: ^4.0.1
   flutter_screenutil: ^5.9.0
   flutter_riverpod: ^2.4.10
-  go_router: ^13.2.1
+  intl: ^0.18.1
   json_annotation: ^4.8.1
   local_notifier: ^0.1.6
   logger: ^2.2.0
-  package_info_plus: ^4.2.0
-  path_provider: ^2.1.2
+  package_info_plus: ^7.0.0
+  path_provider: ^2.1.3
   provider: ^6.1.2
   system_theme: ^2.3.1
   url_launcher: ^6.2.5
-  video_player: ^2.8.5
+  video_player: ^2.8.6
   video_player_control_panel: ^1.1.1
   video_player_win: ^2.3.6
   window_manager: ^0.3.8
-  win32_registry: ^1.1.2
+  win32_registry: ^1.1.3
   windows_taskbar: ^1.1.2
   file_selector: ^1.0.3
 

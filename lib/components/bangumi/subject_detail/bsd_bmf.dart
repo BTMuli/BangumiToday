@@ -141,7 +141,6 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     setState(() {});
     await freshRss();
     await freshFiles();
-    setState(() {});
   }
 
   /// showNotify
@@ -178,22 +177,18 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     });
     var rssList = await sqliteRss.read(bmf.rss!);
     if (rssList == null) {
-      setState(() {
-        notify = false;
-        isNewList = List.filled(rssItems.length, true);
-      });
+      notify = false;
+      isNewList = List.filled(rssItems.length, true);
     } else {
-      setState(() {
-        notify = false;
-        notify = true;
-        isNewList = rssItems.map((e) {
-          var index = rssList.data.indexWhere(
-            (element) => element.site == e.link,
-          );
-          return index == -1;
-        }).toList();
-      });
+      notify = true;
+      isNewList = rssItems.map((e) {
+        var index = rssList.data.indexWhere(
+          (element) => element.site == e.link,
+        );
+        return index == -1;
+      }).toList();
     }
+    setState(() {});
     await sqliteRss.write(
       AppRssModel.fromRssFeed(bmf.rss!, feed),
     );
@@ -302,10 +297,6 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
           return;
         }
         var res = await fileTool.openDir(bmf.download!);
-        if (res == null) {
-          await BtInfobar.error(context, '打开目录失败：不支持该平台');
-          return;
-        }
         if (!res) {
           await BtInfobar.error(context, '打开目录失败：未检测到该目录');
         }
@@ -416,6 +407,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     if (!confirm) return;
     var filePath = path.join(bmf.download!, file);
     await fileTool.deleteFile(filePath);
+    BtInfobar.success(context, '成功删除文件 $file');
     await freshFiles();
   }
 
@@ -462,11 +454,10 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         deleteBtn,
       ];
     }
-    return [
-      potplayerBtn,
-      SizedBox(height: 6),
-      deleteBtn,
-    ];
+    if (!file.endsWith('.mp4') && !file.endsWith('.mkv')) {
+      return [deleteBtn];
+    }
+    return [potplayerBtn, SizedBox(height: 6), deleteBtn];
   }
 
   /// buildFileCards

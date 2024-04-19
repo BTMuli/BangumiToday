@@ -117,7 +117,7 @@ class _BsdSitesState extends State<BsdSites> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('播放站点', style: FluentTheme.of(context).typography.subtitle),
+            Text('相关站点', style: FluentTheme.of(context).typography.subtitle),
             SizedBox(height: 8.h),
             for (var item in siteItems) ...[
               buildSiteItem(item),

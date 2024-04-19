@@ -53,7 +53,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   late String filePath;
 
   /// torrentModel
-  late Torrent model;
+  late Torrent? model;
 
   /// torrentTask
   late TorrentTask? task;
@@ -99,7 +99,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     super.initState();
     Future.delayed(Duration.zero, () async {
       await downloadTool.init();
-      startTime = DateTime.now().millisecondsSinceEpoch;
       await initDownload();
       await startDownload();
     });
@@ -121,13 +120,13 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       title: '下载完成，耗时：$time s',
       body: '下载完成：${item.title}',
       onClick: () async {
-        var file = path.join(dir, model.name);
+        var file = path.join(dir, model!.name);
         file = file.replaceAll(r'\', '/');
         await launchUrlString('potplayer://$file');
       },
     );
     await Future.delayed(Duration(seconds: 5), () async {
-      var stateFile = path.join(dir, '${model.infoHash}.bt.state');
+      var stateFile = path.join(dir, '${model!.infoHash}.bt.state');
       await fileTool.deleteFile(stateFile);
       ref.read(dttStoreProvider.notifier).removeTask(item);
     });
@@ -139,8 +138,10 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       item.enclosure!.url!,
       item.title!,
     );
+    startTime = DateTime.now().millisecondsSinceEpoch;
     model = await Torrent.parse(filePath);
-    task = TorrentTask.newTask(model, dir);
+    setState(() {});
+    task = TorrentTask.newTask(model!, dir);
     progress = null;
     setState(() {});
   }
@@ -180,10 +181,10 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     await task!.start();
     findPublicTrackers().listen((urls) {
       for (var url in urls) {
-        task!.startAnnounceUrl(url, model.infoHashBuffer);
+        task!.startAnnounceUrl(url, model!.infoHashBuffer);
       }
     });
-    for (var node in model.nodes) {
+    for (var node in model!.nodes) {
       task!.addDHTNode(node);
     }
     timer = Timer.periodic(Duration(seconds: 2), (timer) async {
@@ -249,7 +250,24 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
         children: [
           ListTile(
             title: Text(item.title ?? ''),
-            subtitle: Text('$dir\\${model.name}'),
+            subtitle: Text('$dir\\${model?.name ?? ''}'),
+            trailing: IconButton(
+              icon: Icon(FluentIcons.delete),
+              onPressed: () async {
+                var confirm = await showConfirmDialog(
+                  context,
+                  title: '删除任务？',
+                  content: '是否删除该任务？',
+                );
+                if (confirm) {
+                  await stopDownload();
+                  var stateFile = path.join(dir, '${model!.infoHash}.bt.state');
+                  await fileTool.deleteFile(stateFile);
+                  ref.read(dttStoreProvider.notifier).removeTask(item);
+                  BtInfobar.success(context, '任务已经删除');
+                }
+              },
+            ),
           ),
           SizedBox(height: 8.h),
           Row(

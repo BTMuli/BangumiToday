@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_data_model.dart';
+import '../../tools/log_tool.dart';
 import '../core/client.dart';
 
 /// 负责BangumiData的请求
@@ -38,12 +39,14 @@ class BtrBangumiData {
         data: BangumiDataJson.fromJson(response.data),
       );
     } on DioException catch (e) {
+      BTLogTool.error('Failed to load bangumi data ${e.response?.data}');
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load bangumi data',
         data: e.response?.data,
       );
     } on Exception catch (e) {
+      BTLogTool.error('Failed to load bangumi data $e');
       return BTResponse.error(
         code: 666,
         message: 'Failed to load bangumi data',
@@ -65,12 +68,14 @@ class BtrBangumiData {
       assert(response.data['tag_name'] is String);
       return BTResponse.success(data: response.data['tag_name']);
     } on DioException catch (e) {
+      BTLogTool.error('Failed to load bangumiData version ${e.response?.data}');
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load bangumi data version',
         data: e.response?.data,
       );
     } on Exception catch (e) {
+      BTLogTool.error('Failed to load bangumiData version $e');
       return BTResponse.error(
         code: 666,
         message: 'Failed to load bangumi data version',

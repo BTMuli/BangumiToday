@@ -30,7 +30,7 @@ class BtDttStore extends ChangeNotifier {
   /// 添加下载任务
   bool addTask(RssItem item, String dir) {
     /// 判断是否已经存在
-    var find = _list.indexWhere((element) => element.item.guid == item.guid);
+    var find = _list.indexWhere((e) => e.item == item);
     if (find != -1) {
       return false;
     }
@@ -41,7 +41,7 @@ class BtDttStore extends ChangeNotifier {
 
   /// 移除下载任务
   void removeTask(RssItem item) {
-    _list.removeWhere((element) => element.item.guid == item.guid);
+    _list.removeWhere((e) => e.item == item);
     notifyListeners();
   }
 }

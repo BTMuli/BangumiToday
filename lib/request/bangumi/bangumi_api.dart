@@ -64,21 +64,18 @@ class BtrBangumiApi {
   Future<BTResponse> getToday() async {
     try {
       var response = await client.dio.get('/calendar');
-      if (response.statusCode == 200) {
-        assert(response.data is List);
-        var data = response.data as List;
-        var list = data
-            .map(
-              (e) => BangumiCalendarRespData.fromJson(
-                e as Map<String, dynamic>,
-              ),
-            )
-            .toList();
-        return BangumiCalendarResp.success(data: list);
-      }
-      var errResp = BangumiErrorDetail.fromJson(response.data);
+      var data = response.data as List;
+      var list = data
+          .map(
+            (e) => BangumiCalendarRespData.fromJson(e as Map<String, dynamic>),
+          )
+          .toList();
+      return BangumiCalendarResp.success(data: list);
+    } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to load today: $errResp');
       return BTResponse<BangumiErrorDetail>(
-        code: response.statusCode ?? 666,
+        code: e.response?.statusCode ?? 666,
         message: 'Failed to load today',
         data: errResp,
       );
@@ -141,6 +138,7 @@ class BtrBangumiApi {
       return BangumiSubjectSearchResp.success(data: list);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to search subjects: $errResp');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to search subjects',
@@ -164,13 +162,13 @@ class BtrBangumiApi {
         '/v0/subjects/$id',
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      // debugPrint('data: ${resp.data}');
       assert(resp.data is Map<String, dynamic>);
       return BangumiSubjectResp.success(
         data: BangumiSubject.fromJson(resp.data),
       );
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to load subject detail: $errResp');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load subject detail',
@@ -194,18 +192,16 @@ class BtrBangumiApi {
         '/v0/subjects/$id/subjects',
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      var data = resp.data as List;
-      return BangumiSubjectRelationsResp.success(
-        data: data
-            .map(
-              (e) => BangumiSubjectRelation.fromJson(
-                e as Map<String, dynamic>,
-              ),
-            )
-            .toList(),
-      );
+      var list = resp.data as List;
+      var data = list
+          .map(
+            (e) => BangumiSubjectRelation.fromJson(e as Map<String, dynamic>),
+          )
+          .toList();
+      return BangumiSubjectRelationsResp.success(data: data);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to load subject relations: $errResp');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load subject relations',
@@ -230,16 +226,15 @@ class BtrBangumiApi {
     int? limit,
     int? offset,
   }) async {
+    var params = <String, dynamic>{'subject_id': id};
+    if (type != null) params['type'] = type.value;
+    if (limit != null) params['limit'] = limit;
+    if (offset != null) params['offset'] = offset;
     try {
       var authHeader = await getAuthHeader();
       var resp = await client.dio.get(
         '/v0/episodes',
-        queryParameters: {
-          'subject_id': id,
-          'type': type?.value,
-          'limit': limit,
-          'offset': offset,
-        },
+        queryParameters: params,
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
       var dataList = BangumiPageT<BangumiEpisode>.fromJson(
@@ -251,6 +246,7 @@ class BtrBangumiApi {
       return BangumiEpisodeListResp.success(data: dataList);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to load episode list: $errResp');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load episode list',
@@ -276,12 +272,12 @@ class BtrBangumiApi {
         '/v0/me',
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
-      assert(resp.data is Map<String, dynamic>);
       return BangumiUserInfoResp.success(
-        data: BangumiUser.fromJson(resp.data),
+        data: BangumiUser.fromJson(resp.data as Map<String, dynamic>),
       );
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to load user info: $errResp');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load user info',
@@ -328,6 +324,7 @@ class BtrBangumiApi {
       return BangumiCollectionSubjectListResp.success(data: dataList);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to load user collections: $errResp');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load user collections',
@@ -360,6 +357,7 @@ class BtrBangumiApi {
       );
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to load user collection item: $errResp');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load user collection item',
@@ -387,6 +385,7 @@ class BtrBangumiApi {
       return BTResponse.success(data: null);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to add user collection item: $errResp');
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to add user collection item',
@@ -432,12 +431,14 @@ class BtrBangumiApi {
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to update user collection item: $errResp');
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to update user collection item',
         data: errResp,
       );
     } on Exception catch (e) {
+      BTLogTool.error('Failed to update user collection item: $e');
       return BTResponse.error(
         code: 666,
         message: 'Failed to update user collection item',
@@ -453,16 +454,15 @@ class BtrBangumiApi {
     int? limit,
     BangumiLegacyEpisodeType? type,
   }) async {
+    var params = <String, dynamic>{'subject_id': subjectId};
+    if (offset != null) params['offset'] = offset;
+    if (limit != null) params['limit'] = limit;
+    if (type != null) params['type'] = type.value;
     try {
       var authHeader = await getAuthHeader();
       var resp = await client.dio.get(
         '/v0/users/-/collections/$subjectId/episodes',
-        queryParameters: {
-          'subject_id': subjectId,
-          'type': type?.value,
-          'limit': limit,
-          'offset': offset,
-        },
+        queryParameters: params,
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
       var dataList = BangumiPageT<BangumiUserEpisodeCollection>.fromJson(
@@ -474,6 +474,7 @@ class BtrBangumiApi {
       return BangumiCollectionEpisodeListResp.success(data: dataList);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to load user collection episodes: $errResp');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load user collection episodes',
@@ -503,6 +504,7 @@ class BtrBangumiApi {
       );
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to load user collection episode item: $errResp');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load user collection episode item',
@@ -527,22 +529,23 @@ class BtrBangumiApi {
       var authHeader = await getAuthHeader();
       var resp = await client.dio.put(
         '/v0/users/-/collections/-/episodes/$episode',
-        queryParameters: {
-          'episode_id': episode,
-        },
-        data: {
-          'type': type.value,
-        },
+        queryParameters: {'episode_id': episode},
+        data: {'type': type.value},
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
+      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error(
+        'Failed to update user collection episode item: $errResp',
+      );
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to update user collection episode item',
-        data: null,
+        data: errResp,
       );
     } on Exception catch (e) {
+      BTLogTool.error('Failed to update user collection episode item: $e');
       return BTResponse.error(
         code: 666,
         message: 'Failed to update user collection episode item',
@@ -581,6 +584,7 @@ class BtrBangumiApi {
       return BangumiSearchListResp.success(data: data);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to search subjects: $errResp');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to search subjects',

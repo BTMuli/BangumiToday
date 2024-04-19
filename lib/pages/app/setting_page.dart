@@ -322,8 +322,8 @@ class _SettingPageState extends ConsumerState<SettingPage>
             Button(
               child: Text('测试 Protocol'),
               onPressed: () async {
+                await launchUrlString("BangumiToday://test");
                 await BTSchemeTool().test(context);
-                await launchUrlString("bangumitoday://test");
               },
             ),
             SizedBox(width: 8.w),

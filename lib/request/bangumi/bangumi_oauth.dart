@@ -5,7 +5,7 @@ import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../tools/log_tool.dart';
-import '../../utils/get_bgm_secret.dart';
+import '../../utils/bangumi_utils.dart';
 import 'bangumi_client.dart';
 
 /// bangumi.tv 的 OAuth
@@ -58,6 +58,7 @@ class BtrBangumiOauth {
       );
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to load bangumi token get: $errResp');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Bangumi token get error',
@@ -93,6 +94,7 @@ class BtrBangumiOauth {
       );
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to load bangumi token refresh: $errResp');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Bangumi token refresh error',
@@ -122,6 +124,7 @@ class BtrBangumiOauth {
       );
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      BTLogTool.error('Failed to load bangumi token status: $errResp');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Bangumi token status error',

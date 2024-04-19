@@ -62,8 +62,12 @@ class _BssCardState extends ConsumerState<BssCard> {
   /// 构建封面
   Widget buildCoverImage(BuildContext context) {
     if (subject.image.isEmpty) return buildCoverError(context);
+    // bangumi 在线切图
+    // see: https://github.com/bangumi/img-proxy
+    var pathGet = Uri.parse(subject.image).path;
+    var link = 'https://lain.bgm.tv/r/0x600$pathGet';
     return CachedNetworkImage(
-      imageUrl: subject.image,
+      imageUrl: link,
       fit: BoxFit.cover,
       progressIndicatorBuilder: (context, url, dp) => Center(
         child: ProgressRing(

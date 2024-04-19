@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
@@ -30,12 +29,11 @@ class BTFileTool {
   }
 
   /// 读取文件
-  Future<String> readFile(String path) async {
+  Future<String?> readFile(String path) async {
     if (await _instance.isFileExist(path)) {
       return File(path).readAsString();
     } else {
-      debugPrint('File not exist: $path');
-      return '';
+      return null;
     }
   }
 
@@ -78,8 +76,7 @@ class BTFileTool {
   }
 
   /// 打开目录
-  Future<bool?> openDir(String dirPath) async {
-    if (!Platform.isWindows) return null;
+  Future<bool> openDir(String dirPath) async {
     var check = await isDirExist(dirPath);
     if (!check) return false;
     Process.run('explorer', [dirPath]);
