@@ -23,8 +23,8 @@ class BTNotifierQueue extends ChangeNotifier {
     _timer = Timer.periodic(Duration(seconds: 5), (timer) {
       if (_notifications.isNotEmpty) {
         var notification = _notifications.first;
-        _notifications.remove(notification);
         notification.show();
+        remove(notification);
         notifyListeners();
       }
     });
@@ -33,7 +33,7 @@ class BTNotifierQueue extends ChangeNotifier {
   /// 添加通知
   void add(LocalNotification notification) {
     _notifications.add(notification);
-    if (_timer == null) initTimer();
+    if (_timer == null || !_timer!.isActive) initTimer();
     notifyListeners();
   }
 
