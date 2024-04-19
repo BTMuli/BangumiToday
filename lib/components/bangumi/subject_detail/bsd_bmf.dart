@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dart_rss/dart_rss.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +21,7 @@ import '../../../request/mikan/mikan_api.dart';
 import '../../../store/nav_store.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/log_tool.dart';
+import '../../../tools/notifier_tool.dart';
 import '../../app/app_dialog.dart';
 import '../../app/app_dialog_resp.dart';
 import '../../app/app_infobar.dart';
@@ -74,8 +76,14 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   /// 本地文件
   late List<String> files = [];
 
-  /// 定时器
-  late Timer timer;
+  /// aria2 文件
+  late List<String> aria2Files = [];
+
+  /// 定时器-检测rss更新
+  late Timer timerRss;
+
+  /// 定时器-检测文件更新
+  late Timer timerFiles;
 
   /// 是否保持状态
   @override
@@ -86,23 +94,36 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   void initState() {
     super.initState();
     Future.delayed(Duration.zero, () async {
+      await initTimerRss();
+      await initTimerFiles();
       await init();
     });
+  }
 
-    /// 如果是设置页面，隔15min刷新一次，如果不是，隔5min刷新一次
+  /// 初始化 timerRss
+  Future<void> initTimerRss() async {
     if (widget.isConfig) {
-      timer = Timer.periodic(Duration(minutes: 15), (timer) async {
+      timerRss = Timer.periodic(Duration(minutes: 15), (timer) async {
         await freshRss();
-        BTLogTool.warn('BMF RSS 页面刷新 ${widget.subjectId}');
+        BTLogTool.info('BMF RSS 页面刷新 ${widget.subjectId}');
         setState(() {});
       });
     } else {
-      timer = Timer.periodic(Duration(minutes: 5), (timer) async {
+      timerRss = Timer.periodic(Duration(minutes: 5), (timer) async {
         await freshRss();
-        BTLogTool.warn('BMF RSS 页面刷新 ${widget.subjectId}');
+        BTLogTool.info('BMF RSS 页面刷新 ${widget.subjectId}');
         setState(() {});
       });
     }
+  }
+
+  /// 初始化 timerFiles
+  Future<void> initTimerFiles() async {
+    timerFiles = Timer.periodic(Duration(seconds: 5), (timer) async {
+      await freshFiles();
+      BTLogTool.info('BMF Files 页面刷新 ${widget.subjectId}');
+      setState(() {});
+    });
   }
 
   /// dispose
@@ -123,9 +144,30 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     setState(() {});
   }
 
+  /// showNotify
+  Future<void> showNotify(String file) async {
+    await BTNotifierTool.showMini(
+      title: '下载完成',
+      body: '下载完成：$file',
+      onClick: () async {
+        var filePath = path.join(bmf.download!, file);
+        filePath = filePath.replaceAll(r'\', '/');
+        await launchUrlString('potplayer://$filePath');
+      },
+    );
+  }
+
   /// freshRss
   Future<void> freshRss() async {
-    if (bmf.rss == null || bmf.rss!.isEmpty) return;
+    if (bmf.rss == null || bmf.rss!.isEmpty) {
+      if (timerRss.isActive) {
+        timerRss.cancel();
+      }
+      return;
+    }
+    if (!timerRss.isActive) {
+      await initTimerRss();
+    }
     var rssGet = await mikanAPI.getCustomRSS(bmf.rss!);
     if (rssGet.code != 0 || rssGet.data == null) {
       showRespErr(rssGet, context);
@@ -159,8 +201,35 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
 
   /// freshFiles
   Future<void> freshFiles() async {
-    if (bmf.download == null || bmf.download!.isEmpty) return;
-    files = await fileTool.getFileNames(bmf.download!);
+    if (bmf.download == null || bmf.download!.isEmpty) {
+      if (timerFiles.isActive) {
+        timerFiles.cancel();
+      }
+      return;
+    }
+    var filesGet = await fileTool.getFileNames(bmf.download!);
+    var aria2FilesGet = filesGet
+        .where((element) => element.endsWith('.aria2'))
+        .map((e) => e.replaceAll('.aria2', ''))
+        .toList();
+    if (aria2FilesGet.isNotEmpty && timerFiles.isActive == false) {
+      await initTimerFiles();
+    } else if (aria2FilesGet.isEmpty && timerFiles.isActive) {
+      timerFiles.cancel();
+    }
+    if (aria2Files.isNotEmpty && aria2FilesGet != aria2Files) {
+      var diffFiles = aria2Files
+          .where((element) => !aria2FilesGet.contains(element))
+          .toList();
+      if (diffFiles.isNotEmpty) {
+        for (var file in diffFiles) {
+          await showNotify(file);
+        }
+      }
+    }
+    filesGet.removeWhere((element) => element.endsWith('.aria2'));
+    aria2Files = aria2FilesGet;
+    files = filesGet;
     setState(() {});
   }
 
@@ -264,6 +333,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
           bmf = AppBmfModel(subject: widget.subjectId);
           rssItems = [];
           files = [];
+          aria2Files = [];
         });
       },
     );
@@ -372,6 +442,16 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     var deleteBtn = buildDelBtn(file);
     if (file.endsWith(".torrent")) {
       return [deleteBtn];
+    }
+    if (aria2Files.contains(file)) {
+      var size = fileTool.getFileSize(path.join(bmf.download!, file));
+      return [
+        SizedBox(width: double.infinity, child: ProgressBar(value: null)),
+        SizedBox(height: 6),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          Text('下载中：${filesize(size)}'),
+        ]),
+      ];
     }
     if (kDebugMode) {
       return [

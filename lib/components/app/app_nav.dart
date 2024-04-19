@@ -96,11 +96,6 @@ class _AppNavState extends ConsumerState<AppNav> {
         title: Text('BMF配置'),
         body: BmfPage(),
       ),
-      PaneItem(
-        icon: Icon(FluentIcons.download),
-        title: Text('下载列表'),
-        body: DownloadPage(),
-      ),
     ];
   }
 
@@ -127,6 +122,11 @@ class _AppNavState extends ConsumerState<AppNav> {
   /// 获取底部项
   List<PaneItem> getFooterItems() {
     var footerItems = [
+      PaneItem(
+        icon: Icon(FluentIcons.download),
+        title: Text('下载列表'),
+        body: DownloadPage(),
+      ),
       buildResetWinItem(),
       buildThemeModeItem(),
       PaneItem(
