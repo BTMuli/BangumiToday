@@ -23,7 +23,7 @@ Future<String?> showInputDialog(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(content),
-            SizedBox(height: 12.0),
+            const SizedBox(height: 12.0),
             TextBox(controller: controller, autofocus: true),
           ],
         ),
@@ -33,13 +33,13 @@ Future<String?> showInputDialog(
               confirm = true;
               Navigator.of(context).pop();
             },
-            child: Text('提交'),
+            child: const Text('提交'),
           ),
           Button(
             onPressed: () {
               Navigator.of(context).pop();
             },
-            child: Text('取消'),
+            child: const Text('取消'),
           ),
         ],
       );
@@ -69,14 +69,14 @@ Future<bool> showConfirmDialog(
             onPressed: () {
               Navigator.of(context).pop();
             },
-            child: Text('取消'),
+            child: const Text('取消'),
           ),
           Button(
             onPressed: () {
               confirm = true;
               Navigator.of(context).pop();
             },
-            child: Text('确定'),
+            child: const Text('确定'),
           ),
         ],
       );

@@ -93,7 +93,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
       await sqlite.delete(subject.id);
       setState(() {});
     } else if (resp.code != 0 || resp.data == null) {
-      await showRespErr(resp, context);
+      if (mounted) await showRespErr(resp, context);
     } else {
       userCollection = resp.data;
       await sqlite.write(userCollection!);
@@ -107,10 +107,15 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   Future<void> updateType(BangumiCollectionType type) async {
     var resp = await api.updateCollectionSubject(subject.id, type: type);
     if (resp.code != 0) {
-      await showRespErr(resp, context);
+      if (mounted) await showRespErr(resp, context);
     } else {
       collectionType = type;
-      await BtInfobar.success(context, '条目 ${subject.id} 状态更新为 ${type.label}');
+      if (mounted) {
+        await BtInfobar.success(
+          context,
+          '条目 ${subject.id} 状态更新为 ${type.label}',
+        );
+      }
       setState(() {});
       await init();
     }
@@ -236,8 +241,8 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   /// todo 目前官方API不支持删除收藏，暂时不实现
   MenuFlyoutItem buildFlyoutDelete(BuildContext context) {
     return MenuFlyoutItem(
-      leading: Icon(FluentIcons.delete),
-      text: Text('删除收藏'),
+      leading: const Icon(FluentIcons.delete),
+      text: const Text('删除收藏'),
       onPressed: () async {
         await BtInfobar.error(context, '暂不支持删除收藏');
       },
@@ -247,8 +252,8 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   MenuFlyoutItem buildFlyoutItemDetail(BuildContext context) {
     var color = FluentTheme.of(context).accentColor;
     return MenuFlyoutItem(
-      leading: Icon(FluentIcons.info),
-      text: Text('查看详情'),
+      leading: const Icon(FluentIcons.info),
+      text: const Text('查看详情'),
       onPressed: () async {
         if (userCollection == null) {
           await BtInfobar.error(context, '未获取到收藏信息');
@@ -258,19 +263,19 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           barrierDismissible: true,
           context: context,
           builder: (_) => ContentDialog(
-            title: Text('收藏详情'),
+            title: const Text('收藏详情'),
             content: buildCollectionDetail(context),
             actions: [
               IconButton(
                 onPressed: () async {
                   await launchUrlString('https://bgm.tv/subject/${subject.id}');
-                  Navigator.of(context).pop();
+                  if (context.mounted) Navigator.of(context).pop();
                 },
                 icon: Icon(FluentIcons.edge_logo, color: color),
               ),
               Button(
                 onPressed: () => Navigator.of(context).pop(),
-                child: Text('关闭'),
+                child: const Text('关闭'),
               ),
             ],
           ),
@@ -289,7 +294,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
             FluentIcons.edit,
             color: FluentTheme.of(context).accentColor,
           ),
-          text: Text('修改收藏状态'),
+          text: const Text('修改收藏状态'),
           items: (context) => [
             buildSubjStat(context, BangumiCollectionType.wish),
             buildSubjStat(context, BangumiCollectionType.collect),
@@ -307,14 +312,16 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   /// 刷新状态的button
   Widget buildFreshBtn(BuildContext context) {
     return Button(
-      child: Text('刷新状态'),
+      child: const Text('刷新状态'),
       onPressed: () async {
         if (user == null) {
           await BtInfobar.error(context, '未获取到用户信息，请登录后重试');
           return;
         } else {
           await init();
-          await BtInfobar.success(context, '条目 ${subject.id} 状态刷新成功');
+          if (context.mounted) {
+            await BtInfobar.success(context, '条目 ${subject.id} 状态刷新成功');
+          }
         }
       },
     );
@@ -347,7 +354,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
                         FluentIcons.add_bookmark,
                         color: FluentTheme.of(context).accentColor,
                       ),
-                      text: Text('添加到收藏列表'),
+                      text: const Text('添加到收藏列表'),
                       onPressed: () async {
                         if (user == null) {
                           await BtInfobar.error(
@@ -357,6 +364,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
                           return;
                         } else {
                           var resp = await api.addCollectionSubject(subject.id);
+                          if (!mounted) return;
                           if (resp.code != 0) {
                             await showRespErr(
                               resp,
@@ -416,6 +424,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
             subject.id,
             rate: val.toInt() + 1,
           );
+          if (!context.mounted) return;
           if (resp.code != 0 || resp.data == null) {
             await showRespErr(resp, context);
           } else {
@@ -441,6 +450,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           controller: controller,
           child: Button(
             style: ButtonStyle(backgroundColor: ButtonState.all(color)),
+            onPressed: buildFlyout,
             child: Row(
               children: [
                 Icon(icon, size: 20.spMax),
@@ -448,7 +458,6 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
                 Text(collectionType.label),
               ],
             ),
-            onPressed: buildFlyout,
           ),
         ),
         SizedBox(width: 8.w),

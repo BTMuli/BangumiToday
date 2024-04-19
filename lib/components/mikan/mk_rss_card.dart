@@ -24,14 +24,14 @@ class MikanRssCard extends StatelessWidget {
   Future<void> download(BuildContext context) async {
     assert(item.enclosure != null && item.enclosure!.url != null);
     assert(item.title != null && item.title != '');
-    var saveDir;
+    String? saveDir;
     if (dir == null || dir!.isEmpty) {
       saveDir = await getDirectoryPath();
     } else {
       saveDir = dir;
     }
     if (saveDir == null || saveDir.isEmpty) {
-      await BtInfobar.error(context, '未选择下载目录');
+      if (context.mounted) await BtInfobar.error(context, '未选择下载目录');
       return;
     }
     var savePath = await BTDownloadTool().downloadRssTorrent(
@@ -92,7 +92,7 @@ class MikanRssCard extends StatelessWidget {
       message: item.title ?? '',
       child: Text(
         item.title ?? '',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
       ),
@@ -101,23 +101,25 @@ class MikanRssCard extends StatelessWidget {
       width: 275,
       height: 180,
       child: Card(
-        padding: EdgeInsets.all(8),
+        padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             title,
-            Spacer(),
+            const Spacer(),
             Row(
               children: [
-                Text('发布时间: '),
-                Text(pubDate, style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('发布时间: '),
+                Text(pubDate,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Row(
               children: [
-                Text('资源大小: '),
-                Text(sizeStr, style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('资源大小: '),
+                Text(sizeStr,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
             buildAct(context),

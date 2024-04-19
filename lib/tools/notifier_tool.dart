@@ -20,7 +20,7 @@ class BTNotifierQueue extends ChangeNotifier {
 
   /// 初始化
   Future<void> initTimer() async {
-    _timer = Timer.periodic(Duration(seconds: 5), (timer) async {
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) async {
       if (_notifications.isNotEmpty) {
         var notification = _notifications.first;
         await notification.show();

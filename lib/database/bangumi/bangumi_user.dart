@@ -170,7 +170,7 @@ class BtsBangumiUser {
   /// 写入/更新过期时间
   Future<void> writeExpireTime(int expiresIn, {bool isTs = false}) {
     var relativeTime = expiresIn * 1000 - 300000;
-    var expireTime;
+    int expireTime;
     if (isTs) {
       var timeParse = DateTime.fromMillisecondsSinceEpoch(relativeTime);
       expireTime = timeParse.millisecondsSinceEpoch;

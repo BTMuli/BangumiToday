@@ -45,7 +45,7 @@ class _ComicatRSSPageState extends State<ComicatRSSPage>
     setState(() {});
     var resGet = await comicatAPI.getHomeRSS();
     if (resGet.code != 0 || resGet.data == null) {
-      showRespErr(resGet, context);
+      if (mounted) showRespErr(resGet, context);
       return;
     }
     rssItems = resGet.data!;
@@ -68,10 +68,10 @@ class _ComicatRSSPageState extends State<ComicatRSSPage>
           },
         ),
         SizedBox(width: 10.w),
-        Text('Comicat'),
+        const Text('Comicat'),
         SizedBox(width: 20.w),
         IconButton(
-          icon: Icon(FluentIcons.refresh),
+          icon: const Icon(FluentIcons.refresh),
           onPressed: () async {
             await refresh();
           },
@@ -87,9 +87,9 @@ class _ComicatRSSPageState extends State<ComicatRSSPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ProgressRing(),
+            const ProgressRing(),
             SizedBox(height: 20.h),
-            Text('正在加载数据...'),
+            const Text('正在加载数据...'),
           ],
         ),
       );

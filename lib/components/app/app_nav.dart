@@ -43,17 +43,17 @@ class _AppNavState extends ConsumerState<AppNav> {
   /// 构建重置窗口大小项
   PaneItemAction buildResetWinItem() {
     return PaneItemAction(
-      icon: Icon(FluentIcons.reset_device),
-      title: Text('ResetWin'),
+      icon: const Icon(FluentIcons.reset_device),
+      title: const Text('ResetWin'),
       onTap: () async {
         var size = await windowManager.getSize();
-        var target = Size(1280, 720);
+        var target = const Size(1280, 720);
         if (size == target) {
-          await BtInfobar.warn(context, '无需重置大小！');
+          if (mounted) await BtInfobar.warn(context, '无需重置大小！');
           return;
         }
-        await windowManager.setSize(Size(1280, 720));
-        await BtInfobar.success(context, '已成功重置窗口大小！');
+        await windowManager.setSize(target);
+        if (mounted) await BtInfobar.success(context, '已成功重置窗口大小！');
       },
     );
   }
@@ -75,26 +75,26 @@ class _AppNavState extends ConsumerState<AppNav> {
     return [
       PaneItem(
         icon: Image.asset('assets/images/platforms/bangumi-favicon.ico'),
-        title: Text('Bangumi-今日放送'),
-        body: CalendarPage(),
+        title: const Text('Bangumi-今日放送'),
+        body: const CalendarPage(),
       ),
       PaneItem(
         icon: Image.asset(
           'assets/images/platforms/mikan-favicon.ico',
           height: 16,
         ),
-        title: Text('Mikan'),
-        body: MikanRSSPage(),
+        title: const Text('Mikan'),
+        body: const MikanRSSPage(),
       ),
       PaneItem(
         icon: Image.asset('assets/images/platforms/comicat-favicon.ico'),
-        title: Text('Comicat'),
-        body: ComicatRSSPage(),
+        title: const Text('Comicat'),
+        body: const ComicatRSSPage(),
       ),
       PaneItem(
         icon: Image.asset('assets/images/logo.png', height: 16),
-        title: Text('BMF配置'),
-        body: BmfPage(),
+        title: const Text('BMF配置'),
+        body: const BmfPage(),
       ),
     ];
   }
@@ -113,9 +113,9 @@ class _AppNavState extends ConsumerState<AppNav> {
   /// 构建调试项
   PaneItem buildDebugItem() {
     return PaneItem(
-      icon: Icon(FluentIcons.bug),
-      title: Text('Debug'),
-      body: TestPage(),
+      icon: const Icon(FluentIcons.bug),
+      title: const Text('Debug'),
+      body: const TestPage(),
     );
   }
 
@@ -123,16 +123,16 @@ class _AppNavState extends ConsumerState<AppNav> {
   List<PaneItem> getFooterItems() {
     var footerItems = [
       PaneItem(
-        icon: Icon(FluentIcons.download),
-        title: Text('下载列表'),
-        body: DownloadPage(),
+        icon: const Icon(FluentIcons.download),
+        title: const Text('下载列表'),
+        body: const DownloadPage(),
       ),
       buildResetWinItem(),
       buildThemeModeItem(),
       PaneItem(
-        icon: Icon(FluentIcons.settings),
-        title: Text('Settings'),
-        body: SettingPage(),
+        icon: const Icon(FluentIcons.settings),
+        title: const Text('Settings'),
+        body: const SettingPage(),
       ),
     ];
     if (kDebugMode) {

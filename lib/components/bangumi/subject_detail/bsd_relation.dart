@@ -54,7 +54,7 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
   Future<void> load() async {
     var resp = await api.getSubjectRelations(subjectId);
     if (resp.code != 0 || resp.data == null) {
-      showRespErr(resp, context);
+      if (mounted) showRespErr(resp, context);
       return;
     }
     relations = resp.data;
@@ -65,7 +65,7 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
   void toSubjectDetail(int id, String label) {
     var title = '$label详情 $id';
     var pane = PaneItem(
-      icon: Icon(FluentIcons.info),
+      icon: const Icon(FluentIcons.info),
       title: Text(title),
       body: BangumiDetail(id: id.toString()),
     );
@@ -80,7 +80,7 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
   /// 构建信息
   Widget buildCardInfo(BangumiSubjectRelation data) {
     return Padding(
-      padding: EdgeInsets.all(8),
+      padding: const EdgeInsets.all(8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,7 +90,7 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
             message: data.name,
             child: Text(
               '【${data.relation}】${replaceEscape(data.name)}',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -98,7 +98,7 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Spacer(),
+          const Spacer(),
           Text('类型：${data.type.label}'),
           SizedBox(height: 4.h),
           Row(
@@ -179,7 +179,7 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
           child: Row(
             children: [
               ConstrainedBox(
-                constraints: BoxConstraints(
+                constraints: const BoxConstraints(
                   minWidth: 50,
                   minHeight: 200,
                   maxWidth: 100,
@@ -201,12 +201,12 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
     super.build(context);
     if (relations.isEmpty) {
       return ListTile(
-        leading: Icon(FluentIcons.error),
-        title: Text('暂无关联条目'),
+        leading: const Icon(FluentIcons.error),
+        title: const Text('暂无关联条目'),
         trailing: Tooltip(
           message: '刷新',
           child: IconButton(
-            icon: Icon(FluentIcons.refresh),
+            icon: const Icon(FluentIcons.refresh),
             onPressed: load,
           ),
         ),
@@ -215,9 +215,9 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
     return Container(
       margin: EdgeInsets.only(right: 12.w),
       child: Expander(
-        leading: Icon(FluentIcons.link),
+        leading: const Icon(FluentIcons.link),
         header: Text('关联条目', style: TextStyle(fontSize: 24.sp)),
-        trailing: Button(child: Text('刷新'), onPressed: load),
+        trailing: Button(onPressed: load, child: const Text('刷新')),
         content: ConstrainedBox(
           constraints: BoxConstraints(maxHeight: 600.h),
           child: SingleChildScrollView(

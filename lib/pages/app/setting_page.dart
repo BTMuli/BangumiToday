@@ -74,13 +74,13 @@ class _SettingPageState extends ConsumerState<SettingPage>
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       child: Expander(
-        leading: Icon(Icons.laptop_windows),
+        leading: const Icon(Icons.laptop_windows),
         header: Text(diw.productName),
         content: Column(
           children: [
             ListTile(
-              leading: Icon(Icons.desktop_windows_outlined),
-              title: Text('所在平台'),
+              leading: const Icon(Icons.desktop_windows_outlined),
+              title: const Text('所在平台'),
               subtitle: Text(
                 'Windows ${diw.displayVersion} '
                 '${diw.majorVersion}.${diw.minorVersion}.${diw.buildNumber}'
@@ -88,13 +88,13 @@ class _SettingPageState extends ConsumerState<SettingPage>
               ),
             ),
             ListTile(
-              leading: Icon(Icons.devices_outlined),
-              title: Text('设备'),
+              leading: const Icon(Icons.devices_outlined),
+              title: const Text('设备'),
               subtitle: Text('${diw.computerName} ${diw.productId}'),
             ),
             ListTile(
-              leading: Icon(Icons.device_hub_outlined),
-              title: Text('标识符'),
+              leading: const Icon(Icons.device_hub_outlined),
+              title: const Text('标识符'),
               subtitle: Text(
                 diw.deviceId.substring(1, diw.deviceId.length - 1),
               ),
@@ -111,25 +111,25 @@ class _SettingPageState extends ConsumerState<SettingPage>
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       child: Expander(
-        leading: Icon(Icons.laptop_mac),
+        leading: const Icon(Icons.laptop_mac),
         header: Text(dim.model),
         content: Column(
           children: [
             ListTile(
-              leading: Icon(Icons.desktop_mac),
-              title: Text('所在平台'),
+              leading: const Icon(Icons.desktop_mac),
+              title: const Text('所在平台'),
               subtitle: Text(
                 'macOS ${dim.kernelVersion})',
               ),
             ),
             ListTile(
-              leading: Icon(Icons.devices_outlined),
-              title: Text('设备'),
+              leading: const Icon(Icons.devices_outlined),
+              title: const Text('设备'),
               subtitle: Text('${dim.computerName} ${dim.model}'),
             ),
             ListTile(
-              leading: Icon(Icons.device_hub_outlined),
-              title: Text('标识符'),
+              leading: const Icon(Icons.device_hub_outlined),
+              title: const Text('标识符'),
               subtitle: Text(dim.computerName),
             ),
           ],
@@ -146,7 +146,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
     if (deviceInfoMac != null) {
       return buildMacDeviceInfo(deviceInfoMac!);
     }
-    return ListTile(
+    return const ListTile(
       title: Text('设备信息'),
       subtitle: Text('未知设备'),
     );
@@ -158,7 +158,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
     var curTheme = getThemeModeConfig(curThemeMode);
     return ListTile(
       leading: Icon(curTheme.icon),
-      title: Text('主题模式'),
+      title: const Text('主题模式'),
       subtitle: Text(curThemeMode.toString()),
       trailing: DropDownButton(
         title: Text(curTheme.label),
@@ -179,7 +179,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
   /// 构建主题色切换展开
   Widget buildColorFlyout() {
     if (curThemeMode == ThemeMode.system) {
-      return Text('跟随系统设置\r\n无法更改');
+      return const Text('跟随系统设置\r\n无法更改');
     }
     return Wrap(
       runSpacing: 8.h,
@@ -213,8 +213,8 @@ class _SettingPageState extends ConsumerState<SettingPage>
   /// 构建主题色切换
   Widget buildColorSwitch() {
     return ListTile(
-      leading: Icon(FluentIcons.color),
-      title: Text('主题色'),
+      leading: const Icon(FluentIcons.color),
+      title: const Text('主题色'),
       subtitle: Text(curAccentColor.toString()),
       trailing: SplitButton(
         flyout: FlyoutContent(
@@ -232,7 +232,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
 
   /// 构建应用徽章
   Widget buildAppBadge(BuildContext context) {
-    var shadow = Shadow(
+    var shadow = const Shadow(
       color: Colors.black,
       offset: Offset(1, 1),
       blurRadius: 2,
@@ -292,9 +292,9 @@ class _SettingPageState extends ConsumerState<SettingPage>
             Button(
               child: Row(
                 children: [
-                  Icon(FluentIcons.info),
+                  const Icon(FluentIcons.info),
                   SizedBox(width: 4.w),
-                  Text('Github'),
+                  const Text('Github'),
                 ],
               ),
               onPressed: () async {
@@ -305,9 +305,9 @@ class _SettingPageState extends ConsumerState<SettingPage>
             Button(
               child: Row(
                 children: [
-                  Icon(FluentIcons.mail),
+                  const Icon(FluentIcons.mail),
                   SizedBox(width: 4.w),
-                  Text('Email'),
+                  const Text('Email'),
                 ],
               ),
               onPressed: () async {
@@ -320,18 +320,18 @@ class _SettingPageState extends ConsumerState<SettingPage>
         Row(
           children: [
             Button(
-              child: Text('测试 Protocol'),
+              child: const Text('测试 Protocol'),
               onPressed: () async {
                 await launchUrlString("BangumiToday://test");
-                await BTSchemeTool().test(context);
+                if (mounted) await BTSchemeTool().test(context);
               },
             ),
             SizedBox(width: 8.w),
             Button(
-              child: Text('添加 Protocol'),
+              child: const Text('添加 Protocol'),
               onPressed: () async {
                 await BTSchemeTool().init();
-                BtInfobar.success(context, '添加成功');
+                if (mounted) BtInfobar.success(context, '添加成功');
               },
             ),
           ],

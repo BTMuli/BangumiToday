@@ -12,10 +12,10 @@ part 'request_episode.g.dart';
 class BangumiEpisodeListResp extends BTResponse<BangumiPageT<BangumiEpisode>> {
   /// constructor
   BangumiEpisodeListResp({
-    required int code,
-    required String message,
-    required BangumiPageT<BangumiEpisode> data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required BangumiPageT<BangumiEpisode> super.data,
+  });
 
   /// success
   static BangumiEpisodeListResp success(

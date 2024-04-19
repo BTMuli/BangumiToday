@@ -32,9 +32,9 @@ Widget buildContent(BTResponse resp) {
       children: codeWidgets,
     );
   }
-  var text;
+  String text;
   try {
-    text = JsonEncoder.withIndent('  ').convert(resp.data);
+    text = const JsonEncoder.withIndent('  ').convert(resp.data);
 
     /// ignore: empty_catches, avoid_catches_without_on_clauses
   } catch (e) {
@@ -67,7 +67,7 @@ Future<void> showRespErr(
   BuildContext context, {
   String? title,
 }) async {
-  var til;
+  String til;
   if (title != null) {
     til = title;
   } else {
@@ -85,7 +85,7 @@ Future<void> showRespErr(
             onPressed: () {
               Navigator.of(context).pop();
             },
-            child: Text('确定'),
+            child: const Text('确定'),
           ),
         ],
       );

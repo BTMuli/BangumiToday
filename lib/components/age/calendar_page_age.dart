@@ -59,16 +59,16 @@ class _CalendarPageAgeState extends ConsumerState<CalendarPageAge> {
         Tooltip(
           message: '切换数据源',
           child: DropDownButton(
-            title: Icon(FluentIcons.dataverse),
+            title: const Icon(FluentIcons.dataverse),
             items: [
               MenuFlyoutItem(
-                text: Text('bangumi'),
+                text: const Text('bangumi'),
                 onPressed: () {
                   // ref.read(appStoreProvider.notifier).setSource('bangumi');
                 },
               ),
               MenuFlyoutItem(
-                text: Text('AGE'),
+                text: const Text('AGE'),
                 onPressed: () {
                   // ref.read(appStoreProvider.notifier).setSource('agefans');
                 },
@@ -80,7 +80,7 @@ class _CalendarPageAgeState extends ConsumerState<CalendarPageAge> {
         Tooltip(
           message: '刷新',
           child: IconButton(
-            icon: Icon(FluentIcons.refresh),
+            icon: const Icon(FluentIcons.refresh),
             onPressed: load,
           ),
         ),
@@ -97,15 +97,15 @@ class _CalendarPageAgeState extends ConsumerState<CalendarPageAge> {
           Tab(
             text: Text(getDay(i)),
             icon: i == _today
-                ? Icon(FluentIcons.away_status)
-                : Icon(FluentIcons.calendar),
+                ? const Icon(FluentIcons.away_status)
+                : const Icon(FluentIcons.calendar),
             body: CalendarDayAge(data: calendarData?['${(i + 1) % 7}'] ?? []),
             semanticLabel: getDay(i),
           ),
       ],
       header: Row(
         children: [
-          Tooltip(
+          const Tooltip(
             message: '数据来源于 age',
             child: Icon(FluentIcons.info),
           ),
@@ -128,7 +128,7 @@ class _CalendarPageAgeState extends ConsumerState<CalendarPageAge> {
   @override
   Widget build(BuildContext context) {
     if (calendarData == null) {
-      return Center(child: ProgressRing());
+      return const Center(child: ProgressRing());
     }
     return buildCalendar();
   }
@@ -140,7 +140,7 @@ class CalendarDayAge extends StatelessWidget {
   final List<HomeItem> data;
 
   /// 构造函数
-  const CalendarDayAge({required this.data});
+  const CalendarDayAge({required this.data, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -167,13 +167,11 @@ class CalendarCardAge extends StatelessWidget {
   final HomeItem data;
 
   /// 构造函数
-  const CalendarCardAge({required this.data});
+  const CalendarCardAge({required this.data, super.key});
 
   /// 构建加载中卡片
   Widget buildLoadingCard() {
-    return Card(
-      child: Center(child: ProgressRing()),
-    );
+    return const Card(child: Center(child: ProgressRing()));
   }
 
   /// 构建封面
@@ -187,7 +185,7 @@ class CalendarCardAge extends StatelessWidget {
           value: dp.progress == null ? 0 : dp.progress! * 100,
         ),
       ),
-      errorWidget: (context, url, error) => Icon(FluentIcons.error),
+      errorWidget: (context, url, error) => const Icon(FluentIcons.error),
     );
   }
 

@@ -81,8 +81,9 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     var etGet = await sqliteUser.readExpireTime();
     if (atGet == null || rtGet == null || etGet == null) {
       progress.update(text: '未找到访问令牌');
-      await Future.delayed(Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 500));
       progress.end();
+      if (!mounted) return;
       var oauthConfirm = await showConfirmDialog(
         context,
         title: '未找到访问令牌',
@@ -101,7 +102,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     setState(() {});
     if (user != null) {
       progress.update(text: '用户信息：${user!.username}');
-      await Future.delayed(Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 500));
       progress.end();
       return;
     }
@@ -109,6 +110,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     var isExpired = await sqliteUser.isTokenExpired();
     if (isExpired) {
       progress.end();
+      if (!mounted) return;
       var freshConfirm = await showConfirmDialog(
         context,
         title: '访问令牌已过期',
@@ -130,13 +132,13 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     var rt = await sqliteUser.readRefreshToken();
     if (rt == null) {
       progress.end();
-      await BtInfobar.error(context, '未找到刷新令牌');
+      if (mounted) await BtInfobar.error(context, '未找到刷新令牌');
       return;
     }
     var res = await oauth.refreshToken(rt);
     if (res.code != 0 || res.data == null) {
       progress.end();
-      showRespErr(res, context);
+      if (mounted) showRespErr(res, context);
       return;
     }
     assert(res.data != null);
@@ -147,7 +149,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     await sqliteUser.writeExpireTime(at.expiresIn);
     expireTime = (await sqliteUser.readExpireTime())!;
     setState(() {});
-    await Future.delayed(Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 500));
     progress.end();
   }
 
@@ -175,7 +177,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
         var res = await oauth.getAccessToken(code);
         if (res.code != 0 || res.data == null) {
           progress.end();
-          showRespErr(res, context);
+          if (mounted) showRespErr(res, context);
           return;
         }
         assert(res.data != null);
@@ -198,20 +200,20 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     var at = await sqliteUser.readAccessToken();
     if (at == null) {
       progress.end();
-      await BtInfobar.error(context, '未找到访问令牌');
+      if (mounted) await BtInfobar.error(context, '未找到访问令牌');
       return;
     }
     await api.refreshGetAccessToken(token: at);
     var userResp = await api.getUserInfo();
     if (userResp.code != 0 || userResp.data == null) {
       progress.end();
-      showRespErr(userResp, context);
+      if (mounted) showRespErr(userResp, context);
       return;
     }
     user = userResp.data! as BangumiUser;
     progress.update(title: '获取用户信息成功', text: '用户信息：${user!.username}');
     await sqliteUser.writeUser(user!);
-    await Future.delayed(Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 500));
     progress.end();
   }
 
@@ -224,7 +226,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
         Tooltip(
           message: '返回',
           child: IconButton(
-            icon: Icon(FluentIcons.back),
+            icon: const Icon(FluentIcons.back),
             onPressed: () {
               ref.read(navStoreProvider).removeNavItem('Bangumi 用户界面');
             },
@@ -236,13 +238,13 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
         Tooltip(
           message: '刷新',
           child: IconButton(
-            icon: Icon(FluentIcons.refresh),
+            icon: const Icon(FluentIcons.refresh),
             onPressed: () async {
               await init();
             },
           ),
         ),
-        Expanded(child: SizedBox()),
+        const Spacer(),
         SizedBox(
           height: 36.spMax,
           child: Image.asset(
@@ -259,11 +261,11 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
   Widget buildUser() {
     if (user == null) {
       return ListTile(
-        leading: Icon(FluentIcons.user_window),
-        title: Text('用户信息'),
-        subtitle: Text('未找到用户信息'),
+        leading: const Icon(FluentIcons.user_window),
+        title: const Text('用户信息'),
+        subtitle: const Text('未找到用户信息'),
         trailing: FilledButton(
-          child: Text('前往授权'),
+          child: const Text('前往授权'),
           onPressed: () async {
             await oauthUser();
           },
@@ -276,8 +278,8 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
         imageUrl: user!.avatar.large,
         width: 32.spMax,
         height: 32.spMax,
-        placeholder: (context, url) => ProgressRing(),
-        errorWidget: (context, url, error) => Icon(FluentIcons.error),
+        placeholder: (context, url) => const ProgressRing(),
+        errorWidget: (context, url, error) => const Icon(FluentIcons.error),
       ),
       title: Text(user!.nickname),
       subtitle: Text('ID: ${user!.id}(${user!.userGroup.label})'),
@@ -285,7 +287,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
         mainAxisSize: MainAxisSize.min,
         children: [
           FilledButton(
-            child: Tooltip(
+            child: const Tooltip(
               message: '刷新用户信息',
               child: Icon(FluentIcons.refresh),
             ),
@@ -307,31 +309,29 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
   /// 构建授权信息
   Widget buildOauth() {
     return ListTile(
-      leading: Icon(FluentIcons.authenticator_app),
-      title: Text('授权信息'),
+      leading: const Icon(FluentIcons.authenticator_app),
+      title: const Text('授权信息'),
       subtitle: expireTime == DateTime.now()
-          ? Text('未找到授权信息')
-          : Text(
-              '授权过期时间：$expireTime',
-            ),
+          ? const Text('未找到授权信息')
+          : Text('授权过期时间：$expireTime'),
       trailing: Row(
         children: [
           FilledButton(
-            child: Text('刷新授权'),
+            child: const Text('刷新授权'),
             onPressed: () async {
               await freshToken();
             },
           ),
           SizedBox(width: 8.w),
           FilledButton(
-            child: Text('重新授权'),
+            child: const Text('重新授权'),
             onPressed: () async {
               await oauthUser();
             },
           ),
           SizedBox(width: 8.w),
           FilledButton(
-            child: Text('查看授权'),
+            child: const Text('查看授权'),
             onPressed: () async {
               await launchUrlString("https://next.bgm.tv/demo/access-token");
             },
@@ -344,25 +344,25 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
   /// 构建收藏
   Widget buildCollection() {
     return ListTile(
-      leading: Icon(FluentIcons.favorite_star),
-      title: Text('收藏信息'),
+      leading: const Icon(FluentIcons.favorite_star),
+      title: const Text('收藏信息'),
       subtitle: Text('收藏数：$collectionCount'),
       trailing: Row(
         children: [
           FilledButton(
-            child: Text('查看收藏'),
+            child: const Text('查看收藏'),
             onPressed: () async {
               var paneItem = PaneItem(
-                icon: Icon(FluentIcons.favorite_star),
-                title: Text('Bangumi-用户收藏'),
-                body: BangumiCollectionPage(),
+                icon: const Icon(FluentIcons.favorite_star),
+                title: const Text('Bangumi-用户收藏'),
+                body: const BangumiCollectionPage(),
               );
               ref.read(navStoreProvider).addNavItem(paneItem, 'Bangumi-用户收藏');
             },
           ),
           SizedBox(width: 8.w),
           FilledButton(
-            child: Text('刷新收藏'),
+            child: const Text('刷新收藏'),
             onPressed: () async {
               if (user == null) {
                 await BtInfobar.error(context, '未找到用户信息');
@@ -374,7 +374,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
                 text: '正在刷新收藏信息',
                 onTaskbar: true,
               );
-              final limit = 50;
+              const limit = 50;
               var offset = 0;
               var resp = await api.getCollectionSubjects(
                 username: user!.id.toString(),
@@ -383,7 +383,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
               );
               if (resp.code != 0 || resp.data == null) {
                 progress.end();
-                showRespErr(resp, context);
+                if (mounted) showRespErr(resp, context);
                 return;
               }
               await sqliteCollection.preCheck();
@@ -406,7 +406,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
                 if (offset >= total) {
                   checkFlag = false;
                   progress.end();
-                  BtInfobar.success(context, '收藏信息写入完成');
+                  if (mounted) BtInfobar.success(context, '收藏信息写入完成');
                   break;
                 }
                 progress.update(
@@ -421,7 +421,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
                 );
                 if (resp.code != 0 || resp.data == null) {
                   progress.end();
-                  showRespErr(resp, context);
+                  if (mounted) showRespErr(resp, context);
                   return;
                 }
                 pageResp =

@@ -95,7 +95,7 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
         onClick: () async {
           var title = '条目详情 $subject';
           var pane = PaneItem(
-            icon: Icon(FluentIcons.info),
+            icon: const Icon(FluentIcons.info),
             title: Text(title),
             body: BangumiDetail(id: subject.toString()),
           );
@@ -113,14 +113,14 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
 
   /// 获取下载目录
   Future<String?> getSaveDir() async {
-    var saveDir;
+    String? saveDir;
     if (dir == null || dir!.isEmpty) {
       saveDir = await getDirectoryPath();
     } else {
       saveDir = dir;
     }
     if (saveDir == null || saveDir.isEmpty) {
-      await BtInfobar.error(context, '未选择下载目录');
+      if (mounted) await BtInfobar.error(context, '未选择下载目录');
       return null;
     }
     return saveDir;
@@ -145,9 +145,9 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     }
     var check = ref.read(dttStoreProvider.notifier).addTask(item, saveDir);
     if (check) {
-      BtInfobar.success(context, '添加下载任务成功');
+      if (context.mounted) BtInfobar.success(context, '添加下载任务成功');
     } else {
-      BtInfobar.warn(context, '已经在下载列表中');
+      if (context.mounted) BtInfobar.warn(context, '已经在下载列表中');
     }
   }
 
@@ -157,6 +157,7 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     if (saveDir == null || saveDir.isEmpty) {
       return;
     }
+    if (!context.mounted) return;
     var savePath = await getSavePath(context, saveDir);
     await launchUrlString(
       'mo://new-task/?type=torrent&dir=$saveDir',
@@ -169,7 +170,7 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     return Tooltip(
       message: '内置下载',
       child: IconButton(
-        icon: Icon(FluentIcons.link),
+        icon: const Icon(FluentIcons.link),
         onPressed: () async {
           await downloadInner(context);
         },
@@ -199,7 +200,7 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     return Tooltip(
       message: '打开链接',
       child: IconButton(
-        icon: Icon(FluentIcons.edge_logo),
+        icon: const Icon(FluentIcons.edge_logo),
         onPressed: () async {
           assert(item.link != null && item.link != '');
           await launchUrlString(item.link!);
@@ -226,7 +227,7 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
       message: item.title ?? '',
       child: Text(
         item.title ?? '',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
       ),
@@ -238,10 +239,10 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     assert(item.pubDate != null);
     return Row(
       children: [
-        Text('发布时间: '),
+        const Text('发布时间: '),
         Text(
           dateTransLocal(item.pubDate!),
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -252,10 +253,10 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     assert(item.enclosure != null);
     return Row(
       children: [
-        Text('资源大小: '),
+        const Text('资源大小: '),
         Text(
           filesize(item.enclosure!.length),
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -267,15 +268,15 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
       width: 275,
       height: 180,
       child: Card(
-        padding: EdgeInsets.all(8),
+        padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             buildTitle(),
-            Spacer(),
+            const Spacer(),
             buildPubDate(),
             if (item.pubDate != null) buildPubDate(),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             buildSource(),
             buildAct(context),
           ],

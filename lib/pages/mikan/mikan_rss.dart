@@ -61,12 +61,12 @@ class _MikanRSSPageState extends State<MikanRSSPage>
     setState(() {});
     var resGet = await mikanAPI.getClassicRSS();
     if (resGet.code != 0 || resGet.data == null) {
-      showRespErr(resGet, context);
+      if (mounted) showRespErr(resGet, context);
       return;
     }
     rssItems = resGet.data!;
     setState(() {});
-    await BtInfobar.success(context, '已刷新Mikan列表');
+    if (mounted) await BtInfobar.success(context, '已刷新Mikan列表');
   }
 
   /// 刷新
@@ -75,12 +75,12 @@ class _MikanRSSPageState extends State<MikanRSSPage>
     setState(() {});
     var resGet = await mikanAPI.getUserRSS(token);
     if (resGet.code != 0 || resGet.data == null) {
-      showRespErr(resGet, context);
+      if (mounted) showRespErr(resGet, context);
       return;
     }
     userItems = resGet.data!;
     setState(() {});
-    await BtInfobar.success(context, '已刷新用户列表');
+    if (mounted) await BtInfobar.success(context, '已刷新用户列表');
   }
 
   /// 初始化
@@ -110,7 +110,7 @@ class _MikanRSSPageState extends State<MikanRSSPage>
     return Tooltip(
       message: '刷新',
       child: IconButton(
-        icon: Icon(FluentIcons.refresh),
+        icon: const Icon(FluentIcons.refresh),
         onPressed: () async {
           if (useUserRSS) {
             await refreshUserRSS();
@@ -179,19 +179,16 @@ class _MikanRSSPageState extends State<MikanRSSPage>
           }
           if (v != old) {
             if (v) {
-              await BtInfobar.success(context, '已切换到用户列表');
+              if (mounted) await BtInfobar.success(context, '已切换到用户列表');
             } else {
-              await BtInfobar.success(context, '已切换到Mikan列表');
+              if (mounted) await BtInfobar.success(context, '已切换到Mikan列表');
             }
           }
           setState(() {});
         },
       ),
       SizedBox(width: 10.w),
-      FilledButton(
-        child: Text('Token: $token'),
-        onPressed: null,
-      ),
+      FilledButton(onPressed: null, child: Text('Token: $token')),
       SizedBox(width: 10.w),
       Button(
         onPressed: () async {
@@ -201,20 +198,20 @@ class _MikanRSSPageState extends State<MikanRSSPage>
             content: '请输入你的 Token\n（在蜜柑计划的个人中心可以找到）',
           );
           if (input == null || input == "") {
-            BtInfobar.warn(context, '未输入 Token');
+            if (mounted) BtInfobar.warn(context, '未输入 Token');
             return;
           }
           var parsed = await getToken(input);
           if (parsed == token) {
-            BtInfobar.warn(context, 'Token 未变更');
+            if (mounted) BtInfobar.warn(context, 'Token 未变更');
             return;
           }
           token = parsed;
           await sqlite.writeMikanToken(token);
-          await BtInfobar.success(context, 'Token 已保存');
+          if (mounted) await BtInfobar.success(context, 'Token 已保存');
           useUserRSS = true;
         },
-        child: Text('编辑Token'),
+        child: const Text('编辑Token'),
       )
     ];
   }
@@ -226,9 +223,9 @@ class _MikanRSSPageState extends State<MikanRSSPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ProgressRing(),
+            const ProgressRing(),
             SizedBox(height: 20.h),
-            Text('正在加载数据...'),
+            const Text('正在加载数据...'),
           ],
         ),
       );
@@ -236,7 +233,7 @@ class _MikanRSSPageState extends State<MikanRSSPage>
       return SingleChildScrollView(
         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
         child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: double.infinity),
+          constraints: const BoxConstraints(minWidth: double.infinity),
           child: Wrap(
             alignment: WrapAlignment.start,
             crossAxisAlignment: WrapCrossAlignment.start,

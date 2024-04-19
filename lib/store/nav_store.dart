@@ -68,7 +68,7 @@ class BTNavStore extends ChangeNotifier {
       body: item.body,
       icon: item.icon,
       trailing: IconButton(
-        icon: Icon(FluentIcons.clear),
+        icon: const Icon(FluentIcons.clear),
         onPressed: () {
           removeNavItem(title, type: type, param: param);
         },

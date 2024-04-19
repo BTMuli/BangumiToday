@@ -93,7 +93,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     if (calendarGet.code != 0 || calendarGet.data == null) {
       isRequesting = false;
       setState(() {});
-      showRespErr(calendarGet, context);
+      if (mounted) showRespErr(calendarGet, context);
       return;
     }
     assert(calendarGet.data != null);
@@ -122,7 +122,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: [ProgressRing(), SizedBox(height: 20.h), Text('正在加载数据...')],
+        children: [
+          const ProgressRing(),
+          SizedBox(height: 20.h),
+          const Text('正在加载数据...')
+        ],
       ),
     );
   }
@@ -137,7 +141,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         Tooltip(
           message: '刷新',
           child: IconButton(
-            icon: Icon(FluentIcons.refresh),
+            icon: const Icon(FluentIcons.refresh),
             onPressed: () async {
               await getData();
             },
@@ -154,14 +158,14 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     var pane = PaneItem(
       icon: Icon(FluentIcons.favorite_star, color: color),
       title: Text(title),
-      body: BangumiCollectionPage(),
+      body: const BangumiCollectionPage(),
     );
     return MenuFlyoutItem(
       leading: Icon(
         FluentIcons.favorite_star,
         color: user == null ? null : color,
       ),
-      text: Text('查看用户收藏'),
+      text: const Text('查看用户收藏'),
       onPressed: () async {
         if (user == null) {
           await BtInfobar.warn(context, '请前往用户界面登录');
@@ -179,14 +183,14 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     var pane = PaneItem(
       icon: Icon(FluentIcons.contact, color: color),
       title: Text(title),
-      body: BangumiUserPage(),
+      body: const BangumiUserPage(),
     );
     return MenuFlyoutItem(
       leading: Icon(
         FluentIcons.contact,
         color: color,
       ),
-      text: Text('查看用户界面'),
+      text: const Text('查看用户界面'),
       onPressed: () async {
         ref.read(navStoreProvider).addNavItem(pane, title);
       },
@@ -200,14 +204,14 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     var pane = PaneItem(
       icon: Icon(FluentIcons.database_source, color: color),
       title: Text(title),
-      body: BangumiDataPage(),
+      body: const BangumiDataPage(),
     );
     return MenuFlyoutItem(
       leading: Icon(
         FluentIcons.database_source,
         color: color,
       ),
-      text: Text('BangumiData 数据库'),
+      text: const Text('BangumiData 数据库'),
       onPressed: () async {
         ref.read(navStoreProvider).addNavItem(pane, title);
       },
@@ -221,14 +225,14 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     var pane = PaneItem(
       icon: Icon(FluentIcons.search, color: color),
       title: Text(title),
-      body: BangumiSearchPage(),
+      body: const BangumiSearchPage(),
     );
     return MenuFlyoutItem(
       leading: Icon(
         FluentIcons.search,
         color: color,
       ),
-      text: Text('Bangumi-条目搜索'),
+      text: const Text('Bangumi-条目搜索'),
       onPressed: () async {
         ref.read(navStoreProvider).addNavItem(pane, title);
       },
@@ -260,8 +264,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         style: ButtonStyle(
           backgroundColor: ButtonState.all(FluentTheme.of(context).accentColor),
         ),
-        child: Tooltip(message: '更多', child: Icon(FluentIcons.more)),
         onPressed: buildFlyout,
+        child: const Tooltip(message: '更多', child: Icon(FluentIcons.more)),
       ),
     );
   }
@@ -277,7 +281,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           setState(() {});
           await getData();
         },
-        child: Icon(FluentIcons.favorite_star),
+        child: const Icon(FluentIcons.favorite_star),
       ),
     );
   }
@@ -303,8 +307,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           Tab(
             text: Text('星期${weekday[i]}'),
             icon: i == today
-                ? Icon(FluentIcons.away_status)
-                : Icon(FluentIcons.calendar),
+                ? const Icon(FluentIcons.away_status)
+                : const Icon(FluentIcons.calendar),
             body: CalendarDay(data: getTabData(i), loading: isRequesting),
             semanticLabel: '星期${weekday[i]}',
           ),

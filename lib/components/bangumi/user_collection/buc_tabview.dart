@@ -135,7 +135,7 @@ class _BucTabState extends ConsumerState<BucTabView>
   /// 构建跳转
   Widget buildJump(BuildContext context) {
     return IconButton(
-      icon: Icon(FluentIcons.link),
+      icon: const Icon(FluentIcons.link),
       onPressed: () async {
         if (selectedData == null) {
           BtInfobar.warn(context, '请选择一个条目');
@@ -144,7 +144,7 @@ class _BucTabState extends ConsumerState<BucTabView>
         var title =
             '${selectedData!.subjectType.label}详情 ${selectedData!.subjectId}';
         var pane = PaneItem(
-          icon: Icon(FluentIcons.info),
+          icon: const Icon(FluentIcons.info),
           title: Text(title),
           body: BangumiDetail(id: selectedData!.subjectId.toString()),
         );
@@ -162,14 +162,14 @@ class _BucTabState extends ConsumerState<BucTabView>
   Widget buildTop(BuildContext context) {
     return Container(
       height: 60,
-      padding: EdgeInsets.all(8),
+      padding: const EdgeInsets.all(8),
       child: Row(
         children: [
           Text(
             '共${data.length}部',
             style: FluentTheme.of(context).typography.subtitle,
           ),
-          Spacer(),
+          const Spacer(),
           SizedBox(
             width: 600.w,
             child: buildSearch(context),
@@ -183,14 +183,12 @@ class _BucTabState extends ConsumerState<BucTabView>
   /// 构建列表
   Widget buildList() {
     if (data.isEmpty) {
-      return Center(
-        child: Text('没有数据'),
-      );
+      return const Center(child: Text('没有数据'));
     }
     return GridView(
       controller: ScrollController(),
-      padding: EdgeInsets.all(8),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
         childAspectRatio: 10 / 7,
         mainAxisSpacing: 8,

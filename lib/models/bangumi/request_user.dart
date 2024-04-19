@@ -12,10 +12,10 @@ part 'request_user.g.dart';
 class BangumiUserInfoResp extends BTResponse<BangumiUser> {
   /// constructor
   BangumiUserInfoResp({
-    required int code,
-    required String message,
-    required BangumiUser data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required BangumiUser super.data,
+  });
 
   /// success
   static BangumiUserInfoResp success({required BangumiUser data}) =>

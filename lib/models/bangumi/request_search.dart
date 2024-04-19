@@ -13,10 +13,10 @@ part 'request_search.g.dart';
 class BangumiSearchListResp extends BTResponse<BangumiSearchListData> {
   /// constructor
   BangumiSearchListResp({
-    required int code,
-    required String message,
-    required BangumiSearchListData data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required BangumiSearchListData super.data,
+  });
 
   /// success
   static BangumiSearchListResp success({required BangumiSearchListData data}) =>

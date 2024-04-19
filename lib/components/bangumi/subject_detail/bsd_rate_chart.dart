@@ -50,7 +50,7 @@ class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
   }
 
   Widget leftTitles(double value, TitleMeta meta) {
-    var style = TextStyle(fontWeight: FontWeight.bold);
+    var style = const TextStyle(fontWeight: FontWeight.bold);
     var max = getMaxY();
     var title5 = [0, max * 0.2, max * 0.4, max * 0.6, max * 0.8, max];
     if (title5.contains(value)) {
@@ -60,7 +60,7 @@ class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
         child: Text(value.toInt().toString(), style: style),
       );
     }
-    return SizedBox();
+    return const SizedBox();
   }
 
   /// 制造数据-单项
@@ -77,7 +77,7 @@ class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
           toY: val.toDouble(),
           color: color.light,
           gradient: gradient,
-          borderRadius: BorderRadius.all(Radius.circular(4)),
+          borderRadius: const BorderRadius.all(Radius.circular(4)),
           width: 35.w,
         ),
       ],
@@ -108,7 +108,7 @@ class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
       enabled: false,
       touchTooltipData: BarTouchTooltipData(
         getTooltipColor: (group) => Colors.transparent,
-        tooltipPadding: EdgeInsets.all(4),
+        tooltipPadding: const EdgeInsets.all(4),
         tooltipMargin: 0,
         getTooltipItem: (group, groupIndex, rod, rodIndex) {
           var val = rod.toY.toInt();
@@ -170,13 +170,14 @@ class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
             getTitlesWidget: leftTitles,
           ),
         ),
-        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles:
+            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       ),
       maxY: maxY,
       borderData: FlBorderData(show: false),
       barGroups: makeData(context),
-      gridData: FlGridData(show: false),
+      gridData: const FlGridData(show: false),
     );
   }
 

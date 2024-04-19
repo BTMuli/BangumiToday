@@ -182,7 +182,7 @@ class _BucCardState extends ConsumerState<BucCard>
             onPressed: () {
               var title = '${data.type.label}详情 ${data.id}';
               var pane = PaneItem(
-                icon: Icon(FluentIcons.info),
+                icon: const Icon(FluentIcons.info),
                 title: Text(title),
                 body: BangumiDetail(id: data.id.toString()),
               );
@@ -211,7 +211,7 @@ class _BucCardState extends ConsumerState<BucCard>
           message: title,
           child: Text(
             title,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),

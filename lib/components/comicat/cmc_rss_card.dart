@@ -31,7 +31,7 @@ class ComicatRssCard extends StatelessWidget {
               assert(item.title != null && item.title != '');
               var saveDir = await getDirectoryPath();
               if (saveDir == null || saveDir.isEmpty) {
-                await BtInfobar.error(context, '未选择下载目录');
+                if (context.mounted) await BtInfobar.error(context, '未选择下载目录');
                 return;
               }
               var savePath = await BTDownloadTool().downloadRssTorrent(

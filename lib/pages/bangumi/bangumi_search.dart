@@ -89,7 +89,7 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
       nsfw: nsfw,
     );
     if (resp.code != 0 || resp.data == null) {
-      await showRespErr(resp, context);
+      if (mounted) await showRespErr(resp, context);
       return;
     }
     var data = resp.data as BangumiPageT<BangumiSubjectSearchData>;
@@ -102,12 +102,12 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
   Widget buildHeader(BuildContext context) {
     return PageHeader(
       leading: IconButton(
-        icon: Icon(FluentIcons.back),
+        icon: const Icon(FluentIcons.back),
         onPressed: () {
           ref.read(navStoreProvider).removeNavItem('Bangumi-条目搜索');
         },
       ),
-      title: Text('Bangumi-条目搜索'),
+      title: const Text('Bangumi-条目搜索'),
     );
   }
 
@@ -134,7 +134,7 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
     return MenuFlyoutItem(
       text: Text(sortMap[key]!),
       selected: sort == key,
-      trailing: sort == key ? Icon(FluentIcons.check_mark) : null,
+      trailing: sort == key ? const Icon(FluentIcons.check_mark) : null,
       leading: Icon(icon, color: FluentTheme.of(context).accentColor),
       onPressed: () {
         sort = key;
@@ -157,13 +157,14 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
   /// 构建搜索类型选择
   Widget buildTypeSelects() {
     return DropDownButton(
-      title: Text('搜索类型'),
+      title: const Text('搜索类型'),
       items: BangumiSubjectType.values
           .map((e) => MenuFlyoutItem(
                 text: Text(e.label),
                 selected: types.contains(e),
-                trailing:
-                    types.contains(e) ? Icon(FluentIcons.check_mark) : null,
+                trailing: types.contains(e)
+                    ? const Icon(FluentIcons.check_mark)
+                    : null,
                 onPressed: () {
                   if (types.contains(e)) {
                     types.remove(e);
@@ -191,7 +192,7 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
         nsfw = nsfwList[(index + 1) % nsfwList.length];
         setState(() {});
       },
-      content: Text('NSFW'),
+      content: const Text('NSFW'),
     );
   }
 
@@ -201,7 +202,7 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
       children: [
         SizedBox(width: 16.w),
         IconButton(
-          icon: Icon(FluentIcons.search),
+          icon: const Icon(FluentIcons.search),
           onPressed: () async {
             await search();
           },
@@ -233,22 +234,20 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ProgressRing(),
+            const ProgressRing(),
             SizedBox(height: 12.h),
-            Text('加载中'),
+            const Text('加载中'),
           ],
         ),
       );
     }
     if (result.isEmpty) {
-      return Center(
-        child: Text('没有数据'),
-      );
+      return const Center(child: Text('没有数据'));
     }
     return GridView(
       controller: ScrollController(),
-      padding: EdgeInsets.all(8),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
         childAspectRatio: 10 / 7,
         mainAxisSpacing: 8,

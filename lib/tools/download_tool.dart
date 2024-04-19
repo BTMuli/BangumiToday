@@ -28,7 +28,7 @@ class BTDownloadTool {
   /// 获取默认路径
   Future<String> _getDefaultPath() async {
     var dir = await _instance._fileTool.getAppDataDir();
-    return path.join('$dir', 'download');
+    return path.join(dir, 'download');
   }
 
   /// 初始化

@@ -61,12 +61,12 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
         Image.asset('assets/images/logo.png', height: 40),
         SizedBox(width: 16.w),
         Text('BMF配置', style: FluentTheme.of(context).typography.title),
-        Spacer(),
+        const Spacer(),
         IconButton(
-          icon: Icon(FluentIcons.refresh),
+          icon: const Icon(FluentIcons.refresh),
           onPressed: () async {
             await init();
-            await BtInfobar.success(context, '刷新成功');
+            if (context.mounted) await BtInfobar.success(context, '刷新成功');
           },
         ),
         SizedBox(width: 16.w),

@@ -65,11 +65,15 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
     setState(() {});
     if (version != '') {
       progress.update(title: '成功获取本地版本', text: version);
-      await Future.delayed(Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 500));
       progress.end();
       return;
     }
     progress.update(title: '未获取到本地版本', text: '开始获取远程版本');
+    if (!mounted) {
+      progress.end();
+      return;
+    }
     var confirm = await showConfirmDialog(
       context,
       title: '未获取到本地版本',
@@ -83,9 +87,9 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
     var verGet = await bgmDataClient.getVersion();
     if (verGet.code != 0 || verGet.data == null) {
       progress.update(text: '获取远程版本失败');
-      await Future.delayed(Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 1));
       progress.end();
-      showRespErr(verGet, context);
+      if (mounted) showRespErr(verGet, context);
       return;
     }
     var verRemote = verGet.data as String;
@@ -93,7 +97,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
     await updateData();
     await appConfig.write('bangumiDataVersion', verRemote);
     progress.update(text: '已更新到最新版本');
-    await Future.delayed(Duration(seconds: 1));
+    await Future.delayed(const Duration(seconds: 1));
     progress.end();
   }
 
@@ -104,14 +108,14 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
     var dataGet = await bgmDataClient.getData();
     if (dataGet.code != 0) {
       progress.update(text: '获取数据失败');
-      await Future.delayed(Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 1));
       progress.end();
-      showRespErr(dataGet, context);
+      if (mounted) showRespErr(dataGet, context);
       return;
     }
     var rawData = dataGet.data as BangumiDataJson;
     progress.update(title: '成功获取数据', text: '正在写入数据');
-    var cnt, total;
+    int cnt, total;
     var sites = [];
     for (var entry in rawData.siteMeta.entries) {
       sites.add(BangumiDataSiteFull.fromSite(entry.key, entry.value));
@@ -126,7 +130,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
       );
       await bgmDataSqlite.writeSite(site);
       cnt++;
-      await Future.delayed(Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 200));
     }
     var items = rawData.items;
     total = items.length;
@@ -146,9 +150,9 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
   /// 构建顶部栏
   Widget buildHeader() {
     return PageHeader(
-      title: Text('BangumiData'),
+      title: const Text('BangumiData'),
       leading: IconButton(
-        icon: Icon(FluentIcons.back),
+        icon: const Icon(FluentIcons.back),
         onPressed: () {
           ref.read(navStoreProvider).removeNavItem('BangumiData');
         },
@@ -165,8 +169,8 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
         children: [
           ListTile(
-            leading: Icon(FluentIcons.git_graph),
-            title: Text('BangumiData'),
+            leading: const Icon(FluentIcons.git_graph),
+            title: const Text('BangumiData'),
             subtitle: Text(version ?? 'unknown'),
             onPressed: () async {
               await launchUrlString(
@@ -175,9 +179,9 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
             },
           ),
           ListTile(
-            leading: Icon(FluentIcons.cloud_download),
-            title: Text('检测更新'),
-            subtitle: Text('更新BangumiData数据'),
+            leading: const Icon(FluentIcons.cloud_download),
+            title: const Text('检测更新'),
+            subtitle: const Text('更新BangumiData数据'),
             onPressed: () async {
               progress = ProgressWidget.show(
                 context,
@@ -188,21 +192,22 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
               var remoteGet = await bgmDataClient.getVersion();
               if (remoteGet.code != 0 || remoteGet.data == null) {
                 progress.update(text: '获取远程版本失败');
-                await Future.delayed(Duration(seconds: 1));
+                await Future.delayed(const Duration(seconds: 1));
                 progress.end();
-                showRespErr(remoteGet, context);
+                if (context.mounted) showRespErr(remoteGet, context);
                 return;
               }
               var remote = remoteGet.data as String;
               progress.update(title: '成功获取远程版本', text: remote);
-              await Future.delayed(Duration(milliseconds: 500));
+              await Future.delayed(const Duration(milliseconds: 500));
               progress.end();
+              if (!context.mounted) return;
               var confirm = await showConfirmDialog(
                 context,
                 title: '确认更新？',
                 content: '远程版本：$remote，本地版本：$version',
               );
-              if (confirm) {
+              if (confirm && context.mounted) {
                 progress = ProgressWidget.show(
                   context,
                   title: '开始更新数据',
@@ -214,7 +219,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
                 progress.update(text: '已更新到最新版本');
                 version = remote;
                 setState(() {});
-                await Future.delayed(Duration(seconds: 1));
+                await Future.delayed(const Duration(seconds: 1));
                 progress.end();
               }
             },

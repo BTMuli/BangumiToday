@@ -244,16 +244,11 @@ class BangumiDataSiteFull extends BangumiDataSite {
   /// constructor
   BangumiDataSiteFull({
     required this.key,
-    required String title,
-    required String urlTemplate,
-    required String type,
-    required List<String>? regions,
-  }) : super(
-          title: title,
-          urlTemplate: urlTemplate,
-          type: type,
-          regions: regions,
-        );
+    required super.title,
+    required super.urlTemplate,
+    required super.type,
+    required super.regions,
+  });
 
   /// from json
   factory BangumiDataSiteFull.fromJson(Map<String, dynamic> json) =>
@@ -270,6 +265,7 @@ class BangumiDataSiteFull extends BangumiDataSite {
       );
 
   /// to json
+  @override
   Map<String, dynamic> toJson() => _$BangumiDataSiteFullToJson(this);
 
   /// to sql json
@@ -304,10 +300,10 @@ class BangumiDataSiteFull extends BangumiDataSite {
 class BangumiDataResp extends BTResponse<BangumiDataJson> {
   /// constructor
   BangumiDataResp({
-    required int code,
-    required String message,
-    required BangumiDataJson data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required BangumiDataJson super.data,
+  });
 
   /// success
   static BangumiDataResp success({required BangumiDataJson data}) =>

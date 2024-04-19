@@ -77,7 +77,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     final api = BtrBangumiApi();
     var detailGet = await api.getSubjectDetail(widget.id);
     if (detailGet.code != 0 || detailGet.data == null) {
-      await showRespErr(detailGet, context);
+      if (mounted) await showRespErr(detailGet, context);
       showError = true;
       return;
     }
@@ -92,7 +92,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
 
   /// 构建顶部栏
   Widget buildHeader() {
-    var title;
+    String? title;
     if (data == null) {
       title = 'ID: ${widget.id}';
     } else {
@@ -100,7 +100,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     }
     return PageHeader(
       leading: IconButton(
-        icon: Icon(FluentIcons.back),
+        icon: const Icon(FluentIcons.back),
         onPressed: () {
           if (data == null) {
             BtInfobar.error(context, '数据为空');
@@ -120,7 +120,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
         ),
       ),
       commandBar: IconButton(
-        icon: Icon(FluentIcons.refresh),
+        icon: const Icon(FluentIcons.refresh),
         onPressed: () async {
           await init();
         },
@@ -135,9 +135,9 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(FluentIcons.error),
+            const Icon(FluentIcons.error),
             SizedBox(height: 12.h),
-            Text('Error: 加载失败'),
+            const Text('Error: 加载失败'),
           ],
         ),
       );
@@ -146,9 +146,9 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          ProgressRing(),
+          const ProgressRing(),
           SizedBox(height: 12.h),
-          Text('Loading...'),
+          const Text('Loading...'),
         ],
       ),
     );
@@ -158,7 +158,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
   Widget buildSummary(String summary) {
     if (summary == '') {
       return ListTile(
-        leading: Icon(FluentIcons.error_badge),
+        leading: const Icon(FluentIcons.error_badge),
         title: Text('没有简介', style: TextStyle(fontSize: 24.sp)),
       );
     }
@@ -166,7 +166,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       margin: EdgeInsets.only(right: 12.w),
       child: Expander(
           initiallyExpanded: true,
-          leading: Icon(FluentIcons.info),
+          leading: const Icon(FluentIcons.info),
           header: Text('简介', style: TextStyle(fontSize: 24.sp)),
           content: Text(summary)),
     );
@@ -178,7 +178,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     // 换行加tab
     var gap = "\n    ";
     for (var item in infobox) {
-      var value;
+      String value;
       if (item.value is List) {
         var list = item.value as List;
         value = list
@@ -198,7 +198,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     return Container(
       margin: EdgeInsets.only(right: 12.w),
       child: Expander(
-        leading: Icon(FluentIcons.info),
+        leading: const Icon(FluentIcons.info),
         header: Text('其他信息', style: TextStyle(fontSize: 24.sp)),
         content: Column(
           mainAxisAlignment: MainAxisAlignment.start,

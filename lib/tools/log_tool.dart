@@ -34,7 +34,7 @@ class BTLogTool {
   /// 获取日志目录
   Future<String> _getDefaultDir() async {
     var dir = await _instance._fileTool.getAppDataDir();
-    return path.join('$dir', 'log');
+    return path.join(dir, 'log');
   }
 
   /// 获取文件名称 yyyy-MM-dd.log
@@ -46,7 +46,7 @@ class BTLogTool {
   /// 获取日志文件
   Future<File> _getLogFile() async {
     var dir = await _getDefaultDir();
-    var file = path.join('$dir', _getFileName());
+    var file = path.join(dir, _getFileName());
     if (!await _instance._fileTool.isFileExist(file)) {
       return await _instance._fileTool.createFile(file);
     }
@@ -57,7 +57,7 @@ class BTLogTool {
   Future<void> init() async {
     var outputC = ConsoleOutput();
     var outputs = <LogOutput>[outputC];
-    var printer;
+    PrettyPrinter printer;
     if (!kDebugMode) {
       var file = await _getLogFile();
       var outputF = FileOutput(file: file, overrideExisting: false);

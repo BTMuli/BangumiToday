@@ -21,7 +21,7 @@ class _TestPageState extends ConsumerState<TestPage> {
   Widget buildTest() {
     return Button(
       onPressed: () async {},
-      child: Text('Test'),
+      child: const Text('Test'),
     );
   }
 
@@ -29,9 +29,7 @@ class _TestPageState extends ConsumerState<TestPage> {
   @override
   Widget build(BuildContext context) {
     return ScaffoldPage(
-      header: PageHeader(
-        title: Text('Test Page'),
-      ),
+      header: const PageHeader(title: Text('Test Page')),
       content: Center(
         child: buildTest(),
       ),

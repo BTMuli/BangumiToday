@@ -13,10 +13,10 @@ class BangumiCollectionSubjectListResp
     extends BTResponse<BangumiPageT<BangumiUserSubjectCollection>> {
   /// constructor
   BangumiCollectionSubjectListResp({
-    required int code,
-    required String message,
-    required BangumiPageT<BangumiUserSubjectCollection> data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required BangumiPageT<BangumiUserSubjectCollection> super.data,
+  });
 
   /// success
   static BangumiCollectionSubjectListResp success(
@@ -35,10 +35,10 @@ class BangumiCollectionSubjectItemResp
     extends BTResponse<BangumiUserSubjectCollection> {
   /// constructor
   BangumiCollectionSubjectItemResp({
-    required int code,
-    required String message,
-    required BangumiUserSubjectCollection data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required BangumiUserSubjectCollection super.data,
+  });
 
   /// success
   static BangumiCollectionSubjectItemResp success(
@@ -57,10 +57,10 @@ class BangumiCollectionEpisodeListResp
     extends BTResponse<BangumiPageT<BangumiUserEpisodeCollection>> {
   /// constructor
   BangumiCollectionEpisodeListResp({
-    required int code,
-    required String message,
-    required BangumiPageT<BangumiUserEpisodeCollection> data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required BangumiPageT<BangumiUserEpisodeCollection> super.data,
+  });
 
   /// success
   static BangumiCollectionEpisodeListResp success(
@@ -79,10 +79,10 @@ class BangumiCollectionEpisodeItemResp
     extends BTResponse<BangumiUserEpisodeCollection> {
   /// constructor
   BangumiCollectionEpisodeItemResp({
-    required int code,
-    required String message,
-    required BangumiUserEpisodeCollection data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required BangumiUserEpisodeCollection super.data,
+  });
 
   /// success
   static BangumiCollectionEpisodeItemResp success(

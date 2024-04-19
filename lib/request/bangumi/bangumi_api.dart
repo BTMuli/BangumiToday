@@ -27,7 +27,7 @@ class BtrBangumiApi {
   final BtsBangumiUser sqlite = BtsBangumiUser();
 
   /// access token
-  static late String accessToken = '';
+  static String accessToken = '';
 
   /// 构造函数
   BtrBangumiApi() {

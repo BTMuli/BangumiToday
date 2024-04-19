@@ -112,14 +112,14 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
   /// buildEpHint 用于表示章节的提示信息
   Widget buildEpHint(BangumiEpType type) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
         color: FluentTheme.of(context).accentColor,
       ),
       child: Text(
         '${type.label} →',
-        style: TextStyle(fontWeight: FontWeight.bold),
+        style: const TextStyle(fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -157,7 +157,7 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
           onPressed: () async {
             await load();
           },
-          child: Text('加载更多'),
+          child: const Text('加载更多'),
         ),
       );
     }

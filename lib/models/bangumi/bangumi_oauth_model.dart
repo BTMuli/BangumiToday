@@ -123,10 +123,10 @@ class BangumiOauthTokenGetResp extends BTResponse<BangumiOauthTokenGetData> {
   /// constructor
   @override
   BangumiOauthTokenGetResp({
-    required int code,
-    required String message,
-    required BangumiOauthTokenGetData? data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required super.data,
+  });
 
   /// success
   static BangumiOauthTokenGetResp success(
@@ -224,10 +224,10 @@ class BangumiOauthTokenRefreshResp
   /// constructor
   @override
   BangumiOauthTokenRefreshResp({
-    required int code,
-    required String message,
-    required BangumiOauthTokenRefreshData? data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required super.data,
+  });
 
   /// success
   static BangumiOauthTokenRefreshResp success(
@@ -286,10 +286,10 @@ class BangumiOauthTokenStatusResp
   /// constructor
   @override
   BangumiOauthTokenStatusResp({
-    required int code,
-    required String message,
-    required BangumiOauthTokenStatusData? data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required super.data,
+  });
 
   /// success
   static BangumiOauthTokenStatusResp success(

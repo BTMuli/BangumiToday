@@ -21,6 +21,6 @@ void main() async {
   await BTLogTool().init();
   await BTNotifierTool().init();
   await BTSqlite().init();
-  runApp(ProviderScope(child: BTApp()));
+  runApp(const ProviderScope(child: BTApp()));
   Window.setEffect(effect: WindowEffect.acrylic);
 }

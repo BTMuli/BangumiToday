@@ -32,7 +32,7 @@ class BTSchemeTool {
   /// 测试
   Future<void> test(BuildContext context) async {
     final uri = await appLink.getLatestAppLink();
-    BtInfobar.success(context, '[BangumiToday] $uri');
+    if (context.mounted) BtInfobar.success(context, '[BangumiToday] $uri');
   }
 
   /// 注册链接

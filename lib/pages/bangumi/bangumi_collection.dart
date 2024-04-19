@@ -74,7 +74,7 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
       children: [
         Image.asset('assets/images/platforms/bangumi-text.png'),
         SizedBox(width: 8.w),
-        Text('用户收藏'),
+        const Text('用户收藏'),
       ],
     );
   }
@@ -83,7 +83,7 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
   Widget buildFooter() {
     return Row(children: [
       FilledButton(
-        child: Text('关闭'),
+        child: const Text('关闭'),
         onPressed: () {
           ref.read(navStoreProvider).removeNavItem('Bangumi-用户收藏');
         },

@@ -26,9 +26,9 @@ class CalendarDay extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ProgressRing(),
+            const ProgressRing(),
             SizedBox(height: 20.h),
-            Text('正在加载数据...'),
+            const Text('正在加载数据...'),
           ],
         ),
       );
@@ -39,7 +39,7 @@ class CalendarDay extends StatelessWidget {
         children: [
           Icon(FluentIcons.error, color: FluentTheme.of(context).accentColor),
           SizedBox(width: 10.w),
-          Text('没有放送数据'),
+          const Text('没有放送数据'),
         ],
       ),
     );
@@ -49,8 +49,8 @@ class CalendarDay extends StatelessWidget {
   Widget buildList() {
     return GridView(
       controller: ScrollController(),
-      padding: EdgeInsets.all(8),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         childAspectRatio: 10 / 7,
         mainAxisSpacing: 8,

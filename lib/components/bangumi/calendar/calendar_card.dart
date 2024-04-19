@@ -121,7 +121,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
   /// 获取 PaneItem
   PaneItem getPaneItem(BuildContext context) {
     return PaneItem(
-      icon: Icon(FluentIcons.info),
+      icon: const Icon(FluentIcons.info),
       title: Text('动画详情 ${data.id}'),
       body: BangumiDetail(id: data.id.toString()),
     );
@@ -250,7 +250,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
           message: title,
           child: Text(
             title,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
           ),

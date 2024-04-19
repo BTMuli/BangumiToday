@@ -13,10 +13,10 @@ part 'request_subject.g.dart';
 class BangumiCalendarResp extends BTResponse<List<BangumiCalendarRespData>> {
   /// constructor
   BangumiCalendarResp({
-    required int code,
-    required String message,
-    required List<BangumiCalendarRespData> data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required List<BangumiCalendarRespData> super.data,
+  });
 
   /// success
   static BangumiCalendarResp success(
@@ -34,10 +34,10 @@ class BangumiSubjectSearchResp
     extends BTResponse<BangumiPageT<BangumiSubjectSearchData>> {
   /// constructor
   BangumiSubjectSearchResp({
-    required int code,
-    required String message,
-    required BangumiPageT<BangumiSubjectSearchData> data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required BangumiPageT<BangumiSubjectSearchData> super.data,
+  });
 
   /// success
   static BangumiSubjectSearchResp success(
@@ -54,10 +54,10 @@ class BangumiSubjectSearchResp
 class BangumiSubjectResp extends BTResponse<BangumiSubject> {
   /// constructor
   BangumiSubjectResp({
-    required int code,
-    required String message,
-    required BangumiSubject data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required BangumiSubject super.data,
+  });
 
   /// success
   static BangumiSubjectResp success({required BangumiSubject data}) =>
@@ -74,10 +74,10 @@ class BangumiSubjectRelationsResp
     extends BTResponse<List<BangumiSubjectRelation>> {
   /// constructor
   BangumiSubjectRelationsResp({
-    required int code,
-    required String message,
-    required List<BangumiSubjectRelation> data,
-  }) : super(code: code, message: message, data: data);
+    required super.code,
+    required super.message,
+    required List<BangumiSubjectRelation> super.data,
+  });
 
   /// success
   static BangumiSubjectRelationsResp success(

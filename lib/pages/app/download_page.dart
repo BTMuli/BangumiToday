@@ -22,11 +22,6 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
   List<DttItem> list = [];
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   bool get wantKeepAlive => true;
 
   /// 构建头部
@@ -38,7 +33,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           Text('下载管理', style: FluentTheme.of(context).typography.title),
           SizedBox(width: 16.w),
           IconButton(
-            icon: Icon(FluentIcons.refresh),
+            icon: const Icon(FluentIcons.refresh),
             onPressed: () {
               list = ref.read(dttStoreProvider).list;
               setState(() {});

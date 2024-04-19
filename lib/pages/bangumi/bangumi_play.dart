@@ -59,14 +59,14 @@ class _BangumiPlayPageState extends ConsumerState<BangumiPlayPage> {
   Widget buildHeader() {
     return PageHeader(
       leading: IconButton(
-        icon: Icon(FluentIcons.back),
+        icon: const Icon(FluentIcons.back),
         onPressed: () {
           ref.read(navStoreProvider).removeNavItem('内置播放');
         },
       ),
       title: Tooltip(
         message: widget.file,
-        child: Text('内置播放'),
+        child: const Text('内置播放'),
       ),
       commandBar: Row(
         children: buildHeaderActions(),
@@ -81,25 +81,25 @@ class _BangumiPlayPageState extends ConsumerState<BangumiPlayPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ProgressRing(),
+            const ProgressRing(),
             SizedBox(height: 12.h),
-            Text('Loading...'),
+            const Text('Loading...'),
           ],
         ),
       );
     }
     return Center(
       child: Card(
+        padding: EdgeInsets.zero,
+        margin: EdgeInsets.symmetric(
+          vertical: 16.w,
+          horizontal: 16.h,
+        ),
         child: AspectRatio(
           aspectRatio: 16 / 9,
           child: SizedBox.expand(
             child: BangumiPlayVideoWidget(controller),
           ),
-        ),
-        padding: EdgeInsets.all(0),
-        margin: EdgeInsets.symmetric(
-          vertical: 16.w,
-          horizontal: 16.h,
         ),
       ),
     );

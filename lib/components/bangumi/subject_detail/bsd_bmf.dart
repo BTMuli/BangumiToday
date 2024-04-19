@@ -103,13 +103,13 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   /// 初始化 timerRss
   Future<void> initTimerRss() async {
     if (widget.isConfig) {
-      timerRss = Timer.periodic(Duration(minutes: 15), (timer) async {
+      timerRss = Timer.periodic(const Duration(minutes: 15), (timer) async {
         await freshRss();
         BTLogTool.info('BMF RSS 页面刷新 ${widget.subjectId}');
         setState(() {});
       });
     } else {
-      timerRss = Timer.periodic(Duration(minutes: 5), (timer) async {
+      timerRss = Timer.periodic(const Duration(minutes: 5), (timer) async {
         await freshRss();
         BTLogTool.info('BMF RSS 页面刷新 ${widget.subjectId}');
         setState(() {});
@@ -119,7 +119,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
 
   /// 初始化 timerFiles
   Future<void> initTimerFiles() async {
-    timerFiles = Timer.periodic(Duration(seconds: 5), (timer) async {
+    timerFiles = Timer.periodic(const Duration(seconds: 5), (timer) async {
       await freshFiles();
       BTLogTool.info('BMF Files 页面刷新 ${widget.subjectId}');
       setState(() {});
@@ -169,7 +169,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     }
     var rssGet = await mikanAPI.getCustomRSS(bmf.rss!);
     if (rssGet.code != 0 || rssGet.data == null) {
-      showRespErr(rssGet, context);
+      if (mounted) showRespErr(rssGet, context);
     }
     var feed = rssGet.data! as RssFeed;
     setState(() {
@@ -247,7 +247,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         if (input == null) return;
         var check = await sqliteBmf.checkRss(input);
         if (check) {
-          BtInfobar.error(context, '该RSS已经被其他BMF使用');
+          if (context.mounted) BtInfobar.error(context, '该RSS已经被其他BMF使用');
           return;
         }
         bmf.rss = input;
@@ -257,7 +257,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
           bmf = read;
           setState(() {});
         }
-        await BtInfobar.success(context, '成功设置 MikanRSS');
+        if (context.mounted) await BtInfobar.success(context, '成功设置 MikanRSS');
         await freshRss();
       },
     );
@@ -278,7 +278,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         if (dir == null) return;
         var check = await sqliteBmf.checkDir(dir);
         if (check) {
-          BtInfobar.error(context, '该目录已经被其他BMF使用');
+          if (context.mounted) BtInfobar.error(context, '该目录已经被其他BMF使用');
           return;
         }
         bmf.download = dir;
@@ -288,7 +288,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
           bmf = read;
           setState(() {});
         }
-        await BtInfobar.success(context, '成功设置下载目录');
+        if (context.mounted) await BtInfobar.success(context, '成功设置下载目录');
         await freshFiles();
       },
       onLongPress: () async {
@@ -298,7 +298,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         }
         var res = await fileTool.openDir(bmf.download!);
         if (!res) {
-          await BtInfobar.error(context, '打开目录失败：未检测到该目录');
+          if (context.mounted) await BtInfobar.error(context, '打开目录失败：未检测到该目录');
         }
       },
     );
@@ -307,7 +307,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   /// buildHeaderDel
   Widget buildHeaderDel(BuildContext context) {
     return Button(
-      child: Text('删除'),
+      child: const Text('删除'),
       onPressed: () async {
         var confirm = await showConfirmDialog(
           context,
@@ -319,7 +319,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         if (bmf.rss != null && bmf.rss!.isNotEmpty) {
           await sqliteRss.delete(bmf.rss!);
         }
-        await BtInfobar.success(context, '成功删除 BMF 信息');
+        if (context.mounted) await BtInfobar.success(context, '成功删除 BMF 信息');
         setState(() {
           bmf = AppBmfModel(subject: widget.subjectId);
           rssItems = [];
@@ -359,7 +359,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         children: [
           Icon(FluentIcons.play, color: FluentTheme.of(context).accentColor),
           SizedBox(width: 8.w),
-          Text('调用PotPlayer打开'),
+          const Text('调用PotPlayer打开'),
         ],
       ),
       onPressed: () async {
@@ -373,8 +373,8 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     var navStore = ref.read(navStoreProvider);
     var filePath = path.join(bmf.download!, file);
     var pane = PaneItem(
-      icon: Icon(FluentIcons.play),
-      title: Text('内置播放'),
+      icon: const Icon(FluentIcons.play),
+      title: const Text('内置播放'),
       body: BangumiPlayPage(filePath),
     );
     navStore.addNavItem(pane, '内置播放');
@@ -388,7 +388,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
           Icon(FluentIcons.box_play_solid,
               color: FluentTheme.of(context).accentColor),
           SizedBox(width: 8.w),
-          Text('内置播放器打开'),
+          const Text('内置播放器打开'),
         ],
       ),
       onPressed: () async {
@@ -407,7 +407,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     if (!confirm) return;
     var filePath = path.join(bmf.download!, file);
     await fileTool.deleteFile(filePath);
-    BtInfobar.success(context, '成功删除文件 $file');
+    if (mounted) BtInfobar.success(context, '成功删除文件 $file');
     await freshFiles();
   }
 
@@ -418,7 +418,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         children: [
           Icon(FluentIcons.delete, color: FluentTheme.of(context).accentColor),
           SizedBox(width: 8.w),
-          Text('删除文件'),
+          const Text('删除文件'),
         ],
       ),
       onPressed: () async {
@@ -438,8 +438,8 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     if (aria2Files.contains(file)) {
       var size = fileTool.getFileSize(path.join(bmf.download!, file));
       return [
-        SizedBox(width: double.infinity, child: ProgressBar(value: null)),
-        SizedBox(height: 6),
+        const SizedBox(width: double.infinity, child: ProgressBar(value: null)),
+        const SizedBox(height: 6),
         Row(mainAxisAlignment: MainAxisAlignment.end, children: [
           Text('下载中：${filesize(size)}'),
         ]),
@@ -448,16 +448,16 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     if (kDebugMode) {
       return [
         potplayerBtn,
-        SizedBox(height: 6),
+        const SizedBox(height: 6),
         innerPlayerBtn,
-        SizedBox(height: 6),
+        const SizedBox(height: 6),
         deleteBtn,
       ];
     }
     if (!file.endsWith('.mp4') && !file.endsWith('.mkv')) {
       return [deleteBtn];
     }
-    return [potplayerBtn, SizedBox(height: 6), deleteBtn];
+    return [potplayerBtn, const SizedBox(height: 6), deleteBtn];
   }
 
   /// buildFileCards
@@ -468,7 +468,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         message: file,
         child: Text(
           file,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
         ),
@@ -477,12 +477,12 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         width: 275,
         height: 200,
         child: Card(
-          padding: EdgeInsets.all(8),
+          padding: const EdgeInsets.all(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               title,
-              Spacer(),
+              const Spacer(),
               ...buildFileAct(context, file),
             ],
           ),
@@ -498,14 +498,14 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     return Row(
       children: [
         Button(
-            child: Text('刷新'),
+            child: const Text('刷新'),
             onPressed: () async {
               if (bmf.download == null || bmf.download!.isEmpty) {
                 await BtInfobar.error(context, '请先设置下载目录');
                 return;
               }
               await freshFiles();
-              await BtInfobar.success(context, '刷新文件成功');
+              if (mounted) await BtInfobar.success(context, '刷新文件成功');
             }),
         SizedBox(width: 12.w),
         Text('下载目录: ${bmf.download}', style: TextStyle(fontSize: 24.sp)),
@@ -518,14 +518,14 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     return Row(
       children: [
         Button(
-          child: Text('刷新'),
+          child: const Text('刷新'),
           onPressed: () async {
             if (bmf.rss == null || bmf.rss!.isEmpty) {
               await BtInfobar.error(context, '请先设置 RSS');
               return;
             }
             await freshRss();
-            await BtInfobar.success(context, '刷新 RSS 成功');
+            if (mounted) await BtInfobar.success(context, '刷新 RSS 成功');
           },
         ),
         SizedBox(width: 12.w),
@@ -560,7 +560,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
       buildDirTitle(),
       SizedBox(height: 12.h),
       if (files.isEmpty)
-        Text('没有找到任何文件')
+        const Text('没有找到任何文件')
       else
         Wrap(
           spacing: 8,
@@ -571,7 +571,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
       buildRssTitle(),
       SizedBox(height: 12.h),
       if (rssItems.isEmpty)
-        Text('没有找到任何 RSS 信息')
+        const Text('没有找到任何 RSS 信息')
       else
         Wrap(
           spacing: 12.w,
@@ -585,7 +585,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   void toSubjectDetail() {
     var navStore = ref.read(navStoreProvider);
     var pane = PaneItem(
-      icon: Icon(FluentIcons.info),
+      icon: const Icon(FluentIcons.info),
       title: Text('条目详情 ${bmf.subject}'),
       body: BangumiDetail(id: bmf.subject.toString()),
     );
@@ -601,12 +601,12 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   Widget buildLeading() {
     if (widget.isConfig) {
       return IconButton(
-        icon: Icon(FluentIcons.settings),
+        icon: const Icon(FluentIcons.settings),
         onPressed: toSubjectDetail,
       );
     }
     return IconButton(
-      icon: Icon(FluentIcons.settings),
+      icon: const Icon(FluentIcons.settings),
       onPressed: () {
         ref.read(navStoreProvider).goIndex(3);
       },
@@ -625,8 +625,8 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   /// buildEmpty
   Widget buildEmpty() {
     return ListTile(
-      leading: Icon(FluentIcons.error_badge),
-      title: Text('没有找到对应的 BMF 配置信息'),
+      leading: const Icon(FluentIcons.error_badge),
+      title: const Text('没有找到对应的 BMF 配置信息'),
       trailing: buildHeaderAction(context),
     );
   }

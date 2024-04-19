@@ -91,7 +91,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
   Future<void> freshUserEpisodes() async {
     var resp = await api.getCollectionEpisode(episode.id);
     if (resp.code != 0) {
-      showRespErr(resp, context, title: '获取 $text 章节信息失败');
+      if (mounted) showRespErr(resp, context, title: '获取 $text 章节信息失败');
       return;
     }
     userEpisode = resp.data;
@@ -105,10 +105,10 @@ class _BsdEpisodeState extends State<BsdEpisode> {
       episode: episode.id,
     );
     if (resp.code != 0) {
-      showRespErr(resp, context, title: '更新章节 $text 状态失败');
+      if (mounted) showRespErr(resp, context, title: '更新章节 $text 状态失败');
       return;
     }
-    BtInfobar.success(context, '成功更新章节 $text 状态为 ${type.label}');
+    if (mounted) BtInfobar.success(context, '成功更新章节 $text 状态为 ${type.label}');
     await freshUserEpisodes();
   }
 
@@ -177,7 +177,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
         Text('放送时间: ${episode.airDate}'),
         Text('时长: ${episode.duration}'),
         Text('收藏状态: ${userEpisode?.type.label ?? '未知'}'),
-        Text('简介：'),
+        const Text('简介：'),
         SizedBox(height: 8.h),
         if (episode.desc.isNotEmpty)
           ConstrainedBox(
@@ -202,7 +202,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
                 color: FluentTheme.of(context).accentColor,
               ),
               SizedBox(width: 8.w),
-              Text('暂无简介'),
+              const Text('暂无简介'),
             ],
           ),
       ],
@@ -220,25 +220,25 @@ class _BsdEpisodeState extends State<BsdEpisode> {
         buildEpStat(context, BangumiEpisodeCollectionType.dropped),
         MenuFlyoutItem(
           leading: Icon(FluentIcons.info, color: color),
-          text: Text('查看详情'),
+          text: const Text('查看详情'),
           onPressed: () async {
             await showDialog(
               barrierDismissible: true,
               context: context,
               builder: (_) => ContentDialog(
-                title: Text('章节详情'),
+                title: const Text('章节详情'),
                 content: buildEpisodeDetail(context),
                 actions: [
                   IconButton(
                     onPressed: () async {
                       await launchUrlString('https://bgm.tv/ep/${episode.id}');
-                      Navigator.of(context).pop();
+                      if (context.mounted) Navigator.of(context).pop();
                     },
                     icon: Icon(FluentIcons.edge_logo, color: color),
                   ),
                   Button(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text('关闭'),
+                    child: const Text('关闭'),
                   ),
                 ],
               ),
@@ -260,11 +260,11 @@ class _BsdEpisodeState extends State<BsdEpisode> {
         style: ButtonStyle(
           backgroundColor: ButtonState.all(bgColor),
         ),
+        onPressed: buildFlyout,
         child: Tooltip(
           message: tooltip,
-          child: Text('$text'),
+          child: Text(text),
         ),
-        onPressed: buildFlyout,
       ),
     );
   }

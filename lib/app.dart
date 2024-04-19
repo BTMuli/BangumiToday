@@ -40,7 +40,7 @@ class BTApp extends ConsumerWidget {
           title: 'BangumiToday',
           themeMode: appStore.themeMode,
           theme: getTheme(context, appStore),
-          home: AppNav(),
+          home: const AppNav(),
         );
       },
     );

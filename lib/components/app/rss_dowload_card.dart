@@ -59,7 +59,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   late TorrentTask? task;
 
   /// 监听定时器，初始化为 1 小时
-  late Timer timer = Timer(Duration(hours: 1), () {});
+  late Timer timer = Timer(const Duration(hours: 1), () {});
 
   /// 下载进度
   double? progress = 0;
@@ -125,7 +125,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
         await launchUrlString('potplayer://$file');
       },
     );
-    await Future.delayed(Duration(seconds: 5), () async {
+    await Future.delayed(const Duration(seconds: 5), () async {
       var stateFile = path.join(dir, '${model!.infoHash}.bt.state');
       await fileTool.deleteFile(stateFile);
       ref.read(dttStoreProvider.notifier).removeTask(item);
@@ -187,7 +187,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     for (var node in model!.nodes) {
       task!.addDHTNode(node);
     }
-    timer = Timer.periodic(Duration(seconds: 2), (timer) async {
+    timer = Timer.periodic(const Duration(seconds: 2), (timer) async {
       await freshDownload();
     });
   }
@@ -222,7 +222,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       return;
     }
     task!.resume();
-    timer = Timer.periodic(Duration(seconds: 1), (timer) async {
+    timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       await freshDownload();
     });
     BtInfobar.success(context, '任务已经继续下载');
@@ -240,7 +240,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     }
     await task!.stop();
     // timer.cancel();
-    await BtInfobar.success(context, '任务已经停止');
+    if (mounted) await BtInfobar.success(context, '任务已经停止');
   }
 
   @override
@@ -252,7 +252,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
             title: Text(item.title ?? ''),
             subtitle: Text('$dir\\${model?.name ?? ''}'),
             trailing: IconButton(
-              icon: Icon(FluentIcons.delete),
+              icon: const Icon(FluentIcons.delete),
               onPressed: () async {
                 var confirm = await showConfirmDialog(
                   context,
@@ -264,7 +264,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
                   var stateFile = path.join(dir, '${model!.infoHash}.bt.state');
                   await fileTool.deleteFile(stateFile);
                   ref.read(dttStoreProvider.notifier).removeTask(item);
-                  BtInfobar.success(context, '任务已经删除');
+                  if (context.mounted) BtInfobar.success(context, '任务已经删除');
                 }
               },
             ),
@@ -297,7 +297,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               IconButton(
-                icon: Icon(FluentIcons.refresh),
+                icon: const Icon(FluentIcons.refresh),
                 onPressed: () async {
                   var confirm = await showConfirmDialog(
                     context,
@@ -308,24 +308,24 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
                     await stopDownload();
                     await initDownload();
                     await startDownload();
-                    BtInfobar.success(context, '任务开始重新下载');
+                    if (context.mounted) BtInfobar.success(context, '任务开始重新下载');
                   }
                 },
               ),
               IconButton(
-                icon: Icon(FluentIcons.download),
+                icon: const Icon(FluentIcons.download),
                 onPressed: () async {
                   await startDownload();
                 },
               ),
               IconButton(
-                icon: Icon(FluentIcons.pause),
+                icon: const Icon(FluentIcons.pause),
                 onPressed: () async {
                   await pauseDownload();
                 },
               ),
               IconButton(
-                icon: Icon(FluentIcons.stop),
+                icon: const Icon(FluentIcons.stop),
                 onPressed: () async {
                   await stopDownload();
                 },

@@ -23,7 +23,7 @@ class BssCard extends ConsumerStatefulWidget {
   final BangumiSubjectSearchData data;
 
   /// 构造
-  BssCard(this.data, {super.key});
+  const BssCard(this.data, {super.key});
 
   @override
   ConsumerState<BssCard> createState() => _BssCardState();
@@ -164,7 +164,7 @@ class _BssCardState extends ConsumerState<BssCard> {
               }
               var title = '${subject.type!.label}详情 ${subject.id}';
               var pane = PaneItem(
-                icon: Icon(FluentIcons.info),
+                icon: const Icon(FluentIcons.info),
                 title: Text(title),
                 body: BangumiDetail(id: subject.id.toString()),
               );
@@ -193,7 +193,7 @@ class _BssCardState extends ConsumerState<BssCard> {
           message: title,
           child: Text(
             title,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
           ),
