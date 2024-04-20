@@ -45,6 +45,9 @@ class _BsdBmfFileState extends State<BsdBmfFile> {
   void initState() {
     super.initState();
     timerFiles = getTimerFiles();
+    Future.delayed(Duration.zero, () async {
+      await refreshFiles();
+    });
   }
 
   /// dispose
@@ -85,7 +88,7 @@ class _BsdBmfFileState extends State<BsdBmfFile> {
     } else {
       if (timerFiles.isActive) timerFiles.cancel();
     }
-    files = await fileTool.getFileNames(widget.bmfFile);
+    files = filesGet.where((element) => !element.endsWith('.aria2')).toList();
     if (aria2Files.isNotEmpty && aria2FilesGet != aria2Files) {
       var diffFiles = aria2Files
           .where((element) => !aria2FilesGet.contains(element))
@@ -96,12 +99,14 @@ class _BsdBmfFileState extends State<BsdBmfFile> {
         }
       }
     }
+    aria2Files = aria2FilesGet;
     setState(() {});
   }
 
   List<Widget> buildFileAct(BuildContext context, String file) {
     var potplayerBtn = BsdBmfFilePotPlayerBtn(file, widget.bmfFile);
-    var deleteBtn = BsdBmfFileDelBtn(file, (file) async {
+    var filePath = path.join(widget.bmfFile, file);
+    var deleteBtn = BsdBmfFileDelBtn(filePath, () async {
       await refreshFiles();
     });
     if (file.endsWith(".torrent")) {
@@ -291,7 +296,7 @@ class BsdBmfFileDelBtn extends StatelessWidget {
   final String file;
 
   /// 删除回调
-  final Future<void> Function(String file) onDelete;
+  final Future<void> Function() onDelete;
 
   /// 构造
   const BsdBmfFileDelBtn(this.file, this.onDelete, {super.key});
@@ -313,9 +318,10 @@ class BsdBmfFileDelBtn extends StatelessWidget {
           content: '确定删除文件 $file 吗？',
         );
         if (!confirm) return;
-        await BTFileTool().deleteFile(file);
+        var fileTool = BTFileTool();
+        await fileTool.deleteFile(file);
         if (context.mounted) BtInfobar.success(context, '成功删除文件 $file');
-        await onDelete(file);
+        await onDelete();
       },
     );
   }
