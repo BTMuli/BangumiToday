@@ -109,7 +109,6 @@ class BtsBangumiData {
   Future<List<BangumiDataSite>> readSiteAll() async {
     await _instance.preCheckSite();
     var result = await _instance.sqlite.db.query(_tableNameSite);
-    BTLogTool.info('Read site data all: ${result.length}');
     return result.map(BangumiDataSiteFull.fromSqlJson).toList();
   }
 
@@ -117,7 +116,6 @@ class BtsBangumiData {
   Future<List<BangumiDataItem>> readItemAll() async {
     await _instance.preCheckItem();
     var result = await _instance.sqlite.db.query(_tableNameItem);
-    BTLogTool.info('Read item data all: ${result.length}');
     return result.map(BangumiDataItem.fromSqlJson).toList();
   }
 
@@ -130,7 +128,6 @@ class BtsBangumiData {
       whereArgs: [title],
     );
     if (result.isEmpty) return null;
-    BTLogTool.info('Read site data: $title');
     return BangumiDataSite.fromJson(result.first);
   }
 
@@ -142,11 +139,7 @@ class BtsBangumiData {
       where: 'title = ?',
       whereArgs: [title],
     );
-    if (result.isEmpty) {
-      BTLogTool.warn('Can\'t find item data: $title');
-      return null;
-    }
-    BTLogTool.info('Read item data: $title');
+    if (result.isEmpty) return null;
     return BangumiDataItem.fromSqlJson(result.first);
   }
 

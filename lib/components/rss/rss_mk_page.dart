@@ -3,26 +3,26 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-import '../../components/app/app_dialog.dart';
-import '../../components/app/app_dialog_resp.dart';
-import '../../components/app/app_infobar.dart';
-import '../../components/mikan/mk_rss_card.dart';
+import '../app/app_dialog.dart';
+import '../app/app_dialog_resp.dart';
+import '../app/app_infobar.dart';
+import '../mikan/mk_rss_card.dart';
 import '../../database/app/app_config.dart';
-import '../../request/mikan/mikan_api.dart';
+import '../../request/rss/mikan_api.dart';
 
 /// 负责 MikanProject RSS 页面的显示
 /// 包括 RSSClassic 和 RSSPersonal
 /// 前者是列表模式显示站点的RSS更新，后者是个人订阅的RSS更新
-class MikanRSSPage extends StatefulWidget {
+class RssMkPage extends StatefulWidget {
   /// 构造函数
-  const MikanRSSPage({super.key});
+  const RssMkPage({super.key});
 
   @override
-  State<MikanRSSPage> createState() => _MikanRSSPageState();
+  State<RssMkPage> createState() => _RssMkPageState();
 }
 
 /// MikanRSS 页面状态
-class _MikanRSSPageState extends State<MikanRSSPage>
+class _RssMkPageState extends State<RssMkPage>
     with AutomaticKeepAliveClientMixin {
   /// 请求客户端
   final MikanAPI mikanAPI = MikanAPI();
@@ -252,7 +252,8 @@ class _MikanRSSPageState extends State<MikanRSSPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return ScaffoldPage(
+    return ScaffoldPage.withPadding(
+      padding: EdgeInsets.zero,
       header: PageHeader(title: buildTitle()),
       content: buildContent(useUserRSS ? userItems : rssItems),
     );

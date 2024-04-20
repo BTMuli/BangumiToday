@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:bangumi_today/tools/log_tool.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/material.dart' show Icons;
@@ -312,6 +313,19 @@ class _SettingPageState extends ConsumerState<SettingPage>
               ),
               onPressed: () async {
                 await launchUrlString('mailto:bt-muli@outlook.com');
+              },
+            ),
+            SizedBox(width: 8.w),
+            Button(
+              child: Row(
+                children: [
+                  const Icon(FluentIcons.folder),
+                  SizedBox(width: 4.w),
+                  const Text('Log'),
+                ],
+              ),
+              onPressed: () async {
+                await BTLogTool().openLogDir();
               },
             ),
           ],

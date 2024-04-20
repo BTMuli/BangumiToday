@@ -67,22 +67,14 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
 
   /// 检测是否收藏
   Future<void> check() async {
-    if (user != null) {
-      var resp = await api.getCollectionSubject(
-        user!.id.toString(),
-        subjectId,
-      );
-      if (resp.code == 404) {
-        isCollection = false;
-      } else {
-        isCollection = true;
-      }
-    }
+    if (user == null) return;
+    var resp = await api.getCollectionSubject(user!.id.toString(), subjectId);
+    isCollection = resp.code != 404;
+    setState(() {});
   }
 
   /// 加载更多
   Future<void> load() async {
-    assert(user != null);
     var ep1Resp = await api.getEpisodeList(
       subjectId,
       offset: offset,
@@ -104,9 +96,7 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
       }
     }
     offset += 30;
-    if (context.mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
   /// buildEpHint 用于表示章节的提示信息
@@ -167,9 +157,7 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (episodes.isEmpty) {
-      return Container();
-    }
+    if (episodes.isEmpty) return const SizedBox.shrink();
     return Wrap(spacing: 8.w, runSpacing: 12.h, children: buildList());
   }
 }

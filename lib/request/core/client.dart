@@ -12,7 +12,7 @@ class BTRequestClient {
       request: false,
       requestBody: false,
       requestHeader: false,
-      responseBody: true,
+      responseBody: false,
       responseHeader: true,
       error: true,
       logPrint: (object) {

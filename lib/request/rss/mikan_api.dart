@@ -77,11 +77,10 @@ class MikanAPI {
       return BTResponse.success(data: channel);
     } on DioException catch (e) {
       BTLogTool.error('Failed to load custom RSS ${e.response?.data}');
-      BTLogTool.error('Url: $url');
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load custom RSS',
-        data: e.response?.data,
+        data: url,
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load custom RSS ${e.toString()}');

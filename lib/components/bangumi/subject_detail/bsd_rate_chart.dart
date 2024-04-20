@@ -29,7 +29,7 @@ class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
   BangumiPatchRating? get rating => widget.rating;
 
   /// 是否有数据
-  bool get empty => rating == null;
+  bool get empty => rating == null || rating!.total == 0;
 
   /// 颜色
   AccentColor get color => ref.read(appStoreProvider).accentColor;

@@ -361,7 +361,8 @@ class BtrBangumiApi {
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       BTLogTool.error(
-          'Failed to load user collection item: ${jsonEncode(errResp)}');
+        'Failed to load user collection item: ${jsonEncode(errResp)}',
+      );
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load user collection item',

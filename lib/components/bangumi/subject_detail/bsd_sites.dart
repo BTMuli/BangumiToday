@@ -40,12 +40,16 @@ class BsdSites extends StatefulWidget {
   State<BsdSites> createState() => _BsdSitesState();
 }
 
-class _BsdSitesState extends State<BsdSites> {
+class _BsdSitesState extends State<BsdSites>
+    with AutomaticKeepAliveClientMixin {
   /// bangumi-data数据库
   final BtsBangumiData sqlite = BtsBangumiData();
 
   /// 站点数据
   List<BsdSiteItem> siteItems = [];
+
+  @override
+  bool get wantKeepAlive => true;
 
   /// 初始化
   @override
@@ -109,7 +113,8 @@ class _BsdSitesState extends State<BsdSites> {
   /// 构建
   @override
   Widget build(BuildContext context) {
-    if (siteItems.isEmpty) return Container();
+    super.build(context);
+    if (siteItems.isEmpty) return const SizedBox.shrink();
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: 300.h),
       child: SingleChildScrollView(

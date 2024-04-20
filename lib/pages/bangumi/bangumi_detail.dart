@@ -227,8 +227,10 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       children: [
         BsdOverview(data!),
         SizedBox(height: 12.h),
-        BsdUserCollection(data!, user: user),
-        SizedBox(height: 12.h),
+        if (user != null) ...[
+          BsdUserCollection(data!, user!),
+          SizedBox(height: 12.h)
+        ],
         BsdUserEpisodes(data!, user: user),
         SizedBox(height: 12.h),
         BsdBmf(data!.id),

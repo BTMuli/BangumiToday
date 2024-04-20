@@ -82,6 +82,12 @@ class BTLogTool {
     info('BTLogTool init');
   }
 
+  /// 打开日志目录
+  Future<void> openLogDir() async {
+    var dir = await _getDefaultDir();
+    await _fileTool.openDir(dir);
+  }
+
   /// 打印信息日志
   static void info(dynamic message) {
     _instance._logger.log(Level.info, message);

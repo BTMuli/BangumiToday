@@ -3,8 +3,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../database/bangumi/bangumi_collection.dart';
-import '../../../database/bangumi/bangumi_data.dart';
-import '../../../models/bangumi/bangumi_data_model.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
@@ -20,10 +18,10 @@ class BsdUserCollection extends StatefulWidget {
   final BangumiSubject subject;
 
   /// user
-  final BangumiUser? user;
+  final BangumiUser user;
 
   /// 构造函数
-  const BsdUserCollection(this.subject, {super.key, this.user});
+  const BsdUserCollection(this.subject, this.user, {super.key});
 
   @override
   State<BsdUserCollection> createState() => _BsdUserCollectionState();
@@ -36,16 +34,13 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   BangumiSubject get subject => widget.subject;
 
   /// user
-  BangumiUser? get user => widget.user;
+  BangumiUser get user => widget.user;
 
   /// 客户端
   final BtrBangumiApi api = BtrBangumiApi();
 
   /// 用户收藏数据库
   final BtsBangumiCollection sqlite = BtsBangumiCollection();
-
-  /// bangumi-data数据库
-  final BtsBangumiData sqliteData = BtsBangumiData();
 
   /// flyout controller
   final FlyoutController controller = FlyoutController();
@@ -55,9 +50,6 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
 
   /// 用户收藏状态
   late BangumiCollectionType collectionType = BangumiCollectionType.unknown;
-
-  /// 站点数据
-  late List<BangumiDataSiteFull> sites = [];
 
   /// 用户评分
   late int rating = 0;
@@ -83,11 +75,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
 
   /// 初始化
   Future<void> init() async {
-    if (user == null) return;
-    var resp = await api.getCollectionSubject(
-      user!.id.toString(),
-      subject.id,
-    );
+    var resp = await api.getCollectionSubject(user.id.toString(), subject.id);
     if (resp.code == 404) {
       collectionType = BangumiCollectionType.unknown;
       await sqlite.delete(subject.id);
@@ -123,9 +111,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
 
   /// 获取背景颜色
   Color getBgColor() {
-    if (userCollection == null) {
-      return Colors.transparent;
-    }
+    if (userCollection == null) return Colors.transparent;
     var base = FluentTheme.of(context).accentColor;
     var userType = userCollection!.type;
     switch (userType) {
@@ -178,27 +164,24 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
     BangumiCollectionType type,
   ) {
     final icon = getIcon(type);
+    final trailing = collectionType == type
+        ? Icon(
+            FluentIcons.check_mark,
+            color: FluentTheme.of(context).accentColor,
+          )
+        : null;
     return MenuFlyoutItem(
       leading: Icon(icon, color: FluentTheme.of(context).accentColor),
       text: Text(type.label),
       selected: collectionType == type,
       onPressed: () async {
-        if (user == null) {
-          await BtInfobar.error(context, '未获取到用户信息，请登录后重试');
-          return;
-        } else if (collectionType == type) {
+        if (collectionType == type) {
           await BtInfobar.warn(context, '条目 ${subject.id} 状态与当前状态相同');
           return;
-        } else {
-          await updateType(type);
         }
+        await updateType(type);
       },
-      trailing: collectionType == type
-          ? Icon(
-              FluentIcons.check_mark,
-              color: FluentTheme.of(context).accentColor,
-            )
-          : null,
+      trailing: trailing,
     );
   }
 
@@ -310,18 +293,13 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   }
 
   /// 刷新状态的button
-  Widget buildFreshBtn(BuildContext context) {
+  Widget buildFreshBtn() {
     return Button(
       child: const Text('刷新状态'),
       onPressed: () async {
-        if (user == null) {
-          await BtInfobar.error(context, '未获取到用户信息，请登录后重试');
-          return;
-        } else {
-          await init();
-          if (context.mounted) {
-            await BtInfobar.success(context, '条目 ${subject.id} 状态刷新成功');
-          }
+        await init();
+        if (mounted) {
+          await BtInfobar.success(context, '条目 ${subject.id} 状态刷新成功');
         }
       },
     );
@@ -330,7 +308,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   /// 构建站点按钮
 
   /// 未收藏
-  Widget buildUnCollection(BuildContext context) {
+  Widget buildUnCollection() {
     return Row(
       children: [
         FlyoutTarget(
@@ -356,28 +334,20 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
                       ),
                       text: const Text('添加到收藏列表'),
                       onPressed: () async {
-                        if (user == null) {
-                          await BtInfobar.error(
+                        var resp = await api.addCollectionSubject(subject.id);
+                        if (!mounted) return;
+                        if (resp.code != 0) {
+                          await showRespErr(
+                            resp,
                             this.context,
-                            '未获取到用户信息，请登录后重试',
+                            title: '添加收藏失败',
                           );
-                          return;
                         } else {
-                          var resp = await api.addCollectionSubject(subject.id);
-                          if (!mounted) return;
-                          if (resp.code != 0) {
-                            await showRespErr(
-                              resp,
-                              this.context,
-                              title: '添加收藏失败',
-                            );
-                          } else {
-                            await BtInfobar.success(
-                              this.context,
-                              '条目 ${subject.id} 添加到收藏列表成功',
-                            );
-                            await init();
-                          }
+                          await BtInfobar.success(
+                            this.context,
+                            '条目 ${subject.id} 添加到收藏列表成功',
+                          );
+                          await init();
                         }
                       },
                     ),
@@ -393,13 +363,13 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
         ),
         SizedBox(width: 8.w),
-        buildFreshBtn(context),
+        buildFreshBtn(),
       ],
     );
   }
 
   /// buildRatingBar
-  Widget buildRatingBar(BuildContext context) {
+  Widget buildRatingBar() {
     var unratedColor = FluentTheme.of(context).accentColor.withOpacity(0.25);
     return RatingBar(
       rating: rating.toDouble(),
@@ -407,41 +377,38 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
       starSpacing: 2.w,
       unratedIconColor: unratedColor,
       onChanged: (val) async {
-        if (user == null) {
-          await BtInfobar.error(context, '未获取到用户信息，请登录后重试');
-          return;
-        } else if (val.toInt() + 1 == rating) {
+        if (val.toInt() + 1 == rating) {
           await BtInfobar.warn(context, '条目 ${subject.id} 评分与当前评分相同');
           return;
+        }
+        var confirm = await showConfirmDialog(
+          context,
+          title: '确认评分',
+          content: '确认将条目 ${subject.id} 评分更新为 ${val.toInt() + 1} 分吗？',
+        );
+        if (!confirm) return;
+        var resp = await api.updateCollectionSubject(
+          subject.id,
+          rate: val.toInt() + 1,
+        );
+        if (resp.code != 0 || resp.data == null) {
+          if (mounted) await showRespErr(resp, context);
         } else {
-          var confirm = await showConfirmDialog(
-            context,
-            title: '确认评分',
-            content: '确认将条目 ${subject.id} 评分更新为 ${val.toInt() + 1} 分吗？',
-          );
-          if (!confirm) return;
-          var resp = await api.updateCollectionSubject(
-            subject.id,
-            rate: val.toInt() + 1,
-          );
-          if (!context.mounted) return;
-          if (resp.code != 0 || resp.data == null) {
-            await showRespErr(resp, context);
-          } else {
+          if (mounted) {
             await BtInfobar.success(
               context,
               '条目 ${subject.id} 评分更新为 $rating 分',
             );
-            setState(() {});
-            await init();
           }
+          setState(() {});
+          await init();
         }
       },
     );
   }
 
   /// buildCollection
-  Widget buildCollection(BuildContext context) {
+  Widget buildCollection() {
     var icon = getIcon(collectionType);
     var color = getBgColor();
     return Row(
@@ -461,9 +428,9 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           ),
         ),
         SizedBox(width: 8.w),
-        buildRatingBar(context),
+        buildRatingBar(),
         SizedBox(width: 8.w),
-        buildFreshBtn(context),
+        buildFreshBtn(),
         SizedBox(width: 8.w),
       ],
     );
@@ -473,25 +440,8 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (user == null) {
-      return Row(
-        children: [
-          Icon(
-            FluentIcons.warning,
-            size: 20.spMax,
-            color: FluentTheme.of(context).accentColor,
-          ),
-          SizedBox(width: 10.w),
-          Text(
-            '未获取到用户信息，请登录后重试',
-            style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
-          ),
-        ],
-      );
-    }
-    if (collectionType == BangumiCollectionType.unknown) {
-      return buildUnCollection(context);
-    }
-    return buildCollection(context);
+    return collectionType == BangumiCollectionType.unknown
+        ? buildUnCollection()
+        : buildCollection();
   }
 }

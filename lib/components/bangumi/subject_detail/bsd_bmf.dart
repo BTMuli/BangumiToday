@@ -17,7 +17,7 @@ import '../../../models/database/app_bmf_model.dart';
 import '../../../models/database/app_rss_model.dart';
 import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../pages/bangumi/bangumi_play.dart';
-import '../../../request/mikan/mikan_api.dart';
+import '../../../request/rss/mikan_api.dart';
 import '../../../store/nav_store.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/log_tool.dart';
@@ -95,7 +95,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     super.initState();
     Future.delayed(Duration.zero, () async {
       await initTimerRss();
-      await initTimerFiles();
+      await initTimerFiles(check: false);
       await init();
     });
   }
@@ -106,23 +106,21 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
       timerRss = Timer.periodic(const Duration(minutes: 15), (timer) async {
         await freshRss();
         BTLogTool.info('BMF RSS 页面刷新 ${widget.subjectId}');
-        setState(() {});
       });
     } else {
       timerRss = Timer.periodic(const Duration(minutes: 5), (timer) async {
         await freshRss();
         BTLogTool.info('BMF RSS 页面刷新 ${widget.subjectId}');
-        setState(() {});
       });
     }
   }
 
   /// 初始化 timerFiles
-  Future<void> initTimerFiles() async {
+  Future<void> initTimerFiles({bool check = true}) async {
+    if (check && timerFiles.isActive) return;
     timerFiles = Timer.periodic(const Duration(seconds: 5), (timer) async {
       await freshFiles();
       BTLogTool.info('BMF Files 页面刷新 ${widget.subjectId}');
-      setState(() {});
     });
   }
 
@@ -138,6 +136,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   /// 初始化
   Future<void> init() async {
     var bmfGet = await sqliteBmf.read(widget.subjectId);
+    BTLogTool.warn('BMF Get: $bmfGet');
     if (bmfGet == null) return;
     bmf = bmfGet;
     setState(() {});
@@ -199,9 +198,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   /// freshFiles
   Future<void> freshFiles() async {
     if (bmf.download == null || bmf.download!.isEmpty) {
-      if (timerFiles.isActive) {
-        timerFiles.cancel();
-      }
+      if (timerFiles.isActive) timerFiles.cancel();
       return;
     }
     var filesGet = await fileTool.getFileNames(bmf.download!);
@@ -209,10 +206,10 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
         .where((element) => element.endsWith('.aria2'))
         .map((e) => e.replaceAll('.aria2', ''))
         .toList();
-    if (aria2FilesGet.isNotEmpty && timerFiles.isActive == false) {
+    if (aria2FilesGet.isNotEmpty) {
       await initTimerFiles();
-    } else if (aria2FilesGet.isEmpty && timerFiles.isActive) {
-      timerFiles.cancel();
+    } else {
+      if (timerFiles.isActive) timerFiles.cancel();
     }
     if (aria2Files.isNotEmpty && aria2FilesGet != aria2Files) {
       var diffFiles = aria2Files

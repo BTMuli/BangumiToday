@@ -1,3 +1,4 @@
+import 'package:bangumi_today/pages/app/rss_page.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,8 +9,6 @@ import '../../pages/app/download_page.dart';
 import '../../pages/app/setting_page.dart';
 import '../../pages/app/test_page.dart';
 import '../../pages/bangumi/bangumi_calendar.dart';
-import '../../pages/comicat/comicat_rss.dart';
-import '../../pages/mikan/mikan_rss.dart';
 import '../../store/app_store.dart';
 import '../../store/nav_store.dart';
 import '../../utils/get_theme_label.dart';
@@ -83,13 +82,8 @@ class _AppNavState extends ConsumerState<AppNav> {
           'assets/images/platforms/mikan-favicon.ico',
           height: 16,
         ),
-        title: const Text('Mikan'),
-        body: const MikanRSSPage(),
-      ),
-      PaneItem(
-        icon: Image.asset('assets/images/platforms/comicat-favicon.ico'),
-        title: const Text('Comicat'),
-        body: const ComicatRSSPage(),
+        title: const Text('RSS 页面'),
+        body: const RssPage(),
       ),
       PaneItem(
         icon: Image.asset('assets/images/logo.png', height: 16),

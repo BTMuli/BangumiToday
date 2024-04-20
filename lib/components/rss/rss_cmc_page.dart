@@ -4,21 +4,21 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-import '../../components/app/app_dialog_resp.dart';
-import '../../components/comicat/cmc_rss_card.dart';
-import '../../request/comicat/comicat_api.dart';
+import '../app/app_dialog_resp.dart';
+import '../comicat/cmc_rss_card.dart';
+import '../../request/rss/comicat_api.dart';
 
 /// 负责 ComicatProject RSS 页面的显示
-class ComicatRSSPage extends StatefulWidget {
+class RssCmcPage extends StatefulWidget {
   /// 构造函数
-  const ComicatRSSPage({super.key});
+  const RssCmcPage({super.key});
 
   @override
-  State<ComicatRSSPage> createState() => _ComicatRSSPageState();
+  State<RssCmcPage> createState() => _RssCmcPageState();
 }
 
 /// ComicatRSS 页面状态
-class _ComicatRSSPageState extends State<ComicatRSSPage>
+class _RssCmcPageState extends State<RssCmcPage>
     with AutomaticKeepAliveClientMixin {
   /// 请求客户端
   final ComicatAPI comicatAPI = ComicatAPI();
@@ -108,7 +108,8 @@ class _ComicatRSSPageState extends State<ComicatRSSPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return ScaffoldPage(
+    return ScaffoldPage.withPadding(
+      padding: EdgeInsets.zero,
       header: PageHeader(title: buildTitle()),
       content: Stack(
         children: [
