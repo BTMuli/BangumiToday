@@ -340,11 +340,10 @@ packages:
   dtorrent_task:
     dependency: "direct main"
     description:
-      path: "."
-      ref: optimization
-      resolved-ref: "7e3c878e89f00096ecd529a935369e5c4f9fdecf"
-      url: "https://github.com/moham96/dtorrent_task.git"
-    source: git
+      name: dtorrent_task
+      sha256: "1b915b0f096d9ed3ba471beaa55bac176f3dd6febe9f59d77e69c050c23d3a56"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
     version: "0.3.5"
   dtorrent_tracker:
     dependency: transitive

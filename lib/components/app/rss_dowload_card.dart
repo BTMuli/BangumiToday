@@ -92,16 +92,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   int all = 0;
 
   @override
-  void initState() {
-    super.initState();
-    Future.delayed(Duration.zero, () async {
-      await downloadTool.init();
-      await initDownload();
-      await startDownload();
-    });
-  }
-
-  @override
   void dispose() {
     task?.stop();
     timer.cancel();
@@ -127,6 +117,8 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     for (var node in model!.nodes) {
       task!.addDHTNode(node);
     }
+    await initDownload();
+    await startDownload();
   }
 
   /// 处理下载完成
@@ -187,15 +179,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       return;
     }
     await task!.start();
-    // findPublicTrackers().listen((urls) {
-    //   for (var url in urls) {
-    //     task!.startAnnounceUrl(url, model!.infoHashBuffer);
-    //   }
-    // });
-    // for (var node in model!.nodes) {
-    //   task!.addDHTNode(node);
-    // }
-    timer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+    timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       await freshDownload();
     });
   }
@@ -215,7 +199,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       return;
     }
     task!.pause();
-    // timer.cancel();
     BtInfobar.success(context, '任务已经暂停');
   }
 
@@ -247,7 +230,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       return;
     }
     await task!.stop();
-    // timer.cancel();
     if (mounted) await BtInfobar.success(context, '任务已经停止');
   }
 
@@ -345,6 +327,39 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     );
   }
 
+  /// 只保留删除键跟进度条
+  Widget buildEmptyCard() {
+    return Card(
+      child: Column(
+        children: [
+          ListTile(
+            title: Text(item.title ?? ''),
+            subtitle: Text(dir),
+            trailing: IconButton(
+              icon: const Icon(FluentIcons.delete),
+              onPressed: () async {
+                var confirm = await showConfirmDialog(
+                  context,
+                  title: '删除任务？',
+                  content: '是否删除该任务？',
+                );
+                if (confirm) {
+                  await stopDownload();
+                  ref.read(dttStoreProvider.notifier).removeTask(item);
+                }
+              },
+            ),
+          ),
+          SizedBox(height: 8.h),
+          SizedBox(
+            width: double.infinity,
+            child: ProgressBar(value: null, strokeWidth: 16.h),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
@@ -353,9 +368,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
         if (snapshot.connectionState == ConnectionState.done) {
           return buildCard(context);
         }
-        return const Center(
-          child: ProgressBar(value: null),
-        );
+        return buildEmptyCard();
       },
     );
   }

@@ -37,11 +37,11 @@ dependencies:
   dio: ^5.4.3+1
   dtorrent_common: ^1.0.5
   dtorrent_parser: ^1.0.8
-  #  dtorrent_task: ^0.3.5
-  dtorrent_task:
-    git:
-      url: https://github.com/moham96/dtorrent_task.git
-      ref: optimization
+  dtorrent_task: ^0.3.5
+  #  dtorrent_task:
+  #    git:
+  #      url: https://github.com/moham96/dtorrent_task.git
+  #      ref: optimization
   file_picker: ^8.0.1
   filesize: ^2.0.1
   fl_chart: ^0.67.0

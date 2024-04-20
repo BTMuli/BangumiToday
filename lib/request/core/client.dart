@@ -13,7 +13,7 @@ class BTRequestClient {
       requestBody: false,
       requestHeader: false,
       responseBody: false,
-      responseHeader: true,
+      responseHeader: false,
       error: true,
       logPrint: (object) {
         if (object is String) {
