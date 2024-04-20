@@ -50,7 +50,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   late int startTime;
 
   /// torrent 文件地址
-  late String filePath;
+  late String filePath = '';
 
   /// torrentModel
   late Torrent? model;
@@ -75,9 +75,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
 
   /// 最近上传速度
   double ps = 0;
-
-  /// utp的下载速度
-  double utpd = 0;
 
   /// utp的上传速度
   double utpu = 0;
@@ -111,6 +108,27 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     super.dispose();
   }
 
+  /// 初始化
+  Future<void> initWidget() async {
+    if (filePath.isEmpty) {
+      filePath = await BTDownloadTool().downloadRssTorrent(
+        item.enclosure!.url!,
+        item.title!,
+      );
+    }
+    model = await Torrent.parse(filePath);
+    task = TorrentTask.newTask(model!, dir);
+    await task!.start();
+    findPublicTrackers().listen((urls) {
+      for (var url in urls) {
+        task!.startAnnounceUrl(url, model!.infoHashBuffer);
+      }
+    });
+    for (var node in model!.nodes) {
+      task!.addDHTNode(node);
+    }
+  }
+
   /// 处理下载完成
   Future<void> completedTask() async {
     var endTime = DateTime.now().millisecondsSinceEpoch;
@@ -134,14 +152,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
 
   /// 初始化下载
   Future<void> initDownload() async {
-    filePath = await BTDownloadTool().downloadRssTorrent(
-      item.enclosure!.url!,
-      item.title!,
-    );
     startTime = DateTime.now().millisecondsSinceEpoch;
-    model = await Torrent.parse(filePath);
-    setState(() {});
-    task = TorrentTask.newTask(model!, dir);
     progress = null;
     setState(() {});
   }
@@ -154,8 +165,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     aps = task!.averageUploadSpeed;
     ds = task!.currentDownloadSpeed;
     ps = task!.uploadSpeed;
-    utpd = task!.utpDownloadSpeed;
-    utpu = task!.utpUploadSpeed;
     utpc = task!.utpPeerCount;
     active = task!.connectedPeersNumber;
     seeders = task!.seederNumber;
@@ -173,20 +182,19 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       BtInfobar.error(context, '任务初始化失败');
       return;
     }
-    debugPrint('task state: ${task!.state}');
     if (task!.state == TaskState.paused) {
       await resumeDownload();
       return;
     }
     await task!.start();
-    findPublicTrackers().listen((urls) {
-      for (var url in urls) {
-        task!.startAnnounceUrl(url, model!.infoHashBuffer);
-      }
-    });
-    for (var node in model!.nodes) {
-      task!.addDHTNode(node);
-    }
+    // findPublicTrackers().listen((urls) {
+    //   for (var url in urls) {
+    //     task!.startAnnounceUrl(url, model!.infoHashBuffer);
+    //   }
+    // });
+    // for (var node in model!.nodes) {
+    //   task!.addDHTNode(node);
+    // }
     timer = Timer.periodic(const Duration(seconds: 2), (timer) async {
       await freshDownload();
     });
@@ -243,8 +251,8 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     if (mounted) await BtInfobar.success(context, '任务已经停止');
   }
 
-  @override
-  Widget build(BuildContext context) {
+  /// 构建组件
+  Widget buildCard(BuildContext context) {
     return Card(
       child: Column(
         children: [
@@ -273,9 +281,9 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text('${filesize((utpd * 1000).toInt())}/s('
-                  '${filesize((ads * 1000).toInt())}/'
-                  '${filesize((ds * 1000).toInt())})'),
+              Text(
+                '${filesize((ds * 1000).toInt())}/s(${filesize((ads * 1000).toInt())})',
+              ),
               SizedBox(width: 8.w),
               Text('节点：$active/$seeders/$all'
                   '(${filesize((utpu * 1000).toInt())})'),
@@ -334,6 +342,21 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
           ),
         ],
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: initWidget(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          return buildCard(context);
+        }
+        return const Center(
+          child: ProgressBar(value: null),
+        );
+      },
     );
   }
 }

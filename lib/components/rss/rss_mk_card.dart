@@ -2,6 +2,7 @@ import 'package:dart_rss/domain/rss_item.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -214,7 +215,7 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        buildActInner(context),
+        if (kDebugMode) buildActInner(context),
         buildActMotrix(context),
         buildActLink(context),
       ],
@@ -274,7 +275,6 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
           children: [
             buildTitle(),
             const Spacer(),
-            buildPubDate(),
             if (item.pubDate != null) buildPubDate(),
             const SizedBox(height: 4),
             buildSource(),

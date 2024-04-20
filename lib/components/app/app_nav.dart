@@ -110,23 +110,19 @@ class _AppNavState extends ConsumerState<AppNav> {
     return items;
   }
 
-  /// 构建调试项
-  PaneItem buildDebugItem() {
-    return PaneItem(
+  /// 获取底部项
+  List<PaneItem> getFooterItems() {
+    var downloadPane = PaneItem(
+      icon: const Icon(FluentIcons.download),
+      title: const Text('下载列表'),
+      body: const DownloadPage(),
+    );
+    var debugPane = PaneItem(
       icon: const Icon(FluentIcons.bug),
       title: const Text('Debug'),
       body: const TestPage(),
     );
-  }
-
-  /// 获取底部项
-  List<PaneItem> getFooterItems() {
     var footerItems = [
-      PaneItem(
-        icon: const Icon(FluentIcons.download),
-        title: const Text('下载列表'),
-        body: const DownloadPage(),
-      ),
       buildResetWinItem(),
       buildThemeModeItem(),
       PaneItem(
@@ -136,7 +132,8 @@ class _AppNavState extends ConsumerState<AppNav> {
       ),
     ];
     if (kDebugMode) {
-      footerItems.insert(0, buildDebugItem());
+      footerItems.insert(0, downloadPane);
+      footerItems.insert(0, debugPane);
     }
     return footerItems;
   }

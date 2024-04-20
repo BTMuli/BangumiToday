@@ -130,6 +130,8 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
   @override
   void dispose() {
     controller.dispose();
+    timerRss.cancel();
+    timerFiles.cancel();
     super.dispose();
   }
 
@@ -169,12 +171,14 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
     }
     var rssGet = await mikanAPI.getCustomRSS(bmf.rss!);
     if (rssGet.code != 0 || rssGet.data == null) {
-      if (mounted) showRespErr(rssGet, context);
+      if (mounted) {
+        showRespErr(rssGet, context);
+      }
+      return;
     }
     var feed = rssGet.data! as RssFeed;
-    setState(() {
-      rssItems = feed.items;
-    });
+    rssItems = feed.items;
+    setState(() {});
     var rssList = await sqliteRss.read(bmf.rss!);
     if (rssList == null) {
       notify = false;
@@ -189,9 +193,7 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
       }).toList();
     }
     setState(() {});
-    await sqliteRss.write(
-      AppRssModel.fromRssFeed(bmf.rss!, feed),
-    );
+    await sqliteRss.write(AppRssModel.fromRssFeed(bmf.rss!, feed));
   }
 
   /// freshFiles
@@ -562,22 +564,14 @@ class _BsdBmfState extends ConsumerState<BsdBmf>
       if (files.isEmpty)
         const Text('没有找到任何文件')
       else
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: buildFileCards(context),
-        ),
+        Wrap(spacing: 8, runSpacing: 8, children: buildFileCards(context)),
       SizedBox(height: 12.h),
       buildRssTitle(),
       SizedBox(height: 12.h),
       if (rssItems.isEmpty)
         const Text('没有找到任何 RSS 信息')
       else
-        Wrap(
-          spacing: 12.w,
-          runSpacing: 12.h,
-          children: buildRssList(context),
-        ),
+        Wrap(spacing: 12.w, runSpacing: 12.h, children: buildRssList(context)),
     ];
   }
 
