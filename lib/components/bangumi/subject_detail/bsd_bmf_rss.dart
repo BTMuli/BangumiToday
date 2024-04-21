@@ -41,6 +41,9 @@ class _BsdBmfRssState extends State<BsdBmfRss>
   /// sqlite
   final sqlite = BtsAppRss();
 
+  /// AppRssModel
+  AppRssModel? appRssModel;
+
   /// rssItems
   List<RssItem> rssItems = [];
 
@@ -63,6 +66,7 @@ class _BsdBmfRssState extends State<BsdBmfRss>
     super.initState();
     timerRss = getTimerRss();
     Future.delayed(Duration.zero, () async {
+      appRssModel = await sqlite.read(bmf.rss!);
       await freshRss();
     });
   }
@@ -99,21 +103,24 @@ class _BsdBmfRssState extends State<BsdBmfRss>
     }
     var feed = rssGet.data! as RssFeed;
     rssItems = feed.items;
-    var rssList = await sqlite.read(bmf.rss!);
-    if (rssList == null) {
+    if (appRssModel == null) {
       notify = false;
       isNewList = List.filled(rssItems.length, true);
     } else {
       notify = true;
       isNewList = rssItems.map((e) {
-        var index = rssList.data.indexWhere(
+        var index = appRssModel!.data.indexWhere(
           (element) => element.site == e.link,
         );
         return index == -1;
       }).toList();
     }
+    var newModel = AppRssModel.fromRssFeed(bmf.rss!, feed);
+    if (appRssModel != newModel) {
+      await sqlite.write(newModel);
+      appRssModel = newModel;
+    }
     setState(() {});
-    await sqlite.write(AppRssModel.fromRssFeed(bmf.rss!, feed));
   }
 
   /// buildRssTitle

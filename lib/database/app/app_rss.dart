@@ -1,5 +1,4 @@
 import 'package:dart_rss/domain/rss_item.dart';
-import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../models/database/app_rss_model.dart';
 import '../../tools/log_tool.dart';
@@ -49,7 +48,6 @@ class BtsAppRss {
     );
     if (result.isEmpty) return null;
     var value = result.first;
-    BTLogTool.info('Read $_tableName rss: $rss');
     return AppRssModel.fromSqlJson(value);
   }
 
@@ -93,7 +91,6 @@ class BtsAppRss {
   /// 判断是否是新的RSS
   Future<bool> isNewRss(String rss, RssItem rssItem) async {
     var model = await read(rss);
-    debugPrint('isNewRss: $rss');
     if (model == null) return true;
     var findIndex = model.data.indexWhere(
       (element) => element.site == rssItem.link,
