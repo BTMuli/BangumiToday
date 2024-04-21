@@ -103,20 +103,24 @@ class _BsdBmfRssState extends State<BsdBmfRss>
     }
     var feed = rssGet.data! as RssFeed;
     rssItems = feed.items;
+    setState(() {});
+    var newModel = AppRssModel.fromRssFeed(bmf.rss!, feed);
     if (appRssModel == null) {
       notify = false;
       isNewList = List.filled(rssItems.length, true);
-    } else {
-      notify = true;
-      isNewList = rssItems.map((e) {
-        var index = appRssModel!.data.indexWhere(
-          (element) => element.site == e.link,
-        );
-        return index == -1;
-      }).toList();
+      await sqlite.write(newModel);
+      appRssModel = newModel;
+      setState(() {});
+      return;
     }
-    var newModel = AppRssModel.fromRssFeed(bmf.rss!, feed);
-    if (appRssModel != newModel) {
+    notify = true;
+    isNewList = rssItems.map((e) {
+      var model = AppRssItemModel.fromRssItem(bmf.rss!, e);
+      var index = appRssModel!.data.indexWhere((element) => element != model);
+      return index == -1;
+    }).toList();
+    if (isNewList.contains(true)) {
+      BTLogTool.info('发现新的 RSS 信息');
       await sqlite.write(newModel);
       appRssModel = newModel;
     }
@@ -140,26 +144,6 @@ class _BsdBmfRssState extends State<BsdBmfRss>
     );
   }
 
-  /// buildRssList
-  List<Widget> buildRssList(BuildContext context) {
-    var res = <Widget>[];
-    if (isNewList.length != rssItems.length) return res;
-    for (var i = 0; i < rssItems.length; i++) {
-      var item = rssItems[i];
-      var isNew = isNewList[i];
-      var card = RssMikanCard(
-        bmf.rss!,
-        item,
-        dir: bmf.download!,
-        isNew: isNew,
-        notify: notify,
-        subject: bmf.subject,
-      );
-      res.add(card);
-    }
-    return res;
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -168,14 +152,20 @@ class _BsdBmfRssState extends State<BsdBmfRss>
       children: [
         buildTitle(),
         SizedBox(height: 12.h),
-        if (rssItems.isEmpty)
+        if (rssItems.isEmpty || rssItems.length != isNewList.length)
           const Text('没有找到任何 RSS 信息')
         else
-          Wrap(
-            spacing: 12.w,
-            runSpacing: 12.h,
-            children: buildRssList(context),
-          ),
+          Wrap(spacing: 12.w, runSpacing: 12.h, children: [
+            for (var i = 0; i < rssItems.length; i++)
+              RssMikanCard(
+                bmf.rss!,
+                rssItems[i],
+                dir: bmf.download!,
+                isNew: isNewList[i],
+                notify: notify,
+                subject: bmf.subject,
+              ),
+          ]),
       ],
     );
   }

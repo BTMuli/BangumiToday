@@ -65,7 +65,6 @@ class BtsAppRss {
         _tableName,
         model.toSqlJson(),
       );
-      BTLogTool.info('Write $_tableName rss: ${model.rss}');
     } else {
       await instance.sqlite.db.update(
         _tableName,
@@ -73,7 +72,6 @@ class BtsAppRss {
         where: 'rss = ?',
         whereArgs: [model.rss],
       );
-      BTLogTool.info('Update $_tableName rss: ${model.rss}');
     }
   }
 
@@ -85,7 +83,6 @@ class BtsAppRss {
       where: 'rss = ?',
       whereArgs: [rss],
     );
-    BTLogTool.info('Delete $_tableName rss: $rss');
   }
 
   /// 判断是否是新的RSS

@@ -60,7 +60,6 @@ class BtsBangumiUser {
     );
     if (result.isEmpty) return null;
     var value = result.first['value'];
-    BTLogTool.info('Read user info: $value');
     if (value == null || value == '') return null;
     return BangumiUser.fromJson(jsonDecode(value as String));
   }
@@ -78,7 +77,6 @@ class BtsBangumiUser {
         _tableNameUser,
         {'key': 'user', 'value': jsonEncode(user)},
       );
-      BTLogTool.info('Write user info: ${jsonEncode(user)}');
     } else {
       await _instance.sqlite.db.update(
         _tableNameUser,
@@ -86,7 +84,6 @@ class BtsBangumiUser {
         where: 'key = ?',
         whereArgs: ['user'],
       );
-      BTLogTool.info('Update user info: ${jsonEncode(user)}');
     }
   }
 
@@ -126,7 +123,6 @@ class BtsBangumiUser {
     );
     if (result.isEmpty) return null;
     var value = result.first['value'];
-    BTLogTool.info('Read $key: $value');
     return value.toString();
   }
 
@@ -151,7 +147,6 @@ class BtsBangumiUser {
         where: 'key = ?',
         whereArgs: [key],
       );
-      BTLogTool.info('Update $key: $value');
     }
   }
 
