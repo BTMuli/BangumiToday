@@ -8,13 +8,8 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_rss.dart';
-import '../../models/app/nav_model.dart';
-import '../../pages/bangumi/bangumi_detail.dart';
 import '../../store/dtt_store.dart';
-import '../../store/nav_store.dart';
 import '../../tools/download_tool.dart';
-import '../../tools/log_tool.dart';
-import '../../tools/notifier_tool.dart';
 import '../../utils/tool_func.dart';
 import '../app/app_infobar.dart';
 
@@ -32,20 +27,12 @@ class RssMikanCard extends ConsumerStatefulWidget {
   /// subject id 可选
   final int? subject;
 
-  /// 是否是新项，这部分检测交给父元素
-  final bool isNew;
-
-  /// 是否需要提醒
-  final bool notify;
-
   /// 构造函数
   const RssMikanCard(
     this.link,
     this.item, {
     super.key,
     this.dir,
-    this.isNew = false,
-    this.notify = false,
     this.subject,
   });
 
@@ -67,50 +54,11 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
   /// 获取条目
   int? get subject => widget.subject;
 
-  /// 是否需要提醒
-  bool get notify => widget.notify;
-
-  /// 是否是新项
-  bool get isNew => widget.isNew;
-
   /// 数据库
   final BtsAppRss sqlite = BtsAppRss();
 
   /// bmf数据库
   final BtsAppBmf sqliteBmf = BtsAppBmf();
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(Duration.zero, () async {
-      await init();
-    });
-  }
-
-  /// 初始化
-  Future<void> init() async {
-    if (isNew && notify) {
-      await BTNotifierTool.showMini(
-        title: 'RSS 订阅更新',
-        body: '${item.title}',
-        onClick: () async {
-          var title = '条目详情 $subject';
-          var pane = PaneItem(
-            icon: const Icon(FluentIcons.info),
-            title: Text(title),
-            body: BangumiDetail(id: subject.toString()),
-          );
-          ref.read(navStoreProvider.notifier).addNavItem(
-                pane,
-                title,
-                type: BtmAppNavItemType.bangumiSubject,
-                param: 'subjectDetail_$subject',
-              );
-        },
-      );
-      BTLogTool.info('RSS 订阅更新: ${item.title}');
-    }
-  }
 
   /// 获取下载目录
   Future<String?> getSaveDir() async {

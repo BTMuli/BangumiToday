@@ -3,19 +3,24 @@ import 'dart:async';
 import 'package:bangumi_today/database/app/app_rss.dart';
 import 'package:bangumi_today/models/database/app_bmf_model.dart';
 import 'package:bangumi_today/request/rss/mikan_api.dart';
+import 'package:bangumi_today/tools/notifier_tool.dart';
 import 'package:dart_rss/domain/rss_feed.dart';
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../models/app/nav_model.dart';
 import '../../../models/database/app_rss_model.dart';
+import '../../../pages/bangumi/bangumi_detail.dart';
+import '../../../store/nav_store.dart';
 import '../../../tools/log_tool.dart';
 import '../../app/app_dialog_resp.dart';
 import '../../app/app_infobar.dart';
 import '../../rss/rss_mk_card.dart';
 
 /// bmf RSS部分的组件
-class BsdBmfRss extends StatefulWidget {
+class BsdBmfRss extends ConsumerStatefulWidget {
   /// bmf 配置
   final AppBmfModel bmf;
 
@@ -26,11 +31,11 @@ class BsdBmfRss extends StatefulWidget {
   const BsdBmfRss(this.bmf, this.isConfig, {super.key});
 
   @override
-  State<BsdBmfRss> createState() => _BsdBmfRssState();
+  ConsumerState<BsdBmfRss> createState() => _BsdBmfRssState();
 }
 
 /// 状态
-class _BsdBmfRssState extends State<BsdBmfRss>
+class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     with AutomaticKeepAliveClientMixin {
   /// bmf
   AppBmfModel get bmf => widget.bmf;
@@ -106,20 +111,37 @@ class _BsdBmfRssState extends State<BsdBmfRss>
     setState(() {});
     var newModel = AppRssModel.fromRssFeed(bmf.rss!, feed);
     if (appRssModel == null) {
-      notify = false;
-      isNewList = List.filled(rssItems.length, true);
       await sqlite.write(newModel);
       appRssModel = newModel;
       setState(() {});
       return;
     }
-    notify = true;
-    isNewList = rssItems.map((e) {
-      var model = AppRssItemModel.fromRssItem(bmf.rss!, e);
+    var check = false;
+    for (var i = 0; i < rssItems.length; i++) {
+      var model = AppRssItemModel.fromRssItem(bmf.rss!, rssItems[i]);
       var index = appRssModel!.data.indexWhere((element) => element != model);
-      return index == -1;
-    }).toList();
-    if (isNewList.contains(true)) {
+      if (index != -1) continue;
+      check = true;
+      await BTNotifierTool.showMini(
+        title: 'RSS 订阅更新',
+        body: '${rssItems[i].title}',
+        onClick: () async {
+          var title = '条目详情 ${bmf.subject}';
+          var pane = PaneItem(
+            icon: const Icon(FluentIcons.info),
+            title: Text(title),
+            body: BangumiDetail(id: bmf.subject.toString()),
+          );
+          ref.read(navStoreProvider.notifier).addNavItem(
+                pane,
+                title,
+                type: BtmAppNavItemType.bangumiSubject,
+                param: 'subjectDetail_${bmf.subject}',
+              );
+        },
+      );
+    }
+    if (check) {
       BTLogTool.info('发现新的 RSS 信息');
       await sqlite.write(newModel);
       appRssModel = newModel;
@@ -161,8 +183,6 @@ class _BsdBmfRssState extends State<BsdBmfRss>
                 bmf.rss!,
                 rssItems[i],
                 dir: bmf.download!,
-                isNew: isNewList[i],
-                notify: notify,
                 subject: bmf.subject,
               ),
           ]),

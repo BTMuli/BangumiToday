@@ -53,7 +53,6 @@ class BtsAppBmf {
     );
     if (result.isEmpty) return null;
     var value = result.first;
-    BTLogTool.info('Read $_tableName subject: $subject');
     return AppBmfModel.fromJson(value);
   }
 
@@ -100,7 +99,6 @@ class BtsAppBmf {
     );
     if (result.isEmpty) return null;
     var value = result.first;
-    BTLogTool.info('Read $_tableName rss: $rss');
     return AppBmfModel.fromJson(value);
   }
 
