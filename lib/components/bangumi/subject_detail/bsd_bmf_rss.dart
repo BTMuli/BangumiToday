@@ -86,39 +86,12 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     });
   }
 
-  /// freshRss
-  Future<void> freshRss() async {
-    if (bmf.rss == null || bmf.rss!.isEmpty) return;
-    var rssGet = await api.getCustomRSS(bmf.rss!);
-    var tryTimes = 0;
-    while (rssGet.code != 0 && tryTimes < 3) {
-      BTLogTool.error('Failed to load custom RSS, try again');
-      rssGet = await api.getCustomRSS(bmf.rss!);
-      tryTimes++;
-    }
-    if (rssGet.code != 0 || rssGet.data == null) {
-      if (mounted) showRespErr(rssGet, context);
-      return;
-    }
-    var feed = rssGet.data! as RssFeed;
-    rssItems = feed.items;
-    setState(() {});
-    var newModel = AppRssModel.fromRssFeed(bmf.rss!, feed);
-    if (appRssModel == null) {
-      await sqlite.write(newModel);
-      appRssModel = newModel;
-      setState(() {});
-      return;
-    }
-    var check = false;
-    for (var i = 0; i < rssItems.length; i++) {
-      var model = AppRssItemModel.fromRssItem(bmf.rss!, rssItems[i]);
-      var index = appRssModel!.data.indexWhere((element) => element != model);
-      if (index != -1) continue;
-      check = true;
+  /// showNewRss
+  Future<void> showNewRss(List<RssItem> newList) async {
+    for (var item in newList) {
       await BTNotifierTool.showMini(
         title: 'RSS 订阅更新',
-        body: '${rssItems[i].title}',
+        body: '${item.title}',
         onClick: () async {
           var title = '条目详情 ${bmf.subject}';
           var pane = PaneItem(
@@ -135,10 +108,35 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
         },
       );
     }
-    if (check) {
+  }
+
+  /// freshRss
+  Future<void> freshRss() async {
+    if (bmf.rss == null || bmf.rss!.isEmpty) return;
+    var rssGet = await api.getCustomRSS(bmf.rss!);
+    var tryTimes = 0;
+    while (rssGet.code != 0 && tryTimes < 3) {
+      BTLogTool.error('Failed to load custom RSS, try again');
+      rssGet = await api.getCustomRSS(bmf.rss!);
+      tryTimes++;
+    }
+    if (rssGet.code != 0 || rssGet.data == null) {
+      if (mounted) showRespErr(rssGet, context);
+      return;
+    }
+    var feed = rssGet.data! as RssFeed;
+    if (rssItems.isEmpty) rssItems = feed.items;
+    var newList = <RssItem>[];
+    for (var item in feed.items) {
+      if (rssItems.contains(item)) continue;
+      newList.add(item);
+    }
+    rssItems = feed.items;
+    if (newList.isNotEmpty) {
       BTLogTool.info('发现新的 RSS 信息');
-      await sqlite.write(newModel);
-      appRssModel = newModel;
+      appRssModel = AppRssModel.fromRssFeed(bmf.rss!, feed);
+      await showNewRss(newList);
+      await sqlite.write(appRssModel!);
     }
     setState(() {});
   }
