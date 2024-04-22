@@ -52,12 +52,6 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
   /// rssItems
   List<RssItem> rssItems = [];
 
-  /// isNewList
-  late List<bool> isNewList;
-
-  /// notify
-  bool notify = false;
-
   /// 刷新定时器
   late Timer timerRss;
 
@@ -174,7 +168,7 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
       children: [
         buildTitle(),
         SizedBox(height: 12.h),
-        if (rssItems.isEmpty || rssItems.length != isNewList.length)
+        if (rssItems.isEmpty)
           const Text('没有找到任何 RSS 信息')
         else
           Wrap(spacing: 12.w, runSpacing: 12.h, children: [
