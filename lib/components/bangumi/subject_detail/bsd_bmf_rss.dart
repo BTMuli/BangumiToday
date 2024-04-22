@@ -125,11 +125,16 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
       return;
     }
     var feed = rssGet.data! as RssFeed;
-    if (rssItems.isEmpty) rssItems = feed.items;
+    if (rssItems.isEmpty) {
+      rssItems = feed.items;
+      appRssModel = AppRssModel.fromRssFeed(bmf.rss!, feed);
+      setState(() {});
+      return;
+    }
     var newList = <RssItem>[];
     for (var item in feed.items) {
-      if (rssItems.contains(item)) continue;
-      newList.add(item);
+      var check = rssItems.any((element) => element.link == item.link);
+      if (!check) newList.add(item);
     }
     rssItems = feed.items;
     if (newList.isNotEmpty) {
