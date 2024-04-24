@@ -58,7 +58,7 @@ class _AppNavState extends ConsumerState<AppNav> {
     var token = await _bangumiUser.readRefreshToken();
     var expired = await _bangumiUser.readExpireTime();
     if (expired == null || token == null) return;
-    if (token.isEmpty || expired.isBefore(now)) return;
+    if (token.isEmpty || now.isBefore(expired)) return;
     var resp = await _bangumiOauth.refreshToken(token);
     if (resp.code != 0 || resp.data == null) {
       if (mounted) showRespErr(resp, context, title: '刷新用户Token失败');
