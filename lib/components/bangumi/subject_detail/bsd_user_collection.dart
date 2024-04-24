@@ -397,7 +397,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           if (mounted) {
             await BtInfobar.success(
               context,
-              '条目 ${subject.id} 评分更新为 $rating 分',
+              '条目 ${subject.id} 评分更新为 ${val.toInt() + 1} 分',
             );
           }
           setState(() {});

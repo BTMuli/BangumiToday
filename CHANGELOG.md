@@ -2,12 +2,29 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2024-04-17
+Update: 2024-04-25
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:42`
 >
-> 更新于 `2024-04-17 17:46:42`
+> 更新于 `2024-04-25 00:26:39`
+
+## [v0.2.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.2.0) (2024-04-25)
+
+`torrent` 下载还在测试当中，入口暂时隐藏，后续会继续完善。
+
+### Feat
+
+- [x] BMF: RSS定时检测更新，有更新时会自动推送通知
+- [x] Bangumi: 启动时检测 `token` 是否过期，过期时会自动获取新的 `token`
+
+### Fix
+
+- [x] 条目详情：修复修改评分时的内容错误
+
+### Change
+
+- [x] RSS: RSS页面合并，采用 `tab` 方式切换查看 MikanRSS 和 ComicatRSS
 
 ## [v0.1.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.1.0) (2024-04-17)
 
