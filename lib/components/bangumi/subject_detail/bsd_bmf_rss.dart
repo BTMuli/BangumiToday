@@ -9,7 +9,7 @@ import 'package:dart_rss/domain/rss_item.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-
+import 'package:xml/xml.dart';
 import '../../../models/app/nav_model.dart';
 import '../../../models/database/app_rss_model.dart';
 import '../../../pages/bangumi/bangumi_detail.dart';
@@ -49,6 +49,9 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
   /// AppRssModel
   AppRssModel? appRssModel;
 
+  /// 用于对比的 rssItems
+  List<XmlElement> rssItemsXml = [];
+
   /// rssItems
   List<RssItem> rssItems = [];
 
@@ -66,6 +69,11 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     timerRss = getTimerRss();
     Future.delayed(Duration.zero, () async {
       appRssModel = await sqlite.read(bmf.rss!);
+      rssItems = RssFeed.parse(appRssModel!.data).items;
+      var parse = XmlDocument.parse(appRssModel!.data);
+      var channel = parse.findAllElements('channel').first;
+      rssItemsXml = channel.findAllElements('item').toList();
+      setState(() {});
       await freshRss();
     });
   }
@@ -124,22 +132,40 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
       if (mounted) showRespErr(rssGet, context);
       return;
     }
-    var feed = rssGet.data! as RssFeed;
+    var feed = RssFeed.parse(rssGet.data);
     if (rssItems.isEmpty) {
       rssItems = feed.items;
-      appRssModel = AppRssModel.fromRssFeed(bmf.rss!, feed);
+      appRssModel = AppRssModel(
+        rss: bmf.rss!,
+        data: rssGet.data,
+        ttl: feed.ttl,
+        updated: DateTime.now().millisecondsSinceEpoch,
+      );
+      await sqlite.write(appRssModel!);
+      BTLogTool.info('首次加载 RSS 信息');
       setState(() {});
       return;
     }
+    var parse = XmlDocument.parse(rssGet.data);
+    var channel = parse.findAllElements('channel').first;
+    var items = channel.findAllElements('item');
     var newList = <RssItem>[];
-    for (var item in feed.items) {
-      var check = rssItems.any((element) => element.link == item.link);
-      if (!check) newList.add(item);
+    for (var item in items) {
+      var check = rssItemsXml.any(
+        (element) => element.toXmlString() == item.toXmlString(),
+      );
+      if (!check) newList.add(RssItem.parse(item));
     }
     rssItems = feed.items;
+    rssItemsXml = items.toList();
     if (newList.isNotEmpty) {
       BTLogTool.info('发现新的 RSS 信息');
-      appRssModel = AppRssModel.fromRssFeed(bmf.rss!, feed);
+      appRssModel = AppRssModel(
+        rss: bmf.rss!,
+        data: rssGet.data as String,
+        ttl: feed.ttl,
+        updated: DateTime.now().millisecondsSinceEpoch,
+      );
       await showNewRss(newList);
       await sqlite.write(appRssModel!);
     }

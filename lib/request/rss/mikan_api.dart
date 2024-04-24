@@ -73,8 +73,7 @@ class MikanAPI {
   Future<BTResponse> getCustomRSS(String url) async {
     try {
       var resp = await client.dio.get(url);
-      final channel = RssFeed.parse(resp.data.toString());
-      return BTResponse.success(data: channel);
+      return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
       BTLogTool.error('Failed to load custom RSS ${e.response?.data}');
       return BTResponse.error(

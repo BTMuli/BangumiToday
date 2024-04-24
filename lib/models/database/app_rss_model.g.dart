@@ -8,9 +8,7 @@ part of 'app_rss_model.dart';
 
 AppRssModel _$AppRssModelFromJson(Map<String, dynamic> json) => AppRssModel(
       rss: json['rss'] as String,
-      data: (json['data'] as List<dynamic>)
-          .map((e) => AppRssItemModel.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      data: json['data'] as String,
       ttl: json['ttl'] as int,
       updated: json['updated'] as int? ?? 0,
     );
@@ -18,23 +16,7 @@ AppRssModel _$AppRssModelFromJson(Map<String, dynamic> json) => AppRssModel(
 Map<String, dynamic> _$AppRssModelToJson(AppRssModel instance) =>
     <String, dynamic>{
       'rss': instance.rss,
-      'data': instance.data.map((e) => e.toJson()).toList(),
+      'data': instance.data,
       'ttl': instance.ttl,
       'updated': instance.updated,
-    };
-
-AppRssItemModel _$AppRssItemModelFromJson(Map<String, dynamic> json) =>
-    AppRssItemModel(
-      site: json['site'] as String,
-      link: json['link'] as String,
-      title: json['title'] as String,
-      pubDate: json['pubDate'] as String,
-    );
-
-Map<String, dynamic> _$AppRssItemModelToJson(AppRssItemModel instance) =>
-    <String, dynamic>{
-      'site': instance.site,
-      'link': instance.link,
-      'title': instance.title,
-      'pubDate': instance.pubDate,
     };

@@ -1,5 +1,3 @@
-import 'package:dart_rss/domain/rss_item.dart';
-
 import '../../models/database/app_rss_model.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
@@ -48,7 +46,7 @@ class BtsAppRss {
     );
     if (result.isEmpty) return null;
     var value = result.first;
-    return AppRssModel.fromSqlJson(value);
+    return AppRssModel.fromJson(value);
   }
 
   /// 写入/更新配置
@@ -63,12 +61,12 @@ class BtsAppRss {
     if (check.isEmpty) {
       await instance.sqlite.db.insert(
         _tableName,
-        model.toSqlJson(),
+        model.toJson(),
       );
     } else {
       await instance.sqlite.db.update(
         _tableName,
-        model.toSqlJson(),
+        model.toJson(),
         where: 'rss = ?',
         whereArgs: [model.rss],
       );
@@ -83,17 +81,5 @@ class BtsAppRss {
       where: 'rss = ?',
       whereArgs: [rss],
     );
-  }
-
-  /// 判断是否是新的RSS
-  Future<bool> isNewRss(String rss, RssItem rssItem) async {
-    var model = await read(rss);
-    if (model == null) return true;
-    var findIndex = model.data.indexWhere(
-      (element) => element.site == rssItem.link,
-    );
-    if (findIndex == -1) return true;
-    var findItem = model.data[findIndex];
-    return findItem.pubDate != rssItem.pubDate;
   }
 }
