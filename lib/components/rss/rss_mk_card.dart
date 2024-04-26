@@ -82,7 +82,9 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     var savePath = await BTDownloadTool().downloadRssTorrent(
       item.enclosure!.url!,
       item.title!,
+      context: context,
     );
+    if (savePath.isEmpty) return null;
     return savePath;
   }
 
@@ -108,6 +110,7 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     }
     if (!context.mounted) return;
     var savePath = await getSavePath(context, saveDir);
+    if (savePath == null) return;
     await launchUrlString(
       'mo://new-task/?type=torrent&dir=$saveDir',
     );

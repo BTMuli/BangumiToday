@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:bangumi_today/tools/log_tool.dart';
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:dtorrent_common/dtorrent_common.dart';
 import 'package:dtorrent_parser/dtorrent_parser.dart';
@@ -46,6 +47,12 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   /// fileTool
   final fileTool = BTFileTool();
 
+  /// trackers
+  final trackers = findPublicTrackers();
+
+  /// 是否初始化
+  late bool isInit = false;
+
   /// 开始时间
   late int startTime;
 
@@ -76,9 +83,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   /// 最近上传速度
   double ps = 0;
 
-  /// utp的上传速度
-  double utpu = 0;
-
   /// utp的连接数
   int utpc = 0;
 
@@ -91,9 +95,28 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   /// 全部节点数
   int all = 0;
 
+  /// 初始化
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration.zero, () async {
+      await initWidget();
+    });
+  }
+
   @override
   void dispose() {
-    task?.stop();
+    try {
+      task?.stop();
+    } catch (e) {
+      var errInfo = [
+        'RssDownloadCard dispose error: $e',
+        'RssItemTitle: ${item.title}',
+        'TorrentLink: ${item.enclosure?.url}',
+        'SaveDir: $dir',
+      ];
+      BTLogTool.error(errInfo);
+    }
     timer.cancel();
     super.dispose();
   }
@@ -101,15 +124,22 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   /// 初始化
   Future<void> initWidget() async {
     if (filePath.isEmpty) {
-      filePath = await BTDownloadTool().downloadRssTorrent(
+      filePath = await downloadTool.downloadRssTorrent(
         item.enclosure!.url!,
         item.title!,
+        context: context,
       );
     }
+    if (filePath.isEmpty) {
+      ref.read(dttStoreProvider.notifier).removeTask(item);
+      return;
+    }
+    if (mounted) BtInfobar.success(context, '成功获取保存路径');
     model = await Torrent.parse(filePath);
     task = TorrentTask.newTask(model!, dir);
+    if (mounted) BtInfobar.success(context, '成功解析种子文件');
     await task!.start();
-    findPublicTrackers().listen((urls) {
+    trackers.listen((urls) {
       for (var url in urls) {
         task!.startAnnounceUrl(url, model!.infoHashBuffer);
       }
@@ -117,8 +147,15 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     for (var node in model!.nodes) {
       task!.addDHTNode(node);
     }
-    await initDownload();
-    await startDownload();
+    if (mounted) BtInfobar.success(context, '成功添加节点');
+    startTime = DateTime.now().millisecondsSinceEpoch;
+    progress = null;
+    timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      await freshDownload();
+    });
+    isInit = true;
+    if (mounted) BtInfobar.success(context, '初始化成功');
+    setState(() {});
   }
 
   /// 处理下载完成
@@ -137,13 +174,20 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     );
     await Future.delayed(const Duration(seconds: 5), () async {
       var stateFile = path.join(dir, '${model!.infoHash}.bt.state');
-      await fileTool.deleteFile(stateFile);
+      try {
+        await fileTool.deleteFile(stateFile);
+        if (mounted) await BtInfobar.success(context, '任务已经删除');
+      } catch (e) {
+        var errInfo = ['删除文件失败 $stateFile', '错误信息：$e'];
+        if (mounted) await BtInfobar.error(context, errInfo.join('\n'));
+        BTLogTool.error(errInfo);
+      }
       ref.read(dttStoreProvider.notifier).removeTask(item);
     });
   }
 
   /// 初始化下载
-  Future<void> initDownload() async {
+  void initDownload() {
     startTime = DateTime.now().millisecondsSinceEpoch;
     progress = null;
     setState(() {});
@@ -176,6 +220,10 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     }
     if (task!.state == TaskState.paused) {
       await resumeDownload();
+      return;
+    }
+    if (task!.state == TaskState.running || timer.isActive) {
+      BtInfobar.error(context, '任务正在下载');
       return;
     }
     await task!.start();
@@ -221,20 +269,49 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
 
   /// 停止下载
   Future<void> stopDownload() async {
-    if (task == null) {
-      BtInfobar.error(context, '任务初始化失败');
-      return;
+    try {
+      if (task == null) {
+        BtInfobar.error(context, '任务初始化失败');
+        return;
+      }
+      if (task!.state == TaskState.stopped) {
+        BtInfobar.error(context, '任务已经停止');
+        return;
+      }
+      await task!.stop();
+      if (mounted) await BtInfobar.success(context, '任务已经停止');
+    } catch (e) {
+      if (mounted) await BtInfobar.error(context, e.toString());
     }
-    if (task!.state == TaskState.stopped) {
-      BtInfobar.error(context, '任务已经停止');
-      return;
+  }
+
+  /// 重新下载
+  Future<void> restartDownload() async {
+    try {
+      await task!.stop();
+      await task!.start();
+      trackers.listen((urls) {
+        for (var url in urls) {
+          task!.startAnnounceUrl(url, model!.infoHashBuffer);
+        }
+      });
+      for (var node in model!.nodes) {
+        task!.addDHTNode(node);
+      }
+      startTime = DateTime.now().millisecondsSinceEpoch;
+      progress = null;
+      timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+        await freshDownload();
+      });
+      if (mounted) await BtInfobar.success(context, '任务开始重新下载');
+      setState(() {});
+    } catch (e) {
+      if (mounted) await BtInfobar.error(context, e.toString());
     }
-    await task!.stop();
-    if (mounted) await BtInfobar.success(context, '任务已经停止');
   }
 
   /// 构建组件
-  Widget buildCard(BuildContext context) {
+  Widget buildCard() {
     return Card(
       child: Column(
         children: [
@@ -252,9 +329,16 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
                 if (confirm) {
                   await stopDownload();
                   var stateFile = path.join(dir, '${model!.infoHash}.bt.state');
-                  await fileTool.deleteFile(stateFile);
+                  try {
+                    await fileTool.deleteFile(stateFile);
+                  } catch (e) {
+                    var errInfo = ['删除文件失败 $stateFile', '错误信息：$e'];
+                    if (mounted) {
+                      await BtInfobar.error(context, errInfo.join('\n'));
+                    }
+                    BTLogTool.error(errInfo);
+                  }
                   ref.read(dttStoreProvider.notifier).removeTask(item);
-                  if (context.mounted) BtInfobar.success(context, '任务已经删除');
                 }
               },
             ),
@@ -264,15 +348,13 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               Text(
-                '${filesize((ds * 1000).toInt())}/s(${filesize((ads * 1000).toInt())})',
+                '${filesize((ds * 1000).toInt())}(${filesize((ads * 1000).toInt())})',
               ),
               SizedBox(width: 8.w),
-              Text('节点：$active/$seeders/$all'
-                  '(${filesize((utpu * 1000).toInt())})'),
+              Text('节点：$active/$seeders/$all'),
               SizedBox(width: 8.w),
-              Text('上传：${filesize((utpu * 1000).toInt())}/s('
-                  '${filesize((aps * 1000).toInt())}/'
-                  '${filesize((ps * 1000).toInt())})'),
+              Text(
+                  '上传：${filesize((aps * 1000).toInt())}/${filesize((ps * 1000).toInt())}'),
               SizedBox(width: 8.w),
               Text('进度：${progress?.toStringAsFixed(2)}%')
             ],
@@ -295,10 +377,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
                     content: '是否重新下载该任务？',
                   );
                   if (confirm) {
-                    await stopDownload();
-                    await initDownload();
                     await startDownload();
-                    if (context.mounted) BtInfobar.success(context, '任务开始重新下载');
                   }
                 },
               ),
@@ -362,14 +441,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: initWidget(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done) {
-          return buildCard(context);
-        }
-        return buildEmptyCard();
-      },
-    );
+    if (!isInit) return buildEmptyCard();
+    return buildCard();
   }
 }

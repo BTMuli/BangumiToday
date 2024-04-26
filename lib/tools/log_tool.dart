@@ -23,20 +23,20 @@ class BTLogTool {
   BTLogTool._();
 
   /// 实例
-  static final BTLogTool _instance = BTLogTool._();
+  static final BTLogTool instance = BTLogTool._();
 
   /// 日志
-  late Logger _logger;
+  late Logger logger;
 
   /// 获取实例
-  factory BTLogTool() => _instance;
+  factory BTLogTool() => instance;
 
   /// 文件工具
-  final BTFileTool _fileTool = BTFileTool();
+  final BTFileTool fileTool = BTFileTool();
 
   /// 获取日志目录
   Future<String> _getDefaultDir() async {
-    var dir = await _instance._fileTool.getAppDataDir();
+    var dir = await instance.fileTool.getAppDataDir();
     return path.join(dir, 'log');
   }
 
@@ -50,8 +50,8 @@ class BTLogTool {
   Future<File> _getLogFile() async {
     var dir = await _getDefaultDir();
     var file = path.join(dir, _getFileName());
-    if (!await _instance._fileTool.isFileExist(file)) {
-      return await _instance._fileTool.createFile(file);
+    if (!await instance.fileTool.isFileExist(file)) {
+      return await instance.fileTool.createFile(file);
     }
     return File(file);
   }
@@ -76,33 +76,44 @@ class BTLogTool {
     } else {
       printer = PrettyPrinter(printTime: true);
     }
-    _logger = Logger(
+    logger = Logger(
       filter: BTLogFilter(),
       level: Level.all,
       output: MultiOutput(outputs),
       printer: printer,
     );
-    info('BTLogTool init');
   }
 
   /// 打开日志目录
   Future<void> openLogDir() async {
     var dir = await _getDefaultDir();
-    await _fileTool.openDir(dir);
+    await fileTool.openDir(dir);
   }
 
   /// 打印信息日志
   static void info(dynamic message) {
-    _instance._logger.log(Level.info, message);
+    var str = message.toString();
+    if (message is List<String>) {
+      str = message.join('\n');
+    }
+    instance.logger.log(Level.info, str);
   }
 
   /// 打印警告日志
   static void warn(dynamic message) {
-    _instance._logger.log(Level.warning, message);
+    var str = message.toString();
+    if (message is List<String>) {
+      str = message.join('\n');
+    }
+    instance.logger.log(Level.warning, str);
   }
 
   /// 打印错误日志
   static void error(dynamic message) {
-    _instance._logger.log(Level.error, message);
+    var str = message.toString();
+    if (message is List<String>) {
+      str = message.join('\n');
+    }
+    instance.logger.log(Level.error, str);
   }
 }

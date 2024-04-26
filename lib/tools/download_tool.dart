@@ -1,5 +1,7 @@
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
+import 'package:bangumi_today/components/app/app_dialog_resp.dart';
+import 'package:bangumi_today/models/app/response.dart';
+import 'package:dio/dio.dart';
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path/path.dart' as path;
 
 import '../request/core/client.dart';
@@ -45,16 +47,48 @@ class BTDownloadTool {
   }
 
   /// 下载文件
-  Future<String> downloadRssTorrent(String url, String title) async {
+  Future<String> downloadRssTorrent(
+    String url,
+    String title, {
+    BuildContext? context,
+  }) async {
     if (!_instance._isInit) {
       await _instance.init();
     }
-    var hash = md5.convert(utf8.encode(title)).toString();
-    var saveDetailPath = path.join(_instance._defaultPath, '$hash.torrent');
+    var link = Uri.parse(url);
+    var fileName = path.basename(link.path);
+    var saveDetailPath = path.join(_instance._defaultPath, fileName);
     var fileCheck = await _instance._fileTool.isFileExist(saveDetailPath);
+    var errInfo = ['', 'TorrentLink: $url', 'Title: $title'];
     if (!fileCheck) {
-      var client = BTRequestClient();
-      await client.dio.download(url, saveDetailPath);
+      try {
+        var client = BTRequestClient();
+        await client.dio.download(url, saveDetailPath);
+      } on DioException catch (e) {
+        if (context != null && context.mounted) {
+          var resp = BTResponse(
+            code: e.response?.statusCode ?? 666,
+            message: e.response?.statusMessage ?? '未知错误',
+            data: e.error,
+          );
+          await showRespErr(resp, context);
+        }
+        errInfo[0] = 'DownloadTorrentErrorDio: \n\t${e.error}';
+        BTLogTool.error(errInfo);
+        return '';
+      } on Exception catch (e) {
+        if (context != null && context.mounted) {
+          var resp = BTResponse(
+            code: 666,
+            message: e.toString(),
+            data: null,
+          );
+          await showRespErr(resp, context);
+        }
+        errInfo[0] = 'DownloadTorrentError: \n\t${e.toString()}';
+        BTLogTool.error(errInfo);
+        return '';
+      }
     }
     return saveDetailPath;
   }

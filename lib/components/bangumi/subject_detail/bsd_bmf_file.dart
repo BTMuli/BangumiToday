@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:bangumi_today/tools/log_tool.dart';
 import 'package:filesize/filesize.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,7 +35,7 @@ class _BsdBmfFileState extends State<BsdBmfFile> {
   /// 文件
   List<String> files = [];
 
-  ///aria2文件
+  /// aria2文件，motrix缓存文件
   List<String> aria2Files = [];
 
   /// 刷新定时器
@@ -105,10 +106,11 @@ class _BsdBmfFileState extends State<BsdBmfFile> {
 
   List<Widget> buildFileAct(BuildContext context, String file) {
     var potplayerBtn = BsdBmfFilePotPlayerBtn(file, widget.bmfFile);
-    var filePath = path.join(widget.bmfFile, file);
-    var deleteBtn = BsdBmfFileDelBtn(filePath, () async {
-      await refreshFiles();
-    });
+    var deleteBtn = BsdBmfFileDelBtn(
+      file: file,
+      dir: widget.bmfFile,
+      onDelete: refreshFiles,
+    );
     if (file.endsWith(".torrent")) {
       return [deleteBtn];
     }
@@ -295,11 +297,19 @@ class BsdBmfFileDelBtn extends StatelessWidget {
   /// 文件
   final String file;
 
+  /// 目录
+  final String dir;
+
   /// 删除回调
   final Future<void> Function() onDelete;
 
   /// 构造
-  const BsdBmfFileDelBtn(this.file, this.onDelete, {super.key});
+  const BsdBmfFileDelBtn({
+    required this.file,
+    required this.dir,
+    required this.onDelete,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -319,7 +329,16 @@ class BsdBmfFileDelBtn extends StatelessWidget {
         );
         if (!confirm) return;
         var fileTool = BTFileTool();
-        await fileTool.deleteFile(file);
+        var filePath = path.join(dir, file);
+        try {
+          await fileTool.deleteFile(filePath);
+        } catch (e) {
+          var errInfo = ['删除文件失败', '文件：$file', '错误：$e'];
+          if (context.mounted) {
+            await BtInfobar.error(context, errInfo.join('\n'));
+          }
+          BTLogTool.error(errInfo);
+        }
         if (context.mounted) BtInfobar.success(context, '成功删除文件 $file');
         await onDelete();
       },

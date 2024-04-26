@@ -195,6 +195,10 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
       rateWidget.add(SizedBox(height: 5.h));
       rateWidget.add(Text(
         '${data.rating?.score} $label (${data.rating?.total}人评分)',
+        style: TextStyle(
+          color: FluentTheme.of(context).accentColor.lighter,
+          fontSize: 14,
+        ),
       ));
     }
     if (data.collection?.doing != null) {
@@ -220,20 +224,21 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
     return Stack(
       children: [
         Positioned.fill(child: buildCoverImage(context)),
-        Positioned(
-          right: -1.w,
-          left: 0,
-          bottom: -1.h,
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Card(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-                child: buildCoverInfo(context),
+        if (data.rating != null || data.collection?.doing != null)
+          Positioned(
+            right: -1.w,
+            left: 0,
+            bottom: -1.h,
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: buildCoverInfo(context),
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }
