@@ -1,3 +1,4 @@
+import 'package:bangumi_today/controller/app/page_controller.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -27,10 +28,15 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
   /// api
   final BtrBangumiApi api = BtrBangumiApi();
 
+  /// controller
+  late BtcPageController controller = BtcPageController.defaultInit();
+
   /// offset
-  /// todo: 尽管返回的数据中有 limit、total、offset，但是无法设定 offset 实现分页
-  /// 详见：https://github.com/bangumi/server/issues/532
   int offset = 0;
+
+  /// 每页限制
+  /// todo 后续可以根据屏幕大小动态调整
+  int limit = 12;
 
   /// text controller
   final TextEditingController textController = TextEditingController();
@@ -56,6 +62,9 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
   List nsfwList = [true, false, null];
 
   /// 搜索结果
+  Map<String, List<BangumiSubjectSearchData>> resultMap = {};
+
+  /// 搜索结果
   List<BangumiSubjectSearchData> result = [];
 
   /// 是否在加载中
@@ -65,11 +74,49 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
   @override
   bool get wantKeepAlive => true;
 
+  /// 初始化函数
+  @override
+  void initState() {
+    super.initState();
+    controller = BtcPageController(cur: 0, total: 0, onChanged: onPageChanged);
+  }
+
+  /// 页面改变
+  Future<void> onPageChanged(int page) async {
+    if (resultMap.containsKey('page_$page')) {
+      result = resultMap['page_$page']!;
+      setState(() {});
+      return;
+    }
+    loading = true;
+    setState(() {});
+    var resp = await api.searchSubjects(
+      textController.text,
+      sort: sort,
+      type: types,
+      nsfw: nsfw,
+      offset: (page - 1) * limit,
+      limit: limit,
+    );
+    if (resp.code != 0 || resp.data == null) {
+      if (mounted) await showRespErr(resp, context);
+      return;
+    }
+    var data = resp.data as BangumiPageT<BangumiSubjectSearchData>;
+    resultMap['page_$page'] = data.data;
+    result = data.data;
+    loading = false;
+    setState(() {});
+  }
+
   /// 搜索
   Future<void> search() async {
     var input = textController.text;
     if (input.isEmpty) {
       offset = 0;
+      controller.reset(total: 0, cur: 0);
+      result.clear();
+      resultMap.clear();
       setState(() {});
       BtInfobar.warn(context, '请输入搜索内容');
       return;
@@ -81,19 +128,37 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
     if (loading) return;
     loading = true;
     result.clear();
+    resultMap.clear();
     setState(() {});
+    if (result.isNotEmpty) {
+      loading = false;
+      controller.jump(1);
+      setState(() {});
+      return;
+    }
     var resp = await api.searchSubjects(
       input,
       sort: sort,
       type: types,
       nsfw: nsfw,
+      offset: offset,
+      limit: limit,
     );
     if (resp.code != 0 || resp.data == null) {
       if (mounted) await showRespErr(resp, context);
       return;
     }
     var data = resp.data as BangumiPageT<BangumiSubjectSearchData>;
+    if (data.total == 0) {
+      if (mounted) BtInfobar.warn(context, '没有找到相关条目');
+      loading = false;
+      setState(() {});
+      return;
+    }
     result = data.data;
+    resultMap['page_1'] = data.data;
+    var totalPage = (data.total / limit).ceil();
+    controller.reset(total: totalPage, cur: 1);
     loading = false;
     setState(() {});
   }
@@ -223,6 +288,9 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
         // buildSortSelect(),
         // SizedBox(width: 8.w),
         buildNsfwCheck(),
+        const Spacer(),
+        PageWidget(controller),
+        SizedBox(width: 16.w),
       ],
     );
   }
@@ -241,7 +309,7 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
         ),
       );
     }
-    if (result.isEmpty) {
+    if (controller.total == 0) {
       return const Center(child: Text('没有数据'));
     }
     return GridView(

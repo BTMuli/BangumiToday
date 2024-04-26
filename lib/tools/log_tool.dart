@@ -11,7 +11,10 @@ import 'file_tool.dart';
 class BTLogFilter extends LogFilter {
   @override
   bool shouldLog(LogEvent event) {
-    return true;
+    if (kDebugMode) {
+      return true;
+    }
+    return event.level.index > Level.info.index;
   }
 }
 

@@ -102,6 +102,8 @@ class BtrBangumiApi {
   Future<dynamic> searchSubjects(
     String keyword, {
     String sort = 'match',
+    int offset = 0,
+    int limit = 10,
     List<BangumiSubjectType> type = const [BangumiSubjectType.anime],
     List<String>? tag,
     List<String>? airdate,
@@ -109,10 +111,7 @@ class BtrBangumiApi {
     List<String>? rank,
     bool? nsfw = false,
   }) async {
-    var params = <String, dynamic>{
-      'keyword': keyword,
-      'sort': sort,
-    };
+    var data = <String, dynamic>{'keyword': keyword, 'sort': sort};
     var filter = <String, dynamic>{};
     if (type.isNotEmpty) filter['type'] = type.map((e) => e.value).toList();
     if (tag != null) filter['tag'] = tag;
@@ -120,20 +119,21 @@ class BtrBangumiApi {
     if (rating != null) filter['rating'] = rating;
     if (rank != null) filter['rank'] = rank;
     filter['nsfw'] = nsfw;
-    params['filter'] = filter;
-    BTLogTool.info('searchSubjects: ${jsonEncode(params)}');
+    data['filter'] = filter;
+    var params = <String, dynamic>{'limit': limit, 'offset': offset};
+    BTLogTool.info('searchSubjectsData: ${jsonEncode(data)}');
+    BTLogTool.info('searchSubjectsParams: ${jsonEncode(params)}');
     try {
       var authHeader = await getAuthHeader();
       var resp = await client.dio.post(
         '/v0/search/subjects',
-        data: params,
+        queryParameters: params,
+        data: data,
         options: Options(contentType: 'application/json', headers: authHeader),
       );
       var list = BangumiPageT<BangumiSubjectSearchData>.fromJson(
         resp.data as Map<String, dynamic>,
-        (e) => BangumiSubjectSearchData.fromJson(
-          e as Map<String, dynamic>,
-        ),
+        (e) => BangumiSubjectSearchData.fromJson(e as Map<String, dynamic>),
       );
       return BangumiSubjectSearchResp.success(data: list);
     } on DioException catch (e) {
