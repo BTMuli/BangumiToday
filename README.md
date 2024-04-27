@@ -2,16 +2,16 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2024-04-18
+Update: 2024-04-27
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-04-18 22:26:14`
+> 更新于 `2024-04-27 20:21:05`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
-<div style="width:100%;display:flex;justify-content:center;align-items:center">
+<div style="width:100%;display:flex;justify-content:center;align-items:center;margin:0 auto">
     <a href="./assets/images/logo.png">
       <img src="https://s2.loli.net/2024/04/18/xe7bEKiQMBCtPZo.png" alt="logo">
     </a>
@@ -20,6 +20,7 @@ Update: 2024-04-18
 [![](https://img.shields.io/github/license/BTMuli/BangumiToday)](./LICENSE)
 [![](https://img.shields.io/github/v/release/BTMuli/BangumiToday)](https://github.com/BTMuli/BangumiToday/releases/latest)
 [![](https://img.shields.io/github/last-commit/BTMuli/BangumiToday)](https://github.com/BTMuli/BangumiToday/commits/master/)
+[![](https://img.shields.io/github/commits-since/BTMuli/BangumiToday/latest)](https://github.com/BTMuli/BangumiToday/commits/master/)
 
 # BangumiToday
 
@@ -45,10 +46,10 @@ dart run msix:create --sign-msix true
 应用的良好使用体验**基于如下前提**：
 
 1. 用户已经拥有 [Bangumi.tv](https://bangumi.tv) 账号，并且通过应用相关页面完成了登录授权。
-2. ~~用户已经拥有 [蜜柑计划](https://mikanani.hacgn.fun/) 账号，并且在相关页面输入了订阅地址~~（非必需，单条目需要单独订阅）
-3. 用户本地安装了 [Motrix](https://motrix.app/) 且将 `torrent` 默认关联到 Motrix。
-4. 用户本地安装了 [PotPlayer](https://potplayer.daum.net/)。
-5. 用户登录 Bangumi 账号后对收藏数据进行了同步。
+2. 用户本地安装了 [Motrix](https://motrix.app/) 且将 `torrent` 默认关联到 Motrix。
+3. 用户本地安装了 [PotPlayer](https://potplayer.daum.net/)。
+4. 用户登录 Bangumi 账号后对收藏数据进行了同步。
+5. 用户在特定条目页面设置了 `SSR` 订阅地址和下载目录。
 
 ## 发行
 
@@ -63,7 +64,7 @@ dart run msix:create --sign-msix true
 
 ## 关于证书
 
-> 截止 2024-04-17，应用使用的证书为自签名证书，需要将证书导入到系统。
+> 截止 2024-04-27，应用使用的证书为自签名证书，需要将证书导入到系统。
 
 为了正常安装应用，需要将 [BTMuli.cer](./BTMuli.cer) 证书导入到系统。
 

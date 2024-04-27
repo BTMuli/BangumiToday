@@ -13,7 +13,30 @@
 2. Clone the repository,or fork it.
 3. Create a new branch from `main`.
 4. Run `flutter pub get` to install dependencies.
-5. Run `flutter run` to start the application.
+
+### Run BangumiToday Project
+
+For security reasons, the project stores some sensitive information in the .env file, which will not
+be uploaded to the repository.
+
+You need to create `.env` file in the root directory of the project, and fill the data below:
+
+```env
+BANGUMI_APP_ID=xxx
+BANGUMI_APP_SECRET=xxx
+```
+
+You can get the `BANGUMI_APP_ID` and `BANGUMI_APP_SECRET` from [Bangumi API](https://bgm.tv/dev/app)
+
+by creating a new app.
+
+After you have created the `.env` file, you could run the project by using the following command:
+
+```shell
+flutter run
+```
+
+### Development
 
 Prefer to use [Android Studio](https://developer.android.com/studio) with dart and flutter plugins.
 
