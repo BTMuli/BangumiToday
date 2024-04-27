@@ -1,10 +1,13 @@
+// Package imports:
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+// Project imports:
 import '../../models/age/get_home_list.dart';
 import '../../request/age/age_api.dart';
+
 // import '../../store/app_store.dart';
 
 /// 今日放送-age数据源
@@ -191,7 +194,7 @@ class CalendarCardAge extends StatelessWidget {
 
   /// 构建渐变层
   Widget buildGradient(BuildContext context) {
-    final brightness = FluentTheme.of(context).brightness;
+    var brightness = FluentTheme.of(context).brightness;
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(

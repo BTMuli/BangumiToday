@@ -1,5 +1,7 @@
+// Package imports:
 import 'package:json_annotation/json_annotation.dart';
 
+// Project imports:
 import '../app/response.dart';
 import 'bangumi_enum.dart';
 import 'bangumi_model.dart';

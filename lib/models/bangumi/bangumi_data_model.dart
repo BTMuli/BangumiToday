@@ -1,7 +1,10 @@
+// Dart imports:
 import 'dart:convert';
 
+// Package imports:
 import 'package:json_annotation/json_annotation.dart';
 
+// Project imports:
 import '../app/response.dart';
 
 /// bangumi_data 相关的数据结构

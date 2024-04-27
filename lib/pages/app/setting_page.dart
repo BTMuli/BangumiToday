@@ -1,16 +1,21 @@
+// Dart imports:
 import 'dart:io';
 
-import 'package:bangumi_today/tools/log_tool.dart';
+// Flutter imports:
+import 'package:flutter/material.dart' show Icons;
+
+// Package imports:
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
 import '../../components/app/app_infobar.dart';
 import '../../store/app_store.dart';
+import '../../tools/log_tool.dart';
 import '../../tools/scheme_tool.dart';
 import '../../utils/get_theme_label.dart';
 
@@ -345,7 +350,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
               child: const Text('添加 Protocol'),
               onPressed: () async {
                 await BTSchemeTool().init();
-                if (mounted) BtInfobar.success(context, '添加成功');
+                if (mounted) await BtInfobar.success(context, '添加成功');
               },
             ),
           ],

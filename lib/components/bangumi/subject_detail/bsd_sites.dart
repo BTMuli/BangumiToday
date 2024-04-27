@@ -1,7 +1,9 @@
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
 import '../../../database/bangumi/bangumi_data.dart';
 import '../../../models/bangumi/bangumi_data_model.dart';
 

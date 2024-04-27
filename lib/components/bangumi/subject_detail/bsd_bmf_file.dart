@@ -1,16 +1,22 @@
+// Dart imports:
 import 'dart:async';
-import 'package:bangumi_today/tools/log_tool.dart';
-import 'package:filesize/filesize.dart';
+
+// Flutter imports:
 import 'package:flutter/foundation.dart';
+
+// Package imports:
+import 'package:filesize/filesize.dart';
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path/path.dart' as path;
-import 'package:fluent_ui/fluent_ui.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
 import '../../../pages/bangumi/bangumi_play.dart';
 import '../../../store/nav_store.dart';
 import '../../../tools/file_tool.dart';
+import '../../../tools/log_tool.dart';
 import '../../../tools/notifier_tool.dart';
 import '../../app/app_dialog.dart';
 import '../../app/app_infobar.dart';
@@ -339,7 +345,7 @@ class BsdBmfFileDelBtn extends StatelessWidget {
           }
           BTLogTool.error(errInfo);
         }
-        if (context.mounted) BtInfobar.success(context, '成功删除文件 $file');
+        if (context.mounted) await BtInfobar.success(context, '成功删除文件 $file');
         await onDelete();
       },
     );

@@ -75,20 +75,20 @@ dependencies:
   xml: ^6.5.0
 
 dev_dependencies:
-  flutter_test:
-    sdk: flutter
-
+  #  flutter_test:
+  #    sdk: flutter
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   build_runner: ^2.4.8
+  flutter_lints: ^3.0.2
   husky: ^0.1.7
+  import_sorter: ^4.6.0 # dart run import_sorter:main
   json_serializable: ^6.7.1
   lint_staged: ^0.5.1
   msix: ^3.16.7
-  flutter_lints: ^3.0.2
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

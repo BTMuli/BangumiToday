@@ -1,8 +1,10 @@
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
 import '../../components/app/app_dialog.dart';
 import '../../components/app/app_dialog_resp.dart';
 import '../../controller/app/progress_controller.dart';
@@ -89,7 +91,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
       progress.update(text: '获取远程版本失败');
       await Future.delayed(const Duration(seconds: 1));
       progress.end();
-      if (mounted) showRespErr(verGet, context);
+      if (mounted) await showRespErr(verGet, context);
       return;
     }
     var verRemote = verGet.data as String;
@@ -110,7 +112,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
       progress.update(text: '获取数据失败');
       await Future.delayed(const Duration(seconds: 1));
       progress.end();
-      if (mounted) showRespErr(dataGet, context);
+      if (mounted) await showRespErr(dataGet, context);
       return;
     }
     var rawData = dataGet.data as BangumiDataJson;
@@ -194,7 +196,7 @@ class _BangumiDataPageState extends ConsumerState<BangumiDataPage>
                 progress.update(text: '获取远程版本失败');
                 await Future.delayed(const Duration(seconds: 1));
                 progress.end();
-                if (context.mounted) showRespErr(remoteGet, context);
+                if (context.mounted) await showRespErr(remoteGet, context);
                 return;
               }
               var remote = remoteGet.data as String;

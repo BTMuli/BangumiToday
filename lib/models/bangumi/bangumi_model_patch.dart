@@ -1,3 +1,4 @@
+// Package imports:
 import 'package:json_annotation/json_annotation.dart';
 
 /// 基于Bangumi API的数据模型，从中抽离了一些公共的字段

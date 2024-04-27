@@ -1,5 +1,7 @@
+// Package imports:
 import 'package:json_annotation/json_annotation.dart';
 
+// Project imports:
 import '../app/response.dart';
 
 /// Bangumi.tv 的 OAuth 相关数据结构

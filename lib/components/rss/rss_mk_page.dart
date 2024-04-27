@@ -1,14 +1,16 @@
+// Package imports:
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
+import '../../database/app/app_config.dart';
+import '../../request/rss/mikan_api.dart';
 import '../app/app_dialog.dart';
 import '../app/app_dialog_resp.dart';
 import '../app/app_infobar.dart';
 import '../mikan/mk_rss_card.dart';
-import '../../database/app/app_config.dart';
-import '../../request/rss/mikan_api.dart';
 
 /// 负责 MikanProject RSS 页面的显示
 /// 包括 RSSClassic 和 RSSPersonal
@@ -61,7 +63,7 @@ class _RssMkPageState extends State<RssMkPage>
     setState(() {});
     var resGet = await mikanAPI.getClassicRSS();
     if (resGet.code != 0 || resGet.data == null) {
-      if (mounted) showRespErr(resGet, context);
+      if (mounted) await showRespErr(resGet, context);
       return;
     }
     rssItems = resGet.data!;
@@ -75,7 +77,7 @@ class _RssMkPageState extends State<RssMkPage>
     setState(() {});
     var resGet = await mikanAPI.getUserRSS(token);
     if (resGet.code != 0 || resGet.data == null) {
-      if (mounted) showRespErr(resGet, context);
+      if (mounted) await showRespErr(resGet, context);
       return;
     }
     userItems = resGet.data!;
@@ -198,12 +200,12 @@ class _RssMkPageState extends State<RssMkPage>
             content: '请输入你的 Token\n（在蜜柑计划的个人中心可以找到）',
           );
           if (input == null || input == "") {
-            if (mounted) BtInfobar.warn(context, '未输入 Token');
+            if (mounted) await BtInfobar.warn(context, '未输入 Token');
             return;
           }
           var parsed = await getToken(input);
           if (parsed == token) {
-            if (mounted) BtInfobar.warn(context, 'Token 未变更');
+            if (mounted) await BtInfobar.warn(context, 'Token 未变更');
             return;
           }
           token = parsed;

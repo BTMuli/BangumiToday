@@ -1,6 +1,8 @@
+// Package imports:
 import 'package:dart_rss/domain/rss_feed.dart';
 import 'package:dio/dio.dart';
 
+// Project imports:
 import '../../models/app/response.dart';
 import '../../tools/log_tool.dart';
 import '../core/client.dart';
@@ -24,7 +26,7 @@ class ComicatAPI {
   Future<BTResponse> getHomeRSS() async {
     try {
       var resp = await client.dio.get('/rss.xml');
-      final channel = RssFeed.parse(resp.data.toString());
+      var channel = RssFeed.parse(resp.data.toString());
       return BTResponse.success(data: channel.items);
     } on DioException catch (e) {
       BTLogTool.error('Failed to load comicat RSS ${e.response?.data}');

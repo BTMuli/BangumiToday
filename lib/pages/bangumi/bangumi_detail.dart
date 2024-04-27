@@ -1,7 +1,9 @@
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+// Project imports:
 import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/subject_detail/bsd_bmf.dart';
@@ -74,7 +76,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     user = await sqlite.readUser();
     data = null;
     setState(() {});
-    final api = BtrBangumiApi();
+    var api = BtrBangumiApi();
     var detailGet = await api.getSubjectDetail(widget.id);
     if (detailGet.code != 0 || detailGet.data == null) {
       if (mounted) await showRespErr(detailGet, context);

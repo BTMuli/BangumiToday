@@ -1,3 +1,4 @@
+// Package imports:
 import 'package:app_links/app_links.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
 import '../../components/app/app_dialog.dart';
 import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
@@ -138,7 +140,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     var res = await oauth.refreshToken(rt);
     if (res.code != 0 || res.data == null) {
       progress.end();
-      if (mounted) showRespErr(res, context);
+      if (mounted) await showRespErr(res, context);
       return;
     }
     assert(res.data != null);
@@ -177,7 +179,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
         var res = await oauth.getAccessToken(code);
         if (res.code != 0 || res.data == null) {
           progress.end();
-          if (mounted) showRespErr(res, context);
+          if (mounted) await showRespErr(res, context);
           return;
         }
         assert(res.data != null);
@@ -207,7 +209,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     var userResp = await api.getUserInfo();
     if (userResp.code != 0 || userResp.data == null) {
       progress.end();
-      if (mounted) showRespErr(userResp, context);
+      if (mounted) await showRespErr(userResp, context);
       return;
     }
     user = userResp.data! as BangumiUser;
@@ -383,7 +385,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
               );
               if (resp.code != 0 || resp.data == null) {
                 progress.end();
-                if (mounted) showRespErr(resp, context);
+                if (mounted) await showRespErr(resp, context);
                 return;
               }
               await sqliteCollection.preCheck();
@@ -406,7 +408,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
                 if (offset >= total) {
                   checkFlag = false;
                   progress.end();
-                  if (mounted) BtInfobar.success(context, '收藏信息写入完成');
+                  if (mounted) await BtInfobar.success(context, '收藏信息写入完成');
                   break;
                 }
                 progress.update(
@@ -421,7 +423,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
                 );
                 if (resp.code != 0 || resp.data == null) {
                   progress.end();
-                  if (mounted) showRespErr(resp, context);
+                  if (mounted) await showRespErr(resp, context);
                   return;
                 }
                 pageResp =

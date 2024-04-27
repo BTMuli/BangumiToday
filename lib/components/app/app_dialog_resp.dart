@@ -1,8 +1,11 @@
+// Dart imports:
 import 'dart:convert';
 
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+// Project imports:
 import '../../models/app/response.dart';
 
 /// 构建内容
@@ -73,7 +76,7 @@ Future<void> showRespErr(
   } else {
     til = resp.code == 0 ? '请求成功' : '请求失败';
   }
-  showDialog(
+  await showDialog(
     barrierDismissible: true,
     context: context,
     builder: (context) {

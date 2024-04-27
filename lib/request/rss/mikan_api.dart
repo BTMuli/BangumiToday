@@ -1,5 +1,8 @@
+// Package imports:
 import 'package:dart_rss/dart_rss.dart';
 import 'package:dio/dio.dart';
+
+// Project imports:
 import '../../models/app/response.dart';
 import '../../tools/log_tool.dart';
 import '../core/client.dart';
@@ -24,7 +27,7 @@ class MikanAPI {
   Future<BTResponse> getClassicRSS() async {
     try {
       var resp = await client.dio.get('/Classic');
-      final channel = RssFeed.parse(resp.data.toString());
+      var channel = RssFeed.parse(resp.data.toString());
       return BTResponse.success(data: channel.items);
     } on DioException catch (e) {
       BTLogTool.error('Failed to load mikan classic RSS ${e.response?.data}');
@@ -50,7 +53,7 @@ class MikanAPI {
         '/MyBangumi',
         queryParameters: {'token': token},
       );
-      final channel = RssFeed.parse(resp.data.toString());
+      var channel = RssFeed.parse(resp.data.toString());
       return BTResponse.success(data: channel.items);
     } on DioException catch (e) {
       BTLogTool.error('Failed to load user RSS ${e.response?.data}');

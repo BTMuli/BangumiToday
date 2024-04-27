@@ -1,7 +1,7 @@
+// Dart imports:
 import 'dart:async';
 
-import 'package:bangumi_today/components/bangumi/subject_detail/bsd_bmf_file.dart';
-import 'package:bangumi_today/components/bangumi/subject_detail/bsd_bmf_rss.dart';
+// Package imports:
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +9,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
 import '../../../database/app/app_bmf.dart';
 import '../../../database/app/app_rss.dart';
 import '../../../models/app/nav_model.dart';
@@ -19,6 +20,8 @@ import '../../../tools/file_tool.dart';
 import '../../../tools/notifier_tool.dart';
 import '../../app/app_dialog.dart';
 import '../../app/app_infobar.dart';
+import 'bsd_bmf_file.dart';
+import 'bsd_bmf_rss.dart';
 
 /// Bangumi Subject Detail 的 Bangumi-Mikan-File Widget
 /// 用于管理该 Subject 对应的 MikanRSS 及下载目录
@@ -103,7 +106,7 @@ class _BsdBmfState extends State<BsdBmf> with AutomaticKeepAliveClientMixin {
         if (input == null) return;
         var check = await sqliteBmf.checkRss(input);
         if (check) {
-          if (context.mounted) BtInfobar.error(context, '该RSS已经被其他BMF使用');
+          if (context.mounted) await BtInfobar.error(context, '该RSS已经被其他BMF使用');
           return;
         }
         bmf.rss = input;
@@ -133,7 +136,7 @@ class _BsdBmfState extends State<BsdBmf> with AutomaticKeepAliveClientMixin {
         if (dir == null) return;
         var check = await sqliteBmf.checkDir(dir);
         if (check) {
-          if (context.mounted) BtInfobar.error(context, '该目录已经被其他BMF使用');
+          if (context.mounted) await BtInfobar.error(context, '该目录已经被其他BMF使用');
           return;
         }
         bmf.download = dir;

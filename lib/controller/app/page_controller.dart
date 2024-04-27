@@ -1,5 +1,8 @@
-import 'package:bangumi_today/components/app/app_infobar.dart';
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+
+// Project imports:
+import '../../components/app/app_infobar.dart';
 
 /// 页面controller
 class BtcPageController extends ChangeNotifier {
@@ -122,7 +125,7 @@ class _PageWidgetState extends State<PageWidget> {
           if (controller.cur > 1) {
             await controller.jump(controller.cur - 1);
           } else {
-            if (mounted) BtInfobar.warn(context, '已经是第一页');
+            if (mounted) await BtInfobar.warn(context, '已经是第一页');
           }
         },
       ),
@@ -148,7 +151,7 @@ class _PageWidgetState extends State<PageWidget> {
           if (controller.cur < controller.totalPage) {
             await controller.jump(controller.cur + 1);
           } else {
-            if (mounted) BtInfobar.warn(context, '已经是最后一页');
+            if (mounted) await BtInfobar.warn(context, '已经是最后一页');
           }
         },
       ),
@@ -222,7 +225,7 @@ class PageItemPage extends StatelessWidget {
     return Button(
       onPressed: () async {
         if (cur == page) {
-          BtInfobar.warn(context, '已经是第$page页');
+          await BtInfobar.warn(context, '已经是第$page页');
           return;
         }
         await onPressed(page);

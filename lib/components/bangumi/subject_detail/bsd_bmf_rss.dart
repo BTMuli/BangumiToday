@@ -1,20 +1,24 @@
+// Dart imports:
 import 'dart:async';
 
-import 'package:bangumi_today/database/app/app_rss.dart';
-import 'package:bangumi_today/models/database/app_bmf_model.dart';
-import 'package:bangumi_today/request/rss/mikan_api.dart';
-import 'package:bangumi_today/tools/notifier_tool.dart';
+// Package imports:
 import 'package:dart_rss/domain/rss_feed.dart';
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:xml/xml.dart';
+
+// Project imports:
+import '../../../database/app/app_rss.dart';
 import '../../../models/app/nav_model.dart';
+import '../../../models/database/app_bmf_model.dart';
 import '../../../models/database/app_rss_model.dart';
 import '../../../pages/bangumi/bangumi_detail.dart';
+import '../../../request/rss/mikan_api.dart';
 import '../../../store/nav_store.dart';
 import '../../../tools/log_tool.dart';
+import '../../../tools/notifier_tool.dart';
 import '../../app/app_dialog_resp.dart';
 import '../../app/app_infobar.dart';
 import '../../rss/rss_mk_card.dart';
@@ -129,7 +133,7 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
       tryTimes++;
     }
     if (rssGet.code != 0 || rssGet.data == null) {
-      if (mounted) showRespErr(rssGet, context);
+      if (mounted) await showRespErr(rssGet, context);
       return;
     }
     var feed = RssFeed.parse(rssGet.data);

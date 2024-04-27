@@ -1,15 +1,19 @@
+// Dart imports:
 import 'dart:io';
 
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart' hide StatelessWidget;
-import 'package:flutter/material.dart'
-    show MaterialApp, Scaffold, StatelessWidget;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_player_control_panel/video_player_control_panel.dart';
 import 'package:video_player_win/video_player_win_plugin.dart';
 
+// Project imports:
 import '../../store/nav_store.dart';
+
+import 'package:flutter/material.dart'
+    show MaterialApp, Scaffold, StatelessWidget;
 
 /// 播放器页面
 class BangumiPlayPage extends ConsumerStatefulWidget {

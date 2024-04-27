@@ -1,7 +1,9 @@
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+// Project imports:
 import '../../../controller/app/progress_controller.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/app/nav_model.dart';
@@ -138,7 +140,7 @@ class _BucTabState extends ConsumerState<BucTabView>
       icon: const Icon(FluentIcons.link),
       onPressed: () async {
         if (selectedData == null) {
-          BtInfobar.warn(context, '请选择一个条目');
+          await BtInfobar.warn(context, '请选择一个条目');
           return;
         }
         var title =

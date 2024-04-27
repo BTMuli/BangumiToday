@@ -1,7 +1,9 @@
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
@@ -91,7 +93,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
   Future<void> freshUserEpisodes() async {
     var resp = await api.getCollectionEpisode(episode.id);
     if (resp.code != 0) {
-      if (mounted) showRespErr(resp, context, title: '获取 $text 章节信息失败');
+      if (mounted) await showRespErr(resp, context, title: '获取 $text 章节信息失败');
       return;
     }
     userEpisode = resp.data;
@@ -105,10 +107,12 @@ class _BsdEpisodeState extends State<BsdEpisode> {
       episode: episode.id,
     );
     if (resp.code != 0) {
-      if (mounted) showRespErr(resp, context, title: '更新章节 $text 状态失败');
+      if (mounted) await showRespErr(resp, context, title: '更新章节 $text 状态失败');
       return;
     }
-    if (mounted) BtInfobar.success(context, '成功更新章节 $text 状态为 ${type.label}');
+    if (mounted) {
+      await BtInfobar.success(context, '成功更新章节 $text 状态为 ${type.label}');
+    }
     await freshUserEpisodes();
   }
 
@@ -134,7 +138,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
     BuildContext context,
     BangumiEpisodeCollectionType type,
   ) {
-    final icon = getIcon(type);
+    var icon = getIcon(type);
     var selected = false;
     if (userEpisode == null && type == BangumiEpisodeCollectionType.none) {
       selected = true;
@@ -252,8 +256,8 @@ class _BsdEpisodeState extends State<BsdEpisode> {
   /// build
   @override
   Widget build(BuildContext context) {
-    final bgColor = getBgColor();
-    final tooltip = getTooltip();
+    var bgColor = getBgColor();
+    var tooltip = getTooltip();
     return FlyoutTarget(
       controller: controller,
       child: Button(

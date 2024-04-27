@@ -1,8 +1,10 @@
+// Package imports:
 import 'package:fl_chart/fl_chart.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+// Project imports:
 import '../../../models/bangumi/bangumi_model_patch.dart';
 import '../../../store/app_store.dart';
 import '../../../utils/bangumi_utils.dart';

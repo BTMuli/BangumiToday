@@ -1,6 +1,10 @@
+// Dart imports:
 import 'dart:convert';
 
+// Package imports:
 import 'package:json_annotation/json_annotation.dart';
+
+// Project imports:
 import 'bangumi_enum.dart';
 import 'bangumi_model_patch.dart';
 

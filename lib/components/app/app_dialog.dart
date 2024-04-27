@@ -1,3 +1,4 @@
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 
 /// 对 Dialog 的封装
@@ -10,7 +11,7 @@ Future<String?> showInputDialog(
   required String content,
 }) async {
   var confirm = false;
-  final controller = TextEditingController();
+  var controller = TextEditingController();
   await showDialog(
     barrierDismissible: true,
     context: context,

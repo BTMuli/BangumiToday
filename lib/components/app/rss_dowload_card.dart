@@ -1,5 +1,7 @@
+// Dart imports:
 import 'dart:async';
-import 'package:bangumi_today/tools/log_tool.dart';
+
+// Package imports:
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:dtorrent_common/dtorrent_common.dart';
 import 'package:dtorrent_parser/dtorrent_parser.dart';
@@ -11,9 +13,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
 import '../../store/dtt_store.dart';
 import '../../tools/download_tool.dart';
 import '../../tools/file_tool.dart';
+import '../../tools/log_tool.dart';
 import '../../tools/notifier_tool.dart';
 import 'app_dialog.dart';
 import 'app_infobar.dart';
@@ -134,10 +138,10 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       ref.read(dttStoreProvider.notifier).removeTask(item);
       return;
     }
-    if (mounted) BtInfobar.success(context, '成功获取保存路径');
+    if (mounted) await BtInfobar.success(context, '成功获取保存路径');
     model = await Torrent.parse(filePath);
     task = TorrentTask.newTask(model!, dir);
-    if (mounted) BtInfobar.success(context, '成功解析种子文件');
+    if (mounted) await BtInfobar.success(context, '成功解析种子文件');
     await task!.start();
     trackers.listen((urls) {
       for (var url in urls) {
@@ -147,14 +151,14 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     for (var node in model!.nodes) {
       task!.addDHTNode(node);
     }
-    if (mounted) BtInfobar.success(context, '成功添加节点');
+    if (mounted) await BtInfobar.success(context, '成功添加节点');
     startTime = DateTime.now().millisecondsSinceEpoch;
     progress = null;
     timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       await freshDownload();
     });
     isInit = true;
-    if (mounted) BtInfobar.success(context, '初始化成功');
+    if (mounted) await BtInfobar.success(context, '初始化成功');
     setState(() {});
   }
 
@@ -215,7 +219,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   /// 开始下载
   Future<void> startDownload() async {
     if (task == null) {
-      BtInfobar.error(context, '任务初始化失败');
+      await BtInfobar.error(context, '任务初始化失败');
       return;
     }
     if (task!.state == TaskState.paused) {
@@ -223,7 +227,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       return;
     }
     if (task!.state == TaskState.running || timer.isActive) {
-      BtInfobar.error(context, '任务正在下载');
+      await BtInfobar.error(context, '任务正在下载');
       return;
     }
     await task!.start();
@@ -235,47 +239,47 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   /// 暂停下载
   Future<void> pauseDownload() async {
     if (task == null) {
-      BtInfobar.error(context, '任务初始化失败');
+      await BtInfobar.error(context, '任务初始化失败');
       return;
     }
     if (task!.state == TaskState.paused) {
-      BtInfobar.error(context, '任务已经暂停');
+      await BtInfobar.error(context, '任务已经暂停');
       return;
     }
     if (task!.state == TaskState.stopped) {
-      BtInfobar.error(context, '任务已经停止');
+      await BtInfobar.error(context, '任务已经停止');
       return;
     }
     task!.pause();
-    BtInfobar.success(context, '任务已经暂停');
+    await BtInfobar.success(context, '任务已经暂停');
   }
 
   /// 重新下载
   Future<void> resumeDownload() async {
     if (task == null) {
-      BtInfobar.error(context, '任务初始化失败');
+      await BtInfobar.error(context, '任务初始化失败');
       return;
     }
     if (task?.state != TaskState.paused) {
-      BtInfobar.error(context, '任务未暂停');
+      await BtInfobar.error(context, '任务未暂停');
       return;
     }
     task!.resume();
     timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       await freshDownload();
     });
-    BtInfobar.success(context, '任务已经继续下载');
+    await BtInfobar.success(context, '任务已经继续下载');
   }
 
   /// 停止下载
   Future<void> stopDownload() async {
     try {
       if (task == null) {
-        BtInfobar.error(context, '任务初始化失败');
+        await BtInfobar.error(context, '任务初始化失败');
         return;
       }
       if (task!.state == TaskState.stopped) {
-        BtInfobar.error(context, '任务已经停止');
+        await BtInfobar.error(context, '任务已经停止');
         return;
       }
       await task!.stop();
@@ -348,7 +352,8 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               Text(
-                '${filesize((ds * 1000).toInt())}(${filesize((ads * 1000).toInt())})',
+                '${filesize((ds * 1000).toInt())}'
+                '(${filesize((ads * 1000).toInt())})',
               ),
               SizedBox(width: 8.w),
               Text('节点：$active/$seeders/$all'),

@@ -1,5 +1,8 @@
-import 'package:fluent_ui/fluent_ui.dart';
+// Flutter imports:
 import 'package:flutter/foundation.dart';
+
+// Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:windows_taskbar/windows_taskbar.dart';
 

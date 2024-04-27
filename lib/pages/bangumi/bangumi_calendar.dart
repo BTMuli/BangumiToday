@@ -1,7 +1,9 @@
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+// Project imports:
 import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/calendar/calendar_day.dart';
@@ -93,7 +95,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     if (calendarGet.code != 0 || calendarGet.data == null) {
       isRequesting = false;
       setState(() {});
-      if (mounted) showRespErr(calendarGet, context);
+      if (mounted) await showRespErr(calendarGet, context);
       return;
     }
     assert(calendarGet.data != null);

@@ -1,9 +1,11 @@
+// Package imports:
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
 import '../../../models/app/nav_model.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
@@ -54,7 +56,7 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
   Future<void> load() async {
     var resp = await api.getSubjectRelations(subjectId);
     if (resp.code != 0 || resp.data == null) {
-      if (mounted) showRespErr(resp, context);
+      if (mounted) await showRespErr(resp, context);
       return;
     }
     relations = resp.data;

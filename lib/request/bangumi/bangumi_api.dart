@@ -1,7 +1,10 @@
+// Dart imports:
 import 'dart:convert';
 
+// Package imports:
 import 'package:dio/dio.dart';
 
+// Project imports:
 import '../../database/bangumi/bangumi_user.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
@@ -512,8 +515,8 @@ class BtrBangumiApi {
       );
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error(
-          'Failed to load user collection episode item: ${jsonEncode(errResp)}');
+      BTLogTool.error('Failed to load user collection episode item:'
+          '${jsonEncode(errResp)}');
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load user collection episode item',

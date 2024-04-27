@@ -1,9 +1,11 @@
-import 'package:bangumi_today/components/app/app_dialog_resp.dart';
-import 'package:bangumi_today/models/app/response.dart';
+// Package imports:
 import 'package:dio/dio.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path/path.dart' as path;
 
+// Project imports:
+import '../components/app/app_dialog_resp.dart';
+import '../models/app/response.dart';
 import '../request/core/client.dart';
 import 'file_tool.dart';
 import 'log_tool.dart';

@@ -1,12 +1,17 @@
+// Dart imports:
 import 'dart:ui';
 
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
+// Package imports:
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
 import '../../../models/app/nav_model.dart';
 import '../../../models/app/response.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
@@ -142,7 +147,7 @@ class _BssCardState extends ConsumerState<BssCard> {
             onPressed: () async {
               if (kDebugMode) {
                 var resp = BTResponse.success(data: subject);
-                showRespErr(resp, context);
+                await showRespErr(resp, context);
                 return;
               }
               var link = "https://bgm.tv/subject/${subject.id}";

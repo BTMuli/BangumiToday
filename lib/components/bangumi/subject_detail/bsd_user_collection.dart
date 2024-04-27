@@ -1,7 +1,9 @@
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
 import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
@@ -163,8 +165,8 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
     BuildContext context,
     BangumiCollectionType type,
   ) {
-    final icon = getIcon(type);
-    final trailing = collectionType == type
+    var icon = getIcon(type);
+    var trailing = collectionType == type
         ? Icon(
             FluentIcons.check_mark,
             color: FluentTheme.of(context).accentColor,

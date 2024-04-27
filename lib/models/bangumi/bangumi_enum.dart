@@ -1,3 +1,4 @@
+// Package imports:
 import 'package:json_annotation/json_annotation.dart';
 
 /// 从Bangumi API获取的数据枚举类，按照Bangumi API文档排列顺序排序

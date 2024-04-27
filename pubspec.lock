@@ -369,14 +369,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.0.4"
-  fake_async:
-    dependency: transitive
-    description:
-      name: fake_async
-      sha256: "511392330127add0b769b75a987850d136345d9227c6b94c96a04cf4a391bf78"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "1.3.1"
   ffi:
     dependency: transitive
     description:
@@ -579,11 +571,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "5.9.0"
-  flutter_test:
-    dependency: "direct dev"
-    description: flutter
-    source: sdk
-    version: "0.0.0"
   flutter_web_plugins:
     dependency: transitive
     description: flutter
@@ -685,6 +672,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "4.1.7"
+  import_sorter:
+    dependency: "direct dev"
+    description:
+      name: import_sorter
+      sha256: eb15738ccead84e62c31e0208ea4e3104415efcd4972b86906ca64a1187d0836
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "4.6.0"
   intl:
     dependency: "direct main"
     description:
@@ -725,30 +720,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "6.7.1"
-  leak_tracker:
-    dependency: transitive
-    description:
-      name: leak_tracker
-      sha256: "78eb209deea09858f5269f5a5b02be4049535f568c07b275096836f01ea323fa"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "10.0.0"
-  leak_tracker_flutter_testing:
-    dependency: transitive
-    description:
-      name: leak_tracker_flutter_testing
-      sha256: b46c5e37c19120a8a01918cfaf293547f47269f7cb4b0058f21531c2465d6ef0
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "2.0.1"
-  leak_tracker_testing:
-    dependency: transitive
-    description:
-      name: leak_tracker_testing
-      sha256: a597f72a664dbd293f3bfc51f9ba69816f84dcd403cdac7066cb3f6003f3ab47
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "2.0.1"
   lint_staged:
     dependency: "direct dev"
     description:
@@ -1218,6 +1189,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.0.1"
+  tint:
+    dependency: transitive
+    description:
+      name: tint
+      sha256: "9652d9a589f4536d5e392cf790263d120474f15da3cf1bee7f1fdb31b4de5f46"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "2.0.1"
   typed_data:
     dependency: transitive
     description:
@@ -1378,14 +1357,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.3.6"
-  vm_service:
-    dependency: transitive
-    description:
-      name: vm_service
-      sha256: b3d56ff4341b8f182b96aceb2fa20e3dcb336b9f867bc0eafc0de10f1048e957
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "13.0.0"
   watcher:
     dependency: transitive
     description:

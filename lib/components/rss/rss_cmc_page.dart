@@ -1,12 +1,13 @@
+// Package imports:
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
+import '../../request/rss/comicat_api.dart';
 import '../app/app_dialog_resp.dart';
 import '../comicat/cmc_rss_card.dart';
-import '../../request/rss/comicat_api.dart';
 
 /// 负责 ComicatProject RSS 页面的显示
 class RssCmcPage extends StatefulWidget {
@@ -45,7 +46,7 @@ class _RssCmcPageState extends State<RssCmcPage>
     setState(() {});
     var resGet = await comicatAPI.getHomeRSS();
     if (resGet.code != 0 || resGet.data == null) {
-      if (mounted) showRespErr(resGet, context);
+      if (mounted) await showRespErr(resGet, context);
       return;
     }
     rssItems = resGet.data!;

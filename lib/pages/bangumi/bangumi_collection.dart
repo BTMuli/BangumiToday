@@ -1,7 +1,9 @@
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+// Project imports:
 import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/user_collection/buc_tabview.dart';
 import '../../models/bangumi/bangumi_enum.dart';

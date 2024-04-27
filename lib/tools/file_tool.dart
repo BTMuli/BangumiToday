@@ -1,5 +1,7 @@
+// Dart imports:
 import 'dart:io';
 
+// Package imports:
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
@@ -79,7 +81,7 @@ class BTFileTool {
   Future<bool> openDir(String dirPath) async {
     var check = await isDirExist(dirPath);
     if (!check) return false;
-    Process.run('explorer', [dirPath]);
+    await Process.run('explorer', [dirPath]);
     return true;
   }
 }

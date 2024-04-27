@@ -1,14 +1,17 @@
-import 'package:bangumi_today/components/app/app_dialog_resp.dart';
-import 'package:bangumi_today/models/bangumi/bangumi_oauth_model.dart';
-import 'package:bangumi_today/pages/app/rss_page.dart';
-import 'package:fluent_ui/fluent_ui.dart';
+// Flutter imports:
 import 'package:flutter/foundation.dart';
+
+// Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+// Project imports:
 import '../../database/bangumi/bangumi_user.dart';
+import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../pages/app/bmf_page.dart';
 import '../../pages/app/download_page.dart';
+import '../../pages/app/rss_page.dart';
 import '../../pages/app/setting_page.dart';
 import '../../pages/app/test_page.dart';
 import '../../pages/bangumi/bangumi_calendar.dart';
@@ -16,6 +19,7 @@ import '../../request/bangumi/bangumi_oauth.dart';
 import '../../store/app_store.dart';
 import '../../store/nav_store.dart';
 import '../../utils/get_theme_label.dart';
+import 'app_dialog_resp.dart';
 import 'app_infobar.dart';
 
 /// 应用导航
@@ -61,14 +65,14 @@ class _AppNavState extends ConsumerState<AppNav> {
     if (token.isEmpty || now.isBefore(expired)) return;
     var resp = await _bangumiOauth.refreshToken(token);
     if (resp.code != 0 || resp.data == null) {
-      if (mounted) showRespErr(resp, context, title: '刷新用户Token失败');
+      if (mounted) await showRespErr(resp, context, title: '刷新用户Token失败');
       return;
     }
     var data = resp.data! as BangumiOauthTokenRefreshData;
     await _bangumiUser.writeAccessToken(data.accessToken);
     await _bangumiUser.writeRefreshToken(data.refreshToken);
     await _bangumiUser.writeExpireTime(data.expiresIn);
-    if (mounted) BtInfobar.success(context, '已成功刷新用户Token！');
+    if (mounted) await BtInfobar.success(context, '已成功刷新用户Token！');
   }
 
   /// 构建重置窗口大小项

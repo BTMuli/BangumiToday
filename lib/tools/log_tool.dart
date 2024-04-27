@@ -1,8 +1,14 @@
+// Dart imports:
 import 'dart:io';
+
+// Flutter imports:
 import 'package:flutter/foundation.dart';
+
+// Package imports:
 import 'package:logger/logger.dart';
 import 'package:path/path.dart' as path;
 
+// Project imports:
 import 'file_tool.dart';
 
 /// 因为Release模式下，日志文件是限制的

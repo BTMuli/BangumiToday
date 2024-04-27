@@ -1,6 +1,9 @@
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+
+// Project imports:
 import 'components/app/app_nav.dart';
 import 'store/app_store.dart';
 
@@ -32,7 +35,7 @@ class BTApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final appStore = ref.watch(appStoreProvider);
+    var appStore = ref.watch(appStoreProvider);
     return ScreenUtilInit(
       designSize: const Size(1920, 1080),
       builder: (_, child) {

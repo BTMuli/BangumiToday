@@ -1,11 +1,13 @@
-import 'package:bangumi_today/controller/app/page_controller.dart';
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+// Project imports:
 import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/search_subject/bss_card.dart';
+import '../../controller/app/page_controller.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_enum_extension.dart';
 import '../../models/bangumi/bangumi_model.dart';
@@ -118,11 +120,11 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
       result.clear();
       resultMap.clear();
       setState(() {});
-      BtInfobar.warn(context, '请输入搜索内容');
+      await BtInfobar.warn(context, '请输入搜索内容');
       return;
     }
     if (types.isEmpty) {
-      BtInfobar.warn(context, '请至少选择一个搜索类型');
+      await BtInfobar.warn(context, '请至少选择一个搜索类型');
       return;
     }
     if (loading) return;
@@ -132,7 +134,7 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
     setState(() {});
     if (result.isNotEmpty) {
       loading = false;
-      controller.jump(1);
+      await controller.jump(1);
       setState(() {});
       return;
     }
@@ -150,7 +152,7 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
     }
     var data = resp.data as BangumiPageT<BangumiSubjectSearchData>;
     if (data.total == 0) {
-      if (mounted) BtInfobar.warn(context, '没有找到相关条目');
+      if (mounted) await BtInfobar.warn(context, '没有找到相关条目');
       loading = false;
       setState(() {});
       return;

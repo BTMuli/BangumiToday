@@ -1,8 +1,12 @@
+// Dart imports:
 import 'dart:io';
+
+// Package imports:
 import 'package:app_links/app_links.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:win32_registry/win32_registry.dart';
 
+// Project imports:
 import '../components/app/app_infobar.dart';
 import '../database/bangumi/bangumi_user.dart';
 import 'log_tool.dart';
@@ -31,8 +35,10 @@ class BTSchemeTool {
 
   /// 测试
   Future<void> test(BuildContext context) async {
-    final uri = await appLink.getLatestAppLink();
-    if (context.mounted) BtInfobar.success(context, '[BangumiToday] $uri');
+    var uri = await appLink.getLatestAppLink();
+    if (context.mounted) {
+      await BtInfobar.success(context, '[BangumiToday] $uri');
+    }
   }
 
   /// 注册链接
@@ -52,7 +58,7 @@ class BTSchemeTool {
       '"$appPath" "%1"',
     );
 
-    final regKey = Registry.currentUser.createKey(protocolRegKey);
+    var regKey = Registry.currentUser.createKey(protocolRegKey);
     regKey.createValue(protocolRegValue);
     regKey.createKey(protocolCmdRegKey).createValue(protocolCmdRegValue);
   }
