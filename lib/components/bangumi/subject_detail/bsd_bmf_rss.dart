@@ -115,7 +115,11 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     var rssGet = await api.getCustomRSS(bmf.rss!);
     var tryTimes = 0;
     while (rssGet.code != 0 && tryTimes < 3) {
-      BTLogTool.error('Failed to load custom RSS, try again');
+      var warnInfo = [
+        "【BsdBmfRss】【freshRss】Fail to load custom RSS,try $tryTimes times",
+        "RSS Link: ${bmf.rss}",
+      ];
+      BTLogTool.warn(warnInfo);
       rssGet = await api.getCustomRSS(bmf.rss!);
       tryTimes++;
     }

@@ -30,14 +30,16 @@ class MikanAPI {
       var channel = RssFeed.parse(resp.data.toString());
       return BTResponse.success(data: channel.items);
     } on DioException catch (e) {
-      BTLogTool.error('Failed to load mikan classic RSS ${e.response?.data}');
+      var errInfo = ["Fail to load mikan classic RSS", "DioErr: ${e.error}"];
+      BTLogTool.error(errInfo);
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load mikan classic RSS',
-        data: e.response?.data,
+        data: e.error,
       );
     } on Exception catch (e) {
-      BTLogTool.error('Failed to load mikan classic RSS ${e.toString()}');
+      var errInfo = ["Fail to load mikan classic RSS", "Err: ${e.toString()}"];
+      BTLogTool.error(errInfo);
       return BTResponse.error(
         code: 666,
         message: 'Failed to load mikan classic RSS',
@@ -56,14 +58,24 @@ class MikanAPI {
       var channel = RssFeed.parse(resp.data.toString());
       return BTResponse.success(data: channel.items);
     } on DioException catch (e) {
-      BTLogTool.error('Failed to load user RSS ${e.response?.data}');
+      var errInfo = [
+        "Fail to load user RSS",
+        "DioErr: ${e.error}",
+        "UserToken: $token",
+      ];
+      BTLogTool.error(errInfo);
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load user RSS',
-        data: e.response?.data,
+        data: {'error': e.error, 'token': token},
       );
     } on Exception catch (e) {
-      BTLogTool.error('Failed to load user RSS ${e.toString()}');
+      var errInfo = [
+        "Fail to load user RSS",
+        "Err: ${e.toString()}",
+        "UserToken: $token",
+      ];
+      BTLogTool.error(errInfo);
       return BTResponse.error(
         code: 666,
         message: 'Failed to load user RSS',
@@ -78,15 +90,16 @@ class MikanAPI {
       var resp = await client.dio.get(url);
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
-      BTLogTool.error('Failed to load custom RSS ${e.response?.data}');
+      var errInfo = ["Fail to load custom RSS $url", "DioErr: ${e.error}"];
+      BTLogTool.error(errInfo);
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load custom RSS',
-        data: url,
+        data: e.error,
       );
     } on Exception catch (e) {
-      BTLogTool.error('Failed to load custom RSS ${e.toString()}');
-      BTLogTool.error('Url: $url');
+      var errInfo = ["Fail to load custom RSS $url", "Err: ${e.toString()}"];
+      BTLogTool.error(errInfo);
       return BTResponse.error(
         code: 666,
         message: 'Failed to load custom RSS',
