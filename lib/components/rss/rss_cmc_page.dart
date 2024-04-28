@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 // Project imports:
 import '../../request/rss/comicat_api.dart';
 import '../app/app_dialog_resp.dart';
-import '../comicat/cmc_rss_card.dart';
+import 'rss_cmc_card.dart';
 
 /// 负责 ComicatProject RSS 页面的显示
 class RssCmcPage extends StatefulWidget {
@@ -99,7 +99,7 @@ class _RssCmcPageState extends State<RssCmcPage>
         itemCount: rssItems.length,
         itemBuilder: (context, index) {
           var item = rssItems[index];
-          return ComicatRssCard(item);
+          return RssCmcCard(item);
         },
       );
     }

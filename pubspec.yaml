@@ -56,6 +56,7 @@ dependencies:
   flutter_riverpod: ^2.4.10
   flutter_screenutil: ^5.9.0
   intl: ^0.18.1
+  jiffy: ^6.2.1
   json_annotation: ^4.8.1
   local_notifier: ^0.1.6
   logger: ^2.2.0

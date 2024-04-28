@@ -3,6 +3,7 @@ import 'package:dart_rss/dart_rss.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
@@ -11,12 +12,12 @@ import '../../utils/tool_func.dart';
 import '../app/app_infobar.dart';
 
 /// Mikan Rss Card
-class ComicatRssCard extends StatelessWidget {
+class RssCmcCard extends StatelessWidget {
   /// rss item
   final RssItem item;
 
   /// 构造函数
-  const ComicatRssCard(this.item, {super.key});
+  const RssCmcCard(this.item, {super.key});
 
   /// 构建操作按钮
   Widget buildAct(BuildContext context) {
@@ -70,6 +71,13 @@ class ComicatRssCard extends StatelessWidget {
     if (item.title != null && item.title != '') {
       title = replaceEscape(item.title!);
     }
+    var time = '';
+    if (item.pubDate != null && item.pubDate != '') {
+      time = Jiffy.parse(
+        item.pubDate!,
+        pattern: 'EEE, dd MMM yyyy HH:mm:ss Z',
+      ).format(pattern: 'yyyy-MM-dd HH:mm:ss');
+    }
     return Card(
       padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 16.w),
       margin: EdgeInsets.symmetric(vertical: 8.h, horizontal: 16.w),
@@ -83,7 +91,7 @@ class ComicatRssCard extends StatelessWidget {
           SizedBox(height: 8.h),
           Text(item.link ?? ''),
           Text('发布者: ${item.author ?? ''}'),
-          Text('发布时间: ${item.pubDate ?? ''}'),
+          Text('发布时间: $time'),
           Text('资源类型: ${item.enclosure?.type ?? ''}'),
           Text('资源链接: ${item.enclosure?.url ?? ''}'),
           SizedBox(height: 8.h),

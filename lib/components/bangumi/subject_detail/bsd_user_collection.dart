@@ -1,6 +1,7 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
@@ -9,7 +10,6 @@ import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../request/bangumi/bangumi_api.dart';
-import '../../../utils/tool_func.dart';
 import '../../app/app_dialog.dart';
 import '../../app/app_dialog_resp.dart';
 import '../../app/app_infobar.dart';
@@ -196,7 +196,10 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
     var tags = empty;
     if (userCollection?.updatedAt != null &&
         userCollection!.updatedAt.isNotEmpty) {
-      date = dateTransLocal(userCollection!.updatedAt);
+      date = Jiffy.parse(
+        userCollection!.updatedAt,
+        pattern: 'yyyy-MM-ddTHH:mm:ssZ',
+      ).format(pattern: 'yyyy-MM-dd HH:mm:ss');
     }
     if (userCollection?.comment != null &&
         userCollection!.comment!.isNotEmpty) {

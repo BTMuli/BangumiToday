@@ -10,7 +10,7 @@ import '../../request/rss/mikan_api.dart';
 import '../app/app_dialog.dart';
 import '../app/app_dialog_resp.dart';
 import '../app/app_infobar.dart';
-import '../mikan/mk_rss_card.dart';
+import 'rss_mk_card2.dart';
 
 /// 负责 MikanProject RSS 页面的显示
 /// 包括 RSSClassic 和 RSSPersonal
@@ -243,7 +243,7 @@ class _RssMkPageState extends State<RssMkPage>
             runAlignment: WrapAlignment.start,
             spacing: 12.w,
             runSpacing: 12.h,
-            children: data.map(MikanRssCard.new).toList(),
+            children: data.map(RssMikanCard2.new).toList(),
           ),
         ),
       );

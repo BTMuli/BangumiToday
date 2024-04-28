@@ -7,6 +7,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
@@ -14,7 +15,6 @@ import '../../database/app/app_bmf.dart';
 import '../../database/app/app_rss.dart';
 import '../../store/dtt_store.dart';
 import '../../tools/download_tool.dart';
-import '../../utils/tool_func.dart';
 import '../app/app_infobar.dart';
 
 /// MikanRSS Card
@@ -193,13 +193,14 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
   /// 构建发布时间
   Widget buildPubDate() {
     assert(item.pubDate != null);
+    var date = Jiffy.parse(
+      item.pubDate!,
+      pattern: 'yyyy-MM-ddTHH:mm:ss',
+    ).format(pattern: 'yyyy-MM-dd HH:mm:ss');
     return Row(
       children: [
         const Text('发布时间: '),
-        Text(
-          dateTransLocal(item.pubDate!),
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
+        Text(date, style: const TextStyle(fontWeight: FontWeight.bold)),
       ],
     );
   }

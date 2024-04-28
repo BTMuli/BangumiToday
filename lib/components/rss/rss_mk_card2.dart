@@ -3,15 +3,15 @@ import 'package:dart_rss/dart_rss.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../tools/download_tool.dart';
-import '../../utils/tool_func.dart';
 import '../app/app_infobar.dart';
 
 /// MikanRss卡片，仅用于动画详情页面
-class MikanRssCard extends StatelessWidget {
+class RssMikanCard2 extends StatelessWidget {
   /// rss item
   final RssItem item;
 
@@ -19,7 +19,7 @@ class MikanRssCard extends StatelessWidget {
   final String? dir;
 
   /// 构造函数
-  const MikanRssCard(this.item, {super.key, this.dir});
+  const RssMikanCard2(this.item, {super.key, this.dir});
 
   /// 下载
   Future<void> download(BuildContext context) async {
@@ -87,7 +87,10 @@ class MikanRssCard extends StatelessWidget {
       sizeStr = filesize(size);
     }
     if (item.pubDate != null) {
-      pubDate = dateTransLocal(item.pubDate!);
+      pubDate = Jiffy.parse(
+        item.pubDate!,
+        pattern: 'yyyy-MM-ddTHH:mm:ss',
+      ).format(pattern: 'yyyy-MM-dd HH:mm:ss');
     }
     var title = Tooltip(
       message: item.title ?? '',
