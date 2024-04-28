@@ -5,6 +5,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import '../../components/app/app_infobar.dart';
 
 /// 页面controller
+/// todo 支持自定义 limit，将 total 转为总数量而非总页数
 class BtcPageController extends ChangeNotifier {
   /// 总页数
   late int total;
@@ -33,7 +34,7 @@ class BtcPageController extends ChangeNotifier {
   }
 
   /// 总页数
-  int get totalPage => (total / visible).ceil();
+  int get totalPage => total;
 
   /// 获取展示的页码
   /// 当总页码小于展示数量时，展示全部

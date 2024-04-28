@@ -12,11 +12,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../../models/app/nav_model.dart';
 import '../../../models/app/response.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
-import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../store/nav_store.dart';
 import '../../../utils/bangumi_utils.dart';
 import '../../app/app_dialog_resp.dart';
@@ -184,20 +182,9 @@ class _BucCardState extends ConsumerState<BucCard>
               FluentIcons.info,
               color: FluentTheme.of(context).accentColor.light,
             ),
-            onPressed: () {
-              var title = '${data.type.label}详情 ${data.id}';
-              var pane = PaneItem(
-                icon: const Icon(FluentIcons.info),
-                title: Text(title),
-                body: BangumiDetail(id: data.id.toString()),
-              );
-              ref.read(navStoreProvider).addNavItem(
-                    pane,
-                    title,
-                    type: BtmAppNavItemType.bangumiSubject,
-                    param: 'subjectDetail_${data.id}',
-                  );
-            },
+            onPressed: () => ref
+                .read(navStoreProvider)
+                .addNavItemB(type: data.type.label, subject: data.id),
           ),
         ),
       ],

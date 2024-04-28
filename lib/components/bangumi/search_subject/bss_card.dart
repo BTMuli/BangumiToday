@@ -12,15 +12,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../../models/app/nav_model.dart';
 import '../../../models/app/response.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/request_subject.dart';
-import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../store/nav_store.dart';
 import '../../../utils/bangumi_utils.dart';
 import '../../app/app_dialog_resp.dart';
-import '../../app/app_infobar.dart';
 
 /// 搜索卡片
 class BssCard extends ConsumerStatefulWidget {
@@ -163,22 +160,10 @@ class _BssCardState extends ConsumerState<BssCard> {
               color: FluentTheme.of(context).accentColor.light,
             ),
             onPressed: () {
-              if (subject.type == null) {
-                BtInfobar.error(context, '未知类型');
-                return;
-              }
-              var title = '${subject.type!.label}详情 ${subject.id}';
-              var pane = PaneItem(
-                icon: const Icon(FluentIcons.info),
-                title: Text(title),
-                body: BangumiDetail(id: subject.id.toString()),
-              );
-              ref.read(navStoreProvider).addNavItem(
-                    pane,
-                    title,
-                    type: BtmAppNavItemType.bangumiSubject,
-                    param: 'subjectDetail_${subject.id}',
-                  );
+              var label = subject.type?.label ?? '条目';
+              ref
+                  .read(navStoreProvider)
+                  .addNavItemB(type: label, subject: subject.id);
             },
           ),
         ),

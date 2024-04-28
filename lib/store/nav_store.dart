@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../models/app/nav_model.dart';
+import '../pages/bangumi/bangumi_detail.dart';
 
 /// 侧边栏状态提供者
 final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
@@ -56,6 +57,22 @@ class BTNavStore extends ChangeNotifier {
     lastIndex = curIndex;
     curIndex = index;
     notifyListeners();
+  }
+
+  /// 封装-添加条目详情侧边栏动态组件
+  void addNavItemB({
+    String type = '条目',
+    required int subject,
+  }) {
+    var title = '$type详情 $subject';
+    var pane = PaneItem(
+      icon: const Icon(FluentIcons.info),
+      title: Text(title),
+      body: BangumiDetail(id: subject.toString()),
+    );
+    var paneType = BtmAppNavItemType.bangumiSubject;
+    var param = 'subjectDetail_$subject';
+    addNavItem(pane, title, type: paneType, param: param);
   }
 
   /// 添加侧边栏动态组件

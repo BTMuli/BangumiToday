@@ -11,10 +11,8 @@ import 'package:xml/xml.dart';
 
 // Project imports:
 import '../../../database/app/app_rss.dart';
-import '../../../models/app/nav_model.dart';
 import '../../../models/database/app_bmf_model.dart';
 import '../../../models/database/app_rss_model.dart';
-import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../request/rss/mikan_api.dart';
 import '../../../store/nav_store.dart';
 import '../../../tools/log_tool.dart';
@@ -104,20 +102,9 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
       await BTNotifierTool.showMini(
         title: 'RSS 订阅更新',
         body: '${item.title}',
-        onClick: () async {
-          var title = '条目详情 ${bmf.subject}';
-          var pane = PaneItem(
-            icon: const Icon(FluentIcons.info),
-            title: Text(title),
-            body: BangumiDetail(id: bmf.subject.toString()),
-          );
-          ref.read(navStoreProvider.notifier).addNavItem(
-                pane,
-                title,
-                type: BtmAppNavItemType.bangumiSubject,
-                param: 'subjectDetail_${bmf.subject}',
-              );
-        },
+        onClick: () => ref
+            .read(navStoreProvider.notifier)
+            .addNavItemB(subject: bmf.subject),
       );
     }
   }

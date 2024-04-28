@@ -6,10 +6,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../../models/app/nav_model.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
-import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../store/nav_store.dart';
 import '../../../utils/tool_func.dart';
@@ -63,22 +61,6 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
     setState(() {});
   }
 
-  /// 跳转到条目详情
-  void toSubjectDetail(int id, String label) {
-    var title = '$label详情 $id';
-    var pane = PaneItem(
-      icon: const Icon(FluentIcons.info),
-      title: Text(title),
-      body: BangumiDetail(id: id.toString()),
-    );
-    ref.read(navStoreProvider).addNavItem(
-          pane,
-          title,
-          type: BtmAppNavItemType.bangumiSubject,
-          param: 'subjectDetail_$id',
-        );
-  }
-
   /// 构建信息
   Widget buildCardInfo(BangumiSubjectRelation data) {
     return Padding(
@@ -114,9 +96,9 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
                     FluentIcons.info,
                     color: FluentTheme.of(context).accentColor,
                   ),
-                  onPressed: () {
-                    toSubjectDetail(data.id, data.type.label);
-                  },
+                  onPressed: () => ref
+                      .read(navStoreProvider)
+                      .addNavItemB(type: data.type.label, subject: data.id),
                 ),
               ),
               SizedBox(width: 4.w),

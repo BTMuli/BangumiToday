@@ -38,7 +38,7 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
 
   /// 每页限制
   /// todo 后续可以根据屏幕大小动态调整
-  int limit = 12;
+  final int limit = 12;
 
   /// text controller
   final TextEditingController textController = TextEditingController();
@@ -80,7 +80,14 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
   @override
   void initState() {
     super.initState();
-    controller = BtcPageController(cur: 0, total: 0, onChanged: onPageChanged);
+    controller.onChanged = onPageChanged;
+  }
+
+  /// dispose
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
   }
 
   /// 页面改变

@@ -30,12 +30,6 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
   @override
   bool get wantKeepAlive => false;
 
-  /// 初始化
-  @override
-  void initState() {
-    super.initState();
-  }
-
   ///  根据type获取icon
   IconData getIcon(BangumiCollectionType type) {
     switch (type) {

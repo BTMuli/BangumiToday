@@ -12,9 +12,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 // Project imports:
 import '../../../database/app/app_bmf.dart';
 import '../../../database/app/app_rss.dart';
-import '../../../models/app/nav_model.dart';
 import '../../../models/database/app_bmf_model.dart';
-import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../store/nav_store.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/notifier_tool.dart';
@@ -259,36 +257,18 @@ class _BsdBmfLeadingState extends ConsumerState<BsdBmfLeading> {
   /// bmf
   late AppBmfModel bmf = AppBmfModel(subject: widget.subjectId);
 
-  /// toSubjectDetail
-  void toSubjectDetail() {
-    var navStore = ref.read(navStoreProvider);
-    var pane = PaneItem(
-      icon: const Icon(FluentIcons.info),
-      title: Text('条目详情 ${bmf.subject}'),
-      body: BangumiDetail(id: bmf.subject.toString()),
-    );
-    navStore.addNavItem(
-      pane,
-      '条目详情 ${bmf.subject}',
-      type: BtmAppNavItemType.bangumiSubject,
-      param: 'subjectDetail_${bmf.subject}',
-    );
-  }
-
   /// build
   @override
   Widget build(BuildContext context) {
     if (widget.isConfig) {
       return IconButton(
-        icon: const Icon(FluentIcons.settings),
-        onPressed: toSubjectDetail,
-      );
+          icon: const Icon(FluentIcons.settings),
+          onPressed: () =>
+              ref.read(navStoreProvider).addNavItemB(subject: bmf.subject));
     }
     return IconButton(
       icon: const Icon(FluentIcons.settings),
-      onPressed: () {
-        ref.read(navStoreProvider).goIndex(2);
-      },
+      onPressed: () => ref.read(navStoreProvider).goIndex(2),
     );
   }
 }

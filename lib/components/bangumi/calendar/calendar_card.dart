@@ -13,10 +13,8 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../../database/bangumi/bangumi_data.dart';
-import '../../../models/app/nav_model.dart';
 import '../../../models/app/response.dart';
 import '../../../models/bangumi/bangumi_model.dart';
-import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../store/nav_store.dart';
 import '../../../utils/bangumi_utils.dart';
 import '../../app/app_dialog_resp.dart';
@@ -123,15 +121,6 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
     );
   }
 
-  /// 获取 PaneItem
-  PaneItem getPaneItem(BuildContext context) {
-    return PaneItem(
-      icon: const Icon(FluentIcons.info),
-      title: Text('动画详情 ${data.id}'),
-      body: BangumiDetail(id: data.id.toString()),
-    );
-  }
-
   /// 构建交互
   Widget buildAction(BuildContext context) {
     return Row(
@@ -169,15 +158,9 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
               FluentIcons.info,
               color: FluentTheme.of(context).accentColor.light,
             ),
-            onPressed: () {
-              var paneItem = getPaneItem(context);
-              ref.read(navStoreProvider).addNavItem(
-                    paneItem,
-                    '动画详情 ${data.id}',
-                    type: BtmAppNavItemType.bangumiSubject,
-                    param: 'subjectDetail_${data.id}',
-                  );
-            },
+            onPressed: () => ref
+                .read(navStoreProvider)
+                .addNavItemB(type: '动画', subject: data.id),
           ),
         ),
       ],
