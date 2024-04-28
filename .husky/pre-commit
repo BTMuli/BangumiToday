@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+dart run import_sorter:main
 dart format .
 dart run lint_staged
