@@ -10,6 +10,7 @@ import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../request/bangumi/bangumi_api.dart';
+import '../../../utils/bangumi_utils.dart';
 import '../../app/app_dialog.dart';
 import '../../app/app_dialog_resp.dart';
 import '../../app/app_infobar.dart';
@@ -374,27 +375,33 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   }
 
   /// buildRatingBar
-  Widget buildRatingBar() {
-    var unratedColor = FluentTheme.of(context).accentColor.withOpacity(0.25);
-    return RatingBar(
-      rating: rating.toDouble(),
-      amount: 10,
-      starSpacing: 2.w,
-      unratedIconColor: unratedColor,
+  Widget buildRateBox() {
+    return ComboBox<int>(
+      placeholder: const Text('0  [未评分]'),
+      value: rating,
+      items: List.generate(
+        10,
+        (index) => ComboBoxItem<int>(
+          value: index + 1,
+          child: index == 9
+              ? Text('10 [${getBangumiRateLabel(index + 1)}]')
+              : Text('${index + 1}  [${getBangumiRateLabel(index + 1)}]'),
+        ),
+      ),
       onChanged: (val) async {
-        if (val.toInt() + 1 == rating) {
+        if (val == rating) {
           await BtInfobar.warn(context, '条目 ${subject.id} 评分与当前评分相同');
           return;
         }
         var confirm = await showConfirmDialog(
           context,
           title: '确认评分',
-          content: '确认将条目 ${subject.id} 评分更新为 ${val.toInt() + 1} 分吗？',
+          content: '确认将条目 ${subject.id} 评分更新为 $val 分吗？',
         );
         if (!confirm) return;
         var resp = await api.updateCollectionSubject(
           subject.id,
-          rate: val.toInt() + 1,
+          rate: val,
         );
         if (resp.code != 0 || resp.data == null) {
           if (mounted) await showRespErr(resp, context);
@@ -402,7 +409,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           if (mounted) {
             await BtInfobar.success(
               context,
-              '条目 ${subject.id} 评分更新为 ${val.toInt() + 1} 分',
+              '条目 ${subject.id} 评分更新为 $val 分',
             );
           }
           setState(() {});
@@ -433,7 +440,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           ),
         ),
         SizedBox(width: 8.w),
-        buildRatingBar(),
+        buildRateBox(),
         SizedBox(width: 8.w),
         buildFreshBtn(),
         SizedBox(width: 8.w),
