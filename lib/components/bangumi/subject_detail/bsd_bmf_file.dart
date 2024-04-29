@@ -1,9 +1,6 @@
 // Dart imports:
 import 'dart:async';
 
-// Flutter imports:
-import 'package:flutter/foundation.dart';
-
 // Package imports:
 import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -131,19 +128,16 @@ class _BsdBmfFileState extends State<BsdBmfFile> {
         ),
       ];
     }
-    if (kDebugMode) {
-      return [
-        potplayerBtn,
-        const SizedBox(height: 6),
-        BsdBmfFileInnerPlayerBtn(file, widget.bmfFile),
-        const SizedBox(height: 6),
-        deleteBtn,
-      ];
-    }
     if (!file.endsWith('.mp4') && !file.endsWith('.mkv')) {
       return [deleteBtn];
     }
-    return [potplayerBtn, const SizedBox(height: 6), deleteBtn];
+    return [
+      potplayerBtn,
+      const SizedBox(height: 6),
+      BsdBmfFileInnerPlayerBtn(file, widget.bmfFile),
+      const SizedBox(height: 6),
+      deleteBtn,
+    ];
   }
 
   List<Widget> buildFileCards(BuildContext context) {

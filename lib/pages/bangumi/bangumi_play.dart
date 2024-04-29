@@ -1,8 +1,11 @@
 // Dart imports:
 import 'dart:io';
 
+// Flutter imports:
+import 'package:flutter/material.dart' as material;
+
 // Package imports:
-import 'package:fluent_ui/fluent_ui.dart' hide StatelessWidget;
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
@@ -11,9 +14,6 @@ import 'package:video_player_win/video_player_win_plugin.dart';
 
 // Project imports:
 import '../../store/nav_store.dart';
-
-import 'package:flutter/material.dart'
-    show MaterialApp, Scaffold, StatelessWidget;
 
 /// 播放器页面
 class BangumiPlayPage extends ConsumerStatefulWidget {
@@ -31,12 +31,17 @@ class BangumiPlayPage extends ConsumerStatefulWidget {
 }
 
 /// BangumiPlayPageState
-class _BangumiPlayPageState extends ConsumerState<BangumiPlayPage> {
+class _BangumiPlayPageState extends ConsumerState<BangumiPlayPage>
+    with AutomaticKeepAliveClientMixin {
   /// 播放器
   late VideoPlayerController controller;
 
   /// 文件列表
   List<String> files = [];
+
+  /// 是否有数据
+  @override
+  bool get wantKeepAlive => true;
 
   /// 初始化
   @override
@@ -92,17 +97,18 @@ class _BangumiPlayPageState extends ConsumerState<BangumiPlayPage> {
         ),
       );
     }
-    return Center(
-      child: Card(
-        padding: EdgeInsets.zero,
-        margin: EdgeInsets.symmetric(
-          vertical: 16.w,
-          horizontal: 16.h,
-        ),
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
-          child: SizedBox.expand(
-            child: BangumiPlayVideoWidget(controller),
+    return material.Scaffold(
+      body: Card(
+        padding: const EdgeInsets.all(0),
+        child: Center(
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: JkVideoControlPanel(
+              controller,
+              showClosedCaptionButton: true,
+              showFullscreenButton: false,
+              showVolumeButton: true,
+            ),
           ),
         ),
       ),
@@ -119,30 +125,7 @@ class _BangumiPlayPageState extends ConsumerState<BangumiPlayPage> {
   /// 构建函数
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return ScaffoldPage(header: buildHeader(), content: buildContent());
-  }
-}
-
-/// BangumiPlayVideoWidget
-class BangumiPlayVideoWidget extends StatelessWidget {
-  /// controller
-  final VideoPlayerController controller;
-
-  /// 构造函数
-  const BangumiPlayVideoWidget(this.controller, {super.key});
-
-  /// 构建函数
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        body: JkVideoControlPanel(
-          controller,
-          showClosedCaptionButton: true,
-          showFullscreenButton: false,
-          showVolumeButton: true,
-        ),
-      ),
-    );
   }
 }
