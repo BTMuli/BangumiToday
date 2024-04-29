@@ -10,10 +10,14 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../controller/app/page_controller.dart';
 import '../../../controller/app/progress_controller.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
+import '../../../database/bangumi/bangumi_user.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
+import '../../../request/bangumi/bangumi_api.dart';
 import '../../../store/nav_store.dart';
+import '../../app/app_dialog.dart';
+import '../../app/app_dialog_resp.dart';
 import '../../app/app_infobar.dart';
 import 'buc_card.dart';
 
@@ -35,8 +39,11 @@ class _BucTabState extends ConsumerState<BucTabView>
   /// 收藏类型
   BangumiCollectionType get type => widget.type;
 
+  /// 用户
+  BangumiUser? user;
+
   /// progress controller
-  final ProgressController progress = ProgressController();
+  late ProgressController progress = ProgressController();
 
   /// 查找
   final TextEditingController searchController = TextEditingController();
@@ -44,8 +51,14 @@ class _BucTabState extends ConsumerState<BucTabView>
   /// 每页展示数量
   final int limit = 12;
 
-  /// 数据库
-  final BtsBangumiCollection sqlite = BtsBangumiCollection();
+  /// 用户数据库
+  final BtsBangumiUser sqliteUser = BtsBangumiUser();
+
+  /// api
+  final BtrBangumiApi api = BtrBangumiApi();
+
+  /// 收藏数据库
+  final BtsBangumiCollection sqliteCollection = BtsBangumiCollection();
 
   /// page controller
   BtcPageController pageController = BtcPageController.defaultInit();
@@ -72,6 +85,7 @@ class _BucTabState extends ConsumerState<BucTabView>
   void initState() {
     super.initState();
     Future.delayed(Duration.zero, () async {
+      user = await sqliteUser.readUser();
       await loadData();
     });
   }
@@ -86,7 +100,7 @@ class _BucTabState extends ConsumerState<BucTabView>
 
   /// 获取数据
   Future<void> loadData() async {
-    var list = await sqlite.getByType(type);
+    var list = await sqliteCollection.getByType(type);
     list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     if (list.isNotEmpty) {
       data = list;
@@ -104,49 +118,102 @@ class _BucTabState extends ConsumerState<BucTabView>
       .read(navStoreProvider)
       .addNavItemB(type: subject.subjectType.label, subject: subject.subjectId);
 
-  /// 构建 item
-  Widget buildItem(BuildContext context, AutoSuggestBoxItem<dynamic> item) {
-    return ListTile(
-      trailing: IconButton(
-        icon: const Icon(FluentIcons.info),
-        onPressed: () => jump(item.value as BangumiUserSubjectCollection),
-      ),
-      title: Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis),
-      onPressed: () {
-        searchController.text = item.label;
-        setState(() {});
-      },
+  /// 刷新收藏
+  Future<void> freshCollection() async {
+    progress = ProgressWidget.show(
+      context,
+      title: '刷新收藏信息',
+      text: '正在刷新 ${type.label} 收藏信息',
+      onTaskbar: true,
     );
+    if (user == null) {
+      progress.end();
+      if (mounted) await BtInfobar.error(context, '用户信息为空');
+      return;
+    }
+    const limitC = 50;
+    var offsetC = 0;
+    var resp = await api.getCollectionSubjects(
+      username: user!.id.toString(),
+      limit: limitC,
+      offset: offsetC,
+      collectionType: type,
+    );
+    if (resp.code != 0 || resp.data == null) {
+      progress.end();
+      if (mounted) await showRespErr(resp, context);
+      return;
+    }
+    var checkFlag = true;
+    var pageResp = resp.data as BangumiPageT<BangumiUserSubjectCollection>;
+    var total = pageResp.total;
+    var cnt = 0;
+    while (checkFlag) {
+      offsetC += pageResp.data.length;
+      for (var item in pageResp.data) {
+        await sqliteCollection.write(item, check: false);
+        progress.update(
+          text: '[${item.subject.id}] ${item.subject.name}',
+          progress: (cnt / total) * 100,
+        );
+        cnt++;
+      }
+      if (offsetC >= total) {
+        checkFlag = false;
+        progress.end();
+        if (mounted) await BtInfobar.success(context, '收藏信息写入完成');
+        break;
+      }
+      progress.update(
+        text: '偏移：$offsetC，总计：$total',
+        progress: (cnt / total) * 100,
+      );
+      resp = await api.getCollectionSubjects(
+        username: user!.id.toString(),
+        limit: limitC,
+        offset: offsetC,
+        collectionType: type,
+      );
+      if (resp.code != 0 || resp.data == null) {
+        progress.end();
+        if (mounted) await showRespErr(resp, context);
+        return;
+      }
+      pageResp = resp.data as BangumiPageT<BangumiUserSubjectCollection>;
+    }
   }
 
-  /// 构建AutoSuggestBoxItem
-  AutoSuggestBoxItem<BangumiUserSubjectCollection> buildAutoSuggestBoxItem(
+  /// 构建 item
+  ComboBoxItem<BangumiUserSubjectCollection> buildItem(
     BangumiUserSubjectCollection item,
   ) {
     var label = item.subject.nameCn;
-    if (item.subject.nameCn.isEmpty) label = item.subject.name;
-    return AutoSuggestBoxItem<BangumiUserSubjectCollection>(
+    if (label.isEmpty) label = item.subject.name;
+    return ComboBoxItem<BangumiUserSubjectCollection>(
       value: item,
-      label: label,
-      semanticLabel: label,
-      onSelected: () async {
-        searchController.text = label;
-      },
+      child: SizedBox(
+        width: 400.w,
+        child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
     );
   }
 
   /// 构建搜索框
-  /// todo 改成下拉列表
-  Widget buildSearch(BuildContext context) {
-    return AutoSuggestBox<BangumiUserSubjectCollection>(
-      controller: searchController,
-      items: data.map(buildAutoSuggestBoxItem).toList(),
-      itemBuilder: buildItem,
+  Widget buildJump(BuildContext context) {
+    return ComboBox<BangumiUserSubjectCollection>(
+      items: data.map(buildItem).toList(),
+      onChanged: (value) async {
+        if (value == null) {
+          await BtInfobar.warn(context, '没有找到数据');
+          return;
+        }
+        jump(value);
+      },
+      placeholder: const Text('搜索'),
     );
   }
 
   /// 构建刷新按钮
-  /// todo，改成从api获取，并将数据保存到数据库
   Widget buildRefresh(BuildContext context) {
     return IconButton(
       icon: const Icon(FluentIcons.refresh),
@@ -155,6 +222,15 @@ class _BucTabState extends ConsumerState<BucTabView>
         pageController.cur = 1;
         await loadData();
         if (context.mounted) await BtInfobar.success(context, '刷新成功');
+      },
+      onLongPress: () async {
+        var check = await showConfirmDialog(
+          context,
+          title: '是否从API刷新数据',
+          content: '将从 bangumi.tv 获取数据',
+        );
+        if (!check) return;
+        await freshCollection();
       },
     );
   }
@@ -168,7 +244,7 @@ class _BucTabState extends ConsumerState<BucTabView>
       SizedBox(width: 8.w),
       buildRefresh(context),
       SizedBox(width: 8.w),
-      SizedBox(width: 600.w, child: buildSearch(context)),
+      buildJump(context),
       const Spacer(),
       PageWidget(pageController),
       SizedBox(width: 8.w),
@@ -198,6 +274,7 @@ class _BucTabState extends ConsumerState<BucTabView>
   Widget build(BuildContext context) {
     super.build(context);
     return Column(children: [
+      SizedBox(height: 8.h),
       buildTop(context),
       SizedBox(height: 8.h),
       Expanded(child: buildList()),
