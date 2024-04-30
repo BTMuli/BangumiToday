@@ -1,6 +1,9 @@
 // Dart imports:
 import 'dart:async';
 
+// Flutter imports:
+import 'package:flutter/material.dart' as material;
+
 // Package imports:
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:dtorrent_common/dtorrent_common.dart';
@@ -60,6 +63,9 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   /// 开始时间
   late int startTime;
 
+  /// 耗时，当暂停时记录
+  late int time = 0;
+
   /// torrent 文件地址
   late String filePath = '';
 
@@ -68,9 +74,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
 
   /// torrentTask
   late TorrentTask? task;
-
-  /// 监听定时器，初始化为 1 小时
-  late Timer timer = Timer(const Duration(hours: 1), () {});
 
   /// 下载进度
   double? progress = 0;
@@ -121,8 +124,15 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       ];
       BTLogTool.error(errInfo);
     }
-    timer.cancel();
     super.dispose();
+  }
+
+  /// 初始化监听
+  void initListener(TorrentTask task) {
+    var listener = task.createListener();
+    listener
+      ..on<TaskFileCompleted>((event) async => await completedTask(task))
+      ..on<StateFileUpdated>((event) async => await freshDownload(task));
   }
 
   /// 初始化
@@ -138,10 +148,10 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       ref.read(dttStoreProvider.notifier).removeTask(item);
       return;
     }
-    if (mounted) await BtInfobar.success(context, '成功获取保存路径');
     model = await Torrent.parse(filePath);
     task = TorrentTask.newTask(model!, dir);
     if (mounted) await BtInfobar.success(context, '成功解析种子文件');
+    initListener(task!);
     await task!.start();
     trackers.listen((urls) {
       for (var url in urls) {
@@ -151,24 +161,21 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     for (var node in model!.nodes) {
       task!.addDHTNode(node);
     }
-    if (mounted) await BtInfobar.success(context, '成功添加节点');
     startTime = DateTime.now().millisecondsSinceEpoch;
     progress = null;
-    timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      await freshDownload();
-    });
     isInit = true;
     if (mounted) await BtInfobar.success(context, '初始化成功');
     setState(() {});
   }
 
   /// 处理下载完成
-  Future<void> completedTask() async {
+  Future<void> completedTask(TorrentTask task) async {
     var endTime = DateTime.now().millisecondsSinceEpoch;
-    var time = (endTime - startTime) / 1000;
-    await task!.stop();
+    time = time + endTime - startTime;
+    var timeStr = (time / 1000).toStringAsFixed(2);
+    await task.stop();
     await BTNotifierTool.showMini(
-      title: '下载完成，耗时：$time s',
+      title: '下载完成，耗时：$timeStr 秒',
       body: '下载完成：${item.title}',
       onClick: () async {
         var file = path.join(dir, model!.name);
@@ -190,29 +197,22 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     });
   }
 
-  /// 初始化下载
-  void initDownload() {
-    startTime = DateTime.now().millisecondsSinceEpoch;
-    progress = null;
-    setState(() {});
-  }
-
   /// 刷新下载进度
-  Future<void> freshDownload() async {
-    assert(task != null);
-    progress = task!.progress * 100;
-    ads = task!.averageDownloadSpeed;
-    aps = task!.averageUploadSpeed;
-    ds = task!.currentDownloadSpeed;
-    ps = task!.uploadSpeed;
-    utpc = task!.utpPeerCount;
-    active = task!.connectedPeersNumber;
-    seeders = task!.seederNumber;
-    all = task!.allPeersNumber;
+  Future<void> freshDownload(TorrentTask task) async {
+    progress = task.progress * 100;
+    ads = task.averageDownloadSpeed;
+    aps = task.averageUploadSpeed;
+    ds = task.currentDownloadSpeed;
+    ps = task.uploadSpeed;
+    utpc = task.utpPeerCount;
+    active = task.connectedPeersNumber;
+    seeders = task.seederNumber;
+    all = task.allPeersNumber;
     setState(() {});
-    if (task!.progress == 1.0) {
-      timer.cancel();
-      await completedTask();
+    BTLogTool.info('Progress: $progress');
+    if (progress == 100) {
+      if (mounted) await BtInfobar.success(context, '下载完成，即将删除任务');
+      await task.stop();
     }
   }
 
@@ -223,17 +223,15 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       return;
     }
     if (task!.state == TaskState.paused) {
+      BTLogTool.info('Resume task.');
       await resumeDownload();
       return;
     }
-    if (task!.state == TaskState.running || timer.isActive) {
+    if (task!.state == TaskState.running) {
       await BtInfobar.error(context, '任务正在下载');
       return;
     }
     await task!.start();
-    timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      await freshDownload();
-    });
   }
 
   /// 暂停下载
@@ -251,6 +249,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       return;
     }
     task!.pause();
+    time = time + DateTime.now().millisecondsSinceEpoch - startTime;
     await BtInfobar.success(context, '任务已经暂停');
   }
 
@@ -265,9 +264,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       return;
     }
     task!.resume();
-    timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      await freshDownload();
-    });
+    startTime = DateTime.now().millisecondsSinceEpoch;
     await BtInfobar.success(context, '任务已经继续下载');
   }
 
@@ -283,6 +280,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
         return;
       }
       await task!.stop();
+      time = time + DateTime.now().millisecondsSinceEpoch - startTime;
       if (mounted) await BtInfobar.success(context, '任务已经停止');
     } catch (e) {
       if (mounted) await BtInfobar.error(context, e.toString());
@@ -304,14 +302,60 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
       }
       startTime = DateTime.now().millisecondsSinceEpoch;
       progress = null;
-      timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-        await freshDownload();
-      });
       if (mounted) await BtInfobar.success(context, '任务开始重新下载');
       setState(() {});
     } catch (e) {
       if (mounted) await BtInfobar.error(context, e.toString());
     }
+  }
+
+  /// 构建删除按钮
+  Widget buildDelBtn() {
+    return IconButton(
+      icon: const Icon(FluentIcons.delete),
+      onPressed: () async {
+        var confirm = await showConfirmDialog(
+          context,
+          title: '删除任务？',
+          content: '是否删除该任务？',
+        );
+        if (confirm) {
+          await stopDownload();
+          var stateFile = path.join(dir, '${model!.infoHash}.bt.state');
+          try {
+            await fileTool.deleteFile(stateFile);
+          } catch (e) {
+            var errInfo = ['删除文件失败 $stateFile', '错误信息：$e'];
+            if (mounted) {
+              await BtInfobar.error(context, errInfo.join('\n'));
+            }
+            BTLogTool.error(errInfo);
+          }
+          ref.read(dttStoreProvider.notifier).removeTask(item);
+        }
+      },
+    );
+  }
+
+  /// 购买目录按钮
+  Widget buildDirBtn() {
+    return IconButton(
+      icon: const Icon(material.Icons.folder_open),
+      onPressed: () async {
+        await fileTool.openDir(dir);
+      },
+    );
+  }
+
+  /// 构建组件trailing
+  Widget buildCardTrail() {
+    return Row(
+      children: [
+        buildDelBtn(),
+        SizedBox(width: 8.w),
+        buildDirBtn(),
+      ],
+    );
   }
 
   /// 构建组件
@@ -322,30 +366,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
           ListTile(
             title: Text(item.title ?? ''),
             subtitle: Text('$dir\\${model?.name ?? ''}'),
-            trailing: IconButton(
-              icon: const Icon(FluentIcons.delete),
-              onPressed: () async {
-                var confirm = await showConfirmDialog(
-                  context,
-                  title: '删除任务？',
-                  content: '是否删除该任务？',
-                );
-                if (confirm) {
-                  await stopDownload();
-                  var stateFile = path.join(dir, '${model!.infoHash}.bt.state');
-                  try {
-                    await fileTool.deleteFile(stateFile);
-                  } catch (e) {
-                    var errInfo = ['删除文件失败 $stateFile', '错误信息：$e'];
-                    if (mounted) {
-                      await BtInfobar.error(context, errInfo.join('\n'));
-                    }
-                    BTLogTool.error(errInfo);
-                  }
-                  ref.read(dttStoreProvider.notifier).removeTask(item);
-                }
-              },
-            ),
+            trailing: buildCardTrail(),
           ),
           SizedBox(height: 8.h),
           Row(
@@ -382,6 +403,9 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
                     content: '是否重新下载该任务？',
                   );
                   if (confirm) {
+                    // 清除下载时间
+                    time = 0;
+                    startTime = DateTime.now().millisecondsSinceEpoch;
                     await startDownload();
                   }
                 },
@@ -419,20 +443,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
           ListTile(
             title: Text(item.title ?? ''),
             subtitle: Text(dir),
-            trailing: IconButton(
-              icon: const Icon(FluentIcons.delete),
-              onPressed: () async {
-                var confirm = await showConfirmDialog(
-                  context,
-                  title: '删除任务？',
-                  content: '是否删除该任务？',
-                );
-                if (confirm) {
-                  await stopDownload();
-                  ref.read(dttStoreProvider.notifier).removeTask(item);
-                }
-              },
-            ),
+            trailing: buildCardTrail(),
           ),
           SizedBox(height: 8.h),
           SizedBox(

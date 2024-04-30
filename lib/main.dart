@@ -1,7 +1,5 @@
-// Flutter imports:
-import 'package:flutter/material.dart';
-
 // Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

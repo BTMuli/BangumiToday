@@ -1,6 +1,3 @@
-// Flutter imports:
-import 'package:flutter/foundation.dart';
-
 // Package imports:
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:file_selector/file_selector.dart';
@@ -170,7 +167,7 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        if (kDebugMode) buildActInner(context),
+        buildActInner(context),
         buildActMotrix(context),
         buildActLink(context),
       ],

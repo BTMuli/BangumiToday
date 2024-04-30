@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2024-04-27
+Update: 2024-05-01
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-04-27 20:21:05`
+> 更新于 `2024-05-01 02:58:48`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -64,7 +64,7 @@ dart run msix:create --sign-msix true
 
 ## 关于证书
 
-> 截止 2024-04-27，应用使用的证书为自签名证书，需要将证书导入到系统。
+> 截止 2024-05-01，应用使用的证书为自签名证书，需要将证书导入到系统。
 
 为了正常安装应用，需要将 [BTMuli.cer](./BTMuli.cer) 证书导入到系统。
 
@@ -81,6 +81,7 @@ dart run msix:create --sign-msix true
 - [czy0729/Bangumi](https://github.com/czy0729/Bangumi)
 - [FlChart](https://app.flchart.dev/)
 - [Fluent UI](https://bdlukaa.github.io/fluent_ui/)
+- [FlutterIcons](https://fluttericon.cn/)
 
 ## Special Thanks（按照字典序）
 

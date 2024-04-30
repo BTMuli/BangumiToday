@@ -153,6 +153,7 @@ class _AppNavState extends ConsumerState<AppNav> {
       body: const TestPage(),
     );
     var footerItems = [
+      downloadPane,
       buildResetWinItem(),
       buildThemeModeItem(),
       PaneItem(
@@ -161,10 +162,7 @@ class _AppNavState extends ConsumerState<AppNav> {
         body: const SettingPage(),
       ),
     ];
-    if (kDebugMode) {
-      footerItems.insert(0, downloadPane);
-      footerItems.insert(0, debugPane);
-    }
+    if (kDebugMode) footerItems.insert(0, debugPane);
     return footerItems;
   }
 

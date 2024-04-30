@@ -1,8 +1,5 @@
-// Dart imports:
-import 'dart:io';
-
 // Flutter imports:
-import 'package:flutter/material.dart' show Icons;
+import 'package:flutter/material.dart' as material;
 
 // Package imports:
 import 'package:device_info_plus/device_info_plus.dart';
@@ -35,10 +32,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
   PackageInfo? packageInfo;
 
   /// 设备信息
-  WindowsDeviceInfo? deviceInfoWin;
-
-  /// 设备信息
-  MacOsDeviceInfo? deviceInfoMac;
+  WindowsDeviceInfo? deviceInfo;
 
   /// 当前主题
   ThemeMode get curThemeMode => ref.watch(appStoreProvider).themeMode;
@@ -55,24 +49,10 @@ class _SettingPageState extends ConsumerState<SettingPage>
   void initState() {
     super.initState();
     Future.microtask(() async {
-      await preLoad();
+      packageInfo = await PackageInfo.fromPlatform();
+      deviceInfo = await DeviceInfoPlugin().windowsInfo;
       setState(() {});
     });
-  }
-
-  /// 前置加载
-  Future<bool> preLoad() async {
-    packageInfo = await PackageInfo.fromPlatform();
-    var deviceInfo = DeviceInfoPlugin();
-    if (Platform.isWindows) deviceInfoWin = await deviceInfo.windowsInfo;
-    if (Platform.isMacOS) deviceInfoMac = await deviceInfo.macOsInfo;
-    return true;
-  }
-
-  /// dispose 保留状态
-  @override
-  void dispose() {
-    super.dispose();
   }
 
   /// 构建 Windows 设备信息
@@ -80,12 +60,12 @@ class _SettingPageState extends ConsumerState<SettingPage>
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       child: Expander(
-        leading: const Icon(Icons.laptop_windows),
+        leading: const Icon(material.Icons.laptop_windows),
         header: Text(diw.productName),
         content: Column(
           children: [
             ListTile(
-              leading: const Icon(Icons.desktop_windows_outlined),
+              leading: const Icon(material.Icons.desktop_windows_outlined),
               title: const Text('所在平台'),
               subtitle: Text(
                 'Windows ${diw.displayVersion} '
@@ -94,12 +74,12 @@ class _SettingPageState extends ConsumerState<SettingPage>
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.devices_outlined),
+              leading: const Icon(material.Icons.devices_outlined),
               title: const Text('设备'),
               subtitle: Text('${diw.computerName} ${diw.productId}'),
             ),
             ListTile(
-              leading: const Icon(Icons.device_hub_outlined),
+              leading: const Icon(material.Icons.device_hub_outlined),
               title: const Text('标识符'),
               subtitle: Text(
                 diw.deviceId.substring(1, diw.deviceId.length - 1),
@@ -111,46 +91,10 @@ class _SettingPageState extends ConsumerState<SettingPage>
     );
   }
 
-  /// 构建 MacOS 设备信息
-  /// todo 需要实机测试
-  Widget buildMacDeviceInfo(MacOsDeviceInfo dim) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
-      child: Expander(
-        leading: const Icon(Icons.laptop_mac),
-        header: Text(dim.model),
-        content: Column(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.desktop_mac),
-              title: const Text('所在平台'),
-              subtitle: Text(
-                'macOS ${dim.kernelVersion})',
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.devices_outlined),
-              title: const Text('设备'),
-              subtitle: Text('${dim.computerName} ${dim.model}'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.device_hub_outlined),
-              title: const Text('标识符'),
-              subtitle: Text(dim.computerName),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// 设备信息项
   Widget buildDeviceInfo() {
-    if (deviceInfoWin != null) {
-      return buildWinDeviceInfo(deviceInfoWin!);
-    }
-    if (deviceInfoMac != null) {
-      return buildMacDeviceInfo(deviceInfoMac!);
+    if (deviceInfo != null) {
+      return buildWinDeviceInfo(deviceInfo!);
     }
     return const ListTile(
       title: Text('设备信息'),
