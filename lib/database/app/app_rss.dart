@@ -37,6 +37,13 @@ class BtsAppRss {
     }
   }
 
+  /// 读取所有 rss 链接
+  Future<List<String>> readAllRss() async {
+    await instance.preCheck();
+    var result = await instance.sqlite.db.query(_tableName);
+    return result.map((e) => e['rss'] as String).toList();
+  }
+
   /// 读取配置
   Future<AppRssModel?> read(String rss) async {
     await instance.preCheck();

@@ -363,11 +363,19 @@ class BtrBangumiApi {
       );
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
+      var code = e.response?.statusCode ?? 666;
+      if (code == 404) {
+        return BTResponse.error(
+          code: code,
+          message: 'User collection item not found',
+          data: errResp,
+        );
+      }
       BTLogTool.error(
         'Failed to load user collection item: ${jsonEncode(errResp)}',
       );
       return BTResponse<BangumiErrorDetail>(
-        code: e.response?.statusCode ?? 666,
+        code: code,
         message: 'Failed to load user collection item',
         data: errResp,
       );

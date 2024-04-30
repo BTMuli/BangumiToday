@@ -71,6 +71,12 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     timerRss = getTimerRss();
     Future.delayed(Duration.zero, () async {
       appRssModel = await sqlite.read(bmf.rss!);
+      if (appRssModel == null) {
+        appRssModel = AppRssModel(rss: bmf.rss!, data: '', ttl: 0, updated: 0);
+        setState(() {});
+        await freshRss();
+        return;
+      }
       rssItems = RssFeed.parse(appRssModel!.data).items;
       var parse = XmlDocument.parse(appRssModel!.data);
       var channel = parse.findAllElements('channel').first;

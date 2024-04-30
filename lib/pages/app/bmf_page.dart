@@ -9,6 +9,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/subject_detail/bsd_bmf.dart';
 import '../../database/app/app_bmf.dart';
+import '../../database/app/app_rss.dart';
 
 /// BMF 配置页面
 class BmfPage extends StatefulWidget {
@@ -24,6 +25,9 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
   /// Bmf 数据库
   final BtsAppBmf sqlite = BtsAppBmf();
 
+  /// rss 数据库
+  final BtsAppRss rss = BtsAppRss();
+
   /// Bmf 数据，只包括subject
   List<int> bmfList = [];
 
@@ -36,6 +40,7 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
   void initState() {
     super.initState();
     Future.microtask(() async {
+      await preCheck();
       await init();
     });
   }
@@ -44,6 +49,24 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
   @override
   void dispose() {
     super.dispose();
+  }
+
+  /// 前置检查，删除未使用的rss
+  Future<void> preCheck() async {
+    var read = await sqlite.readAll();
+    var rssList = await rss.readAllRss();
+    for (var item in read) {
+      if (item.rss != null && item.rss!.isNotEmpty) {
+        rssList.remove(item.rss);
+      }
+    }
+    var cnt = rssList.length;
+    for (var item in rssList) {
+      await rss.delete(item);
+    }
+    if (cnt > 0 && mounted) {
+      await BtInfobar.warn(context, '删除了 $cnt 条未使用的RSS');
+    }
   }
 
   /// 初始化

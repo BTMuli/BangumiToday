@@ -102,10 +102,20 @@ class _BsdBmfState extends State<BsdBmf> with AutomaticKeepAliveClientMixin {
           content: '建议精准到字幕组',
         );
         if (input == null) return;
+        if (input == bmf.rss) {
+          if (context.mounted) await BtInfobar.error(context, '未修改 MikanRSS');
+          return;
+        }
         var check = await sqliteBmf.checkRss(input);
         if (check) {
           if (context.mounted) await BtInfobar.error(context, '该RSS已经被其他BMF使用');
           return;
+        }
+        if (bmf.rss != null && bmf.rss!.isNotEmpty) {
+          await sqliteRss.delete(bmf.rss!);
+          if (context.mounted) {
+            await BtInfobar.success(context, '成功删除旧 RSS 数据');
+          }
         }
         bmf.rss = input;
         await sqliteBmf.write(bmf);
