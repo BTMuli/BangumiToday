@@ -12,12 +12,12 @@ import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../controller/app/progress_controller.dart';
 import '../../database/bangumi/bangumi_collection.dart';
-import '../../database/bangumi/bangumi_user.dart';
 import '../../models/bangumi/bangumi_enum_extension.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
+import '../../store/bgm_user_hive.dart';
 import '../../store/nav_store.dart';
 import 'bangumi_collection.dart';
 
@@ -33,14 +33,11 @@ class BangumiUserPage extends ConsumerStatefulWidget {
 /// bangumi 用户界面状态
 class _BangumiUserState extends ConsumerState<BangumiUserPage>
     with AutomaticKeepAliveClientMixin {
-  /// 用户数据
-  BangumiUser? user;
-
-  /// 数据库-用户
-  final BtsBangumiUser sqliteUser = BtsBangumiUser();
+  /// 用户hive
+  final BgmUserHive hive = BgmUserHive();
 
   /// 数据库-收藏
-  final BtsBangumiCollection sqliteCollection = BtsBangumiCollection();
+  final BtsBangumiCollection sqlite = BtsBangumiCollection();
 
   /// 总收藏数
   late int collectionCount = 0;
@@ -53,9 +50,6 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
 
   /// app-link 监听
   final AppLinks _appLinks = AppLinks();
-
-  /// 授权过期时间
-  late DateTime expireTime = DateTime.now();
 
   /// 进度条
   late ProgressController progress = ProgressController();
@@ -78,10 +72,9 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
       title: '读取本地数据库',
       text: '读取tokens',
     );
-    var atGet = await sqliteUser.readAccessToken();
-    var rtGet = await sqliteUser.readRefreshToken();
-    var etGet = await sqliteUser.readExpireTime();
-    if (atGet == null || rtGet == null || etGet == null) {
+    if (hive.tokenAC == null ||
+        hive.tokenRF == null ||
+        hive.expireTime == null) {
       progress.update(text: '未找到访问令牌');
       await Future.delayed(const Duration(milliseconds: 500));
       progress.end();
@@ -95,22 +88,19 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
       await oauthUser();
       return;
     }
-    expireTime = etGet;
-    setState(() {});
     progress.update(text: '读取用户信息...');
-    user = await sqliteUser.readUser();
-    var collectionCountGet = await sqliteCollection.getCount();
+    var collectionCountGet = await sqlite.getCount();
     collectionCount = collectionCountGet;
     setState(() {});
-    if (user != null) {
-      progress.update(text: '用户信息：${user!.username}');
+    if (hive.user != null) {
+      progress.update(text: '用户信息：${hive.user!.username}');
       await Future.delayed(const Duration(milliseconds: 500));
       progress.end();
       return;
     }
     progress.update(text: '尝试获取用户信息');
-    var isExpired = await sqliteUser.isTokenExpired();
-    if (isExpired) {
+    var isExpired = await hive.checkExpired();
+    if (isExpired == null || !isExpired) {
       progress.end();
       if (!mounted) return;
       var freshConfirm = await showConfirmDialog(
@@ -131,28 +121,20 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     } else {
       progress = ProgressWidget.show(context, title: '刷新访问令牌');
     }
-    var rt = await sqliteUser.readRefreshToken();
-    if (rt == null) {
+    if (hive.tokenRF == null) {
       progress.end();
       if (mounted) await BtInfobar.error(context, '未找到刷新令牌');
       return;
     }
-    var res = await oauth.refreshToken(rt);
-    if (res.code != 0 || res.data == null) {
+    var res = await hive.refreshAuth(onErr: (e) async {
+      if (mounted) await showRespErr(e, context);
+    });
+    if (res == null || !res) {
       progress.end();
-      if (mounted) await showRespErr(res, context);
       return;
     }
-    assert(res.data != null);
-    var at = res.data as BangumiOauthTokenRefreshData;
-    progress.update(title: '刷新访问令牌成功', text: '访问令牌：${at.accessToken}');
-    await sqliteUser.writeAccessToken(at.accessToken);
-    await sqliteUser.writeRefreshToken(at.refreshToken);
-    await sqliteUser.writeExpireTime(at.expiresIn);
-    expireTime = (await sqliteUser.readExpireTime())!;
-    setState(() {});
-    await Future.delayed(const Duration(milliseconds: 500));
     progress.end();
+    if (mounted) await BtInfobar.success(context, '刷新访问令牌成功 ${hive.tokenAC}');
   }
 
   /// 认证用户
@@ -184,9 +166,10 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
         }
         assert(res.data != null);
         var at = res.data as BangumiOauthTokenGetData;
-        await sqliteUser.writeAccessToken(at.accessToken);
-        await sqliteUser.writeRefreshToken(at.refreshToken);
-        await sqliteUser.writeExpireTime(at.expiresIn);
+        await hive.updateAccessToken(at.accessToken, update: false);
+        await hive.updateRefreshToken(at.refreshToken, update: false);
+        await hive.updateExpireTime(at.expiresIn, update: false);
+        await hive.updateBox();
         await freshUserInfo();
       }
     });
@@ -199,22 +182,19 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     } else {
       progress = ProgressWidget.show(context, title: '获取用户信息');
     }
-    var at = await sqliteUser.readAccessToken();
-    if (at == null) {
+    if (hive.tokenAC == null) {
       progress.end();
       if (mounted) await BtInfobar.error(context, '未找到访问令牌');
       return;
     }
-    await api.refreshGetAccessToken(token: at);
     var userResp = await api.getUserInfo();
     if (userResp.code != 0 || userResp.data == null) {
       progress.end();
       if (mounted) await showRespErr(userResp, context);
       return;
     }
-    user = userResp.data! as BangumiUser;
-    progress.update(title: '获取用户信息成功', text: '用户信息：${user!.username}');
-    await sqliteUser.writeUser(user!);
+    await hive.updateUser(userResp.data! as BangumiUser);
+    progress.update(title: '获取用户信息成功', text: '用户信息：${hive.user!.username}');
     await Future.delayed(const Duration(milliseconds: 500));
     progress.end();
   }
@@ -261,7 +241,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
 
   /// 构建用户
   Widget buildUser() {
-    if (user == null) {
+    if (hive.user == null) {
       return ListTile(
         leading: const Icon(FluentIcons.user_window),
         title: const Text('用户信息'),
@@ -274,17 +254,16 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
         ),
       );
     }
-    assert(user != null);
     return ListTile(
       leading: CachedNetworkImage(
-        imageUrl: user!.avatar.large,
+        imageUrl: hive.user!.avatar.large,
         width: 32.spMax,
         height: 32.spMax,
         placeholder: (context, url) => const ProgressRing(),
         errorWidget: (context, url, error) => const Icon(FluentIcons.error),
       ),
-      title: Text(user!.nickname),
-      subtitle: Text('ID: ${user!.id}(${user!.userGroup.label})'),
+      title: Text(hive.user!.nickname),
+      subtitle: Text('ID: ${hive.user!.id}(${hive.user!.userGroup.label})'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -313,9 +292,9 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     return ListTile(
       leading: const Icon(FluentIcons.authenticator_app),
       title: const Text('授权信息'),
-      subtitle: expireTime == DateTime.now()
+      subtitle: hive.expireTime == DateTime.now()
           ? const Text('未找到授权信息')
-          : Text('授权过期时间：$expireTime'),
+          : Text('授权过期时间：${hive.expireTime}'),
       trailing: Row(
         children: [
           FilledButton(
@@ -366,7 +345,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
           FilledButton(
             child: const Text('刷新收藏'),
             onPressed: () async {
-              if (user == null) {
+              if (hive.user == null) {
                 await BtInfobar.error(context, '未找到用户信息');
                 return;
               }
@@ -379,7 +358,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
               const limit = 50;
               var offset = 0;
               var resp = await api.getCollectionSubjects(
-                username: user!.id.toString(),
+                username: hive.user!.id.toString(),
                 limit: limit,
                 offset: offset,
               );
@@ -388,7 +367,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
                 if (mounted) await showRespErr(resp, context);
                 return;
               }
-              await sqliteCollection.preCheck();
+              await sqlite.preCheck();
               var checkFlag = true;
               var cnt = 1;
               var pageResp =
@@ -402,7 +381,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
                     text: '[${item.subject.id}] ${item.subject.name}',
                     progress: cnt / total,
                   );
-                  await sqliteCollection.write(item, check: false);
+                  await sqlite.write(item, check: false);
                   cnt++;
                 }
                 if (offset >= total) {
@@ -417,7 +396,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
                   progress: null,
                 );
                 resp = await api.getCollectionSubjects(
-                  username: user!.id.toString(),
+                  username: hive.user!.id.toString(),
                   limit: limit,
                   offset: offset,
                 );

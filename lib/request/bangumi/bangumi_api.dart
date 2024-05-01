@@ -5,7 +5,6 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 // Project imports:
-import '../../database/bangumi/bangumi_user.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
@@ -14,6 +13,7 @@ import '../../models/bangumi/request_episode.dart';
 import '../../models/bangumi/request_search.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../models/bangumi/request_user.dart';
+import '../../store/bgm_user_hive.dart';
 import '../../tools/log_tool.dart';
 import 'bangumi_client.dart';
 
@@ -26,11 +26,8 @@ class BtrBangumiApi {
   /// 基础 URL
   final String baseUrl = 'https://api.bgm.tv';
 
-  /// 数据库
-  final BtsBangumiUser sqlite = BtsBangumiUser();
-
-  /// access token
-  static String accessToken = '';
+  /// 用户Hive
+  final BgmUserHive hive = BgmUserHive();
 
   /// 构造函数
   BtrBangumiApi() {
@@ -40,25 +37,13 @@ class BtrBangumiApi {
 
   /// 获取需要访问令牌的 header 项
   Future<Map<String, dynamic>> getAuthHeader() async {
-    if (accessToken == '') {
-      await refreshGetAccessToken();
+    if (hive.tokenAC == null || hive.tokenAC!.isEmpty) {
+      return client.dio.options.headers;
     }
     return {
       ...client.dio.options.headers,
-      'Authorization': 'Bearer $accessToken',
+      'Authorization': 'Bearer ${hive.tokenAC}',
     };
-  }
-
-  /// 尝试获取访问令牌
-  Future<void> refreshGetAccessToken({String? token}) async {
-    if (token != null) {
-      accessToken = token;
-      return;
-    }
-    var atRead = await sqlite.readAccessToken();
-    if (atRead != null) {
-      accessToken = atRead;
-    }
   }
 
   /// 条目模块

@@ -3,11 +3,11 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
-import '../../../database/bangumi/bangumi_user.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../request/bangumi/bangumi_api.dart';
+import '../../../store/bgm_user_hive.dart';
 import 'bsd_episode.dart';
 
 /// SubjectDetail页面的章节模块，负责显示/操作章节信息
@@ -15,11 +15,8 @@ class BsdUserEpisodes extends StatefulWidget {
   /// subjectInfo
   final BangumiSubject subject;
 
-  /// 用户
-  final BangumiUser? user;
-
   /// 构造函数
-  const BsdUserEpisodes(this.subject, {super.key, this.user});
+  const BsdUserEpisodes(this.subject, {super.key});
 
   @override
   State<BsdUserEpisodes> createState() => _BsdUserEpisodesState();
@@ -32,13 +29,10 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
   int get subjectId => widget.subject.id;
 
   /// 用户
-  BangumiUser? get user => widget.user;
+  BangumiUser? get user => BgmUserHive().user;
 
   /// 是否收藏
   late bool isCollection;
-
-  /// 数据库
-  final BtsBangumiUser sqlite = BtsBangumiUser();
 
   /// 请求客户端
   final BtrBangumiApi api = BtrBangumiApi();

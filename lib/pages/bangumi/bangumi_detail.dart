@@ -11,11 +11,11 @@ import '../../components/bangumi/subject_detail/bsd_overview.dart';
 import '../../components/bangumi/subject_detail/bsd_relation.dart';
 import '../../components/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../components/bangumi/subject_detail/bsd_user_episodes.dart';
-import '../../database/bangumi/bangumi_user.dart';
-import '../../models/app/nav_model.dart';
 import '../../models/bangumi/bangumi_enum_extension.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../models/hive/nav_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
+import '../../store/bgm_user_hive.dart';
 import '../../store/nav_store.dart';
 import '../../utils/tool_func.dart';
 
@@ -37,11 +37,8 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
   /// 番剧数据
   BangumiSubject? data;
 
-  /// 用户
-  BangumiUser? user;
-
-  /// 用户数据库
-  final BtsBangumiUser sqlite = BtsBangumiUser();
+  /// 用户Hive
+  final BgmUserHive hive = BgmUserHive();
 
   @override
   bool get wantKeepAlive => true;
@@ -73,7 +70,6 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       showError = false;
       setState(() {});
     }
-    user = await sqlite.readUser();
     data = null;
     setState(() {});
     var api = BtrBangumiApi();
@@ -110,7 +106,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
           }
           ref.read(navStoreProvider).removeNavItem(
               '${data!.type.label}详情 ${widget.id}',
-              type: BtmAppNavItemType.bangumiSubject,
+              type: BtmAppNavItemType.subject,
               param: 'subjectDetail_${widget.id}');
         },
       ),
@@ -229,11 +225,11 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       children: [
         BsdOverview(data!),
         SizedBox(height: 12.h),
-        if (user != null) ...[
-          BsdUserCollection(data!, user!),
+        if (hive.user != null) ...[
+          BsdUserCollection(data!, hive.user!),
           SizedBox(height: 12.h)
         ],
-        BsdUserEpisodes(data!, user: user),
+        BsdUserEpisodes(data!),
         SizedBox(height: 12.h),
         BsdBmf(data!.id),
         SizedBox(height: 12.h),

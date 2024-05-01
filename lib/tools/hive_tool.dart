@@ -2,8 +2,9 @@
 import 'package:hive/hive.dart';
 
 // Project imports:
-import '../models/app/dtt_model.dart';
-import '../models/app/nav_model.dart';
+import '../models/hive/bgm_user_model.dart';
+import '../models/hive/nav_model.dart';
+import '../store/bgm_user_hive.dart';
 import 'file_tool.dart';
 
 /// 采用Hive来存储本地数据
@@ -29,7 +30,7 @@ class BTHiveTool {
     await instance.fileTool.createDir(dir);
     Hive.init(dir);
     await initNavHiveBox();
-    // await initDttHiveBox();
+    await initBgmUserHiveBox();
   }
 
   /// 初始化 navHiveBox
@@ -38,9 +39,10 @@ class BTHiveTool {
     await Hive.openBox<BtmAppNavHive>('nav');
   }
 
-  /// 初始化 downloadHiveBox
-  Future<void> initDttHiveBox() async {
-    Hive.registerAdapter(DttItemAdapter());
-    await Hive.openBox<DttItem>('dttItems');
+  /// 初始化 bgmUserHiveBox
+  Future<void> initBgmUserHiveBox() async {
+    Hive.registerAdapter(BgmUserHiveAdapter());
+    await Hive.openBox<BgmUserHiveModel>('bgmUser');
+    await BgmUserHive().initUser();
   }
 }

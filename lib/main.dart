@@ -24,9 +24,9 @@ void main() async {
 
   /// 初始化配置
   await BTLogTool().init();
-  await BTHiveTool().init();
   await BTNotifierTool().init();
   await BTSqlite().init();
+  await BTHiveTool().init();
   runApp(const ProviderScope(child: BTApp()));
   await Window.setEffect(effect: WindowEffect.acrylic);
 }

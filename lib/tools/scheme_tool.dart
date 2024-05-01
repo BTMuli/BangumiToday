@@ -8,7 +8,6 @@ import 'package:win32_registry/win32_registry.dart';
 
 // Project imports:
 import '../components/app/app_infobar.dart';
-import '../database/bangumi/bangumi_user.dart';
 import 'log_tool.dart';
 
 /// 管理 APP 链接
@@ -23,9 +22,6 @@ class BTSchemeTool {
 
   /// appLink 监听
   final appLink = AppLinks();
-
-  /// 数据库
-  final bangumiSqlite = BtsBangumiUser();
 
   /// 初始化
   Future<void> init() async {

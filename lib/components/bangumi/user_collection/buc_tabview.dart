@@ -10,11 +10,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../controller/app/page_controller.dart';
 import '../../../controller/app/progress_controller.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
-import '../../../database/bangumi/bangumi_user.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../request/bangumi/bangumi_api.dart';
+import '../../../store/bgm_user_hive.dart';
 import '../../../store/nav_store.dart';
 import '../../app/app_dialog.dart';
 import '../../app/app_dialog_resp.dart';
@@ -39,9 +39,6 @@ class _BucTabState extends ConsumerState<BucTabView>
   /// 收藏类型
   BangumiCollectionType get type => widget.type;
 
-  /// 用户
-  BangumiUser? user;
-
   /// progress controller
   late ProgressController progress = ProgressController();
 
@@ -51,14 +48,14 @@ class _BucTabState extends ConsumerState<BucTabView>
   /// 每页展示数量
   final int limit = 12;
 
-  /// 用户数据库
-  final BtsBangumiUser sqliteUser = BtsBangumiUser();
+  /// 用户Hive
+  final BgmUserHive hive = BgmUserHive();
 
   /// api
   final BtrBangumiApi api = BtrBangumiApi();
 
   /// 收藏数据库
-  final BtsBangumiCollection sqliteCollection = BtsBangumiCollection();
+  final BtsBangumiCollection sqlite = BtsBangumiCollection();
 
   /// page controller
   BtcPageController pageController = BtcPageController.defaultInit();
@@ -85,7 +82,6 @@ class _BucTabState extends ConsumerState<BucTabView>
   void initState() {
     super.initState();
     Future.delayed(Duration.zero, () async {
-      user = await sqliteUser.readUser();
       await loadData();
     });
   }
@@ -100,7 +96,7 @@ class _BucTabState extends ConsumerState<BucTabView>
 
   /// 获取数据
   Future<void> loadData() async {
-    var list = await sqliteCollection.getByType(type);
+    var list = await sqlite.getByType(type);
     list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     if (list.isNotEmpty) {
       data = list;
@@ -126,7 +122,7 @@ class _BucTabState extends ConsumerState<BucTabView>
       text: '正在刷新 ${type.label} 收藏信息',
       onTaskbar: true,
     );
-    if (user == null) {
+    if (hive.user == null) {
       progress.end();
       if (mounted) await BtInfobar.error(context, '用户信息为空');
       return;
@@ -134,7 +130,7 @@ class _BucTabState extends ConsumerState<BucTabView>
     const limitC = 50;
     var offsetC = 0;
     var resp = await api.getCollectionSubjects(
-      username: user!.id.toString(),
+      username: hive.user!.id.toString(),
       limit: limitC,
       offset: offsetC,
       collectionType: type,
@@ -151,7 +147,7 @@ class _BucTabState extends ConsumerState<BucTabView>
     while (checkFlag) {
       offsetC += pageResp.data.length;
       for (var item in pageResp.data) {
-        await sqliteCollection.write(item, check: false);
+        await sqlite.write(item, check: false);
         progress.update(
           text: '[${item.subject.id}] ${item.subject.name}',
           progress: (cnt / total) * 100,
@@ -169,7 +165,7 @@ class _BucTabState extends ConsumerState<BucTabView>
         progress: (cnt / total) * 100,
       );
       resp = await api.getCollectionSubjects(
-        username: user!.id.toString(),
+        username: hive.user!.id.toString(),
         limit: limitC,
         offset: offsetC,
         collectionType: type,

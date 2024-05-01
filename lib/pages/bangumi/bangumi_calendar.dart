@@ -8,10 +8,10 @@ import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/calendar/calendar_day.dart';
 import '../../database/bangumi/bangumi_collection.dart';
-import '../../database/bangumi/bangumi_user.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../request/bangumi/bangumi_api.dart';
+import '../../store/bgm_user_hive.dart';
 import '../../store/nav_store.dart';
 import 'bangumi_collection.dart';
 import 'bangumi_data.dart';
@@ -45,8 +45,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   /// 收藏数据库
   final BtsBangumiCollection sqlite = BtsBangumiCollection();
 
-  /// 用户数据库
-  final BtsBangumiUser sqliteUser = BtsBangumiUser();
+  /// 用户hive
+  final BgmUserHive hive = BgmUserHive();
 
   /// tabIndex
   int tabIndex = 0;
@@ -60,9 +60,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   /// flyout controller
   final FlyoutController controller = FlyoutController();
 
-  /// 用户
-  BangumiUser? user;
-
   /// 保存状态
   @override
   bool get wantKeepAlive => true;
@@ -71,8 +68,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   @override
   void initState() {
     super.initState();
+    if (hive.user != null) {
+      isShowCollection = true;
+      setState(() {});
+    }
     Future.microtask(() async {
-      user = await sqliteUser.readUser();
       await getData(freshTab: true);
     });
   }
@@ -165,11 +165,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     return MenuFlyoutItem(
       leading: Icon(
         FluentIcons.favorite_star,
-        color: user == null ? null : color,
+        color: hive.user == null ? null : color,
       ),
       text: const Text('查看用户收藏'),
       onPressed: () async {
-        if (user == null) {
+        if (hive.user == null) {
           await BtInfobar.warn(context, '请前往用户界面登录');
           return;
         }
