@@ -8,7 +8,7 @@ enum BtmAppNavItemType {
   app,
 
   /// Bangumi条目详情，标题会根据条目名称动态生成
-  bangumiSubject,
+  subject,
 }
 
 /// 侧边栏项的数据模型
@@ -22,7 +22,7 @@ class BtmAppNavItem {
 
   /// 参数，用于辨别不同的页面
   /// 当[type]为[NavItemType.app]时，[param]为null
-  /// 当[type]为[NavItemType.bangumiSubject]时，[param]为条目ID
+  /// 当[type]为[NavItemType.subject]时，[param]为条目ID
   final String? param;
 
   /// panelItem

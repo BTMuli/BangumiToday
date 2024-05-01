@@ -41,7 +41,8 @@ class RssDownloadCard extends ConsumerStatefulWidget {
 }
 
 /// 控制 rss 下载的状态
-class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
+class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
+    with AutomaticKeepAliveClientMixin {
   /// 获取item
   RssItem get item => widget.item;
 
@@ -102,6 +103,10 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
   /// 全部节点数
   int all = 0;
 
+  /// 保存状态
+  @override
+  bool get wantKeepAlive => true;
+
   /// 初始化
   @override
   void initState() {
@@ -150,7 +155,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     }
     model = await Torrent.parse(filePath);
     task = TorrentTask.newTask(model!, dir);
-    if (mounted) await BtInfobar.success(context, '成功解析种子文件');
     initListener(task!);
     await task!.start();
     trackers.listen((urls) {
@@ -164,7 +168,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     startTime = DateTime.now().millisecondsSinceEpoch;
     progress = null;
     isInit = true;
-    if (mounted) await BtInfobar.success(context, '初始化成功');
     setState(() {});
   }
 
@@ -452,6 +455,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (!isInit) return buildEmptyCard();
     return buildCard();
   }

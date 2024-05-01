@@ -15,6 +15,7 @@ class DttItem {
 }
 
 /// 下载列表的适配器
+/// todo：待测试&使用
 class DttItemAdapter extends TypeAdapter<DttItem> {
   @override
   final int typeId = 1;

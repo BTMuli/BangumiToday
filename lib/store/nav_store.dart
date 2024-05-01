@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 
 // Project imports:
-import '../models/app/nav_model.dart';
+import '../models/hive/nav_model.dart';
 import '../pages/bangumi/bangumi_detail.dart';
 
 /// 侧边栏状态提供者
@@ -12,7 +12,7 @@ final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
   var items = Hive.box<BtmAppNavHive>('nav').values.toList();
   var store = BTNavStore();
   for (var item in items) {
-    store.addNavItemB(subject: item.subjectId);
+    store.addNavItemB(subject: item.subjectId, paneTitle: item.title);
   }
   store.goIndex(0);
   return store;
@@ -53,7 +53,7 @@ class BTNavStore extends ChangeNotifier {
       );
     } else {
       res = _navItems.indexWhere(
-        (e) => e.param == param && e.type == BtmAppNavItemType.bangumiSubject,
+        (e) => e.param == param && e.type == BtmAppNavItemType.subject,
       );
     }
     return res;
@@ -70,14 +70,16 @@ class BTNavStore extends ChangeNotifier {
   void addNavItemB({
     String type = '条目',
     required int subject,
+    String? paneTitle,
   }) {
     var title = '$type详情 $subject';
+    if (paneTitle != null && paneTitle.isNotEmpty) title = paneTitle;
     var pane = PaneItem(
       icon: const Icon(FluentIcons.info),
       title: Text(title),
       body: BangumiDetail(id: subject.toString()),
     );
-    var paneType = BtmAppNavItemType.bangumiSubject;
+    var paneType = BtmAppNavItemType.subject;
     var param = 'subjectDetail_$subject';
     addNavItem(pane, title, type: paneType, param: param);
   }
@@ -112,7 +114,7 @@ class BTNavStore extends ChangeNotifier {
     } else {
       _navItems.add(navItem);
     }
-    if (type == BtmAppNavItemType.bangumiSubject) {
+    if (type == BtmAppNavItemType.subject) {
       var subject = param!.replaceAll('subjectDetail_', '');
       var hiveItem = BtmAppNavHive(title: title, subjectId: int.parse(subject));
       Hive.box<BtmAppNavHive>('nav').put(subject, hiveItem);
@@ -141,7 +143,7 @@ class BTNavStore extends ChangeNotifier {
     } else {
       curIndex = lastIndex;
     }
-    if (type == BtmAppNavItemType.bangumiSubject) {
+    if (type == BtmAppNavItemType.subject) {
       var subject = param!.replaceAll('subjectDetail_', '');
       Hive.box<BtmAppNavHive>('nav').delete(subject);
     }
