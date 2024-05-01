@@ -6,15 +6,14 @@ list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   file_selector_windows
   flutter_acrylic
-  fullscreen_window
   isar_flutter_libs
   local_notifier
   media_kit_libs_windows_video
   media_kit_video
+  screen_brightness_windows
   screen_retriever
   system_theme
   url_launcher_windows
-  video_player_win
   window_manager
   windows_taskbar
 )

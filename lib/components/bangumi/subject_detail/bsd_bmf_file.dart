@@ -6,12 +6,14 @@ import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../../pages/bangumi/bangumi_play.dart';
+import '../../../pages/app/play_page.dart';
 import '../../../store/nav_store.dart';
+import '../../../store/play_store.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/log_tool.dart';
 import '../../../tools/notifier_tool.dart';
@@ -281,10 +283,11 @@ class _BsdBmfFileInnerPlayerBtnState
       onPressed: () async {
         var navStore = ref.read(navStoreProvider);
         var filePath = path.join(widget.download, widget.file);
+        ref.read(playStoreProvider.notifier).addTask(Media(filePath));
         var pane = PaneItem(
           icon: const Icon(FluentIcons.play),
           title: const Text('内置播放'),
-          body: BangumiPlayPage(filePath),
+          body: const PlayPage(),
         );
         navStore.addNavItem(pane, '内置播放');
       },

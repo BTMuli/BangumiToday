@@ -209,10 +209,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     seeders = task.seederNumber;
     all = task.allPeersNumber;
     setState(() {});
-    if (progress == 100.toDouble()) {
-      if (mounted) await BtInfobar.success(context, '下载完成，即将删除任务');
-      await task.stop();
-    }
   }
 
   /// 开始下载

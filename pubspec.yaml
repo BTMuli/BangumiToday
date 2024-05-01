@@ -58,19 +58,16 @@ dependencies:
   json_annotation: ^4.8.1
   local_notifier: ^0.1.6
   logger: ^2.2.0
-  media_kit: ^0.0.11
-  media_kit_video: ^0.0.12
+  media_kit: ^1.1.10+1
+  media_kit_video: ^1.2.4
   media_kit_libs_video: ^1.0.4
-  package_info_plus: ^8.0.0
+  package_info_plus: ^7.0.0
   path: ^1.9.0
   path_provider: ^2.1.3
   provider: ^6.1.2
   sqflite_common_ffi: ^2.3.3
   system_theme: ^2.3.1
   url_launcher: ^6.2.5
-  video_player: ^2.8.6
-  video_player_control_panel: ^1.1.1
-  video_player_win: ^2.3.6
   window_manager: ^0.3.8
   win32_registry: ^1.1.3
   windows_taskbar: ^1.1.2
