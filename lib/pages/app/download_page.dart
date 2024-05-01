@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 // Project imports:
 import '../../components/app/app_infobar.dart';
 import '../../components/app/rss_dowload_card.dart';
+import '../../models/app/dtt_model.dart';
 import '../../store/dtt_store.dart';
 
 /// 下载管理

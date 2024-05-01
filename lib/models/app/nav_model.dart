@@ -1,5 +1,6 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:hive/hive.dart';
 
 /// 侧边栏项的类型枚举
 enum BtmAppNavItemType {
@@ -34,4 +35,38 @@ class BtmAppNavItem {
     this.param,
     required this.body,
   });
+}
+
+/// 侧边栏项的Hive模型，只用于存储subjectDetail
+class BtmAppNavHive {
+  /// 标题
+  final String title;
+
+  /// subject Id
+  final int subjectId;
+
+  /// 构造函数
+  const BtmAppNavHive({
+    required this.title,
+    required this.subjectId,
+  });
+}
+
+/// 侧边栏项的适配器
+class BtmAppNavItemAdapter extends TypeAdapter<BtmAppNavHive> {
+  @override
+  final int typeId = 0;
+
+  @override
+  BtmAppNavHive read(BinaryReader reader) {
+    var title = reader.readString();
+    var subjectId = reader.readInt();
+    return BtmAppNavHive(title: title, subjectId: subjectId);
+  }
+
+  @override
+  void write(BinaryWriter writer, BtmAppNavHive obj) {
+    writer.writeString(obj.title);
+    writer.writeInt(obj.subjectId);
+  }
 }

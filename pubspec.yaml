@@ -51,11 +51,16 @@ dependencies:
   flutter_rating_bar: ^4.0.1
   flutter_riverpod: ^2.4.10
   flutter_screenutil: ^5.9.0
+  hive: ^2.2.3
   intl: ^0.18.1
+  isar_flutter_libs: ^4.0.0-dev.3
   jiffy: ^6.2.1
   json_annotation: ^4.8.1
   local_notifier: ^0.1.6
   logger: ^2.2.0
+  media_kit: ^0.0.11
+  media_kit_video: ^0.0.12
+  media_kit_libs_video: ^1.0.4
   package_info_plus: ^8.0.0
   path: ^1.9.0
   path_provider: ^2.1.3

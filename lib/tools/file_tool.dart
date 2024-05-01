@@ -20,6 +20,12 @@ class BTFileTool {
     return path.join(dir.path, 'BangumiToday');
   }
 
+  /// 获取相对应用数据目录的路径
+  Future<String> getAppDataPath(String relativePath) async {
+    var dir = await getAppDataDir();
+    return path.join(dir, relativePath);
+  }
+
   /// 检测文件是否存在
   Future<bool> isFileExist(String path) async {
     return File(path).exists();

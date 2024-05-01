@@ -40,12 +40,6 @@ class BTLogTool {
   /// 文件工具
   final BTFileTool fileTool = BTFileTool();
 
-  /// 获取日志目录
-  Future<String> _getDefaultDir() async {
-    var dir = await instance.fileTool.getAppDataDir();
-    return path.join(dir, 'log');
-  }
-
   /// 获取文件名称 yyyy-MM-dd.log
   static String _getFileName() {
     var now = DateTime.now();
@@ -54,7 +48,7 @@ class BTLogTool {
 
   /// 获取日志文件
   Future<File> _getLogFile() async {
-    var dir = await _getDefaultDir();
+    var dir = await instance.fileTool.getAppDataPath('log');
     var file = path.join(dir, _getFileName());
     if (!await instance.fileTool.isFileExist(file)) {
       return await instance.fileTool.createFile(file);
@@ -92,7 +86,7 @@ class BTLogTool {
 
   /// 打开日志目录
   Future<void> openLogDir() async {
-    var dir = await _getDefaultDir();
+    var dir = await instance.fileTool.getAppDataPath('log');
     await fileTool.openDir(dir);
   }
 

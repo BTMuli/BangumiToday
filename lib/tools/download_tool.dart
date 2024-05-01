@@ -15,36 +15,30 @@ class BTDownloadTool {
   BTDownloadTool._();
 
   /// 实例
-  static final BTDownloadTool _instance = BTDownloadTool._();
+  static final BTDownloadTool instance = BTDownloadTool._();
 
   /// 默认 torrent 下载路径
-  late String _defaultPath;
+  late String defaultPath;
 
   /// 是否初始化
-  late bool _isInit = false;
+  late bool isInit = false;
 
   /// 获取实例
-  factory BTDownloadTool() => _instance;
+  factory BTDownloadTool() => instance;
 
   /// 文件工具
-  final BTFileTool _fileTool = BTFileTool();
-
-  /// 获取默认路径
-  Future<String> _getDefaultPath() async {
-    var dir = await _instance._fileTool.getAppDataDir();
-    return path.join(dir, 'download');
-  }
+  final BTFileTool fileTool = BTFileTool();
 
   /// 初始化
   Future<void> init() async {
-    if (_instance._isInit) return;
-    _instance._defaultPath = await _instance._getDefaultPath();
-    var check = await _instance._fileTool.isDirExist(_instance._defaultPath);
+    if (instance.isInit) return;
+    instance.defaultPath = await instance.fileTool.getAppDataPath('download');
+    var check = await instance.fileTool.isDirExist(instance.defaultPath);
     if (!check) {
       BTLogTool.info('Create default download dir');
-      await _instance._fileTool.createDir(_instance._defaultPath);
+      await instance.fileTool.createDir(instance.defaultPath);
     }
-    _instance._isInit = true;
+    instance.isInit = true;
     BTLogTool.info('BTDownloadTool init success');
   }
 
@@ -54,13 +48,13 @@ class BTDownloadTool {
     String title, {
     BuildContext? context,
   }) async {
-    if (!_instance._isInit) {
-      await _instance.init();
+    if (!instance.isInit) {
+      await instance.init();
     }
     var link = Uri.parse(url);
     var fileName = path.basename(link.path);
-    var saveDetailPath = path.join(_instance._defaultPath, fileName);
-    var fileCheck = await _instance._fileTool.isFileExist(saveDetailPath);
+    var saveDetailPath = path.join(instance.defaultPath, fileName);
+    var fileCheck = await instance.fileTool.isFileExist(saveDetailPath);
     var errInfo = ['', 'TorrentLink: $url', 'Title: $title'];
     if (!fileCheck) {
       try {

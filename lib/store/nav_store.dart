@@ -1,6 +1,7 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive/hive.dart';
 
 // Project imports:
 import '../models/app/nav_model.dart';
@@ -8,7 +9,13 @@ import '../pages/bangumi/bangumi_detail.dart';
 
 /// 侧边栏状态提供者
 final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
-  return BTNavStore();
+  var items = Hive.box<BtmAppNavHive>('nav').values.toList();
+  var store = BTNavStore();
+  for (var item in items) {
+    store.addNavItemB(subject: item.subjectId);
+  }
+  store.goIndex(0);
+  return store;
 });
 
 /// 侧边栏状态，用于控制侧边栏动态组件的加载与卸载
@@ -105,6 +112,11 @@ class BTNavStore extends ChangeNotifier {
     } else {
       _navItems.add(navItem);
     }
+    if (type == BtmAppNavItemType.bangumiSubject) {
+      var subject = param!.replaceAll('subjectDetail_', '');
+      var hiveItem = BtmAppNavHive(title: title, subjectId: int.parse(subject));
+      Hive.box<BtmAppNavHive>('nav').put(subject, hiveItem);
+    }
     notifyListeners();
     lastIndex = curIndex;
     if (findIndex != -1) {
@@ -128,6 +140,10 @@ class BTNavStore extends ChangeNotifier {
       curIndex = 0;
     } else {
       curIndex = lastIndex;
+    }
+    if (type == BtmAppNavItemType.bangumiSubject) {
+      var subject = param!.replaceAll('subjectDetail_', '');
+      Hive.box<BtmAppNavHive>('nav').delete(subject);
     }
     notifyListeners();
   }

@@ -209,8 +209,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard> {
     seeders = task.seederNumber;
     all = task.allPeersNumber;
     setState(() {});
-    BTLogTool.info('Progress: $progress');
-    if (progress == 100) {
+    if (progress == 100.toDouble()) {
       if (mounted) await BtInfobar.success(context, '下载完成，即将删除任务');
       await task.stop();
     }
