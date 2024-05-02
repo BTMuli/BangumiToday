@@ -5,6 +5,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 // Project imports:
+import '../../controller/app/video_controller.dart';
 import '../../store/nav_store.dart';
 import '../../store/play_store.dart';
 
@@ -141,7 +142,7 @@ class _PlayPageState extends ConsumerState<PlayPage>
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: Video(controller: controller)),
+            Expanded(child: BtcVideo(controller)),
             const SizedBox(width: 8),
             buildList(),
           ],

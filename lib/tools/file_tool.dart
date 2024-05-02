@@ -1,5 +1,6 @@
 // Dart imports:
 import 'dart:io';
+import 'dart:typed_data';
 
 // Package imports:
 import 'package:path/path.dart' as path;
@@ -89,5 +90,14 @@ class BTFileTool {
     if (!check) return false;
     await Process.run('explorer', [dirPath]);
     return true;
+  }
+
+  /// 将unit8list写入文件并返回文件路径
+  Future<String> writeTempImage(Uint8List data, String name) async {
+    var dir = path.join(await getAppDataDir(), 'screenshots');
+    await createDir(dir);
+    var file = File(path.join(dir, '$name.jpeg'));
+    await file.writeAsBytes(data);
+    return file.path;
   }
 }
