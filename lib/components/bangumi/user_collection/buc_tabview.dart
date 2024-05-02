@@ -180,13 +180,14 @@ class _BucTabState extends ConsumerState<BucTabView>
   }
 
   /// 构建 item
-  ComboBoxItem<BangumiUserSubjectCollection> buildItem(
+  AutoSuggestBoxItem<BangumiUserSubjectCollection> buildItem(
     BangumiUserSubjectCollection item,
   ) {
     var label = item.subject.nameCn;
     if (label.isEmpty) label = item.subject.name;
-    return ComboBoxItem<BangumiUserSubjectCollection>(
+    return AutoSuggestBoxItem<BangumiUserSubjectCollection>(
       value: item,
+      label: label,
       child: SizedBox(
         width: 400.w,
         child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -196,16 +197,16 @@ class _BucTabState extends ConsumerState<BucTabView>
 
   /// 构建搜索框
   Widget buildJump(BuildContext context) {
-    return ComboBox<BangumiUserSubjectCollection>(
+    return AutoSuggestBox<BangumiUserSubjectCollection>(
       items: data.map(buildItem).toList(),
-      onChanged: (value) async {
-        if (value == null) {
+      onSelected: (item) async {
+        if (item.value == null) {
           await BtInfobar.warn(context, '没有找到数据');
           return;
         }
-        jump(value);
+        jump(item.value!);
       },
-      placeholder: const Text('搜索'),
+      placeholder: '搜索',
     );
   }
 
@@ -240,7 +241,7 @@ class _BucTabState extends ConsumerState<BucTabView>
       SizedBox(width: 8.w),
       buildRefresh(context),
       SizedBox(width: 8.w),
-      buildJump(context),
+      SizedBox(width: 600.w, child: buildJump(context)),
       const Spacer(),
       PageWidget(pageController),
       SizedBox(width: 8.w),
