@@ -2,12 +2,24 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2024-04-25
+Update: 2024-05-02
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:42`
 >
-> 更新于 `2024-04-25 00:26:39`
+> 更新于 `2024-05-02 17:43:01`
+
+## [v0.3.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.2.0) (2024-05-02)
+
+- ✨ 条目搜索、用户收藏等页面支持分页查看
+- 🔊 完善日志记录，便于快速定位问题
+- ♻️ 重构代码格式化规范，完善贡献指南相关说明
+- ⚡️ 修正评分逻辑，评分改成下拉
+- ⚡️ 优化RSS更新逻辑，**可能产生重复通知**
+- ✨ 侧边栏条目详情记忆打开项，应用关闭后再次打开时会自动填充未关闭的条目详情
+- ♻️ 采用Hive存储用户登录状态
+- ✨ 实装`torrent`下载功能，**目前仍处于测试阶段**
+- ✨ 实装内置播放功能，**目前仍处于测试阶段**
 
 ## [v0.2.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.2.0) (2024-04-25)
 

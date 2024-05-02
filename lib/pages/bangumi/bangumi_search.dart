@@ -271,6 +271,7 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
   }
 
   /// 构建搜索框
+  /// todo 搜索结果与站点搜索结果不一致，详见 https://github.com/bangumi/server/issues/545
   Widget buildSearch() {
     return Row(
       children: [
@@ -293,7 +294,6 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
         buildTypeSelects(),
         SizedBox(width: 8.w),
         // todo 因为排序方式并不会影响搜索结果，所以暂时不显示
-        // 详见：https://github.com/bangumi/server/issues/532
         // buildSortSelect(),
         // SizedBox(width: 8.w),
         buildNsfwCheck(),

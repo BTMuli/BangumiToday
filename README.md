@@ -64,13 +64,23 @@ dart run msix:create --sign-msix true
 
 ## 关于证书
 
-> 截止 2024-05-01，应用使用的证书为自签名证书，需要将证书导入到系统。
+> 截止 2024-05-02，应用使用的证书为自签名证书，需要将证书导入到系统。
 
 为了正常安装应用，需要将 [BTMuli.cer](./BTMuli.cer) 证书导入到系统。
 
 下载证书后，双击打开，选择`安装证书`，选择`本地计算机`，选择`将所有的证书都放入下列存储`，点击`浏览`，
 
 选择`受信任的发布者`或者`受信任人`，点击`确定`，点击`下一步`，点击`完成`。
+
+## 依赖（按照字典序）
+
+项目使用了如下依赖以实现相关功能：
+
+- [DTorrentTask](https://github.com/moham96/dtorrent_task)：用于 `torrent` 下载。
+- [FlChart](https://app.flchart.dev/)：用于绘制条目评分柱状图。
+- [Fluent UI](https://bdlukaa.github.io/fluent_ui/)：用于实现 Fluent Design 风格的 UI。
+- [Hive](https://github.com/isar/hive)：用于本地数据存储。
+- [MediaKit](https://github.com/media-kit/media-kit)：用于视频播放。
 
 ## 参考（按照字典序）
 
@@ -79,9 +89,6 @@ dart run msix:create --sign-msix true
 - [BangumiAPI(server)](https://github.com/bangumi/server)
 - [BangumiOAuth](https://github.com/bangumi/api/blob/master/docs-raw/How-to-Auth.md)
 - [czy0729/Bangumi](https://github.com/czy0729/Bangumi)
-- [FlChart](https://app.flchart.dev/)
-- [Fluent UI](https://bdlukaa.github.io/fluent_ui/)
-- [FlutterIcons](https://fluttericon.cn/)
 
 ## Special Thanks（按照字典序）
 
