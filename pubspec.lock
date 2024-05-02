@@ -322,7 +322,7 @@ packages:
     source: hosted
     version: "5.4.3+1"
   dtorrent_common:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: dtorrent_common
       sha256: d22c34540c3f2798e98170c21394fcffb906f30435dbf3269fdfe3db24b138a4
@@ -457,14 +457,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "0.9.3+1"
-  filesize:
-    dependency: "direct main"
-    description:
-      name: filesize
-      sha256: f53df1f27ff60e466eefcd9df239e02d4722d5e2debee92a87dfd99ac66de2af
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "2.0.1"
   fixnum:
     dependency: transitive
     description:

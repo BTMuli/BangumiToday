@@ -6,10 +6,8 @@ import 'package:flutter/material.dart' as material;
 
 // Package imports:
 import 'package:dart_rss/domain/rss_item.dart';
-import 'package:dtorrent_common/dtorrent_common.dart';
 import 'package:dtorrent_parser/dtorrent_parser.dart';
 import 'package:dtorrent_task/dtorrent_task.dart';
-import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -18,10 +16,12 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../store/dtt_store.dart';
+import '../../store/tracker_hive.dart';
 import '../../tools/download_tool.dart';
 import '../../tools/file_tool.dart';
 import '../../tools/log_tool.dart';
 import '../../tools/notifier_tool.dart';
+import '../../utils/tool_func.dart';
 import 'app_dialog.dart';
 import 'app_infobar.dart';
 
@@ -49,14 +49,14 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
   /// 获取目录
   String get dir => widget.dir;
 
+  /// hive
+  final TrackerHive hive = TrackerHive();
+
   /// downloadTool
   final downloadTool = BTDownloadTool();
 
   /// fileTool
   final fileTool = BTFileTool();
-
-  /// trackers
-  final trackers = findPublicTrackers();
 
   /// 是否初始化
   late bool isInit = false;
@@ -136,7 +136,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
   void initListener(TorrentTask task) {
     var listener = task.createListener();
     listener
-      ..on<TaskFileCompleted>((event) async => await completedTask(task))
+      ..on<TaskCompleted>((event) async => await completedTask(task))
       ..on<StateFileUpdated>((event) async => await freshDownload(task));
   }
 
@@ -157,11 +157,10 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
     task = TorrentTask.newTask(model!, dir);
     initListener(task!);
     await task!.start();
-    trackers.listen((urls) {
-      for (var url in urls) {
-        task!.startAnnounceUrl(url, model!.infoHashBuffer);
-      }
-    });
+    var urls = hive.getTrackerList();
+    for (var url in urls) {
+      task!.startAnnounceUrl(url, model!.infoHashBuffer);
+    }
     for (var node in model!.nodes) {
       task!.addDHTNode(node);
     }
@@ -229,7 +228,11 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
       await BtInfobar.error(context, '任务正在下载');
       return;
     }
-    await task!.start();
+    try {
+      await task!.start();
+    } catch (e) {
+      if (mounted) await BtInfobar.error(context, e.toString());
+    }
   }
 
   /// 暂停下载
@@ -290,11 +293,10 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
     try {
       await task!.stop();
       await task!.start();
-      trackers.listen((urls) {
-        for (var url in urls) {
-          task!.startAnnounceUrl(url, model!.infoHashBuffer);
-        }
-      });
+      var urls = hive.getTrackerList();
+      for (var url in urls) {
+        task!.startAnnounceUrl(url, model!.infoHashBuffer);
+      }
       for (var node in model!.nodes) {
         task!.addDHTNode(node);
       }
@@ -370,15 +372,13 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text(
-                '${filesize((ds * 1000).toInt())}'
-                '(${filesize((ads * 1000).toInt())})',
-              ),
+              Text('${filesizeW((ds * 1000).toInt())}/s'
+                  '(${filesizeW((ads * 1000).toInt())})'),
               SizedBox(width: 8.w),
               Text('节点：$active/$seeders/$all'),
               SizedBox(width: 8.w),
-              Text(
-                  '上传：${filesize((aps * 1000).toInt())}/${filesize((ps * 1000).toInt())}'),
+              // Text('上传：${filesizeW((aps * 1000).toInt())}'
+              //     '/${filesizeW((ps * 1000).toInt())}'),
               SizedBox(width: 8.w),
               Text('进度：${progress?.toStringAsFixed(2)}%')
             ],
@@ -400,12 +400,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
                     title: '重新下载？',
                     content: '是否重新下载该任务？',
                   );
-                  if (confirm) {
-                    // 清除下载时间
-                    time = 0;
-                    startTime = DateTime.now().millisecondsSinceEpoch;
-                    await startDownload();
-                  }
+                  if (confirm) await restartDownload();
                 },
               ),
               IconButton(

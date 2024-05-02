@@ -35,12 +35,10 @@ dependencies:
   dart_rss: ^3.0.1
   device_info_plus: ^10.1.0
   dio: ^5.4.3+1
-  dtorrent_common: ^1.0.5
   dtorrent_parser: ^1.0.8
   dtorrent_task: ^0.4.0
   file_picker: ^8.0.1
   file_selector: ^1.0.3
-  filesize: ^2.0.1
   fl_chart: ^0.67.0
   fluent_ui: ^4.6.1
   fluentui_system_icons: ^1.1.234

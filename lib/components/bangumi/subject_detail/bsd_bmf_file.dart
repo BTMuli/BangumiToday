@@ -2,7 +2,6 @@
 import 'dart:async';
 
 // Package imports:
-import 'package:filesize/filesize.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -17,6 +16,7 @@ import '../../../store/play_store.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/log_tool.dart';
 import '../../../tools/notifier_tool.dart';
+import '../../../utils/tool_func.dart';
 import '../../app/app_dialog.dart';
 import '../../app/app_infobar.dart';
 
