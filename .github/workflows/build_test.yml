@@ -1,0 +1,105 @@
+name: Build Windows
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    name: Build Windows
+    runs-on: windows-latest
+    env:
+      SIGN_SECRET: ${{ secrets.SIGN_SECRET }}
+      BANGUMI_APP_ID: ${{ secrets.BANGUMI_APP_ID }}
+      BANGUMI_APP_SECRET: ${{ secrets.BANGUMI_APP_SECRET }}
+    steps:
+
+      - name: 签出仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+
+      - name: 初始化 Flutter 环境
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          architecture: x64
+
+      - name: 检查环境
+        run: flutter doctor
+
+      - name: 拉取依赖
+        run: flutter pub get
+
+      - name: 写入 .env
+        shell: pwsh
+        run: |
+          New-Item -Path . -Name .env -ItemType File -Force
+          Add-Content -Path .env -Value "BANGUMI_APP_ID=${env:BANGUMI_APP_ID}"
+          Add-Content -Path .env -Value "BANGUMI_APP_SECRET=${env:BANGUMI_APP_SECRET}"
+
+      - name: 生成代码
+        run: dart run build_runner build
+
+      - name: 构建项目
+        run: flutter build windows
+
+      - name: 打包
+        run: Compress-Archive -Path build/windows/x64/runner/Release -DestinationPath BangumiToday.zip
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: BangumiToday(zip)
+          path: BangumiToday.zip
+
+      - name: 证书签名
+        if: env.SIGN_SECRET != ''
+        run: dart run msix:create -p $env:SIGN_SECRET
+
+      - name: 上传 MSIX
+        if: env.SIGN_SECRET != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: BangumiToday(msix)
+          path: build/windows/x64/runner/Release/BangumiToday.msix
+
+      - name: 初始化 DotNet 环境
+        if: env.SIGN_SECRET != ''
+        uses: actions/setup-dotnet@v3.2.0
+        with:
+          global-json-file: installer/global.json
+
+      - name: 构建 MSIX 安装器
+        if: env.SIGN_SECRET != ''
+        run: dotnet build -c:Release installer/MsixInstaller.csproj
+
+      - name: 上传 MSIX 安装器
+        if: env.SIGN_SECRET != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: build/windows/x64/runner/Release/MsixInstaller.exe
+
+      - name: 生成校验和
+        run: |
+          $checksum = Get-FileHash 
+          $checksum = $checksum.Hash
+          Write-Output "### Build Success :rocket:" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "|File|SHA256|" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "|:-|:-:|" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "|BangumiToday.zip|$checksum|" >> $env:GITHUB_STEP_SUMMARY
+          if ([string]::IsNullOrEmpty($env:CERTIFICATE)) {
+            return;
+          }
+
+          $checksum = Get-FileHash build/windows/x64/runner/Release/BangumiToday.msix
+          $checksum = $checksum.Hash
+          Write-Output "|BangumiToday.msix|$checksum|" >> $env:GITHUB_STEP_SUMMARY
+          
+          $checksum = Get-FileHash build/windows/x64/runner/Release/MsixInstaller.exe
+          $checksum = $checksum.Hash
+          Write-Output "|MsixInstaller.exe|$checksum|" >> $env:GITHUB_STEP_SUMMARY
+
+          Write-Output "" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "### MSIX 安装教程" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "![image](https://github.com/Notsfsssf/pixez-flutter/assets/42184238/f1956682-f527-487d-997b-523319cd78d3)" >> $env:GITHUB_STEP_SUMMARY

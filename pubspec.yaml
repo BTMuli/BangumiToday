@@ -1,4 +1,4 @@
-name: bangumi_today
+﻿name: bangumi_today
 description: "Bangumi Source Aggregation Parser for Personal Use"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -137,6 +137,7 @@ msix_config:
   display_name: BangumiToday
   logo_path: assets/images/logo.png
   install_certificate: false
+  certificate_path: BTMuli.pfx
   publisher: CN=目棃, C=CN, E=bt-muli@outlook.com
   publisher_display_name: BTMuli
   output_name: BangumiToday
