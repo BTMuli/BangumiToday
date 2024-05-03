@@ -6,6 +6,7 @@ import 'package:hive/hive.dart';
 // Project imports:
 import '../models/hive/tracker_model.dart';
 import '../request/core/client.dart';
+import '../tools/log_tool.dart';
 
 const trackerList = [
   'https://newtrackon.com/api/stable',
@@ -35,16 +36,9 @@ class TrackerHive extends ChangeNotifier {
   List<Uri> getTrackerList() {
     var list = <Uri>[];
     var items = box.values.toList();
-    for (var item in items) {
-      for (var url in item.trackerList) {
-        try {
-          var r = Uri.parse(url);
-          if (!list.contains(r)) list.add(r);
-        } catch (e) {
-          //
-        }
-      }
-    }
+    items.map((e) => e.trackerList).expand((e) => e).toSet().forEach((element) {
+      list.add(Uri.parse(element));
+    });
     return list;
   }
 
@@ -53,12 +47,14 @@ class TrackerHive extends ChangeNotifier {
     for (var url in trackerList) {
       if (box.get(url) == null) {
         await addTracker(url);
+        BTLogTool.info('add tracker: $url');
       }
     }
     var items = box.values.toList();
     for (var item in items) {
       if (!trackerList.contains(item.url)) {
         await box.delete(item.url);
+        BTLogTool.info('delete tracker: ${item.url}');
       }
     }
   }
@@ -80,6 +76,7 @@ class TrackerHive extends ChangeNotifier {
     var item = box.get(url);
     if (item != null && item.updateTime != today) {
       await updateTracker(item, today);
+      BTLogTool.info('update tracker: $url');
     }
   }
 
@@ -91,38 +88,29 @@ class TrackerHive extends ChangeNotifier {
   }
 
   /// 更新tracker
-  Future<void> updateTracker(
-    TrackerHiveModel item,
-    String today, {
-    int retry = 3,
-  }) async {
+  Future<void> updateTracker(TrackerHiveModel item, String today) async {
     try {
       var resp = await client.dio.get(item.url);
-      if (resp.statusCode == 200) {
-        var data = resp.data;
-        if (data is String) {
-          var list = data.split('\n');
-          var announceList = <String>[];
-          for (var url in list) {
-            if (url.isEmpty) continue;
-            try {
-              var r = Uri.parse(url);
-              announceList.add(r.toString());
-            } catch (e) {
-              //
-            }
+      var data = resp.data;
+      if (data is String) {
+        var list = data.split('\n');
+        var announceList = <String>[];
+        for (var url in list) {
+          if (url.isEmpty) continue;
+          try {
+            var r = Uri.parse(url);
+            announceList.add(r.toString());
+          } catch (e) {
+            BTLogTool.info('update tracker ${item.url} error: $url');
           }
-          item.trackerList = announceList;
-          item.updateTime = today;
-          await box.put(item.url, item);
-          notifyListeners();
         }
+        item.trackerList = announceList;
+        item.updateTime = today;
+        await box.put(item.url, item);
+        notifyListeners();
       }
-    } on DioException {
-      if (retry > 0) {
-        await Future.delayed(Duration(seconds: 15 * (4 - retry)));
-        await updateTracker(item, today, retry: retry - 1);
-      }
+    } on DioException catch (e) {
+      BTLogTool.error('update tracker ${item.url} error: ${e.message}');
     }
   }
 }

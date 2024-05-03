@@ -14,7 +14,6 @@ import '../../../pages/app/play_page.dart';
 import '../../../store/nav_store.dart';
 import '../../../store/play_store.dart';
 import '../../../tools/file_tool.dart';
-import '../../../tools/log_tool.dart';
 import '../../../tools/notifier_tool.dart';
 import '../../../utils/tool_func.dart';
 import '../../app/app_dialog.dart';
@@ -333,17 +332,14 @@ class BsdBmfFileDelBtn extends StatelessWidget {
         if (!confirm) return;
         var fileTool = BTFileTool();
         var filePath = path.join(dir, file);
-        try {
-          await fileTool.deleteFile(filePath);
-        } catch (e) {
-          var errInfo = ['删除文件失败', '文件：$file', '错误：$e'];
+        if (context.mounted) {
+          var check = await fileTool.deleteFile(filePath, context: context);
+          if (!check) return;
           if (context.mounted) {
-            await BtInfobar.error(context, errInfo.join('\n'));
+            await BtInfobar.success(context, '成功删除文件 $file');
+            await onDelete();
           }
-          BTLogTool.error(errInfo);
         }
-        if (context.mounted) await BtInfobar.success(context, '成功删除文件 $file');
-        await onDelete();
       },
     );
   }

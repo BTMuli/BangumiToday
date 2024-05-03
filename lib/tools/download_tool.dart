@@ -5,6 +5,7 @@ import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../components/app/app_dialog_resp.dart';
+import '../components/app/app_infobar.dart';
 import '../models/app/response.dart';
 import '../request/core/client.dart';
 import 'file_tool.dart';
@@ -22,6 +23,9 @@ class BTDownloadTool {
 
   /// 是否初始化
   late bool isInit = false;
+
+  /// 请求客户端
+  final BTRequestClient client = BTRequestClient();
 
   /// 获取实例
   factory BTDownloadTool() => instance;
@@ -42,6 +46,18 @@ class BTDownloadTool {
     BTLogTool.info('BTDownloadTool init success');
   }
 
+  /// 检测文件是否存在|是否为空
+  Future<bool> checkFile(String saveDetailPath) async {
+    var fileCheck = await instance.fileTool.isFileExist(saveDetailPath);
+    if (!fileCheck) return false;
+    var fileSize = instance.fileTool.getFileSize(saveDetailPath);
+    if (fileSize == 0) {
+      await instance.fileTool.deleteFile(saveDetailPath);
+      return false;
+    }
+    return true;
+  }
+
   /// 下载文件
   Future<String> downloadRssTorrent(
     String url,
@@ -54,38 +70,43 @@ class BTDownloadTool {
     var link = Uri.parse(url);
     var fileName = path.basename(link.path);
     var saveDetailPath = path.join(instance.defaultPath, fileName);
-    var fileCheck = await instance.fileTool.isFileExist(saveDetailPath);
+    var fileCheck = await instance.checkFile(saveDetailPath);
+    if (fileCheck) return saveDetailPath;
     var errInfo = ['', 'TorrentLink: $url', 'Title: $title'];
-    if (!fileCheck) {
-      try {
-        var client = BTRequestClient();
-        await client.dio.download(url, saveDetailPath);
-      } on DioException catch (e) {
-        if (context != null && context.mounted) {
-          var resp = BTResponse(
-            code: e.response?.statusCode ?? 666,
-            message: e.response?.statusMessage ?? '未知错误',
-            data: e.error,
-          );
-          await showRespErr(resp, context);
-        }
-        errInfo[0] = 'DownloadTorrentErrorDio: \n\t${e.error}';
-        BTLogTool.error(errInfo);
-        return '';
-      } on Exception catch (e) {
-        if (context != null && context.mounted) {
-          var resp = BTResponse(
-            code: 666,
-            message: e.toString(),
-            data: null,
-          );
-          await showRespErr(resp, context);
-        }
-        errInfo[0] = 'DownloadTorrentError: \n\t${e.toString()}';
-        BTLogTool.error(errInfo);
-        return '';
+    try {
+      await client.dio.download(url, saveDetailPath);
+    } on DioException catch (e) {
+      if (context != null && context.mounted) {
+        var resp = BTResponse(
+          code: e.response?.statusCode ?? 666,
+          message: e.response?.statusMessage ?? '未知错误',
+          data: e.error,
+        );
+        await showRespErr(resp, context);
       }
+      errInfo[0] = 'DownloadTorrentErrorDio: \n\t${e.error}';
+      BTLogTool.error(errInfo);
+      return '';
+    } on Exception catch (e) {
+      if (context != null && context.mounted) {
+        var resp = BTResponse(
+          code: 666,
+          message: e.toString(),
+          data: null,
+        );
+        await showRespErr(resp, context);
+      }
+      errInfo[0] = 'DownloadTorrentError: \n\t${e.toString()}';
+      BTLogTool.error(errInfo);
+      return '';
     }
-    return saveDetailPath;
+    fileCheck = await instance.checkFile(saveDetailPath);
+    if (fileCheck) return saveDetailPath;
+    if (context != null && context.mounted) {
+      await BtInfobar.error(context, '下载失败，文件大小为0');
+    }
+    errInfo[0] = 'DownloadTorrentError: \n\t下载失败';
+    BTLogTool.error(errInfo);
+    return '';
   }
 }

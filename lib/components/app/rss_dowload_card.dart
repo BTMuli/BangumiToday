@@ -2,6 +2,7 @@
 import 'dart:async';
 
 // Flutter imports:
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' as material;
 
 // Package imports:
@@ -74,22 +75,19 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
   late Torrent? model;
 
   /// torrentTask
-  late TorrentTask? task;
+  late TorrentTask task;
 
   /// 下载进度
   double? progress = 0;
 
+  /// 已下载
+  int? downloaded = 0;
+
   /// 平均下载速度
   double ads = 0;
 
-  /// 平均上传速度
-  double aps = 0;
-
   /// 最近下载速度
   double ds = 0;
-
-  /// 最近上传速度
-  double ps = 0;
 
   /// utp的连接数
   int utpc = 0;
@@ -111,24 +109,11 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration.zero, () async {
-      await initWidget();
-    });
+    initWidget().then((value) => BtInfobar.success(context, '任务初始化成功'));
   }
 
   @override
   void dispose() {
-    try {
-      task?.stop();
-    } catch (e) {
-      var errInfo = [
-        'RssDownloadCard dispose error: $e',
-        'RssItemTitle: ${item.title}',
-        'TorrentLink: ${item.enclosure?.url}',
-        'SaveDir: $dir',
-      ];
-      BTLogTool.error(errInfo);
-    }
     super.dispose();
   }
 
@@ -136,8 +121,23 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
   void initListener(TorrentTask task) {
     var listener = task.createListener();
     listener
+      ..on<StateFileUpdated>((event) => freshDownload(task))
       ..on<TaskCompleted>((event) async => await completedTask(task))
-      ..on<StateFileUpdated>((event) async => await freshDownload(task));
+      ..on<TaskFileCompleted>(
+        (event) => BTLogTool.info('File completed: ${event.file.filePath}'),
+      )
+      ..on<AllComplete>((event) => BTLogTool.info('All completed'));
+  }
+
+  /// 添加tracker
+  void addTracker(TorrentTask task) {
+    var urls = hive.getTrackerList();
+    for (var url in urls) {
+      task.startAnnounceUrl(url, model!.infoHashBuffer);
+    }
+    for (var node in model!.nodes) {
+      task.addDHTNode(node);
+    }
   }
 
   /// 初始化
@@ -148,22 +148,18 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
         item.title!,
         context: context,
       );
+      BTLogTool.info('Download torrent file: $filePath');
     }
+    BTLogTool.info('Parse torrent file: $filePath');
     if (filePath.isEmpty) {
       ref.read(dttStoreProvider.notifier).removeTask(item);
       return;
     }
     model = await Torrent.parse(filePath);
     task = TorrentTask.newTask(model!, dir);
-    initListener(task!);
-    await task!.start();
-    var urls = hive.getTrackerList();
-    for (var url in urls) {
-      task!.startAnnounceUrl(url, model!.infoHashBuffer);
-    }
-    for (var node in model!.nodes) {
-      task!.addDHTNode(node);
-    }
+    initListener(task);
+    await task.start();
+    addTracker(task);
     startTime = DateTime.now().millisecondsSinceEpoch;
     progress = null;
     isInit = true;
@@ -175,7 +171,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
     var endTime = DateTime.now().millisecondsSinceEpoch;
     time = time + endTime - startTime;
     var timeStr = (time / 1000).toStringAsFixed(2);
-    await task.stop();
     await BTNotifierTool.showMini(
       title: '下载完成，耗时：$timeStr 秒',
       body: '下载完成：${item.title}',
@@ -186,26 +181,17 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
       },
     );
     await Future.delayed(const Duration(seconds: 5), () async {
-      var stateFile = path.join(dir, '${model!.infoHash}.bt.state');
-      try {
-        await fileTool.deleteFile(stateFile);
-        if (mounted) await BtInfobar.success(context, '任务已经删除');
-      } catch (e) {
-        var errInfo = ['删除文件失败 $stateFile', '错误信息：$e'];
-        if (mounted) await BtInfobar.error(context, errInfo.join('\n'));
-        BTLogTool.error(errInfo);
-      }
+      await deleteStateFile();
       ref.read(dttStoreProvider.notifier).removeTask(item);
     });
   }
 
   /// 刷新下载进度
-  Future<void> freshDownload(TorrentTask task) async {
+  void freshDownload(TorrentTask task) {
     progress = task.progress * 100;
+    downloaded = task.downloaded;
     ads = task.averageDownloadSpeed;
-    aps = task.averageUploadSpeed;
     ds = task.currentDownloadSpeed;
-    ps = task.uploadSpeed;
     utpc = task.utpPeerCount;
     active = task.connectedPeersNumber;
     seeders = task.seederNumber;
@@ -215,21 +201,17 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
 
   /// 开始下载
   Future<void> startDownload() async {
-    if (task == null) {
-      await BtInfobar.error(context, '任务初始化失败');
-      return;
-    }
-    if (task!.state == TaskState.paused) {
+    if (task.state == TaskState.paused) {
       BTLogTool.info('Resume task.');
       await resumeDownload();
       return;
     }
-    if (task!.state == TaskState.running) {
+    if (task.state == TaskState.running) {
       await BtInfobar.error(context, '任务正在下载');
       return;
     }
     try {
-      await task!.start();
+      await task.start();
     } catch (e) {
       if (mounted) await BtInfobar.error(context, e.toString());
     }
@@ -237,34 +219,26 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
 
   /// 暂停下载
   Future<void> pauseDownload() async {
-    if (task == null) {
-      await BtInfobar.error(context, '任务初始化失败');
-      return;
-    }
-    if (task!.state == TaskState.paused) {
+    if (task.state == TaskState.paused) {
       await BtInfobar.error(context, '任务已经暂停');
       return;
     }
-    if (task!.state == TaskState.stopped) {
+    if (task.state == TaskState.stopped) {
       await BtInfobar.error(context, '任务已经停止');
       return;
     }
-    task!.pause();
+    task.pause();
     time = time + DateTime.now().millisecondsSinceEpoch - startTime;
     await BtInfobar.success(context, '任务已经暂停');
   }
 
   /// 重新下载
   Future<void> resumeDownload() async {
-    if (task == null) {
-      await BtInfobar.error(context, '任务初始化失败');
-      return;
-    }
-    if (task?.state != TaskState.paused) {
+    if (task.state != TaskState.paused) {
       await BtInfobar.error(context, '任务未暂停');
       return;
     }
-    task!.resume();
+    task.resume();
     startTime = DateTime.now().millisecondsSinceEpoch;
     await BtInfobar.success(context, '任务已经继续下载');
   }
@@ -272,15 +246,11 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
   /// 停止下载
   Future<void> stopDownload() async {
     try {
-      if (task == null) {
-        await BtInfobar.error(context, '任务初始化失败');
-        return;
-      }
-      if (task!.state == TaskState.stopped) {
+      if (task.state == TaskState.stopped) {
         await BtInfobar.error(context, '任务已经停止');
         return;
       }
-      await task!.stop();
+      await task.stop();
       time = time + DateTime.now().millisecondsSinceEpoch - startTime;
       if (mounted) await BtInfobar.success(context, '任务已经停止');
     } catch (e) {
@@ -291,14 +261,14 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
   /// 重新下载
   Future<void> restartDownload() async {
     try {
-      await task!.stop();
-      await task!.start();
+      await task.stop();
+      await task.start();
       var urls = hive.getTrackerList();
       for (var url in urls) {
-        task!.startAnnounceUrl(url, model!.infoHashBuffer);
+        task.startAnnounceUrl(url, model!.infoHashBuffer);
       }
       for (var node in model!.nodes) {
-        task!.addDHTNode(node);
+        task.addDHTNode(node);
       }
       startTime = DateTime.now().millisecondsSinceEpoch;
       progress = null;
@@ -306,7 +276,16 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
       setState(() {});
     } catch (e) {
       if (mounted) await BtInfobar.error(context, e.toString());
+      rethrow;
     }
+  }
+
+  /// 删除state文件
+  Future<void> deleteStateFile() async {
+    var stateFile = path.join(dir, '${model!.infoHash}.bt.state');
+    var check = await fileTool.deleteFile(stateFile, context: context);
+    if (!check) return;
+    if (mounted) await BtInfobar.success(context, '状态文件已经删除');
   }
 
   /// 构建删除按钮
@@ -314,25 +293,28 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
     return IconButton(
       icon: const Icon(FluentIcons.delete),
       onPressed: () async {
-        var confirm = await showConfirmDialog(
+        if (kDebugMode) {
+          await initWidget();
+          return;
+        }
+        var confirmF = await showConfirmDialog(
           context,
           title: '删除任务？',
           content: '是否删除该任务？',
         );
-        if (confirm) {
-          await stopDownload();
-          var stateFile = path.join(dir, '${model!.infoHash}.bt.state');
-          try {
-            await fileTool.deleteFile(stateFile);
-          } catch (e) {
-            var errInfo = ['删除文件失败 $stateFile', '错误信息：$e'];
-            if (mounted) {
-              await BtInfobar.error(context, errInfo.join('\n'));
-            }
-            BTLogTool.error(errInfo);
+        if (!confirmF) return;
+        if (isInit) {
+          if (mounted) {
+            var confirmS = await showConfirmDialog(
+              context,
+              title: '删除状态文件？',
+              content: '是否删除该任务的状态文件？',
+            );
+            if (confirmS) await deleteStateFile();
           }
-          ref.read(dttStoreProvider.notifier).removeTask(item);
+          await stopDownload();
         }
+        ref.read(dttStoreProvider.notifier).removeTask(item);
       },
     );
   }
@@ -376,11 +358,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
                   '(${filesizeW((ads * 1000).toInt())})'),
               SizedBox(width: 8.w),
               Text('节点：$active/$seeders/$all'),
-              SizedBox(width: 8.w),
-              // Text('上传：${filesizeW((aps * 1000).toInt())}'
-              //     '/${filesizeW((ps * 1000).toInt())}'),
-              SizedBox(width: 8.w),
-              Text('进度：${progress?.toStringAsFixed(2)}%')
             ],
           ),
           SizedBox(height: 8.h),
@@ -390,8 +367,11 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
           ),
           SizedBox(height: 8.h),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              Text('已下载：${filesize(downloaded ?? 0)}'),
+              SizedBox(width: 8.w),
+              Text('进度：${progress?.toStringAsFixed(2)}%'),
+              const Spacer(),
               IconButton(
                 icon: const Icon(FluentIcons.refresh),
                 onPressed: () async {

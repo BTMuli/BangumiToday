@@ -3,8 +3,13 @@ import 'dart:io';
 import 'dart:typed_data';
 
 // Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+
+// Project imports:
+import '../components/app/app_infobar.dart';
+import 'log_tool.dart';
 
 /// 文件工具
 class BTFileTool {
@@ -72,10 +77,20 @@ class BTFileTool {
   }
 
   /// 文件删除
-  Future<void> deleteFile(String path) async {
-    if (await isFileExist(path)) {
+  Future<bool> deleteFile(String path, {BuildContext? context}) async {
+    var check = await isFileExist(path);
+    if (!check) return true;
+    try {
       await File(path).delete();
+    } catch (e) {
+      var errInfo = ['删除文件失败', '文件：$path', '错误：$e'];
+      if (context != null && context.mounted) {
+        await BtInfobar.error(context, errInfo.join('\n'));
+      }
+      BTLogTool.error(errInfo);
+      return false;
     }
+    return true;
   }
 
   /// 获取文件大小-调用FileStat
