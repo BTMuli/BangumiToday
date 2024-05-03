@@ -62,7 +62,7 @@ jobs:
 
       - name: 生成校验和
         run: |
-          $checksum = Get-FileHash 
+          $checksum = Get-FileHash BangumiToday.zip
           $checksum = $checksum.Hash
           Write-Output "### Build Success :rocket:" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "|File|SHA256|" >> $env:GITHUB_STEP_SUMMARY
