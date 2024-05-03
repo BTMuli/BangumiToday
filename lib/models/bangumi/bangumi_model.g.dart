@@ -9,24 +9,24 @@ part of 'bangumi_model.dart';
 BangumiLegacySubjectSmall _$BangumiLegacySubjectSmallFromJson(
         Map<String, dynamic> json) =>
     BangumiLegacySubjectSmall(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       url: json['url'] as String,
       type: $enumDecode(_$BangumiLegacySubjectTypeEnumMap, json['type']),
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
       summary: json['summary'] as String,
       airDate: json['air_date'] as String,
-      airWeekday: json['air_weekday'] as int,
+      airWeekday: (json['air_weekday'] as num).toInt(),
       images: json['images'] == null
           ? null
           : BangumiPersonImages.fromJson(
               json['images'] as Map<String, dynamic>),
-      eps: json['eps'] as int?,
-      epsCount: json['eps_count'] as int?,
+      eps: (json['eps'] as num?)?.toInt(),
+      epsCount: (json['eps_count'] as num?)?.toInt(),
       rating: json['rating'] == null
           ? null
           : BangumiPatchRating.fromJson(json['rating'] as Map<String, dynamic>),
-      rank: json['rank'] as int?,
+      rank: (json['rank'] as num?)?.toInt(),
       collection: json['collection'] == null
           ? null
           : BangumiPatchCollection.fromJson(
@@ -63,14 +63,14 @@ const _$BangumiLegacySubjectTypeEnumMap = {
 BangumiLegacySubjectCharacter _$BangumiLegacySubjectCharacterFromJson(
         Map<String, dynamic> json) =>
     BangumiLegacySubjectCharacter(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       url: json['url'] as String,
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
       images:
           BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
-      comment: json['comment'] as int,
-      collects: json['collects'] as int,
+      comment: (json['comment'] as num).toInt(),
+      collects: (json['collects'] as num).toInt(),
       info:
           BangumiLegacyMonoInfo.fromJson(json['info'] as Map<String, dynamic>),
       actors: (json['actors'] as List<dynamic>)
@@ -97,14 +97,14 @@ Map<String, dynamic> _$BangumiLegacySubjectCharacterToJson(
 BangumiLegacySubjectStaff _$BangumiLegacySubjectStaffFromJson(
         Map<String, dynamic> json) =>
     BangumiLegacySubjectStaff(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       url: json['url'] as String,
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
       images:
           BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
-      comment: json['comment'] as int,
-      collects: json['collects'] as int,
+      comment: (json['comment'] as num).toInt(),
+      collects: (json['collects'] as num).toInt(),
       info:
           BangumiLegacyMonoInfo.fromJson(json['info'] as Map<String, dynamic>),
       roleName: json['role_name'] as String,
@@ -137,24 +137,24 @@ BangumiLegacySubjectMedium _$BangumiLegacySubjectMediumFromJson(
           .map((e) =>
               BangumiLegacySubjectStaff.fromJson(e as Map<String, dynamic>))
           .toList(),
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       url: json['url'] as String,
       type: $enumDecode(_$BangumiLegacySubjectTypeEnumMap, json['type']),
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
       summary: json['summary'] as String,
       airDate: json['air_date'] as String,
-      airWeekday: json['air_weekday'] as int,
+      airWeekday: (json['air_weekday'] as num).toInt(),
       images: json['images'] == null
           ? null
           : BangumiPersonImages.fromJson(
               json['images'] as Map<String, dynamic>),
-      eps: json['eps'] as int?,
-      epsCount: json['eps_count'] as int?,
+      eps: (json['eps'] as num?)?.toInt(),
+      epsCount: (json['eps_count'] as num?)?.toInt(),
       rating: json['rating'] == null
           ? null
           : BangumiPatchRating.fromJson(json['rating'] as Map<String, dynamic>),
-      rank: json['rank'] as int?,
+      rank: (json['rank'] as num?)?.toInt(),
       collection: json['collection'] == null
           ? null
           : BangumiPatchCollection.fromJson(
@@ -191,24 +191,24 @@ BangumiLegacySubjectLarge _$BangumiLegacySubjectLargeFromJson(
       blog: (json['blog'] as List<dynamic>)
           .map((e) => BangumiLegacyBlog.fromJson(e as Map<String, dynamic>))
           .toList(),
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       url: json['url'] as String,
       type: $enumDecode(_$BangumiLegacySubjectTypeEnumMap, json['type']),
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
       summary: json['summary'] as String,
       airDate: json['air_date'] as String,
-      airWeekday: json['air_weekday'] as int,
+      airWeekday: (json['air_weekday'] as num).toInt(),
       images: json['images'] == null
           ? null
           : BangumiPersonImages.fromJson(
               json['images'] as Map<String, dynamic>),
-      eps: json['eps'] as int?,
-      epsCount: json['eps_count'] as int?,
+      eps: (json['eps'] as num?)?.toInt(),
+      epsCount: (json['eps_count'] as num?)?.toInt(),
       rating: json['rating'] == null
           ? null
           : BangumiPatchRating.fromJson(json['rating'] as Map<String, dynamic>),
-      rank: json['rank'] as int?,
+      rank: (json['rank'] as num?)?.toInt(),
       collection: json['collection'] == null
           ? null
           : BangumiPatchCollection.fromJson(
@@ -249,15 +249,15 @@ Map<String, dynamic> _$BangumiLegacySubjectLargeToJson(
 BangumiLegacyEpisode _$BangumiLegacyEpisodeFromJson(
         Map<String, dynamic> json) =>
     BangumiLegacyEpisode(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       url: json['url'] as String,
       type: $enumDecode(_$BangumiLegacyEpisodeTypeEnumMap, json['type']),
-      sort: json['sort'] as int,
+      sort: (json['sort'] as num).toInt(),
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
       duration: json['duration'] as String,
       airDate: json['airdate'] as String,
-      comment: json['comment'] as int,
+      comment: (json['comment'] as num).toInt(),
       desc: json['desc'] as String,
       status:
           $enumDecode(_$BangumiLegacyEpisodeStatusTypeEnumMap, json['status']),
@@ -297,13 +297,13 @@ const _$BangumiLegacyEpisodeStatusTypeEnumMap = {
 
 BangumiLegacyTopic _$BangumiLegacyTopicFromJson(Map<String, dynamic> json) =>
     BangumiLegacyTopic(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       url: json['url'] as String,
       title: json['title'] as String,
-      mainId: json['main_id'] as int,
-      timestamp: json['timestamp'] as int,
-      lastPost: json['lastpost'] as int,
-      replies: json['replies'] as int,
+      mainId: (json['main_id'] as num).toInt(),
+      timestamp: (json['timestamp'] as num).toInt(),
+      lastPost: (json['lastpost'] as num).toInt(),
+      replies: (json['replies'] as num).toInt(),
       user: BangumiLegacyUser.fromJson(json['user'] as Map<String, dynamic>),
     );
 
@@ -321,13 +321,13 @@ Map<String, dynamic> _$BangumiLegacyTopicToJson(BangumiLegacyTopic instance) =>
 
 BangumiLegacyBlog _$BangumiLegacyBlogFromJson(Map<String, dynamic> json) =>
     BangumiLegacyBlog(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       url: json['url'] as String,
       title: json['title'] as String,
       summary: json['summary'] as String,
       image: json['image'] as String,
-      replies: json['replies'] as int,
-      timestamp: json['timestamp'] as int,
+      replies: (json['replies'] as num).toInt(),
+      timestamp: (json['timestamp'] as num).toInt(),
       dateline: json['dateline'] as String,
       user: BangumiLegacyUser.fromJson(json['user'] as Map<String, dynamic>),
     );
@@ -347,7 +347,7 @@ Map<String, dynamic> _$BangumiLegacyBlogToJson(BangumiLegacyBlog instance) =>
 
 BangumiLegacyUser _$BangumiLegacyUserFromJson(Map<String, dynamic> json) =>
     BangumiLegacyUser(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       url: json['url'] as String,
       username: json['username'] as String,
       nickname: json['nickname'] as String,
@@ -382,14 +382,14 @@ const _$BangumiLegacyUserGroupTypeEnumMap = {
 
 BangumiLegacyPerson _$BangumiLegacyPersonFromJson(Map<String, dynamic> json) =>
     BangumiLegacyPerson(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       url: json['url'] as String,
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
       images:
           BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
-      comment: json['comment'] as int,
-      collects: json['collects'] as int,
+      comment: (json['comment'] as num).toInt(),
+      collects: (json['collects'] as num).toInt(),
       info:
           BangumiLegacyMonoInfo.fromJson(json['info'] as Map<String, dynamic>),
     );
@@ -410,14 +410,14 @@ Map<String, dynamic> _$BangumiLegacyPersonToJson(
 BangumiLegacyCharacter _$BangumiLegacyCharacterFromJson(
         Map<String, dynamic> json) =>
     BangumiLegacyCharacter(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       url: json['url'] as String,
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
       images:
           BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
-      comment: json['comment'] as int,
-      collects: json['collects'] as int,
+      comment: (json['comment'] as num).toInt(),
+      collects: (json['collects'] as num).toInt(),
       info:
           BangumiLegacyMonoInfo.fromJson(json['info'] as Map<String, dynamic>),
       actors: (json['actors'] as List<dynamic>)
@@ -442,7 +442,7 @@ Map<String, dynamic> _$BangumiLegacyCharacterToJson(
 BangumiLegacyMonoBase _$BangumiLegacyMonoBaseFromJson(
         Map<String, dynamic> json) =>
     BangumiLegacyMonoBase(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       url: json['url'] as String,
       name: json['name'] as String,
       images:
@@ -460,14 +460,14 @@ Map<String, dynamic> _$BangumiLegacyMonoBaseToJson(
 
 BangumiLegacyMono _$BangumiLegacyMonoFromJson(Map<String, dynamic> json) =>
     BangumiLegacyMono(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       url: json['url'] as String,
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
       images:
           BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
-      comment: json['comment'] as int,
-      collects: json['collects'] as int,
+      comment: (json['comment'] as num).toInt(),
+      collects: (json['collects'] as num).toInt(),
     );
 
 Map<String, dynamic> _$BangumiLegacyMonoToJson(BangumiLegacyMono instance) =>
@@ -506,7 +506,7 @@ Map<String, dynamic> _$BangumiLegacyMonoInfoToJson(
     };
 
 BangumiUser _$BangumiUserFromJson(Map<String, dynamic> json) => BangumiUser(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       username: json['username'] as String,
       nickname: json['nickname'] as String,
       userGroup:
@@ -542,7 +542,7 @@ Map<String, dynamic> _$BangumiAvatarToJson(BangumiAvatar instance) =>
 BangumiCharacterDetail _$BangumiCharacterDetailFromJson(
         Map<String, dynamic> json) =>
     BangumiCharacterDetail(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       name: json['name'] as String,
       type: $enumDecode(_$BangumiCharacterTypeEnumMap, json['type']),
       images:
@@ -552,9 +552,9 @@ BangumiCharacterDetail _$BangumiCharacterDetailFromJson(
       infobox: json['infobox'],
       gender: json['gender'] as String,
       bloodType: $enumDecode(_$BangumiBloodTypeEnumMap, json['blood_type']),
-      birthYear: json['birth_year'] as int,
-      birthMon: json['birth_mon'] as int,
-      birthDay: json['birth_day'] as int,
+      birthYear: (json['birth_year'] as num).toInt(),
+      birthMon: (json['birth_mon'] as num).toInt(),
+      birthDay: (json['birth_day'] as num).toInt(),
       stat: BangumiStat.fromJson(json['stat'] as Map<String, dynamic>),
     );
 
@@ -593,12 +593,12 @@ const _$BangumiBloodTypeEnumMap = {
 BangumiCharacterPerson _$BangumiCharacterPersonFromJson(
         Map<String, dynamic> json) =>
     BangumiCharacterPerson(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       name: json['name'] as String,
       type: $enumDecode(_$BangumiCharacterTypeEnumMap, json['type']),
       images:
           BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
-      subjectId: json['subject_id'] as int,
+      subjectId: (json['subject_id'] as num).toInt(),
       subjectName: json['subject_name'] as String,
       subjectNameCn: json['subject_name_cn'] as String,
       staff: json['staff'] as String,
@@ -632,8 +632,8 @@ Map<String, dynamic> _$BangumiCreatorToJson(BangumiCreator instance) =>
 BangumiDetailedRevision _$BangumiDetailedRevisionFromJson(
         Map<String, dynamic> json) =>
     BangumiDetailedRevision(
-      id: json['id'] as int,
-      type: json['type'] as int,
+      id: (json['id'] as num).toInt(),
+      type: (json['type'] as num).toInt(),
       creator: BangumiCreator.fromJson(json['creator'] as Map<String, dynamic>),
       summary: json['summary'] as String,
       createdAt: json['created_at'] as String,
@@ -654,8 +654,8 @@ Map<String, dynamic> _$BangumiDetailedRevisionToJson(
 BangumiPersonRevision _$BangumiPersonRevisionFromJson(
         Map<String, dynamic> json) =>
     BangumiPersonRevision(
-      id: json['id'] as int,
-      type: json['type'] as int,
+      id: (json['id'] as num).toInt(),
+      type: (json['type'] as num).toInt(),
       creator: BangumiCreator.fromJson(json['creator'] as Map<String, dynamic>),
       summary: json['summary'] as String,
       createdAt: json['created_at'] as String,
@@ -737,8 +737,8 @@ Map<String, dynamic> _$BangumiRevisionExtraToJson(
 BangumiSubjectRevision _$BangumiSubjectRevisionFromJson(
         Map<String, dynamic> json) =>
     BangumiSubjectRevision(
-      id: json['id'] as int,
-      type: json['type'] as int,
+      id: (json['id'] as num).toInt(),
+      type: (json['type'] as num).toInt(),
       creator: BangumiCreator.fromJson(json['creator'] as Map<String, dynamic>),
       summary: json['summary'] as String,
       createdAt: json['created_at'] as String,
@@ -760,16 +760,16 @@ Map<String, dynamic> _$BangumiSubjectRevisionToJson(
 BangumiSubjectRevisionData _$BangumiSubjectRevisionDataFromJson(
         Map<String, dynamic> json) =>
     BangumiSubjectRevisionData(
-      fieldEps: json['field_eps'] as int,
+      fieldEps: (json['field_eps'] as num).toInt(),
       fieldInfoBox: json['field_infobox'] as String,
       fieldSummary: json['field_summary'] as String,
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
-      platform: json['platform'] as int,
-      subjectId: json['subject_id'] as int,
-      type: json['type'] as int,
-      typeId: json['type_id'] as int,
-      voteId: json['vote_id'] as int,
+      platform: (json['platform'] as num).toInt(),
+      subjectId: (json['subject_id'] as num).toInt(),
+      type: (json['type'] as num).toInt(),
+      typeId: (json['type_id'] as num).toInt(),
+      voteId: (json['vote_id'] as num).toInt(),
     );
 
 Map<String, dynamic> _$BangumiSubjectRevisionDataToJson(
@@ -790,8 +790,8 @@ Map<String, dynamic> _$BangumiSubjectRevisionDataToJson(
 BangumiCharacterRevision _$BangumiCharacterRevisionFromJson(
         Map<String, dynamic> json) =>
     BangumiCharacterRevision(
-      id: json['id'] as int,
-      type: json['type'] as int,
+      id: (json['id'] as num).toInt(),
+      type: (json['type'] as num).toInt(),
       creator: BangumiCreator.fromJson(json['creator'] as Map<String, dynamic>),
       summary: json['summary'] as String,
       createdAt: json['created_at'] as String,
@@ -835,18 +835,18 @@ Map<String, dynamic> _$BangumiCharacterRevisionDataItemToJson(
 
 BangumiEpisode _$BangumiEpisodeFromJson(Map<String, dynamic> json) =>
     BangumiEpisode(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       type: $enumDecode(_$BangumiEpTypeEnumMap, json['type']),
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
       sort: (json['sort'] as num).toDouble(),
       ep: (json['ep'] as num).toDouble(),
       airDate: json['airdate'] as String,
-      comment: json['comment'] as int,
+      comment: (json['comment'] as num).toInt(),
       duration: json['duration'] as String,
       desc: json['desc'] as String,
-      disc: json['disc'] as int,
-      durationSeconds: json['duration_seconds'] as int,
+      disc: (json['disc'] as num).toInt(),
+      durationSeconds: (json['duration_seconds'] as num).toInt(),
     );
 
 Map<String, dynamic> _$BangumiEpisodeToJson(BangumiEpisode instance) =>
@@ -878,18 +878,18 @@ const _$BangumiEpTypeEnumMap = {
 BangumiEpisodeDetail _$BangumiEpisodeDetailFromJson(
         Map<String, dynamic> json) =>
     BangumiEpisodeDetail(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       type: $enumDecode(_$BangumiEpTypeEnumMap, json['type']),
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
-      sort: json['sort'] as int,
-      ep: json['ep'] as int,
+      sort: (json['sort'] as num).toInt(),
+      ep: (json['ep'] as num).toInt(),
       airDate: json['airdate'] as String,
-      comment: json['comment'] as int,
+      comment: (json['comment'] as num).toInt(),
       duration: json['duration'] as String,
       desc: json['desc'] as String,
-      disc: json['disc'] as int,
-      subjectId: json['subject_id'] as int,
+      disc: (json['disc'] as num).toInt(),
+      subjectId: (json['subject_id'] as num).toInt(),
     );
 
 Map<String, dynamic> _$BangumiEpisodeDetailToJson(
@@ -942,10 +942,10 @@ Map<String, dynamic> _$BangumiImagesToJson(BangumiImages instance) =>
     };
 
 BangumiIndex _$BangumiIndexFromJson(Map<String, dynamic> json) => BangumiIndex(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       title: json['title'] as String,
       desc: json['desc'] as String,
-      total: json['total'] as int,
+      total: (json['total'] as num).toInt(),
       stat: BangumiStat.fromJson(json['stat'] as Map<String, dynamic>),
       createdAt: json['created_at'] as String,
       updatedAt: json['updated_at'] as String,
@@ -968,7 +968,7 @@ Map<String, dynamic> _$BangumiIndexToJson(BangumiIndex instance) =>
 
 BangumiIndexSubject _$BangumiIndexSubjectFromJson(Map<String, dynamic> json) =>
     BangumiIndexSubject(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       type: $enumDecode(_$BangumiSubjectTypeEnumMap, json['type']),
       name: json['name'] as String,
       images: BangumiImages.fromJson(json['images'] as Map<String, dynamic>),
@@ -1018,8 +1018,8 @@ Map<String, dynamic> _$BangumiIndexBasicInfo1ToJson(
 BangumiIndexBasicInfo2 _$BangumiIndexBasicInfo2FromJson(
         Map<String, dynamic> json) =>
     BangumiIndexBasicInfo2(
-      subjectId: json['subject_id'] as int,
-      sort: json['sort'] as int,
+      subjectId: (json['subject_id'] as num).toInt(),
+      sort: (json['sort'] as num).toInt(),
       comment: json['comment'] as String,
     );
 
@@ -1034,7 +1034,7 @@ Map<String, dynamic> _$BangumiIndexBasicInfo2ToJson(
 BangumiIndexBasicInfo3 _$BangumiIndexBasicInfo3FromJson(
         Map<String, dynamic> json) =>
     BangumiIndexBasicInfo3(
-      sort: json['sort'] as int,
+      sort: (json['sort'] as num).toInt(),
       comment: json['comment'] as String,
     );
 
@@ -1058,9 +1058,9 @@ Map<String, dynamic> _$BangumiInfoBoxItemToJson(BangumiInfoBoxItem instance) =>
     };
 
 BangumiPage _$BangumiPageFromJson(Map<String, dynamic> json) => BangumiPage(
-      total: json['total'] as int,
-      limit: json['limit'] as int,
-      offset: json['offset'] as int,
+      total: (json['total'] as num).toInt(),
+      limit: (json['limit'] as num).toInt(),
+      offset: (json['offset'] as num).toInt(),
     );
 
 Map<String, dynamic> _$BangumiPageToJson(BangumiPage instance) =>
@@ -1075,9 +1075,9 @@ BangumiPageT<T> _$BangumiPageTFromJson<T>(
   T Function(Object? json) fromJsonT,
 ) =>
     BangumiPageT<T>(
-      total: json['total'] as int,
-      limit: json['limit'] as int,
-      offset: json['offset'] as int,
+      total: (json['total'] as num).toInt(),
+      limit: (json['limit'] as num).toInt(),
+      offset: (json['offset'] as num).toInt(),
       data: (json['data'] as List<dynamic>).map(fromJsonT).toList(),
     );
 
@@ -1094,7 +1094,7 @@ Map<String, dynamic> _$BangumiPageTToJson<T>(
 
 BangumiPerson _$BangumiPersonFromJson(Map<String, dynamic> json) =>
     BangumiPerson(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       name: json['name'] as String,
       type: $enumDecode(_$BangumiPersonTypeEnumMap, json['type']),
       career: $enumDecode(_$BangumiPersonCareerTypeEnumMap, json['career']),
@@ -1134,12 +1134,12 @@ const _$BangumiPersonCareerTypeEnumMap = {
 BangumiPersonCharacter _$BangumiPersonCharacterFromJson(
         Map<String, dynamic> json) =>
     BangumiPersonCharacter(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       name: json['name'] as String,
       type: $enumDecode(_$BangumiCharacterTypeEnumMap, json['type']),
       images:
           BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
-      subjectId: json['subject_id'] as int,
+      subjectId: (json['subject_id'] as num).toInt(),
       subjectName: json['subject_name'] as String,
       subjectNameCn: json['subject_name_cn'] as String,
       staff: json['staff'] as String,
@@ -1160,7 +1160,7 @@ Map<String, dynamic> _$BangumiPersonCharacterToJson(
 
 BangumiPersonDetail _$BangumiPersonDetailFromJson(Map<String, dynamic> json) =>
     BangumiPersonDetail(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       name: json['name'] as String,
       type: $enumDecode(_$BangumiPersonTypeEnumMap, json['type']),
       career: $enumDecode(_$BangumiPersonCareerTypeEnumMap, json['career']),
@@ -1174,9 +1174,9 @@ BangumiPersonDetail _$BangumiPersonDetailFromJson(Map<String, dynamic> json) =>
           .toList(),
       gender: json['gender'] as String,
       bloodType: $enumDecode(_$BangumiBloodTypeEnumMap, json['blood_type']),
-      birthYear: json['birth_year'] as int,
-      birthMon: json['birth_mon'] as int,
-      birthDay: json['birth_day'] as int,
+      birthYear: (json['birth_year'] as num).toInt(),
+      birthMon: (json['birth_mon'] as num).toInt(),
+      birthDay: (json['birth_day'] as num).toInt(),
       stat: BangumiStat.fromJson(json['stat'] as Map<String, dynamic>),
     );
 
@@ -1220,7 +1220,7 @@ Map<String, dynamic> _$BangumiPersonImagesToJson(
 BangumiRelatedCharacter _$BangumiRelatedCharacterFromJson(
         Map<String, dynamic> json) =>
     BangumiRelatedCharacter(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       name: json['name'] as String,
       type: $enumDecode(_$BangumiCharacterTypeEnumMap, json['type']),
       images:
@@ -1245,7 +1245,7 @@ Map<String, dynamic> _$BangumiRelatedCharacterToJson(
 BangumiRelatedPerson _$BangumiRelatedPersonFromJson(
         Map<String, dynamic> json) =>
     BangumiRelatedPerson(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       name: json['name'] as String,
       type: $enumDecode(_$BangumiPersonTypeEnumMap, json['type']),
       career: $enumDecode(_$BangumiPersonCareerTypeEnumMap, json['career']),
@@ -1267,8 +1267,8 @@ Map<String, dynamic> _$BangumiRelatedPersonToJson(
 
 BangumiRevision _$BangumiRevisionFromJson(Map<String, dynamic> json) =>
     BangumiRevision(
-      id: json['id'] as int,
-      type: json['type'] as int,
+      id: (json['id'] as num).toInt(),
+      type: (json['type'] as num).toInt(),
       creator: BangumiCreator.fromJson(json['creator'] as Map<String, dynamic>),
       summary: json['summary'] as String,
       createdAt: json['created_at'] as String,
@@ -1284,8 +1284,8 @@ Map<String, dynamic> _$BangumiRevisionToJson(BangumiRevision instance) =>
     };
 
 BangumiStat _$BangumiStatFromJson(Map<String, dynamic> json) => BangumiStat(
-      comments: json['comments'] as int,
-      collects: json['collects'] as int,
+      comments: (json['comments'] as num).toInt(),
+      collects: (json['collects'] as num).toInt(),
     );
 
 Map<String, dynamic> _$BangumiStatToJson(BangumiStat instance) =>
@@ -1296,7 +1296,7 @@ Map<String, dynamic> _$BangumiStatToJson(BangumiStat instance) =>
 
 BangumiSubject _$BangumiSubjectFromJson(Map<String, dynamic> json) =>
     BangumiSubject(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       type: $enumDecode(_$BangumiSubjectTypeEnumMap, json['type']),
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
@@ -1309,9 +1309,9 @@ BangumiSubject _$BangumiSubjectFromJson(Map<String, dynamic> json) =>
       infobox: (json['infobox'] as List<dynamic>)
           .map((e) => BangumiInfoBoxItem.fromJson(e as Map<String, dynamic>))
           .toList(),
-      volumes: json['volumes'] as int,
-      eps: json['eps'] as int,
-      totalEpisodes: json['total_episodes'] as int,
+      volumes: (json['volumes'] as num).toInt(),
+      eps: (json['eps'] as num).toInt(),
+      totalEpisodes: (json['total_episodes'] as num).toInt(),
       rating:
           BangumiPatchRating.fromJson(json['rating'] as Map<String, dynamic>),
       collection: BangumiPatchCollection.fromJson(
@@ -1344,16 +1344,16 @@ Map<String, dynamic> _$BangumiSubjectToJson(BangumiSubject instance) =>
 
 BangumiSlimSubject _$BangumiSlimSubjectFromJson(Map<String, dynamic> json) =>
     BangumiSlimSubject(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       type: $enumDecode(_$BangumiSubjectTypeEnumMap, json['type']),
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
       shortSummary: json['short_summary'] as String,
       date: json['date'] as String?,
       images: BangumiImages.fromJson(json['images'] as Map<String, dynamic>),
-      volumes: json['volumes'] as int,
-      eps: json['eps'] as int,
-      collectionTotal: json['collection_total'] as int,
+      volumes: (json['volumes'] as num).toInt(),
+      eps: (json['eps'] as num).toInt(),
+      collectionTotal: (json['collection_total'] as num).toInt(),
       score: (json['score'] as num).toDouble(),
       tags: (json['tags'] as List<dynamic>)
           .map((e) => BangumiTag.fromJson(e as Map<String, dynamic>))
@@ -1378,7 +1378,7 @@ Map<String, dynamic> _$BangumiSlimSubjectToJson(BangumiSlimSubject instance) =>
 
 BangumiTag _$BangumiTagFromJson(Map<String, dynamic> json) => BangumiTag(
       name: json['name'] as String,
-      count: json['count'] as int,
+      count: (json['count'] as num).toInt(),
     );
 
 Map<String, dynamic> _$BangumiTagToJson(BangumiTag instance) =>
@@ -1390,15 +1390,15 @@ Map<String, dynamic> _$BangumiTagToJson(BangumiTag instance) =>
 BangumiUserSubjectCollection _$BangumiUserSubjectCollectionFromJson(
         Map<String, dynamic> json) =>
     BangumiUserSubjectCollection(
-      subjectId: json['subject_id'] as int,
+      subjectId: (json['subject_id'] as num).toInt(),
       subjectType:
           $enumDecode(_$BangumiSubjectTypeEnumMap, json['subject_type']),
-      rate: json['rate'] as int,
+      rate: (json['rate'] as num).toInt(),
       type: $enumDecode(_$BangumiCollectionTypeEnumMap, json['type']),
       comment: json['comment'] as String?,
       tags: (json['tags'] as List<dynamic>).map((e) => e as String).toList(),
-      epStatus: json['ep_status'] as int,
-      volStatus: json['vol_status'] as int,
+      epStatus: (json['ep_status'] as num).toInt(),
+      volStatus: (json['vol_status'] as num).toInt(),
       updatedAt: json['updated_at'] as String,
       private: json['private'] as bool,
       subject:
@@ -1435,9 +1435,9 @@ BangumiUserSubjectCollectionModifyPayload
             Map<String, dynamic> json) =>
         BangumiUserSubjectCollectionModifyPayload(
           type: $enumDecode(_$BangumiCollectionTypeEnumMap, json['type']),
-          rate: json['rate'] as int,
-          epStatus: json['ep_status'] as int,
-          volStatus: json['vol_status'] as int,
+          rate: (json['rate'] as num).toInt(),
+          epStatus: (json['ep_status'] as num).toInt(),
+          volStatus: (json['vol_status'] as num).toInt(),
           comment: json['comment'] as String,
           private: json['private'] as bool,
           tags:
@@ -1480,7 +1480,7 @@ const _$BangumiEpisodeCollectionTypeEnumMap = {
 BangumiRelatedSubject _$BangumiRelatedSubjectFromJson(
         Map<String, dynamic> json) =>
     BangumiRelatedSubject(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       staff: json['staff'] as String,
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
@@ -1500,7 +1500,7 @@ Map<String, dynamic> _$BangumiRelatedSubjectToJson(
 BangumiSubjectRelation _$BangumiSubjectRelationFromJson(
         Map<String, dynamic> json) =>
     BangumiSubjectRelation(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       type: $enumDecode(_$BangumiSubjectTypeEnumMap, json['type']),
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,

@@ -8,7 +8,7 @@ part of 'request_user.dart';
 
 BangumiUserInfoResp _$BangumiUserInfoRespFromJson(Map<String, dynamic> json) =>
     BangumiUserInfoResp(
-      code: json['code'] as int,
+      code: (json['code'] as num).toInt(),
       message: json['message'] as String,
       data: BangumiUser.fromJson(json['data'] as Map<String, dynamic>),
     );

@@ -122,7 +122,7 @@ Map<String, dynamic> _$BangumiDataSiteFullToJson(
 
 BangumiDataResp _$BangumiDataRespFromJson(Map<String, dynamic> json) =>
     BangumiDataResp(
-      code: json['code'] as int,
+      code: (json['code'] as num).toInt(),
       message: json['message'] as String,
       data: BangumiDataJson.fromJson(json['data'] as Map<String, dynamic>),
     );

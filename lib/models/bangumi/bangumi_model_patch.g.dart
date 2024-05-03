@@ -8,10 +8,10 @@ part of 'bangumi_model_patch.dart';
 
 BangumiPatchRating _$BangumiPatchRatingFromJson(Map<String, dynamic> json) =>
     BangumiPatchRating(
-      total: json['total'] as int,
+      total: (json['total'] as num).toInt(),
       count: Map<String, int>.from(json['count'] as Map),
       score: (json['score'] as num).toDouble(),
-      rank: json['rank'] as int?,
+      rank: (json['rank'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$BangumiPatchRatingToJson(BangumiPatchRating instance) =>
@@ -25,11 +25,11 @@ Map<String, dynamic> _$BangumiPatchRatingToJson(BangumiPatchRating instance) =>
 BangumiPatchCollection _$BangumiPatchCollectionFromJson(
         Map<String, dynamic> json) =>
     BangumiPatchCollection(
-      wish: json['wish'] as int?,
-      collect: json['collect'] as int?,
-      doing: json['doing'] as int?,
-      onHold: json['on_hold'] as int?,
-      dropped: json['dropped'] as int?,
+      wish: (json['wish'] as num?)?.toInt(),
+      collect: (json['collect'] as num?)?.toInt(),
+      doing: (json['doing'] as num?)?.toInt(),
+      onHold: (json['on_hold'] as num?)?.toInt(),
+      dropped: (json['dropped'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$BangumiPatchCollectionToJson(

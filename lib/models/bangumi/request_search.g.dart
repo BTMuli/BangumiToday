@@ -9,7 +9,7 @@ part of 'request_search.dart';
 BangumiSearchListResp _$BangumiSearchListRespFromJson(
         Map<String, dynamic> json) =>
     BangumiSearchListResp(
-      code: json['code'] as int,
+      code: (json['code'] as num).toInt(),
       message: json['message'] as String,
       data:
           BangumiSearchListData.fromJson(json['data'] as Map<String, dynamic>),
@@ -18,7 +18,7 @@ BangumiSearchListResp _$BangumiSearchListRespFromJson(
 BangumiSearchListData _$BangumiSearchListDataFromJson(
         Map<String, dynamic> json) =>
     BangumiSearchListData(
-      results: json['results'] as int,
+      results: (json['results'] as num).toInt(),
       list: (json['list'] as List<dynamic>)
           .map((e) =>
               BangumiLegacySubjectSmall.fromJson(e as Map<String, dynamic>))

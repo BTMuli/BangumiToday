@@ -8,7 +8,7 @@ part of 'request_subject.dart';
 
 BangumiCalendarResp _$BangumiCalendarRespFromJson(Map<String, dynamic> json) =>
     BangumiCalendarResp(
-      code: json['code'] as int,
+      code: (json['code'] as num).toInt(),
       message: json['message'] as String,
       data: (json['data'] as List<dynamic>)
           .map((e) =>
@@ -19,7 +19,7 @@ BangumiCalendarResp _$BangumiCalendarRespFromJson(Map<String, dynamic> json) =>
 BangumiSubjectSearchResp _$BangumiSubjectSearchRespFromJson(
         Map<String, dynamic> json) =>
     BangumiSubjectSearchResp(
-      code: json['code'] as int,
+      code: (json['code'] as num).toInt(),
       message: json['message'] as String,
       data: BangumiPageT<BangumiSubjectSearchData>.fromJson(
           json['data'] as Map<String, dynamic>,
@@ -29,7 +29,7 @@ BangumiSubjectSearchResp _$BangumiSubjectSearchRespFromJson(
 
 BangumiSubjectResp _$BangumiSubjectRespFromJson(Map<String, dynamic> json) =>
     BangumiSubjectResp(
-      code: json['code'] as int,
+      code: (json['code'] as num).toInt(),
       message: json['message'] as String,
       data: BangumiSubject.fromJson(json['data'] as Map<String, dynamic>),
     );
@@ -37,7 +37,7 @@ BangumiSubjectResp _$BangumiSubjectRespFromJson(Map<String, dynamic> json) =>
 BangumiSubjectRelationsResp _$BangumiSubjectRelationsRespFromJson(
         Map<String, dynamic> json) =>
     BangumiSubjectRelationsResp(
-      code: json['code'] as int,
+      code: (json['code'] as num).toInt(),
       message: json['message'] as String,
       data: (json['data'] as List<dynamic>)
           .map(
@@ -69,7 +69,7 @@ BangumiCalendarRespWeek _$BangumiCalendarRespWeekFromJson(
       en: json['en'] as String,
       cn: json['cn'] as String,
       ja: json['ja'] as String,
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
     );
 
 Map<String, dynamic> _$BangumiCalendarRespWeekToJson(
@@ -84,7 +84,7 @@ Map<String, dynamic> _$BangumiCalendarRespWeekToJson(
 BangumiSubjectSearchData _$BangumiSubjectSearchDataFromJson(
         Map<String, dynamic> json) =>
     BangumiSubjectSearchData(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       type: $enumDecodeNullable(_$BangumiSubjectTypeEnumMap, json['type']),
       date: json['date'] as String,
       image: json['image'] as String,
@@ -95,7 +95,7 @@ BangumiSubjectSearchData _$BangumiSubjectSearchDataFromJson(
           .map((e) => BangumiTag.fromJson(e as Map<String, dynamic>))
           .toList(),
       score: (json['score'] as num).toDouble(),
-      rank: json['rank'] as int,
+      rank: (json['rank'] as num).toInt(),
     );
 
 Map<String, dynamic> _$BangumiSubjectSearchDataToJson(

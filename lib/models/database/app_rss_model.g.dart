@@ -9,8 +9,8 @@ part of 'app_rss_model.dart';
 AppRssModel _$AppRssModelFromJson(Map<String, dynamic> json) => AppRssModel(
       rss: json['rss'] as String,
       data: json['data'] as String,
-      ttl: json['ttl'] as int,
-      updated: json['updated'] as int? ?? 0,
+      ttl: (json['ttl'] as num).toInt(),
+      updated: (json['updated'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$AppRssModelToJson(AppRssModel instance) =>
