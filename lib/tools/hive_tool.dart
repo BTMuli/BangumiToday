@@ -4,6 +4,7 @@ import 'package:hive/hive.dart';
 // Project imports:
 import '../models/hive/bgm_user_model.dart';
 import '../models/hive/nav_model.dart';
+import '../models/hive/play_model.dart';
 import '../models/hive/tracker_model.dart';
 import '../store/bgm_user_hive.dart';
 import '../store/tracker_hive.dart';
@@ -31,8 +32,9 @@ class BTHiveTool {
     var dir = await getDataDir();
     await instance.fileTool.createDir(dir);
     Hive.init(dir);
-    await initNavHiveBox();
     await initBgmUserHiveBox();
+    await initPlayHiveBox();
+    await initNavHiveBox();
     await initTrackerHiveBox();
   }
 
@@ -54,5 +56,11 @@ class BTHiveTool {
     Hive.registerAdapter(TrackerHiveAdapter());
     await Hive.openBox<TrackerHiveModel>('tracker');
     await TrackerHive().init();
+  }
+
+  /// 初始化 playHiveBox
+  Future<void> initPlayHiveBox() async {
+    Hive.registerAdapter(PlayHiveAdapter());
+    await Hive.openBox<PlayHiveModel>('play');
   }
 }

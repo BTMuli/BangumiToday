@@ -208,7 +208,7 @@ class _BsdBmfState extends State<BsdBmf> with AutomaticKeepAliveClientMixin {
   List<Widget> buildContent(BuildContext context) {
     return <Widget>[
       if (bmf.download != null && bmf.download!.isNotEmpty)
-        BsdBmfFile(bmf.download!),
+        BsdBmfFile(bmf.download!, bmf.subject),
       SizedBox(height: 12.h),
       if (bmf.rss != null && bmf.rss!.isNotEmpty)
         BsdBmfRss(bmf, widget.isConfig),

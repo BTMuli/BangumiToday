@@ -5,12 +5,18 @@ import 'package:hive/hive.dart';
 
 // Project imports:
 import '../models/hive/nav_model.dart';
+import '../models/hive/play_model.dart';
+import '../pages/app/play_page.dart';
 import '../pages/bangumi/bangumi_detail.dart';
 
 /// 侧边栏状态提供者
 final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
-  var items = Hive.box<BtmAppNavHive>('nav').values.toList();
   var store = BTNavStore();
+  var items = Hive.box<BtmAppNavHive>('nav').values.toList();
+  var medias = Hive.box<PlayHiveModel>('play').values.toList();
+  if (medias.isNotEmpty) {
+    store.addNavPlay();
+  }
   for (var item in items) {
     store.addNavItemB(subject: item.subjectId, paneTitle: item.title);
   }
@@ -90,6 +96,7 @@ class BTNavStore extends ChangeNotifier {
     String title, {
     BtmAppNavItemType type = BtmAppNavItemType.app,
     String? param,
+    bool jump = true,
   }) {
     item = PaneItem(
       title: item.title,
@@ -120,6 +127,7 @@ class BTNavStore extends ChangeNotifier {
       Hive.box<BtmAppNavHive>('nav').put(subject, hiveItem);
     }
     notifyListeners();
+    if (!jump) return;
     lastIndex = curIndex;
     if (findIndex != -1) {
       curIndex = findIndex + topNavCount;
@@ -148,5 +156,15 @@ class BTNavStore extends ChangeNotifier {
       Hive.box<BtmAppNavHive>('nav').delete(subject);
     }
     notifyListeners();
+  }
+
+  /// 添加内置播放页面
+  void addNavPlay({bool jump = true}) {
+    var pane = PaneItem(
+      icon: const Icon(FluentIcons.play),
+      title: const Text('内置播放'),
+      body: const PlayPage(),
+    );
+    addNavItem(pane, '内置播放', jump: jump);
   }
 }

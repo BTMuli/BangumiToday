@@ -5,12 +5,10 @@ import 'dart:async';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../../pages/app/play_page.dart';
 import '../../../store/nav_store.dart';
 import '../../../store/play_store.dart';
 import '../../../tools/file_tool.dart';
@@ -24,8 +22,11 @@ class BsdBmfFile extends StatefulWidget {
   /// bmf file
   final String bmfFile;
 
+  /// bmf subject
+  final int subject;
+
   /// 构造
-  const BsdBmfFile(this.bmfFile, {super.key});
+  const BsdBmfFile(this.bmfFile, this.subject, {super.key});
 
   @override
   State<BsdBmfFile> createState() => _BsdBmfFileState();
@@ -135,7 +136,7 @@ class _BsdBmfFileState extends State<BsdBmfFile> {
     return [
       potplayerBtn,
       const SizedBox(height: 6),
-      BsdBmfFileInnerPlayerBtn(file, widget.bmfFile),
+      BsdBmfFileInnerPlayerBtn(file, widget.bmfFile, widget.subject),
       const SizedBox(height: 6),
       deleteBtn,
     ];
@@ -259,8 +260,16 @@ class BsdBmfFileInnerPlayerBtn extends ConsumerStatefulWidget {
   /// 目录
   final String download;
 
+  /// subject
+  final int subject;
+
   /// 构造
-  const BsdBmfFileInnerPlayerBtn(this.file, this.download, {super.key});
+  const BsdBmfFileInnerPlayerBtn(
+    this.file,
+    this.download,
+    this.subject, {
+    super.key,
+  });
 
   @override
   ConsumerState<BsdBmfFileInnerPlayerBtn> createState() =>
@@ -269,8 +278,12 @@ class BsdBmfFileInnerPlayerBtn extends ConsumerStatefulWidget {
 
 class _BsdBmfFileInnerPlayerBtnState
     extends ConsumerState<BsdBmfFileInnerPlayerBtn> {
+  /// hive
+  final PlayHive hive = PlayHive();
+
   @override
   Widget build(BuildContext context) {
+    var filePath = path.join(widget.download, widget.file);
     return Button(
       child: Row(
         children: [
@@ -280,15 +293,15 @@ class _BsdBmfFileInnerPlayerBtnState
         ],
       ),
       onPressed: () async {
-        var navStore = ref.read(navStoreProvider);
-        var filePath = path.join(widget.download, widget.file);
-        ref.read(playStoreProvider.notifier).addTask(Media(filePath));
-        var pane = PaneItem(
-          icon: const Icon(FluentIcons.play),
-          title: const Text('内置播放'),
-          body: const PlayPage(),
-        );
-        navStore.addNavItem(pane, '内置播放');
+        ref.read(navStoreProvider).addNavPlay();
+        await hive.add(filePath, widget.subject);
+      },
+      onLongPress: () async {
+        ref.read(navStoreProvider).addNavPlay(jump: false);
+        await hive.add(filePath, widget.subject);
+        if (context.mounted) {
+          await BtInfobar.success(context, '成功添加到播放列表');
+        }
       },
     );
   }
