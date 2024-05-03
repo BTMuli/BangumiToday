@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2024-05-01
+Update: 2024-05-03
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-05-01 02:58:48`
+> 更新于 `2024-05-03 17:14:21`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -37,8 +37,6 @@ dart run build_runner build --delete-conflicting-outputs
 dart run build_runner watch --delete-conflicting-outputs
 # build windows
 flutter build windows
-# build msix --version 0.1.0.0
-dart run msix:create --sign-msix true
 ```
 
 ## 使用前提
@@ -64,7 +62,9 @@ dart run msix:create --sign-msix true
 
 ## 关于证书
 
-> 截止 2024-05-02，应用使用的证书为自签名证书，需要将证书导入到系统。
+> 应用使用的证书为自签名证书，需要将证书导入到系统。
+> 对于 0.3.0 版本之后的版本，应用将会采用自签名证书 [目棃.cer](./目棃.cer)。
+> 该证书需要导入到 `受信任的根证书颁发机构` 中。
 
 为了正常安装应用，需要将 [BTMuli.cer](./BTMuli.cer) 证书导入到系统。
 
@@ -80,6 +80,7 @@ dart run msix:create --sign-msix true
 - [FlChart](https://app.flchart.dev/)：用于绘制条目评分柱状图。
 - [Fluent UI](https://bdlukaa.github.io/fluent_ui/)：用于实现 Fluent Design 风格的 UI。
 - [Hive](https://github.com/isar/hive)：用于本地数据存储。
+- [PasteBoard](https://pub.dev/packages/pasteboard)：用于将视频截图复制到剪贴板。
 - [MediaKit](https://github.com/media-kit/media-kit)：用于视频播放。
 
 ## 参考（按照字典序）

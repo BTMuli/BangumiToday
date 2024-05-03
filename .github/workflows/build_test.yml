@@ -60,23 +60,6 @@ jobs:
           name: BangumiToday(msix)
           path: build/windows/x64/runner/Release/BangumiToday.msix
 
-      - name: 初始化 DotNet 环境
-        if: env.SIGN_SECRET != ''
-        uses: actions/setup-dotnet@v3.2.0
-        with:
-          global-json-file: installer/global.json
-
-      - name: 构建 MSIX 安装器
-        if: env.SIGN_SECRET != ''
-        run: dotnet build -c:Release installer/MsixInstaller.csproj
-
-      - name: 上传 MSIX 安装器
-        if: env.SIGN_SECRET != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: installer
-          path: build/windows/x64/runner/Release/MsixInstaller.exe
-
       - name: 生成校验和
         run: |
           $checksum = Get-FileHash 
@@ -92,11 +75,3 @@ jobs:
           $checksum = Get-FileHash build/windows/x64/runner/Release/BangumiToday.msix
           $checksum = $checksum.Hash
           Write-Output "|BangumiToday.msix|$checksum|" >> $env:GITHUB_STEP_SUMMARY
-          
-          $checksum = Get-FileHash build/windows/x64/runner/Release/MsixInstaller.exe
-          $checksum = $checksum.Hash
-          Write-Output "|MsixInstaller.exe|$checksum|" >> $env:GITHUB_STEP_SUMMARY
-
-          Write-Output "" >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "### MSIX 安装教程" >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "![image](https://github.com/Notsfsssf/pixez-flutter/assets/42184238/f1956682-f527-487d-997b-523319cd78d3)" >> $env:GITHUB_STEP_SUMMARY
