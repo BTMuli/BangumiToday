@@ -30,7 +30,8 @@ class AppNav extends ConsumerStatefulWidget {
 }
 
 /// 导航状态
-class _AppNavState extends ConsumerState<AppNav> {
+class _AppNavState extends ConsumerState<AppNav>
+    with AutomaticKeepAliveClientMixin {
   /// 当前索引
   int get curIndex => ref.watch(navStoreProvider).curIndex;
 
@@ -42,6 +43,10 @@ class _AppNavState extends ConsumerState<AppNav> {
 
   /// bangumi用户Hive
   final BgmUserHive hive = BgmUserHive();
+
+  /// 保存状态
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -164,6 +169,7 @@ class _AppNavState extends ConsumerState<AppNav> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return NavigationView(pane: buildNavPane(context));
   }
 }

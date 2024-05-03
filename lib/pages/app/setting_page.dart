@@ -42,7 +42,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
 
   /// 保存状态
   @override
-  bool get wantKeepAlive => false;
+  bool get wantKeepAlive => true;
 
   /// 初始化
   @override
