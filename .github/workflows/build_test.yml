@@ -37,9 +37,6 @@ jobs:
           Add-Content -Path .env -Value "BANGUMI_APP_ID=${env:BANGUMI_APP_ID}"
           Add-Content -Path .env -Value "BANGUMI_APP_SECRET=${env:BANGUMI_APP_SECRET}"
 
-      - name: 生成代码
-        run: dart run build_runner build
-
       - name: 构建项目
         run: flutter build windows
 
