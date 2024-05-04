@@ -12,11 +12,15 @@ class PlayHiveModel {
   /// 播放进度
   late int progress;
 
+  /// 是否自动播放
+  late bool autoPlay;
+
   /// 构造
   PlayHiveModel({
     required this.file,
     required this.subjectId,
     this.progress = 0,
+    this.autoPlay = true,
   });
 }
 
@@ -31,6 +35,7 @@ class PlayHiveAdapter extends TypeAdapter<PlayHiveModel> {
       file: reader.readString(),
       subjectId: reader.readInt(),
       progress: reader.readInt(),
+      autoPlay: reader.readBool(),
     );
   }
 
@@ -39,5 +44,6 @@ class PlayHiveAdapter extends TypeAdapter<PlayHiveModel> {
     writer.writeString(obj.file);
     writer.writeInt(obj.subjectId);
     writer.writeInt(obj.progress);
+    writer.writeBool(obj.autoPlay);
   }
 }

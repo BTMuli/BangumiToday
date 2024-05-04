@@ -5,6 +5,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 // Project imports:
+import '../../components/app/app_dialog.dart';
 import '../../components/app/app_infobar.dart';
 import '../../controller/app/video_controller.dart';
 import '../../models/hive/play_model.dart';
@@ -33,8 +34,11 @@ class _PlayPageState extends ConsumerState<PlayPage>
   /// hive
   final PlayHive hive = PlayHive();
 
-  /// 获取播放列表
-  List<Media> get playList => hive.allMedia;
+  /// 获取playList
+  List<Media> get playList => player.state.playlist.medias;
+
+  /// 获取index
+  int get index => player.state.playlist.index;
 
   /// 保持状态
   @override
@@ -45,36 +49,60 @@ class _PlayPageState extends ConsumerState<PlayPage>
   void initState() {
     super.initState();
     Future.microtask(() async => await refresh());
-    hive.addListener(() async => await refresh());
+    hive.addListener(listenHive);
+  }
+
+  /// 监听hive
+  void listenHive() {
+    Future.microtask(() async => await refresh());
+  }
+
+  /// 处理播放列表变化
+  Future<void> handleChange() async {
+    await saveProgress();
+    var play = hive.all[hive.index].autoPlay;
+    await player.open(Playlist(hive.allMedia, index: hive.index), play: play);
+    var progress = hive.getProgress(index);
+    if (progress != 0) {
+      BTLogTool.info('跳转到上次播放进度: $progress');
+      await player.seek(Duration(milliseconds: progress));
+    }
+    if (!play) await player.pause();
+  }
+
+  /// 跳转
+  Future<void> jump(int index) async {
+    BTLogTool.info('跳转到: $index');
+    await player.jump(index);
+    var progress = hive.getProgress(index);
+    if (progress != 0) {
+      BTLogTool.info('跳转到上次播放进度: $progress');
+      await player.seek(Duration(milliseconds: progress));
+    }
   }
 
   /// 刷新播放列表
   Future<void> refresh() async {
-    var list = hive.allMedia;
-    var listGet = player.state.playlist.medias;
-    if (listGet == list) {
-      var indexGet = player.state.playlist.index;
-      if (indexGet != hive.index) {
-        var progress = player.state.position.inMilliseconds;
-        await hive.updateProgress(progress, file: listGet[indexGet].uri);
-        await player.jump(hive.index);
-      }
+    BTLogTool.info('刷新播放列表');
+    if (hive.all.length != playList.length) {
+      await handleChange();
       return;
     }
-    BTLogTool.info('refresh list');
-    await player.open(Playlist(list, index: hive.index));
-    if (hive.current.progress != 0) {
-      await player.seek(Duration(milliseconds: hive.current.progress));
-    }
+    if (hive.index != index) await jump(hive.index);
+  }
+
+  /// 保存当前进度
+  Future<void> saveProgress() async {
+    if (playList.isEmpty) return;
+    var progress = player.state.position.inMilliseconds;
+    await hive.updateProgress(progress, index);
   }
 
   /// dispose
   @override
   void dispose() {
-    Future.microtask(() async {
-      await player.dispose();
-    });
-    hive.removeListener(() async => await refresh());
+    hive.removeListener(listenHive);
+    player.dispose();
     super.dispose();
   }
 
@@ -82,21 +110,38 @@ class _PlayPageState extends ConsumerState<PlayPage>
   Widget buildHeader() {
     var name = '无';
     if (hive.all.isNotEmpty) {
-      name = Uri.parse(hive.current.file).pathSegments.last;
+      var cur = hive.all[hive.index].file;
+      name = Uri.parse(cur).pathSegments.last;
     }
     return PageHeader(
       leading: IconButton(
         icon: const Icon(FluentIcons.back),
         onPressed: () async {
-          if (hive.all.isNotEmpty) {
-            await player.pause();
-            var progress = player.state.position.inMilliseconds;
-            await hive.updateProgress(progress);
-          }
+          await saveProgress();
+          await hive.putFirst(index);
           ref.read(navStoreProvider).removeNavItem('内置播放');
         },
       ),
-      title: const Text('内置播放'),
+      title: Row(
+        children: [
+          const Text('内置播放'),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(FluentIcons.delete),
+            onPressed: () async {
+              var check = await showConfirmDialog(
+                context,
+                title: '删除播放记录',
+                content: '仅会保留当前播放列表记录，是否删除？',
+              );
+              if (!check) return;
+              var cnt = await hive.deleteUseless(playList);
+              var str = cnt == 0 ? '没有找到无用数据' : '删除了 $cnt 个无用数据';
+              if (mounted) await BtInfobar.success(context, str);
+            },
+          ),
+        ],
+      ),
       commandBar: Text(
         '当前播放：$name',
         maxLines: 1,
@@ -113,9 +158,7 @@ class _PlayPageState extends ConsumerState<PlayPage>
         IconButton(
           icon: const Icon(FluentIcons.info),
           onPressed: () async {
-            await player.pause();
-            var progress = player.state.position.inMilliseconds;
-            await hive.updateProgress(progress);
+            await saveProgress();
             await player.pause();
             ref.read(navStoreProvider).addNavItemB(
                   type: '动画',
@@ -126,15 +169,12 @@ class _PlayPageState extends ConsumerState<PlayPage>
         IconButton(
           icon: const Icon(FluentIcons.play),
           onPressed: () async {
-            if (item == hive.current) {
+            if (item == hive.all[hive.index]) {
               await BtInfobar.warn(context, '所选视频已经在播放中！');
               return;
             }
-            await player.pause();
-            var progress = player.state.position.inMilliseconds;
-            await hive.updateProgress(progress);
+            await saveProgress();
             hive.jump(item);
-            setState(() {});
           },
         ),
         IconButton(

@@ -90,7 +90,9 @@ class _BtcVideoState extends State<BtcVideo>
       seekBarThumbColor: base.lighter,
       seekBarPositionColor: base.darker,
       bottomButtonBar: [
+        const MaterialDesktopSkipPreviousButton(),
         const MaterialDesktopPlayOrPauseButton(),
+        const MaterialDesktopSkipNextButton(),
         const MaterialDesktopPositionIndicator(),
         const MaterialDesktopVolumeButton(),
         const Spacer(),

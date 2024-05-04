@@ -20,31 +20,32 @@ class PlayHive extends ChangeNotifier {
   static Box<PlayHiveModel> get box => Hive.box<PlayHiveModel>('play');
 
   /// 当前索引
-  int index = 0;
-
-  /// 获取当前播放
-  PlayHiveModel get current => box.getAt(index)!;
+  late int index = 0;
 
   /// 获取所有播放
   List<PlayHiveModel> get all => box.values.toList();
 
   /// 获取所有播放媒体
-  List<Media> get allMedia => box.values
-      .map((e) => Media(e.file, extras: {'subject': e.subjectId}))
-      .toList();
+  List<Media> get allMedia => box.values.map((e) => Media(e.file)).toList();
 
-  /// 事件
+  /// 获取指定文件的播放进度
+  int getProgress(int index) {
+    if (index < 0 || index >= box.values.length) return 0;
+    return box.values.toList()[index].progress;
+  }
 
   /// 添加播放
-  Future<void> add(String file, int subject) async {
-    var model = PlayHiveModel(file: file, subjectId: subject);
-    var find = box.values.toList().indexWhere((e) => e == model);
+  Future<void> add(String file, int subject, {bool play = true}) async {
+    var model = PlayHiveModel(file: file, subjectId: subject, autoPlay: play);
+    var find = box.values.toList().indexWhere((e) => e.file == model.file);
     if (find != -1) {
       index = find;
+      box.values.toList()[index].autoPlay = play;
+      notifyListeners();
       return;
     }
     await box.add(model);
-    index = box.length - 1;
+    if (play) index = box.length - 1;
     notifyListeners();
   }
 
@@ -62,23 +63,45 @@ class PlayHive extends ChangeNotifier {
   }
 
   /// 更新当前播放进度
-  Future<void> updateProgress(int progress, {String? file}) async {
-    current.progress = progress;
-    if (file != null) {
-      var find = box.values.toList().indexWhere((e) => e.file == file);
-      if (find != -1) {
-        await box.putAt(find, current);
-      }
-    } else {
-      await box.putAt(index, current);
-    }
+  Future<void> updateProgress(int progress, int index) async {
+    if (index < 0 || index >= box.length) return;
+    var model = box.getAt(index)!;
+    model.progress = progress;
+    await box.putAt(index, model);
+  }
+
+  /// 跳转
+  void jump(PlayHiveModel model) {
+    var find = box.values.toList().indexWhere((e) => e == model);
+    if (find == -1) return;
+    index = find;
+    box.values.toList()[index].autoPlay = true;
     notifyListeners();
   }
 
-  void jump(PlayHiveModel model) {
-    var find = box.values.toList().indexWhere((e) => e == model);
-    if (find == -1 || find == index) return;
-    index = find;
-    notifyListeners();
+  /// 删除无用数据
+  Future<int> deleteUseless(List<Media> files) async {
+    var remove = <PlayHiveModel>[];
+    var list = box.values.toList();
+    for (var i = 0; i < list.length; i++) {
+      if (!files.contains(Media(list[i].file))) {
+        remove.add(list[i]);
+      }
+    }
+    var cnt = remove.length;
+    if (cnt == 0) return 0;
+    for (var i = 0; i < cnt; i++) {
+      await delete(remove[i]);
+    }
+    return cnt;
+  }
+
+  /// 调整播放顺序
+  Future<void> putFirst(int index) async {
+    if (index < 0 || index >= box.length) return;
+    var model = box.getAt(index)!;
+    await box.deleteAt(index);
+    await box.putAt(0, model);
+    this.index = 0;
   }
 }

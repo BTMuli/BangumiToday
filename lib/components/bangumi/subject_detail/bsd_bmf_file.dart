@@ -298,7 +298,7 @@ class _BsdBmfFileInnerPlayerBtnState
       },
       onLongPress: () async {
         ref.read(navStoreProvider).addNavPlay(jump: false);
-        await hive.add(filePath, widget.subject);
+        await hive.add(filePath, widget.subject, play: false);
         if (context.mounted) {
           await BtInfobar.success(context, '成功添加到播放列表');
         }
