@@ -5,7 +5,6 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 // Project imports:
-import '../../components/app/app_dialog.dart';
 import '../../components/app/app_infobar.dart';
 import '../../controller/app/video_controller.dart';
 import '../../models/hive/play_model.dart';
@@ -60,8 +59,14 @@ class _PlayPageState extends ConsumerState<PlayPage>
   /// 处理播放列表变化
   Future<void> handleChange() async {
     await saveProgress();
+    if (hive.all.isEmpty) {
+      await player.stop();
+      return;
+    }
     var play = hive.all[hive.index].autoPlay;
     await player.open(Playlist(hive.allMedia, index: hive.index), play: play);
+    // 需要等待进度条加载完成，见 https://github.com/media-kit/media-kit/issues/804
+    await player.stream.buffer.first;
     var progress = hive.getProgress(index);
     if (progress != 0) {
       BTLogTool.info('跳转到上次播放进度: $progress');
@@ -74,11 +79,15 @@ class _PlayPageState extends ConsumerState<PlayPage>
   Future<void> jump(int index) async {
     BTLogTool.info('跳转到: $index');
     await player.jump(index);
+    await player.pause();
+    // 需要等待进度条加载完成，见 https://github.com/media-kit/media-kit/issues/804
+    await player.stream.buffer.first;
     var progress = hive.getProgress(index);
     if (progress != 0) {
       BTLogTool.info('跳转到上次播放进度: $progress');
       await player.seek(Duration(milliseconds: progress));
     }
+    if (!hive.all[index].autoPlay) await player.pause();
   }
 
   /// 刷新播放列表
@@ -118,30 +127,10 @@ class _PlayPageState extends ConsumerState<PlayPage>
         icon: const Icon(FluentIcons.back),
         onPressed: () async {
           await saveProgress();
-          await hive.putFirst(index);
           ref.read(navStoreProvider).removeNavItem('内置播放');
         },
       ),
-      title: Row(
-        children: [
-          const Text('内置播放'),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(FluentIcons.delete),
-            onPressed: () async {
-              var check = await showConfirmDialog(
-                context,
-                title: '删除播放记录',
-                content: '仅会保留当前播放列表记录，是否删除？',
-              );
-              if (!check) return;
-              var cnt = await hive.deleteUseless(playList);
-              var str = cnt == 0 ? '没有找到无用数据' : '删除了 $cnt 个无用数据';
-              if (mounted) await BtInfobar.success(context, str);
-            },
-          ),
-        ],
-      ),
+      title: const Text('内置播放'),
       commandBar: Text(
         '当前播放：$name',
         maxLines: 1,

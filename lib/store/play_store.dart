@@ -78,30 +78,4 @@ class PlayHive extends ChangeNotifier {
     box.values.toList()[index].autoPlay = true;
     notifyListeners();
   }
-
-  /// 删除无用数据
-  Future<int> deleteUseless(List<Media> files) async {
-    var remove = <PlayHiveModel>[];
-    var list = box.values.toList();
-    for (var i = 0; i < list.length; i++) {
-      if (!files.contains(Media(list[i].file))) {
-        remove.add(list[i]);
-      }
-    }
-    var cnt = remove.length;
-    if (cnt == 0) return 0;
-    for (var i = 0; i < cnt; i++) {
-      await delete(remove[i]);
-    }
-    return cnt;
-  }
-
-  /// 调整播放顺序
-  Future<void> putFirst(int index) async {
-    if (index < 0 || index >= box.length) return;
-    var model = box.getAt(index)!;
-    await box.deleteAt(index);
-    await box.putAt(0, model);
-    this.index = 0;
-  }
 }
