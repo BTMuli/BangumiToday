@@ -130,18 +130,18 @@ class _AppNavState extends ConsumerState<AppNav>
 
   /// 获取底部项
   List<PaneItem> getFooterItems() {
-    var downloadPane = PaneItem(
-      icon: const Icon(FluentIcons.download),
-      title: const Text('下载列表'),
-      body: const DownloadPage(),
-    );
     var debugPane = PaneItem(
       icon: const Icon(FluentIcons.bug),
       title: const Text('Debug'),
       body: const TestPage(),
     );
     var footerItems = [
-      downloadPane,
+      if (kDebugMode)
+        PaneItem(
+          icon: const Icon(FluentIcons.download),
+          title: const Text('下载列表'),
+          body: const DownloadPage(),
+        ),
       buildResetWinItem(),
       buildThemeModeItem(),
       PaneItem(

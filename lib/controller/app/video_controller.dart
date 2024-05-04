@@ -39,6 +39,12 @@ class _BtcVideoState extends State<BtcVideo>
   bool get wantKeepAlive => true;
 
   @override
+  void initState() {
+    super.initState();
+    speed = controller.player.state.rate;
+  }
+
+  @override
   void dispose() {
     speedFlyout.dispose();
     super.dispose();
@@ -99,14 +105,17 @@ class _BtcVideoState extends State<BtcVideo>
         IconButton(
           onPressed: () async {
             await controller.player.pause();
+            var progress = controller.player.state.position.inSeconds;
+            var index = controller.player.state.playlist.index;
+            var file = controller.player.state.playlist.medias[index].uri;
+            var name = Uri.parse(file).pathSegments.last;
             var res = await controller.player.screenshot();
             if (res == null) {
               if (mounted) await BtInfobar.error(context, '截图失败');
               await controller.player.play();
               return;
             }
-            var ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-            var imagePath = await fileTool.writeTempImage(res, ts.toString());
+            var imagePath = await fileTool.writeTempImage(res, name, progress);
             // 提前写个空白文件，以防粘贴把之前的文本带上
             // todo 详见 https://github.com/MixinNetwork/flutter-plugins/issues/335
             Pasteboard.writeText('');
@@ -139,7 +148,20 @@ class _BtcVideoState extends State<BtcVideo>
     return MaterialDesktopVideoControlsTheme(
       normal: buildControls(),
       fullscreen: buildControls(),
-      child: material.Scaffold(body: Video(controller: controller)),
+      child: material.Scaffold(
+        body: Video(
+          controller: controller,
+          // 对于部分字幕无法处理，详见 https://github.com/media-kit/media-kit/issues/805
+          subtitleViewConfiguration: SubtitleViewConfiguration(
+            style: TextStyle(
+              fontFamily: 'SMonoSC',
+              fontSize: 28,
+              backgroundColor: Colors.black.withOpacity(0.5),
+            ),
+            textAlign: TextAlign.end,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -10,6 +10,7 @@ import '../../controller/app/video_controller.dart';
 import '../../models/hive/play_model.dart';
 import '../../store/nav_store.dart';
 import '../../store/play_store.dart';
+import '../../tools/file_tool.dart';
 import '../../tools/log_tool.dart';
 
 /// 播放页面
@@ -32,6 +33,9 @@ class _PlayPageState extends ConsumerState<PlayPage>
 
   /// hive
   final PlayHive hive = PlayHive();
+
+  /// fileTool
+  final BTFileTool fileTool = BTFileTool();
 
   /// 获取playList
   List<Media> get playList => player.state.playlist.medias;
@@ -130,7 +134,14 @@ class _PlayPageState extends ConsumerState<PlayPage>
           ref.read(navStoreProvider).removeNavItem('内置播放');
         },
       ),
-      title: const Text('内置播放'),
+      title: Row(children: [
+        const Text('内置播放'),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: const Icon(FluentIcons.camera),
+          onPressed: () async => await fileTool.openScreenshotDir(),
+        ),
+      ]),
       commandBar: Text(
         '当前播放：$name',
         maxLines: 1,

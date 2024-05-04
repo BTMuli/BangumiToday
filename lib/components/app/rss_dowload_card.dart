@@ -2,10 +2,10 @@
 import 'dart:async';
 
 // Flutter imports:
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' as material;
 
 // Package imports:
+import 'package:events_emitter2/events_emitter2.dart';
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:dtorrent_parser/dtorrent_parser.dart';
 import 'package:dtorrent_task/dtorrent_task.dart';
@@ -58,6 +58,9 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
 
   /// fileTool
   final fileTool = BTFileTool();
+
+  /// 监听
+  late final EventsListener<TaskEvent> listener;
 
   /// 是否初始化
   late bool isInit = false;
@@ -115,18 +118,16 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
   @override
   void dispose() {
     super.dispose();
+    task.stop();
+    listener.dispose();
   }
 
   /// 初始化监听
-  void initListener(TorrentTask task) {
-    var listener = task.createListener();
+  Future<void> initListener(TorrentTask task) async {
+    listener = task.createListener();
     listener
       ..on<StateFileUpdated>((event) => freshDownload(task))
-      ..on<TaskCompleted>((event) async => await completedTask(task))
-      ..on<TaskFileCompleted>(
-        (event) => BTLogTool.info('File completed: ${event.file.filePath}'),
-      )
-      ..on<AllComplete>((event) => BTLogTool.info('All completed'));
+      ..on<TaskCompleted>((event) async => await completedTask(task));
   }
 
   /// 添加tracker
@@ -157,7 +158,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
     }
     model = await Torrent.parse(filePath);
     task = TorrentTask.newTask(model!, dir);
-    initListener(task);
+    await initListener(task);
     await task.start();
     addTracker(task);
     startTime = DateTime.now().millisecondsSinceEpoch;
@@ -293,10 +294,6 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
     return IconButton(
       icon: const Icon(FluentIcons.delete),
       onPressed: () async {
-        if (kDebugMode) {
-          await initWidget();
-          return;
-        }
         var confirmF = await showConfirmDialog(
           context,
           title: '删除任务？',

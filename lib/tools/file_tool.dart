@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 // Package imports:
+import 'package:crypto/crypto.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -108,11 +109,22 @@ class BTFileTool {
   }
 
   /// 将unit8list写入文件并返回文件路径
-  Future<String> writeTempImage(Uint8List data, String name) async {
+  Future<String> writeTempImage(
+    Uint8List data,
+    String name,
+    int progress,
+  ) async {
     var dir = path.join(await getAppDataDir(), 'screenshots');
     await createDir(dir);
-    var file = File(path.join(dir, '$name.jpeg'));
+    var hashFile = md5.convert(name.codeUnits).toString();
+    var file = File(path.join(dir, '${hashFile}_$progress.jpeg'));
     await file.writeAsBytes(data);
     return file.path;
+  }
+
+  /// 打开截图目录
+  Future<void> openScreenshotDir() async {
+    var dir = path.join(await getAppDataDir(), 'screenshots');
+    await openDir(dir);
   }
 }

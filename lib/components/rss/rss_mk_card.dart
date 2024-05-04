@@ -2,6 +2,7 @@
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -61,6 +62,9 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
   /// bmf数据库
   final BtsAppBmf sqliteBmf = BtsAppBmf();
 
+  /// download tool
+  final BTDownloadTool dtt = BTDownloadTool();
+
   /// 获取下载目录
   Future<String?> getSaveDir() async {
     String? saveDir;
@@ -80,7 +84,7 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
   Future<String?> getSavePath(BuildContext context, String saveDir) async {
     assert(item.enclosure?.url != null && item.enclosure?.url != '');
     assert(item.title != null && item.title != '');
-    var savePath = await BTDownloadTool().downloadRssTorrent(
+    var savePath = await dtt.downloadRssTorrent(
       item.enclosure!.url!,
       item.title!,
       context: context,
@@ -167,7 +171,7 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        buildActInner(context),
+        if (kDebugMode) buildActInner(context),
         buildActMotrix(context),
         buildActLink(context),
       ],
