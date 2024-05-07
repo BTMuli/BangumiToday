@@ -83,7 +83,6 @@ class _PlayPageState extends ConsumerState<PlayPage>
   Future<void> jump(int index) async {
     BTLogTool.info('跳转到: $index');
     await player.jump(index);
-    await player.pause();
     // 需要等待进度条加载完成，见 https://github.com/media-kit/media-kit/issues/804
     await player.stream.buffer.first;
     var progress = hive.getProgress(index);
@@ -91,7 +90,6 @@ class _PlayPageState extends ConsumerState<PlayPage>
       BTLogTool.info('跳转到上次播放进度: $progress');
       await player.seek(Duration(milliseconds: progress));
     }
-    if (!hive.all[index].autoPlay) await player.pause();
   }
 
   /// 刷新播放列表
@@ -127,7 +125,6 @@ class _PlayPageState extends ConsumerState<PlayPage>
       name = Uri.parse(cur).pathSegments.last;
     }
     return PageHeader(
-      leading: const Icon(FluentIcons.play),
       title: Row(children: [
         const Text('内置播放'),
         const SizedBox(width: 8),

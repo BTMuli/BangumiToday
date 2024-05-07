@@ -9,7 +9,9 @@ import 'package:pasteboard/pasteboard.dart';
 
 // Project imports:
 import '../../components/app/app_infobar.dart';
+import '../../store/play_store.dart';
 import '../../tools/file_tool.dart';
+import '../../tools/log_tool.dart';
 
 class BtcVideo extends StatefulWidget {
   /// controller
@@ -22,8 +24,7 @@ class BtcVideo extends StatefulWidget {
   State<BtcVideo> createState() => _BtcVideoState();
 }
 
-class _BtcVideoState extends State<BtcVideo>
-    with material.AutomaticKeepAliveClientMixin {
+class _BtcVideoState extends State<BtcVideo> {
   /// 控制器
   VideoController get controller => widget.controller;
 
@@ -36,14 +37,14 @@ class _BtcVideoState extends State<BtcVideo>
   // 当前字幕
   SubtitleTrack? subtitle;
 
+  /// hive
+  final PlayHive hive = PlayHive();
+
   /// 速度的flyout
   final FlyoutController flyout = FlyoutController();
 
   /// 字幕
   List<SubtitleTrack> get subtitles => controller.player.state.tracks.subtitle;
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -77,13 +78,10 @@ class _BtcVideoState extends State<BtcVideo>
   MenuFlyoutItem buildSubtitleButton(SubtitleTrack value) {
     return MenuFlyoutItem(
       leading: value == subtitle ? const Icon(material.Icons.check) : null,
-      text: Text(value.title ?? '未知'),
+      text: Text('${value.id} ${value.language} ${value.title}'),
       onPressed: () async {
         await controller.player.setSubtitleTrack(value);
         subtitle = value;
-        // 输出所有track
-        debugPrint(controller.player.state.tracks.subtitle.toString());
-        debugPrint(controller.player.state.subtitle.toString());
         setState(() {});
       },
     );
@@ -102,7 +100,7 @@ class _BtcVideoState extends State<BtcVideo>
   void showSpeedFlyout() {
     flyout.showFlyout(
       barrierDismissible: true,
-      dismissOnPointerMoveAway: true,
+      dismissOnPointerMoveAway: false,
       dismissWithEsc: true,
       builder: (context) {
         return MenuFlyout(items: [
@@ -155,16 +153,72 @@ class _BtcVideoState extends State<BtcVideo>
     await controller.player.play();
   }
 
+  /// 保存当前进度
+  Future<void> saveProgress() async {
+    var progress = controller.player.state.position.inMilliseconds;
+    var index = controller.player.state.playlist.index;
+    await hive.updateProgress(progress, index);
+  }
+
   /// 控制栏的数据构建
+  /// todo，这边的 widget 似乎不会改变，详见 https://github.com/media-kit/media-kit/issues/808
   MaterialDesktopVideoControlsThemeData buildControls() {
     var base = FluentTheme.of(context).accentColor;
     return MaterialDesktopVideoControlsThemeData(
       seekBarThumbColor: base.lighter,
       seekBarPositionColor: base.darker,
       bottomButtonBar: [
-        const MaterialDesktopSkipPreviousButton(),
-        const MaterialDesktopPlayOrPauseButton(),
-        const MaterialDesktopSkipNextButton(),
+        IconButton(
+          icon: const Icon(FluentIcons.chevron_left),
+          onPressed: () async {
+            var index = controller.player.state.playlist.index;
+            await saveProgress();
+            if (index == 0) {
+              if (mounted) await BtInfobar.warn(context, '已经是第一个了');
+              return;
+            }
+            await controller.player.previous();
+            await controller.player.stream.buffer.first;
+            var progress = hive.getProgress(index - 1);
+            if (progress != 0) {
+              BTLogTool.info('跳转到上次播放进度: $progress');
+              await controller.player.seek(Duration(milliseconds: progress));
+            }
+            setState(() {});
+          },
+        ),
+        IconButton(
+          icon: const Icon(FluentIcons.play),
+          onPressed: () async {
+            var isPlaying = controller.player.state.playing;
+            if (isPlaying) {
+              await controller.player.pause();
+              await saveProgress();
+            } else {
+              await controller.player.play();
+            }
+          },
+        ),
+        IconButton(
+          icon: const Icon(FluentIcons.chevron_right),
+          onPressed: () async {
+            var total = controller.player.state.playlist.medias.length;
+            var index = controller.player.state.playlist.index;
+            await saveProgress();
+            if (index == total - 1) {
+              if (mounted) await BtInfobar.warn(context, '已经是最后一个了');
+              return;
+            }
+            await controller.player.next();
+            await controller.player.stream.buffer.first;
+            var progress = hive.getProgress(index + 1);
+            if (progress != 0) {
+              BTLogTool.info('跳转到上次播放进度: $progress');
+              await controller.player.seek(Duration(milliseconds: progress));
+            }
+            setState(() {});
+          },
+        ),
         const MaterialDesktopPositionIndicator(),
         const MaterialDesktopVolumeButton(),
         const Spacer(),
@@ -192,7 +246,6 @@ class _BtcVideoState extends State<BtcVideo>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     return MaterialDesktopVideoControlsTheme(
       normal: buildControls(),
       fullscreen: buildControls(),
