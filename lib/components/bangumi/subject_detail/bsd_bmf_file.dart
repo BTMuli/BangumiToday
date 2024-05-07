@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:pasteboard/pasteboard.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -200,6 +201,10 @@ class _BsdBmfFileState extends State<BsdBmfFile> {
             }
             await refreshFiles();
             if (mounted) await BtInfobar.success(context, '刷新文件成功');
+          },
+          onLongPress: () async {
+            Pasteboard.writeText(widget.bmfFile);
+            if (mounted) await BtInfobar.success(context, '已复制下载目录');
           },
         ),
         SizedBox(width: 12.w),

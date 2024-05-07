@@ -7,6 +7,7 @@ import 'package:dart_rss/domain/rss_item.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:pasteboard/pasteboard.dart';
 import 'package:xml/xml.dart';
 
 // Project imports:
@@ -183,6 +184,10 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
             await freshRss();
             if (mounted) await BtInfobar.success(context, '刷新 RSS 成功');
           },
+          onLongPress: () async {
+            Pasteboard.writeText(bmf.rss!);
+            if (mounted) await BtInfobar.success(context, '已复制 RSS 链接');
+          },
         ),
         SizedBox(width: 12.w),
         Text('Mikan RSS: ${bmf.rss}', style: TextStyle(fontSize: 24.sp)),
@@ -206,7 +211,7 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
               RssMikanCard(
                 bmf.rss!,
                 rssItems[i],
-                dir: bmf.download!,
+                dir: bmf.download,
                 subject: bmf.subject,
               ),
           ]),
