@@ -10,7 +10,6 @@ import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../../store/nav_store.dart';
 import '../../../store/play_store.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/notifier_tool.dart';
@@ -298,11 +297,9 @@ class _BsdBmfFileInnerPlayerBtnState
         ],
       ),
       onPressed: () async {
-        ref.read(navStoreProvider).addNavPlay();
         await hive.add(filePath, widget.subject);
       },
       onLongPress: () async {
-        ref.read(navStoreProvider).addNavPlay(jump: false);
         await hive.add(filePath, widget.subject, play: false);
         if (context.mounted) {
           await BtInfobar.success(context, '成功添加到播放列表');

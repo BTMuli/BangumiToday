@@ -127,13 +127,7 @@ class _PlayPageState extends ConsumerState<PlayPage>
       name = Uri.parse(cur).pathSegments.last;
     }
     return PageHeader(
-      leading: IconButton(
-        icon: const Icon(FluentIcons.back),
-        onPressed: () async {
-          await saveProgress();
-          ref.read(navStoreProvider).removeNavItem('内置播放');
-        },
-      ),
+      leading: const Icon(FluentIcons.play),
       title: Row(children: [
         const Text('内置播放'),
         const SizedBox(width: 8),
