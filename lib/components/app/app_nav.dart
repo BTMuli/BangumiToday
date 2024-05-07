@@ -42,6 +42,9 @@ class _AppNavState extends ConsumerState<AppNav>
   /// 侧边动态组件
   List<PaneItem> get _navItems => ref.watch(navStoreProvider).navItems;
 
+  /// flyoutController
+  final FlyoutController flyout = FlyoutController();
+
   /// bangumi用户Hive
   final BgmUserHive hive = BgmUserHive();
 
@@ -64,12 +67,27 @@ class _AppNavState extends ConsumerState<AppNav>
     });
   }
 
+  /// 展示设置flyout
+  void showOptionsFlyout() {
+    flyout.showFlyout(
+      barrierDismissible: true,
+      dismissOnPointerMoveAway: false,
+      dismissWithEsc: true,
+      builder: (context) => MenuFlyout(
+        items: [
+          buildResetWinItem(),
+          buildPinWinItem(),
+        ],
+      ),
+    );
+  }
+
   /// 构建重置窗口大小项
-  PaneItemAction buildResetWinItem() {
-    return PaneItemAction(
-      icon: const Icon(FluentIcons.reset_device),
-      title: const Text('ResetWin'),
-      onTap: () async {
+  MenuFlyoutItem buildResetWinItem() {
+    return MenuFlyoutItem(
+      leading: const Icon(FluentIcons.reset_device),
+      text: const Text('重置窗口大小'),
+      onPressed: () async {
         var size = await windowManager.getSize();
         var target = const Size(1280, 720);
         if (size == target) {
@@ -78,6 +96,20 @@ class _AppNavState extends ConsumerState<AppNav>
         }
         await windowManager.setSize(target);
         if (mounted) await BtInfobar.success(context, '已成功重置窗口大小！');
+      },
+    );
+  }
+
+  /// 构建置顶窗口项
+  MenuFlyoutItem buildPinWinItem() {
+    return MenuFlyoutItem(
+      leading: const Icon(FluentIcons.pinned_solid),
+      text: const Text('窗口置顶/取消置顶'),
+      onPressed: () async {
+        var isAlwaysOnTop = await windowManager.isAlwaysOnTop();
+        await windowManager.setAlwaysOnTop(!isAlwaysOnTop);
+        var str = isAlwaysOnTop ? '取消置顶' : '置顶';
+        if (mounted) await BtInfobar.success(context, '$str成功');
       },
     );
   }
@@ -148,7 +180,14 @@ class _AppNavState extends ConsumerState<AppNav>
           title: const Text('下载列表'),
           body: const DownloadPage(),
         ),
-      buildResetWinItem(),
+      PaneItemAction(
+        icon: FlyoutTarget(
+          controller: flyout,
+          child: const Icon(FluentIcons.graph_symbol),
+        ),
+        title: const Text('更多设置'),
+        onTap: showOptionsFlyout,
+      ),
       buildThemeModeItem(),
       PaneItem(
         icon: const Icon(FluentIcons.settings),

@@ -1,9 +1,19 @@
 // Dart imports:
 import 'dart:async';
 
+// Flutter imports:
+import 'package:flutter/cupertino.dart';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_notifier/local_notifier.dart';
+import 'package:path/path.dart' as path;
+import 'package:url_launcher/url_launcher_string.dart';
+
+// Project imports:
+import '../store/nav_store.dart';
+import '../store/play_store.dart';
 
 //// 通知队列，changeNotifier
 class BTNotifierQueue extends ChangeNotifier {
@@ -64,6 +74,9 @@ class BTNotifierTool {
   /// 通知队列
   static final _notifications = BTNotifierQueue();
 
+  /// playHive
+  final PlayHive hivePlay = PlayHive();
+
   /// 创建通知
   /// 必需的是 title 和 body
   /// onShow、onClick、onClose 等回调函数可以为空
@@ -77,6 +90,45 @@ class BTNotifierTool {
       body: body,
     );
     if (onClick != null) notification.onClick = onClick;
+    await _notifications.add(notification);
+  }
+
+  /// 创建视频通知
+  /// 可以执行三个操作：potplayer播放、内置播放、查看详情
+  Future<void> showVideo({
+    required int subject,
+    required String dir,
+    required String file,
+    required WidgetRef ref,
+  }) async {
+    var notification = LocalNotification(
+      title: '【$subject】视频下载完成',
+      actions: [
+        LocalNotificationAction(type: 'button', text: '打开'),
+        LocalNotificationAction(type: 'button', text: '播放'),
+        LocalNotificationAction(type: 'button', text: '添加到列表')
+      ],
+      body: file,
+    );
+    notification.onClickAction = (index) async {
+      switch (index) {
+        case 0:
+          var filePath = path.join(dir, file);
+          await launchUrlString('file://$filePath');
+          break;
+        case 1:
+          var filePath = path.join(dir, file);
+          await hivePlay.add(filePath, subject);
+          ref.read(navStoreProvider.notifier).goIndex(3);
+          break;
+        case 2:
+          var filePath = path.join(dir, file);
+          await hivePlay.add(filePath, subject, play: false);
+          break;
+        default:
+          break;
+      }
+    };
     await _notifications.add(notification);
   }
 }

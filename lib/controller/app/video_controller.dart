@@ -9,6 +9,7 @@ import 'package:pasteboard/pasteboard.dart';
 
 // Project imports:
 import '../../components/app/app_infobar.dart';
+import '../../components/base/base_icon.dart';
 import '../../store/play_store.dart';
 import '../../tools/file_tool.dart';
 import '../../tools/log_tool.dart';
@@ -68,20 +69,21 @@ class _BtcVideoState extends State<BtcVideo> {
       barrierDismissible: true,
       dismissOnPointerMoveAway: false,
       dismissWithEsc: true,
-      builder: (context) {
-        return MenuFlyout(items: subtitles.map(buildSubtitleButton).toList());
-      },
+      builder: (context) => MenuFlyout(
+        items: subtitles.map(buildSubtitleButton).toList(),
+      ),
     );
   }
 
   /// 构建字幕按钮
-  MenuFlyoutItem buildSubtitleButton(SubtitleTrack value) {
+  MenuFlyoutItem buildSubtitleButton(SubtitleTrack v) {
     return MenuFlyoutItem(
-      leading: value == subtitle ? const Icon(material.Icons.check) : null,
-      text: Text('${value.id} ${value.language} ${value.title}'),
+      leading: v == subtitle ? const BaseThemeIcon(material.Icons.check) : null,
+      selected: v == subtitle,
+      text: Text('${v.id} ${v.language} ${v.title}'),
       onPressed: () async {
-        await controller.player.setSubtitleTrack(value);
-        subtitle = value;
+        await controller.player.setSubtitleTrack(v);
+        subtitle = v;
         setState(() {});
       },
     );
@@ -94,6 +96,15 @@ class _BtcVideoState extends State<BtcVideo> {
     if (val == 1.25) return '1.25倍速';
     if (val == 1.0) return '1.0倍速';
     return '${val.toStringAsFixed(2)}倍速';
+  }
+
+  /// 根据速度获取对应图标
+  IconData getSpeedIcon(double val) {
+    if (val == 2.0) return FluentIcons.fast_forward_two_x;
+    if (val == 1.5) return FluentIcons.fast_forward_one_five_x;
+    if (val == 1.25) return FluentIcons.fast_forward;
+    if (val == 1.0) return FluentIcons.fast_forward_one_x;
+    return FluentIcons.fast_forward;
   }
 
   /// 显示速度flyout
@@ -116,7 +127,10 @@ class _BtcVideoState extends State<BtcVideo> {
   /// 构建速度按钮
   MenuFlyoutItem buildSpeedButton(double value) {
     return MenuFlyoutItem(
-      leading: value == speed ? const Icon(material.Icons.check) : null,
+      leading:
+          value == speed ? const BaseThemeIcon(material.Icons.check) : null,
+      selected: value == speed,
+      trailing: BaseThemeIcon(getSpeedIcon(value)),
       text: Text(getSpeedLabel(value)),
       onPressed: () async {
         speed = value;
@@ -169,7 +183,7 @@ class _BtcVideoState extends State<BtcVideo> {
       seekBarPositionColor: base.darker,
       bottomButtonBar: [
         IconButton(
-          icon: const Icon(FluentIcons.chevron_left),
+          icon: const Icon(FluentIcons.chevron_left_end6),
           onPressed: () async {
             var index = controller.player.state.playlist.index;
             await saveProgress();
@@ -200,7 +214,7 @@ class _BtcVideoState extends State<BtcVideo> {
           },
         ),
         IconButton(
-          icon: const Icon(FluentIcons.chevron_right),
+          icon: const Icon(FluentIcons.chevron_right_end6),
           onPressed: () async {
             var total = controller.player.state.playlist.medias.length;
             var index = controller.player.state.playlist.index;
@@ -224,9 +238,12 @@ class _BtcVideoState extends State<BtcVideo> {
         const Spacer(),
         // todo 字幕获取存在问题，详见 https://github.com/media-kit/media-kit/issues/807
         if (subtitles.isNotEmpty)
-          IconButton(
-            icon: const Icon(material.Icons.closed_caption, size: 24),
-            onPressed: showSubtitleFlyout,
+          FlyoutTarget(
+            controller: flyout,
+            child: IconButton(
+              icon: const Icon(material.Icons.closed_caption, size: 24),
+              onPressed: showSubtitleFlyout,
+            ),
           ),
         IconButton(
           onPressed: () async => await takeScreenshot(),

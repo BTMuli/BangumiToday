@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../../store/nav_store.dart';
 import '../../../store/play_store.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/notifier_tool.dart';
@@ -18,7 +19,7 @@ import '../../app/app_dialog.dart';
 import '../../app/app_infobar.dart';
 
 /// bmf文件部分的组件
-class BsdBmfFile extends StatefulWidget {
+class BsdBmfFile extends ConsumerStatefulWidget {
   /// bmf file
   final String bmfFile;
 
@@ -29,13 +30,16 @@ class BsdBmfFile extends StatefulWidget {
   const BsdBmfFile(this.bmfFile, this.subject, {super.key});
 
   @override
-  State<BsdBmfFile> createState() => _BsdBmfFileState();
+  ConsumerState<BsdBmfFile> createState() => _BsdBmfFileState();
 }
 
 /// 状态
-class _BsdBmfFileState extends State<BsdBmfFile> {
+class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
   /// fileTool
-  BTFileTool fileTool = BTFileTool();
+  final BTFileTool fileTool = BTFileTool();
+
+  /// notifyTool
+  final BTNotifierTool notifierTool = BTNotifierTool();
 
   /// 文件
   List<String> files = [];
@@ -69,19 +73,6 @@ class _BsdBmfFileState extends State<BsdBmfFile> {
     });
   }
 
-  /// showNotify
-  Future<void> showNotify(String file) async {
-    await BTNotifierTool.showMini(
-      title: '下载完成',
-      body: '下载完成：$file',
-      onClick: () async {
-        var filePath = path.join(widget.bmfFile, file);
-        filePath = filePath.replaceAll(r'\', '/');
-        await launchUrlString('potplayer://$filePath');
-      },
-    );
-  }
-
   /// 刷新文件
   Future<void> refreshFiles() async {
     var filesGet = await fileTool.getFileNames(widget.bmfFile);
@@ -101,7 +92,12 @@ class _BsdBmfFileState extends State<BsdBmfFile> {
           .toList();
       if (diffFiles.isNotEmpty) {
         for (var file in diffFiles) {
-          await showNotify(file);
+          await notifierTool.showVideo(
+            subject: widget.subject,
+            dir: widget.bmfFile,
+            file: file,
+            ref: ref,
+          );
         }
       }
     }
@@ -298,6 +294,7 @@ class _BsdBmfFileInnerPlayerBtnState
       ),
       onPressed: () async {
         await hive.add(filePath, widget.subject);
+        ref.read(navStoreProvider.notifier).goIndex(3);
       },
       onLongPress: () async {
         await hive.add(filePath, widget.subject, play: false);

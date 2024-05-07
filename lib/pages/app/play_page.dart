@@ -5,6 +5,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 // Project imports:
+import '../../components/app/app_dialog.dart';
 import '../../components/app/app_infobar.dart';
 import '../../controller/app/video_controller.dart';
 import '../../models/hive/play_model.dart';
@@ -77,6 +78,7 @@ class _PlayPageState extends ConsumerState<PlayPage>
       await player.seek(Duration(milliseconds: progress));
     }
     if (!play) await player.pause();
+    setState(() {});
   }
 
   /// 跳转
@@ -171,6 +173,17 @@ class _PlayPageState extends ConsumerState<PlayPage>
         IconButton(
           icon: const Icon(FluentIcons.delete),
           onPressed: () async {
+            var confirm = await showConfirmDialog(
+              context,
+              title: '移除播放',
+              content: '是否移除该播放任务？',
+            );
+            if (!confirm) return;
+            await hive.delete(item);
+            setState(() {});
+            if (mounted) await BtInfobar.success(context, '移除成功');
+          },
+          onLongPress: () async {
             await hive.delete(item);
             setState(() {});
           },
@@ -247,12 +260,14 @@ class _PlayPageState extends ConsumerState<PlayPage>
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: BtcVideo(controller),
+            Expanded(
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: BtcVideo(controller),
+              ),
             ),
             const SizedBox(width: 8),
-            Expanded(child: buildList()),
+            SizedBox(width: 150, child: buildList()),
           ],
         ),
       ),
