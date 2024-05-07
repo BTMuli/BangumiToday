@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' as material;
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:pasteboard/pasteboard.dart';
 
@@ -32,8 +33,14 @@ class _BtcVideoState extends State<BtcVideo>
   /// 当前播放速度
   double speed = 1.0;
 
+  // 当前字幕
+  SubtitleTrack? subtitle;
+
   /// 速度的flyout
-  final FlyoutController speedFlyout = FlyoutController();
+  final FlyoutController flyout = FlyoutController();
+
+  /// 字幕
+  List<SubtitleTrack> get subtitles => controller.player.state.tracks.subtitle;
 
   @override
   bool get wantKeepAlive => true;
@@ -42,12 +49,44 @@ class _BtcVideoState extends State<BtcVideo>
   void initState() {
     super.initState();
     speed = controller.player.state.rate;
+    if (subtitles.isNotEmpty) {
+      subtitle = subtitles.first;
+    }
+    setState(() {});
   }
 
   @override
   void dispose() {
-    speedFlyout.dispose();
+    flyout.dispose();
     super.dispose();
+  }
+
+  /// 显示字幕flyout
+  void showSubtitleFlyout() {
+    flyout.showFlyout(
+      barrierDismissible: true,
+      dismissOnPointerMoveAway: false,
+      dismissWithEsc: true,
+      builder: (context) {
+        return MenuFlyout(items: subtitles.map(buildSubtitleButton).toList());
+      },
+    );
+  }
+
+  /// 构建字幕按钮
+  MenuFlyoutItem buildSubtitleButton(SubtitleTrack value) {
+    return MenuFlyoutItem(
+      leading: value == subtitle ? const Icon(material.Icons.check) : null,
+      text: Text(value.title ?? '未知'),
+      onPressed: () async {
+        await controller.player.setSubtitleTrack(value);
+        subtitle = value;
+        // 输出所有track
+        debugPrint(controller.player.state.tracks.subtitle.toString());
+        debugPrint(controller.player.state.subtitle.toString());
+        setState(() {});
+      },
+    );
   }
 
   /// 根据速度获取对应文本
@@ -61,7 +100,7 @@ class _BtcVideoState extends State<BtcVideo>
 
   /// 显示速度flyout
   void showSpeedFlyout() {
-    speedFlyout.showFlyout(
+    flyout.showFlyout(
       barrierDismissible: true,
       dismissOnPointerMoveAway: true,
       dismissWithEsc: true,
@@ -89,6 +128,33 @@ class _BtcVideoState extends State<BtcVideo>
     );
   }
 
+  /// 构建截图
+  Future<void> takeScreenshot() async {
+    await controller.player.pause();
+    var progress = controller.player.state.position.inSeconds;
+    var index = controller.player.state.playlist.index;
+    var file = controller.player.state.playlist.medias[index].uri;
+    var name = Uri.parse(file).pathSegments.last;
+    var res = await controller.player.screenshot();
+    if (res == null) {
+      if (mounted) await BtInfobar.error(context, '截图失败');
+      await controller.player.play();
+      return;
+    }
+    var imagePath = await fileTool.writeTempImage(res, name, progress);
+    // 提前写个空白文件，以防粘贴把之前的文本带上
+    // todo 详见 https://github.com/MixinNetwork/flutter-plugins/issues/335
+    Pasteboard.writeText('');
+    var check = await Pasteboard.writeFiles([imagePath]);
+    if (!check) {
+      if (mounted) await BtInfobar.error(context, '截图失败');
+      await controller.player.play();
+      return;
+    }
+    if (mounted) await BtInfobar.success(context, '截图已复制到剪贴板');
+    await controller.player.play();
+  }
+
   /// 控制栏的数据构建
   MaterialDesktopVideoControlsThemeData buildControls() {
     var base = FluentTheme.of(context).accentColor;
@@ -102,36 +168,18 @@ class _BtcVideoState extends State<BtcVideo>
         const MaterialDesktopPositionIndicator(),
         const MaterialDesktopVolumeButton(),
         const Spacer(),
+        // todo 字幕获取存在问题，详见 https://github.com/media-kit/media-kit/issues/807
+        if (subtitles.isNotEmpty)
+          IconButton(
+            icon: const Icon(material.Icons.closed_caption, size: 24),
+            onPressed: showSubtitleFlyout,
+          ),
         IconButton(
-          onPressed: () async {
-            await controller.player.pause();
-            var progress = controller.player.state.position.inSeconds;
-            var index = controller.player.state.playlist.index;
-            var file = controller.player.state.playlist.medias[index].uri;
-            var name = Uri.parse(file).pathSegments.last;
-            var res = await controller.player.screenshot();
-            if (res == null) {
-              if (mounted) await BtInfobar.error(context, '截图失败');
-              await controller.player.play();
-              return;
-            }
-            var imagePath = await fileTool.writeTempImage(res, name, progress);
-            // 提前写个空白文件，以防粘贴把之前的文本带上
-            // todo 详见 https://github.com/MixinNetwork/flutter-plugins/issues/335
-            Pasteboard.writeText('');
-            var check = await Pasteboard.writeFiles([imagePath]);
-            if (!check) {
-              if (mounted) await BtInfobar.error(context, '截图失败');
-              await controller.player.play();
-              return;
-            }
-            if (mounted) await BtInfobar.success(context, '截图已复制到剪贴板');
-            await controller.player.play();
-          },
+          onPressed: () async => await takeScreenshot(),
           icon: const Icon(FluentIcons.camera, size: 24),
         ),
         FlyoutTarget(
-          controller: speedFlyout,
+          controller: flyout,
           child: IconButton(
             icon: const Icon(material.Icons.fast_forward, size: 24),
             onPressed: showSpeedFlyout,
