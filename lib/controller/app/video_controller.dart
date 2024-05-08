@@ -9,7 +9,7 @@ import 'package:pasteboard/pasteboard.dart';
 
 // Project imports:
 import '../../components/app/app_infobar.dart';
-import '../../components/base/base_icon.dart';
+import '../../components/base/base_theme_icon.dart';
 import '../../store/play_store.dart';
 import '../../tools/file_tool.dart';
 import '../../tools/log_tool.dart';
