@@ -6,7 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 // Project imports:
 import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
-import '../../components/bangumi/search_subject/bss_card.dart';
+import '../../components/bangumi/subject_card/bsc_search.dart';
 import '../../controller/app/page_controller.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_enum_extension.dart';
@@ -321,34 +321,24 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
     if (controller.total == 0) {
       return const Center(child: Text('没有数据'));
     }
-    return GridView(
-      controller: ScrollController(),
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        childAspectRatio: 10 / 7,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-      ),
-      children: result.map(BssCard.new).toList(),
+    return ListView.separated(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+      itemCount: result.length,
+      itemBuilder: (context, index) => BscSearch(result[index]),
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
     );
-  }
-
-  /// 构建内容
-  /// 主要分成两块，
-  /// top-搜索框&加载更多
-  /// bottom-搜索结果
-  Widget buildContent() {
-    return Column(children: [
-      buildSearch(),
-      Expanded(child: buildResult()),
-    ]);
   }
 
   /// 构建函数
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return ScaffoldPage(header: buildHeader(context), content: buildContent());
+    return ScaffoldPage(
+      header: buildHeader(context),
+      content: Column(children: [
+        buildSearch(),
+        Expanded(child: buildResult()),
+      ]),
+    );
   }
 }
