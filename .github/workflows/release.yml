@@ -1,6 +1,15 @@
 name: Build Release
 
 on:
+  workflow_dispatch: {
+    inputs: {
+      tag: {
+        description: 'Tag',
+        required: true,
+        default: 'v0.0.0'
+      }
+    }
+  }
   push:
     tags:
       - 'v*.*.*'
@@ -46,7 +55,7 @@ jobs:
         run: flutter build windows
 
       - name: 压缩打包文件
-        run: Compress-Archive -Path build/windows/x64/runner/Release -DestinationPath BangumiToday.zip
+        run: Compress-Archive -Path .\build\windows\runner\Release -DestinationPath BangumiToday.zip
 
       - name: 上传打包文件
         uses: actions/upload-artifact@v4
@@ -55,7 +64,7 @@ jobs:
           path: BangumiToday.zip
 
       - name: 打包msix
-        run: dart run msix:create -p ${{ secrets.SIGN_SECRET }}
+        run: dart run msix:create -p ${{ secrets.SIGN_SECRET }} --version ${{ github.event.inputs.tag || github.ref }}
 
       - name: 上传 MSIX
         uses: actions/upload-artifact@v4
@@ -77,21 +86,23 @@ jobs:
           Write-Output "> " >> $env:GITHUB_STEP_SUMMARY
           Write-Output "> 由于安装 `.msix` 文件需要证书，请参考 [README](https://github.com/BTMuli/BangumiToday/#%E5%85%B3%E4%BA%8E%E8%AF%81%E4%B9%A6) 进行操作" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "" >> $env:GITHUB_STEP_SUMMARY
+          $log = .\genLog.ps1
+          $log | ForEach-Object { Write-Output $_ >> $env:GITHUB_STEP_SUMMARY }
           Write-Output "sha256:" >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "+ ZIP: `$checksum`" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "+ ZIP：`" + $checksum + "`" >> $env:GITHUB_STEP_SUMMARY
           $checksum = Get-FileHash -Path BangumiToday.msix -Algorithm SHA256
           $checksum = $checksum.Hash
-          Write-Output "+ MSIX: `$checksum`" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "+ MSIX：`" + $checksum + "`" >> $env:GITHUB_STEP_SUMMARY
 
       # 上传 Release
       - name: 发行Release
         uses: ncipollo/release-action@v1.5.0
         with:
+          tag: ${{ github.event.inputs.tag }} || ${{ github.ref }}
           token: ${{ secrets.RELEASE_TOKEN }}
           artifacts: |
             BangumiToday.zip
             目棃.cer
             BangumiToday.msix
           draft: true
-          prerelease: true
-          body: ${{ env.GITHUB_STEP_SUMMARY }}
+          body: $env:GITHUB_STEP_SUMMARY
