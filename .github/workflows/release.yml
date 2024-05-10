@@ -51,17 +51,16 @@ jobs:
           Add-Content -Path .env -Value "BANGUMI_APP_ID=${env:BANGUMI_APP_ID}"
           Add-Content -Path .env -Value "BANGUMI_APP_SECRET=${env:BANGUMI_APP_SECRET}"
 
-      - name: 打包
-        run: flutter build windows
-
-      - name: 压缩打包文件
-        run: Compress-Archive -Path .\build\windows\runner\Release -DestinationPath BangumiToday.zip
+      - name: 打包并压缩
+        run: |
+          flutter build windows
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath BangumiToday.zip
 
       - name: 上传打包文件
         uses: actions/upload-artifact@v4
         with:
-          name: BangumiToday.zip
-          path: BangumiToday.zip
+          name: BangumiToday(zip)
+          path: build/windows/x64/runner/Release
 
       - name: 打包msix
         run: dart run msix:create -p ${{ secrets.SIGN_SECRET }} --version ${{ github.event.inputs.tag || github.ref }}
@@ -69,7 +68,7 @@ jobs:
       - name: 上传 MSIX
         uses: actions/upload-artifact@v4
         with:
-          name: BangumiToday.msix
+          name: BangumiToday(msix)
           path: BangumiToday.msix
 
       - name: 上传证书
