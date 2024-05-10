@@ -39,3 +39,6 @@ app.*.map.json
 # secret
 .env
 genSign.ps1
+plugins/
+# build
+BangumiToday.msix

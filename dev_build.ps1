@@ -21,10 +21,21 @@ if ($version -eq $versionGet)
     exit
 }
 # 如果版本号低于已安装的版本号，不构建
-if ($version -lt $versionGet)
+$vers = $version -split "\."
+$versGet = $versionGet -split "\."
+for ($i = 0; $i -lt 4; $i++)
 {
-    Write-Output "已安装应用版本（$versionGet）高于设置版本（$version），不执行构建"
-    exit
+    $veri = [int]$vers[$i]
+    $verGeti = [int]$versGet[$i]
+    if ($veri -gt $verGeti)
+    {
+        break
+    }
+    if ($veri -lt $verGeti)
+    {
+        Write-Output "已安装应用版本高于设置版本：$version，不执行构建"
+        exit
+    }
 }
 Write-Output "开始构建应用版本：$version，本地版本: $versionGet"
 # 构建命令

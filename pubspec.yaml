@@ -37,6 +37,9 @@ dependencies:
   dio: ^5.4.3+1
   dtorrent_parser: ^1.0.8
   dtorrent_task: ^0.4.0
+  #  dtorrent_task:
+  #    path: plugins/dtorrent_task
+  events_emitter2: ^1.0.4
   file_picker: ^8.0.1
   file_selector: ^1.0.3
   fl_chart: ^0.67.0
@@ -141,6 +144,7 @@ msix_config:
   publisher: CN=目棃, C=CN, E=bt-muli@outlook.com
   publisher_display_name: BTMuli
   output_name: BangumiToday
+  output_path: .
   languages: en-us, zh-cn
   identity_name: BangumiToday
   description: Better Bangumi Helper

@@ -362,7 +362,7 @@ packages:
     source: hosted
     version: "2.0.5"
   events_emitter2:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: events_emitter2
       sha256: "1d2f7b249491e9a143a18992c9a500fc21ac5e271e59e157c12193553ccd3d57"

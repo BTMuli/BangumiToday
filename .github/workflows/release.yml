@@ -13,7 +13,6 @@ jobs:
       contents: write
     env:
       TOKEN: ${{ secrets.SIGN_PATH_TOKEN }}
-
       BANGUMI_APP_ID: ${{ secrets.BANGUMI_APP_ID }}
       BANGUMI_APP_SECRET: ${{ secrets.BANGUMI_APP_SECRET }}
     steps:
@@ -41,55 +40,58 @@ jobs:
         run: |
           New-Item -Path . -Name .env -ItemType File -Force
           Add-Content -Path .env -Value "BANGUMI_APP_ID=${env:BANGUMI_APP_ID}"
-          Add-Content -Path env -Value "BANGUMI_APP_SECRET=${env:BANGUMI_APP_SECRET}"
+          Add-Content -Path .env -Value "BANGUMI_APP_SECRET=${env:BANGUMI_APP_SECRET}"
 
       - name: 打包
         run: flutter build windows
 
+      - name: 压缩打包文件
+        run: Compress-Archive -Path build/windows/x64/runner/Release -DestinationPath BangumiToday.zip
+
       - name: 上传打包文件
         uses: actions/upload-artifact@v4
         with:
-          name: BangumiToday
-          path: build/windows/x64/runner/Release
+          name: BangumiToday.zip
+          path: BangumiToday.zip
 
       - name: 打包msix
-        run: dart run msix:create --sign-msix false
-
-      - name: SignPath 签名
-        if: env.TOKEN != ''
-        shell: pwsh
-        run: |
-          Install-Module -Name SignPath -Force -AllowClobber -Scope CurrentUser
-          Submit-SigningRequest `
-          -InputArtifactPath "build/windows/x64/runner/Release/BangumiToday.msix" `
-          -ApiToken "${env:TOKEN}" `
-          -OrganizationId "df493769-e8b5-461d-84a8-e9cc2071d9b2" `
-          -ProjectSlug "BangumiToday" `
-          -SigningPolicySlug "Dev" `
-          -OutputArtifactPath "BangumiToday.msix" `
-          -WaitForCompletion
+        run: dart run msix:create -p ${{ secrets.SIGN_SECRET }}
 
       - name: 上传 MSIX
-        if: env.TOKEN != ''
         uses: actions/upload-artifact@v4
         with:
-          name: BangumiToday(SignPath)
+          name: BangumiToday.msix
           path: BangumiToday.msix
 
       - name: 上传证书
         uses: actions/upload-artifact@v4
         with:
-          name: BTMuli.cer
-          path: BTMuli.cer
+          name: 目棃.cer
+          path: 目棃.cer
 
-#     这部分的代码跑了几次都没成功，所以先注释掉了
-#      - name: 发行Release
-#        uses: ncipollo/release-action@v1.5.0
-#        with:
-#          tag: ${{ github.ref }}
-#          artifacts: |
-#            BangumiToday.zip
-#            BTMuli.cer
-#            BangumiToday.msix
-#          draft: true
-#          prerelease: true
+      - name: 生成更新说明
+        run: |
+          $checksum = Get-FileHash -Path BangumiToday.zip -Algorithm SHA256
+          $checksum = $checksum.Hash
+          Write-Output "> 本 Release 文件来自 [GithubActions](https://github.com/BTMuli/BangumiToday/actions/runs/${{ github.run_id }})" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "> " >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "> 由于安装 `.msix` 文件需要证书，请参考 [README](https://github.com/BTMuli/BangumiToday/#%E5%85%B3%E4%BA%8E%E8%AF%81%E4%B9%A6) 进行操作" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "sha256:" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "+ ZIP: `$checksum`" >> $env:GITHUB_STEP_SUMMARY
+          $checksum = Get-FileHash -Path BangumiToday.msix -Algorithm SHA256
+          $checksum = $checksum.Hash
+          Write-Output "+ MSIX: `$checksum`" >> $env:GITHUB_STEP_SUMMARY
+
+      # 上传 Release
+      - name: 发行Release
+        uses: ncipollo/release-action@v1.5.0
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
+          artifacts: |
+            BangumiToday.zip
+            目棃.cer
+            BangumiToday.msix
+          draft: true
+          prerelease: true
+          body: ${{ env.GITHUB_STEP_SUMMARY }}
