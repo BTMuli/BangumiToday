@@ -6,7 +6,7 @@ on:
       tag: {
         description: 'Tag',
         required: true,
-        default: '0.0.0.0'
+        default: null
       }
     }
   }
@@ -62,8 +62,13 @@ jobs:
           name: BangumiToday(zip)
           path: build/windows/x64/runner/Release
 
-      - name: 打包msix
-        run: dart run msix:create -p ${{ secrets.SIGN_SECRET }} --version ${{ github.event.inputs.tag || github.ref }}
+      - name: 打包msix(手动)
+        if: github.event.inputs.tag != null
+        run: dart run msix:create -p ${{ secrets.SIGN_SECRET }} --version ${{ github.event.inputs.tag }}
+
+      - name: 打包msix(自动)
+        if: github.event.inputs.tag == null
+        run: dart run msix:create -p ${{ secrets.SIGN_SECRET }}
 
       - name: 上传 MSIX
         uses: actions/upload-artifact@v4
