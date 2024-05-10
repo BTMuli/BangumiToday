@@ -6,7 +6,7 @@ on:
       tag: {
         description: 'Tag',
         required: true,
-        default: 'v0.0.0'
+        default: '0.0.0.0'
       }
     }
   }
@@ -54,7 +54,7 @@ jobs:
       - name: 打包并压缩
         run: |
           flutter build windows
-          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath BangumiToday.zip
+          Compress-Archive -Path ./build/windows/x64/runner/Release/* -DestinationPath BangumiToday.zip
 
       - name: 上传打包文件
         uses: actions/upload-artifact@v4
