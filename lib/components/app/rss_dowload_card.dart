@@ -5,10 +5,10 @@ import 'dart:async';
 import 'package:flutter/material.dart' as material;
 
 // Package imports:
-import 'package:events_emitter2/events_emitter2.dart';
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:dtorrent_parser/dtorrent_parser.dart';
 import 'package:dtorrent_task/dtorrent_task.dart';
+import 'package:events_emitter2/events_emitter2.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';

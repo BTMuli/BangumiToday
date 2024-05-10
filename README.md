@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2024-05-03
+Update: 2024-05-10
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-05-03 17:14:21`
+> 更新于 `2024-05-10 16:21:33`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -45,7 +45,7 @@ flutter build windows
 
 1. 用户已经拥有 [Bangumi.tv](https://bangumi.tv) 账号，并且通过应用相关页面完成了登录授权。
 2. 用户本地安装了 [Motrix](https://motrix.app/) 且将 `torrent` 默认关联到 Motrix。
-3. 用户本地安装了 [PotPlayer](https://potplayer.daum.net/)。
+3. ~~用户本地安装了 [PotPlayer](https://potplayer.daum.net/)~~，后续将逐步采用内置播放。
 4. 用户登录 Bangumi 账号后对收藏数据进行了同步。
 5. 用户在特定条目页面设置了 `SSR` 订阅地址和下载目录。
 

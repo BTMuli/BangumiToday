@@ -2,14 +2,24 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2024-05-02
+Update: 2024-05-10
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:42`
 >
-> 更新于 `2024-05-02 17:43:01`
+> 更新于 `2024-05-10 16:21:40`
 
-## [v0.3.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.2.0) (2024-05-02)
+## [v0.4.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.4.0) (2024-05-10)
+
+- ✨ 完善内置播放，视频支持倍速播放、切换字幕、截图等功能
+- ✨ 记忆播放进度&播放列表，支持仅添加到播放列表
+- 🧪 **由于下载极度消耗性能，故隐藏内置下载**，请采用 Motrix 下载
+- ⚡️ BMF 文件/RSS 配置长按复制到剪贴板
+- ⚡️ 侧边栏增加置顶，与窗口重置合并成一个入口
+- ⚡️ 视频下载完成通知支持内置播放/添加到播放列表
+- ♻️ 条目搜索结果卡片样式重构
+
+## [v0.3.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.3.0) (2024-05-02)
 
 - ✨ 条目搜索、用户收藏等页面支持分页查看
 - 🔊 完善日志记录，便于快速定位问题
