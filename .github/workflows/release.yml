@@ -97,17 +97,15 @@ jobs:
           $checksum = Get-FileHash -Path BangumiToday.msix -Algorithm SHA256
           $checksum = $checksum.Hash
           Write-Output "+ MSIX：``$checksum``" >> $env:GITHUB_STEP_SUMMARY
-          $env:GITHUB_STEP_SUMMARY | Out-File -FilePath .github/step_summary.md -Encoding utf8
 
       # 上传 Release
       - name: 发行Release
         uses: ncipollo/release-action@v1.5.0
         with:
-          tag: ${{ github.event.inputs.tag }} || ${{ github.ref }}
+          tag: ${{ github.ref }}
           token: ${{ secrets.RELEASE_TOKEN }}
           artifacts: |
             BangumiToday.zip
             目棃.cer
             BangumiToday.msix
           draft: true
-          bodyFile: .github/step_summary.md
