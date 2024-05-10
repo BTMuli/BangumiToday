@@ -83,15 +83,16 @@ jobs:
           $checksum = $checksum.Hash
           Write-Output "> 本 Release 文件来自 [GithubActions](https://github.com/BTMuli/BangumiToday/actions/runs/${{ github.run_id }})" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "> " >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "> 由于安装 `.msix` 文件需要证书，请参考 [README](https://github.com/BTMuli/BangumiToday/#%E5%85%B3%E4%BA%8E%E8%AF%81%E4%B9%A6) 进行操作" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "> 由于安装 ``.msix`` 文件需要证书，请参考 [README](https://github.com/BTMuli/BangumiToday/#%E5%85%B3%E4%BA%8E%E8%AF%81%E4%B9%A6) 进行操作" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "" >> $env:GITHUB_STEP_SUMMARY
           $log = .\genLog.ps1
           $log | ForEach-Object { Write-Output $_ >> $env:GITHUB_STEP_SUMMARY }
           Write-Output "sha256:" >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "+ ZIP：`" + $checksum + "`" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "+ ZIP：``$checksum``" >> $env:GITHUB_STEP_SUMMARY
           $checksum = Get-FileHash -Path BangumiToday.msix -Algorithm SHA256
           $checksum = $checksum.Hash
-          Write-Output "+ MSIX：`" + $checksum + "`" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "+ MSIX：``$checksum``" >> $env:GITHUB_STEP_SUMMARY
+          $env:GITHUB_STEP_SUMMARY | Out-File -FilePath .github/step_summary.md -Encoding utf8
 
       # 上传 Release
       - name: 发行Release
@@ -104,4 +105,4 @@ jobs:
             目棃.cer
             BangumiToday.msix
           draft: true
-          body: $env:GITHUB_STEP_SUMMARY
+          bodyFile: .github/step_summary.md
