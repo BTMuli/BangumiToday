@@ -11,14 +11,14 @@ import '../core/client.dart';
 /// 站点：https://www.comicat.org
 class ComicatAPI {
   /// 请求客户端
-  late final BTRequestClient client;
+  late final BtrClient client;
 
   /// 基础 URL
   final String baseUrl = 'https://www.comicat.org';
 
   /// 构造函数
   ComicatAPI() {
-    client = BTRequestClient();
+    client = BtrClient();
     client.dio.options.baseUrl = baseUrl;
   }
 

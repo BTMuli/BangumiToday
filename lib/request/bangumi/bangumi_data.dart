@@ -12,7 +12,7 @@ import '../core/client.dart';
 /// CDN: https://unpkg.com/bangumi-data@0.3/dist/data.json
 class BtrBangumiData {
   /// 请求客户端
-  late final BTRequestClient client;
+  late final BtrClient client;
 
   /// 获取数据的基础 URL
   final String jsonUrl = 'https://unpkg.com/bangumi-data@0.3/dist/data.json';
@@ -23,7 +23,7 @@ class BtrBangumiData {
 
   /// 构造函数
   BtrBangumiData() {
-    client = BTRequestClient();
+    client = BtrClient();
   }
 
   /// 获取番剧数据

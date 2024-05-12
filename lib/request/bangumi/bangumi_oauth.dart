@@ -8,20 +8,20 @@ import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../tools/log_tool.dart';
 import '../../utils/bangumi_utils.dart';
-import 'bangumi_client.dart';
+import '../core/client.dart';
 
 /// bangumi.tv 的 OAuth
 /// 参考: https://github.com/bangumi/api/blob/master/docs-raw/How-to-Auth.md
 class BtrBangumiOauth {
   /// 请求客户端
-  late final BtrBangumi client;
+  late final BtrClient client;
 
   /// 基础 url
   final String baseUrl = 'https://bgm.tv/oauth';
 
   /// 构造函数
   BtrBangumiOauth() {
-    client = BtrBangumi();
+    client = BtrClient.withHeader();
     client.dio.options.baseUrl = baseUrl;
   }
 

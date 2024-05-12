@@ -12,14 +12,14 @@ import '../core/client.dart';
 /// 镜像站点：https://mikanani.hacgn.fun
 class MikanAPI {
   /// 请求客户端
-  late final BTRequestClient client;
+  late final BtrClient client;
 
   /// 基础 URL
   final String baseUrl = 'https://mikanime.tv/RSS';
 
   /// 构造函数
   MikanAPI() {
-    client = BTRequestClient();
+    client = BtrClient();
     client.dio.options.baseUrl = baseUrl;
   }
 

@@ -30,7 +30,7 @@ class TrackerHive extends ChangeNotifier {
   static Box<TrackerHiveModel> get box => Hive.box<TrackerHiveModel>('tracker');
 
   /// dio
-  final BTRequestClient client = BTRequestClient();
+  final BtrClient client = BtrClient();
 
   /// 获取所有tracker
   List<Uri> getTrackerList() {

@@ -25,7 +25,7 @@ class BTDownloadTool {
   late bool isInit = false;
 
   /// 请求客户端
-  final BTRequestClient client = BTRequestClient();
+  final BtrClient client = BtrClient();
 
   /// 获取实例
   factory BTDownloadTool() => instance;

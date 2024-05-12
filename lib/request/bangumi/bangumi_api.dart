@@ -15,13 +15,13 @@ import '../../models/bangumi/request_subject.dart';
 import '../../models/bangumi/request_user.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../tools/log_tool.dart';
-import 'bangumi_client.dart';
+import '../core/client.dart';
 
 /// bangumi.tv 的 API
 /// 详细文档请参考 https://bangumi.github.io/api/
 class BtrBangumiApi {
   /// 请求客户端
-  late final BtrBangumi client;
+  late final BtrClient client;
 
   /// 基础 URL
   final String baseUrl = 'https://api.bgm.tv';
@@ -31,7 +31,7 @@ class BtrBangumiApi {
 
   /// 构造函数
   BtrBangumiApi() {
-    client = BtrBangumi();
+    client = BtrClient.withHeader();
     client.dio.options.baseUrl = baseUrl;
   }
 
