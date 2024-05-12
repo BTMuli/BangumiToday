@@ -10,7 +10,7 @@ import '../core/client.dart';
 
 /// DandanPlay 的 API，用于获取弹幕
 /// 参考：https://api.dandanplay.net/swagger/ui/index
-class DanmakuAPI {
+class BtrDanmakuAPI {
   /// 请求客户端
   late final BtrClient client;
 
@@ -18,7 +18,7 @@ class DanmakuAPI {
   final String baseUrl = 'https://api.dandanplay.net/api/v2/';
 
   /// 构造函数
-  DanmakuAPI() {
+  BtrDanmakuAPI() {
     client = BtrClient.withHeader();
     client.dio.options.baseUrl = baseUrl;
   }

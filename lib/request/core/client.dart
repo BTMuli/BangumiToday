@@ -41,15 +41,13 @@ class BtrClient {
     _dio.interceptors.add(interceptor);
   }
 
-  /// BtrClient.withHeader
   BtrClient.withHeader() {
+    _dio = Dio(BaseOptions());
+    var interceptor = getInterceptor();
+    _dio.interceptors.add(interceptor);
     Future.microtask(() async {
-      var headers = <String, dynamic>{
-        'User-Agent': await getClientUA(),
-      };
-      _dio = Dio(BaseOptions(headers: headers));
-      var interceptor = getInterceptor();
-      _dio.interceptors.add(interceptor);
+      var headers = {'User-Agent': await getClientUA()} as Map<String, dynamic>;
+      _dio.options.headers.addAll(headers);
     });
   }
 
