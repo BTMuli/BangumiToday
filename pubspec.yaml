@@ -62,6 +62,10 @@ dependencies:
   media_kit: ^1.1.10+1
   media_kit_libs_video: ^1.0.4
   media_kit_video: ^1.2.4
+  ns_danmaku:
+    git:
+      url: https://github.com/xiaoyaocz/flutter_ns_danmaku.git
+      ref: master
   package_info_plus: ^7.0.0
   pasteboard: ^0.2.0
   path: ^1.9.0

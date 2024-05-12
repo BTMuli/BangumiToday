@@ -7,7 +7,7 @@ Update: 2024-05-12
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-05-12 18:35:17`
+> 更新于 `2024-05-12 21:58:56`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -104,6 +104,7 @@ flutter build windows
 - [BangumiAPI(server)](https://github.com/bangumi/server)
 - [BangumiOAuth](https://github.com/bangumi/api/blob/master/docs-raw/How-to-Auth.md)
 - [czy0729/Bangumi](https://github.com/czy0729/Bangumi)
+- [DandanPlay(doc)](https://github.com/kaedei/dandanplay-libraryindex/blob/master/api/OpenPlatform.md)
 - [KNKPAnime](https://github.com/KNKPA/KNKPAnime)
 
 ## Special Thanks（按照字典序）
