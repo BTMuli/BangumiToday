@@ -9,7 +9,7 @@ import 'package:window_manager/window_manager.dart';
 // Project imports:
 import '../../pages/app/bmf_page.dart';
 import '../../pages/app/download_page.dart';
-import '../../pages/app/play_page.dart';
+import '../../pages/app/play/play_page.dart';
 import '../../pages/app/rss_page.dart';
 import '../../pages/app/setting_page.dart';
 import '../../pages/app/test_page.dart';

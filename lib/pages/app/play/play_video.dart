@@ -3,37 +3,36 @@ import 'package:flutter/material.dart' as material;
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:pasteboard/pasteboard.dart';
 
 // Project imports:
-import '../../components/app/app_infobar.dart';
-import '../../components/base/base_theme_icon.dart';
-import '../../store/play_store.dart';
-import '../../tools/file_tool.dart';
-import '../../tools/log_tool.dart';
+import '../../../components/app/app_infobar.dart';
+import '../../../components/base/base_theme_icon.dart';
+import '../../../store/play_store.dart';
+import '../../../tools/file_tool.dart';
+import '../../../tools/log_tool.dart';
+import 'play_controller.dart';
 
-class BtcVideo extends StatefulWidget {
-  /// controller
-  final VideoController controller;
-
+class PlayVideoWidget extends ConsumerStatefulWidget {
   /// 构造函数
-  const BtcVideo(this.controller, {super.key});
+  const PlayVideoWidget({super.key});
 
   @override
-  State<BtcVideo> createState() => _BtcVideoState();
+  ConsumerState<PlayVideoWidget> createState() => _PlayVideoWidgetState();
 }
 
-class _BtcVideoState extends State<BtcVideo> {
-  /// 控制器
-  VideoController get controller => widget.controller;
+class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
+  /// Player
+  BtPlayer get player => ref.watch(playControllerProvider).player;
 
   /// fileTool
   final BTFileTool fileTool = BTFileTool();
 
   /// 当前播放速度
-  double speed = 1.0;
+  double get speed => player.state.rate;
 
   // 当前字幕
   SubtitleTrack? subtitle;
@@ -45,12 +44,11 @@ class _BtcVideoState extends State<BtcVideo> {
   final FlyoutController flyout = FlyoutController();
 
   /// 字幕
-  List<SubtitleTrack> get subtitles => controller.player.state.tracks.subtitle;
+  List<SubtitleTrack> get subtitles => player.state.tracks.subtitle;
 
   @override
   void initState() {
     super.initState();
-    speed = controller.player.state.rate;
     if (subtitles.isNotEmpty) {
       subtitle = subtitles.first;
     }
@@ -82,7 +80,7 @@ class _BtcVideoState extends State<BtcVideo> {
       selected: v == subtitle,
       text: Text('${v.id} ${v.language} ${v.title}'),
       onPressed: () async {
-        await controller.player.setSubtitleTrack(v);
+        await player.setSubtitleTrack(v);
         subtitle = v;
         setState(() {});
       },
@@ -133,24 +131,22 @@ class _BtcVideoState extends State<BtcVideo> {
       trailing: BaseThemeIcon(getSpeedIcon(value)),
       text: Text(getSpeedLabel(value)),
       onPressed: () async {
-        speed = value;
-        setState(() {});
-        await controller.player.setRate(value);
+        ref.read(playControllerProvider.notifier).setSpeed(value);
       },
     );
   }
 
   /// 构建截图
   Future<void> takeScreenshot() async {
-    await controller.player.pause();
-    var progress = controller.player.state.position.inSeconds;
-    var index = controller.player.state.playlist.index;
-    var file = controller.player.state.playlist.medias[index].uri;
+    await player.pause();
+    var progress = player.state.position.inSeconds;
+    var index = player.state.playlist.index;
+    var file = player.state.playlist.medias[index].uri;
     var name = Uri.parse(file).pathSegments.last;
-    var res = await controller.player.screenshot();
+    var res = await player.screenshot();
     if (res == null) {
       if (mounted) await BtInfobar.error(context, '截图失败');
-      await controller.player.play();
+      await player.play();
       return;
     }
     var imagePath = await fileTool.writeTempImage(res, name, progress);
@@ -160,17 +156,17 @@ class _BtcVideoState extends State<BtcVideo> {
     var check = await Pasteboard.writeFiles([imagePath]);
     if (!check) {
       if (mounted) await BtInfobar.error(context, '截图失败');
-      await controller.player.play();
+      await player.play();
       return;
     }
     if (mounted) await BtInfobar.success(context, '截图已复制到剪贴板');
-    await controller.player.play();
+    await player.play();
   }
 
   /// 保存当前进度
   Future<void> saveProgress() async {
-    var progress = controller.player.state.position.inMilliseconds;
-    var index = controller.player.state.playlist.index;
+    var progress = player.state.position.inMilliseconds;
+    var index = player.state.playlist.index;
     await hive.updateProgress(progress, index);
   }
 
@@ -185,18 +181,18 @@ class _BtcVideoState extends State<BtcVideo> {
         IconButton(
           icon: const Icon(FluentIcons.chevron_left_end6),
           onPressed: () async {
-            var index = controller.player.state.playlist.index;
+            var index = player.state.playlist.index;
             await saveProgress();
             if (index == 0) {
               if (mounted) await BtInfobar.warn(context, '已经是第一个了');
               return;
             }
-            await controller.player.previous();
-            await controller.player.stream.buffer.first;
+            await player.previous();
+            await player.stream.buffer.first;
             var progress = hive.getProgress(index - 1);
             if (progress != 0) {
               BTLogTool.info('跳转到上次播放进度: $progress');
-              await controller.player.seek(Duration(milliseconds: progress));
+              await player.seek(Duration(milliseconds: progress));
             }
             setState(() {});
           },
@@ -204,31 +200,31 @@ class _BtcVideoState extends State<BtcVideo> {
         IconButton(
           icon: const Icon(FluentIcons.play),
           onPressed: () async {
-            var isPlaying = controller.player.state.playing;
+            var isPlaying = player.state.playing;
             if (isPlaying) {
-              await controller.player.pause();
+              await player.pause();
               await saveProgress();
             } else {
-              await controller.player.play();
+              await player.play();
             }
           },
         ),
         IconButton(
           icon: const Icon(FluentIcons.chevron_right_end6),
           onPressed: () async {
-            var total = controller.player.state.playlist.medias.length;
-            var index = controller.player.state.playlist.index;
+            var total = player.state.playlist.medias.length;
+            var index = player.state.playlist.index;
             await saveProgress();
             if (index == total - 1) {
               if (mounted) await BtInfobar.warn(context, '已经是最后一个了');
               return;
             }
-            await controller.player.next();
-            await controller.player.stream.buffer.first;
+            await player.next();
+            await player.stream.buffer.first;
             var progress = hive.getProgress(index + 1);
             if (progress != 0) {
               BTLogTool.info('跳转到上次播放进度: $progress');
-              await controller.player.seek(Duration(milliseconds: progress));
+              await player.seek(Duration(milliseconds: progress));
             }
             setState(() {});
           },
@@ -257,6 +253,14 @@ class _BtcVideoState extends State<BtcVideo> {
           ),
         ),
         const MaterialDesktopFullscreenButton(),
+
+        /// 是否展示弹幕
+        IconButton(
+          icon: const Icon(FluentIcons.comment),
+          onPressed: () {
+            ref.read(playControllerProvider.notifier).toggleDanmaku();
+          },
+        ),
       ],
     );
   }
@@ -268,7 +272,7 @@ class _BtcVideoState extends State<BtcVideo> {
       fullscreen: buildControls(),
       child: material.Scaffold(
         body: Video(
-          controller: controller,
+          controller: ref.watch(playControllerProvider).video,
           // 对于部分字幕无法处理，详见 https://github.com/media-kit/media-kit/issues/805
           subtitleViewConfiguration: SubtitleViewConfiguration(
             style: TextStyle(

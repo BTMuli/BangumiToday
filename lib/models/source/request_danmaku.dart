@@ -1,5 +1,9 @@
+// Dart imports:
+import 'dart:ui';
+
 // Package imports:
 import 'package:json_annotation/json_annotation.dart';
+import 'package:ns_danmaku/ns_danmaku.dart';
 
 // Project imports:
 import '../app/response.dart';
@@ -250,7 +254,7 @@ class DanmakuEpisodeCommentsResponse {
 }
 
 /// DandanPlay 章节弹幕
-@JsonSerializable()
+@JsonSerializable(explicitToJson: false)
 class DanmakuEpisodeComment {
   /// 弹幕 ID
   @JsonKey(name: 'cid')
@@ -279,6 +283,25 @@ class DanmakuEpisodeComment {
   factory DanmakuEpisodeComment.fromJson(Map<String, dynamic> json) =>
       _$DanmakuEpisodeCommentFromJson(json);
 
-  /// to json
-  Map<String, dynamic> toJson() => _$DanmakuEpisodeCommentToJson(this);
+  /// to danmakuItem
+  DanmakuItem toDanmakuItem() {
+    var p = this.p.split(',');
+    Color color = Color(int.parse(p[2]));
+    var type = int.parse(p[1]);
+    DanmakuItemType pos;
+    switch (type) {
+      case 1:
+        pos = DanmakuItemType.scroll;
+        break;
+      case 4:
+        pos = DanmakuItemType.bottom;
+        break;
+      case 5:
+        pos = DanmakuItemType.top;
+        break;
+      default:
+        pos = DanmakuItemType.scroll;
+    }
+    return DanmakuItem(m, color: color, type: pos);
+  }
 }

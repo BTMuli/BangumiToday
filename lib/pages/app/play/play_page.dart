@@ -5,14 +5,15 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 // Project imports:
-import '../../components/app/app_dialog.dart';
-import '../../components/app/app_infobar.dart';
-import '../../controller/app/video_controller.dart';
-import '../../models/hive/play_model.dart';
-import '../../store/nav_store.dart';
-import '../../store/play_store.dart';
-import '../../tools/file_tool.dart';
-import '../../tools/log_tool.dart';
+import '../../../components/app/app_dialog.dart';
+import '../../../components/app/app_infobar.dart';
+import '../../../models/hive/play_model.dart';
+import '../../../store/nav_store.dart';
+import '../../../store/play_store.dart';
+import '../../../tools/file_tool.dart';
+import '../../../tools/log_tool.dart';
+import 'play_controller.dart';
+import 'play_video.dart';
 
 /// 播放页面
 class PlayPage extends ConsumerStatefulWidget {
@@ -26,11 +27,11 @@ class PlayPage extends ConsumerStatefulWidget {
 /// PlayPageState
 class _PlayPageState extends ConsumerState<PlayPage>
     with AutomaticKeepAliveClientMixin {
-  /// 播放器
-  late final player = Player();
+  /// player
+  BtPlayer get player => ref.watch(playControllerProvider).player;
 
-  /// 控制器
-  late final VideoController controller = VideoController(player);
+  /// controller
+  VideoController get controller => ref.watch(playControllerProvider).video;
 
   /// hive
   final PlayHive hive = PlayHive();
@@ -260,14 +261,17 @@ class _PlayPageState extends ConsumerState<PlayPage>
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
+            const Expanded(
               child: AspectRatio(
                 aspectRatio: 16 / 9,
-                child: BtcVideo(controller),
+                child: Stack(children: [
+                  PlayVideoWidget(),
+                  // PlayDanmakuWidget(controller),
+                ]),
               ),
             ),
             const SizedBox(width: 8),
-            SizedBox(width: 150, child: buildList()),
+            SizedBox(width: 150, child: buildList())
           ],
         ),
       ),
