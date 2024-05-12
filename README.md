@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2024-05-10
+Update: 2024-05-12
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-05-10 16:21:33`
+> 更新于 `2024-05-12 18:35:17`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -28,17 +28,6 @@ Update: 2024-05-10
 
 结合本地目录，提供番剧更新提醒、SSR订阅&下载、进度记录等功能。
 
-## 开发
-
-```shell
-# build runner
-dart run build_runner build --delete-conflicting-outputs
-# build runner watch
-dart run build_runner watch --delete-conflicting-outputs
-# build windows
-flutter build windows
-```
-
 ## 使用前提
 
 应用的良好使用体验**基于如下前提**：
@@ -48,6 +37,20 @@ flutter build windows
 3. ~~用户本地安装了 [PotPlayer](https://potplayer.daum.net/)~~，后续将逐步采用内置播放。
 4. 用户登录 Bangumi 账号后对收藏数据进行了同步。
 5. 用户在特定条目页面设置了 `SSR` 订阅地址和下载目录。
+
+## 应用预览
+
+![](./screenshots/calendar.png)
+
+![](./screenshots/subjectDetail.png)
+
+![](./screenshots/subjectDetail2.png)
+
+![](./screenshots/subjectSearch.png)
+
+![](./screenshots/userCollection.png)
+
+![](./screenshots/videoPlay.png)
 
 ## 发行
 
@@ -72,6 +75,17 @@ flutter build windows
 
 选择`受信任的发布者`或者`受信任人`，点击`确定`，点击`下一步`，点击`完成`。
 
+## 开发
+
+```shell
+# build runner
+dart run build_runner build --delete-conflicting-outputs
+# build runner watch
+dart run build_runner watch --delete-conflicting-outputs
+# build windows
+flutter build windows
+```
+
 ## 依赖（按照字典序）
 
 项目使用了如下依赖以实现相关功能：
@@ -90,6 +104,7 @@ flutter build windows
 - [BangumiAPI(server)](https://github.com/bangumi/server)
 - [BangumiOAuth](https://github.com/bangumi/api/blob/master/docs-raw/How-to-Auth.md)
 - [czy0729/Bangumi](https://github.com/czy0729/Bangumi)
+- [KNKPAnime](https://github.com/KNKPA/KNKPAnime)
 
 ## Special Thanks（按照字典序）
 
