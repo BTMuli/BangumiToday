@@ -45,10 +45,9 @@ class DanmakuHiveAdapter extends TypeAdapter<DanmakuHiveModel> {
 
   @override
   void write(BinaryWriter writer, DanmakuHiveModel obj) {
-    writer
-      ..writeInt(obj.subjectId)
-      ..writeInt(obj.animeId ?? -1)
-      ..writeString(obj.animeTitle ?? '')
-      ..writeMap(obj.episodes ?? {});
+    writer.writeInt(obj.subjectId);
+    if (obj.animeId != null) writer.writeInt(obj.animeId!);
+    if (obj.animeTitle != null) writer.writeString(obj.animeTitle!);
+    if (obj.episodes != null) writer.writeMap(obj.episodes!);
   }
 }

@@ -9,8 +9,11 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:pasteboard/pasteboard.dart';
 
 // Project imports:
+import '../../../components/app/app_dialog.dart';
 import '../../../components/app/app_infobar.dart';
 import '../../../components/base/base_theme_icon.dart';
+import '../../../request/source/danmaku_api.dart';
+import '../../../store/danmaku_hive.dart';
 import '../../../store/play_store.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/log_tool.dart';
@@ -37,8 +40,11 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
   // 当前字幕
   SubtitleTrack? subtitle;
 
-  /// hive
-  final PlayHive hive = PlayHive();
+  /// PlayHive
+  final PlayHive hivePlay = PlayHive();
+
+  /// 弹幕Hive
+  final DanmakuHive hiveDanmaku = DanmakuHive();
 
   /// 速度的flyout
   final FlyoutController flyout = FlyoutController();
@@ -46,14 +52,8 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
   /// 字幕
   List<SubtitleTrack> get subtitles => player.state.tracks.subtitle;
 
-  @override
-  void initState() {
-    super.initState();
-    if (subtitles.isNotEmpty) {
-      subtitle = subtitles.first;
-    }
-    setState(() {});
-  }
+  /// 弹幕 api
+  final BtrDanmakuAPI danmakuApi = BtrDanmakuAPI();
 
   @override
   void dispose() {
@@ -167,7 +167,7 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
   Future<void> saveProgress() async {
     var progress = player.state.position.inMilliseconds;
     var index = player.state.playlist.index;
-    await hive.updateProgress(progress, index);
+    await hivePlay.updateProgress(progress, index);
   }
 
   /// 控制栏的数据构建
@@ -189,7 +189,7 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
             }
             await player.previous();
             await player.stream.buffer.first;
-            var progress = hive.getProgress(index - 1);
+            var progress = hivePlay.getProgress(index - 1);
             if (progress != 0) {
               BTLogTool.info('跳转到上次播放进度: $progress');
               await player.seek(Duration(milliseconds: progress));
@@ -221,7 +221,7 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
             }
             await player.next();
             await player.stream.buffer.first;
-            var progress = hive.getProgress(index + 1);
+            var progress = hivePlay.getProgress(index + 1);
             if (progress != 0) {
               BTLogTool.info('跳转到上次播放进度: $progress');
               await player.seek(Duration(milliseconds: progress));
@@ -253,11 +253,39 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
           ),
         ),
         const MaterialDesktopFullscreenButton(),
-
-        /// 是否展示弹幕
         IconButton(
           icon: const Icon(FluentIcons.comment),
-          onPressed: () {
+          onPressed: () async {
+            /// 获取当前播放的model
+            var cur = hivePlay.all[player.state.playlist.index];
+            if (cur.danmakuId == null || cur.danmakuId == -1) {
+              /// 查询 animeId
+              var animeFind = hiveDanmaku.findBySubject(cur.subjectId);
+              if (animeFind == null || animeFind.animeId == null) {
+                await BtInfobar.error(context, '未找到对应弹幕');
+              }
+              if (mounted) {
+                var input = await showInputDialog(
+                  context,
+                  title: '集数',
+                  content: '请输入对应集数',
+                );
+                if (input == null || input.isEmpty) return;
+                if (!int.tryParse(input, radix: 10)!.isFinite) {
+                  if (mounted) await BtInfobar.error(context, '请输入数字');
+                  return;
+                }
+                var episode = animeFind!.animeId! * 10000 + int.parse(input);
+                var comments = await danmakuApi.getDanmaku2(episode);
+                if (comments.isEmpty && mounted) {
+                  await BtInfobar.error(context, '未找到对应弹幕');
+                  return;
+                }
+                player.addDanmaku(comments);
+                ref.read(playControllerProvider.notifier).toggleDanmaku();
+              }
+              return;
+            }
             ref.read(playControllerProvider.notifier).toggleDanmaku();
           },
         ),

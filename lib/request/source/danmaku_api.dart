@@ -63,7 +63,25 @@ class BtrDanmakuAPI {
     }
   }
 
+  /// 查找动画（精简版）
+  Future<List<DanmakuSearchAnimeDetails>> searchAnime2(
+    String keyword, {
+    DanmakuAnimeType? type,
+  }) async {
+    var resp = await searchAnime(keyword, type: type);
+    if (resp.code != 0 || resp.data == null) return [];
+    if (resp.data is! List) return [];
+    var list = resp.data as List;
+    return list
+        .map(
+          (e) => DanmakuSearchAnimeDetails.fromJson(e as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
   /// 查找章节
+  /// 如果 animeId 为 17441，则该 anime 下第一个 episode 为 174410001，第二个为 174410002
+  /// 所以只需要获取 animeId 跟集数即可，不过还是需要支持手动切换
   Future<BTResponse> searchEpisode(String anime, {String episode = ''}) async {
     var param = {'anime': anime} as Map<String, dynamic>;
     if (episode.isNotEmpty) {
@@ -101,6 +119,19 @@ class BtrDanmakuAPI {
         data: e.toString(),
       );
     }
+  }
+
+  /// 查找章节（精简版）
+  Future<List<DanmakuSearchEpisodesAnime>> searchEpisode2(String anime) async {
+    var resp = await searchEpisode(anime);
+    if (resp.code != 0 || resp.data == null) return [];
+    if (resp.data is! List) return [];
+    var list = resp.data as List;
+    return list
+        .map(
+          (e) => DanmakuSearchEpisodesAnime.fromJson(e as Map<String, dynamic>),
+        )
+        .toList();
   }
 
   /// 获取弹幕
@@ -155,5 +186,13 @@ class BtrDanmakuAPI {
         data: e.toString(),
       );
     }
+  }
+
+  /// 获取弹幕（精简版）
+  Future<List<DanmakuEpisodeComment>> getDanmaku2(int episode) async {
+    var resp = await getDanmaku(episode);
+    if (resp.code != 0 || resp.data == null) return [];
+    var data = resp.data as DanmakuEpisodeCommentsResponse;
+    return data.comments;
   }
 }

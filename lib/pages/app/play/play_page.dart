@@ -3,6 +3,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:ns_danmaku/ns_danmaku.dart';
 
 // Project imports:
 import '../../../components/app/app_dialog.dart';
@@ -124,7 +125,7 @@ class _PlayPageState extends ConsumerState<PlayPage>
   Widget buildHeader() {
     var name = '无';
     if (hive.all.isNotEmpty) {
-      var cur = hive.all[hive.index].file;
+      var cur = hive.all[hive.index].path;
       name = Uri.parse(cur).pathSegments.last;
     }
     return PageHeader(
@@ -195,7 +196,8 @@ class _PlayPageState extends ConsumerState<PlayPage>
 
   /// 构建播放卡片
   Widget buildCard(PlayHiveModel item, int index) {
-    var name = Uri.parse(item.file).pathSegments.last;
+    assert(item.sourceType == VideoSourceType.local);
+    var name = Uri.parse(item.path).pathSegments.last;
     return Card(
       padding: const EdgeInsets.all(4),
       child: Column(
@@ -243,6 +245,16 @@ class _PlayPageState extends ConsumerState<PlayPage>
     );
   }
 
+  /// 构建弹幕
+  Widget buildDanmaku() {
+    return DanmakuView(
+      createdController: (controller) {
+        ref.read(playControllerProvider.notifier).setDanmaku(controller);
+      },
+      option: DanmakuOption(),
+    );
+  }
+
   /// 构建
   @override
   Widget build(BuildContext context) {
@@ -261,12 +273,12 @@ class _PlayPageState extends ConsumerState<PlayPage>
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Expanded(
+            Expanded(
               child: AspectRatio(
                 aspectRatio: 16 / 9,
                 child: Stack(children: [
-                  PlayVideoWidget(),
-                  // PlayDanmakuWidget(controller),
+                  const PlayVideoWidget(),
+                  buildDanmaku(),
                 ]),
               ),
             ),

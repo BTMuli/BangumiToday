@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
+import '../../components/app/app_dialog.dart';
 import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/subject_detail/bsd_bmf.dart';
@@ -11,11 +12,16 @@ import '../../components/bangumi/subject_detail/bsd_overview.dart';
 import '../../components/bangumi/subject_detail/bsd_relation.dart';
 import '../../components/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../components/bangumi/subject_detail/bsd_user_episodes.dart';
+import '../../components/danmaku/anime_overlay.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../models/hive/danmaku_model.dart';
 import '../../models/hive/nav_model.dart';
+import '../../models/source/request_danmaku.dart';
 import '../../request/bangumi/bangumi_api.dart';
+import '../../request/source/danmaku_api.dart';
 import '../../store/bgm_user_hive.dart';
+import '../../store/danmaku_hive.dart';
 import '../../store/nav_store.dart';
 import '../../utils/tool_func.dart';
 
@@ -38,7 +44,10 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
   BangumiSubject? data;
 
   /// 用户Hive
-  final BgmUserHive hive = BgmUserHive();
+  final BgmUserHive hiveUser = BgmUserHive();
+
+  /// 弹幕Hive
+  final DanmakuHive hiveDanmaku = DanmakuHive();
 
   @override
   bool get wantKeepAlive => true;
@@ -88,6 +97,51 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     return images.large;
   }
 
+  /// 获取弹幕
+  Future<void> fetchDanmaku(String id) async {
+    var confirm = await showConfirmDialog(
+      context,
+      title: '确定匹配？',
+      content: '未检测到与当前条目对应的弹幕，是否尝试匹配？',
+    );
+    if (!confirm) return;
+    String? keyword = '';
+    if (mounted) {
+      keyword = await showInputDialog(
+        context,
+        title: '查询关键词',
+        content: '请输入查询关键词',
+        value: data!.name,
+      );
+    }
+    if (keyword == null || keyword == '') {
+      if (mounted) await BtInfobar.warn(context, '未输入关键词');
+      return;
+    }
+    var api = BtrDanmakuAPI();
+    var res = await api.searchAnime(keyword);
+    if (res.code != 0 || res.data == null) {
+      if (mounted) await showRespErr(res, context);
+      return;
+    }
+    var danmaku = res.data as DanmakuSearchAnimeResponse;
+    if (danmaku.list?.isEmpty ?? true) {
+      if (mounted) await BtInfobar.warn(context, '未找到对应弹幕');
+      return;
+    }
+    if (mounted) {
+      var select = await selectAnime(context, danmaku.list!);
+      if (select == null) return;
+      var model = DanmakuHiveModel(
+        subjectId: int.parse(id),
+        animeId: select.animeId,
+        animeTitle: select.animeTitle,
+      );
+      await hiveDanmaku.add(model);
+      if (mounted) await BtInfobar.success(context, '成功匹配');
+    }
+  }
+
   /// 构建顶部栏
   Widget buildHeader() {
     String? title;
@@ -117,11 +171,42 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
           overflow: TextOverflow.ellipsis,
         ),
       ),
-      commandBar: IconButton(
-        icon: const Icon(FluentIcons.refresh),
-        onPressed: () async {
-          await init();
-        },
+      commandBar: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(FluentIcons.library),
+            onPressed: () async {
+              var check = hiveDanmaku.findBySubject(int.parse(widget.id));
+              if (check == null) {
+                await fetchDanmaku(widget.id);
+              } else {
+                await hiveDanmaku.showInfo(context, check);
+              }
+            },
+            onLongPress: () async {
+              var check = hiveDanmaku.findBySubject(int.parse(widget.id));
+              if (check == null) {
+                await fetchDanmaku(widget.id);
+                return;
+              }
+              var confirm = await showConfirmDialog(
+                context,
+                title: '重新匹配',
+                content: '确定重新匹配吗？',
+              );
+              if (!confirm) return;
+              await fetchDanmaku(widget.id);
+            },
+          ),
+          IconButton(
+            icon: const Icon(FluentIcons.refresh),
+            onPressed: () async {
+              await init();
+            },
+          ),
+        ],
       ),
     );
   }
@@ -225,8 +310,8 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       children: [
         BsdOverview(data!),
         SizedBox(height: 12.h),
-        if (hive.user != null) ...[
-          BsdUserCollection(data!, hive.user!),
+        if (hiveUser.user != null) ...[
+          BsdUserCollection(data!, hiveUser.user!),
           SizedBox(height: 12.h)
         ],
         BsdUserEpisodes(data!),

@@ -26,7 +26,7 @@ class PlayHive extends ChangeNotifier {
   List<PlayHiveModel> get all => box.values.toList();
 
   /// 获取所有播放媒体
-  List<Media> get allMedia => box.values.map((e) => Media(e.file)).toList();
+  List<Media> get allMedia => box.values.map((e) => Media(e.path)).toList();
 
   /// 获取指定文件的播放进度
   int getProgress(int index) {
@@ -35,9 +35,15 @@ class PlayHive extends ChangeNotifier {
   }
 
   /// 添加播放
-  Future<void> add(String file, int subject, {bool play = true}) async {
-    var model = PlayHiveModel(file: file, subjectId: subject, autoPlay: play);
-    var find = box.values.toList().indexWhere((e) => e.file == model.file);
+  Future<void> add(
+    String file,
+    int subject, {
+    bool play = true,
+    VideoSourceType? sourceType,
+  }) async {
+    var model = PlayHiveModel(path: file, subjectId: subject, autoPlay: play);
+    if (sourceType != null) model.sourceType = sourceType;
+    var find = box.values.toList().indexWhere((e) => e.path == model.path);
     if (find != -1) {
       index = find;
       box.values.toList()[index].autoPlay = play;
@@ -77,5 +83,14 @@ class PlayHive extends ChangeNotifier {
     index = find;
     box.values.toList()[index].autoPlay = true;
     notifyListeners();
+  }
+
+  /// 查找是否有对应的弹幕Id
+  int getDanmakuId(int subject, String file) {
+    var find = box.values.toList().firstWhere(
+          (e) => e.subjectId == subject && e.path == file,
+          orElse: () => PlayHiveModel(path: '', subjectId: -1),
+        );
+    return find.danmakuId ?? -1;
   }
 }

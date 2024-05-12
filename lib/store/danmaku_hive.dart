@@ -66,4 +66,26 @@ class DanmakuHive extends ChangeNotifier {
     await box.putAt(find, model);
     notifyListeners();
   }
+
+  /// 展示信息
+  Future<void> showInfo(BuildContext context, DanmakuHiveModel data) async {
+    await showDialog(
+      barrierDismissible: true,
+      context: context,
+      builder: (context) => ContentDialog(
+        title: const Text('Subject-Danmaku Info'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('SubjectId: ${data.subjectId}'),
+            Text('AnimeId: ${data.animeId}'),
+            Text('AnimeTitle: ${data.animeTitle}'),
+            Text('Episodes: ${data.episodes}'),
+          ],
+        ),
+      ),
+    );
+  }
 }

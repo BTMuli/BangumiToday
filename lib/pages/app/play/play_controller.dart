@@ -16,7 +16,7 @@ final playControllerProvider =
 
 class PlayControllerState {
   /// 是否展示弹幕
-  bool showDanmaku = true;
+  bool showDanmaku = false;
 
   /// hive，用于存储播放列表&播放进度
   late PlayHive hive = PlayHive();
@@ -34,7 +34,7 @@ class PlayControllerState {
   double playSpeed = 1.0;
 
   /// 弹幕控制器
-  // late DanmakuController danmaku;
+  late DanmakuController danmaku;
 
   /// 弹幕位置
   // late int danmakuPosition = -1;
@@ -57,8 +57,8 @@ class PlayControllerState {
       ..danmakuMatchAnime = danmakuMatchAnime ?? this.danmakuMatchAnime
       ..player = player ?? this.player
       ..playSpeed = playSpeed ?? this.playSpeed
-      ..video = video ?? this.video;
-    // ..danmaku = danmaku ?? this.danmaku;
+      ..video = video ?? this.video
+      ..danmaku = danmaku ?? this.danmaku;
   }
 
   /// 初始化
@@ -93,14 +93,14 @@ class PlayController extends StateNotifier<PlayControllerState> {
   }
 
   /// 挂载弹幕
-  // void setDanmakuController(DanmakuController controller) {
-  //   state.danmaku = controller;
-  //   state.player.danmaku = controller;
-  // }
+  void setDanmaku(DanmakuController controller) {
+    state.danmaku = controller;
+    state.player.danmaku = controller;
+  }
 
   /// 切换弹幕显示状态
   void toggleDanmaku() {
-    //   state.danmaku.clear();
+    state.danmaku.clear();
     state = state.copyWith(showDanmaku: !state.showDanmaku);
   }
 
@@ -149,7 +149,13 @@ class BtPlayer extends Player {
   /// 进度跳转
   @override
   Future<void> seek(Duration position) async {
-    danmaku?.clear();
+    // danmaku?.clear();
     await super.seek(position);
+  }
+
+  /// 添加弹幕
+  void addDanmaku(List<DanmakuEpisodeComment> comments) {
+    danmaku?.addItems(comments.map((e) => e.toDanmakuItem()).toList());
+    danmaku?.resume();
   }
 }

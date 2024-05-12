@@ -21,7 +21,7 @@ DanmakuSearchAnimeResponse _$DanmakuSearchAnimeResponseFromJson(
 Map<String, dynamic> _$DanmakuSearchAnimeResponseToJson(
         DanmakuSearchAnimeResponse instance) =>
     <String, dynamic>{
-      'animes': instance.list,
+      'animes': instance.list?.map((e) => e.toJson()).toList(),
       'errorCode': instance.errorCode,
       'success': instance.success,
       'errorMessage': instance.errorMessage,

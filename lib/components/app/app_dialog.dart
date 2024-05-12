@@ -5,13 +5,16 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 /// 输入框对话框
 /// [title] 标题，[content] 内容，[onSubmit] 提交回调
+/// [value] 默认值
 Future<String?> showInputDialog(
   BuildContext context, {
   required String title,
   required String content,
+  String value = '',
 }) async {
   var confirm = false;
   var controller = TextEditingController();
+  if (value.isNotEmpty) controller.text = value;
   await showDialog(
     barrierDismissible: true,
     context: context,

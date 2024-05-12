@@ -2,6 +2,7 @@
 import 'dart:ui';
 
 // Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:ns_danmaku/ns_danmaku.dart';
 
@@ -14,7 +15,7 @@ import 'danmaku_enum.dart';
 part 'request_danmaku.g.dart';
 
 /// DandanPlay 作品查找返回
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class DanmakuSearchAnimeResponse {
   /// 作品列表
   @JsonKey(name: 'animes')
@@ -254,7 +255,7 @@ class DanmakuEpisodeCommentsResponse {
 }
 
 /// DandanPlay 章节弹幕
-@JsonSerializable(explicitToJson: false)
+@JsonSerializable()
 class DanmakuEpisodeComment {
   /// 弹幕 ID
   @JsonKey(name: 'cid')
@@ -283,10 +284,13 @@ class DanmakuEpisodeComment {
   factory DanmakuEpisodeComment.fromJson(Map<String, dynamic> json) =>
       _$DanmakuEpisodeCommentFromJson(json);
 
+  /// to json
+  Map<String, dynamic> toJson() => _$DanmakuEpisodeCommentToJson(this);
+
   /// to danmakuItem
   DanmakuItem toDanmakuItem() {
     var p = this.p.split(',');
-    Color color = Color(int.parse(p[2]));
+    var color = Color(0xFF000000 + int.parse(p[3]));
     var type = int.parse(p[1]);
     DanmakuItemType pos;
     switch (type) {
