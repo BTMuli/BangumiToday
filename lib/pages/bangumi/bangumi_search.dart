@@ -9,7 +9,6 @@ import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/subject_card/bsc_search.dart';
 import '../../controller/app/page_controller.dart';
 import '../../models/bangumi/bangumi_enum.dart';
-import '../../models/bangumi/bangumi_enum_extension.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../request/bangumi/bangumi_api.dart';

@@ -7,7 +7,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/user_collection/buc_tabview.dart';
 import '../../models/bangumi/bangumi_enum.dart';
-import '../../models/bangumi/bangumi_enum_extension.dart';
 import '../../store/nav_store.dart';
 
 /// bangumi.tv 用户收藏页面

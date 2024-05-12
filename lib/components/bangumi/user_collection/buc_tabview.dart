@@ -11,7 +11,6 @@ import '../../../controller/app/page_controller.dart';
 import '../../../controller/app/progress_controller.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
-import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../store/bgm_user_hive.dart';

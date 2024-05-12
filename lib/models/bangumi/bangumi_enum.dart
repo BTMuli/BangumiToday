@@ -3,9 +3,9 @@ import 'package:json_annotation/json_annotation.dart';
 
 /// 从Bangumi API获取的数据枚举类，按照Bangumi API文档排列顺序排序
 /// 详细文档请参考 https://bangumi.github.io/api/
-/// 这边定义的枚举类，在 bangumi_enum_extension.dart 中有对应的扩展方法
+/// 部分枚举类后面有对应的 extension 作为拓展方法
 
-/// Legacy_SubjectType
+/// LegacySubjectType
 @JsonEnum(valueField: 'value')
 enum BangumiLegacySubjectType {
   /// 书籍 1
@@ -29,7 +29,7 @@ enum BangumiLegacySubjectType {
   const BangumiLegacySubjectType(this.value);
 }
 
-/// Legacy_EpisodeType
+/// LegacyEpisodeType
 /// 因为这边的索引与定义索引一致，所以不需要扩展方法
 @JsonEnum(valueField: 'value')
 enum BangumiLegacyEpisodeType {
@@ -94,6 +94,33 @@ enum BangumiLegacyUserGroupType {
   final int value;
 
   const BangumiLegacyUserGroupType(this.value);
+}
+
+/// Legacy_UserGroupTypeExtension
+extension BangumiLegacyUserGroupExtension on BangumiLegacyUserGroupType {
+  /// 获取值
+  String get label {
+    switch (this) {
+      case BangumiLegacyUserGroupType.admin:
+        return '管理员';
+      case BangumiLegacyUserGroupType.bangumiAdmin:
+        return 'Bangumi 管理猿';
+      case BangumiLegacyUserGroupType.windowAdmin:
+        return '天窗管理猿';
+      case BangumiLegacyUserGroupType.mutedUser:
+        return '禁言用户';
+      case BangumiLegacyUserGroupType.bannedUser:
+        return '禁止访问用户';
+      case BangumiLegacyUserGroupType.personAdmin:
+        return '人物管理猿';
+      case BangumiLegacyUserGroupType.wikiAdmin:
+        return '维基条目管理猿';
+      case BangumiLegacyUserGroupType.user:
+        return '用户';
+      case BangumiLegacyUserGroupType.wikiUser:
+        return '维基人';
+    }
+  }
 }
 
 /// BloodType
@@ -167,6 +194,27 @@ enum BangumiCollectionType {
   const BangumiCollectionType(this.value);
 }
 
+/// CollectionTypeExtension
+extension BangumiCollectionTypeExtension on BangumiCollectionType {
+  /// 获取值
+  String get label {
+    switch (this) {
+      case BangumiCollectionType.unknown:
+        return '未知';
+      case BangumiCollectionType.wish:
+        return '想看';
+      case BangumiCollectionType.collect:
+        return '看过';
+      case BangumiCollectionType.doing:
+        return '在看';
+      case BangumiCollectionType.onHold:
+        return '搁置';
+      case BangumiCollectionType.dropped:
+        return '抛弃';
+    }
+  }
+}
+
 /// EpisodeCollectionType
 /// 因为这边的索引与定义索引一致，所以不需要扩展方法
 @JsonEnum(valueField: 'value')
@@ -187,6 +235,24 @@ enum BangumiEpisodeCollectionType {
   final int value;
 
   const BangumiEpisodeCollectionType(this.value);
+}
+
+/// EpisodeCollectionTypeExtension
+extension BangumiEpisodeCollectionTypeExtension
+    on BangumiEpisodeCollectionType {
+  /// 获取值
+  String get label {
+    switch (this) {
+      case BangumiEpisodeCollectionType.none:
+        return '未收藏';
+      case BangumiEpisodeCollectionType.wish:
+        return '想看';
+      case BangumiEpisodeCollectionType.done:
+        return '看过';
+      case BangumiEpisodeCollectionType.dropped:
+        return '抛弃';
+    }
+  }
 }
 
 /// EpType
@@ -218,6 +284,29 @@ enum BangumiEpType {
   final int value;
 
   const BangumiEpType(this.value);
+}
+
+/// EpTypeExtension
+extension BangumiEpTypeExtension on BangumiEpType {
+  /// 获取值
+  String get label {
+    switch (this) {
+      case BangumiEpType.main:
+        return '本篇';
+      case BangumiEpType.sp:
+        return '特别篇';
+      case BangumiEpType.op:
+        return 'OP';
+      case BangumiEpType.ed:
+        return 'ED';
+      case BangumiEpType.cm:
+        return '预告/宣传/广告';
+      case BangumiEpType.mad:
+        return 'MAD';
+      case BangumiEpType.other:
+        return '其他';
+    }
+  }
 }
 
 /// PersonCareer
@@ -290,6 +379,25 @@ enum BangumiSubjectType {
   final int value;
 
   const BangumiSubjectType(this.value);
+}
+
+/// SubjectTypeExtension
+extension BangumiSubjectTypeExtension on BangumiSubjectType {
+  /// 获取值
+  String get label {
+    switch (this) {
+      case BangumiSubjectType.book:
+        return '书籍';
+      case BangumiSubjectType.anime:
+        return '动画';
+      case BangumiSubjectType.music:
+        return '音乐';
+      case BangumiSubjectType.game:
+        return '游戏';
+      case BangumiSubjectType.real:
+        return '三次元';
+    }
+  }
 }
 
 /// 下面的枚举类没有在Bangumi API文档中专门说明

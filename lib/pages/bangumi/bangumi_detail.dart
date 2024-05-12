@@ -11,7 +11,7 @@ import '../../components/bangumi/subject_detail/bsd_overview.dart';
 import '../../components/bangumi/subject_detail/bsd_relation.dart';
 import '../../components/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../components/bangumi/subject_detail/bsd_user_episodes.dart';
-import '../../models/bangumi/bangumi_enum_extension.dart';
+import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/hive/nav_model.dart';
 import '../../request/bangumi/bangumi_api.dart';

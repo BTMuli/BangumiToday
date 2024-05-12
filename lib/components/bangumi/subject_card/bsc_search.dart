@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
-import '../../../models/bangumi/bangumi_enum_extension.dart';
+import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/request_subject.dart';
 import '../../../store/nav_store.dart';
 import '../../../utils/bangumi_utils.dart';

@@ -5,7 +5,6 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../../models/bangumi/bangumi_enum.dart';
-import '../../../models/bangumi/bangumi_enum_extension.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../app/app_dialog_resp.dart';

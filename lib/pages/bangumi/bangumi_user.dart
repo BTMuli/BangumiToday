@@ -12,7 +12,7 @@ import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../controller/app/progress_controller.dart';
 import '../../database/bangumi/bangumi_collection.dart';
-import '../../models/bangumi/bangumi_enum_extension.dart';
+import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
