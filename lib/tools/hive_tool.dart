@@ -3,6 +3,7 @@ import 'package:hive/hive.dart';
 
 // Project imports:
 import '../models/hive/bgm_user_model.dart';
+import '../models/hive/danmaku_model.dart';
 import '../models/hive/nav_model.dart';
 import '../models/hive/play_model.dart';
 import '../models/hive/tracker_model.dart';
@@ -36,6 +37,7 @@ class BTHiveTool {
     await initPlayHiveBox();
     await initNavHiveBox();
     await initTrackerHiveBox();
+    await initDanmakuHiveBox();
   }
 
   /// 初始化 navHiveBox
@@ -62,5 +64,11 @@ class BTHiveTool {
   Future<void> initPlayHiveBox() async {
     Hive.registerAdapter(PlayHiveAdapter());
     await Hive.openBox<PlayHiveModel>('play');
+  }
+
+  /// 初始化 danmakuHiveBox
+  Future<void> initDanmakuHiveBox() async {
+    Hive.registerAdapter(DanmakuHiveAdapter());
+    await Hive.openBox<DanmakuHiveModel>('danmaku');
   }
 }
