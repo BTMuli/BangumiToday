@@ -12,7 +12,6 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../../store/danmaku_hive.dart';
-import '../../../store/nav_store.dart';
 import '../../../store/play_store.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/notifier_tool.dart';

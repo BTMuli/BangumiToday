@@ -15,7 +15,6 @@ import '../../../request/source/danmaku_api.dart';
 import '../../../store/danmaku_hive.dart';
 import '../../../store/play_store.dart';
 import '../../../tools/file_tool.dart';
-import '../../../tools/log_tool.dart';
 import 'play_controller.dart';
 
 class PlayVideoWidget extends ConsumerStatefulWidget {
@@ -177,26 +176,6 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
       seekBarPositionColor: base.darker,
       bottomButtonBar: [
         IconButton(
-          icon: const Icon(FluentIcons.chevron_left_end6),
-          onPressed: () async {
-            var index = player.state.playlist.index;
-            await saveProgress();
-            if (index == 0) {
-              if (mounted) await BtInfobar.warn(context, '已经是第一个了');
-              return;
-            }
-            await player.previous();
-            await player.stream.buffer.first;
-            var link = player.state.playlist.medias[index].uri;
-            var progress = await hivePlay.getProgressByLink(link);
-            if (progress != 0) {
-              BTLogTool.info('跳转到上次播放进度: $progress');
-              await player.seek(Duration(milliseconds: progress));
-            }
-            setState(() {});
-          },
-        ),
-        IconButton(
           icon: const Icon(FluentIcons.play),
           onPressed: () async {
             var isPlaying = player.state.playing;
@@ -206,27 +185,6 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
             } else {
               await player.play();
             }
-          },
-        ),
-        IconButton(
-          icon: const Icon(FluentIcons.chevron_right_end6),
-          onPressed: () async {
-            var total = player.state.playlist.medias.length;
-            var index = player.state.playlist.index;
-            await saveProgress();
-            if (index == total - 1) {
-              if (mounted) await BtInfobar.warn(context, '已经是最后一个了');
-              return;
-            }
-            await player.next();
-            await player.stream.buffer.first;
-            var link = player.state.playlist.medias[index].uri;
-            var progress = await hivePlay.getProgressByLink(link);
-            if (progress != 0) {
-              BTLogTool.info('跳转到上次播放进度: $progress');
-              await player.seek(Duration(milliseconds: progress));
-            }
-            setState(() {});
           },
         ),
         const MaterialDesktopPositionIndicator(),

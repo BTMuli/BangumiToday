@@ -56,8 +56,17 @@ class _PlayPageState extends ConsumerState<PlayPage> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() async => await init());
-    hive.addListener(listenHive);
+    Future.microtask(() async {
+      hive.addListener(listenHive);
+      await ref.read(playControllerProvider.notifier).open(widget.subject);
+    });
+  }
+
+  /// dispose
+  @override
+  void dispose() {
+    hive.removeListener(listenHive);
+    super.dispose();
   }
 
   /// 初始化
@@ -134,15 +143,9 @@ class _PlayPageState extends ConsumerState<PlayPage> {
   Future<void> saveProgress() async {
     if (playList.isEmpty) return;
     var progress = player.state.position.inMilliseconds;
-    await hive.updateProgress(progress);
-  }
-
-  /// dispose
-  @override
-  void dispose() {
-    hive.removeListener(listenHive);
-    // player.dispose();
-    super.dispose();
+    var media = playList[index];
+    var episode = media.extras?['episode'];
+    await hive.updateProgress(progress, index: episode);
   }
 
   /// 构建顶部栏
@@ -189,13 +192,15 @@ class _PlayPageState extends ConsumerState<PlayPage> {
         IconButton(
           icon: const Icon(FluentIcons.play),
           onPressed: () async {
-            if (media.uri ==
-                player.state.playlist.medias[player.state.playlist.index].uri) {
+            if (media.uri == playList[index].uri) {
               await BtInfobar.warn(context, '所选视频已经在播放中！');
               return;
             }
             await saveProgress();
-            hive.jump(media.extras?['episode']);
+            var mIdx = playList.indexWhere((e) => e.uri == media.uri);
+            await ref
+                .read(playControllerProvider.notifier)
+                .jump(mIdx, media.extras?['episode']);
           },
         ),
         IconButton(

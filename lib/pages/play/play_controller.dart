@@ -90,6 +90,36 @@ class PlayControllerState {
 class PlayController extends StateNotifier<PlayControllerState> {
   PlayController(super.state);
 
+  /// open，打开特定条目
+  Future<void> open(int subject) async {
+    await state.hive.open(subject: subject);
+    await state.player.open(
+      Playlist(state.hive.getPlayList(subject: subject), index: 0),
+    );
+    var progress = await state.hive.getProgress(0, subject: subject);
+    if (progress != 0) {
+      await state.player.stream.buffer.first;
+      await state.player.seek(Duration(milliseconds: progress));
+    }
+    state.playSpeed = 1.0;
+    await state.player.setRate(1.0);
+    state.showDanmaku = false;
+    state.danmakuPosition = -1;
+    state.danmaku.clear();
+    state.comments.clear();
+    await state.init();
+  }
+
+  /// 跳转
+  Future<void> jump(int index, int episode) async {
+    await state.player.jump(index);
+    await state.player.stream.buffer.first;
+    var progress = await state.hive.getProgress(episode);
+    if (progress != 0) {
+      await state.player.seek(Duration(milliseconds: progress));
+    }
+  }
+
   /// 修改播放速度
   void setSpeed(double speed) {
     state.player.setRate(speed);
