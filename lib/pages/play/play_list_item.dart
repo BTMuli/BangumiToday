@@ -1,6 +1,7 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 // Project imports:
 import '../../models/hive/play_model.dart';
@@ -41,8 +42,7 @@ class _PlayListItemState extends ConsumerState<PlayListItem> {
                 child: const Text('Play'),
                 onPressed: () {
                   hive.open(subject: item.subjectId);
-                  // 新建页面
-                  Navigator.of(context).pushNamed('/play');
+                  context.go('/play/${item.subjectId}');
                 }),
           ])
         ],

@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
-import 'components/app/app_nav.dart';
-import 'pages/play/play_page.dart';
+import 'router.dart';
 import 'store/app_store.dart';
 
 /// 应用入口
@@ -40,15 +39,11 @@ class BTApp extends ConsumerWidget {
     return ScreenUtilInit(
       designSize: const Size(1920, 1080),
       builder: (_, child) {
-        return FluentApp(
+        return FluentApp.router(
           title: 'BangumiToday',
           themeMode: appStore.themeMode,
           theme: getTheme(context, appStore),
-          routes: {
-            '/': (context) => const AppNav(),
-            // todo：含参路由
-            '/play': (context) => const PlayPage(),
-          },
+          routerConfig: router,
         );
       },
     );

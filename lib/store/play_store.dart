@@ -137,6 +137,14 @@ class PlayHive extends ChangeNotifier {
         items: [PlayHiveSourceItem(link: file, index: index)],
       );
       model.sources.add(bmf);
+    } else {
+      var source = model.sources[sourceFind];
+      // 查找是否有播放项
+      var playFind = source.items.indexWhere((e) => e.index == index);
+      if (playFind == -1) {
+        PlayHiveSourceItem item = PlayHiveSourceItem(link: file, index: index);
+        source.items.add(item);
+      }
     }
     // 查找是否有播放项
     var playFind = model.items.indexWhere((e) => e.episode == index);
@@ -190,7 +198,6 @@ class PlayHive extends ChangeNotifier {
     if (find == -1) return;
     model.items[find].progress = progress;
     await box.put(model.subjectId, model);
-    notifyListeners();
   }
 
   /// 跳转
@@ -213,9 +220,8 @@ class PlayHive extends ChangeNotifier {
       (e) => e.sourceType == VideoSourceType.bmf,
     );
     if (sourceIndex == -1) return null;
-    var find = model.sources[sourceIndex].items.indexWhere(
-      (e) => e.link == filePath,
-    );
+    var source = model.sources[sourceIndex];
+    var find = source.items.indexWhere((e) => e.link == filePath);
     if (find == -1) return null;
     return model.sources[sourceIndex].items[find].index;
   }

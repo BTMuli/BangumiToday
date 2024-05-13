@@ -1,6 +1,7 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:ns_danmaku/ns_danmaku.dart';
@@ -16,8 +17,11 @@ import 'play_video.dart';
 
 /// 播放页面
 class PlayPage extends ConsumerStatefulWidget {
+  /// subject
+  final int subject;
+
   /// 构造函数
-  const PlayPage({super.key});
+  const PlayPage({super.key, required this.subject});
 
   @override
   ConsumerState<PlayPage> createState() => _PlayPageState();
@@ -26,13 +30,18 @@ class PlayPage extends ConsumerStatefulWidget {
 /// PlayPageState
 class _PlayPageState extends ConsumerState<PlayPage> {
   /// player
-  late BtPlayer player;
+  // BtPlayer player = BtPlayer();
+  BtPlayer get player => ref.watch(playControllerProvider).player;
 
   /// controller
-  late VideoController controller;
+  // late VideoController controller = VideoController(player);
+  VideoController get controller => ref.watch(playControllerProvider).video;
 
   /// hive
   final PlayHive hive = PlayHive();
+
+  /// playList
+  List<Media> get hiveList => hive.getPlayList(subject: widget.subject);
 
   /// fileTool
   final BTFileTool fileTool = BTFileTool();
@@ -47,10 +56,25 @@ class _PlayPageState extends ConsumerState<PlayPage> {
   @override
   void initState() {
     super.initState();
-    player = ref.read(playControllerProvider).player;
-    controller = ref.read(playControllerProvider).video;
-    Future.microtask(() async => await refresh());
+    Future.microtask(() async => await init());
     hive.addListener(listenHive);
+  }
+
+  /// 初始化
+  Future<void> init() async {
+    await checkSubject();
+    await player.open(Playlist(hiveList, index: 0));
+  }
+
+  /// 检测subject
+  Future<void> checkSubject() async {
+    var subject = widget.subject;
+    if (subject == 0) {
+      await BtInfobar.warn(context, '未找到播放资源');
+      if (mounted) context.go('/');
+      return;
+    }
+    await hive.open(subject: subject);
   }
 
   /// 监听hive
@@ -96,12 +120,14 @@ class _PlayPageState extends ConsumerState<PlayPage> {
   /// 刷新播放列表
   Future<void> refresh() async {
     BTLogTool.info('刷新播放列表');
-    var all = hive.getPlayList();
-    if (all.length != playList.length) {
+    if (hiveList.length != playList.length) {
       await handleChange();
       return;
     }
-    // if (hive.index != index) await jump(hive.index);
+    var curMedia = playList[index];
+    if (hive.curEp != curMedia.extras?['episode']) {
+      await jump(index);
+    }
   }
 
   /// 保存当前进度
@@ -115,6 +141,7 @@ class _PlayPageState extends ConsumerState<PlayPage> {
   @override
   void dispose() {
     hive.removeListener(listenHive);
+    // player.dispose();
     super.dispose();
   }
 
@@ -124,7 +151,12 @@ class _PlayPageState extends ConsumerState<PlayPage> {
       title: Row(children: [
         IconButton(
           icon: const Icon(FluentIcons.back),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () async {
+            await saveProgress();
+            await player.stop();
+            // 路由跳转到前一项，采用go_router
+            if (mounted) context.go('/');
+          },
         ),
         const Text('内置播放'),
         const SizedBox(width: 8),
@@ -160,10 +192,10 @@ class _PlayPageState extends ConsumerState<PlayPage> {
             if (media.uri ==
                 player.state.playlist.medias[player.state.playlist.index].uri) {
               await BtInfobar.warn(context, '所选视频已经在播放中！');
-              // return;
+              return;
             }
             await saveProgress();
-            await player.jump(index);
+            hive.jump(media.extras?['episode']);
           },
         ),
         IconButton(
@@ -219,7 +251,7 @@ class _PlayPageState extends ConsumerState<PlayPage> {
         itemCount: player.state.playlist.medias.length,
         itemBuilder: (context, index) => buildCard(index),
         separatorBuilder: (BuildContext context, int index) =>
-            const SizedBox(height: 24, child: Center(child: Divider())),
+            const SizedBox(height: 12, child: Center(child: Divider())),
       ),
     );
   }
@@ -261,7 +293,7 @@ class _PlayPageState extends ConsumerState<PlayPage> {
               ),
             ),
             const SizedBox(width: 8),
-            SizedBox(width: 150, child: buildList())
+            SizedBox(width: 200, child: buildList())
           ],
         ),
       ),

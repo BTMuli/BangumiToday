@@ -67,6 +67,13 @@ class _AppNavState extends ConsumerState<AppNav>
     });
   }
 
+  /// dispose
+  @override
+  void dispose() {
+    flyout.dispose();
+    super.dispose();
+  }
+
   /// 展示设置flyout
   void showOptionsFlyout() {
     flyout.showFlyout(
@@ -157,10 +164,6 @@ class _AppNavState extends ConsumerState<AppNav>
 
   /// 获取导航项
   List<PaneItem> getNavItems(BuildContext context) {
-    var navStore = ref.read(navStoreProvider);
-    navStore.addListener(() {
-      setState(() {});
-    });
     var constItems = getConstItems();
     var items = [...constItems, ..._navItems];
     return items;

@@ -592,6 +592,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.1.2"
+  go_router:
+    dependency: "direct main"
+    description:
+      name: go_router
+      sha256: "81f94e16d7063b60f0da3a79f872e140d6518f306749303bf981abd7d6b46734"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "14.1.0"
   graphs:
     dependency: transitive
     description:

@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:pasteboard/pasteboard.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
@@ -287,7 +288,8 @@ class _BsdBmfFileInnerPlayerBtnState
 
   /// 获取集数
   Future<int?> getEpisode() async {
-    var episode = hivePlay.getBmfEpisode(widget.subject, widget.file);
+    var filePath = path.join(widget.download, widget.file);
+    var episode = hivePlay.getBmfEpisode(widget.subject, filePath);
     if (episode == null) {
       var input = await showInputDialog(
         context,
@@ -322,7 +324,7 @@ class _BsdBmfFileInnerPlayerBtnState
         var episode = await getEpisode();
         if (episode == null) return;
         await hivePlay.addBmf(filePath, widget.subject, episode);
-        ref.read(navStoreProvider.notifier).goIndex(3);
+        if (context.mounted) context.go('/play/${widget.subject}');
       },
       onLongPress: () async {
         var episode = await getEpisode();
