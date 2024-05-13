@@ -9,7 +9,6 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:pasteboard/pasteboard.dart';
 
 // Project imports:
-import '../../../components/app/app_dialog.dart';
 import '../../../components/app/app_infobar.dart';
 import '../../../components/base/base_theme_icon.dart';
 import '../../../request/source/danmaku_api.dart';
@@ -166,8 +165,7 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
   /// 保存当前进度
   Future<void> saveProgress() async {
     var progress = player.state.position.inMilliseconds;
-    var index = player.state.playlist.index;
-    await hivePlay.updateProgress(progress, index);
+    await hivePlay.updateProgress(progress);
   }
 
   /// 控制栏的数据构建
@@ -189,7 +187,8 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
             }
             await player.previous();
             await player.stream.buffer.first;
-            var progress = hivePlay.getProgress(index - 1);
+            var link = player.state.playlist.medias[index].uri;
+            var progress = await hivePlay.getProgressByLink(link);
             if (progress != 0) {
               BTLogTool.info('跳转到上次播放进度: $progress');
               await player.seek(Duration(milliseconds: progress));
@@ -221,7 +220,8 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
             }
             await player.next();
             await player.stream.buffer.first;
-            var progress = hivePlay.getProgress(index + 1);
+            var link = player.state.playlist.medias[index].uri;
+            var progress = await hivePlay.getProgressByLink(link);
             if (progress != 0) {
               BTLogTool.info('跳转到上次播放进度: $progress');
               await player.seek(Duration(milliseconds: progress));
@@ -256,37 +256,54 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
         IconButton(
           icon: const Icon(FluentIcons.comment),
           onPressed: () async {
-            /// 获取当前播放的model
-            var cur = hivePlay.all[player.state.playlist.index];
-            if (cur.danmakuId == null || cur.danmakuId == -1) {
-              /// 查询 animeId
-              var animeFind = hiveDanmaku.findBySubject(cur.subjectId);
-              if (animeFind == null || animeFind.animeId == null) {
-                await BtInfobar.error(context, '未找到对应弹幕');
-              }
-              if (mounted) {
-                var input = await showInputDialog(
-                  context,
-                  title: '集数',
-                  content: '请输入对应集数',
-                );
-                if (input == null || input.isEmpty) return;
-                if (!int.tryParse(input, radix: 10)!.isFinite) {
-                  if (mounted) await BtInfobar.error(context, '请输入数字');
-                  return;
-                }
-                var episode = animeFind!.animeId! * 10000 + int.parse(input);
-                var comments = await danmakuApi.getDanmaku2(episode);
-                if (comments.isEmpty && mounted) {
-                  await BtInfobar.error(context, '未找到对应弹幕');
-                  return;
-                }
-                player.addDanmaku(comments);
-                ref.read(playControllerProvider.notifier).toggleDanmaku();
-              }
-              return;
-            }
-            ref.read(playControllerProvider.notifier).toggleDanmaku();
+            // var cur = hivePlay.current;
+            // if (cur == null) return;
+            // var danmaku = hivePlay.getDanmakuId(
+            //   hivePlay.current!.subjectId,
+            //   hivePlay.current!.path,
+            // );
+            // if (danmaku == -1) {
+            /// 查询 animeId
+            // var animeFind = hiveDanmaku.findBySubject(cur.subjectId);
+            // if (animeFind == null || animeFind.animeId == null) {
+            //   await BtInfobar.error(context, '未找到对应弹幕');
+            // }
+            // if (mounted) {
+            //   var input = await showInputDialog(
+            //     context,
+            //     title: '集数',
+            //     content: '请输入对应集数',
+            //   );
+            //   if (input == null || input.isEmpty) return;
+            //   if (!int.tryParse(input, radix: 10)!.isFinite) {
+            //     if (mounted) await BtInfobar.error(context, '请输入数字');
+            //     return;
+            //   }
+            //   var episode = animeFind!.animeId! * 10000 + int.parse(input);
+            //   var comments = await danmakuApi.getDanmaku2(episode);
+            //   if (comments.isEmpty && mounted) {
+            //     await BtInfobar.error(context, '未找到对应弹幕');
+            //     return;
+            //   }
+            //   var model = DanmakuHiveModel(
+            //     subjectId: cur.subjectId,
+            //     animeId: animeFind.animeId,
+            //     animeTitle: animeFind.animeTitle,
+            //     episodes: {input: episode.toString()},
+            //   );
+            //   await hiveDanmaku.add(model);
+            //   hivePlay.updateDanmakuId(episode, cur);
+            //   ref.read(playControllerProvider.notifier).addDanmaku(comments);
+            //   ref.read(playControllerProvider.notifier).toggleDanmaku();
+            // }
+            // return;
+            // }
+            // var comments = await danmakuApi.getDanmaku2(cur.danmakuId!);
+            // if (comments.isEmpty && mounted) {
+            //   await BtInfobar.error(context, '未找到对应弹幕');
+            //   return;
+            // }
+            // ref.read(playControllerProvider.notifier).toggleDanmaku();
           },
         ),
       ],

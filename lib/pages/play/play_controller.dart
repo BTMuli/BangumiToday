@@ -1,8 +1,9 @@
 // Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:ns_danmaku/danmaku_controller.dart';
+import 'package:ns_danmaku/ns_danmaku.dart';
 
 // Project imports:
 import '../../../models/source/request_danmaku.dart';
@@ -37,10 +38,10 @@ class PlayControllerState {
   late DanmakuController danmaku;
 
   /// 弹幕位置
-  // late int danmakuPosition = -1;
+  late int danmakuPosition = -1;
 
   /// 弹幕列表，以秒单位的计时作为索引
-  // Map<int, List<DanmakuEpisodeComment>> comments = {};
+  Map<int, List<DanmakuEpisodeComment>> comments = {};
 
   /// copyWith
   PlayControllerState copyWith({
@@ -51,6 +52,7 @@ class PlayControllerState {
     VideoController? video,
     DanmakuController? danmaku,
     double? playSpeed,
+    Map<int, List<DanmakuEpisodeComment>>? comments,
   }) {
     return PlayControllerState()
       ..showDanmaku = showDanmaku ?? this.showDanmaku
@@ -58,28 +60,30 @@ class PlayControllerState {
       ..player = player ?? this.player
       ..playSpeed = playSpeed ?? this.playSpeed
       ..video = video ?? this.video
-      ..danmaku = danmaku ?? this.danmaku;
+      ..danmaku = danmaku ?? this.danmaku
+      ..comments = comments ?? this.comments;
   }
 
   /// 初始化
-// Future<void> init() async {
-//   player.stream.position.listen((event) {
-//     if (event.inSeconds != danmakuPosition) {
-//       danmakuPosition = event.inSeconds;
-//       comments[danmakuPosition]?.asMap().forEach((index, element) async {
-//         await Future.delayed(
-//             Duration(
-//                 milliseconds: index *
-//                     1000 /
-//                     playSpeed ~/
-//                     comments[danmakuPosition]!.length), () {
-//           if (!showDanmaku || !player.state.playing) return;
-//           danmaku.addItems([element.toDanmakuItem()]);
-//         });
-//       });
-//     }
-//   });
-// }
+  /// todo: 需要优化
+  Future<void> init() async {
+    player.stream.position.listen((event) {
+      if (event.inSeconds != danmakuPosition) {
+        danmakuPosition = event.inSeconds;
+        comments[danmakuPosition]?.asMap().forEach((index, element) async {
+          await Future.delayed(
+              Duration(
+                  milliseconds: index *
+                      1000 /
+                      playSpeed ~/
+                      comments[danmakuPosition]!.length), () {
+            if (!showDanmaku || !player.state.playing) return;
+            danmaku.addItems([element.toDanmakuItem()]);
+          });
+        });
+      }
+    });
+  }
 }
 
 /// 采用 flutter_riverpod 控制视频播放、播放列表、弹幕等
@@ -110,6 +114,17 @@ class PlayController extends StateNotifier<PlayControllerState> {
     PlayControllerState current,
   ) {
     return old != current;
+  }
+
+  void addDanmaku(List<DanmakuEpisodeComment> comments) {
+    state.comments.clear();
+    for (var element in comments) {
+      if (state.comments[element.time] == null) {
+        state.comments[element.time] = [];
+      }
+      state.comments[element.time]!.add(element);
+    }
+    state = state.copyWith(comments: state.comments);
   }
 }
 
@@ -155,7 +170,22 @@ class BtPlayer extends Player {
 
   /// 添加弹幕
   void addDanmaku(List<DanmakuEpisodeComment> comments) {
-    danmaku?.addItems(comments.map((e) => e.toDanmakuItem()).toList());
+    var trans = comments.map((e) => e.toDanmakuItem()).toList();
+    var map = <int, List<DanmakuItem>>{};
+    for (var element in trans) {
+      if (map[element.time] == null) {
+        map[element.time] = [];
+      }
+      map[element.time]!.add(element);
+    }
+    for (var element in map.entries) {
+      debugPrint('duration: ${element.key}');
+      Future.delayed(Duration(milliseconds: element.key * 1000), () {
+        if (state.playing) {
+          danmaku?.addItems(element.value);
+        }
+      });
+    }
     danmaku?.resume();
   }
 }

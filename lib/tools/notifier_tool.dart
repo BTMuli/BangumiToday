@@ -105,8 +105,7 @@ class BTNotifierTool {
       title: '【$subject】视频下载完成',
       actions: [
         LocalNotificationAction(type: 'button', text: '打开'),
-        LocalNotificationAction(type: 'button', text: '播放'),
-        LocalNotificationAction(type: 'button', text: '添加到列表')
+        LocalNotificationAction(type: 'button', text: '详情'),
       ],
       body: file,
     );
@@ -117,13 +116,7 @@ class BTNotifierTool {
           await launchUrlString('file://$filePath');
           break;
         case 1:
-          var filePath = path.join(dir, file);
-          await hivePlay.add(filePath, subject);
-          ref.read(navStoreProvider.notifier).goIndex(3);
-          break;
-        case 2:
-          var filePath = path.join(dir, file);
-          await hivePlay.add(filePath, subject, play: false);
+          ref.read(navStoreProvider).addNavItemB(type: '动画', subject: subject);
           break;
         default:
           break;

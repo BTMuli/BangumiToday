@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:convert';
+
 // Package imports:
 import 'package:hive/hive.dart';
 
@@ -12,8 +15,8 @@ class DanmakuHiveModel {
   /// animeTitle
   late String? animeTitle;
 
-  /// episodes
-  late Map<String, String>? episodes;
+  /// episodes，key为集数，value为弹幕id
+  late Map<String, dynamic>? episodes;
 
   /// 构造函数
   DanmakuHiveModel({
@@ -27,19 +30,19 @@ class DanmakuHiveModel {
 /// DanmakuHive的适配器
 class DanmakuHiveAdapter extends TypeAdapter<DanmakuHiveModel> {
   @override
-  final int typeId = 5;
+  final int typeId = 8;
 
   @override
   DanmakuHiveModel read(BinaryReader reader) {
     var subjectId = reader.readInt();
     var animeId = reader.readInt();
     var animeTitle = reader.readString();
-    var episodes = reader.readMap();
+    var episodes = reader.readString();
     return DanmakuHiveModel(
       subjectId: subjectId,
       animeId: animeId,
       animeTitle: animeTitle,
-      episodes: episodes as Map<String, String>?,
+      episodes: jsonDecode(episodes),
     );
   }
 

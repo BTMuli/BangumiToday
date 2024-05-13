@@ -19,78 +19,218 @@ class PlayHive extends ChangeNotifier {
   /// 获取 Box
   static Box<PlayHiveModel> get box => Hive.box<PlayHiveModel>('play');
 
-  /// 当前索引
-  late int index = 0;
+  /// 获取所有值
+  List<PlayHiveModel> get values => box.values.toList();
 
-  /// 获取所有播放
-  List<PlayHiveModel> get all => box.values.toList();
+  /// 最近播放条目
+  late PlayHiveModel curModel;
 
-  /// 获取所有播放媒体
-  List<Media> get allMedia => box.values.map((e) => Media(e.path)).toList();
+  /// 当前资源名称
+  late VideoSourceType curSource;
 
-  /// 获取指定文件的播放进度
-  int getProgress(int index) {
-    if (index < 0 || index >= box.values.length) return 0;
-    return box.values.toList()[index].progress;
+  /// 当前播放索引，搭配最近播放条目使用
+  late int curEp;
+
+  /// open，打开某条目的播放
+  Future<void> open({int? subject}) async {
+    PlayHiveModel model;
+    if (subject != null) {
+      curModel = box.get(subject) ?? values[0];
+    } else {
+      curModel = values[0];
+    }
+    model = curModel;
+    if (model.sources.isNotEmpty) {
+      curSource = model.sources[0].sourceType;
+    }
+    if (model.items.isNotEmpty) {
+      curEp = model.items[0].episode;
+    }
+    notifyListeners();
   }
 
-  /// 添加播放
-  Future<void> add(
+  /// 根据播放链接获取播放进度
+  Future<int> getProgressByLink(String link) async {
+    var model = curModel;
+    var sourceFind = model.sources.indexWhere((e) => e.sourceType == curSource);
+    if (sourceFind == -1) return 0;
+    var itemFind = model.sources[sourceFind].items.indexWhere(
+      (e) => e.link == link,
+    );
+    if (itemFind == -1) return 0;
+    var episode = model.sources[sourceFind].items[itemFind].index;
+    var playFind = model.items.indexWhere((e) => e.episode == episode);
+    if (playFind == -1) return 0;
+    return model.items[playFind].progress;
+  }
+
+  /// 获取播放进度
+  Future<int> getProgress(int index, {int? subject}) async {
+    PlayHiveModel model;
+    if (subject != null) {
+      var get = box.get(subject);
+      if (get == null) {
+        var newModel = PlayHiveModel(subjectId: subject, items: []);
+        var episode = PlayHiveItem(episode: index, progress: 0);
+        newModel.items.add(episode);
+        await box.put(subject, newModel);
+        return 0;
+      }
+      model = get;
+    } else {
+      model = curModel;
+    }
+    var find = model.items.indexWhere((e) => e.episode == index);
+    if (find == -1) {
+      var episode = PlayHiveItem(episode: index, progress: 0);
+      model.items.add(episode);
+      return 0;
+    }
+    return model.items[find].progress;
+  }
+
+  /// 添加BMF播放配置-新
+  Future<void> addBmfNew(
     String file,
-    int subject, {
+    int subject,
+    int index, {
     bool play = true,
-    VideoSourceType? sourceType,
   }) async {
-    var model = PlayHiveModel(path: file, subjectId: subject, autoPlay: play);
-    if (sourceType != null) model.sourceType = sourceType;
-    var find = box.values.toList().indexWhere((e) => e.path == model.path);
-    if (find != -1) {
-      index = find;
-      box.values.toList()[index].autoPlay = play;
-      notifyListeners();
+    PlayHiveSource bmf = PlayHiveSource(
+      sourceType: VideoSourceType.bmf,
+      items: [PlayHiveSourceItem(link: file, index: index)],
+    );
+    PlayHiveItem item = PlayHiveItem(episode: index, progress: 0);
+    PlayHiveModel model = PlayHiveModel(
+      subjectId: subject,
+      items: [item],
+      sources: [bmf],
+    );
+    await box.put(subject, model);
+    if (play) {
+      curModel = model;
+      curSource = VideoSourceType.bmf;
+      curEp = index;
+    }
+    notifyListeners();
+  }
+
+  /// 添加BMF播放配置
+  Future<void> addBmf(
+    String file,
+    int subject,
+    int index, {
+    bool play = true,
+  }) async {
+    var model = box.get(subject);
+    if (model == null) {
+      await addBmfNew(file, subject, index, play: play);
       return;
     }
-    await box.add(model);
-    if (play) index = box.length - 1;
+    // 查找是否有BMF资源
+    var sourceFind = model.sources.indexWhere(
+      (e) => e.sourceType == VideoSourceType.bmf,
+    );
+    if (sourceFind == -1) {
+      PlayHiveSource bmf = PlayHiveSource(
+        sourceType: VideoSourceType.bmf,
+        items: [PlayHiveSourceItem(link: file, index: index)],
+      );
+      model.sources.add(bmf);
+    }
+    // 查找是否有播放项
+    var playFind = model.items.indexWhere((e) => e.episode == index);
+    if (playFind == -1) {
+      PlayHiveItem item = PlayHiveItem(episode: index, progress: 0);
+      model.items.add(item);
+    }
+    if (play) {
+      curModel = model;
+      curSource = VideoSourceType.bmf;
+      curEp = index;
+    }
+    await box.put(subject, model);
     notifyListeners();
+  }
+
+  /// 获取当前播放列表
+  List<Media> getPlayList({int? subject}) {
+    PlayHiveModel model;
+    if (subject != null) {
+      var get = box.get(subject);
+      if (get == null) return [];
+      model = get;
+    } else {
+      model = curModel;
+    }
+    var sourceFind = model.sources.indexWhere((e) => e.sourceType == curSource);
+    if (sourceFind == -1) return [];
+    var source = model.sources[sourceFind];
+    return source.items.map((e) {
+      return Media(e.link, extras: {'episode': e.index});
+    }).toList();
   }
 
   /// 删除播放
   Future<void> delete(PlayHiveModel model) async {
-    var find = box.values.toList().indexWhere((e) => e == model);
-    if (find == -1) return;
-    if (find < index) {
-      index -= 1;
-    } else if (find == index) {
-      index = 0;
-    }
-    await box.deleteAt(find);
-    notifyListeners();
+    // todo 暂不支持
+    return;
+    // notifyListeners();
   }
 
   /// 更新当前播放进度
-  Future<void> updateProgress(int progress, int index) async {
-    if (index < 0 || index >= box.length) return;
-    var model = box.getAt(index)!;
-    model.progress = progress;
-    await box.putAt(index, model);
-  }
-
-  /// 跳转
-  void jump(PlayHiveModel model) {
-    var find = box.values.toList().indexWhere((e) => e == model);
+  Future<void> updateProgress(int progress, {int? index}) async {
+    var model = curModel;
+    int find;
+    if (index != null) {
+      find = model.items.indexWhere((e) => e.episode == index);
+    } else {
+      find = model.items.indexWhere((e) => e.episode == curEp);
+    }
     if (find == -1) return;
-    index = find;
-    box.values.toList()[index].autoPlay = true;
+    model.items[find].progress = progress;
+    await box.put(model.subjectId, model);
     notifyListeners();
   }
 
-  /// 查找是否有对应的弹幕Id
-  int getDanmakuId(int subject, String file) {
-    var find = box.values.toList().firstWhere(
-          (e) => e.subjectId == subject && e.path == file,
-          orElse: () => PlayHiveModel(path: '', subjectId: -1),
-        );
-    return find.danmakuId ?? -1;
+  /// 跳转
+  void jump(int episode, {int? subject}) {
+    if (subject != null) {
+      var model = box.get(subject);
+      if (model == null) return;
+      curModel = model;
+      curEp = episode;
+    } else {
+      curEp = episode;
+    }
+    notifyListeners();
+  }
+
+  int? getBmfEpisode(int subject, String filePath) {
+    var model = box.get(subject);
+    if (model == null) return null;
+    var sourceIndex = model.sources.indexWhere(
+      (e) => e.sourceType == VideoSourceType.bmf,
+    );
+    if (sourceIndex == -1) return null;
+    var find = model.sources[sourceIndex].items.indexWhere(
+      (e) => e.link == filePath,
+    );
+    if (find == -1) return null;
+    return model.sources[sourceIndex].items[find].index;
+  }
+
+  int getNextBmfEpisode(int subject) {
+    var model = box.get(subject);
+    if (model == null) return 0;
+    var sourceIndex = model.sources.indexWhere(
+      (e) => e.sourceType == VideoSourceType.bmf,
+    );
+    if (sourceIndex == -1) return 0;
+    var max = 0;
+    for (var item in model.sources[sourceIndex].items) {
+      if (item.index > max) max = item.index;
+    }
+    return max + 1;
   }
 }

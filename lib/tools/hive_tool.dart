@@ -63,6 +63,9 @@ class BTHiveTool {
   /// 初始化 playHiveBox
   Future<void> initPlayHiveBox() async {
     Hive.registerAdapter(PlayHiveAdapter());
+    Hive.registerAdapter(PlayHiveItemAdapter());
+    Hive.registerAdapter(PlayHiveSourceAdapter());
+    Hive.registerAdapter(PlayHiveSourceItemAdapter());
     await Hive.openBox<PlayHiveModel>('play');
   }
 

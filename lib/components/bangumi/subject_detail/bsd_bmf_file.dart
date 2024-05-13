@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../../store/danmaku_hive.dart';
 import '../../../store/nav_store.dart';
 import '../../../store/play_store.dart';
 import '../../../tools/file_tool.dart';
@@ -237,16 +238,15 @@ class BsdBmfFilePotPlayerBtn extends StatelessWidget {
     return Button(
       child: Row(
         children: [
-          Icon(FluentIcons.play, color: FluentTheme.of(context).accentColor),
+          Icon(FluentIcons.open_file,
+              color: FluentTheme.of(context).accentColor),
           SizedBox(width: 8.w),
-          const Text('调用PotPlayer打开'),
+          const Text('打开'),
         ],
       ),
       onPressed: () async {
         var filePath = path.join(download, file);
-        filePath = filePath.replaceAll(r'\', '/');
-        var url = 'potplayer://$filePath';
-        await launchUrlString(url);
+        await launchUrlString('file://$filePath');
       },
     );
   }
@@ -278,8 +278,34 @@ class BsdBmfFileInnerPlayerBtn extends ConsumerStatefulWidget {
 
 class _BsdBmfFileInnerPlayerBtnState
     extends ConsumerState<BsdBmfFileInnerPlayerBtn> {
-  /// hive
-  final PlayHive hive = PlayHive();
+  /// 播放Hive
+  final PlayHive hivePlay = PlayHive();
+
+  /// 弹幕Hive
+  /// todo 待使用
+  final DanmakuHive hiveDanmaku = DanmakuHive();
+
+  /// 获取集数
+  Future<int?> getEpisode() async {
+    var episode = hivePlay.getBmfEpisode(widget.subject, widget.file);
+    if (episode == null) {
+      var input = await showInputDialog(
+        context,
+        title: '请输入集数',
+        content: '集数',
+      );
+      if (input == null || input.isEmpty) {
+        if (mounted) await BtInfobar.error(context, '请输入集数');
+        return null;
+      }
+      episode = int.tryParse(input);
+      if (episode == null) {
+        if (mounted) await BtInfobar.error(context, '请输入正确的集数');
+        return null;
+      }
+    }
+    return episode;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -293,11 +319,15 @@ class _BsdBmfFileInnerPlayerBtnState
         ],
       ),
       onPressed: () async {
-        await hive.add(filePath, widget.subject);
+        var episode = await getEpisode();
+        if (episode == null) return;
+        await hivePlay.addBmf(filePath, widget.subject, episode);
         ref.read(navStoreProvider.notifier).goIndex(3);
       },
       onLongPress: () async {
-        await hive.add(filePath, widget.subject, play: false);
+        var episode = await getEpisode();
+        if (episode == null) return;
+        await hivePlay.addBmf(filePath, widget.subject, episode, play: false);
         if (context.mounted) {
           await BtInfobar.success(context, '成功添加到播放列表');
         }

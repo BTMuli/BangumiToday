@@ -6,13 +6,11 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:ns_danmaku/ns_danmaku.dart';
 
 // Project imports:
-import '../../../components/app/app_dialog.dart';
-import '../../../components/app/app_infobar.dart';
-import '../../../models/hive/play_model.dart';
 import '../../../store/nav_store.dart';
 import '../../../store/play_store.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/log_tool.dart';
+import '../../components/app/app_infobar.dart';
 import 'play_controller.dart';
 import 'play_video.dart';
 
@@ -26,13 +24,12 @@ class PlayPage extends ConsumerStatefulWidget {
 }
 
 /// PlayPageState
-class _PlayPageState extends ConsumerState<PlayPage>
-    with AutomaticKeepAliveClientMixin {
+class _PlayPageState extends ConsumerState<PlayPage> {
   /// player
-  BtPlayer get player => ref.watch(playControllerProvider).player;
+  late BtPlayer player;
 
   /// controller
-  VideoController get controller => ref.watch(playControllerProvider).video;
+  late VideoController controller;
 
   /// hive
   final PlayHive hive = PlayHive();
@@ -46,14 +43,12 @@ class _PlayPageState extends ConsumerState<PlayPage>
   /// 获取index
   int get index => player.state.playlist.index;
 
-  /// 保持状态
-  @override
-  bool get wantKeepAlive => true;
-
   /// 初始化
   @override
   void initState() {
     super.initState();
+    player = ref.read(playControllerProvider).player;
+    controller = ref.read(playControllerProvider).video;
     Future.microtask(() async => await refresh());
     hive.addListener(listenHive);
   }
@@ -66,20 +61,22 @@ class _PlayPageState extends ConsumerState<PlayPage>
   /// 处理播放列表变化
   Future<void> handleChange() async {
     await saveProgress();
-    if (hive.all.isEmpty) {
+    var playList = hive.getPlayList();
+    if (playList.isEmpty) {
+      BTLogTool.info('未检测到播放列表');
       await player.stop();
       return;
     }
-    var play = hive.all[hive.index].autoPlay;
-    await player.open(Playlist(hive.allMedia, index: hive.index), play: play);
+    var index = playList.indexWhere((e) => e.extras?['episode'] == hive.curEp);
+    if (index == -1) index = 0;
+    await player.open(Playlist(playList, index: index));
     // 需要等待进度条加载完成，见 https://github.com/media-kit/media-kit/issues/804
     await player.stream.buffer.first;
-    var progress = hive.getProgress(index);
+    var progress = await hive.getProgress(hive.curEp);
     if (progress != 0) {
       BTLogTool.info('跳转到上次播放进度: $progress');
       await player.seek(Duration(milliseconds: progress));
     }
-    if (!play) await player.pause();
     setState(() {});
   }
 
@@ -89,7 +86,7 @@ class _PlayPageState extends ConsumerState<PlayPage>
     await player.jump(index);
     // 需要等待进度条加载完成，见 https://github.com/media-kit/media-kit/issues/804
     await player.stream.buffer.first;
-    var progress = hive.getProgress(index);
+    var progress = await hive.getProgress(index);
     if (progress != 0) {
       BTLogTool.info('跳转到上次播放进度: $progress');
       await player.seek(Duration(milliseconds: progress));
@@ -99,37 +96,36 @@ class _PlayPageState extends ConsumerState<PlayPage>
   /// 刷新播放列表
   Future<void> refresh() async {
     BTLogTool.info('刷新播放列表');
-    if (hive.all.length != playList.length) {
+    var all = hive.getPlayList();
+    if (all.length != playList.length) {
       await handleChange();
       return;
     }
-    if (hive.index != index) await jump(hive.index);
+    // if (hive.index != index) await jump(hive.index);
   }
 
   /// 保存当前进度
   Future<void> saveProgress() async {
     if (playList.isEmpty) return;
     var progress = player.state.position.inMilliseconds;
-    await hive.updateProgress(progress, index);
+    await hive.updateProgress(progress);
   }
 
   /// dispose
   @override
   void dispose() {
     hive.removeListener(listenHive);
-    player.dispose();
     super.dispose();
   }
 
   /// 构建顶部栏
   Widget buildHeader() {
-    var name = '无';
-    if (hive.all.isNotEmpty) {
-      var cur = hive.all[hive.index].path;
-      name = Uri.parse(cur).pathSegments.last;
-    }
     return PageHeader(
       title: Row(children: [
+        IconButton(
+          icon: const Icon(FluentIcons.back),
+          onPressed: () => Navigator.pop(context),
+        ),
         const Text('内置播放'),
         const SizedBox(width: 8),
         IconButton(
@@ -137,16 +133,11 @@ class _PlayPageState extends ConsumerState<PlayPage>
           onPressed: () async => await fileTool.openScreenshotDir(),
         ),
       ]),
-      commandBar: Text(
-        '当前播放：$name',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
     );
   }
 
   /// 构建播放列表
-  Widget buildItemAct(PlayHiveModel item, int index) {
+  Widget buildItemAct(Media media) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -155,39 +146,42 @@ class _PlayPageState extends ConsumerState<PlayPage>
           onPressed: () async {
             await saveProgress();
             await player.pause();
+            var subject = hive.curModel.subjectId;
+            if (mounted) Navigator.pop(context);
             ref.read(navStoreProvider).addNavItemB(
                   type: '动画',
-                  subject: item.subjectId,
+                  subject: subject,
                 );
           },
         ),
         IconButton(
           icon: const Icon(FluentIcons.play),
           onPressed: () async {
-            if (item == hive.all[hive.index]) {
+            if (media.uri ==
+                player.state.playlist.medias[player.state.playlist.index].uri) {
               await BtInfobar.warn(context, '所选视频已经在播放中！');
-              return;
+              // return;
             }
             await saveProgress();
-            hive.jump(item);
+            await player.jump(index);
           },
         ),
         IconButton(
           icon: const Icon(FluentIcons.delete),
           onPressed: () async {
-            var confirm = await showConfirmDialog(
-              context,
-              title: '移除播放',
-              content: '是否移除该播放任务？',
-            );
-            if (!confirm) return;
-            await hive.delete(item);
-            setState(() {});
-            if (mounted) await BtInfobar.success(context, '移除成功');
+            // var confirm = await showConfirmDialog(
+            //   context,
+            //   title: '移除播放',
+            //   content: '是否移除该播放任务？',
+            // );
+            // if (!confirm) return;
+            // await hive.delete(item);
+            // setState(() {});
+            // if (mounted) await BtInfobar.success(context, '移除成功');
           },
           onLongPress: () async {
-            await hive.delete(item);
-            setState(() {});
+            // await hive.delete(item);
+            // setState(() {});
           },
         ),
       ],
@@ -195,52 +189,37 @@ class _PlayPageState extends ConsumerState<PlayPage>
   }
 
   /// 构建播放卡片
-  Widget buildCard(PlayHiveModel item, int index) {
-    assert(item.sourceType == VideoSourceType.local);
-    var name = Uri.parse(item.path).pathSegments.last;
+  Widget buildCard(int index) {
+    var media = player.state.playlist.medias[index];
     return Card(
       padding: const EdgeInsets.all(4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Tooltip(
-            message: name,
-            child: Text(
-              name,
-              maxLines: 5,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+          Text(
+            media.extras?['episode'].toString() ?? media.uri,
+            maxLines: 5,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
-            children: [buildItemAct(item, index)],
+            children: [buildItemAct(media)],
           ),
         ],
       ),
     );
   }
 
-  /// 构建播放卡片
-  List<Widget> buildCards() {
-    var res = <Widget>[];
-    for (var i = 0; i < hive.all.length; i++) {
-      res.add(buildCard(hive.all[i], i));
-      if (i != hive.all.length - 1) {
-        res.add(const SizedBox(height: 8));
-        res.add(const Divider());
-        res.add(const SizedBox(height: 8));
-      }
-    }
-    return res;
-  }
-
   /// 构建播放列表
   Widget buildList() {
     return SizedBox(
       height: MediaQuery.of(context).size.height,
-      child: SingleChildScrollView(
-        child: Column(children: buildCards()),
+      child: ListView.separated(
+        itemCount: player.state.playlist.medias.length,
+        itemBuilder: (context, index) => buildCard(index),
+        separatorBuilder: (BuildContext context, int index) =>
+            const SizedBox(height: 24, child: Center(child: Divider())),
       ),
     );
   }
@@ -258,8 +237,7 @@ class _PlayPageState extends ConsumerState<PlayPage>
   /// 构建
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-    if (hive.all.isEmpty) {
+    if (hive.getPlayList().isEmpty) {
       return ScaffoldPage(
         header: buildHeader(),
         content: const Center(child: Text('没有找到任何播放任务')),

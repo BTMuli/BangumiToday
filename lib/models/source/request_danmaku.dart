@@ -290,7 +290,7 @@ class DanmakuEpisodeComment {
   /// to danmakuItem
   DanmakuItem toDanmakuItem() {
     var p = this.p.split(',');
-    var color = Color(0xFF000000 + int.parse(p[3]));
+    var color = Color(int.parse(p[3]));
     var type = int.parse(p[1]);
     DanmakuItemType pos;
     switch (type) {
@@ -308,4 +308,7 @@ class DanmakuEpisodeComment {
     }
     return DanmakuItem(m, color: color, type: pos);
   }
+
+  /// 获取弹幕时间
+  int get time => (double.parse(p.split(',')[0]) * 1000).toInt();
 }

@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import 'components/app/app_nav.dart';
+import 'pages/play/play_page.dart';
 import 'store/app_store.dart';
 
 /// 应用入口
@@ -43,7 +44,11 @@ class BTApp extends ConsumerWidget {
           title: 'BangumiToday',
           themeMode: appStore.themeMode,
           theme: getTheme(context, appStore),
-          home: const AppNav(),
+          routes: {
+            '/': (context) => const AppNav(),
+            // todo：含参路由
+            '/play': (context) => const PlayPage(),
+          },
         );
       },
     );
