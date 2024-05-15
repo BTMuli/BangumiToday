@@ -1,4 +1,4 @@
-﻿name: bangumi_today
+name: bangumi_today
 description: "Bangumi Source Aggregation Parser for Personal Use"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -52,8 +52,8 @@ dependencies:
   flutter_rating_bar: ^4.0.1
   flutter_riverpod: ^2.4.10
   flutter_screenutil: ^5.9.0
-  go_router: ^14.1.0
   hive: ^2.2.3
+  html: ^0.15.4
   intl: ^0.18.1
   isar_flutter_libs: ^4.0.0-dev.3
   jiffy: ^6.2.1

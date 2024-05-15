@@ -1,7 +1,6 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:ns_danmaku/ns_danmaku.dart';
@@ -80,7 +79,7 @@ class _PlayPageState extends ConsumerState<PlayPage> {
     var subject = widget.subject;
     if (subject == 0) {
       await BtInfobar.warn(context, '未找到播放资源');
-      if (mounted) context.go('/');
+      // if (mounted) context.go('/');
       return;
     }
     await hive.open(subject: subject);
@@ -157,8 +156,6 @@ class _PlayPageState extends ConsumerState<PlayPage> {
           onPressed: () async {
             await saveProgress();
             await player.stop();
-            // 路由跳转到前一项，采用go_router
-            if (mounted) context.go('/');
           },
         ),
         const Text('内置播放'),
