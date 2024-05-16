@@ -22,15 +22,8 @@ class DanmakuHive extends ChangeNotifier {
   List<DanmakuHiveModel> get all => box.values.toList();
 
   /// 查找subject对应的信息
-  DanmakuHiveModel? findBySubject(int subjectId) {
+  DanmakuHiveModel? find(int subjectId) {
     var find = all.indexWhere((e) => e.subjectId == subjectId);
-    if (find == -1) return null;
-    return all[find];
-  }
-
-  /// 查找anime对应的信息
-  DanmakuHiveModel? findByAnime(int animeId) {
-    var find = all.indexWhere((e) => e.animeId == animeId);
     if (find == -1) return null;
     return all[find];
   }
@@ -52,16 +45,8 @@ class DanmakuHive extends ChangeNotifier {
   }
 
   /// 更新-通过subjectId
-  Future<void> updateBySubject(int subjectId, DanmakuHiveModel model) async {
+  Future<void> update(int subjectId, DanmakuHiveModel model) async {
     var find = all.indexWhere((e) => e.subjectId == subjectId);
-    if (find == -1) return;
-    await box.putAt(find, model);
-    notifyListeners();
-  }
-
-  /// 更新-通过animeId
-  Future<void> updateByAnime(int animeId, DanmakuHiveModel model) async {
-    var find = all.indexWhere((e) => e.animeId == animeId);
     if (find == -1) return;
     await box.putAt(find, model);
     notifyListeners();
@@ -82,7 +67,6 @@ class DanmakuHive extends ChangeNotifier {
             Text('SubjectId: ${data.subjectId}'),
             Text('AnimeId: ${data.animeId}'),
             Text('AnimeTitle: ${data.animeTitle}'),
-            Text('Episodes: ${data.episodes}'),
           ],
         ),
       ),

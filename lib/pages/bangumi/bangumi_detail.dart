@@ -135,7 +135,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       var model = DanmakuHiveModel(
         subjectId: int.parse(id),
         animeId: select.animeId,
-        animeTitle: select.animeTitle,
+        animeTitle: select.animeTitle??'',
       );
       await hiveDanmaku.add(model);
       if (mounted) await BtInfobar.success(context, '成功匹配');
@@ -178,7 +178,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
           IconButton(
             icon: const Icon(FluentIcons.library),
             onPressed: () async {
-              var check = hiveDanmaku.findBySubject(int.parse(widget.id));
+              var check = hiveDanmaku.find(int.parse(widget.id));
               if (check == null) {
                 await fetchDanmaku(widget.id);
               } else {
@@ -186,7 +186,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
               }
             },
             onLongPress: () async {
-              var check = hiveDanmaku.findBySubject(int.parse(widget.id));
+              var check = hiveDanmaku.find(int.parse(widget.id));
               if (check == null) {
                 await fetchDanmaku(widget.id);
                 return;
