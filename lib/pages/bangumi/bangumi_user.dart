@@ -126,6 +126,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
       if (mounted) await BtInfobar.error(context, '未找到刷新令牌');
       return;
     }
+    // todo 存在bug
     var res = await hive.refreshAuth(onErr: (e) async {
       if (mounted) await showRespErr(e, context);
     });

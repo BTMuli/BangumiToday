@@ -135,7 +135,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       var model = DanmakuHiveModel(
         subjectId: int.parse(id),
         animeId: select.animeId,
-        animeTitle: select.animeTitle??'',
+        animeTitle: select.animeTitle ?? '',
       );
       await hiveDanmaku.add(model);
       if (mounted) await BtInfobar.success(context, '成功匹配');

@@ -1,31 +1,5 @@
 // Package imports:
 import 'package:hive/hive.dart';
-import 'package:json_annotation/json_annotation.dart';
-
-/// 视频源类型枚举
-@JsonEnum(valueField: 'value')
-enum VideoSourceType {
-  /// BMF
-  bmf(0),
-
-  /// 其他
-  other(1);
-
-  final int value;
-
-  const VideoSourceType(this.value);
-}
-
-extension VideoSourceTypeExtension on VideoSourceType {
-  String get label {
-    switch (this) {
-      case VideoSourceType.bmf:
-        return 'BMF';
-      case VideoSourceType.other:
-        return '其他';
-    }
-  }
-}
 
 /// 播放资源项
 class PlayHiveSourceItem {
@@ -65,14 +39,14 @@ class PlayHiveSourceItemAdapter extends TypeAdapter<PlayHiveSourceItem> {
 /// 播放资源
 class PlayHiveSource {
   /// 资源类型
-  final VideoSourceType sourceType;
+  final String source;
 
   /// 资源列表
   List<PlayHiveSourceItem> items;
 
   /// 构造
   PlayHiveSource({
-    required this.sourceType,
+    required this.source,
     required this.items,
   });
 }
@@ -85,14 +59,14 @@ class PlayHiveSourceAdapter extends TypeAdapter<PlayHiveSource> {
   @override
   PlayHiveSource read(BinaryReader reader) {
     return PlayHiveSource(
-      sourceType: VideoSourceType.values[reader.readInt()],
+      source: reader.readString(),
       items: reader.readList().cast<PlayHiveSourceItem>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, PlayHiveSource obj) {
-    writer.writeInt(obj.sourceType.value);
+    writer.writeString(obj.source);
     writer.writeList(obj.items);
   }
 }
@@ -137,6 +111,9 @@ class PlayHiveModel {
   /// 对应条目
   final int subjectId;
 
+  /// 条目名称
+  late String subjectName;
+
   /// 子章节
   late List<PlayHiveItem> items;
 
@@ -146,6 +123,7 @@ class PlayHiveModel {
   /// 构造
   PlayHiveModel({
     required this.subjectId,
+    this.subjectName = '',
     this.items = const [],
     this.sources = const [],
   });
@@ -160,6 +138,7 @@ class PlayHiveAdapter extends TypeAdapter<PlayHiveModel> {
   PlayHiveModel read(BinaryReader reader) {
     return PlayHiveModel(
       subjectId: reader.readInt(),
+      subjectName: reader.readString(),
       items: reader.readList().cast<PlayHiveItem>(),
       sources: reader.readList().cast<PlayHiveSource>(),
     );
@@ -168,6 +147,7 @@ class PlayHiveAdapter extends TypeAdapter<PlayHiveModel> {
   @override
   void write(BinaryWriter writer, PlayHiveModel obj) {
     writer.writeInt(obj.subjectId);
+    writer.writeString(obj.subjectName);
     writer.writeList(obj.items);
     writer.writeList(obj.sources);
   }

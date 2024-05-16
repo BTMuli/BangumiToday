@@ -23,13 +23,28 @@ class PlayHive extends ChangeNotifier {
   List<PlayHiveModel> get values => box.values.toList();
 
   /// 最近播放条目
-  late PlayHiveModel curModel;
+  late PlayHiveModel? curModel;
 
   /// 当前资源名称
-  late VideoSourceType curSource;
+  late String curSource;
 
   /// 当前播放索引，搭配最近播放条目使用
   late int curEp;
+
+  /// 初始化
+  void init() {
+    if (values.isNotEmpty) {
+      // 按照subjectId排序
+      values.sort((a, b) => a.subjectId.compareTo(b.subjectId));
+      // 按照episode排序
+      for (var element in values) {
+        element.items.sort((a, b) => a.episode.compareTo(b.episode));
+      }
+      curModel = values[0];
+      curSource = curModel!.sources[0].source;
+      curEp = curModel!.items[0].episode;
+    }
+  }
 
   /// open，打开某条目的播放
   Future<void> open({int? subject}) async {
@@ -39,9 +54,9 @@ class PlayHive extends ChangeNotifier {
     } else {
       curModel = values[0];
     }
-    model = curModel;
+    model = curModel!;
     if (model.sources.isNotEmpty) {
-      curSource = model.sources[0].sourceType;
+      curSource = model.sources[0].source;
     }
     if (model.items.isNotEmpty) {
       curEp = model.items[0].episode;
@@ -52,7 +67,8 @@ class PlayHive extends ChangeNotifier {
   /// 根据播放链接获取播放进度
   Future<int> getProgressByLink(String link) async {
     var model = curModel;
-    var sourceFind = model.sources.indexWhere((e) => e.sourceType == curSource);
+    if (model == null) return 0;
+    var sourceFind = model.sources.indexWhere((e) => e.source == curSource);
     if (sourceFind == -1) return 0;
     var itemFind = model.sources[sourceFind].items.indexWhere(
       (e) => e.link == link,
@@ -78,7 +94,7 @@ class PlayHive extends ChangeNotifier {
       }
       model = get;
     } else {
-      model = curModel;
+      model = curModel ?? values[0];
     }
     var find = model.items.indexWhere((e) => e.episode == index);
     if (find == -1) {
@@ -97,7 +113,7 @@ class PlayHive extends ChangeNotifier {
     bool play = true,
   }) async {
     PlayHiveSource bmf = PlayHiveSource(
-      sourceType: VideoSourceType.bmf,
+      source: "BMF",
       items: [PlayHiveSourceItem(link: file, index: index)],
     );
     PlayHiveItem item = PlayHiveItem(episode: index, progress: 0);
@@ -109,7 +125,7 @@ class PlayHive extends ChangeNotifier {
     await box.put(subject, model);
     if (play) {
       curModel = model;
-      curSource = VideoSourceType.bmf;
+      curSource = "BMF";
       curEp = index;
     }
     notifyListeners();
@@ -128,12 +144,10 @@ class PlayHive extends ChangeNotifier {
       return;
     }
     // 查找是否有BMF资源
-    var sourceFind = model.sources.indexWhere(
-      (e) => e.sourceType == VideoSourceType.bmf,
-    );
+    var sourceFind = model.sources.indexWhere((e) => e.source == "BMF");
     if (sourceFind == -1) {
       PlayHiveSource bmf = PlayHiveSource(
-        sourceType: VideoSourceType.bmf,
+        source: "BMF",
         items: [PlayHiveSourceItem(link: file, index: index)],
       );
       model.sources.add(bmf);
@@ -154,7 +168,7 @@ class PlayHive extends ChangeNotifier {
     }
     if (play) {
       curModel = model;
-      curSource = VideoSourceType.bmf;
+      curSource = "BMF";
       curEp = index;
     }
     await box.put(subject, model);
@@ -169,26 +183,33 @@ class PlayHive extends ChangeNotifier {
       if (get == null) return [];
       model = get;
     } else {
-      model = curModel;
+      model = curModel ?? values[0];
     }
-    var sourceFind = model.sources.indexWhere((e) => e.sourceType == curSource);
+    var sourceFind = model.sources.indexWhere((e) => e.source == curSource);
     if (sourceFind == -1) return [];
     var source = model.sources[sourceFind];
+    source.items.sort((a, b) => a.index.compareTo(b.index));
+    // 将跟curEp相同的放到第一个
+    var find = source.items.indexWhere((e) => e.index == curEp);
+    if (find != -1) {
+      var item = source.items.removeAt(find);
+      source.items.insert(0, item);
+    }
     return source.items.map((e) {
       return Media(e.link, extras: {'episode': e.index});
     }).toList();
   }
 
   /// 删除播放
-  Future<void> delete(PlayHiveModel model) async {
-    // todo 暂不支持
-    return;
-    // notifyListeners();
+  Future<void> delete(int subject) async {
+    await box.delete(subject);
+    notifyListeners();
   }
 
   /// 更新当前播放进度
   Future<void> updateProgress(int progress, {int? index}) async {
     var model = curModel;
+    if (model == null) return;
     int find;
     if (index != null) {
       find = model.items.indexWhere((e) => e.episode == index);
@@ -216,9 +237,7 @@ class PlayHive extends ChangeNotifier {
   int? getBmfEpisode(int subject, String filePath) {
     var model = box.get(subject);
     if (model == null) return null;
-    var sourceIndex = model.sources.indexWhere(
-      (e) => e.sourceType == VideoSourceType.bmf,
-    );
+    var sourceIndex = model.sources.indexWhere((e) => e.source == "BMF");
     if (sourceIndex == -1) return null;
     var source = model.sources[sourceIndex];
     var find = source.items.indexWhere((e) => e.link == filePath);
@@ -229,14 +248,46 @@ class PlayHive extends ChangeNotifier {
   int getNextBmfEpisode(int subject) {
     var model = box.get(subject);
     if (model == null) return 0;
-    var sourceIndex = model.sources.indexWhere(
-      (e) => e.sourceType == VideoSourceType.bmf,
-    );
+    var sourceIndex = model.sources.indexWhere((e) => e.source == "BMF");
     if (sourceIndex == -1) return 0;
     var max = 0;
     for (var item in model.sources[sourceIndex].items) {
       if (item.index > max) max = item.index;
     }
     return max + 1;
+  }
+
+  /// 删除播放进度
+  Future<void> deleteProgress(int subjectId, {int? episode}) async {
+    var model = box.get(subjectId);
+    if (model == null) return;
+    if (episode == null) {
+      model.items.clear();
+    } else {
+      model.items.removeWhere((element) => element.episode == episode);
+    }
+    await box.put(subjectId, model);
+    notifyListeners();
+  }
+
+  /// 删除资源
+  void deleteSource(int subjectId, {String? source}) {
+    var model = box.get(subjectId);
+    if (model == null) return;
+    model.sources.removeWhere((element) => element.source == source);
+    box.put(subjectId, model);
+    notifyListeners();
+  }
+
+  /// 删除BMF
+  Future<void> deleteBMF(int subjectId, int episode) async {
+    var model = box.get(subjectId);
+    if (model == null) return;
+    var sourceIndex = model.sources.indexWhere((e) => e.source == "BMF");
+    if (sourceIndex == -1) return;
+    var source = model.sources[sourceIndex];
+    source.items.removeWhere((element) => element.index == episode);
+    await box.put(subjectId, model);
+    notifyListeners();
   }
 }

@@ -9,11 +9,11 @@ import 'package:window_manager/window_manager.dart';
 // Project imports:
 import '../../pages/app/bmf_page.dart';
 import '../../pages/app/download_page.dart';
+import '../../pages/app/play_page.dart';
 import '../../pages/app/rss_page.dart';
 import '../../pages/app/setting_page.dart';
 import '../../pages/app/test_page.dart';
 import '../../pages/bangumi/bangumi_calendar.dart';
-import '../../pages/play/play_list.dart';
 import '../../store/app_store.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../store/nav_store.dart';
@@ -157,7 +157,7 @@ class _AppNavState extends ConsumerState<AppNav>
       PaneItem(
         icon: const Icon(FluentIcons.play),
         title: const Text('内置播放'),
-        body: const PlayListPage(),
+        body: const PlayPage(),
       ),
     ];
   }

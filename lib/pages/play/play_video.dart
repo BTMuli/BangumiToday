@@ -161,12 +161,6 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
     await player.play();
   }
 
-  /// 保存当前进度
-  Future<void> saveProgress() async {
-    var progress = player.state.position.inMilliseconds;
-    await hivePlay.updateProgress(progress);
-  }
-
   /// 控制栏的数据构建
   /// todo，这边的 widget 似乎不会改变，详见 https://github.com/media-kit/media-kit/issues/808
   MaterialDesktopVideoControlsThemeData buildControls() {
@@ -181,7 +175,8 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
             var isPlaying = player.state.playing;
             if (isPlaying) {
               await player.pause();
-              await saveProgress();
+              await hivePlay
+                  .updateProgress(player.state.position.inMilliseconds);
             } else {
               await player.play();
             }

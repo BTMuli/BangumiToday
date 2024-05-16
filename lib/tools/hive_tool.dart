@@ -8,6 +8,7 @@ import '../models/hive/nav_model.dart';
 import '../models/hive/play_model.dart';
 import '../models/hive/tracker_model.dart';
 import '../store/bgm_user_hive.dart';
+import '../store/play_store.dart';
 import '../store/tracker_hive.dart';
 import 'file_tool.dart';
 
@@ -67,6 +68,7 @@ class BTHiveTool {
     Hive.registerAdapter(PlayHiveSourceAdapter());
     Hive.registerAdapter(PlayHiveSourceItemAdapter());
     await Hive.openBox<PlayHiveModel>('play');
+    PlayHive().init();
   }
 
   /// 初始化 danmakuHiveBox
