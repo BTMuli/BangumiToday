@@ -47,6 +47,9 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
   /// 获取playList
   late List<Media> playList = player.state.playlist.medias;
 
+  /// 是否可播放
+  late bool isPlayable = true;
+
   /// 获取index
   int get index => player.state.playlist.index;
 
@@ -58,18 +61,7 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
     super.initState();
     BTLogTool.info('init PlayVodPage');
     Future.microtask(() async {
-      playList = hive.getPlayList(subject: widget.subject);
-      setState(() {});
-      var isForeground = ref.read(navStoreProvider).curIndex == 3;
-      await player.open(Playlist(playList), play: isForeground);
-      if (playList.isEmpty) return;
-      await player.stream.buffer.first;
-      var progress = await hive.getProgress(playList[index].extras?['episode']);
-      if (progress != 0) {
-        BTLogTool.info('跳转到上次播放进度: $progress');
-        await player.seek(Duration(milliseconds: progress));
-      }
-      setState(() {});
+      await freshList();
     });
     hive.addListener(listenHive);
   }
@@ -84,6 +76,36 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
   void dispose() {
     hive.removeListener(listenHive);
     super.dispose();
+  }
+
+  /// 检测参数更新
+  @override
+  void didUpdateWidget(PlayVodPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.subject == widget.subject) return;
+    Future.microtask(() async {
+      await saveProgress();
+      await freshList();
+    });
+  }
+
+  /// 刷新播放列表
+  Future<void> freshList() async {
+    playList = hive.getPlayList(subject: widget.subject);
+    await player.open(Playlist(playList));
+    if (playList.isEmpty) {
+      if (mounted) await BtInfobar.warn(context, '播放列表为空！');
+      isPlayable = false;
+      setState(() {});
+      return;
+    }
+    isPlayable = true;
+    await player.stream.buffer.first;
+    var progress = await hive.getProgress(playList[index].extras?['episode']);
+    if (progress != 0) {
+      await player.seek(Duration(milliseconds: progress));
+    }
+    setState(() {});
   }
 
   /// 保存当前进度
@@ -135,12 +157,12 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
             );
             if (!confirm) return;
             await hive.deleteBMF(widget.subject, media.extras?['episode']);
-            setState(() {});
+            await freshList();
             if (mounted) await BtInfobar.success(context, '移除成功');
           },
           onLongPress: () async {
             await hive.deleteBMF(widget.subject, media.extras?['episode']);
-            setState(() {});
+            await freshList();
           },
         ),
       ],
@@ -196,7 +218,7 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (playList.isEmpty) {
+    if (!isPlayable) {
       return const ScaffoldPage(content: Center(child: Text('暂无播放列表')));
     }
     return ScaffoldPage(

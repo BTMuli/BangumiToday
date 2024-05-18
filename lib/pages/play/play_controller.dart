@@ -142,6 +142,19 @@ class PlayController extends StateNotifier<PlayControllerState> {
     }
     state = state.copyWith(comments: state.comments);
   }
+
+  Future<void> switchSubject(int value) async {
+    await saveProgress();
+    state.hive.switchSubject(value);
+    var list = state.hive.getPlayList();
+    await state.player.open(Playlist(list));
+    await state.player.stream.buffer.first;
+    var episode = state.hive.curEp;
+    var progress = await state.hive.getProgress(episode);
+    if (progress != 0) {
+      await state.player.seek(Duration(milliseconds: progress));
+    }
+  }
 }
 
 /// 参考自KNKPAnime，对Player进行调整

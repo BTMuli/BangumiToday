@@ -31,26 +31,34 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
   /// 当前播放的subject
   late int? curSubject = hive.curModel?.subjectId;
 
-  /// 是否有播放列表
-  late bool isPlayable = false;
-
   @override
   bool get wantKeepAlive => true;
 
-  /// 构建future
-  Future<void> buildFuture() async {
+  @override
+  void initState() {
+    super.initState();
+    hive.addListener(listenHive);
+  }
+
+  @override
+  void dispose() {
+    hive.removeListener(listenHive);
+    super.dispose();
+  }
+
+  /// 监听hive，判断curModel的subjectId是否改变
+  void listenHive() {
     var curModel = hive.curModel;
     var subject = curModel?.subjectId;
-    isPlayable = curModel != null && curModel.items.isNotEmpty;
     if (subject != null && curSubject != subject) {
       curSubject = subject;
-      await hive.open(subject: subject);
+      setState(() {});
     }
   }
 
   /// 构建subjectBox
   Widget buildSubjectBox() {
-    var list = hive.values.map((e) => e.subjectId).toList();
+    var list = hive.getPlayable().map((e) => e.subjectId).toList();
     return ComboBox<int>(
       value: curSubject,
       items: List.generate(
@@ -66,11 +74,8 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
           if (mounted) await BtInfobar.warn(context, '已经选中该条目！');
           return;
         }
-        await ref.read(playControllerProvider.notifier).saveProgress();
-        hive.switchSubject(value);
-        setState(() {
-          curSubject = value;
-        });
+        await ref.read(playControllerProvider.notifier).switchSubject(value);
+        setState(() {});
       },
     );
   }
@@ -90,14 +95,6 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
           onPressed: () async => await fileTool.openScreenshotDir(),
         ),
       ),
-      const SizedBox(width: 4),
-      Tooltip(
-        message: '刷新',
-        child: IconButton(
-          icon: const BaseThemeIcon(FluentIcons.refresh),
-          onPressed: () => setState(() {}),
-        ),
-      ),
       const Spacer(),
       const SizedBox(width: 8),
     ]);
@@ -106,20 +103,10 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return FutureBuilder<void>(
-      future: buildFuture(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done) {
-          return ScaffoldPage(
-            header: buildHeader(),
-            padding: EdgeInsets.zero,
-            content: isPlayable
-                ? PlayVodPage(subject: curSubject!)
-                : const Center(child: Text('无播放资源')),
-          );
-        }
-        return const Center(child: ProgressRing());
-      },
+    return ScaffoldPage(
+      header: buildHeader(),
+      padding: EdgeInsets.zero,
+      content: PlayVodPage(subject: curSubject!),
     );
   }
 }

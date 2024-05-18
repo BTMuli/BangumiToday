@@ -34,17 +34,24 @@ class PlayHive extends ChangeNotifier {
 
   /// 初始化
   void init() {
-    if (values.isNotEmpty) {
-      // 按照subjectId排序
-      values.sort((a, b) => a.subjectId.compareTo(b.subjectId));
-      // 按照episode排序
-      for (var element in values) {
-        element.items.sort((a, b) => a.episode.compareTo(b.episode));
-      }
-      curModel = values[0];
-      curSource = curModel!.sources[0].source;
-      curEp = curModel!.items[0].episode;
+    if (values.isEmpty) return;
+    values.sort((a, b) => a.subjectId.compareTo(b.subjectId));
+    for (var element in values) {
+      element.items.sort((a, b) => a.episode.compareTo(b.episode));
     }
+    var playable = getPlayable();
+    if (playable.isNotEmpty) {
+      curModel = playable[0];
+    } else {
+      curModel = values[0];
+    }
+    var sourceFind = curModel!.sources.indexWhere((e) => e.items.isNotEmpty);
+    if (sourceFind == -1) {
+      curSource = curModel!.sources[0].source;
+    } else {
+      curSource = curModel!.sources[sourceFind].source;
+    }
+    curEp = curModel!.items[0].episode;
   }
 
   /// open，打开某条目的播放
@@ -74,6 +81,17 @@ class PlayHive extends ChangeNotifier {
     var model = box.get(subject);
     if (model == null) return false;
     return model.sources.isNotEmpty;
+  }
+
+  /// 获取所有播放列表非空的model
+  List<PlayHiveModel> getPlayable() {
+    var res = <PlayHiveModel>[];
+    for (var model in values) {
+      if (model.sources.isEmpty) continue;
+      if (model.sources.every((e) => e.items.isEmpty)) continue;
+      res.add(model);
+    }
+    return res;
   }
 
   /// 根据播放链接获取播放进度
@@ -309,7 +327,11 @@ class PlayHive extends ChangeNotifier {
   void switchSubject(int value) {
     curModel = box.get(value);
     curSource = curModel!.sources[0].source;
-    curEp = curModel!.items[0].episode;
+    if (curModel!.items.isNotEmpty) {
+      curEp = curModel!.items[0].episode;
+    } else {
+      curEp = 0;
+    }
     notifyListeners();
   }
 }
