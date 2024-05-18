@@ -1,5 +1,4 @@
 // Package imports:
-import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -90,24 +89,10 @@ class PlayControllerState {
 class PlayController extends StateNotifier<PlayControllerState> {
   PlayController(super.state);
 
-  /// open，打开特定条目
-  Future<void> open(int subject) async {
-    await state.hive.open(subject: subject);
-    await state.player.open(
-      Playlist(state.hive.getPlayList(subject: subject), index: 0),
-    );
-    var progress = await state.hive.getProgress(0, subject: subject);
-    if (progress != 0) {
-      await state.player.stream.buffer.first;
-      await state.player.seek(Duration(milliseconds: progress));
-    }
-    state.playSpeed = 1.0;
-    await state.player.setRate(1.0);
-    state.showDanmaku = false;
-    state.danmakuPosition = -1;
-    state.danmaku.clear();
-    state.comments.clear();
-    await state.init();
+  /// 保存播放进度
+  Future<void> saveProgress() async {
+    var progress = state.player.state.position.inMilliseconds;
+    await state.hive.updateProgress(progress);
   }
 
   /// 跳转
@@ -118,6 +103,7 @@ class PlayController extends StateNotifier<PlayControllerState> {
     if (progress != 0) {
       await state.player.seek(Duration(milliseconds: progress));
     }
+    state.hive.curEp = episode;
   }
 
   /// 修改播放速度
@@ -209,7 +195,6 @@ class BtPlayer extends Player {
       map[element.time]!.add(element);
     }
     for (var element in map.entries) {
-      debugPrint('duration: ${element.key}');
       Future.delayed(Duration(milliseconds: element.key * 1000), () {
         if (state.playing) {
           danmaku?.addItems(element.value);

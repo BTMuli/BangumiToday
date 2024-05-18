@@ -11,8 +11,6 @@ import 'package:pasteboard/pasteboard.dart';
 // Project imports:
 import '../../../components/app/app_infobar.dart';
 import '../../../components/base/base_theme_icon.dart';
-import '../../../request/source/danmaku_api.dart';
-import '../../../store/danmaku_hive.dart';
 import '../../../store/play_store.dart';
 import '../../../tools/file_tool.dart';
 import 'play_controller.dart';
@@ -41,17 +39,11 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
   /// PlayHive
   final PlayHive hivePlay = PlayHive();
 
-  /// 弹幕Hive
-  final DanmakuHive hiveDanmaku = DanmakuHive();
-
   /// 速度的flyout
   final FlyoutController flyout = FlyoutController();
 
   /// 字幕
   List<SubtitleTrack> get subtitles => player.state.tracks.subtitle;
-
-  /// 弹幕 api
-  final BtrDanmakuAPI danmakuApi = BtrDanmakuAPI();
 
   @override
   void dispose() {

@@ -5,6 +5,7 @@ import 'package:media_kit/media_kit.dart';
 
 // Project imports:
 import '../models/hive/play_model.dart';
+import '../tools/log_tool.dart';
 
 /// 播放记录的Hive模型
 class PlayHive extends ChangeNotifier {
@@ -62,6 +63,17 @@ class PlayHive extends ChangeNotifier {
       curEp = model.items[0].episode;
     }
     notifyListeners();
+  }
+
+  /// 判断-是否播放列表为空
+  Future<bool> isPlayable({int? subject}) async {
+    if (subject == null) {
+      if (curModel == null) return false;
+      return curModel!.sources.isNotEmpty;
+    }
+    var model = box.get(subject);
+    if (model == null) return false;
+    return model.sources.isNotEmpty;
   }
 
   /// 根据播放链接获取播放进度
@@ -182,8 +194,10 @@ class PlayHive extends ChangeNotifier {
       var get = box.get(subject);
       if (get == null) return [];
       model = get;
+    } else if (values.isEmpty || curModel == null) {
+      return [];
     } else {
-      model = curModel ?? values[0];
+      model = curModel!;
     }
     var sourceFind = model.sources.indexWhere((e) => e.source == curSource);
     if (sourceFind == -1) return [];
@@ -218,6 +232,7 @@ class PlayHive extends ChangeNotifier {
     }
     if (find == -1) return;
     model.items[find].progress = progress;
+    BTLogTool.info('更新进度: $progress');
     await box.put(model.subjectId, model);
   }
 
@@ -288,6 +303,13 @@ class PlayHive extends ChangeNotifier {
     var source = model.sources[sourceIndex];
     source.items.removeWhere((element) => element.index == episode);
     await box.put(subjectId, model);
+    notifyListeners();
+  }
+
+  void switchSubject(int value) {
+    curModel = box.get(value);
+    curSource = curModel!.sources[0].source;
+    curEp = curModel!.items[0].episode;
     notifyListeners();
   }
 }
