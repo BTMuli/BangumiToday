@@ -194,7 +194,7 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
   /// 构建播放列表
   Widget buildList() {
     return SizedBox(
-      height: MediaQuery.of(context).size.height,
+      width: 120,
       child: ListView.separated(
         itemCount: playList.length,
         itemBuilder: (context, index) => buildCard(index, playList[index]),
@@ -226,7 +226,7 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
       content: Padding(
         padding: const EdgeInsets.all(8),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Flexible(
@@ -239,7 +239,7 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
               ),
             ),
             const SizedBox(width: 8),
-            SizedBox(width: 120, child: buildList())
+            buildList(),
           ],
         ),
       ),
