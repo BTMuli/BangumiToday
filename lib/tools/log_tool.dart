@@ -74,7 +74,7 @@ class BTLogTool {
         printTime: true,
       );
     } else {
-      printer = PrettyPrinter(printTime: true);
+      printer = PrettyPrinter(printTime: true, methodCount: 5);
     }
     logger = Logger(
       filter: BTLogFilter(),

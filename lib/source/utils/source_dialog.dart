@@ -36,8 +36,7 @@ Future<void> showSourceSearchDialog(
         content: ListView.separated(
           padding: const EdgeInsets.only(right: 12),
           itemCount: find.length,
-          separatorBuilder: (context, index) =>
-              const SizedBox(height: 12, child: Center(child: Divider())),
+          separatorBuilder: (context, index) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             return SourceSearchItem(
                 item: item, data: find[index], callback: callback);
@@ -83,21 +82,29 @@ class _SourceSearchItemState extends State<SourceSearchItem> {
 
   /// 构建无封面的卡片
   Widget buildEmptyCover({String? err}) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            BaseThemeIcon.darkest(FluentIcons.photo_error, size: 28.sp),
-            Text(
-              err ?? '无封面',
-              style: TextStyle(
-                color: FluentTheme.of(context).accentColor.darkest,
+    return DecoratedBox(
+      decoration: BoxDecoration(color: FluentTheme.of(context).cardColor),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              BaseThemeIcon.darkest(FluentIcons.photo_error, size: 28.sp),
+              Expanded(
+                child: Tooltip(
+                  message: err ?? '无封面',
+                  child: Text(
+                    err ?? '无封面',
+                    style: TextStyle(
+                      color: FluentTheme.of(context).accentColor.darkest,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -135,7 +142,7 @@ class _SourceSearchItemState extends State<SourceSearchItem> {
           ),
         ),
         if (find.desc != null && find.desc!.isNotEmpty)
-          Text(find.desc!, maxLines: 2, overflow: TextOverflow.ellipsis),
+          Text(find.desc!, maxLines: 3, overflow: TextOverflow.ellipsis),
         const Spacer(),
         IconButton(
           icon: const BaseThemeIcon(FluentIcons.accept),
@@ -180,18 +187,16 @@ class _SourceSearchItemState extends State<SourceSearchItem> {
   /// buildCard
   Widget buildCard(BtSourceFind find) {
     return SizedBox(
-      height: 150.h,
+      height: 200.h,
       child: Card(
         padding: EdgeInsets.zero,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: 150.h, maxWidth: 200.w),
-              child: buildCover(find),
-            ),
+            Flexible(child: buildCover(find)),
             Expanded(
+              flex: 5,
               child: Padding(
                 padding: EdgeInsets.all(4.sp),
                 child: buildInfo(find),
@@ -203,6 +208,17 @@ class _SourceSearchItemState extends State<SourceSearchItem> {
     );
   }
 
+  /// buildList
+  List<Widget> buildList() {
+    var res = <Widget>[];
+    for (var find in widget.data.find) {
+      res.add(buildCard(find));
+      if (find == widget.data.find.last) continue;
+      res.add(const SizedBox(height: 12, child: Center(child: Divider())));
+    }
+    return res;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -211,7 +227,7 @@ class _SourceSearchItemState extends State<SourceSearchItem> {
           source.name,
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
-        for (var find in widget.data.find) buildCard(find),
+        ...buildList(),
       ],
     );
   }

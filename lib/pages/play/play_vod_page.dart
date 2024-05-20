@@ -85,7 +85,6 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.subject == widget.subject) return;
     Future.microtask(() async {
-      await saveProgress();
       await freshList();
     });
   }
@@ -115,7 +114,7 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
     var progress = player.state.position.inMilliseconds;
     var media = playList[index];
     var episode = media.extras?['episode'];
-    await hive.updateProgress(progress, index: episode);
+    await hive.updateProgress(progress, episode);
   }
 
   /// 处理非本地源的播放

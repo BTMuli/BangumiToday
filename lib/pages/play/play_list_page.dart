@@ -1,3 +1,6 @@
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -135,8 +138,7 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
           onPressed: () async => await fileTool.openScreenshotDir(),
         ),
       ),
-      const SizedBox(width: 8),
-      buildSourceBox(),
+      if (kDebugMode) ...[const SizedBox(width: 8), buildSourceBox()],
       const Spacer(),
       const SizedBox(width: 8),
     ]);

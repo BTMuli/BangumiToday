@@ -1,3 +1,6 @@
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 
@@ -268,7 +271,7 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
         children: [
           buildDelHistoryButton(item),
           buildEditButton(item),
-          buildSearchButton(item),
+          if (kDebugMode) buildSearchButton(item),
         ],
       ),
       content: Column(

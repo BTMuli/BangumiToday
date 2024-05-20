@@ -239,15 +239,10 @@ class PlayHive extends ChangeNotifier {
   }
 
   /// 更新当前播放进度
-  Future<void> updateProgress(int progress, {int? index}) async {
+  Future<void> updateProgress(int progress, int index) async {
     var model = curModel;
     if (model == null) return;
-    int find;
-    if (index != null) {
-      find = model.items.indexWhere((e) => e.episode == index);
-    } else {
-      find = model.items.indexWhere((e) => e.episode == curEp);
-    }
+    var find = model.items.indexWhere((e) => e.episode == curEp);
     if (find == -1) return;
     model.items[find].progress = progress;
     BTLogTool.info('更新进度: $progress');
@@ -276,18 +271,6 @@ class PlayHive extends ChangeNotifier {
     var find = source.items.indexWhere((e) => e.link == filePath);
     if (find == -1) return null;
     return model.sources[sourceIndex].items[find].index;
-  }
-
-  int getNextBmfEpisode(int subject) {
-    var model = box.get(subject);
-    if (model == null) return 0;
-    var sourceIndex = model.sources.indexWhere((e) => e.source == "BMF");
-    if (sourceIndex == -1) return 0;
-    var max = 0;
-    for (var item in model.sources[sourceIndex].items) {
-      if (item.index > max) max = item.index;
-    }
-    return max + 1;
   }
 
   /// 删除播放进度
@@ -327,10 +310,9 @@ class PlayHive extends ChangeNotifier {
   void switchSubject(int value) {
     curModel = box.get(value);
     curSource = curModel!.sources[0].source;
-    if (curModel!.items.isNotEmpty) {
-      curEp = curModel!.items[0].episode;
-    } else {
-      curEp = 0;
+    var list = getPlayList(subject: value);
+    if (list.isNotEmpty) {
+      curEp = list[0].extras?['episode'];
     }
     notifyListeners();
   }

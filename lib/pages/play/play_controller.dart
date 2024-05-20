@@ -1,4 +1,5 @@
 // Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -91,8 +92,13 @@ class PlayController extends StateNotifier<PlayControllerState> {
 
   /// 保存播放进度
   Future<void> saveProgress() async {
+    if (state.player.state.playlist.medias.isEmpty) return;
     var progress = state.player.state.position.inMilliseconds;
-    await state.hive.updateProgress(progress);
+    var media =
+        state.player.state.playlist.medias[state.player.state.playlist.index];
+    var episode = media.extras?['episode'];
+    debugPrint('progress: $progress, episode: $episode');
+    await state.hive.updateProgress(progress, episode);
   }
 
   /// 跳转
