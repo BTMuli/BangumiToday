@@ -1,13 +1,25 @@
-﻿---
+---
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2024-05-10
+Update: 2024-05-21
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:42`
 >
-> 更新于 `2024-05-10 16:21:40`
+> 更新于 `2024-05-21 01:18:55`
+
+## [0.5.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.4.0) (2024-05-21)
+
+为了适配在线播放源，将播放记录的模型进行了重构，**该改动会使旧版本应用启动白屏**。
+
+解决方法：将 `文档/BangumiToday/hive` 目录下的 `play.hive` 及 `play.lock` 删除后重启应用。
+
+弹幕&在线播放源的支持还在测试阶段，暂未实装。
+
+- ♻️ 重构请求客户端
+- ✨ 重构播放记录模型，按照条目进行划分，并优化了播放记录的存储逻辑
+- 🐛 修复令牌刷新bug
 
 ## [v0.4.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.4.0) (2024-05-10)
 

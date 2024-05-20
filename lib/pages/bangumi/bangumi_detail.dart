@@ -1,3 +1,6 @@
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -142,6 +145,35 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     }
   }
 
+  /// 构建弹幕按钮
+  Widget buildDanmakuButton() {
+    return IconButton(
+      icon: const Icon(FluentIcons.library),
+      onPressed: () async {
+        var check = hiveDanmaku.find(int.parse(widget.id));
+        if (check == null) {
+          await fetchDanmaku(widget.id);
+        } else {
+          await hiveDanmaku.showInfo(context, check);
+        }
+      },
+      onLongPress: () async {
+        var check = hiveDanmaku.find(int.parse(widget.id));
+        if (check == null) {
+          await fetchDanmaku(widget.id);
+          return;
+        }
+        var confirm = await showConfirmDialog(
+          context,
+          title: '重新匹配',
+          content: '确定重新匹配吗？',
+        );
+        if (!confirm) return;
+        await fetchDanmaku(widget.id);
+      },
+    );
+  }
+
   /// 构建顶部栏
   Widget buildHeader() {
     String? title;
@@ -175,31 +207,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
         mainAxisAlignment: MainAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(FluentIcons.library),
-            onPressed: () async {
-              var check = hiveDanmaku.find(int.parse(widget.id));
-              if (check == null) {
-                await fetchDanmaku(widget.id);
-              } else {
-                await hiveDanmaku.showInfo(context, check);
-              }
-            },
-            onLongPress: () async {
-              var check = hiveDanmaku.find(int.parse(widget.id));
-              if (check == null) {
-                await fetchDanmaku(widget.id);
-                return;
-              }
-              var confirm = await showConfirmDialog(
-                context,
-                title: '重新匹配',
-                content: '确定重新匹配吗？',
-              );
-              if (!confirm) return;
-              await fetchDanmaku(widget.id);
-            },
-          ),
+          if (kDebugMode) buildDanmakuButton(),
           IconButton(
             icon: const Icon(FluentIcons.refresh),
             onPressed: () async {

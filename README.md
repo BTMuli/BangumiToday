@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2024-05-12
+Update: 2024-05-21
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-05-12 21:58:56`
+> 更新于 `2024-05-21 01:24:37`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -40,17 +40,23 @@ Update: 2024-05-12
 
 ## 应用预览
 
-![](./screenshots/calendar.png)
+![今日放送](./screenshots/calendar.png)
 
-![](./screenshots/subjectDetail.png)
+![条目详情](./screenshots/subjectDetail.png)
 
-![](./screenshots/subjectDetail2.png)
+![条目详情2](./screenshots/subjectDetail2.png)
 
-![](./screenshots/subjectSearch.png)
+![条目搜索](./screenshots/subjectSearch.png)
 
-![](./screenshots/userCollection.png)
+![用户界面](./screenshots/userInfo.png)
 
-![](./screenshots/videoPlay.png)
+![用户收藏](./screenshots/userCollection.png)
+
+![BangumiData](./screenshots/bangumiData.png)
+
+![播放列表](./screenshots/playList.png)
+
+![播放历史](./screenshots/playHistory.png)
 
 ## 发行
 

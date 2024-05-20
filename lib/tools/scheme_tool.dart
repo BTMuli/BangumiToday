@@ -31,7 +31,7 @@ class BTSchemeTool {
 
   /// 测试
   Future<void> test(BuildContext context) async {
-    var uri = await appLink.getLatestAppLink();
+    var uri = await appLink.getLatestLink();
     if (context.mounted) {
       await BtInfobar.success(context, '[BangumiToday] $uri');
     }
