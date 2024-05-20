@@ -115,7 +115,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
   }
 
   /// 刷新访问令牌
-  Future<void> freshToken() async {
+  Future<void> freshToken({bool force = false}) async {
     if (progress.isShow) {
       progress.update(title: '刷新访问令牌', text: '正在刷新访问令牌', progress: null);
     } else {
@@ -126,12 +126,21 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
       if (mounted) await BtInfobar.error(context, '未找到刷新令牌');
       return;
     }
-    // todo 存在bug
-    var res = await hive.refreshAuth(onErr: (e) async {
-      if (mounted) await showRespErr(e, context);
-    });
+    var res = await hive.refreshAuth(force: force);
     if (res == null || !res) {
       progress.end();
+    }
+    if (res == null && mounted) {
+      var confirm = await showConfirmDialog(
+        context,
+        title: '确认刷新？',
+        content: '检测到令牌未过期，是否仍然刷新令牌？',
+      );
+      if (!confirm) {
+        progress.end();
+        return;
+      }
+      await freshToken(force: true);
       return;
     }
     progress.end();
