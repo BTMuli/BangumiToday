@@ -84,7 +84,7 @@ class BimiApi {
   /// 获取视频链接
   Future<String> play(String episode) async {
     try {
-      var resp = await client.dio.get(episode);
+      var resp = await client.dio.get('/$episode');
       var doc = parse(resp.data);
       for (var script in doc.querySelectorAll('script')) {
         if (!script.text.contains('player_aaaa')) continue;
@@ -102,8 +102,8 @@ class BimiApi {
 
   /// 解析链接
   Future<String> parseLink(String url, String episode) async {
-    var link = '$baseUrl/$episode';
-    var params = {'url': url, 'myurl': link};
+    var link = '$baseUrl$episode';
+    var params = {"url": url, "myurl": link};
     var resp = await client.dio.get(
       '/static/danmu/play.php',
       queryParameters: params,

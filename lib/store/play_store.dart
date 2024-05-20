@@ -347,4 +347,15 @@ class PlayHive extends ChangeNotifier {
     await box.put(item.subjectId, item);
     notifyListeners();
   }
+
+  String getSubjectName(int subject) {
+    var model = box.get(subject);
+    if (model == null) return '';
+    return model.subjectName;
+  }
+
+  void switchSource(String value) {
+    curSource = value;
+    notifyListeners();
+  }
 }

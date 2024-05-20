@@ -31,6 +31,9 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
   /// 当前播放的subject
   late int? curSubject = hive.curModel?.subjectId;
 
+  /// 当前播放的source
+  late String curSource = hive.curSource;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -54,6 +57,10 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
       curSubject = subject;
       setState(() {});
     }
+    if (curSource != hive.curSource) {
+      curSource = hive.curSource;
+      setState(() {});
+    }
   }
 
   /// 构建subjectBox
@@ -65,7 +72,10 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
         list.length,
         (index) => ComboBoxItem<int>(
           value: list[index],
-          child: Text('${list[index]}'),
+          child: Tooltip(
+            message: hive.getSubjectName(list[index]),
+            child: Text('${list[index]}'),
+          ),
         ),
       ),
       onChanged: (value) async {
@@ -75,6 +85,36 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
           return;
         }
         await ref.read(playControllerProvider.notifier).switchSubject(value);
+        setState(() {});
+      },
+    );
+  }
+
+  /// 构建sourceBox
+  Widget buildSourceBox() {
+    var model = hive.curModel;
+    if (model == null) return const SizedBox();
+    var sources = model.sources;
+    return ComboBox<String>(
+      value: curSource,
+      items: List.generate(
+        sources.length,
+        (index) => ComboBoxItem<String>(
+          value: sources[index].source,
+          child: Tooltip(
+            message: sources[index].source,
+            child: Text(sources[index].source),
+          ),
+        ),
+      ),
+      onChanged: (value) async {
+        if (value == null) return;
+        if (value == hive.curSource) {
+          if (mounted) await BtInfobar.warn(context, '已经选中该资源！');
+          return;
+        }
+        ref.read(playControllerProvider.notifier).switchSource(value);
+        curSource = value;
         setState(() {});
       },
     );
@@ -95,6 +135,8 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
           onPressed: () async => await fileTool.openScreenshotDir(),
         ),
       ),
+      const SizedBox(width: 8),
+      buildSourceBox(),
       const Spacer(),
       const SizedBox(width: 8),
     ]);

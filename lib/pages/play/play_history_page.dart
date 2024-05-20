@@ -246,7 +246,14 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
           if (mounted) await BtInfobar.warn(context, '未找到相关资源');
           return;
         }
-        if (mounted) await showSourceSearchDialog(context, item, find);
+        if (mounted) {
+          await showSourceSearchDialog(
+            context,
+            item,
+            find,
+            () => setState(() {}),
+          );
+        }
       },
     );
   }

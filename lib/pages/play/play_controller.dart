@@ -155,6 +155,10 @@ class PlayController extends StateNotifier<PlayControllerState> {
       await state.player.seek(Duration(milliseconds: progress));
     }
   }
+
+  void switchSource(String value) {
+    state.hive.switchSource(value);
+  }
 }
 
 /// 参考自KNKPAnime，对Player进行调整

@@ -12,6 +12,7 @@ import '../../../tools/file_tool.dart';
 import '../../../tools/log_tool.dart';
 import '../../components/app/app_dialog.dart';
 import '../../components/app/app_infobar.dart';
+import '../../source/source_load.dart';
 import 'play_controller.dart';
 import 'play_video.dart';
 
@@ -117,6 +118,13 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
     await hive.updateProgress(progress, index: episode);
   }
 
+  /// 处理非本地源的播放
+  Future<void> handlePlay(Media media) async {
+    var source = getSourceByName(hive.curSource);
+    await source.play(media.uri, controller);
+    debugPrint('play ${media.uri}');
+  }
+
   /// 构建播放列表
   Widget buildItemAct(Media media) {
     return Row(
@@ -136,6 +144,10 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
         IconButton(
           icon: const Icon(FluentIcons.play),
           onPressed: () async {
+            if (hive.curSource != "BMF") {
+              await handlePlay(media);
+              return;
+            }
             if (media.uri == playList[index].uri) {
               await BtInfobar.warn(context, '所选视频已经在播放中！');
               return;
@@ -150,6 +162,10 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
         IconButton(
           icon: const Icon(FluentIcons.delete),
           onPressed: () async {
+            if (hive.curSource != 'BMF') {
+              if (mounted) await BtInfobar.error(context, '只能删除BMF播放源');
+              return;
+            }
             var confirm = await showConfirmDialog(
               context,
               title: '移除播放',
@@ -161,6 +177,10 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
             if (mounted) await BtInfobar.success(context, '移除成功');
           },
           onLongPress: () async {
+            if (hive.curSource != 'BMF') {
+              if (mounted) await BtInfobar.error(context, '只能删除BMF播放源');
+              return;
+            }
             await hive.deleteBMF(widget.subject, media.extras?['episode']);
             await freshList();
           },
@@ -171,7 +191,6 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
 
   /// 构建播放卡片
   Widget buildCard(int index, Media media) {
-    var fileName = Uri.parse(media.uri).pathSegments.last;
     return Card(
       padding: const EdgeInsets.all(4),
       child: Column(
@@ -182,7 +201,7 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          Text(fileName),
+          Text(media.uri),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [buildItemAct(media)],

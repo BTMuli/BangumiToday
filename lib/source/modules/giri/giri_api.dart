@@ -93,10 +93,10 @@ class GiriApi {
   /// 获取播放链接
   Future<String> play(String episode) async {
     try {
-      var resp = await client.dio.get(episode);
+      var resp = await client.dio.get('/$episode');
       var doc = parse(resp.data);
       var div =
-          doc.querySelector('.play-left') ?? doc.querySelector('.player-top');
+          doc.querySelector('.player-left') ?? doc.querySelector('.player-top');
       var script =
           div!.querySelector('script')!.text.split(',').map((e) => e.trim());
       for (var line in script) {

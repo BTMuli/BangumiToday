@@ -24,6 +24,7 @@ Future<void> showSourceSearchDialog(
   BuildContext context,
   PlayHiveModel item,
   List<SourceSearchResItem> find,
+  void Function() callback,
 ) async {
   await showDialog(
     barrierDismissible: true,
@@ -38,7 +39,8 @@ Future<void> showSourceSearchDialog(
           separatorBuilder: (context, index) =>
               const SizedBox(height: 12, child: Center(child: Divider())),
           itemBuilder: (context, index) {
-            return SourceSearchItem(item: item, data: find[index]);
+            return SourceSearchItem(
+                item: item, data: find[index], callback: callback);
           },
         ),
         actions: [
@@ -58,8 +60,14 @@ Future<void> showSourceSearchDialog(
 class SourceSearchItem extends StatefulWidget {
   final PlayHiveModel item;
   final SourceSearchResItem data;
+  final void Function() callback;
 
-  const SourceSearchItem({super.key, required this.item, required this.data});
+  const SourceSearchItem({
+    super.key,
+    required this.item,
+    required this.data,
+    required this.callback,
+  });
 
   @override
   State<SourceSearchItem> createState() => _SourceSearchItemState();
@@ -142,7 +150,7 @@ class _SourceSearchItemState extends State<SourceSearchItem> {
             }
             for (var sourceIdx = 0; sourceIdx < res.length; sourceIdx++) {
               var sourceEp = PlayHiveSource(
-                source: '${source.name}(线路${sourceIdx + 1})',
+                source: '${source.name}_${find.series}(线路${sourceIdx + 1})',
                 items: [],
               );
               for (var ep in res[sourceIdx].episodes) {
@@ -162,7 +170,7 @@ class _SourceSearchItemState extends State<SourceSearchItem> {
               }
             }
             await hive.updateItem(item);
-            if (mounted) setState(() {});
+            widget.callback();
           },
         ),
       ],
@@ -179,7 +187,10 @@ class _SourceSearchItemState extends State<SourceSearchItem> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            SizedBox(height: 150.h, child: buildCover(find)),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: 150.h, maxWidth: 200.w),
+              child: buildCover(find),
+            ),
             Expanded(
               child: Padding(
                 padding: EdgeInsets.all(4.sp),
