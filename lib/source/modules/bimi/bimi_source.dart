@@ -21,13 +21,20 @@ class BimiSource extends BtSourceBase {
   Future<List<BtSourceFind>> search(String title, String keyword) async {
     var res = <BtSourceFind>[];
     status = SourceMatchStat.matching;
-    try {
+    var str = <String>[];
+    if (title == keyword && title.isNotEmpty) {
+      str.add(title);
+    } else {
       if (title.isNotEmpty) {
-        var resp = await api.search(title);
-        res.addAll(resp);
+        str.add(title);
       }
       if (keyword.isNotEmpty) {
-        var resp = await api.search(keyword);
+        str.add(keyword);
+      }
+    }
+    try {
+      for (var s in str) {
+        var resp = await api.search(s);
         res.addAll(resp);
       }
       status = SourceMatchStat.matched;

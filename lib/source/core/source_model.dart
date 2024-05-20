@@ -12,6 +12,9 @@ class BtSource {
 
 /// 查找结果
 class BtSourceFind {
+  /// source
+  String source;
+
   /// 动画名称
   String anime;
 
@@ -25,7 +28,16 @@ class BtSourceFind {
   String? image;
 
   /// 构造
-  BtSourceFind(this.series, this.anime, {this.desc, this.image});
+  BtSourceFind(this.source, this.series, this.anime, {this.desc, this.image});
+
+  /// toString
+  @override
+  String toString() {
+    return '[BtSourceFind][$source] - $anime\n'
+        '[image] - $image\n'
+        '[series] - $series\n'
+        '[desc] - $desc\n';
+  }
 }
 
 /// 章节

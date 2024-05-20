@@ -11,17 +11,25 @@ class BimiApi {
   /// 客户端
   late final BtrClient client;
 
+  /// 是否初始化
+  late bool isInit = false;
+
   /// 基础链接
   final baseUrl = 'https://www.bimiacg4.net';
 
+  /// source
+  final source = '哔咪动漫';
+
   /// 初始化
-  void init() {
+  Future<void> init() async {
     client = BtrClient.withHeader();
     client.dio.options.baseUrl = baseUrl;
+    isInit = true;
   }
 
   /// 查找
   Future<List<BtSourceFind>> search(String keyword) async {
+    if (!isInit) await init();
     var res = <BtSourceFind>[];
     try {
       var resp = await client.dio.post(
@@ -36,7 +44,7 @@ class BimiApi {
         var id = anchor.attributes['href']!.split("/")[3];
         var name = anchor.attributes['title']!;
         var image = div.querySelector('img')?.attributes['data-original'];
-        res.add(BtSourceFind(id, name, image: image));
+        res.add(BtSourceFind(source, id, name, image: image));
       }
     } catch (e) {
       rethrow;
@@ -48,7 +56,7 @@ class BimiApi {
   Future<List<BtSource>> load(String series) async {
     var res = <BtSource>[];
     try {
-      var resp = await client.dio.get('bangumi/bi/$series');
+      var resp = await client.dio.get('/bangumi/bi/$series');
       var doc = parse(resp.data);
       var list = doc.querySelector('#tab')!.querySelectorAll('a').asMap();
       for (var idx in list.keys) {

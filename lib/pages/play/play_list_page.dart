@@ -84,7 +84,7 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
   Widget buildHeader() {
     return Row(children: [
       const SizedBox(width: 8),
-      const Text('当前播放：'),
+      Text('当前播放：${hive.curModel?.subjectName}'),
       const SizedBox(width: 8),
       buildSubjectBox(),
       const SizedBox(width: 8),

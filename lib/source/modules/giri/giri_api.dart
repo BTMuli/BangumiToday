@@ -17,14 +17,22 @@ class GiriApi {
   /// 基础URL
   final String baseUrl = 'https://anime.girigirilove.com';
 
+  /// source
+  final source = 'GiriGiriLove';
+
+  /// 初始化
+  late bool isInit = false;
+
   /// 构造函数
-  GiriApi() {
+  Future<void> init() async {
+    isInit = true;
     client = BtrClient.withHeader();
     client.dio.options.baseUrl = baseUrl;
   }
 
   /// 搜索关键词
   Future<List<BtSourceFind>> search(String keyword) async {
+    if (!isInit) await init();
     var res = <BtSourceFind>[];
     var params = {'wd': keyword};
     try {
@@ -49,7 +57,7 @@ class GiriApi {
             .firstChild!
             .attributes['href']!
             .replaceAll("/", "");
-        res.add(BtSourceFind(id, title, desc: desc, image: image));
+        res.add(BtSourceFind(source, id, title, desc: desc, image: image));
       }
     } catch (e) {
       debugPrint(e.toString());
@@ -62,7 +70,7 @@ class GiriApi {
   Future<List<BtSource>> load(String series) async {
     var res = <BtSource>[];
     try {
-      var resp = await client.dio.get(series);
+      var resp = await client.dio.get('/$series');
       var doc = parse(resp.data);
       var links = doc.querySelectorAll('.anthology-list-play');
       for (var link in links) {

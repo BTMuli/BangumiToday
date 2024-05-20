@@ -123,9 +123,14 @@ class BgmUserHive extends ChangeNotifier {
 
   /// 更新授权
   /// 返回 null 表示不需要刷新，返回 bool 表示是否刷新成功
-  Future<bool?> refreshAuth({Future<void> Function(BTResponse)? onErr}) async {
+  Future<bool?> refreshAuth({
+    Future<void> Function(BTResponse)? onErr,
+    bool force = false,
+  }) async {
     if (_refreshToken == null || _refreshToken!.isEmpty) return false;
-    if (_expireTime != null && DateTime.now().isBefore(_expireTime!)) {
+    if (_expireTime != null &&
+        DateTime.now().isBefore(_expireTime!) &&
+        !force) {
       return null;
     }
     var resp = await api.refreshToken(_refreshToken!);

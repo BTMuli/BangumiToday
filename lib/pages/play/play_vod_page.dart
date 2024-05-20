@@ -171,6 +171,7 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
 
   /// 构建播放卡片
   Widget buildCard(int index, Media media) {
+    var fileName = Uri.parse(media.uri).pathSegments.last;
     return Card(
       padding: const EdgeInsets.all(4),
       child: Column(
@@ -178,10 +179,10 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
         children: [
           Text(
             media.extras?['episode'].toString() ?? media.uri,
-            maxLines: 5,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
+          Text(fileName),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [buildItemAct(media)],

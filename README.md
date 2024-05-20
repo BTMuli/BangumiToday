@@ -94,8 +94,9 @@ flutter build windows
 - [FlChart](https://app.flchart.dev/)：用于绘制条目评分柱状图。
 - [Fluent UI](https://bdlukaa.github.io/fluent_ui/)：用于实现 Fluent Design 风格的 UI。
 - [Hive](https://github.com/isar/hive)：用于本地数据存储。
-- [PasteBoard](https://pub.dev/packages/pasteboard)：用于将视频截图复制到剪贴板。
 - [MediaKit](https://github.com/media-kit/media-kit)：用于视频播放。
+- [NsDanmaku](https://github.com/xiaoyaocz/flutter_ns_danmaku)：用于弹幕播放。
+- [PasteBoard](https://pub.dev/packages/pasteboard)：用于将视频截图复制到剪贴板。
 
 ## 参考（按照字典序）
 

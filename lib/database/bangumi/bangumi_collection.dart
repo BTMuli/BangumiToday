@@ -123,6 +123,20 @@ class BtsBangumiCollection {
     return resp.isNotEmpty;
   }
 
+  /// 读取收藏
+  Future<BangumiUserSubjectCollection?> read(int subjectId) async {
+    await _instance.preCheck();
+    var resp = await _instance.sqlite.db.query(
+      _tableName,
+      where: 'subjectId = ?',
+      whereArgs: [subjectId],
+    );
+    if (resp.isEmpty) {
+      return null;
+    }
+    return BangumiUserSubjectCollection.fromSqlJson(resp.first);
+  }
+
   /// 添加/更新收藏
   Future<void> write(
     BangumiUserSubjectCollection collection, {

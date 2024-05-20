@@ -304,11 +304,11 @@ class PlayHive extends ChangeNotifier {
   }
 
   /// 删除资源
-  void deleteSource(int subjectId, {String? source}) {
+  Future<void> deleteSource(int subjectId, {String? source}) async {
     var model = box.get(subjectId);
     if (model == null) return;
     model.sources.removeWhere((element) => element.source == source);
-    box.put(subjectId, model);
+    await box.put(subjectId, model);
     notifyListeners();
   }
 
@@ -332,6 +332,19 @@ class PlayHive extends ChangeNotifier {
     } else {
       curEp = 0;
     }
+    notifyListeners();
+  }
+
+  Future<void> updateTitle(int subject, String title) async {
+    var model = box.get(subject);
+    if (model == null) return;
+    model.subjectName = title;
+    await box.put(subject, model);
+    notifyListeners();
+  }
+
+  Future<void> updateItem(PlayHiveModel item) async {
+    await box.put(item.subjectId, item);
     notifyListeners();
   }
 }
