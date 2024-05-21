@@ -1,15 +1,6 @@
-name: Build Release
+﻿name: Build Release
 
 on:
-  workflow_dispatch: {
-    inputs: {
-      tag: {
-        description: 'Tag',
-        required: true,
-        default: null
-      }
-    }
-  }
   push:
     tags:
       - 'v*.*.*'
@@ -21,7 +12,6 @@ jobs:
     permissions:
       contents: write
     env:
-      TOKEN: ${{ secrets.SIGN_PATH_TOKEN }}
       BANGUMI_APP_ID: ${{ secrets.BANGUMI_APP_ID }}
       BANGUMI_APP_SECRET: ${{ secrets.BANGUMI_APP_SECRET }}
     steps:
@@ -56,31 +46,17 @@ jobs:
           flutter build windows
           Compress-Archive -Path ./build/windows/x64/runner/Release/* -DestinationPath BangumiToday.zip
 
-      - name: 上传打包文件
-        uses: actions/upload-artifact@v4
-        with:
-          name: BangumiToday(zip)
-          path: build/windows/x64/runner/Release
-
-      - name: 打包msix(手动)
-        if: github.event.inputs.tag != null
-        run: dart run msix:create -p ${{ secrets.SIGN_SECRET }} --version ${{ github.event.inputs.tag }}
-
-      - name: 打包msix(自动)
-        if: github.event.inputs.tag == null
+      - name: 打包msix
         run: dart run msix:create -p ${{ secrets.SIGN_SECRET }}
 
-      - name: 上传 MSIX
+      - name: 上传文件
         uses: actions/upload-artifact@v4
         with:
-          name: BangumiToday(msix)
-          path: BangumiToday.msix
-
-      - name: 上传证书
-        uses: actions/upload-artifact@v4
-        with:
-          name: 目棃.cer
-          path: 目棃.cer
+          name: output
+          path: |
+            BangumiToday.zip
+            BangumiToday.msix
+            目棃.cer
 
       - name: 生成更新说明
         run: |
@@ -98,14 +74,13 @@ jobs:
           $checksum = $checksum.Hash
           Write-Output "+ MSIX：``$checksum``" >> $env:GITHUB_STEP_SUMMARY
 
-      # 上传 Release
       - name: 发行Release
-        uses: ncipollo/release-action@v1.5.0
+        uses: marvinpinto/action-automatic-releases@latest
         with:
-          tag: ${{ github.ref }}
-          token: ${{ secrets.RELEASE_TOKEN }}
-          artifacts: |
-            BangumiToday.zip
-            目棃.cer
-            BangumiToday.msix
+          title: ${{ github.ref.replace('refs/tags/', '') }}
+          repo_token: ${{ secrets.RELEASE_TOKEN }}
           draft: true
+          files: |
+            BangumiToday.zip
+            BangumiToday.msix
+            目棃.cer

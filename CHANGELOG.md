@@ -7,9 +7,9 @@ Update: 2024-05-21
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:42`
 >
-> 更新于 `2024-05-21 01:18:55`
+> 更新于 `2024-05-21 16:18:36`
 
-## [0.5.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.4.0) (2024-05-21)
+## [0.5.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.5.0) (2024-05-21)
 
 为了适配在线播放源，将播放记录的模型进行了重构，**该改动会使旧版本应用启动白屏**。
 

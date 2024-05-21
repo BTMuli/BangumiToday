@@ -7,7 +7,7 @@ Update: 2024-05-21
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-05-21 01:24:37`
+> 更新于 `2024-05-21 16:20:29`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -34,9 +34,8 @@ Update: 2024-05-21
 
 1. 用户已经拥有 [Bangumi.tv](https://bangumi.tv) 账号，并且通过应用相关页面完成了登录授权。
 2. 用户本地安装了 [Motrix](https://motrix.app/) 且将 `torrent` 默认关联到 Motrix。
-3. ~~用户本地安装了 [PotPlayer](https://potplayer.daum.net/)~~，后续将逐步采用内置播放。
-4. 用户登录 Bangumi 账号后对收藏数据进行了同步。
-5. 用户在特定条目页面设置了 `SSR` 订阅地址和下载目录。
+3. 用户登录 Bangumi 账号后对收藏数据进行了同步。
+4. 用户在特定条目页面设置了 `SSR` 订阅地址和下载目录。
 
 ## 应用预览
 
@@ -72,25 +71,13 @@ Update: 2024-05-21
 ## 关于证书
 
 > 应用使用的证书为自签名证书，需要将证书导入到系统。
-> 对于 0.3.0 版本之后的版本，应用将会采用自签名证书 [目棃.cer](./目棃.cer)。
-> 该证书需要导入到 `受信任的根证书颁发机构` 中。
+> 对于 0.3.0 版本之前的版本，应用将会采用自签名证书 [BTMuli.cer](./BTMuli.cer)。
 
-为了正常安装应用，需要将 [BTMuli.cer](./BTMuli.cer) 证书导入到系统。
+为了正常安装应用，需要将 [目棃.cer](./目棃.cer) 证书导入到系统。
 
 下载证书后，双击打开，选择`安装证书`，选择`本地计算机`，选择`将所有的证书都放入下列存储`，点击`浏览`，
 
-选择`受信任的发布者`或者`受信任人`，点击`确定`，点击`下一步`，点击`完成`。
-
-## 开发
-
-```shell
-# build runner
-dart run build_runner build --delete-conflicting-outputs
-# build runner watch
-dart run build_runner watch --delete-conflicting-outputs
-# build windows
-flutter build windows
-```
+选择`受信任的根证书颁发机构`，点击`确定`，点击`下一步`，点击`完成`。
 
 ## 依赖（按照字典序）
 
