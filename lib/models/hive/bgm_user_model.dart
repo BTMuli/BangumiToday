@@ -37,7 +37,13 @@ class BgmUserHiveAdapter extends TypeAdapter<BgmUserHiveModel> {
 
   @override
   BgmUserHiveModel read(BinaryReader reader) {
-    var user = BangumiUser.fromJson(jsonDecode(reader.read() as String));
+    var userReader = reader.read();
+    BangumiUser? user;
+    if (userReader == 'null') {
+      user = null;
+    } else {
+      user = BangumiUser.fromJson(jsonDecode(userReader as String));
+    }
     var accessToken = reader.read() as String?;
     var refreshToken = reader.read() as String?;
     var expireTime = reader.read() as DateTime?;
