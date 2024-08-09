@@ -77,7 +77,6 @@ jobs:
       - name: 发行Release
         uses: marvinpinto/action-automatic-releases@latest
         with:
-          title: ${{ github.ref.replace('refs/tags/', '') }}
           repo_token: ${{ secrets.RELEASE_TOKEN }}
           draft: true
           files: |
