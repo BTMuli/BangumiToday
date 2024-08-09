@@ -952,11 +952,21 @@ packages:
   msix:
     dependency: "direct dev"
     description:
-      name: msix
-      sha256: "519b183d15dc9f9c594f247e2d2339d855cf0eaacc30e19b128e14f3ecc62047"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
+      path: "."
+      ref: msvc_redist
+      resolved-ref: "4c5cd4c3187bbe2eb8365f11c3d929e4d1aeac92"
+      url: "https://github.com/insertjokehere/msix.git"
+    source: git
     version: "3.16.7"
+  msvcredist:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: main
+      resolved-ref: d46cb7bed55038d4648e28b04f5432e843bd1a24
+      url: "https://github.com/insertjokehere/flutter_msvcredist.git"
+    source: git
+    version: "0.1.0"
   nested:
     dependency: transitive
     description:
@@ -1636,5 +1646,5 @@ packages:
     source: hosted
     version: "3.1.2"
 sdks:
-  dart: ">=3.5.0-259.0.dev <4.0.0"
-  flutter: ">=3.22.0"
+  dart: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"

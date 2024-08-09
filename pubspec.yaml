@@ -19,7 +19,8 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 0.5.0+7
 
 environment:
-  sdk: '>=3.3.4 <4.0.0'
+  sdk: '>=3.5.0 <4.0.0'
+  flutter: "3.24.0"
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -63,6 +64,10 @@ dependencies:
   media_kit: ^1.1.10+1
   media_kit_libs_video: ^1.0.4
   media_kit_video: ^1.2.4
+  msvcredist:
+    git:
+      url: https://github.com/insertjokehere/flutter_msvcredist.git
+      ref: main
   ns_danmaku:
     git:
       url: https://github.com/xiaoyaocz/flutter_ns_danmaku.git
@@ -92,7 +97,10 @@ dev_dependencies:
   import_sorter: ^4.6.0 # dart run import_sorter:main
   json_serializable: ^6.7.1
   lint_staged: ^0.5.1
-  msix: ^3.16.7
+  msix:
+    git:
+      url: https://github.com/insertjokehere/msix.git
+      ref: msvc_redist
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
