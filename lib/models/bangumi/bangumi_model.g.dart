@@ -911,15 +911,15 @@ Map<String, dynamic> _$BangumiEpisodeDetailToJson(
 
 BangumiErrorDetail _$BangumiErrorDetailFromJson(Map<String, dynamic> json) =>
     BangumiErrorDetail(
-      title: json['title'] as String,
-      description: json['description'] as String,
+      title: json['error'] as String,
+      description: json['error_description'] as String,
       details: json['details'],
     );
 
 Map<String, dynamic> _$BangumiErrorDetailToJson(BangumiErrorDetail instance) =>
     <String, dynamic>{
-      'title': instance.title,
-      'description': instance.description,
+      'error': instance.title,
+      'error_description': instance.description,
       'details': instance.details,
     };
 
