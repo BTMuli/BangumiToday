@@ -157,11 +157,12 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
     await oauth.openAuthorizePage();
     progress.update(text: '等待授权回调');
     _appLinks.uriLinkStream.listen((uri) async {
+      debugPrint(uri.toString());
       if (uri.toString().startsWith('bangumitoday://oauth')) {
         progress.update(text: '处理授权回调');
         var code = uri.queryParameters['code'];
         if (code == null) {
-          await BtInfobar.error(context, '授权失败：未找到授权码');
+          if (mounted) await BtInfobar.error(context, '授权失败：未找到授权码');
           progress.end();
           // 停止监听
           _appLinks.uriLinkStream.listen((_) {});
@@ -290,6 +291,24 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
               );
               if (!freshConfirm) return;
               await freshUserInfo();
+            },
+          ),
+          SizedBox(width: 8.w),
+          FilledButton(
+            child: const Tooltip(
+              message: '删除用户',
+              child: Icon(FluentIcons.delete),
+            ),
+            onPressed: () async {
+              if (!context.mounted) return;
+              var deleteConfirm = await showConfirmDialog(
+                context,
+                title: '删除用户信息',
+                content: '是否删除用户信息？',
+              );
+              if (!deleteConfirm) return;
+              await hive.deleteUser();
+              setState(() {});
             },
           ),
         ],

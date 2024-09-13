@@ -83,6 +83,20 @@ class BgmUserHive extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 删除用户
+  Future<void> deleteUser() async {
+    _user = null;
+    _accessToken = null;
+    _refreshToken = null;
+    _expireTime = null;
+    await sqlite.deleteUser();
+    await sqlite.deleteAccessToken();
+    await sqlite.deleteRefreshToken();
+    await sqlite.deleteExpireTime();
+    await box.put('user', model);
+    notifyListeners();
+  }
+
   /// 更新数据
   Future<void> updateBox() async {
     await box.put('user', model);

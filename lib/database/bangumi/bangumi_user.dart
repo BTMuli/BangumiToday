@@ -89,6 +89,16 @@ class BtsBangumiUser {
     }
   }
 
+  /// 删除用户信息
+  Future<void> deleteUser() async {
+    await _instance.preCheck();
+    await _instance.sqlite.db.delete(
+      _tableNameUser,
+      where: 'key = ?',
+      whereArgs: ['user'],
+    );
+  }
+
   /// 判断有没有登录
   Future<bool> isLogin() async {
     var accessToken = await readAccessToken();
@@ -105,6 +115,11 @@ class BtsBangumiUser {
     await writeToken('accessToken', token);
   }
 
+  /// 删除 accessToken
+  Future<void> deleteAccessToken() async {
+    await deleteToken('accessToken');
+  }
+
   /// 读取 refreshToken
   Future<String?> readRefreshToken() async {
     return readToken('refreshToken');
@@ -113,6 +128,11 @@ class BtsBangumiUser {
   /// 写入/更新 refreshToken
   Future<void> writeRefreshToken(String token) async {
     await writeToken('refreshToken', token);
+  }
+
+  /// 删除 refreshToken
+  Future<void> deleteRefreshToken() async {
+    await deleteToken('refreshToken');
   }
 
   /// 读取token，通用
@@ -152,6 +172,16 @@ class BtsBangumiUser {
     }
   }
 
+  /// 删除token，通用
+  Future<void> deleteToken(String key) async {
+    await _instance.preCheck();
+    await _instance.sqlite.db.delete(
+      _tableNameUser,
+      where: 'key = ?',
+      whereArgs: [key],
+    );
+  }
+
   /// 读取过期时间
   Future<DateTime?> readExpireTime() async {
     var expireTime = await readToken('expireTime');
@@ -175,6 +205,11 @@ class BtsBangumiUser {
       expireTime = DateTime.now().millisecondsSinceEpoch + relativeTime;
     }
     return writeToken('expireTime', expireTime.toString());
+  }
+
+  /// 删除过期时间
+  Future<void> deleteExpireTime() async {
+    await deleteToken('expireTime');
   }
 
   /// 判断是否过期

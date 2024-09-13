@@ -1744,6 +1744,31 @@ class BangumiErrorDetail {
   Map<String, dynamic> toJson() => _$BangumiErrorDetailToJson(this);
 }
 
+/// oauthError
+@JsonSerializable()
+class BangumiErrorOauth {
+  /// error
+  @JsonKey(name: 'error')
+  String error;
+
+  /// error_description
+  @JsonKey(name: 'error_description')
+  String errorDescription;
+
+  /// constructor
+  BangumiErrorOauth({
+    required this.error,
+    required this.errorDescription,
+  });
+
+  /// from json
+  factory BangumiErrorOauth.fromJson(Map<String, dynamic> json) =>
+      _$BangumiErrorOauthFromJson(json);
+
+  /// to json
+  Map<String, dynamic> toJson() => _$BangumiErrorOauthToJson(this);
+}
+
 /// Images
 @JsonSerializable()
 class BangumiImages {

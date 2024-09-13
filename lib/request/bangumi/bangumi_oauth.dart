@@ -95,9 +95,12 @@ class BtrBangumiOauth {
         data: BangumiOauthTokenRefreshData.fromJson(response.data),
       );
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error('Failed to load bangumi token refresh: $errResp');
-      return BTResponse<BangumiErrorDetail>(
+      var errResp = BangumiErrorOauth.fromJson(e.response?.data);
+      BTLogTool.error(
+        'Failed to load bangumi token refresh: '
+        '${errResp.toJson().toString()}',
+      );
+      return BTResponse<BangumiErrorOauth>(
         code: e.response?.statusCode ?? 666,
         message: 'Bangumi token refresh error',
         data: errResp,
