@@ -1717,11 +1717,11 @@ class BangumiEpisodeDetail {
 @JsonSerializable()
 class BangumiErrorDetail {
   /// title
-  @JsonKey(name: 'error')
+  @JsonKey(name: 'title')
   String title;
 
   /// description
-  @JsonKey(name: 'error_description')
+  @JsonKey(name: 'description')
   String description;
 
   /// details
