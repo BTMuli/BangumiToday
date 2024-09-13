@@ -42,10 +42,10 @@ packages:
     dependency: "direct main"
     description:
       name: app_links
-      sha256: "7e058edbc78bd40b6a8227941b955f38320a4e799bc0983c8146bda41593a491"
+      sha256: ad1a6d598e7e39b46a34f746f9a8b011ee147e4c275d407fa457e7a62f84dd99
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "6.3.1"
+    version: "6.3.2"
   app_links_linux:
     dependency: transitive
     description:
@@ -514,10 +514,10 @@ packages:
     dependency: "direct main"
     description:
       name: fl_chart
-      sha256: d0f0d49112f2f4b192481c16d05b6418bd7820e021e265a3c22db98acf7ed7fb
+      sha256: "94307bef3a324a0d329d3ab77b2f0c6e5ed739185ffc029ed28c0f9b019ea7ef"
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "0.68.0"
+    version: "0.69.0"
   fluent_ui:
     dependency: "direct main"
     description:
@@ -530,10 +530,10 @@ packages:
     dependency: "direct main"
     description:
       name: fluentui_system_icons
-      sha256: "1c79ed0897a0f61dcb442349dc1bb0cba37b5a62b94e60e1fd1b441a28d6f5ba"
+      sha256: "08b538663c8f5c6843012cf864c3c3109b725d17ddb299d7d0e1ce8abe927d27"
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "1.1.255"
+    version: "1.1.257"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -1020,10 +1020,10 @@ packages:
     dependency: "direct main"
     description:
       name: pasteboard
-      sha256: "1c8b6a8b3f1d12e55d4e9404433cda1b4abe66db6b17bc2d2fb5965772c04674"
+      sha256: "7bf733f3a00c7188ec1f2c6f0612854248b302cf91ef3611a2b7bb141c0f9d55"
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "0.2.0"
+    version: "0.3.0"
   path:
     dependency: "direct main"
     description:
@@ -1601,10 +1601,10 @@ packages:
     dependency: "direct main"
     description:
       name: win32_registry
-      sha256: "723b7f851e5724c55409bb3d5a32b203b3afe8587eaf5dafb93a5fed8ecda0d6"
+      sha256: "21ec76dfc731550fd3e2ce7a33a9ea90b828fdf19a5c3bcf556fa992cfa99852"
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "1.1.4"
+    version: "1.1.5"
   window_manager:
     dependency: "direct main"
     description:
