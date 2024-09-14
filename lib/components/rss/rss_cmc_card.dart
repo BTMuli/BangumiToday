@@ -2,22 +2,33 @@
 import 'package:dart_rss/dart_rss.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../store/dtt_store.dart';
 import '../../tools/download_tool.dart';
 import '../../utils/tool_func.dart';
 import '../app/app_infobar.dart';
 
 /// Mikan Rss Card
-class RssCmcCard extends StatelessWidget {
+class RssCmcCard extends ConsumerStatefulWidget {
   /// rss item
   final RssItem item;
 
   /// 构造函数
   const RssCmcCard(this.item, {super.key});
+
+  @override
+  ConsumerState<RssCmcCard> createState() => _RssCmcCardState();
+}
+
+/// Mikan Rss Card State
+class _RssCmcCardState extends ConsumerState<RssCmcCard> {
+  /// 获取item
+  RssItem get item => widget.item;
 
   /// 构建操作按钮
   Widget buildAct(BuildContext context) {
@@ -45,6 +56,30 @@ class RssCmcCard extends StatelessWidget {
                   'mo://new-task/?type=torrent&dir=$saveDir',
                 );
                 await launchUrlString('file://$savePath');
+              }
+            },
+          ),
+        ),
+        Tooltip(
+          message: '内置下载',
+          child: IconButton(
+            icon: Icon(FluentIcons.download, color: color),
+            onPressed: () async {
+              var saveDir = await getDirectoryPath();
+              if (saveDir == null || saveDir.isEmpty) {
+                if (context.mounted) await BtInfobar.error(context, '未选择下载目录');
+                return;
+              }
+              var check = ref.read(dttStoreProvider.notifier).addTask(
+                    item,
+                    saveDir,
+                  );
+              if (check) {
+                if (context.mounted) {
+                  await BtInfobar.success(context, '添加下载任务成功');
+                }
+              } else {
+                if (context.mounted) await BtInfobar.warn(context, '已经在下载列表中');
               }
             },
           ),
