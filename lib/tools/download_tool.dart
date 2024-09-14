@@ -69,6 +69,15 @@ class BTDownloadTool {
     }
     var link = Uri.parse(url);
     var fileName = path.basename(link.path);
+    if (fileName == '/') {
+      // 查找是否有 hash
+      var hash = link.queryParameters['hash'];
+      if (hash != null && hash.isNotEmpty) {
+        fileName = '$hash.torrent';
+      } else {
+        fileName = '${DateTime.now().millisecondsSinceEpoch}.torrent';
+      }
+    }
     var saveDetailPath = path.join(instance.defaultPath, fileName);
     var fileCheck = await instance.checkFile(saveDetailPath);
     if (fileCheck) return saveDetailPath;
