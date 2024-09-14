@@ -13,7 +13,6 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../store/nav_store.dart';
-import '../store/play_store.dart';
 
 //// 通知队列，changeNotifier
 class BTNotifierQueue extends ChangeNotifier {
@@ -73,9 +72,6 @@ class BTNotifierTool {
 
   /// 通知队列
   static final _notifications = BTNotifierQueue();
-
-  /// playHive
-  final PlayHive hivePlay = PlayHive();
 
   /// 创建通知
   /// 必需的是 title 和 body

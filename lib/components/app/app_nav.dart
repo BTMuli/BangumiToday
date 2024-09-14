@@ -8,8 +8,6 @@ import 'package:window_manager/window_manager.dart';
 
 // Project imports:
 import '../../pages/app/bmf_page.dart';
-import '../../pages/app/download_page.dart';
-import '../../pages/app/play_page.dart';
 import '../../pages/app/rss_page.dart';
 import '../../pages/app/setting_page.dart';
 import '../../pages/app/test_page.dart';
@@ -154,11 +152,6 @@ class _AppNavState extends ConsumerState<AppNav>
         title: const Text('BMF配置'),
         body: const BmfPage(),
       ),
-      PaneItem(
-        icon: const Icon(FluentIcons.play),
-        title: const Text('内置播放'),
-        body: const PlayPage(),
-      ),
     ];
   }
 
@@ -177,12 +170,6 @@ class _AppNavState extends ConsumerState<AppNav>
       body: const TestPage(),
     );
     var footerItems = [
-      if (kDebugMode)
-        PaneItem(
-          icon: const Icon(FluentIcons.download),
-          title: const Text('下载列表'),
-          body: const DownloadPage(),
-        ),
       PaneItemAction(
         icon: FlyoutTarget(
           controller: flyout,

@@ -36,10 +36,6 @@ dependencies:
   dart_rss: ^3.0.3
   device_info_plus: ^10.1.1
   dio: ^5.5.0+1
-  dtorrent_parser: ^1.0.8
-  dtorrent_task: ^0.4.0
-  #  dtorrent_task:
-  #    path: plugins/dtorrent_task
   events_emitter2: ^1.0.4
   file_picker: ^8.0.7
   file_selector: ^1.0.3
@@ -61,17 +57,10 @@ dependencies:
   json_annotation: ^4.8.1
   local_notifier: ^0.1.6
   logger: ^2.4.0
-  media_kit: ^1.1.11
-  media_kit_libs_video: ^1.0.5
-  media_kit_video: ^1.2.5
   msvcredist:
     git:
       url: https://github.com/insertjokehere/flutter_msvcredist.git
       ref: main
-  ns_danmaku:
-    git:
-      url: https://github.com/xiaoyaocz/flutter_ns_danmaku.git
-      ref: master
   package_info_plus: ^8.0.1
   pasteboard: ^0.3.0
   path: ^1.9.0

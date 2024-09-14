@@ -1,6 +1,3 @@
-// Flutter imports:
-import 'package:flutter/foundation.dart';
-
 // Package imports:
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:file_selector/file_selector.dart';
@@ -12,7 +9,6 @@ import 'package:url_launcher/url_launcher_string.dart';
 // Project imports:
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_rss.dart';
-import '../../store/dtt_store.dart';
 import '../../tools/download_tool.dart';
 import '../../utils/tool_func.dart';
 import '../app/app_infobar.dart';
@@ -95,20 +91,6 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     return savePath;
   }
 
-  /// 通过内置下载
-  Future<void> downloadInner(BuildContext context) async {
-    var saveDir = await getSaveDir();
-    if (saveDir == null || saveDir.isEmpty) {
-      return;
-    }
-    var check = ref.read(dttStoreProvider.notifier).addTask(item, saveDir);
-    if (check) {
-      if (context.mounted) await BtInfobar.success(context, '添加下载任务成功');
-    } else {
-      if (context.mounted) await BtInfobar.warn(context, '已经在下载列表中');
-    }
-  }
-
   /// 调用 motrix 下载
   Future<void> downloadMotrix(BuildContext context) async {
     var saveDir = await getSaveDir();
@@ -122,19 +104,6 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
       'mo://new-task/?type=torrent&dir=$saveDir',
     );
     await launchUrlString('file://$savePath');
-  }
-
-  /// 构建内置下载按钮
-  Widget buildActInner(BuildContext context) {
-    return Tooltip(
-      message: '内置下载',
-      child: IconButton(
-        icon: const Icon(FluentIcons.link),
-        onPressed: () async {
-          await downloadInner(context);
-        },
-      ),
-    );
   }
 
   /// 构建 motrix 下载按钮
@@ -173,7 +142,6 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        if (kDebugMode) buildActInner(context),
         buildActMotrix(context),
         buildActLink(context),
       ],
