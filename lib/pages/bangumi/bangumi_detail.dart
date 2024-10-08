@@ -63,7 +63,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.id != widget.id) {
       data = null;
-      init();
+      Future.microtask(() async => await init());
     }
   }
 
@@ -71,9 +71,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
   @override
   void initState() {
     super.initState();
-    Future.microtask(() async {
-      await init();
-    });
+    Future.microtask(() async => await init());
   }
 
   Future<void> init() async {
@@ -168,6 +166,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
                     setState(() {});
                   }
                   if (context.mounted) Navigator.of(context).pop();
+                  await init();
                 },
               );
             },
