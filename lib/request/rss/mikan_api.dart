@@ -9,13 +9,12 @@ import '../core/client.dart';
 
 /// 蜜柑计划的API，主要是 rss 订阅
 /// 站点：https://mikanani.me
-/// 镜像站点：https://mikanani.hacgn.fun
 class MikanAPI {
   /// 请求客户端
   late final BtrClient client;
 
   /// 基础 URL
-  final String baseUrl = 'https://mikan.yujiangqaq.com/RSS';
+  final String baseUrl = 'https://mikan.hakurei.red/RSS';
 
   /// 构造函数
   MikanAPI() {
