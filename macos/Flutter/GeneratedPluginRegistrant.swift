@@ -15,7 +15,7 @@ import package_info_plus
 import pasteboard
 import path_provider_foundation
 import screen_retriever
-import sqflite
+import sqflite_darwin
 import system_theme
 import url_launcher_macos
 import window_manager
