@@ -4,17 +4,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
+import '../../components/app/app_dialog.dart';
 import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/calendar/calendar_day.dart';
+import '../../components/base/base_theme_icon.dart';
+import '../../controller/app/progress_controller.dart';
+import '../../database/app/app_config.dart';
 import '../../database/bangumi/bangumi_collection.dart';
+import '../../database/bangumi/bangumi_data.dart';
+import '../../models/bangumi/bangumi_data_model.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../request/bangumi/bangumi_api.dart';
+import '../../request/bangumi/bangumi_data.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../store/nav_store.dart';
+import '../../tools/notifier_tool.dart';
 import 'bangumi_collection.dart';
-import 'bangumi_data.dart';
 import 'bangumi_search.dart';
 import 'bangumi_user.dart';
 
@@ -30,8 +37,11 @@ class CalendarPage extends ConsumerStatefulWidget {
 /// 今日放送状态
 class _CalendarPageState extends ConsumerState<CalendarPage>
     with AutomaticKeepAliveClientMixin {
-  /// 请求客户端
-  final _client = BtrBangumiApi();
+  /// bangumiAPI
+  final BtrBangumiApi apiBgm = BtrBangumiApi();
+
+  /// bangumiDataAPI
+  final BtrBangumiDataApi apiBgd = BtrBangumiDataApi();
 
   /// 正在请求数据
   bool isRequesting = true;
@@ -43,10 +53,22 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   bool isShowCollection = false;
 
   /// 收藏数据库
-  final BtsBangumiCollection sqlite = BtsBangumiCollection();
+  final BtsBangumiCollection sqliteBc = BtsBangumiCollection();
+
+  /// 数据库-AppConfig
+  final BtsAppConfig sqliteAc = BtsAppConfig();
+
+  /// bangumiData数据库
+  final BtsBangumiData sqliteBd = BtsBangumiData();
 
   /// 用户hive
   final BgmUserHive hive = BgmUserHive();
+
+  /// bangumiData版本号
+  late String version = 'unknown';
+
+  /// progress
+  late ProgressController progress = ProgressController();
 
   /// tabIndex
   int tabIndex = 0;
@@ -74,6 +96,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     }
     Future.microtask(() async {
       await getData(freshTab: true);
+      version = await sqliteAc.read('bangumiDataVersion') ?? 'unknown';
     });
   }
 
@@ -87,11 +110,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   Future<void> getData({bool freshTab = false}) async {
     isRequesting = true;
     calendarData.clear();
-    if (freshTab) {
-      tabIndex = today;
-    }
+    if (freshTab) tabIndex = today;
     setState(() {});
-    var calendarGet = await _client.getToday();
+    var calendarGet = await apiBgm.getToday();
     if (calendarGet.code != 0 || calendarGet.data == null) {
       isRequesting = false;
       setState(() {});
@@ -103,7 +124,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     if (isShowCollection) {
       for (var d in data) {
         for (var item in d.items.toList()) {
-          var check = await sqlite.isCollected(item.id);
+          var check = await sqliteBc.isCollected(item.id);
           if (!check) d.items.remove(item);
         }
       }
@@ -117,6 +138,90 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   List<BangumiLegacySubjectSmall> getTabData(int index) {
     if (index >= calendarData.length) return [];
     return calendarData[index].items;
+  }
+
+  /// 刷新BangumiData
+  Future<void> refreshBgmData(BuildContext context) async {
+    progress = ProgressWidget.show(
+      context,
+      title: '开始获取数据',
+      text: '正在获取远程版本',
+      progress: null,
+    );
+    var remoteGet = await apiBgd.getVersion();
+    if (remoteGet.code != 0 || remoteGet.data == null) {
+      progress.update(text: '获取远程版本失败');
+      await Future.delayed(const Duration(seconds: 1));
+      progress.end();
+      if (context.mounted) await showRespErr(remoteGet, context);
+      return;
+    }
+    var remote = remoteGet.data as String;
+    progress.update(title: '成功获取远程版本', text: remote);
+    await Future.delayed(const Duration(milliseconds: 500));
+    progress.end();
+    if (!context.mounted) return;
+    var confirm = await showConfirmDialog(
+      context,
+      title: '确认更新？',
+      content: '远程版本：$remote，本地版本：$version',
+    );
+    if (confirm && context.mounted) {
+      progress = ProgressWidget.show(
+        context,
+        title: '开始更新数据',
+        text: '正在更新数据',
+        progress: null,
+      );
+      progress.update(title: '开始获取数据', text: '正在获取JSON数据', progress: null);
+      progress.onTaskbar = true;
+      var dataGet = await apiBgd.getData();
+      if (dataGet.code != 0) {
+        progress.update(text: '获取数据失败');
+        await Future.delayed(const Duration(seconds: 1));
+        progress.end();
+        if (context.mounted) await showRespErr(dataGet, context);
+        return;
+      }
+      var rawData = dataGet.data as BangumiDataJson;
+      progress.update(title: '成功获取数据', text: '正在写入数据');
+      int cnt, total;
+      var sites = [];
+      for (var entry in rawData.siteMeta.entries) {
+        sites.add(BangumiDataSiteFull.fromSite(entry.key, entry.value));
+      }
+      total = sites.length;
+      cnt = 1;
+      for (var site in sites) {
+        progress.update(
+          title: '写入站点数据 $cnt/$total',
+          text: site.title,
+          progress: (cnt / total) * 100,
+        );
+        await sqliteBd.writeSite(site);
+        cnt++;
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+      var items = rawData.items;
+      total = items.length;
+      cnt = 1;
+      for (var item in items) {
+        progress.update(
+          title: '写入条目数据 $cnt/$total',
+          text: item.title,
+          progress: (cnt / total) * 100,
+        );
+        await sqliteBd.writeItem(item);
+        cnt++;
+      }
+      await BTNotifierTool.showMini(title: 'BangumiData', body: '数据更新完成');
+      await sqliteAc.write('bangumiDataVersion', remote);
+      progress.update(text: '已更新到最新版本');
+      version = remote;
+      setState(() {});
+      await Future.delayed(const Duration(seconds: 1));
+      progress.end();
+    }
   }
 
   /// 刷新
@@ -144,9 +249,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           message: '刷新',
           child: IconButton(
             icon: const Icon(FluentIcons.refresh),
-            onPressed: () async {
-              await getData();
-            },
+            onPressed: () async => await getData(),
           ),
         ),
       ],
@@ -201,39 +304,24 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
 
   /// 构建数据按钮
   MenuFlyoutItem buildFlyoutData(BuildContext context) {
-    var color = FluentTheme.of(context).accentColor;
-    var title = "BangumiData";
-    var pane = PaneItem(
-      icon: Icon(FluentIcons.database_source, color: color),
-      title: Text(title),
-      body: const BangumiDataPage(),
-    );
     return MenuFlyoutItem(
-      leading: Icon(
-        FluentIcons.database_source,
-        color: color,
-      ),
+      leading: BaseThemeIcon(FluentIcons.database_source),
       text: const Text('BangumiData 数据库'),
-      onPressed: () async {
-        ref.read(navStoreProvider).addNavItem(pane, title);
-      },
+      trailing: Text(version),
+      onPressed: () async => await refreshBgmData(context),
     );
   }
 
   /// 构建搜索按钮
   MenuFlyoutItem buildFlyoutSearch(BuildContext context) {
-    var color = FluentTheme.of(context).accentColor;
     var title = "Bangumi-条目搜索";
     var pane = PaneItem(
-      icon: Icon(FluentIcons.search, color: color),
+      icon: BaseThemeIcon(FluentIcons.search),
       title: Text(title),
       body: const BangumiSearchPage(),
     );
     return MenuFlyoutItem(
-      leading: Icon(
-        FluentIcons.search,
-        color: color,
-      ),
+      leading: BaseThemeIcon(FluentIcons.search),
       text: const Text('Bangumi-条目搜索'),
       onPressed: () async {
         ref.read(navStoreProvider).addNavItem(pane, title);

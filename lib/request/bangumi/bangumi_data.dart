@@ -10,7 +10,7 @@ import '../core/client.dart';
 /// 负责BangumiData的请求
 /// Repo: https://github.com/bangumi-data/bangumi-data
 /// CDN: https://unpkg.com/bangumi-data@0.3/dist/data.json
-class BtrBangumiData {
+class BtrBangumiDataApi {
   /// 请求客户端
   late final BtrClient client;
 
@@ -22,7 +22,7 @@ class BtrBangumiData {
       'bangumi-data/bangumi-data/releases/latest';
 
   /// 构造函数
-  BtrBangumiData() {
+  BtrBangumiDataApi() {
     client = BtrClient();
   }
 
