@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../database/app/app_config.dart';
-import '../../request/rss/mikan_api.dart';
+import '../../plugins/mikan/mikan_api.dart';
 import '../app/app_dialog.dart';
 import '../app/app_dialog_resp.dart';
 import '../app/app_infobar.dart';
@@ -27,7 +27,7 @@ class RssMkPage extends StatefulWidget {
 class _RssMkPageState extends State<RssMkPage>
     with AutomaticKeepAliveClientMixin {
   /// 请求客户端
-  final MikanAPI mikanAPI = MikanAPI();
+  final BtrMikanApi mikanAPI = BtrMikanApi();
 
   /// RSS 数据
   late List<RssItem> rssItems = [];

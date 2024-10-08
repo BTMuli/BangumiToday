@@ -14,7 +14,7 @@ import 'package:xml/xml.dart';
 import '../../../database/app/app_rss.dart';
 import '../../../models/database/app_bmf_model.dart';
 import '../../../models/database/app_rss_model.dart';
-import '../../../request/rss/mikan_api.dart';
+import '../../../plugins/mikan/mikan_api.dart';
 import '../../../store/nav_store.dart';
 import '../../../tools/log_tool.dart';
 import '../../../tools/notifier_tool.dart';
@@ -44,7 +44,7 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
   AppBmfModel get bmf => widget.bmf;
 
   /// mikanApi
-  final api = MikanAPI();
+  final api = BtrMikanApi();
 
   /// sqlite
   final sqlite = BtsAppRss();

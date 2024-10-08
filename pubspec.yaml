@@ -46,6 +46,7 @@ dependencies:
     sdk: flutter
   flutter_acrylic: ^1.1.3
   flutter_dotenv: ^5.1.0
+  flutter_html: ^3.0.0-beta.2
   flutter_rating_bar: ^4.0.1
   flutter_riverpod: ^2.4.10
   flutter_screenutil: ^5.9.1

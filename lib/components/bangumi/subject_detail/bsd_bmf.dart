@@ -59,9 +59,7 @@ class _BsdBmfState extends State<BsdBmf> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration.zero, () async {
-      await init();
-    });
+    Future.microtask(() async => await init());
   }
 
   /// 初始化

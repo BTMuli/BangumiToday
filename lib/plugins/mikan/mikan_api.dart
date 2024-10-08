@@ -4,20 +4,22 @@ import 'package:dio/dio.dart';
 
 // Project imports:
 import '../../models/app/response.dart';
+import '../../request/core/client.dart';
 import '../../tools/log_tool.dart';
-import '../core/client.dart';
+import 'mikan_utils.dart';
 
 /// 蜜柑计划的API，主要是 rss 订阅
 /// 站点：https://mikanani.me
-class MikanAPI {
+class BtrMikanApi {
   /// 请求客户端
   late final BtrClient client;
 
   /// 基础 URL
-  final String baseUrl = 'https://mikan.hakurei.red/RSS';
+  /// todo 支持自定义
+  final String baseUrl = 'https://mikan.hakurei.red';
 
   /// 构造函数
-  MikanAPI() {
+  BtrMikanApi() {
     client = BtrClient();
     client.dio.options.baseUrl = baseUrl;
   }
@@ -25,7 +27,7 @@ class MikanAPI {
   /// 更新列表的 RSS
   Future<BTResponse> getClassicRSS() async {
     try {
-      var resp = await client.dio.get('/Classic');
+      var resp = await client.dio.get('/RSS/Classic');
       var channel = RssFeed.parse(resp.data.toString());
       return BTResponse.success(data: channel.items);
     } on DioException catch (e) {
@@ -51,7 +53,7 @@ class MikanAPI {
   Future<BTResponse> getUserRSS(String token) async {
     try {
       var resp = await client.dio.get(
-        '/MyBangumi',
+        '/RSS/MyBangumi',
         queryParameters: {'token': token},
       );
       var channel = RssFeed.parse(resp.data.toString());
@@ -78,6 +80,42 @@ class MikanAPI {
       return BTResponse.error(
         code: 666,
         message: 'Failed to load user RSS',
+        data: e.toString(),
+      );
+    }
+  }
+
+  /// 查询
+  Future<BTResponse> searchBgm(String search) async {
+    try {
+      var resp = await client.dio.get(
+        '/Home/Search',
+        queryParameters: {'searchstr': search},
+      );
+      var parseList = parseSearchResult(resp.data, baseUrl);
+      return BTResponse.success(data: parseList);
+    } on DioException catch (e) {
+      var errInfo = [
+        "Fail to search bgm",
+        "DioErr: ${e.error}",
+        "Search: $search",
+      ];
+      BTLogTool.error(errInfo);
+      return BTResponse.error(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to search bgm',
+        data: {'error': e.error, 'search': search},
+      );
+    } on Exception catch (e) {
+      var errInfo = [
+        "Fail to search bgm",
+        "Err: ${e.toString()}",
+        "Search: $search",
+      ];
+      BTLogTool.error(errInfo);
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to search bgm',
         data: e.toString(),
       );
     }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
+import '../../components/app/app_dialog.dart';
 import '../../components/app/app_dialog_resp.dart';
 import '../../components/app/app_infobar.dart';
 import '../../components/bangumi/subject_detail/bsd_bmf.dart';
@@ -11,9 +12,13 @@ import '../../components/bangumi/subject_detail/bsd_overview.dart';
 import '../../components/bangumi/subject_detail/bsd_relation.dart';
 import '../../components/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../components/bangumi/subject_detail/bsd_user_episodes.dart';
+import '../../database/app/app_bmf.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../models/database/app_bmf_model.dart';
 import '../../models/hive/nav_model.dart';
+import '../../plugins/mikan/mikan_api.dart';
+import '../../plugins/mikan/models/mikan_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../store/nav_store.dart';
@@ -39,6 +44,12 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
 
   /// 用户Hive
   final BgmUserHive hiveUser = BgmUserHive();
+
+  /// mikanApi
+  final BtrMikanApi mikanApi = BtrMikanApi();
+
+  /// bmf数据库
+  final BtsAppBmf sqliteBmf = BtsAppBmf();
 
   @override
   bool get wantKeepAlive => true;
@@ -88,6 +99,91 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     return images.large;
   }
 
+  Future<void> searchBangumi() async {
+    if (data == null) {
+      await BtInfobar.error(context, '数据为空');
+      return;
+    }
+    var name = data?.nameCn == '' ? data?.name : data?.nameCn;
+    if (name == null) {
+      await BtInfobar.error(context, '数据为空');
+      return;
+    }
+    var nameCheck = await showInputDialog(
+      context,
+      title: '搜索番剧',
+      content: '请输入番剧名称',
+      value: name,
+    );
+    if (nameCheck == null) return;
+    var resp = await mikanApi.searchBgm(nameCheck);
+    if (resp.code != 0) {
+      if (mounted) await showRespErr(resp, context);
+      return;
+    }
+    var items = resp.data as List<MikanSearchItemModel>;
+    if (items.isEmpty) {
+      if (mounted) await BtInfobar.error(context, '没有找到相关条目');
+      return;
+    }
+    if (mounted) await showSearchResult(context, items);
+  }
+
+  /// 显示搜索结果
+  Future<void> showSearchResult(
+      BuildContext context, List<MikanSearchItemModel> items) async {
+    var result = await showDialog(
+      context: context,
+      builder: (context) {
+        return ContentDialog(
+          title: const Text('搜索结果'),
+          content: ListView.builder(
+            shrinkWrap: true,
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              var item = items[index];
+              return ListTile(
+                title: Text(item.title),
+                subtitle: Text(item.link),
+                onPressed: () async {
+                  var confirm = await showConfirmDialog(
+                    context,
+                    title: '确认匹配？',
+                    content: '将该结果设为BMF的RSS',
+                  );
+                  if (!confirm) return;
+                  // 转成 int
+                  var bmf = await sqliteBmf.read(int.parse(widget.id));
+                  if (bmf == null) {
+                    bmf = AppBmfModel(
+                      subject: int.parse(widget.id),
+                      rss: item.rss,
+                    );
+                  } else {
+                    bmf.rss = item.rss;
+                  }
+                  await sqliteBmf.write(bmf);
+                  if (context.mounted) {
+                    await BtInfobar.success(context, '成功设置RSS');
+                    setState(() {});
+                  }
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+              );
+            },
+          ),
+          actions: [
+            Button(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+          ],
+        );
+      },
+    );
+    if (result == null) return;
+  }
+
   /// 构建顶部栏
   Widget buildHeader() {
     String? title;
@@ -123,10 +219,12 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
         children: [
           IconButton(
             icon: const Icon(FluentIcons.refresh),
-            onPressed: () async {
-              await init();
-            },
+            onPressed: () async => await init(),
           ),
+          IconButton(
+            icon: const Icon(FluentIcons.search),
+            onPressed: () async => await searchBangumi(),
+          )
         ],
       ),
     );
@@ -210,15 +308,6 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
           children: res,
         ),
       ),
-    );
-  }
-
-  /// 构建用户部分
-  Widget buildUserPart() {
-    return Column(
-      children: [
-        buildLoading(),
-      ],
     );
   }
 
