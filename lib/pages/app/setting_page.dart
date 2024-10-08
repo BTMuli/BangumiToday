@@ -147,11 +147,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
               ref.read(appStoreProvider.notifier).setAccentColor(color);
               Navigator.of(context).pop();
             },
-            child: Container(
-              width: 32.w,
-              height: 32.h,
-              color: color,
-            ),
+            child: Container(width: 32.w, height: 32.h, color: color),
           )
       ],
     );
@@ -162,7 +158,10 @@ class _SettingPageState extends ConsumerState<SettingPage>
     return ListTile(
       leading: const Icon(FluentIcons.color),
       title: const Text('主题色'),
-      subtitle: Text(curAccentColor.toString()),
+      subtitle: Text(
+        curAccentColor.value.toRadixString(16),
+        style: TextStyle(color: curAccentColor),
+      ),
       trailing: SplitButton(
         flyout: FlyoutContent(
           constraints: BoxConstraints(maxWidth: 200.w),
