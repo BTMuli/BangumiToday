@@ -139,11 +139,8 @@ class _SettingPageState extends ConsumerState<SettingPage>
           Button(
             autofocus: curAccentColor == color,
             style: ButtonStyle(
-              padding: ButtonState.all(
-                EdgeInsets.symmetric(
-                  horizontal: 4.w,
-                  vertical: 4.h,
-                ),
+              padding: WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 4.w, vertical: 4.h),
               ),
             ),
             onPressed: () {

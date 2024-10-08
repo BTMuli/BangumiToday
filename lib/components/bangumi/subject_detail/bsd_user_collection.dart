@@ -427,7 +427,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
         FlyoutTarget(
           controller: controller,
           child: Button(
-            style: ButtonStyle(backgroundColor: ButtonState.all(color)),
+            style: ButtonStyle(backgroundColor: WidgetStatePropertyAll(color)),
             onPressed: buildFlyout,
             child: Row(
               children: [

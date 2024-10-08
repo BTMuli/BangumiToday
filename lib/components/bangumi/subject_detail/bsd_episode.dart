@@ -260,9 +260,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
     return FlyoutTarget(
       controller: controller,
       child: Button(
-        style: ButtonStyle(
-          backgroundColor: ButtonState.all(bgColor),
-        ),
+        style: ButtonStyle(backgroundColor: WidgetStatePropertyAll(bgColor)),
         onPressed: buildFlyout,
         child: Tooltip(
           message: tooltip,

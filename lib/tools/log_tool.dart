@@ -71,10 +71,13 @@ class BTLogTool {
         lineLength: 100,
         colors: false,
         printEmojis: true,
-        printTime: true,
+        dateTimeFormat: DateTimeFormat.dateAndTime,
       );
     } else {
-      printer = PrettyPrinter(printTime: true, methodCount: 5);
+      printer = PrettyPrinter(
+        dateTimeFormat: DateTimeFormat.dateAndTime,
+        methodCount: 5,
+      );
     }
     logger = Logger(
       filter: BTLogFilter(),

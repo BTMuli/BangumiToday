@@ -232,9 +232,11 @@ class PageItemPage extends StatelessWidget {
         await onPressed(page);
       },
       style: ButtonStyle(
-        backgroundColor: ButtonState.all(cur == page
-            ? FluentTheme.of(context).accentColor
-            : Colors.transparent),
+        backgroundColor: WidgetStatePropertyAll(
+          cur == page
+              ? FluentTheme.of(context).accentColor
+              : Colors.transparent,
+        ),
       ),
       child: Text('$page'),
     );

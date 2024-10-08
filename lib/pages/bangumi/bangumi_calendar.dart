@@ -264,7 +264,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       controller: controller,
       child: Button(
         style: ButtonStyle(
-          backgroundColor: ButtonState.all(FluentTheme.of(context).accentColor),
+          backgroundColor: WidgetStatePropertyAll(
+            FluentTheme.of(context).accentColor,
+          ),
         ),
         onPressed: buildFlyout,
         child: const Tooltip(message: '更多', child: Icon(FluentIcons.more)),
