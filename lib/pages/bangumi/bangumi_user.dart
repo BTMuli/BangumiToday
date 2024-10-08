@@ -60,9 +60,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration.zero, () async {
-      await init();
-    });
+    Future.microtask(() async => await init());
   }
 
   /// 初始化
@@ -232,9 +230,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
           message: '刷新',
           child: IconButton(
             icon: const Icon(FluentIcons.refresh),
-            onPressed: () async {
-              await init();
-            },
+            onPressed: () async => await init(),
           ),
         ),
         const Spacer(),
@@ -406,9 +402,9 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
                 offset += pageResp.data.length;
                 for (var item in pageResp.data) {
                   progress.update(
-                    title: '正在写入收藏信息：$cnt/$total',
+                    title: '写入收藏信息：$cnt/$total',
                     text: '[${item.subject.id}] ${item.subject.name}',
-                    progress: cnt / total,
+                    progress: cnt * 100 / total,
                   );
                   await sqlite.write(item, check: false);
                   cnt++;
@@ -420,7 +416,7 @@ class _BangumiUserState extends ConsumerState<BangumiUserPage>
                   break;
                 }
                 progress.update(
-                  title: '正在获取收藏信息',
+                  title: '获取收藏信息',
                   text: '偏移：$offset，总计：$total',
                   progress: null,
                 );
