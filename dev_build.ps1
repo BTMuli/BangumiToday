@@ -42,3 +42,16 @@ Write-Output "开始构建应用版本：$version，本地版本: $versionGet"
 $command = "dart run msix:create --version=$version -p $signPwd"
 Write-Output "dart run msix:create --version=$version"
 Invoke-Expression $command
+# 输入 y 自动安装 换行输出
+$install = Read-Host "`n是否安装应用？(y/n)"
+if ($install -eq "y")
+{
+    Write-Output "开始安装应用"
+    $command = "Add-AppxPackage -Path .\BangumiToday.msix"
+    Write-Output $command
+    Invoke-Expression $command
+}
+else
+{
+    Write-Output "已构建应用，未安装"
+}
