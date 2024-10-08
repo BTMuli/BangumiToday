@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2024-05-21
+Update: 2024-10-08
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-05-21 16:20:29`
+> 更新于 `2024-10-08 11:58:47`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -51,12 +51,6 @@ Update: 2024-05-21
 
 ![用户收藏](./screenshots/userCollection.png)
 
-![BangumiData](./screenshots/bangumiData.png)
-
-![播放列表](./screenshots/playList.png)
-
-![播放历史](./screenshots/playHistory.png)
-
 ## 发行
 
 > 项目更新日志请查看 [CHANGELOG.md](./CHANGELOG.md)
@@ -83,13 +77,9 @@ Update: 2024-05-21
 
 项目使用了如下依赖以实现相关功能：
 
-- [DTorrentTask](https://github.com/moham96/dtorrent_task)：用于 `torrent` 下载。
 - [FlChart](https://app.flchart.dev/)：用于绘制条目评分柱状图。
 - [Fluent UI](https://bdlukaa.github.io/fluent_ui/)：用于实现 Fluent Design 风格的 UI。
 - [Hive](https://github.com/isar/hive)：用于本地数据存储。
-- [MediaKit](https://github.com/media-kit/media-kit)：用于视频播放。
-- [NsDanmaku](https://github.com/xiaoyaocz/flutter_ns_danmaku)：用于弹幕播放。
-- [PasteBoard](https://pub.dev/packages/pasteboard)：用于将视频截图复制到剪贴板。
 
 ## 参考（按照字典序）
 

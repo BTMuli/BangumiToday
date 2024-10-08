@@ -1,13 +1,29 @@
-﻿---
+---
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2024-05-21
+Update: 2024-10-08
 ---
 
-> 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:42`
+> 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:15`
 >
-> 更新于 `2024-05-21 16:23:02`
+> 更新于 `2024-10-08 12:03:19`
+
+## [v0.6.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.5.0) (2024-10-08)
+
+由于媒体播放&下载功能存在重大问题，本版本移除了相关功能，后续会重新设计并实装。
+
+- 🐛 修复缺失用户数据导致的程序异常
+- 🐛 修复msix打包时的dll缺失
+- 👽️ 调整返回类型
+- 💄 支持用户数据删除，调整oauth报错返回
+- 👽️ 更改Mikan镜像链接
+- 👽️ 调整下载torrent命名
+- 🔥 移除内置播放&内置下载
+- ♻️ 支持从Mikan搜索结果中设置RSS
+- 🐛 修复主题色显示异常
+- 🐛 修复刷新进度异常&显示异常
+- ♻️ BangumiData检测更新移至calendar
 
 ## [v0.5.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.5.0) (2024-05-21)
 
