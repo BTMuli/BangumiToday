@@ -49,37 +49,30 @@ jobs:
       - name: 打包msix
         run: dart run msix:create -p ${{ secrets.SIGN_SECRET }}
 
+      - name: 打包msix-Store
+        run: >
+          dart run msix:create
+          --store true
+          -i "27581BTMuli.25716F7F62159"
+          -b "CN=5FE33156-C3CE-4E71-A036-81BAA99521CB"
+          -n "BangumiToday_Store"
+          -p ${{ secrets.SIGN_SECRET }}
+
       - name: 上传文件
         uses: actions/upload-artifact@v4
         with:
-          name: output
+          name: BangumiToday
           path: |
             BangumiToday.zip
             BangumiToday.msix
-            目棃.cer
-
-      - name: 生成更新说明
-        run: |
-          $checksum = Get-FileHash -Path BangumiToday.zip -Algorithm SHA256
-          $checksum = $checksum.Hash
-          Write-Output "> 本 Release 文件来自 [GithubActions](https://github.com/BTMuli/BangumiToday/actions/runs/${{ github.run_id }})" >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "> " >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "> 由于安装 ``.msix`` 文件需要证书，请参考 [README](https://github.com/BTMuli/BangumiToday/#%E5%85%B3%E4%BA%8E%E8%AF%81%E4%B9%A6) 进行操作" >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "" >> $env:GITHUB_STEP_SUMMARY
-          $log = .\genLog.ps1
-          $log | ForEach-Object { Write-Output $_ >> $env:GITHUB_STEP_SUMMARY }
-          Write-Output "sha256:" >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "+ ZIP：``$checksum``" >> $env:GITHUB_STEP_SUMMARY
-          $checksum = Get-FileHash -Path BangumiToday.msix -Algorithm SHA256
-          $checksum = $checksum.Hash
-          Write-Output "+ MSIX：``$checksum``" >> $env:GITHUB_STEP_SUMMARY
+            BangumiToday_Store.msix
 
       - name: 发行Release
         uses: marvinpinto/action-automatic-releases@latest
         with:
-          repo_token: ${{ secrets.RELEASE_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
           files: |
             BangumiToday.zip
             BangumiToday.msix
-            目棃.cer
+            BangumiToday_Store.msix
