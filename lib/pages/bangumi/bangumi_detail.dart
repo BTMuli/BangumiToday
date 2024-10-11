@@ -134,7 +134,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     }
     var items = resp.data as List<MikanSearchItemModel>;
     if (items.isEmpty) {
-      if (mounted) await BtInfobar.error(context, '没有找到相关条目');
+      if (mounted) await BtInfobar.error(context, '没有找到相关条目，请尝试更换搜索词');
       return;
     }
     if (mounted) await showSearchResult(context, items);
