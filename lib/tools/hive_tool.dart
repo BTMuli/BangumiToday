@@ -4,7 +4,9 @@ import 'package:hive/hive.dart';
 // Project imports:
 import '../models/hive/bgm_user_model.dart';
 import '../models/hive/nav_model.dart';
+import '../models/hive/play_model.dart';
 import '../store/bgm_user_hive.dart';
+import '../store/play_store.dart';
 import 'file_tool.dart';
 
 /// 采用Hive来存储本地数据
@@ -21,16 +23,19 @@ class BTHiveTool {
 
   /// 获取应用数据目录
   Future<String> getDataDir() async {
-    return await instance.fileTool.getAppDataPath('hive');
+    return await fileTool.getAppDataPath('hive');
   }
 
   /// 初始化
   Future<void> init() async {
     var dir = await getDataDir();
-    await instance.fileTool.createDir(dir);
+    if (!await fileTool.isDirExist(dir)) {
+      await fileTool.createDir(dir);
+    }
     Hive.init(dir);
-    await initBgmUserHiveBox();
-    await initNavHiveBox();
+    await initBgmUserHiveBox(); // id-2
+    await initPlayHiveBox(); // id-4
+    await initNavHiveBox(); // id-0
   }
 
   /// 初始化 navHiveBox
@@ -44,5 +49,15 @@ class BTHiveTool {
     Hive.registerAdapter(BgmUserHiveAdapter());
     await Hive.openBox<BgmUserHiveModel>('bgmUser');
     await BgmUserHive().initUser();
+  }
+
+  /// 初始化 playHiveBox
+  Future<void> initPlayHiveBox() async {
+    Hive.registerAdapter(PlayHiveAdapter());
+    Hive.registerAdapter(PlayHiveItemAdapter());
+    Hive.registerAdapter(PlayHiveSourceAdapter());
+    Hive.registerAdapter(PlayHiveSourceItemAdapter());
+    await Hive.openBox<PlayHiveModel>('play');
+    PlayHive().init();
   }
 }

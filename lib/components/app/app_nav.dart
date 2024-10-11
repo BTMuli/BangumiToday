@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 
 // Project imports:
 import '../../pages/app/bmf_page.dart';
+import '../../pages/app/play_page.dart';
 import '../../pages/app/rss_page.dart';
 import '../../pages/app/setting_page.dart';
 import '../../pages/app/test_page.dart';
@@ -151,6 +152,11 @@ class _AppNavState extends ConsumerState<AppNav>
         icon: Image.asset('assets/images/logo.png', height: 16),
         title: const Text('BMF配置'),
         body: const BmfPage(),
+      ),
+      PaneItem(
+        icon: const Icon(FluentIcons.play),
+        title: const Text('内置播放'),
+        body: const PlayPage(),
       ),
     ];
   }

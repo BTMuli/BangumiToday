@@ -10,6 +10,8 @@ import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../../store/nav_store.dart';
+import '../../../store/play_store.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/notifier_tool.dart';
 import '../../../utils/tool_func.dart';
@@ -130,6 +132,8 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
     return [
       potplayerBtn,
       const SizedBox(height: 6),
+      BsdBmfFileInnerPlayerBtn(file, widget.bmfFile, widget.subject),
+      const SizedBox(height: 6),
       deleteBtn,
     ];
   }
@@ -242,6 +246,87 @@ class BsdBmfFilePotPlayerBtn extends StatelessWidget {
       onPressed: () async {
         var filePath = path.join(download, file);
         await launchUrlString('file://$filePath');
+      },
+    );
+  }
+}
+
+/// 调用内置播放
+class BsdBmfFileInnerPlayerBtn extends ConsumerStatefulWidget {
+  /// 文件
+  final String file;
+
+  /// 目录
+  final String download;
+
+  /// subject
+  final int subject;
+
+  /// 构造
+  const BsdBmfFileInnerPlayerBtn(
+    this.file,
+    this.download,
+    this.subject, {
+    super.key,
+  });
+
+  @override
+  ConsumerState<BsdBmfFileInnerPlayerBtn> createState() =>
+      _BsdBmfFileInnerPlayerBtnState();
+}
+
+class _BsdBmfFileInnerPlayerBtnState
+    extends ConsumerState<BsdBmfFileInnerPlayerBtn> {
+  /// 播放Hive
+  final PlayHive hivePlay = PlayHive();
+
+  /// 获取集数
+  Future<int?> getEpisode() async {
+    var filePath = path.join(widget.download, widget.file);
+    var episode = hivePlay.getBmfEpisode(widget.subject, filePath);
+    if (episode == null) {
+      var input = await showInputDialog(
+        context,
+        title: '请输入集数',
+        content: '集数',
+      );
+      if (input == null || input.isEmpty) {
+        if (mounted) await BtInfobar.error(context, '请输入集数');
+        return null;
+      }
+      episode = int.tryParse(input);
+      if (episode == null) {
+        if (mounted) await BtInfobar.error(context, '请输入正确的集数');
+        return null;
+      }
+    }
+    return episode;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var filePath = path.join(widget.download, widget.file);
+    return Button(
+      child: Row(
+        children: [
+          Icon(FluentIcons.play, color: FluentTheme.of(context).accentColor),
+          SizedBox(width: 8.w),
+          const Text('调用内置播放器打开'),
+        ],
+      ),
+      onPressed: () async {
+        var episode = await getEpisode();
+        if (episode == null) return;
+        await hivePlay.addBmf(filePath, widget.subject, episode);
+        ref.read(navStoreProvider).goIndex(3);
+      },
+      onLongPress: () async {
+        var episode = await getEpisode();
+        if (episode == null) return;
+        await hivePlay.addBmf(filePath, widget.subject, episode, play: false);
+        if (context.mounted) {
+          await BtInfobar.success(context, '成功添加到播放列表');
+        }
       },
     );
   }

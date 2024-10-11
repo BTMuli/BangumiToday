@@ -20,7 +20,7 @@ class BTLogFilter extends LogFilter {
     if (kDebugMode) {
       return true;
     }
-    return event.level.index > Level.info.index;
+    return event.level.index > Level.debug.index;
   }
 }
 
