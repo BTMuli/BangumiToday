@@ -12,6 +12,7 @@ import '../../components/bangumi/subject_detail/bsd_overview.dart';
 import '../../components/bangumi/subject_detail/bsd_relation.dart';
 import '../../components/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../components/bangumi/subject_detail/bsd_user_episodes.dart';
+import '../../controller/app/progress_controller.dart';
 import '../../database/app/app_bmf.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
@@ -50,6 +51,9 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
 
   /// bmf数据库
   final BtsAppBmf sqliteBmf = BtsAppBmf();
+
+  /// progress
+  late ProgressController progress = ProgressController();
 
   @override
   bool get wantKeepAlive => true;
@@ -114,7 +118,16 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       value: name,
     );
     if (nameCheck == null) return;
+    if (mounted) {
+      progress = ProgressWidget.show(
+        context,
+        title: '搜索中',
+        text: '正在搜索番剧: $nameCheck',
+        progress: null,
+      );
+    }
     var resp = await mikanApi.searchBgm(nameCheck);
+    progress.end();
     if (resp.code != 0) {
       if (mounted) await showRespErr(resp, context);
       return;
@@ -129,9 +142,13 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
 
   /// 显示搜索结果
   Future<void> showSearchResult(
-      BuildContext context, List<MikanSearchItemModel> items) async {
+    BuildContext context,
+    List<MikanSearchItemModel> items,
+  ) async {
     var result = await showDialog(
       context: context,
+      barrierDismissible: true,
+      dismissWithEsc: true,
       builder: (context) {
         return ContentDialog(
           title: const Text('搜索结果'),
