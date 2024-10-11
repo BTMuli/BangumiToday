@@ -48,8 +48,8 @@ if ($install -eq "y")
 {
     Write-Output "开始安装应用"
     $command = "Add-AppxPackage -Path .\BangumiToday.msix"
-    Write-Output $command
     Invoke-Expression $command
+    Write-Output "成功安装BangumiToday v$version"
 }
 else
 {
