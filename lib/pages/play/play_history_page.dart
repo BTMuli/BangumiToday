@@ -219,6 +219,24 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
     );
   }
 
+  /// buildDelBMFButton
+  Widget buildDelBMFButton(PlayHiveModel item) {
+    return IconButton(
+      icon: const BaseThemeIcon(FluentIcons.delete),
+      onPressed: () async {
+        var confirm = await showConfirmDialog(
+          context,
+          title: '删除播放记录',
+          content: '是否删除条目 ${item.subjectId} 的播放记录？',
+        );
+        if (!confirm) return;
+        await hive.deleteItem(item.subjectId);
+        setState(() {});
+        if (mounted) await BtInfobar.success(context, '删除成功');
+      },
+    );
+  }
+
   /// buildHistoryItem
   Widget buildHistoryItem(PlayHiveModel item) {
     return Expander(
@@ -226,7 +244,11 @@ class _PlayHistoryPageState extends State<PlayHistoryPage> {
       header: Text('${item.subjectName}(${item.subjectId})'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [buildDelHistoryButton(item), buildEditButton(item)],
+        children: [
+          buildDelHistoryButton(item),
+          buildEditButton(item),
+          buildDelBMFButton(item),
+        ],
       ),
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

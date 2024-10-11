@@ -116,7 +116,7 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
   MenuFlyoutItem buildSpeedButton(double value) {
     return MenuFlyoutItem(
       leading:
-      value == speed ? const BaseThemeIcon(material.Icons.check) : null,
+          value == speed ? const BaseThemeIcon(material.Icons.check) : null,
       selected: value == speed,
       trailing: BaseThemeIcon(getSpeedIcon(value)),
       text: Text(getSpeedLabel(value)),
@@ -206,59 +206,6 @@ class _PlayVideoWidgetState extends ConsumerState<PlayVideoWidget> {
           ),
         ),
         const MaterialDesktopFullscreenButton(),
-        IconButton(
-          icon: const Icon(FluentIcons.comment),
-          onPressed: () async {
-            // var cur = hivePlay.current;
-            // if (cur == null) return;
-            // var danmaku = hivePlay.getDanmakuId(
-            //   hivePlay.current!.subjectId,
-            //   hivePlay.current!.path,
-            // );
-            // if (danmaku == -1) {
-            /// 查询 animeId
-            // var animeFind = hiveDanmaku.findBySubject(cur.subjectId);
-            // if (animeFind == null || animeFind.animeId == null) {
-            //   await BtInfobar.error(context, '未找到对应弹幕');
-            // }
-            // if (mounted) {
-            //   var input = await showInputDialog(
-            //     context,
-            //     title: '集数',
-            //     content: '请输入对应集数',
-            //   );
-            //   if (input == null || input.isEmpty) return;
-            //   if (!int.tryParse(input, radix: 10)!.isFinite) {
-            //     if (mounted) await BtInfobar.error(context, '请输入数字');
-            //     return;
-            //   }
-            //   var episode = animeFind!.animeId! * 10000 + int.parse(input);
-            //   var comments = await danmakuApi.getDanmaku2(episode);
-            //   if (comments.isEmpty && mounted) {
-            //     await BtInfobar.error(context, '未找到对应弹幕');
-            //     return;
-            //   }
-            //   var model = DanmakuHiveModel(
-            //     subjectId: cur.subjectId,
-            //     animeId: animeFind.animeId,
-            //     animeTitle: animeFind.animeTitle,
-            //     episodes: {input: episode.toString()},
-            //   );
-            //   await hiveDanmaku.add(model);
-            //   hivePlay.updateDanmakuId(episode, cur);
-            //   ref.read(playControllerProvider.notifier).addDanmaku(comments);
-            //   ref.read(playControllerProvider.notifier).toggleDanmaku();
-            // }
-            // return;
-            // }
-            // var comments = await danmakuApi.getDanmaku2(cur.danmakuId!);
-            // if (comments.isEmpty && mounted) {
-            //   await BtInfobar.error(context, '未找到对应弹幕');
-            //   return;
-            // }
-            // ref.read(playControllerProvider.notifier).toggleDanmaku();
-          },
-        ),
       ],
     );
   }

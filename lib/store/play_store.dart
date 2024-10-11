@@ -307,6 +307,12 @@ class PlayHive extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 删除播放历史
+  Future<void> deleteItem(int subjectId) async {
+    await box.delete(subjectId);
+    notifyListeners();
+  }
+
   void switchSubject(int value) {
     curModel = box.get(value);
     curSource = curModel!.sources[0].source;
