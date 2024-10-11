@@ -10,6 +10,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../components/app/app_config_bgm.dart';
 import '../../components/app/app_infobar.dart';
 import '../../store/app_store.dart';
 import '../../tools/log_tool.dart';
@@ -42,7 +43,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
 
   /// 保存状态
   @override
-  bool get wantKeepAlive => true;
+  bool get wantKeepAlive => false;
 
   /// 初始化
   @override
@@ -57,36 +58,33 @@ class _SettingPageState extends ConsumerState<SettingPage>
 
   /// 构建 Windows 设备信息
   Widget buildWinDeviceInfo(WindowsDeviceInfo diw) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
-      child: Expander(
-        leading: const Icon(material.Icons.laptop_windows),
-        header: Text(diw.productName),
-        content: Column(
-          children: [
-            ListTile(
-              leading: const Icon(material.Icons.desktop_windows_outlined),
-              title: const Text('所在平台'),
-              subtitle: Text(
-                'Windows ${diw.displayVersion} '
-                '${diw.majorVersion}.${diw.minorVersion}.${diw.buildNumber}'
-                '(${diw.buildLab})',
-              ),
+    return Expander(
+      leading: const Icon(material.Icons.laptop_windows),
+      header: Text(diw.productName),
+      content: Column(
+        children: [
+          ListTile(
+            leading: const Icon(material.Icons.desktop_windows_outlined),
+            title: const Text('所在平台'),
+            subtitle: Text(
+              'Windows ${diw.displayVersion} '
+              '${diw.majorVersion}.${diw.minorVersion}.${diw.buildNumber}'
+              '(${diw.buildLab})',
             ),
-            ListTile(
-              leading: const Icon(material.Icons.devices_outlined),
-              title: const Text('设备'),
-              subtitle: Text('${diw.computerName} ${diw.productId}'),
+          ),
+          ListTile(
+            leading: const Icon(material.Icons.devices_outlined),
+            title: const Text('设备'),
+            subtitle: Text('${diw.computerName} ${diw.productId}'),
+          ),
+          ListTile(
+            leading: const Icon(material.Icons.device_hub_outlined),
+            title: const Text('标识符'),
+            subtitle: Text(
+              diw.deviceId.substring(1, diw.deviceId.length - 1),
             ),
-            ListTile(
-              leading: const Icon(material.Icons.device_hub_outlined),
-              title: const Text('标识符'),
-              subtitle: Text(
-                diw.deviceId.substring(1, diw.deviceId.length - 1),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -299,12 +297,26 @@ class _SettingPageState extends ConsumerState<SettingPage>
     );
   }
 
+  /// 构建应用配置
+  Widget buildAppConfig() {
+    return Expander(
+      leading: const Icon(FluentIcons.settings),
+      header: const Text('应用配置'),
+      content: Column(children: [buildThemeSwitch(), buildColorSwitch()]),
+    );
+  }
+
+  /// 构建用户配置
+  Widget buildUserConfig() {
+    return AppConfigBgmWidget();
+  }
+
   /// 构建配置项
   List<Widget> buildConfigList() {
     return [
       buildDeviceInfo(),
-      buildThemeSwitch(),
-      buildColorSwitch(),
+      buildAppConfig(),
+      buildUserConfig(),
     ];
   }
 
@@ -312,12 +324,25 @@ class _SettingPageState extends ConsumerState<SettingPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    var configList = buildConfigList();
     return ScaffoldPage(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
       content: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          Expanded(child: ListView(children: buildConfigList())),
+          Flexible(
+            child: ListView.separated(
+              itemBuilder: (_, int index) {
+                return Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12.w),
+                  child: configList[index],
+                );
+              },
+              separatorBuilder: (_, __) => SizedBox(height: 12.h),
+              itemCount: configList.length,
+            ),
+          ),
           SizedBox(width: 16.w),
           buildAppInfo(),
           SizedBox(width: 16.w),

@@ -23,7 +23,6 @@ import '../../store/nav_store.dart';
 import '../../tools/notifier_tool.dart';
 import 'bangumi_collection.dart';
 import 'bangumi_search.dart';
-import 'bangumi_user.dart';
 
 /// 今日放送
 class CalendarPage extends ConsumerStatefulWidget {
@@ -281,33 +280,17 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     );
   }
 
-  /// 构建用户按钮
-  MenuFlyoutItem buildFlyoutUser(BuildContext context) {
-    var color = FluentTheme.of(context).accentColor;
-    var title = "Bangumi 用户界面";
-    var pane = PaneItem(
-      icon: Icon(FluentIcons.contact, color: color),
-      title: Text(title),
-      body: const BangumiUserPage(),
-    );
-    return MenuFlyoutItem(
-      leading: Icon(
-        FluentIcons.contact,
-        color: color,
-      ),
-      text: const Text('查看用户界面'),
-      onPressed: () async {
-        ref.read(navStoreProvider).addNavItem(pane, title);
-      },
-    );
-  }
-
   /// 构建数据按钮
   MenuFlyoutItem buildFlyoutData(BuildContext context) {
     return MenuFlyoutItem(
       leading: BaseThemeIcon(FluentIcons.database_source),
       text: const Text('BangumiData 数据库'),
-      trailing: Text(version),
+      trailing: Text(
+        version,
+        style: TextStyle(
+          color: FluentTheme.of(context).accentColor.withOpacity(0.5),
+        ),
+      ),
       onPressed: () async => await refreshBgmData(context),
     );
   }
@@ -338,7 +321,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       builder: (context) => MenuFlyout(
         items: [
           buildFlyoutCollection(context),
-          buildFlyoutUser(context),
           buildFlyoutData(context),
           buildFlyoutSearch(context),
         ],

@@ -166,7 +166,7 @@ class _AppNavState extends ConsumerState<AppNav>
   List<PaneItem> getFooterItems() {
     var debugPane = PaneItem(
       icon: const Icon(FluentIcons.bug),
-      title: const Text('Debug'),
+      title: const Text('调试页面'),
       body: const TestPage(),
     );
     var footerItems = [
@@ -181,7 +181,7 @@ class _AppNavState extends ConsumerState<AppNav>
       buildThemeModeItem(),
       PaneItem(
         icon: const Icon(FluentIcons.settings),
-        title: const Text('Settings'),
+        title: const Text('应用设置'),
         body: const SettingPage(),
       ),
     ];
