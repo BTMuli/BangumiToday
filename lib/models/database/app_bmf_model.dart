@@ -14,6 +14,9 @@ class AppBmfModel {
   /// bangumi subject id
   final int subject;
 
+  /// bangumi subject title
+  final String? title;
+
   /// RSS URL
   late String? rss;
 
@@ -24,6 +27,7 @@ class AppBmfModel {
   AppBmfModel({
     this.id = -1,
     required this.subject,
+    this.title,
     this.rss,
     this.download,
   });

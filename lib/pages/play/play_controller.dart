@@ -56,7 +56,7 @@ class PlayController extends StateNotifier<PlayControllerState> {
   }
 
   /// 跳转
-  Future<void> jump(int index, int episode) async {
+  Future<void> jump(int index, String episode) async {
     await state.player.jump(index);
     await state.player.stream.buffer.first;
     var progress = await state.hive.getProgress(episode);
@@ -91,9 +91,5 @@ class PlayController extends StateNotifier<PlayControllerState> {
     if (progress != 0) {
       await state.player.seek(Duration(milliseconds: progress));
     }
-  }
-
-  void switchSource(String value) {
-    state.hive.switchSource(value);
   }
 }

@@ -1,6 +1,9 @@
 // Dart imports:
 import 'dart:async';
 
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -132,8 +135,10 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
     return [
       potplayerBtn,
       const SizedBox(height: 6),
-      BsdBmfFileInnerPlayerBtn(file, widget.bmfFile, widget.subject),
-      const SizedBox(height: 6),
+      if (kDebugMode) ...[
+        BsdBmfFileInnerPlayerBtn(file, widget.bmfFile, widget.subject),
+        const SizedBox(height: 6)
+      ],
       deleteBtn,
     ];
   }
@@ -281,9 +286,9 @@ class _BsdBmfFileInnerPlayerBtnState
   final PlayHive hivePlay = PlayHive();
 
   /// 获取集数
-  Future<int?> getEpisode() async {
+  Future<String?> getEpisode() async {
     var filePath = path.join(widget.download, widget.file);
-    var episode = hivePlay.getBmfEpisode(widget.subject, filePath);
+    var episode = hivePlay.getEpByPath(widget.subject, filePath);
     if (episode == null) {
       var input = await showInputDialog(
         context,
@@ -294,10 +299,16 @@ class _BsdBmfFileInnerPlayerBtnState
         if (mounted) await BtInfobar.error(context, '请输入集数');
         return null;
       }
-      episode = int.tryParse(input);
-      if (episode == null) {
+      // 可能集数是 1.5 这种
+      var epTmp = double.tryParse(input);
+      if (epTmp == null) {
         if (mounted) await BtInfobar.error(context, '请输入正确的集数');
         return null;
+      }
+      if (epTmp == epTmp.toInt()) {
+        episode = epTmp.toInt().toString();
+      } else {
+        episode = epTmp.toStringAsFixed(1);
       }
     }
     return episode;

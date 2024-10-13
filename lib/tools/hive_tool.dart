@@ -1,3 +1,6 @@
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
 // Package imports:
 import 'package:hive/hive.dart';
 
@@ -33,15 +36,9 @@ class BTHiveTool {
       await fileTool.createDir(dir);
     }
     Hive.init(dir);
-    await initBgmUserHiveBox(); // id-2
-    await initPlayHiveBox(); // id-4
-    await initNavHiveBox(); // id-0
-  }
-
-  /// 初始化 navHiveBox
-  Future<void> initNavHiveBox() async {
-    Hive.registerAdapter(BtmAppNavItemAdapter());
-    await Hive.openBox<BtmAppNavHive>('nav');
+    await initBgmUserHiveBox();
+    await initNavHiveBox();
+    if (kDebugMode) await initPlayHiveBox();
   }
 
   /// 初始化 bgmUserHiveBox
@@ -51,12 +48,16 @@ class BTHiveTool {
     await BgmUserHive().initUser();
   }
 
+  /// 初始化 navHiveBox
+  Future<void> initNavHiveBox() async {
+    Hive.registerAdapter(BtmAppNavItemAdapter());
+    await Hive.openBox<BtmAppNavHive>('nav');
+  }
+
   /// 初始化 playHiveBox
   Future<void> initPlayHiveBox() async {
     Hive.registerAdapter(PlayHiveAdapter());
     Hive.registerAdapter(PlayHiveItemAdapter());
-    Hive.registerAdapter(PlayHiveSourceAdapter());
-    Hive.registerAdapter(PlayHiveSourceItemAdapter());
     await Hive.openBox<PlayHiveModel>('play');
     PlayHive().init();
   }

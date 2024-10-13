@@ -153,11 +153,12 @@ class _AppNavState extends ConsumerState<AppNav>
         title: const Text('BMF配置'),
         body: const BmfPage(),
       ),
-      PaneItem(
-        icon: const Icon(FluentIcons.play),
-        title: const Text('内置播放'),
-        body: const PlayPage(),
-      ),
+      if (kDebugMode)
+        PaneItem(
+          icon: const Icon(FluentIcons.play),
+          title: const Text('内置播放'),
+          body: const PlayPage(),
+        ),
     ];
   }
 

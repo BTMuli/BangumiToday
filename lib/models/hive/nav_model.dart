@@ -55,7 +55,7 @@ class BtmAppNavHive {
 /// 侧边栏项的适配器
 class BtmAppNavItemAdapter extends TypeAdapter<BtmAppNavHive> {
   @override
-  final int typeId = 0;
+  final int typeId = 1;
 
   @override
   BtmAppNavHive read(BinaryReader reader) {

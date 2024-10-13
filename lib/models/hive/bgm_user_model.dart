@@ -33,7 +33,7 @@ class BgmUserHiveModel {
 /// Bangumi 用户的适配器
 class BgmUserHiveAdapter extends TypeAdapter<BgmUserHiveModel> {
   @override
-  final int typeId = 2;
+  final int typeId = 0;
 
   @override
   BgmUserHiveModel read(BinaryReader reader) {

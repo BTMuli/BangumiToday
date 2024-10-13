@@ -1,6 +1,7 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -59,9 +60,7 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
   void initState() {
     super.initState();
     BTLogTool.info('init PlayVodPage');
-    Future.microtask(() async {
-      await freshList();
-    });
+    Future.microtask(() async => await freshList());
     hive.addListener(listenHive);
   }
 
@@ -82,9 +81,7 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
   void didUpdateWidget(PlayVodPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.subject == widget.subject) return;
-    Future.microtask(() async {
-      await freshList();
-    });
+    Future.microtask(() async => await freshList());
   }
 
   /// 刷新播放列表
@@ -148,26 +145,18 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
         IconButton(
           icon: const Icon(FluentIcons.delete),
           onPressed: () async {
-            if (hive.curSource != 'BMF') {
-              if (mounted) await BtInfobar.error(context, '只能删除BMF播放源');
-              return;
-            }
             var confirm = await showConfirmDialog(
               context,
               title: '移除播放',
               content: '是否移除该播放任务？',
             );
             if (!confirm) return;
-            await hive.deleteBMF(widget.subject, media.extras?['episode']);
+            await hive.deletePlayItem(widget.subject, media.extras?['episode']);
             await freshList();
             if (mounted) await BtInfobar.success(context, '移除成功');
           },
           onLongPress: () async {
-            if (hive.curSource != 'BMF') {
-              if (mounted) await BtInfobar.error(context, '只能删除BMF播放源');
-              return;
-            }
-            await hive.deleteBMF(widget.subject, media.extras?['episode']);
+            await hive.deletePlayItem(widget.subject, media.extras?['episode']);
             await freshList();
           },
         ),
@@ -197,19 +186,6 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
     );
   }
 
-  /// 构建播放列表
-  Widget buildList() {
-    return SizedBox(
-      width: 120,
-      child: ListView.separated(
-        itemCount: playList.length,
-        itemBuilder: (context, index) => buildCard(index, playList[index]),
-        separatorBuilder: (BuildContext context, int index) =>
-            const SizedBox(height: 12, child: Center(child: Divider())),
-      ),
-    );
-  }
-
   /// 构建
   @override
   Widget build(BuildContext context) {
@@ -225,17 +201,21 @@ class _PlayVodPageState extends ConsumerState<PlayVodPage>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Flexible(
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(children: [
-                  PlayVideoWidget(),
-                  // buildDanmaku(),
-                ]),
+            // 16/9的窗体，最多高度为屏幕高度，宽度为屏幕宽度-120，能够自适应，不会导致右侧列表溢出
+            Flexible(
+              flex: 8,
+              child: AspectRatio(aspectRatio: 16 / 9, child: PlayVideoWidget()),
+            ),
+            SizedBox(width: 8.w),
+            Flexible(
+              child: ListView.separated(
+                itemCount: playList.length,
+                itemBuilder: (context, index) =>
+                    buildCard(index, playList[index]),
+                separatorBuilder: (BuildContext context, int index) =>
+                    const SizedBox(height: 12, child: Center(child: Divider())),
               ),
             ),
-            const SizedBox(width: 8),
-            buildList(),
           ],
         ),
       ),

@@ -1,6 +1,3 @@
-// Flutter imports:
-import 'package:flutter/foundation.dart';
-
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,9 +31,6 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
   /// 当前播放的subject
   int? curSubject;
 
-  /// 当前播放的source
-  late String curSource = hive.curSource;
-
   @override
   bool get wantKeepAlive => true;
 
@@ -61,10 +55,6 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
     var subject = curModel?.subjectId;
     if (subject != null && curSubject != subject) {
       curSubject = subject;
-      setState(() {});
-    }
-    if (curSource != hive.curSource) {
-      curSource = hive.curSource;
       setState(() {});
     }
   }
@@ -103,41 +93,11 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
     );
   }
 
-  /// 构建sourceBox
-  Widget buildSourceBox() {
-    var model = hive.curModel;
-    if (model == null) return const SizedBox();
-    var sources = model.sources;
-    return ComboBox<String>(
-      value: curSource,
-      items: List.generate(
-        sources.length,
-        (index) => ComboBoxItem<String>(
-          value: sources[index].source,
-          child: Tooltip(
-            message: sources[index].source,
-            child: Text(sources[index].source),
-          ),
-        ),
-      ),
-      onChanged: (value) async {
-        if (value == null) return;
-        if (value == hive.curSource) {
-          if (mounted) await BtInfobar.warn(context, '已经选中该资源！');
-          return;
-        }
-        ref.read(playControllerProvider.notifier).switchSource(value);
-        curSource = value;
-        setState(() {});
-      },
-    );
-  }
-
   /// 构建头部
   Widget buildHeader() {
     return Row(children: [
       const SizedBox(width: 8),
-      // Text('当前播放：${hive.curModel?.subjectName ?? ''}'),
+      Text('当前播放：'),
       const SizedBox(width: 8),
       buildSubjectBox(),
       const SizedBox(width: 8),
@@ -148,9 +108,9 @@ class _PlayListPageState extends ConsumerState<PlayListPage>
           onPressed: () async => await fileTool.openScreenshotDir(),
         ),
       ),
-      if (kDebugMode) ...[const SizedBox(width: 8), buildSourceBox()],
-      const Spacer(),
       const SizedBox(width: 8),
+      if (hive.curModel?.subjectName.isNotEmpty ?? false)
+        Text(hive.curModel!.subjectName),
     ]);
   }
 
