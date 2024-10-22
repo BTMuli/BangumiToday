@@ -11,6 +11,9 @@ class BtsAppBmf {
   /// 实例
   static final BtsAppBmf _instance = BtsAppBmf._();
 
+  /// 是否有title字段
+  static bool hasTitle = false;
+
   /// 获取实例
   factory BtsAppBmf() => _instance;
 
@@ -28,12 +31,30 @@ class BtsAppBmf {
         CREATE TABLE $_tableName (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           subject INTEGER NOT NULL,
+          title TEXT DEFAULT '',
           rss TEXT,
           download TEXT,
           UNIQUE(subject)
         );
       ''');
       BTLogTool.info('Create table $_tableName');
+    }
+
+    /// 为了兼容旧版本，这里需要检查是否有title字段
+    if (!hasTitle) await checkUpdate();
+  }
+
+  /// 检查是否有title字段
+  Future<void> checkUpdate() async {
+    var check = await _instance.sqlite.db.rawQuery(
+      'PRAGMA table_info($_tableName)',
+    );
+    hasTitle = check.any((element) => element['name'] == 'title');
+    if (!hasTitle) {
+      await _instance.sqlite.db.execute('''
+        ALTER TABLE $_tableName ADD COLUMN title TEXT DEFAULT '';
+      ''');
+      BTLogTool.info('Update table $_tableName add title');
     }
   }
 

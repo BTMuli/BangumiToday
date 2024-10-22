@@ -9,6 +9,7 @@ part of 'app_bmf_model.dart';
 AppBmfModel _$AppBmfModelFromJson(Map<String, dynamic> json) => AppBmfModel(
       id: (json['id'] as num?)?.toInt() ?? -1,
       subject: (json['subject'] as num).toInt(),
+      title: json['title'] as String?,
       rss: json['rss'] as String?,
       download: json['download'] as String?,
     );
@@ -17,6 +18,7 @@ Map<String, dynamic> _$AppBmfModelToJson(AppBmfModel instance) =>
     <String, dynamic>{
       'id': instance.id,
       'subject': instance.subject,
+      'title': instance.title,
       'rss': instance.rss,
       'download': instance.download,
     };
