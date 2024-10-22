@@ -10,12 +10,12 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../components/app/app_config_bgm.dart';
-import '../../components/app/app_infobar.dart';
 import '../../store/app_store.dart';
 import '../../tools/log_tool.dart';
 import '../../tools/scheme_tool.dart';
+import '../../ui/bt_infobar.dart';
 import '../../utils/get_theme_label.dart';
+import '../../widgets/config/app_config_bgm.dart';
 
 /// 设置页面
 class SettingPage extends ConsumerStatefulWidget {

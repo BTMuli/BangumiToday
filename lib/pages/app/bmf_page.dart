@@ -6,10 +6,10 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
-import '../../components/app/app_infobar.dart';
-import '../../components/bangumi/subject_detail/bsd_bmf.dart';
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_rss.dart';
+import '../../ui/bt_infobar.dart';
+import '../../widgets/bangumi/subject_detail/bsd_bmf.dart';
 
 /// BMF 配置页面
 class BmfPage extends StatefulWidget {
@@ -83,9 +83,8 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
   Widget buildHeader(BuildContext context) {
     return Row(
       children: [
-        SizedBox(width: 16.w),
-        Image.asset('assets/images/logo.png', height: 40),
-        SizedBox(width: 16.w),
+        Image.asset('assets/images/logo.png', height: 28, width: 28),
+        SizedBox(width: 4),
         Text('BMF配置', style: FluentTheme.of(context).typography.title),
         const Spacer(),
         IconButton(
@@ -95,7 +94,6 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
             if (context.mounted) await BtInfobar.success(context, '刷新成功');
           },
         ),
-        SizedBox(width: 16.w),
       ],
     );
   }
@@ -105,15 +103,16 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
   Widget build(BuildContext context) {
     super.build(context);
     return ScaffoldPage(
-      header: buildHeader(context),
-      content: ListView(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-        children: [
-          for (var item in bmfList) ...[
-            BsdBmf(item, isConfig: true),
-            SizedBox(height: 16.h)
-          ]
-        ],
+      padding: EdgeInsets.zero,
+      header: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+        child: buildHeader(context),
+      ),
+      content: ListView.separated(
+        itemBuilder: (_, i) => BsdBmfWidget(bmfList[i], isConfig: true),
+        separatorBuilder: (_, __) => SizedBox(height: 8.h),
+        itemCount: bmfList.length,
+        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
       ),
     );
   }

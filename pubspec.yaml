@@ -58,6 +58,7 @@ dependencies:
   json_annotation: ^4.8.1
   local_notifier: ^0.1.6
   logger: ^2.4.0
+  material_design_icons_flutter: ^7.0.7296
   msvcredist:
     git:
       url: https://github.com/insertjokehere/flutter_msvcredist.git

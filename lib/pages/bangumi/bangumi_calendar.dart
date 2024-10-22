@@ -4,11 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
-import '../../components/app/app_dialog.dart';
-import '../../components/app/app_dialog_resp.dart';
-import '../../components/app/app_infobar.dart';
-import '../../components/bangumi/calendar/calendar_day.dart';
-import '../../components/base/base_theme_icon.dart';
 import '../../controller/app/progress_controller.dart';
 import '../../database/app/app_config.dart';
 import '../../database/bangumi/bangumi_collection.dart';
@@ -21,6 +16,10 @@ import '../../request/bangumi/bangumi_data.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../store/nav_store.dart';
 import '../../tools/notifier_tool.dart';
+import '../../ui/bt_dialog.dart';
+import '../../ui/bt_icon.dart';
+import '../../ui/bt_infobar.dart';
+import '../../widgets/bangumi/calendar/calendar_day.dart';
 import 'bangumi_collection.dart';
 import 'bangumi_search.dart';
 
@@ -99,12 +98,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     });
   }
 
-  /// dispose 保留状态
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
   /// 获取数据
   Future<void> getData({bool freshTab = false}) async {
     isRequesting = true;
@@ -118,7 +111,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       if (mounted) await showRespErr(calendarGet, context);
       return;
     }
-    assert(calendarGet.data != null);
     var data = calendarGet.data as List<BangumiCalendarRespData>;
     if (isShowCollection) {
       for (var d in data) {
@@ -140,7 +132,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   }
 
   /// 刷新BangumiData
-  Future<void> refreshBgmData(BuildContext context) async {
+  Future<void> refreshBgmData() async {
     progress = ProgressWidget.show(
       context,
       title: '开始获取数据',
@@ -152,20 +144,20 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       progress.update(text: '获取远程版本失败');
       await Future.delayed(const Duration(seconds: 1));
       progress.end();
-      if (context.mounted) await showRespErr(remoteGet, context);
+      if (mounted) await showRespErr(remoteGet, context);
       return;
     }
     var remote = remoteGet.data as String;
     progress.update(title: '成功获取远程版本', text: remote);
     await Future.delayed(const Duration(milliseconds: 500));
     progress.end();
-    if (!context.mounted) return;
-    var confirm = await showConfirmDialog(
+    if (!mounted) return;
+    var confirm = await showConfirm(
       context,
       title: '确认更新？',
       content: '远程版本：$remote，本地版本：$version',
     );
-    if (confirm && context.mounted) {
+    if (confirm && mounted) {
       progress = ProgressWidget.show(
         context,
         title: '开始更新数据',
@@ -179,7 +171,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         progress.update(text: '获取数据失败');
         await Future.delayed(const Duration(seconds: 1));
         progress.end();
-        if (context.mounted) await showRespErr(dataGet, context);
+        if (mounted) await showRespErr(dataGet, context);
         return;
       }
       var rawData = dataGet.data as BangumiDataJson;
@@ -231,7 +223,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         children: [
           const ProgressRing(),
           SizedBox(height: 20.h),
-          const Text('正在加载数据...')
+          const Text('正在加载数据...'),
         ],
       ),
     );
@@ -248,7 +240,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           message: '刷新',
           child: IconButton(
             icon: const Icon(FluentIcons.refresh),
-            onPressed: () async => await getData(),
+            onPressed: getData,
           ),
         ),
       ],
@@ -283,7 +275,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   /// 构建数据按钮
   MenuFlyoutItem buildFlyoutData(BuildContext context) {
     return MenuFlyoutItem(
-      leading: BaseThemeIcon(FluentIcons.database_source),
+      leading: BtIcon(FluentIcons.database_source),
       text: const Text('BangumiData 数据库'),
       trailing: Text(
         version,
@@ -291,7 +283,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           color: FluentTheme.of(context).accentColor.withOpacity(0.5),
         ),
       ),
-      onPressed: () async => await refreshBgmData(context),
+      onPressed: refreshBgmData,
     );
   }
 
@@ -299,12 +291,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   MenuFlyoutItem buildFlyoutSearch(BuildContext context) {
     var title = "Bangumi-条目搜索";
     var pane = PaneItem(
-      icon: BaseThemeIcon(FluentIcons.search),
+      icon: BtIcon(FluentIcons.search),
       title: Text(title),
       body: const BangumiSearchPage(),
     );
     return MenuFlyoutItem(
-      leading: BaseThemeIcon(FluentIcons.search),
+      leading: BtIcon(FluentIcons.search),
       text: const Text('Bangumi-条目搜索'),
       onPressed: () async {
         ref.read(navStoreProvider).addNavItem(pane, title);
@@ -390,10 +382,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       header: buildTabHeader(),
       footer: buildTabFooter(),
       currentIndex: tabIndex,
-      onChanged: (index) {
-        tabIndex = index;
-        setState(() {});
-      },
+      onChanged: (index) => setState(() => tabIndex = index),
       closeButtonVisibility: CloseButtonVisibilityMode.never,
       tabWidthBehavior: TabWidthBehavior.sizeToContent,
     );

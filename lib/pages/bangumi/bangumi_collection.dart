@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
-import '../../components/app/app_infobar.dart';
-import '../../components/bangumi/user_collection/buc_tabview.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../store/nav_store.dart';
+import '../../ui/bt_infobar.dart';
+import '../../widgets/bangumi/user_collection/buc_tabview.dart';
 
 /// bangumi.tv 用户收藏页面
 class BangumiCollectionPage extends ConsumerStatefulWidget {
@@ -79,9 +79,8 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
     return Row(children: [
       FilledButton(
         child: const Text('关闭'),
-        onPressed: () {
-          ref.read(navStoreProvider).removeNavItem('Bangumi-用户收藏');
-        },
+        onPressed: () =>
+            ref.read(navStoreProvider).removeNavItem('Bangumi-用户收藏'),
       ),
       SizedBox(width: 16.w),
       Image.asset('assets/images/platforms/bangumi-logo.png'),
@@ -102,8 +101,7 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
           await BtInfobar.warn(context, '已经在当前标签页');
           return;
         }
-        tabIndex = index;
-        setState(() {});
+        setState(() => tabIndex = index);
       },
       footer: buildFooter(),
       closeButtonVisibility: CloseButtonVisibilityMode.never,

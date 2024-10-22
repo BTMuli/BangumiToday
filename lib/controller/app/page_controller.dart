@@ -2,7 +2,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 // Project imports:
-import '../../components/app/app_infobar.dart';
+import '../../ui/bt_infobar.dart';
 
 /// 页面controller
 /// todo 支持自定义 limit，将 total 转为总数量而非总页数

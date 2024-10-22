@@ -4,14 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
-import '../../components/app/app_dialog.dart';
-import '../../components/app/app_dialog_resp.dart';
-import '../../components/app/app_infobar.dart';
-import '../../components/bangumi/subject_detail/bsd_bmf.dart';
-import '../../components/bangumi/subject_detail/bsd_overview.dart';
-import '../../components/bangumi/subject_detail/bsd_relation.dart';
-import '../../components/bangumi/subject_detail/bsd_user_collection.dart';
-import '../../components/bangumi/subject_detail/bsd_user_episodes.dart';
 import '../../controller/app/progress_controller.dart';
 import '../../database/app/app_bmf.dart';
 import '../../models/bangumi/bangumi_enum.dart';
@@ -23,7 +15,14 @@ import '../../plugins/mikan/models/mikan_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../store/nav_store.dart';
+import '../../ui/bt_dialog.dart';
+import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
+import '../../widgets/bangumi/subject_detail/bsd_bmf.dart';
+import '../../widgets/bangumi/subject_detail/bsd_overview.dart';
+import '../../widgets/bangumi/subject_detail/bsd_relation.dart';
+import '../../widgets/bangumi/subject_detail/bsd_user_collection.dart';
+import '../../widgets/bangumi/subject_detail/bsd_user_episodes.dart';
 
 /// 番剧详情
 class BangumiDetail extends ConsumerStatefulWidget {
@@ -67,7 +66,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.id != widget.id) {
       data = null;
-      Future.microtask(() async => await init());
+      Future.microtask(init);
     }
   }
 
@@ -75,16 +74,12 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
   @override
   void initState() {
     super.initState();
-    Future.microtask(() async => await init());
+    Future.microtask(init);
   }
 
   Future<void> init() async {
-    if (showError) {
-      showError = false;
-      setState(() {});
-    }
-    data = null;
-    setState(() {});
+    if (showError) setState(() => showError = false);
+    setState(() => data = null);
     var api = BtrBangumiApi();
     var detailGet = await api.getSubjectDetail(widget.id);
     if (detailGet.code != 0 || detailGet.data == null) {
@@ -92,13 +87,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       showError = true;
       return;
     }
-    data = detailGet.data;
-    setState(() {});
-  }
-
-  /// 获取封面
-  String getCover(BangumiImages images) {
-    return images.large;
+    setState(() => data = detailGet.data);
   }
 
   Future<void> searchBangumi() async {
@@ -111,7 +100,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       await BtInfobar.error(context, '数据为空');
       return;
     }
-    var nameCheck = await showInputDialog(
+    var nameCheck = await showInput(
       context,
       title: '搜索番剧',
       content: '请输入番剧名称',
@@ -161,7 +150,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
                 title: Text(item.title),
                 subtitle: Text(item.link),
                 onPressed: () async {
-                  var confirm = await showConfirmDialog(
+                  var confirm = await showConfirm(
                     context,
                     title: '确认匹配？',
                     content: '将该结果设为BMF的RSS',
@@ -342,7 +331,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
         ],
         BsdUserEpisodes(data!),
         SizedBox(height: 12.h),
-        BsdBmf(data!.id),
+        BsdBmfWidget(data!.id),
         SizedBox(height: 12.h),
         BsdRelation(data!.id),
         SizedBox(height: 12.h),

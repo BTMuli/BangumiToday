@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
-import 'components/app/app_nav.dart';
 import 'store/app_store.dart';
+import 'widgets/app/app_nav.dart';
 
 /// 应用入口
 class BTApp extends ConsumerWidget {
@@ -43,7 +43,7 @@ class BTApp extends ConsumerWidget {
           title: 'BangumiToday',
           themeMode: appStore.themeMode,
           theme: getTheme(context, appStore),
-          home: const AppNav(),
+          home: const AppNavWidget(),
         );
       },
     );

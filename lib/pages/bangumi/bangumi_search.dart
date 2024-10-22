@@ -4,15 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
-import '../../components/app/app_dialog_resp.dart';
-import '../../components/app/app_infobar.dart';
-import '../../components/bangumi/subject_card/bsc_search.dart';
 import '../../controller/app/page_controller.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/nav_store.dart';
+import '../../ui/bt_dialog.dart';
+import '../../ui/bt_infobar.dart';
+import '../../widgets/bangumi/subject_card/bsc_search.dart';
 
 /// 搜索页面
 class BangumiSearchPage extends ConsumerStatefulWidget {
@@ -92,12 +92,10 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
   /// 页面改变
   Future<void> onPageChanged(int page) async {
     if (resultMap.containsKey('page_$page')) {
-      result = resultMap['page_$page']!;
-      setState(() {});
+      setState(() => result = resultMap['page_$page']!);
       return;
     }
-    loading = true;
-    setState(() {});
+    setState(() => loading = true);
     var resp = await api.searchSubjects(
       textController.text,
       sort: sort,

@@ -9,7 +9,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 // Project imports:
-import '../components/app/app_infobar.dart';
+import '../ui/bt_infobar.dart';
 import 'log_tool.dart';
 
 /// 文件工具

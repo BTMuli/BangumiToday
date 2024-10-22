@@ -2,8 +2,8 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 // Project imports:
-import '../../components/rss/rss_cmc_page.dart';
-import '../../components/rss/rss_mk_page.dart';
+import '../../widgets/rss/rss_cmc_page.dart';
+import '../../widgets/rss/rss_mk_page.dart';
 
 /// 负责各种 rss 页面的显示
 /// 目前包括 MikanRss 和 ComicatRss

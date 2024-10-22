@@ -7,7 +7,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:win32_registry/win32_registry.dart';
 
 // Project imports:
-import '../components/app/app_infobar.dart';
+import '../ui/bt_infobar.dart';
 import 'log_tool.dart';
 
 /// 管理 APP 链接
