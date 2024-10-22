@@ -25,6 +25,15 @@ void main() async {
   await BTNotifierTool().init();
   await BTSqlite().init();
   await BTHiveTool().init();
+  WindowOptions windowOpts = const WindowOptions(
+    title: 'BangumiToday',
+    size: Size(1280, 720),
+    center: true,
+  );
+  await windowManager.waitUntilReadyToShow(
+    (windowOpts),
+    () async => await windowManager.show(),
+  );
   runApp(const ProviderScope(child: BTApp()));
   await Window.setEffect(effect: WindowEffect.acrylic);
 }
