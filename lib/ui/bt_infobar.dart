@@ -37,14 +37,19 @@ class BtInfobarQueue extends ChangeNotifier {
 
   /// 刷新
   Future<void> fresh() async {
+    if (queue.length == 1) {
+      await queue.first.show();
+      queue.removeAt(0);
+      notifyListeners();
+    }
     timer = Timer.periodic(Duration(seconds: 3), (timer) async {
-      if (queue.isNotEmpty) {
-        await queue.first.show();
-        queue.removeAt(0);
-        notifyListeners();
-      } else {
+      if (queue.isEmpty) {
         timer.cancel();
+        return;
       }
+      await queue.first.show();
+      queue.removeAt(0);
+      notifyListeners();
     });
   }
 
