@@ -1,5 +1,6 @@
 // Flutter imports:
-import 'package:flutter/material.dart' as material;
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart'
+    as mdi;
 
 // Package imports:
 import 'package:device_info_plus/device_info_plus.dart';
@@ -12,8 +13,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 // Project imports:
 import '../../store/app_store.dart';
 import '../../tools/log_tool.dart';
-import '../../tools/scheme_tool.dart';
-import '../../ui/bt_infobar.dart';
+import '../../ui/bt_icon.dart';
 import '../../utils/get_theme_label.dart';
 import '../../widgets/config/app_config_bgm.dart';
 
@@ -59,12 +59,12 @@ class _SettingPageState extends ConsumerState<SettingPage>
   /// 构建 Windows 设备信息
   Widget buildWinDeviceInfo(WindowsDeviceInfo diw) {
     return Expander(
-      leading: const Icon(material.Icons.laptop_windows),
+      leading: Icon(mdi.MdiIcons.laptopAccount),
       header: Text(diw.productName),
       content: Column(
         children: [
           ListTile(
-            leading: const Icon(material.Icons.desktop_windows_outlined),
+            leading: Icon(mdi.MdiIcons.laptop),
             title: const Text('所在平台'),
             subtitle: Text(
               'Windows ${diw.displayVersion} '
@@ -73,12 +73,12 @@ class _SettingPageState extends ConsumerState<SettingPage>
             ),
           ),
           ListTile(
-            leading: const Icon(material.Icons.devices_outlined),
+            leading: Icon(mdi.MdiIcons.devices),
             title: const Text('设备'),
             subtitle: Text('${diw.computerName} ${diw.productId}'),
           ),
           ListTile(
-            leading: const Icon(material.Icons.device_hub_outlined),
+            leading: Icon(mdi.MdiIcons.identifier),
             title: const Text('标识符'),
             subtitle: Text(
               diw.deviceId.substring(1, diw.deviceId.length - 1),
@@ -91,12 +91,21 @@ class _SettingPageState extends ConsumerState<SettingPage>
 
   /// 设备信息项
   Widget buildDeviceInfo() {
-    if (deviceInfo != null) {
-      return buildWinDeviceInfo(deviceInfo!);
-    }
-    return const ListTile(
-      title: Text('设备信息'),
-      subtitle: Text('未知设备'),
+    if (deviceInfo != null) return buildWinDeviceInfo(deviceInfo!);
+    return const ListTile(title: Text('设备信息'), subtitle: Text('未知设备'));
+  }
+
+  /// 构建主题项Flyout
+  MenuFlyoutItem buildThemeFlyout(ThemeModeConfig theme) {
+    return MenuFlyoutItem(
+      text: Text(theme.label),
+      leading: Icon(theme.icon),
+      onPressed: () async {
+        await ref.read(appStoreProvider.notifier).setThemeMode(theme.cur);
+      },
+      selected: curThemeMode == theme.cur,
+      trailing:
+          curThemeMode == theme.cur ? BtIcon(FluentIcons.check_mark) : null,
     );
   }
 
@@ -107,47 +116,28 @@ class _SettingPageState extends ConsumerState<SettingPage>
     return ListTile(
       leading: Icon(curTheme.icon),
       title: const Text('主题模式'),
-      subtitle: Text(curThemeMode.toString()),
+      subtitle: Text(curTheme.label),
       trailing: DropDownButton(
         title: Text(curTheme.label),
-        items: [
-          for (var theme in themes)
-            MenuFlyoutItem(
-              text: Text(theme.label),
-              leading: Icon(theme.icon),
-              onPressed: () {
-                ref.read(appStoreProvider.notifier).setThemeMode(theme.cur);
-              },
-            )
-        ],
+        items: themes.map(buildThemeFlyout).toList(),
       ),
     );
   }
 
   /// 构建主题色切换展开
-  Widget buildColorFlyout() {
-    if (curThemeMode == ThemeMode.system) {
-      return const Text('跟随系统设置\r\n无法更改');
-    }
-    return Wrap(
-      runSpacing: 8.h,
-      spacing: 8.w,
-      children: [
-        for (var color in Colors.accentColors)
-          Button(
-            autofocus: curAccentColor == color,
-            style: ButtonStyle(
-              padding: WidgetStatePropertyAll(
-                EdgeInsets.symmetric(horizontal: 4.w, vertical: 4.h),
-              ),
-            ),
-            onPressed: () {
-              ref.read(appStoreProvider.notifier).setAccentColor(color);
-              Navigator.of(context).pop();
-            },
-            child: Container(width: 32.w, height: 32.h, color: color),
-          )
-      ],
+  Widget buildColorFlyout(AccentColor color) {
+    return Button(
+      autofocus: curAccentColor == color,
+      style: ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
+      onPressed: () async {
+        await ref.read(appStoreProvider.notifier).setAccentColor(color);
+        if (mounted) Navigator.of(context).pop();
+      },
+      child: SizedBox(
+        width: 32.spMax,
+        height: 32.spMax,
+        child: ColoredBox(color: color),
+      ),
     );
   }
 
@@ -163,12 +153,18 @@ class _SettingPageState extends ConsumerState<SettingPage>
       trailing: SplitButton(
         flyout: FlyoutContent(
           constraints: BoxConstraints(maxWidth: 200.w),
-          child: buildColorFlyout(),
+          child: curThemeMode == ThemeMode.system
+              ? const Text('跟随系统设置\r\n无法更改')
+              : Wrap(
+                  runSpacing: 8.h,
+                  spacing: 8.w,
+                  children: Colors.accentColors.map(buildColorFlyout).toList(),
+                ),
         ),
-        child: Container(
-          decoration: BoxDecoration(color: curAccentColor),
-          width: 32.w,
-          height: 32.h,
+        child: SizedBox(
+          width: 32.spMax,
+          height: 32.spMax,
+          child: ColoredBox(color: curAccentColor),
         ),
       ),
     );
@@ -226,73 +222,37 @@ class _SettingPageState extends ConsumerState<SettingPage>
   /// 构建应用信息
   Widget buildAppInfo() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisAlignment: MainAxisAlignment.start,
+      mainAxisSize: MainAxisSize.max,
       children: [
         buildAppBadge(context),
         SizedBox(height: 16.h),
         Row(
+          mainAxisSize: MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Button(
-              child: Row(
-                children: [
-                  const Icon(FluentIcons.info),
-                  SizedBox(width: 4.w),
-                  const Text('Github'),
-                ],
+            Tooltip(
+              message: 'Github',
+              child: Button(
+                onPressed: () async {
+                  await launchUrlString(
+                      'https://github.com/BTMuli/BangumiToday');
+                },
+                child: BtIcon(mdi.MdiIcons.github),
               ),
-              onPressed: () async {
-                await launchUrlString('https://github.com/BTMuli/BangumiToday');
-              },
             ),
-            SizedBox(width: 8.w),
-            Button(
-              child: Row(
-                children: [
-                  const Icon(FluentIcons.mail),
-                  SizedBox(width: 4.w),
-                  const Text('Email'),
-                ],
+            SizedBox(width: 16.w),
+            Tooltip(
+              message: '日志',
+              child: Button(
+                onPressed: BTLogTool().openLogDir,
+                child: BtIcon(mdi.MdiIcons.faceAgent),
               ),
-              onPressed: () async {
-                await launchUrlString('mailto:bt-muli@outlook.com');
-              },
-            ),
-            SizedBox(width: 8.w),
-            Button(
-              child: Row(
-                children: [
-                  const Icon(FluentIcons.folder),
-                  SizedBox(width: 4.w),
-                  const Text('Log'),
-                ],
-              ),
-              onPressed: () async {
-                await BTLogTool().openLogDir();
-              },
             ),
           ],
         ),
-        SizedBox(height: 8.h),
-        Row(
-          children: [
-            Button(
-              child: const Text('测试 Protocol'),
-              onPressed: () async {
-                await launchUrlString("BangumiToday://test");
-                if (mounted) await BTSchemeTool().test(context);
-              },
-            ),
-            SizedBox(width: 8.w),
-            Button(
-              child: const Text('添加 Protocol'),
-              onPressed: () async {
-                await BTSchemeTool().init();
-                if (mounted) await BtInfobar.success(context, '添加成功');
-              },
-            ),
-          ],
-        )
       ],
     );
   }
@@ -306,17 +266,12 @@ class _SettingPageState extends ConsumerState<SettingPage>
     );
   }
 
-  /// 构建用户配置
-  Widget buildUserConfig() {
-    return AppConfigBgmWidget();
-  }
-
   /// 构建配置项
   List<Widget> buildConfigList() {
     return [
       buildDeviceInfo(),
       buildAppConfig(),
-      buildUserConfig(),
+      AppConfigBgmWidget(),
     ];
   }
 
@@ -325,27 +280,20 @@ class _SettingPageState extends ConsumerState<SettingPage>
   Widget build(BuildContext context) {
     super.build(context);
     var configList = buildConfigList();
-    return ScaffoldPage(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+    return ScaffoldPage.withPadding(
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 16.h),
       content: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Flexible(
             child: ListView.separated(
-              itemBuilder: (_, int index) {
-                return Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w),
-                  child: configList[index],
-                );
-              },
-              separatorBuilder: (_, __) => SizedBox(height: 12.h),
-              itemCount: configList.length,
-            ),
+                itemBuilder: (_, int idx) => configList[idx],
+                separatorBuilder: (_, __) => SizedBox(height: 12.h),
+                itemCount: configList.length),
           ),
-          SizedBox(width: 16.w),
+          SizedBox(width: 12.w),
           buildAppInfo(),
-          SizedBox(width: 16.w),
         ],
       ),
     );

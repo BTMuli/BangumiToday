@@ -121,9 +121,14 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       return;
     }
     await hive.updateUser(userResp.data! as BangumiUser);
-    progress.update(title: '获取用户信息成功', text: '用户信息：${hive.user!.username}');
-    await Future.delayed(const Duration(milliseconds: 500));
+    progress.update(title: '获取用户信息成功', text: '用户信息：${hive.user!.nickname}');
     progress.end();
+    if (mounted) {
+      await BtInfobar.success(
+        context,
+        '成功获取[${hive.user!.id}]${hive.user!.nickname}信息',
+      );
+    }
   }
 
   /// 认证用户
@@ -271,28 +276,6 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     setState(() {});
   }
 
-  /// 构建用户刷新按钮
-  Widget buildUserFreshBtn() {
-    return FilledButton(
-      onPressed: tryRefreshUserInfo,
-      child: const Tooltip(
-        message: '刷新用户信息',
-        child: BtIcon(FluentIcons.refresh),
-      ),
-    );
-  }
-
-  /// 构建用户删除按钮
-  Widget buildUserDelBtn() {
-    return FilledButton(
-      onPressed: tryDeleteUserInfo,
-      child: const Tooltip(
-        message: '删除用户',
-        child: BtIcon(FluentIcons.delete),
-      ),
-    );
-  }
-
   /// 构建用户
   Widget buildUser() {
     if (hive.user == null) {
@@ -316,9 +299,20 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          buildUserFreshBtn(),
-          SizedBox(width: 8.w),
-          buildUserDelBtn(),
+          Tooltip(
+            message: '刷新用户信息',
+            child: IconButton(
+              icon: BtIcon(FluentIcons.refresh),
+              onPressed: tryRefreshUserInfo,
+            ),
+          ),
+          Tooltip(
+            message: '删除用户',
+            child: IconButton(
+              icon: BtIcon(FluentIcons.delete),
+              onPressed: tryDeleteUserInfo,
+            ),
+          )
         ],
       ),
     );
