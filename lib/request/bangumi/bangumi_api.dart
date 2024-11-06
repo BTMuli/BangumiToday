@@ -172,13 +172,6 @@ class BtrBangumiApi {
     }
   }
 
-  /// 获取番剧详情（精简版）
-  Future<BangumiSubject?> getSubjectDetail2(String id) async {
-    var resp = await getSubjectDetail(id);
-    if (resp.code != 0 || resp.data == null) return null;
-    return resp.data;
-  }
-
   /// 获取条目关联条目
   Future<BTResponse> getSubjectRelations(int id) async {
     try {

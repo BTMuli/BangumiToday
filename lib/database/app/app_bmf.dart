@@ -38,6 +38,7 @@ class BtsAppBmf {
         );
       ''');
       BTLogTool.info('Create table $_tableName');
+      hasTitle = true;
     }
 
     /// 为了兼容旧版本，这里需要检查是否有title字段
@@ -62,6 +63,7 @@ class BtsAppBmf {
   Future<List<AppBmfModel>> readAll() async {
     await _instance.preCheck();
     var result = await _instance.sqlite.db.query(_tableName);
+    if (result.isEmpty) return [];
     return result.map(AppBmfModel.fromJson).toList();
   }
 

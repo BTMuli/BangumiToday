@@ -11,9 +11,12 @@ import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../../controller/app/progress_controller.dart';
 import '../../../database/app/app_bmf.dart';
 import '../../../database/app/app_rss.dart';
+import '../../../models/bangumi/bangumi_model.dart';
 import '../../../models/database/app_bmf_model.dart';
+import '../../../request/bangumi/bangumi_api.dart';
 import '../../../store/nav_store.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/notifier_tool.dart';
@@ -29,11 +32,19 @@ class BsdBmfWidget extends StatefulWidget {
   /// subjectId
   final int subjectId;
 
+  /// title
+  final String title;
+
   /// 模式-是用于详情页还是用于配置页
   final bool isConfig;
 
   /// 构造函数
-  const BsdBmfWidget(this.subjectId, {super.key, this.isConfig = false});
+  const BsdBmfWidget(
+    this.subjectId,
+    this.title, {
+    super.key,
+    this.isConfig = false,
+  });
 
   @override
   State<BsdBmfWidget> createState() => _BsdBmfWidgetState();
@@ -48,11 +59,20 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
   /// rss 数据库
   final BtsAppRss sqliteRss = BtsAppRss();
 
+  /// bgmApi
+  final BtrBangumiApi apiBgm = BtrBangumiApi();
+
+  /// progress
+  late ProgressController progress = ProgressController();
+
   /// file tool
   final BTFileTool fileTool = BTFileTool();
 
   /// bmf
-  late AppBmfModel bmf = AppBmfModel(subject: widget.subjectId);
+  late AppBmfModel bmf = AppBmfModel(
+    subject: widget.subjectId,
+    title: widget.title,
+  );
 
   /// 是否保持状态
   @override
@@ -86,6 +106,67 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
     );
   }
 
+  /// 获取title
+  Future<String?> getTitle() async {
+    if (mounted) {
+      progress = ProgressWidget.show(context, title: '正在查找标题', text: '请稍后');
+    }
+    var resp = await apiBgm.getSubjectDetail(widget.subjectId.toString());
+    progress.end();
+    if (resp.code != 0 || resp.data == null) {
+      if (mounted) await showRespErr(resp, context);
+      return null;
+    }
+    var data = resp.data as BangumiSubject;
+    if (data.nameCn.isEmpty) return data.name;
+    return data.nameCn;
+  }
+
+  /// 标题检测
+  Future<void> titleCheck() async {
+    if (bmf.title != null && bmf.title!.isNotEmpty) return;
+    var confirm = await showConfirm(
+      context,
+      title: '尝试获取标题?',
+      content: '检测到标题为空',
+    );
+    if (!confirm) return;
+    var title = await getTitle();
+    if (title != null) bmf.title = title;
+    setState(() {});
+    await sqliteBmf.write(bmf);
+    if (mounted) {
+      await BtInfobar.success(context, '[${bmf.subject}]已设置标题：${bmf.title}');
+    }
+  }
+
+  /// 更新标题
+  Future<void> updateTitle() async {
+    var hasTitle = bmf.title != null && bmf.rss!.isNotEmpty;
+    var title = bmf.title;
+    if (!hasTitle) title = await getTitle();
+    title ??= "";
+    if (mounted) {
+      var res = await showInput(
+        context,
+        title: hasTitle ? '修改标题' : '设置标题',
+        value: title,
+        content: '',
+      );
+      if (res != null) {
+        setState(() {
+          bmf.title = title;
+        });
+        if (mounted) {
+          await BtInfobar.success(
+            context,
+            '[${bmf.subject}]已设置标题：${bmf.title}',
+          );
+        }
+      }
+    }
+  }
+
   /// 更新Rss链接
   Future<void> updateRss() async {
     var input = await showInput(
@@ -108,6 +189,7 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
       if (mounted) await BtInfobar.success(context, '成功删除旧 RSS 数据');
     }
     bmf.rss = input;
+    await titleCheck();
     await sqliteBmf.write(bmf);
     var read = await sqliteBmf.read(bmf.subject);
     if (read != null) {
@@ -127,6 +209,7 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
       return;
     }
     bmf.download = dir;
+    await titleCheck();
     await sqliteBmf.write(bmf);
     var read = await sqliteBmf.read(bmf.subject);
     if (read != null) {
@@ -134,6 +217,18 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
       setState(() {});
     }
     if (mounted) await BtInfobar.success(context, '成功设置下载目录');
+  }
+
+  /// buildHeaderActTitle
+  Widget buildHeaderActTitle(BuildContext context) {
+    var hasTitle = bmf.title != null && bmf.rss!.isNotEmpty;
+    return Tooltip(
+      message: hasTitle ? '修改标题' : '设置标题',
+      child: IconButton(
+        icon: BtIcon(hasTitle ? MdiIcons.bookEdit : MdiIcons.bookEditOutline),
+        onPressed: updateTitle,
+      ),
+    );
   }
 
   /// buildHeaderActRss
@@ -186,6 +281,8 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
   Widget buildHeaderAction(BuildContext context) {
     return Row(
       children: [
+        buildHeaderActTitle(context),
+        SizedBox(width: 12.w),
         buildHeaderActRss(context),
         SizedBox(width: 12.w),
         buildHeaderActFile(context),
@@ -222,7 +319,10 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
       child: Expander(
         leading: BsdBmfLeading(widget.isConfig, bmf),
         header: widget.isConfig
-            ? Text(bmf.subject.toString(), style: TextStyle(fontSize: 24.sp))
+            ? Text(
+                '${bmf.title ?? ''}(${bmf.subject})',
+                style: TextStyle(fontSize: 24.sp),
+              )
             : Text('BMF Config', style: TextStyle(fontSize: 24.sp)),
         content: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

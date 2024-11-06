@@ -331,7 +331,10 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
         ],
         BsdUserEpisodes(data!),
         SizedBox(height: 12.h),
-        BsdBmfWidget(data!.id),
+        BsdBmfWidget(
+          data!.id,
+          data!.nameCn.isEmpty ? data!.name : data!.nameCn,
+        ),
         SizedBox(height: 12.h),
         BsdRelation(data!.id),
         SizedBox(height: 12.h),

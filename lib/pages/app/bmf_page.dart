@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 // Project imports:
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_rss.dart';
+import '../../models/database/app_bmf_model.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_detail/bsd_bmf.dart';
 
@@ -29,7 +30,7 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
   final BtsAppRss rss = BtsAppRss();
 
   /// Bmf 数据，只包括subject
-  List<int> bmfList = [];
+  List<AppBmfModel> bmfList = [];
 
   /// 保存状态
   @override
@@ -71,11 +72,9 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
 
   /// 初始化
   Future<void> init() async {
-    bmfList = [];
+    bmfList.clear();
     setState(() {});
-    var read = await sqlite.readAll();
-    var list = read.map((e) => e.subject).toList();
-    bmfList = list;
+    bmfList = await sqlite.readAll();
     setState(() {});
   }
 
@@ -109,7 +108,11 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
         child: buildHeader(context),
       ),
       content: ListView.separated(
-        itemBuilder: (_, i) => BsdBmfWidget(bmfList[i], isConfig: true),
+        itemBuilder: (_, i) => BsdBmfWidget(
+          bmfList[i].subject,
+          bmfList[i].title ?? '',
+          isConfig: true,
+        ),
         separatorBuilder: (_, __) => SizedBox(height: 8.h),
         itemCount: bmfList.length,
         padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
