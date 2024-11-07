@@ -91,12 +91,14 @@ class BtsAppBmf {
     // 因为这边有个自增ID, 所以不能直接 toJson及调用insert
     if (result.isEmpty) {
       await _instance.sqlite.db.rawInsert(
-          'INSERT INTO $_tableName (subject, rss, download) VALUES (?, ?, ?)',
-          [model.subject, model.rss, model.download]);
+          'INSERT INTO $_tableName (subject, rss, download,title) '
+          'VALUES (?, ?, ?, ?)',
+          [model.subject, model.rss, model.download, model.title]);
     } else {
       await _instance.sqlite.db.rawUpdate(
-        'UPDATE $_tableName SET rss = ?, download = ? WHERE subject = ?',
-        [model.rss, model.download, model.subject],
+        'UPDATE $_tableName SET rss = ?, download = ?, title = ? '
+        'WHERE subject = ?',
+        [model.rss, model.download, model.title, model.subject],
       );
     }
     BTLogTool.info('Write $_tableName subject: ${model.subject}');

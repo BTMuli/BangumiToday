@@ -125,24 +125,26 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
   /// 标题检测
   Future<void> titleCheck() async {
     if (bmf.title != null && bmf.title!.isNotEmpty) return;
-    var confirm = await showConfirm(
-      context,
-      title: '尝试获取标题?',
-      content: '检测到标题为空',
-    );
-    if (!confirm) return;
+    if (bmf.id != -1) {
+      var confirm = await showConfirm(
+        context,
+        title: '尝试获取标题?',
+        content: '检测到标题为空',
+      );
+      if (!confirm) return;
+    }
     var title = await getTitle();
     if (title != null) bmf.title = title;
     setState(() {});
     await sqliteBmf.write(bmf);
-    if (mounted) {
+    if (mounted && bmf.id != -1) {
       await BtInfobar.success(context, '[${bmf.subject}]已设置标题：${bmf.title}');
     }
   }
 
   /// 更新标题
   Future<void> updateTitle() async {
-    var hasTitle = bmf.title != null && bmf.rss!.isNotEmpty;
+    var hasTitle = bmf.title != null && bmf.title!.isNotEmpty;
     var title = bmf.title;
     if (!hasTitle) title = await getTitle();
     title ??= "";
@@ -157,6 +159,12 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
         setState(() {
           bmf.title = title;
         });
+        await sqliteBmf.write(bmf);
+        var read = await sqliteBmf.read(bmf.subject);
+        if (read != null) {
+          bmf = read;
+          setState(() {});
+        }
         if (mounted) {
           await BtInfobar.success(
             context,
@@ -221,7 +229,7 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
 
   /// buildHeaderActTitle
   Widget buildHeaderActTitle(BuildContext context) {
-    var hasTitle = bmf.title != null && bmf.rss!.isNotEmpty;
+    var hasTitle = bmf.title != null && bmf.title!.isNotEmpty;
     return Tooltip(
       message: hasTitle ? '修改标题' : '设置标题',
       child: IconButton(
@@ -281,8 +289,10 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
   Widget buildHeaderAction(BuildContext context) {
     return Row(
       children: [
-        buildHeaderActTitle(context),
-        SizedBox(width: 12.w),
+        if (bmf.id != -1) ...[
+          buildHeaderActTitle(context),
+          SizedBox(width: 12.w)
+        ],
         buildHeaderActRss(context),
         SizedBox(width: 12.w),
         buildHeaderActFile(context),
@@ -314,16 +324,13 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
         trailing: buildHeaderAction(context),
       );
     }
+    var title = '${bmf.title ?? ''}(${bmf.subject})';
+    if (!widget.isConfig) title = 'BMF Config - $title';
     return Padding(
       padding: EdgeInsets.only(right: 12.w),
       child: Expander(
         leading: BsdBmfLeading(widget.isConfig, bmf),
-        header: widget.isConfig
-            ? Text(
-                '${bmf.title ?? ''}(${bmf.subject})',
-                style: TextStyle(fontSize: 24.sp),
-              )
-            : Text('BMF Config', style: TextStyle(fontSize: 24.sp)),
+        header: Text(title, style: TextStyle(fontSize: 24.sp)),
         content: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.start,
