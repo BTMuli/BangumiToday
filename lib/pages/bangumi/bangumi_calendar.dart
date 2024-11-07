@@ -95,6 +95,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     Future.microtask(() async {
       await getData(freshTab: true);
       version = await sqliteAc.read('bangumiDataVersion') ?? 'unknown';
+      await checkDataUpdate();
     });
   }
 
@@ -131,6 +132,92 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     return calendarData[index].items;
   }
 
+  /// 更新远程数据
+  Future<void> updateData(String remote) async {
+    progress = ProgressWidget.show(
+      context,
+      title: '开始更新数据',
+      text: '正在更新数据',
+      progress: null,
+    );
+    progress.update(title: '开始获取数据', text: '正在获取JSON数据', progress: null);
+    progress.onTaskbar = true;
+    var dataGet = await apiBgd.getData();
+    if (dataGet.code != 0) {
+      progress.update(text: '获取数据失败');
+      await Future.delayed(const Duration(seconds: 1));
+      progress.end();
+      if (mounted) await showRespErr(dataGet, context);
+      return;
+    }
+    var rawData = dataGet.data as BangumiDataJson;
+    progress.update(title: '成功获取数据', text: '正在写入数据');
+    int cnt, total;
+    var sites = [];
+    for (var entry in rawData.siteMeta.entries) {
+      sites.add(BangumiDataSiteFull.fromSite(entry.key, entry.value));
+    }
+    total = sites.length;
+    cnt = 1;
+    for (var site in sites) {
+      progress.update(
+        title: '写入站点数据 $cnt/$total',
+        text: site.title,
+        progress: (cnt / total) * 100,
+      );
+      await sqliteBd.writeSite(site);
+      cnt++;
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+    var items = rawData.items;
+    total = items.length;
+    cnt = 1;
+    for (var item in items) {
+      progress.update(
+        title: '写入条目数据 $cnt/$total',
+        text: item.title,
+        progress: (cnt / total) * 100,
+      );
+      await sqliteBd.writeItem(item);
+      cnt++;
+    }
+    await BTNotifierTool.showMini(title: 'BangumiData', body: '数据更新完成');
+    await sqliteAc.write('bangumiDataVersion', remote);
+    progress.update(text: '已更新到最新版本');
+    version = remote;
+    setState(() {});
+    await Future.delayed(const Duration(seconds: 1));
+    progress.end();
+  }
+
+  /// 尝试更新元数据
+  Future<void> checkDataUpdate() async {
+    progress = ProgressWidget.show(
+      context,
+      title: '尝试获取远程元数据',
+      text: '正在获取远程版本',
+      progress: null,
+    );
+    var remoteGet = await apiBgd.getVersion();
+    if (remoteGet.code != 0 || remoteGet.data == null) {
+      progress.update(text: '获取远程版本失败');
+      await Future.delayed(const Duration(seconds: 1));
+      progress.end();
+      if (mounted) await showRespErr(remoteGet, context);
+      return;
+    }
+    var remote = remoteGet.data as String;
+    progress.update(title: '成功获取远程版本', text: remote);
+    if (version == remote) {
+      progress.update(title: '获取远程版本成功', text: '与数据库版本一致，无需更新');
+      await Future.delayed(const Duration(seconds: 1));
+      progress.end();
+      return;
+    }
+    progress.update(title: '成功获取远程版本，即将更新', text: '$version→$remote');
+    await updateData(remote);
+  }
+
   /// 刷新BangumiData
   Future<void> refreshBgmData() async {
     progress = ProgressWidget.show(
@@ -157,62 +244,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       title: '确认更新？',
       content: '远程版本：$remote，本地版本：$version',
     );
-    if (confirm && mounted) {
-      progress = ProgressWidget.show(
-        context,
-        title: '开始更新数据',
-        text: '正在更新数据',
-        progress: null,
-      );
-      progress.update(title: '开始获取数据', text: '正在获取JSON数据', progress: null);
-      progress.onTaskbar = true;
-      var dataGet = await apiBgd.getData();
-      if (dataGet.code != 0) {
-        progress.update(text: '获取数据失败');
-        await Future.delayed(const Duration(seconds: 1));
-        progress.end();
-        if (mounted) await showRespErr(dataGet, context);
-        return;
-      }
-      var rawData = dataGet.data as BangumiDataJson;
-      progress.update(title: '成功获取数据', text: '正在写入数据');
-      int cnt, total;
-      var sites = [];
-      for (var entry in rawData.siteMeta.entries) {
-        sites.add(BangumiDataSiteFull.fromSite(entry.key, entry.value));
-      }
-      total = sites.length;
-      cnt = 1;
-      for (var site in sites) {
-        progress.update(
-          title: '写入站点数据 $cnt/$total',
-          text: site.title,
-          progress: (cnt / total) * 100,
-        );
-        await sqliteBd.writeSite(site);
-        cnt++;
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
-      var items = rawData.items;
-      total = items.length;
-      cnt = 1;
-      for (var item in items) {
-        progress.update(
-          title: '写入条目数据 $cnt/$total',
-          text: item.title,
-          progress: (cnt / total) * 100,
-        );
-        await sqliteBd.writeItem(item);
-        cnt++;
-      }
-      await BTNotifierTool.showMini(title: 'BangumiData', body: '数据更新完成');
-      await sqliteAc.write('bangumiDataVersion', remote);
-      progress.update(text: '已更新到最新版本');
-      version = remote;
-      setState(() {});
-      await Future.delayed(const Duration(seconds: 1));
-      progress.end();
-    }
+    if (!confirm) return;
+    await updateData(remote);
   }
 
   /// 刷新
