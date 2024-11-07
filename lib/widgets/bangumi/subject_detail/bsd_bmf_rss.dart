@@ -111,7 +111,7 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
         body: '${item.title}',
         onClick: () => ref
             .read(navStoreProvider.notifier)
-            .addNavItemB(subject: bmf.subject),
+            .addNavItemB(subject: bmf.subject, type: '动画'),
       );
     }
   }

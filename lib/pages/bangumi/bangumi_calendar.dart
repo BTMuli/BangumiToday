@@ -124,6 +124,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     calendarData = data;
     isRequesting = false;
     setState(() {});
+    if (mounted) await BtInfobar.success(context, '成功刷新放送数据');
   }
 
   /// 获取 Tab 数据
@@ -410,6 +411,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
                 : const Icon(FluentIcons.calendar),
             body: CalendarDay(data: getTabData(i), loading: isRequesting),
             semanticLabel: '星期${weekday[i]}',
+            selectedBackgroundColor: FluentTheme.of(context).accentColor,
           ),
       ],
       header: buildTabHeader(),
