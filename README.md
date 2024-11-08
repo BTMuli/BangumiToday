@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2024-10-08
+Update: 2024-11-08
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2024-10-08 11:58:47`
+> 更新于 `2024-11-08 17:39:04`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -27,6 +27,17 @@ Update: 2024-10-08
 基于 [Bangumi.tv](https://bangumi.tv)、[蜜柑计划](https://mikanani.hacgn.fun/) 的番剧应用。
 
 结合本地目录，提供番剧更新提醒、SSR订阅&下载、进度记录等功能。
+
+
+## 下载
+
+> 程序已经通过微软商店审核，可以直接在商店下载。
+
+<a href="https://apps.microsoft.com/detail/9phwnbm93jzn?mode=direct">
+	<img src="https://get.microsoft.com/images/zh-cn%20dark.svg" width="200" alt="icon"/>
+</a>
+
+通过 [Github Release](https://github.com/BTMuli/BangumiToday/releases/latest) 下载的则需安装证书，见下方[关于证书](#关于证书)。
 
 ## 使用前提
 
@@ -50,17 +61,6 @@ Update: 2024-10-08
 ![用户界面](./screenshots/userInfo.png)
 
 ![用户收藏](./screenshots/userCollection.png)
-
-## 发行
-
-> 项目更新日志请查看 [CHANGELOG.md](./CHANGELOG.md)
-
-应用预期会有如下几个发行渠道：
-
-- [Github Release](https://github.com/BTMuli/BangumiToday/releases)：包括打包后的 `zip` 和 `msix` 文件（`msix` 视情况包括签名文件）。
-- `Microsoft Store`：如果没有申请到 SignPath 的 OSS，应用将会发行到 Microsoft Store。
-  > 在这种情况下，Github Release 会提供用于上传到 Microsoft Store 的 `msix` 文件。
-- `Github Action`: 通过 Github Action 自动打包并发布到 Github Release。~~还在测试中~~
 
 ## 关于证书
 
