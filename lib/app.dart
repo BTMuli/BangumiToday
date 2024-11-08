@@ -37,7 +37,7 @@ class BTApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     var appStore = ref.watch(appStoreProvider);
     return ScreenUtilInit(
-      designSize: const Size(1920, 1080),
+      designSize: const Size(1280, 720),
       builder: (_, child) {
         return FluentApp(
           title: 'BangumiToday',
