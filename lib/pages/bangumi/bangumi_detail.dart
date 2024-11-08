@@ -161,6 +161,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
                   if (bmf == null) {
                     bmf = AppBmfModel(
                       subject: int.parse(widget.id),
+                      title: data!.nameCn.isEmpty ? data!.name : data!.nameCn,
                       rss: item.rss,
                     );
                   } else {
