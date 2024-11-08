@@ -126,13 +126,13 @@ class _RssMkPageState extends State<RssMkPage>
   /// 构建标题
   Widget buildTitle() {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
         IconButton(
           icon: Image.asset(
             'assets/images/platforms/mikan-logo.png',
-            height: 60.h,
+            height: 30.h,
             fit: BoxFit.cover,
           ),
           onPressed: () async {
@@ -141,19 +141,13 @@ class _RssMkPageState extends State<RssMkPage>
         ),
         Image.asset(
           'assets/images/platforms/mikan-text.png',
-          height: 60.h,
+          height: 30.h,
           fit: BoxFit.cover,
         ),
-        SizedBox(width: 20.w),
+        SizedBox(width: 10.w),
         IconButton(
-          icon: Icon(FluentIcons.refresh, size: 30.h),
-          onPressed: () async {
-            if (useUserRSS) {
-              await refreshUserRSS();
-            } else {
-              await refreshMikanRSS();
-            }
-          },
+          icon: Icon(FluentIcons.refresh, size: 15.sp),
+          onPressed: useUserRSS ? refreshUserRSS : refreshMikanRSS,
         ),
         SizedBox(width: 10.w),
         ...buildTokenBar()

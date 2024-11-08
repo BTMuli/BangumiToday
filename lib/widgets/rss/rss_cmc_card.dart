@@ -96,7 +96,7 @@ class _RssCmcCardState extends ConsumerState<RssCmcCard> {
         children: [
           Text(
             title,
-            style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 8.h),
           Text(item.link ?? ''),

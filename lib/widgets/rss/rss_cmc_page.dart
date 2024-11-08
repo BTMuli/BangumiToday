@@ -68,13 +68,8 @@ class _RssCmcPageState extends State<RssCmcPage>
         ),
         SizedBox(width: 10.w),
         const Text('Comicat'),
-        SizedBox(width: 20.w),
-        IconButton(
-          icon: const Icon(FluentIcons.refresh),
-          onPressed: () async {
-            await refresh();
-          },
-        ),
+        SizedBox(width: 10.w),
+        IconButton(icon: const Icon(FluentIcons.refresh), onPressed: refresh),
       ],
     );
   }
@@ -123,7 +118,7 @@ class _RssCmcPageState extends State<RssCmcPage>
             bottom: 8.h,
             right: 8.w,
             child: SizedBox(
-              width: 200.w,
+              width: 150.w,
               child: Image.asset('assets/images/platforms/comicat-kb.png'),
             ),
           ),

@@ -190,7 +190,7 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
           },
         ),
         SizedBox(width: 12.w),
-        Text('Mikan RSS: ${bmf.rss}', style: TextStyle(fontSize: 24.sp)),
+        Text('Mikan RSS: ${bmf.rss}', style: TextStyle(fontSize: 20.sp)),
       ],
     );
   }

@@ -224,11 +224,11 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
         children: [
           IconButton(
             icon: const Icon(FluentIcons.refresh),
-            onPressed: () async => await init(),
+            onPressed: init,
           ),
           IconButton(
             icon: const Icon(FluentIcons.search),
-            onPressed: () async => await searchBangumi(),
+            onPressed: searchBangumi,
           )
         ],
       ),
@@ -266,7 +266,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     if (summary == '') {
       return ListTile(
         leading: const Icon(FluentIcons.error_badge),
-        title: Text('没有简介', style: TextStyle(fontSize: 24.sp)),
+        title: Text('没有简介', style: TextStyle(fontSize: 20.sp)),
       );
     }
     return Container(
@@ -274,7 +274,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       child: Expander(
           initiallyExpanded: true,
           leading: const Icon(FluentIcons.info),
-          header: Text('简介', style: TextStyle(fontSize: 24.sp)),
+          header: Text('简介', style: TextStyle(fontSize: 20.sp)),
           content: Text(summary)),
     );
   }
@@ -306,7 +306,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       margin: EdgeInsets.only(right: 12.w),
       child: Expander(
         leading: const Icon(FluentIcons.info),
-        header: Text('其他信息', style: TextStyle(fontSize: 24.sp)),
+        header: Text('其他信息', style: TextStyle(fontSize: 20.sp)),
         content: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,

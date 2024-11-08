@@ -189,7 +189,7 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
           },
         ),
         SizedBox(width: 12.w),
-        Text('下载目录: ${widget.bmfFile}', style: TextStyle(fontSize: 24.sp)),
+        Text('下载目录: ${widget.bmfFile}', style: TextStyle(fontSize: 20.sp)),
       ],
     );
   }

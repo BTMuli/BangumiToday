@@ -115,20 +115,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
     if (userCollection == null) return Colors.transparent;
     var base = FluentTheme.of(context).accentColor;
     var userType = userCollection!.type;
-    switch (userType) {
-      case BangumiCollectionType.unknown:
-        return Colors.transparent;
-      case BangumiCollectionType.wish:
-        return base.lighter;
-      case BangumiCollectionType.collect:
-        return base.darker;
-      case BangumiCollectionType.doing:
-        return base;
-      case BangumiCollectionType.onHold:
-        return Colors.transparent;
-      case BangumiCollectionType.dropped:
-        return base.darkest;
-    }
+    return userType.color(base);
   }
 
   /// 构建Flyout
@@ -141,30 +128,11 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
     );
   }
 
-  /// 获取当前状态对应的图标
-  IconData getIcon(BangumiCollectionType type) {
-    switch (type) {
-      case BangumiCollectionType.wish:
-        return FluentIcons.add_bookmark;
-      case BangumiCollectionType.collect:
-        return FluentIcons.heart;
-      case BangumiCollectionType.doing:
-        return FluentIcons.play;
-      case BangumiCollectionType.onHold:
-        return FluentIcons.archive;
-      case BangumiCollectionType.dropped:
-        return FluentIcons.cancel;
-      default:
-        return FluentIcons.warning;
-    }
-  }
-
   /// 构建Flyout-修改章节收藏状态
   MenuFlyoutItemBase buildSubjStat(
     BuildContext context,
     BangumiCollectionType type,
   ) {
-    var icon = getIcon(type);
     var trailing = collectionType == type
         ? Icon(
             FluentIcons.check_mark,
@@ -172,7 +140,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           )
         : null;
     return MenuFlyoutItem(
-      leading: Icon(icon, color: FluentTheme.of(context).accentColor),
+      leading: Icon(type.icon, color: FluentTheme.of(context).accentColor),
       text: Text(type.label),
       selected: collectionType == type,
       onPressed: () async {
@@ -364,7 +332,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
         SizedBox(width: 8.w),
         Text(
           '未收藏',
-          style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold),
         ),
         SizedBox(width: 8.w),
         buildFreshBtn(),
@@ -419,7 +387,6 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
 
   /// buildCollection
   Widget buildCollection() {
-    var icon = getIcon(collectionType);
     var color = getBgColor();
     return Row(
       children: [
@@ -430,7 +397,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
             onPressed: buildFlyout,
             child: Row(
               children: [
-                Icon(icon, size: 20.spMax),
+                Icon(collectionType.icon, size: 20.spMax),
                 SizedBox(width: 8.w),
                 Text(collectionType.label),
               ],

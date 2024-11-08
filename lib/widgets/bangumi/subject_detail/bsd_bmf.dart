@@ -330,7 +330,7 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
       padding: EdgeInsets.only(right: 12.w),
       child: Expander(
         leading: BsdBmfLeading(widget.isConfig, bmf),
-        header: Text(title, style: TextStyle(fontSize: 24.sp)),
+        header: Text(title, style: TextStyle(fontSize: 20.sp)),
         content: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.start,

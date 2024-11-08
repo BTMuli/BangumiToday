@@ -1,4 +1,5 @@
 // Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 /// 从Bangumi API获取的数据枚举类，按照Bangumi API文档排列顺序排序
@@ -211,6 +212,42 @@ extension BangumiCollectionTypeExtension on BangumiCollectionType {
         return '搁置';
       case BangumiCollectionType.dropped:
         return '抛弃';
+    }
+  }
+
+  /// 获取背景色
+  Color color(AccentColor color) {
+    switch (this) {
+      case BangumiCollectionType.unknown:
+        return Colors.transparent;
+      case BangumiCollectionType.wish:
+        return color.lighter;
+      case BangumiCollectionType.collect:
+        return color.darker;
+      case BangumiCollectionType.doing:
+        return color;
+      case BangumiCollectionType.onHold:
+        return Colors.transparent;
+      case BangumiCollectionType.dropped:
+        return color.darkest;
+    }
+  }
+
+  /// 获取图标
+  IconData get icon {
+    switch (this) {
+      case BangumiCollectionType.unknown:
+        return FluentIcons.unknown;
+      case BangumiCollectionType.wish:
+        return FluentIcons.add_bookmark;
+      case BangumiCollectionType.collect:
+        return FluentIcons.heart;
+      case BangumiCollectionType.doing:
+        return FluentIcons.play;
+      case BangumiCollectionType.onHold:
+        return FluentIcons.archive;
+      case BangumiCollectionType.dropped:
+        return FluentIcons.cancel;
     }
   }
 }
