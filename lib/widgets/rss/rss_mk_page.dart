@@ -51,9 +51,7 @@ class _RssMkPageState extends State<RssMkPage>
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration.zero, () async {
-      await init();
-    });
+    Future.delayed(Duration.zero, init);
   }
 
   /// 刷新
@@ -104,6 +102,51 @@ class _RssMkPageState extends State<RssMkPage>
       return link.queryParameters['token'] ?? token;
     }
     return token;
+  }
+
+  Future<void> tryEditToken() async {
+    var input = await showInput(
+      context,
+      title: '输入 Token',
+      content: '请输入你的 Token\n（在蜜柑计划的个人中心可以找到）',
+    );
+    if (input == null || input == "") {
+      if (mounted) await BtInfobar.warn(context, '未输入 Token');
+      return;
+    }
+    var parsed = await getToken(input);
+    if (parsed == token) {
+      if (mounted) await BtInfobar.warn(context, 'Token 未变更');
+      return;
+    }
+    token = parsed;
+    await sqlite.writeMikanToken(token);
+    if (mounted) await BtInfobar.success(context, 'Token 已保存');
+    useUserRSS = true;
+    setState(() {});
+  }
+
+  Future<void> tryEditUrl() async {
+    var url = await sqlite.readMikanUrl();
+    if (url == null || url.isEmpty) url = defaultMikanMirror;
+    if (mounted) {
+      var input = await showInput(
+        context,
+        title: '输入 URL',
+        content: '请输入你的 Mikan URL\n（默认为 $defaultMikanMirror）',
+        value: url,
+      );
+      if (input == null || input == "") {
+        if (mounted) await BtInfobar.warn(context, '未输入 URL');
+        return;
+      }
+      if (input == url) {
+        if (mounted) await BtInfobar.warn(context, 'URL 未变更');
+        return;
+      }
+      await sqlite.writeMikanUrl(input);
+      if (mounted) await BtInfobar.success(context, 'URL 已保存');
+    }
   }
 
   /// 构建刷新按钮
@@ -185,29 +228,9 @@ class _RssMkPageState extends State<RssMkPage>
       SizedBox(width: 10.w),
       FilledButton(onPressed: null, child: Text('Token: $token')),
       SizedBox(width: 10.w),
-      Button(
-        onPressed: () async {
-          var input = await showInput(
-            context,
-            title: '输入 Token',
-            content: '请输入你的 Token\n（在蜜柑计划的个人中心可以找到）',
-          );
-          if (input == null || input == "") {
-            if (mounted) await BtInfobar.warn(context, '未输入 Token');
-            return;
-          }
-          var parsed = await getToken(input);
-          if (parsed == token) {
-            if (mounted) await BtInfobar.warn(context, 'Token 未变更');
-            return;
-          }
-          token = parsed;
-          await sqlite.writeMikanToken(token);
-          if (mounted) await BtInfobar.success(context, 'Token 已保存');
-          useUserRSS = true;
-        },
-        child: const Text('编辑Token'),
-      )
+      Button(onPressed: tryEditToken, child: const Text('编辑Token')),
+      SizedBox(width: 10.w),
+      Button(onPressed: tryEditUrl, child: const Text('编辑URL')),
     ];
   }
 

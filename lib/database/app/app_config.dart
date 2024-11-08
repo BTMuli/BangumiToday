@@ -166,4 +166,14 @@ class BtsAppConfig {
   Future<void> writeBangumiDataCheckTime(String time) async {
     await _instance.write('bangumiDataCheckTime', time);
   }
+
+  /// 读取 mikan url
+  Future<String?> readMikanUrl() {
+    return _instance.read('mikanUrl');
+  }
+
+  /// 写入/更新 mikan url
+  Future<void> writeMikanUrl(String url) {
+    return _instance.write('mikanUrl', url);
+  }
 }

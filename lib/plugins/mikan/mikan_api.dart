@@ -3,10 +3,13 @@ import 'package:dart_rss/dart_rss.dart';
 import 'package:dio/dio.dart';
 
 // Project imports:
+import '../../database/app/app_config.dart';
 import '../../models/app/response.dart';
 import '../../request/core/client.dart';
 import '../../tools/log_tool.dart';
 import 'mikan_utils.dart';
+
+const String defaultMikanMirror = 'https://mikan.hakurei.red';
 
 /// 蜜柑计划的API，主要是 rss 订阅
 /// 站点：https://mikanani.me
@@ -14,9 +17,10 @@ class BtrMikanApi {
   /// 请求客户端
   late final BtrClient client;
 
+  final BtsAppConfig sqlite = BtsAppConfig();
+
   /// 基础 URL
-  /// todo 支持自定义
-  final String baseUrl = 'https://mikan.hakurei.red';
+  final String baseUrl = defaultMikanMirror;
 
   /// 构造函数
   BtrMikanApi() {
@@ -24,8 +28,17 @@ class BtrMikanApi {
     client.dio.options.baseUrl = baseUrl;
   }
 
+  /// 检测baseUrl
+  Future<void> getBaseUrl() async {
+    var mkUrl = await sqlite.readMikanUrl();
+    if (mkUrl != null && mkUrl.isNotEmpty) {
+      client.dio.options.baseUrl = mkUrl;
+    }
+  }
+
   /// 更新列表的 RSS
   Future<BTResponse> getClassicRSS() async {
+    await getBaseUrl();
     try {
       var resp = await client.dio.get('/RSS/Classic');
       var channel = RssFeed.parse(resp.data.toString());
@@ -51,6 +64,7 @@ class BtrMikanApi {
 
   /// 获取用户的 RSS
   Future<BTResponse> getUserRSS(String token) async {
+    await getBaseUrl();
     try {
       var resp = await client.dio.get(
         '/RSS/MyBangumi',
@@ -87,6 +101,7 @@ class BtrMikanApi {
 
   /// 查询
   Future<BTResponse> searchBgm(String search) async {
+    await getBaseUrl();
     try {
       var resp = await client.dio.get(
         '/Home/Search',
