@@ -2,12 +2,24 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2024-10-08
+Update: 2024-11-08
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:15`
 >
-> 更新于 `2024-10-08 12:03:19`
+> 更新于 `2024-11-08 15:12:42`
+
+## [v0.6.1](https://github.com/BTMuli/BangumiToday/releases/tag/v0.6.1) (2024-11-08)
+
+尝试性的构建一下Store，不知道能不能过审。
+
+- 💄 详情页搜索订阅源时显示loading
+- ♻️ 用户页面移至设置页
+- 🏷️ BMF配置增加title字段，支持对旧数据进行兼容
+- 🐛 修复infobar延时
+- ♻️ 重构元数据更新逻辑，启动自动检测更新，每天检测一次
+- ✨ 支持自定义Mikan镜像站Url
+- 💄调整详情页收藏情况的UI
 
 ## [v0.6.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.5.0) (2024-10-08)
 
