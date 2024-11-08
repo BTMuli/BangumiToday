@@ -94,7 +94,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     }
     Future.microtask(() async {
       await getData(freshTab: true);
-      version = await sqliteAc.read('bangumiDataVersion') ?? 'unknown';
+      version = await sqliteAc.readBangumiDataVersion() ?? 'unknown';
       await checkDataUpdate();
     });
   }
@@ -183,7 +183,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       cnt++;
     }
     await BTNotifierTool.showMini(title: 'BangumiData', body: '数据更新完成');
-    await sqliteAc.write('bangumiDataVersion', remote);
+    await sqliteAc.writeBangumiDataVersion(remote);
+    var timeNow = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    await sqliteAc.writeBangumiDataCheckTime(timeNow.toString());
     progress.update(text: '已更新到最新版本');
     version = remote;
     setState(() {});
@@ -193,12 +195,21 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
 
   /// 尝试更新元数据
   Future<void> checkDataUpdate() async {
-    progress = ProgressWidget.show(
-      context,
-      title: '尝试获取远程元数据',
-      text: '正在获取远程版本',
-      progress: null,
-    );
+    var lastCheckTime = await sqliteAc.readBangumiDataCheckTime();
+    // 为秒级时间戳
+    var now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    if (lastCheckTime != null) {
+      var last = int.tryParse(lastCheckTime);
+      if (last != null && now - last < 86400) return;
+    }
+    if (mounted) {
+      progress = ProgressWidget.show(
+        context,
+        title: '尝试获取远程元数据',
+        text: '正在获取远程版本',
+        progress: null,
+      );
+    }
     var remoteGet = await apiBgd.getVersion();
     if (remoteGet.code != 0 || remoteGet.data == null) {
       progress.update(text: '获取远程版本失败');
@@ -212,6 +223,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     if (version == remote) {
       progress.update(title: '获取远程版本成功', text: '与数据库版本一致，无需更新');
       await Future.delayed(const Duration(seconds: 1));
+      await sqliteAc.writeBangumiDataCheckTime(now.toString());
       progress.end();
       return;
     }
@@ -278,6 +290,19 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           ),
         ),
       ],
+    );
+  }
+
+  /// 构建单tab
+  Tab buildTabItem(int index) {
+    return Tab(
+      text: Text('星期${weekday[index]}'),
+      icon: index == today
+          ? const Icon(FluentIcons.away_status)
+          : const Icon(FluentIcons.calendar),
+      body: CalendarDay(data: getTabData(index), loading: isRequesting),
+      semanticLabel: '星期${weekday[index]}',
+      selectedBackgroundColor: FluentTheme.of(context).accentColor,
     );
   }
 
@@ -402,18 +427,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   Widget build(BuildContext context) {
     super.build(context);
     return TabView(
-      tabs: [
-        for (var i = 0; i < 7; i++)
-          Tab(
-            text: Text('星期${weekday[i]}'),
-            icon: i == today
-                ? const Icon(FluentIcons.away_status)
-                : const Icon(FluentIcons.calendar),
-            body: CalendarDay(data: getTabData(i), loading: isRequesting),
-            semanticLabel: '星期${weekday[i]}',
-            selectedBackgroundColor: FluentTheme.of(context).accentColor,
-          ),
-      ],
+      tabs: List.generate(7, buildTabItem),
       header: buildTabHeader(),
       footer: buildTabFooter(),
       currentIndex: tabIndex,

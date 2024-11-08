@@ -146,4 +146,24 @@ class BtsAppConfig {
   Future<void> writeMikanToken(String token) async {
     await _instance.write('mikanToken', token);
   }
+
+  /// 读取 bangumiDataVersion
+  Future<String?> readBangumiDataVersion() async {
+    return _instance.read('bangumiDataVersion');
+  }
+
+  /// 写入/更新 bangumiDataVersion
+  Future<void> writeBangumiDataVersion(String version) async {
+    await _instance.write('bangumiDataVersion', version);
+  }
+
+  /// 读取 bangumiDataCheckTime
+  Future<String?> readBangumiDataCheckTime() async {
+    return _instance.read('bangumiDataCheckTime');
+  }
+
+  /// 写入/更新 bangumiDataCheckTime
+  Future<void> writeBangumiDataCheckTime(String time) async {
+    await _instance.write('bangumiDataCheckTime', time);
+  }
 }
