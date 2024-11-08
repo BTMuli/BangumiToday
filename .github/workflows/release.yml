@@ -53,7 +53,7 @@ jobs:
         run: >
           dart run msix:create
           --store true
-          -i "27581BTMuli.25716F7F62159"
+          -i "27581BTMuli.BangumiToday"
           -b "CN=5FE33156-C3CE-4E71-A036-81BAA99521CB"
           -n "BangumiToday_Store"
           -p ${{ secrets.SIGN_SECRET }}
