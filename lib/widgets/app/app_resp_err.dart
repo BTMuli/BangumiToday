@@ -19,7 +19,7 @@ class AppRespErrWidget extends StatelessWidget {
   Widget buildTitle(String prefix, String data) {
     return Text(
       '$prefix: $data',
-      style: TextStyle(fontSize: 20.sp),
+      style: TextStyle(fontSize: 20),
       textAlign: TextAlign.left,
     );
   }
@@ -51,7 +51,7 @@ class AppRespErrWidget extends StatelessWidget {
           color: Colors.white.withAlpha(20),
         ),
         child: SingleChildScrollView(
-          child: Text(text, style: TextStyle(fontSize: 20.sp)),
+          child: Text(text, style: TextStyle(fontSize: 20)),
         ),
       )
     ];

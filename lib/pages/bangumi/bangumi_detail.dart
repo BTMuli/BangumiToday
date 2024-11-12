@@ -267,7 +267,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     if (summary == '') {
       return ListTile(
         leading: const Icon(FluentIcons.error_badge),
-        title: Text('没有简介', style: TextStyle(fontSize: 20.sp)),
+        title: Text('没有简介', style: TextStyle(fontSize: 20)),
       );
     }
     return Container(
@@ -275,7 +275,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       child: Expander(
           initiallyExpanded: true,
           leading: const Icon(FluentIcons.info),
-          header: Text('简介', style: TextStyle(fontSize: 20.sp)),
+          header: Text('简介', style: TextStyle(fontSize: 20)),
           content: Text(summary)),
     );
   }
@@ -307,7 +307,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       margin: EdgeInsets.only(right: 12.w),
       child: Expander(
         leading: const Icon(FluentIcons.info),
-        header: Text('其他信息', style: TextStyle(fontSize: 20.sp)),
+        header: Text('其他信息', style: TextStyle(fontSize: 20)),
         content: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -7,19 +7,19 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../controller/app/progress_controller.dart';
-import '../../database/bangumi/bangumi_collection.dart';
-import '../../models/bangumi/bangumi_enum.dart';
-import '../../models/bangumi/bangumi_model.dart';
-import '../../models/bangumi/bangumi_oauth_model.dart';
-import '../../pages/bangumi/bangumi_collection.dart';
-import '../../request/bangumi/bangumi_api.dart';
-import '../../request/bangumi/bangumi_oauth.dart';
-import '../../store/bgm_user_hive.dart';
-import '../../store/nav_store.dart';
-import '../../ui/bt_dialog.dart';
-import '../../ui/bt_icon.dart';
-import '../../ui/bt_infobar.dart';
+import '../../../controller/app/progress_controller.dart';
+import '../../../database/bangumi/bangumi_collection.dart';
+import '../../../models/bangumi/bangumi_enum.dart';
+import '../../../models/bangumi/bangumi_model.dart';
+import '../../../models/bangumi/bangumi_oauth_model.dart';
+import '../../../pages/bangumi/bangumi_collection.dart';
+import '../../../request/bangumi/bangumi_api.dart';
+import '../../../request/bangumi/bangumi_oauth.dart';
+import '../../../store/bgm_user_hive.dart';
+import '../../../store/nav_store.dart';
+import '../../../ui/bt_dialog.dart';
+import '../../../ui/bt_icon.dart';
+import '../../../ui/bt_infobar.dart';
 
 /// 设置页BangumiUserInfo
 class AppConfigBgmWidget extends ConsumerStatefulWidget {

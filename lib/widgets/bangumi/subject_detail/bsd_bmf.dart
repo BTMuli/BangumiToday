@@ -155,22 +155,17 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
         value: title,
         content: '',
       );
-      if (res != null) {
-        setState(() {
-          bmf.title = title;
-        });
-        await sqliteBmf.write(bmf);
-        var read = await sqliteBmf.read(bmf.subject);
-        if (read != null) {
-          bmf = read;
-          setState(() {});
-        }
-        if (mounted) {
-          await BtInfobar.success(
-            context,
-            '[${bmf.subject}]已设置标题：${bmf.title}',
-          );
-        }
+      if (res == null) return;
+      bmf.title = title;
+      setState(() {});
+      await sqliteBmf.write(bmf);
+      var read = await sqliteBmf.read(bmf.subject);
+      if (read != null) {
+        bmf = read;
+        setState(() {});
+      }
+      if (mounted) {
+        await BtInfobar.success(context, '[${bmf.subject}]已设置标题：${bmf.title}');
       }
     }
   }
@@ -227,6 +222,23 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
     if (mounted) await BtInfobar.success(context, '成功设置下载目录');
   }
 
+  /// 删除BMF
+  Future<void> deleteBmf() async {
+    var confirm = await showConfirm(
+      context,
+      title: '删除 BMF',
+      content: '确定删除 BMF 信息吗？',
+    );
+    if (!confirm) return;
+    await sqliteBmf.delete(bmf.subject);
+    if (bmf.rss != null && bmf.rss!.isNotEmpty) {
+      await sqliteRss.delete(bmf.rss!);
+    }
+    if (mounted) await BtInfobar.success(context, '成功删除 BMF 信息');
+    bmf = AppBmfModel(subject: widget.subjectId);
+    setState(() {});
+  }
+
   /// buildHeaderActTitle
   Widget buildHeaderActTitle(BuildContext context) {
     var hasTitle = bmf.title != null && bmf.title!.isNotEmpty;
@@ -265,41 +277,20 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
 
   /// buildHeaderDel
   Widget buildHeaderDel(BuildContext context) {
-    return Button(
-      child: const Text('删除'),
-      onPressed: () async {
-        var confirm = await showConfirm(
-          context,
-          title: '删除 BMF',
-          content: '确定删除 BMF 信息吗？',
-        );
-        if (!confirm) return;
-        await sqliteBmf.delete(bmf.subject);
-        if (bmf.rss != null && bmf.rss!.isNotEmpty) {
-          await sqliteRss.delete(bmf.rss!);
-        }
-        if (context.mounted) await BtInfobar.success(context, '成功删除 BMF 信息');
-        bmf = AppBmfModel(subject: widget.subjectId);
-        setState(() {});
-      },
+    return Tooltip(
+      message: '删除 BMF',
+      child: IconButton(icon: BtIcon(MdiIcons.delete), onPressed: deleteBmf),
     );
   }
 
   /// buildHeaderAction
   Widget buildHeaderAction(BuildContext context) {
-    return Row(
-      children: [
-        if (bmf.id != -1) ...[
-          buildHeaderActTitle(context),
-          SizedBox(width: 12.w)
-        ],
-        buildHeaderActRss(context),
-        SizedBox(width: 12.w),
-        buildHeaderActFile(context),
-        SizedBox(width: 12.w),
-        if (bmf.id != -1) buildHeaderDel(context),
-      ],
-    );
+    return Row(children: [
+      if (bmf.id != -1) buildHeaderActTitle(context),
+      buildHeaderActRss(context),
+      buildHeaderActFile(context),
+      if (bmf.id != -1) buildHeaderDel(context),
+    ]);
   }
 
   /// buildContent
@@ -326,18 +317,20 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
     }
     var title = '${bmf.title ?? ''}(${bmf.subject})';
     if (!widget.isConfig) title = 'BMF Config - $title';
-    return Padding(
-      padding: EdgeInsets.only(right: 12.w),
-      child: Expander(
-        leading: BsdBmfLeading(widget.isConfig, bmf),
-        header: Text(title, style: TextStyle(fontSize: 20.sp)),
-        content: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: buildContent(context),
-        ),
-        trailing: buildHeaderAction(context),
+    return Expander(
+      leading: BsdBmfLeading(widget.isConfig, bmf),
+      header: Text(
+        title,
+        style: TextStyle(fontSize: 20),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: buildContent(context),
+      ),
+      trailing: buildHeaderAction(context),
     );
   }
 }
@@ -358,21 +351,21 @@ class BsdBmfLeading extends ConsumerStatefulWidget {
 
 /// BsdBmfLeadingState
 class _BsdBmfLeadingState extends ConsumerState<BsdBmfLeading> {
+  void onPressed() {
+    if (!widget.isConfig) {
+      ref.read(navStoreProvider).goIndex(2);
+      return;
+    }
+    ref.read(navStoreProvider).addNavItemB(
+          subject: widget.bmf.subject,
+          paneTitle: widget.bmf.title,
+          type: '动画',
+        );
+  }
+
   /// build
   @override
   Widget build(BuildContext context) {
-    if (widget.isConfig) {
-      return IconButton(
-        icon: const Icon(FluentIcons.settings),
-        onPressed: () => ref.read(navStoreProvider).addNavItemB(
-              subject: widget.bmf.subject,
-              paneTitle: widget.bmf.title,
-            ),
-      );
-    }
-    return IconButton(
-      icon: const Icon(FluentIcons.settings),
-      onPressed: () => ref.read(navStoreProvider).goIndex(2),
-    );
+    return IconButton(icon: BtIcon(FluentIcons.settings), onPressed: onPressed);
   }
 }

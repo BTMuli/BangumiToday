@@ -3,12 +3,12 @@ import 'dart:async';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_rss.dart';
 import '../../models/database/app_bmf_model.dart';
+import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_detail/bsd_bmf.dart';
 
@@ -46,12 +46,6 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
     });
   }
 
-  /// 销毁
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
   /// 前置检查，删除未使用的rss
   Future<void> preCheck() async {
     var read = await sqlite.readAll();
@@ -76,46 +70,36 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
     setState(() {});
     bmfList = await sqlite.readAll();
     setState(() {});
+    if (mounted) await BtInfobar.success(context, '成功加载BMF配置');
   }
 
   /// 构建头部
-  Widget buildHeader(BuildContext context) {
-    return Row(
-      children: [
-        Image.asset('assets/images/logo.png', height: 28, width: 28),
-        SizedBox(width: 4),
-        Text('BMF配置', style: FluentTheme.of(context).typography.title),
-        const Spacer(),
-        IconButton(
-          icon: const Icon(FluentIcons.refresh),
-          onPressed: () async {
-            await init();
-            if (context.mounted) await BtInfobar.success(context, '刷新成功');
-          },
-        ),
-      ],
-    );
+  Widget buildHeader() {
+    return Row(children: [
+      Image.asset('assets/images/logo.png', height: 28, width: 28),
+      SizedBox(width: 4),
+      Text('BMF配置', style: FluentTheme.of(context).typography.title),
+      SizedBox(width: 8),
+      IconButton(icon: BtIcon(FluentIcons.refresh), onPressed: init),
+    ]);
   }
 
   /// 构建函数
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return ScaffoldPage(
+    return ScaffoldPage.withPadding(
       padding: EdgeInsets.zero,
-      header: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
-        child: buildHeader(context),
-      ),
+      header: Padding(padding: EdgeInsets.all(8), child: buildHeader()),
       content: ListView.separated(
         itemBuilder: (_, i) => BsdBmfWidget(
           bmfList[i].subject,
           bmfList[i].title ?? '',
           isConfig: true,
         ),
-        separatorBuilder: (_, __) => SizedBox(height: 8.h),
+        separatorBuilder: (_, __) => SizedBox(height: 8),
         itemCount: bmfList.length,
-        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+        padding: EdgeInsets.all(8),
       ),
     );
   }

@@ -97,9 +97,9 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
   /// buildEpHint 用于表示章节的提示信息
   Widget buildEpHint(BangumiEpType type) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(4.sp),
         color: FluentTheme.of(context).accentColor,
       ),
       child: Text(

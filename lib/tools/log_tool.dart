@@ -32,6 +32,9 @@ class BTLogTool {
   /// 日志
   late Logger logger;
 
+  /// 日志目录
+  late String logDir;
+
   /// 获取实例
   factory BTLogTool() => instance;
 
@@ -46,8 +49,7 @@ class BTLogTool {
 
   /// 获取日志文件
   Future<File> _getLogFile() async {
-    var dir = await instance.fileTool.getAppDataPath('log');
-    var file = path.join(dir, _getFileName());
+    var file = path.join(logDir, _getFileName());
     if (!await instance.fileTool.isFileExist(file)) {
       return await instance.fileTool.createFile(file);
     }
@@ -56,6 +58,7 @@ class BTLogTool {
 
   /// 初始化
   Future<void> init() async {
+    logDir = await instance.fileTool.getAppDataPath('log');
     var outputC = ConsoleOutput();
     var outputs = <LogOutput>[outputC];
     PrettyPrinter printer;

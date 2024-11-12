@@ -264,7 +264,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
         onPressed: buildFlyout,
         child: Tooltip(
           message: tooltip,
-          child: Text(text),
+          child: Text(text, style: TextStyle(fontSize: 16.sp)),
         ),
       ),
     );

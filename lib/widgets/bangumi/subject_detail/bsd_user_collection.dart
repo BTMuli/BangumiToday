@@ -1,6 +1,5 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -288,7 +287,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           child: IconButton(
             icon: Icon(
               FluentIcons.warning,
-              size: 20.spMax,
+              size: 20,
               color: FluentTheme.of(context).accentColor,
             ),
             onPressed: () {
@@ -329,12 +328,12 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
             },
           ),
         ),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8),
         Text(
           '未收藏',
-          style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8),
         buildFreshBtn(),
       ],
     );
@@ -397,18 +396,18 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
             onPressed: buildFlyout,
             child: Row(
               children: [
-                Icon(collectionType.icon, size: 20.spMax),
-                SizedBox(width: 8.w),
+                Icon(collectionType.icon, size: 20),
+                SizedBox(width: 8),
                 Text(collectionType.label),
               ],
             ),
           ),
         ),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8),
         buildRateBox(),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8),
         buildFreshBtn(),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8),
       ],
     );
   }
