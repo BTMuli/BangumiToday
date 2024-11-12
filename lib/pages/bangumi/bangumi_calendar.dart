@@ -42,7 +42,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   final BtrBangumiDataApi apiBgd = BtrBangumiDataApi();
 
   /// 正在请求数据
-  bool isRequesting = true;
+  bool isRequesting = false;
 
   /// 请求数据
   List<BangumiCalendarRespData> calendarData = [];
