@@ -101,6 +101,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
 
   /// 获取数据
   Future<void> getData({bool freshTab = false}) async {
+    if (isRequesting) return;
     isRequesting = true;
     calendarData.clear();
     if (freshTab) tabIndex = today;
@@ -264,33 +265,28 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   /// 刷新
   Widget buildLoading() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const ProgressRing(),
-          SizedBox(height: 20.h),
-          const Text('正在加载数据...'),
-        ],
-      ),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const ProgressRing(),
+        SizedBox(height: 20.h),
+        const Text('正在加载数据...'),
+      ]),
     );
   }
 
   /// 构建 Tab 头部
   Widget buildTabHeader() {
-    return Row(
-      children: [
-        Image.asset('assets/images/platforms/bangumi-text.png'),
-        SizedBox(width: 8.w),
-        Text('星期${weekday[today]}'),
-        Tooltip(
-          message: '刷新',
-          child: IconButton(
-            icon: const Icon(FluentIcons.refresh),
-            onPressed: getData,
-          ),
+    return Row(children: [
+      Image.asset('assets/images/platforms/bangumi-text.png'),
+      const SizedBox(width: 8),
+      Text('星期${weekday[today]}'),
+      Tooltip(
+        message: '刷新',
+        child: IconButton(
+          icon: BtIcon(FluentIcons.refresh),
+          onPressed: getData,
         ),
-      ],
-    );
+      ),
+    ]);
   }
 
   /// 构建单tab
