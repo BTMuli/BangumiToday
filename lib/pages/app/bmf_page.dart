@@ -80,7 +80,10 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
       SizedBox(width: 4),
       Text('BMF配置', style: FluentTheme.of(context).typography.title),
       SizedBox(width: 8),
-      IconButton(icon: BtIcon(FluentIcons.refresh), onPressed: init),
+      IconButton(
+        icon: BtIcon(FluentIcons.refresh),
+        onPressed: () async => await init(),
+      ),
     ]);
   }
 

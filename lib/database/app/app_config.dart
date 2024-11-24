@@ -4,6 +4,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 // Project imports:
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
+import 'app_rss.dart';
 
 /// 应用配置
 class BtsAppConfig {
@@ -17,6 +18,9 @@ class BtsAppConfig {
 
   /// 数据库
   final BTSqlite sqlite = BTSqlite();
+
+  /// RSS 数据库
+  final BtsAppRss rss = BtsAppRss();
 
   /// 表名
   final String _tableName = 'AppConfig';
@@ -173,7 +177,8 @@ class BtsAppConfig {
   }
 
   /// 写入/更新 mikan url
-  Future<void> writeMikanUrl(String url) {
-    return _instance.write('mikanUrl', url);
+  Future<void> writeMikanUrl(String url, String ori) async {
+    await _instance.write('mikanUrl', url);
+    await rss.updateMikanUrl(url, ori);
   }
 }

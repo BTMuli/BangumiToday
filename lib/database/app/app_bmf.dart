@@ -147,4 +147,24 @@ class BtsAppBmf {
     );
     return res.isNotEmpty;
   }
+
+  /// 更新MikanRSS链接
+  Future<void> updateMikanUrl(String url, String ori) async {
+    var resAll = await readAll();
+    for (var item in resAll) {
+      if (item.rss != null &&
+          item.rss!.isNotEmpty &&
+          item.rss!.startsWith(ori)) {
+        var newRss = item.rss!.replaceFirst(ori, url);
+        await write(
+          AppBmfModel(
+            subject: item.subject,
+            rss: newRss,
+            download: item.download,
+            title: item.title,
+          ),
+        );
+      }
+    }
+  }
 }

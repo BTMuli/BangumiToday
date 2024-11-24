@@ -137,14 +137,31 @@ class _RssMkPageState extends State<RssMkPage>
         value: url,
       );
       if (input == null || input == "") {
-        if (mounted) await BtInfobar.warn(context, '未输入 URL');
+        if (mounted) {
+          var check = await showConfirm(
+            context,
+            title: '确认清空 URL？',
+            content: '将使用默认地址 $defaultMikanMirror',
+          );
+          if (!check) return;
+        }
+        await sqlite.writeMikanUrl(defaultMikanMirror, url);
         return;
       }
       if (input == url) {
         if (mounted) await BtInfobar.warn(context, 'URL 未变更');
         return;
       }
-      await sqlite.writeMikanUrl(input);
+      if (mounted) {
+        var confirm = await showConfirm(
+          context,
+          title: '确认更改 URL？',
+          content: '将同步修改RSS源地址',
+        );
+        if (!confirm) return;
+      }
+      if (input.endsWith("/")) input = input.substring(0, input.length - 1);
+      await sqlite.writeMikanUrl(input, url);
       if (mounted) await BtInfobar.success(context, 'URL 已保存');
     }
   }
