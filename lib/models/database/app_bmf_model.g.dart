@@ -12,6 +12,8 @@ AppBmfModel _$AppBmfModelFromJson(Map<String, dynamic> json) => AppBmfModel(
       title: json['title'] as String?,
       rss: json['rss'] as String?,
       download: json['download'] as String?,
+      mkBgmId: json['mkBgmId'] as String?,
+      mkGroupId: json['mkGroupId'] as String?,
     );
 
 Map<String, dynamic> _$AppBmfModelToJson(AppBmfModel instance) =>
@@ -20,5 +22,7 @@ Map<String, dynamic> _$AppBmfModelToJson(AppBmfModel instance) =>
       'subject': instance.subject,
       'title': instance.title,
       'rss': instance.rss,
+      'mkBgmId': instance.mkBgmId,
+      'mkGroupId': instance.mkGroupId,
       'download': instance.download,
     };

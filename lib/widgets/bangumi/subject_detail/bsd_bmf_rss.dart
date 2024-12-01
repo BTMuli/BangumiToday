@@ -15,6 +15,7 @@ import '../../../database/app/app_rss.dart';
 import '../../../models/database/app_bmf_model.dart';
 import '../../../models/database/app_rss_model.dart';
 import '../../../plugins/mikan/mikan_api.dart';
+import '../../../store/app_store.dart';
 import '../../../store/nav_store.dart';
 import '../../../tools/log_tool.dart';
 import '../../../tools/notifier_tool.dart';
@@ -49,6 +50,8 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
   /// sqlite
   final sqlite = BtsAppRss();
 
+  String? get mikanRss => ref.watch(appStoreProvider).mikanRss;
+
   /// AppRssModel
   AppRssModel? appRssModel;
 
@@ -70,7 +73,7 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
   void initState() {
     super.initState();
     timerRss = getTimerRss();
-    Future.delayed(Duration.zero, () async {
+    Future.microtask(() async {
       appRssModel = await sqlite.read(bmf.rss!);
       if (appRssModel == null) {
         appRssModel = AppRssModel(rss: bmf.rss!, data: '', ttl: 0, updated: 0);
@@ -116,10 +119,21 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     }
   }
 
+  /// 获取rss
+  String getRss() {
+    if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) {
+      return bmf.rss!;
+    }
+    var url = '$mikanRss/RSS/Bangumi?bangumiId=${bmf.mkBgmId}';
+    if (bmf.mkGroupId != null) url += '&subgroupid=${bmf.mkGroupId}';
+    return url;
+  }
+
   /// freshRss
   Future<void> freshRss() async {
     if (bmf.rss == null || bmf.rss!.isEmpty) return;
-    var rssGet = await api.getCustomRSS(bmf.rss!);
+    var url = getRss();
+    var rssGet = await api.getCustomRSS(url);
     var tryTimes = 0;
     while (rssGet.code != 0 && tryTimes < 3) {
       var warnInfo = [
@@ -127,7 +141,7 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
         "RSS Link: ${bmf.rss}",
       ];
       BTLogTool.warn(warnInfo);
-      rssGet = await api.getCustomRSS(bmf.rss!);
+      rssGet = await api.getCustomRSS(url);
       tryTimes++;
     }
     if (rssGet.code != 0 || rssGet.data == null) {
@@ -138,7 +152,7 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     if (rssItems.isEmpty) {
       rssItems = feed.items;
       appRssModel = AppRssModel(
-        rss: bmf.rss!,
+        rss: url,
         data: rssGet.data,
         ttl: feed.ttl,
         updated: DateTime.now().millisecondsSinceEpoch,
@@ -163,7 +177,7 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     if (newList.isNotEmpty) {
       BTLogTool.info('发现新的 RSS 信息');
       appRssModel = AppRssModel(
-        rss: bmf.rss!,
+        rss: url,
         data: rssGet.data as String,
         ttl: feed.ttl,
         updated: DateTime.now().millisecondsSinceEpoch,
@@ -179,18 +193,15 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     return Row(
       children: [
         Button(
-          child: const Text('刷新'),
-          onPressed: () async {
-            await freshRss();
-            if (mounted) await BtInfobar.success(context, '刷新 RSS 成功');
-          },
+          onPressed: freshRss,
           onLongPress: () async {
             Pasteboard.writeText(bmf.rss!);
             if (mounted) await BtInfobar.success(context, '已复制 RSS 链接');
           },
+          child: const Text('刷新'),
         ),
         SizedBox(width: 12.w),
-        Text('Mikan RSS: ${bmf.rss}', style: TextStyle(fontSize: 20)),
+        Text('Mikan RSS: ${getRss()}', style: TextStyle(fontSize: 20)),
       ],
     );
   }

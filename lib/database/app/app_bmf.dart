@@ -14,6 +14,9 @@ class BtsAppBmf {
   /// 是否有title字段
   static bool hasTitle = false;
 
+  /// 是否有mk字段
+  static bool hasMk = false;
+
   /// 获取实例
   factory BtsAppBmf() => _instance;
 
@@ -43,6 +46,9 @@ class BtsAppBmf {
 
     /// 为了兼容旧版本，这里需要检查是否有title字段
     if (!hasTitle) await checkUpdate();
+
+    /// 为了兼容旧版本，这里需要检查是否有mk字段
+    if (!hasMk) await checkMkUpdate();
   }
 
   /// 检查是否有title字段
@@ -56,6 +62,21 @@ class BtsAppBmf {
         ALTER TABLE $_tableName ADD COLUMN title TEXT DEFAULT '';
       ''');
       BTLogTool.info('Update table $_tableName add title');
+    }
+  }
+
+  /// 检查是否有mk字段
+  Future<void> checkMkUpdate() async {
+    var check = await _instance.sqlite.db.rawQuery(
+      'PRAGMA table_info($_tableName)',
+    );
+    hasMk = check.any((element) => element['name'] == 'mkBgmId');
+    if (!hasMk) {
+      await _instance.sqlite.db.execute('''
+        ALTER TABLE $_tableName ADD COLUMN mkBgmId TEXT DEFAULT '';
+        ALTER TABLE $_tableName ADD COLUMN mkGroupId TEXT DEFAULT '';
+      ''');
+      BTLogTool.info('Update table $_tableName add mk');
     }
   }
 
@@ -83,6 +104,11 @@ class BtsAppBmf {
   /// 写入/更新配置
   Future<void> write(AppBmfModel model) async {
     await _instance.preCheck();
+    if (model.rss != null && model.rss!.isNotEmpty) {
+      var url = Uri.parse(model.rss!);
+      model.mkBgmId ??= url.queryParameters['bangumiId'];
+      model.mkGroupId ??= url.queryParameters['subgroupid'];
+    }
     var result = await _instance.sqlite.db.query(
       _tableName,
       where: 'subject = ?',
@@ -91,14 +117,30 @@ class BtsAppBmf {
     // 因为这边有个自增ID, 所以不能直接 toJson及调用insert
     if (result.isEmpty) {
       await _instance.sqlite.db.rawInsert(
-          'INSERT INTO $_tableName (subject, rss, download,title) '
+          'INSERT INTO $_tableName '
+          '(subject, rss, download,title, mkBgmId, mkGroupId) '
           'VALUES (?, ?, ?, ?)',
-          [model.subject, model.rss, model.download, model.title]);
+          [
+            model.subject,
+            model.rss,
+            model.download,
+            model.title,
+            model.mkBgmId,
+            model.mkGroupId
+          ]);
     } else {
       await _instance.sqlite.db.rawUpdate(
-        'UPDATE $_tableName SET rss = ?, download = ?, title = ? '
+        'UPDATE $_tableName SET '
+        'rss = ?, download = ?, title = ?, mkBgmId = ?, mkGroupId = ? '
         'WHERE subject = ?',
-        [model.rss, model.download, model.title, model.subject],
+        [
+          model.rss,
+          model.download,
+          model.title,
+          model.mkBgmId,
+          model.mkGroupId,
+          model.subject,
+        ],
       );
     }
     BTLogTool.info('Write $_tableName subject: ${model.subject}');
@@ -113,19 +155,6 @@ class BtsAppBmf {
       whereArgs: [subject],
     );
     BTLogTool.info('Delete $_tableName subject: $subject');
-  }
-
-  /// 根据RSS链接读取，如果有多个则返回第一个
-  Future<AppBmfModel?> readByRss(String rss) async {
-    await _instance.preCheck();
-    var result = await _instance.sqlite.db.query(
-      _tableName,
-      where: 'rss = ?',
-      whereArgs: [rss],
-    );
-    if (result.isEmpty) return null;
-    var value = result.first;
-    return AppBmfModel.fromJson(value);
   }
 
   /// 检测RSS链接是否存在

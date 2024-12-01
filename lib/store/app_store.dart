@@ -20,6 +20,7 @@ class BTAppStore extends ChangeNotifier {
   BTAppStore() {
     initTheme();
     initAccentColor();
+    initMikanRss();
   }
 
   /// 初始化主题
@@ -34,11 +35,20 @@ class BTAppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 初始化MikanRss
+  Future<void> initMikanRss() async {
+    _mikanRss = await sqlite.readMikanUrl();
+    notifyListeners();
+  }
+
   /// 主题
   ThemeMode _themeMode = ThemeMode.system;
 
   /// 主题色
   AccentColor _accentColor = Colors.blue.toAccentColor();
+
+  /// MikanRss
+  String? _mikanRss;
 
   /// 获取主题
   ThemeMode get themeMode => _themeMode;
@@ -63,6 +73,16 @@ class BTAppStore extends ChangeNotifier {
   Future<void> setAccentColor(AccentColor value) async {
     _accentColor = value;
     await sqlite.writeAccentColor(value);
+    notifyListeners();
+  }
+
+  /// 获取MikanRss
+  String? get mikanRss => _mikanRss;
+
+  /// 设置MikanRss
+  Future<void> setMikanRss(String value) async {
+    _mikanRss = value;
+    await sqlite.writeMikanUrl(value);
     notifyListeners();
   }
 }

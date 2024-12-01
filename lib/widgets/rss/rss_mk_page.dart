@@ -1,12 +1,14 @@
 // Package imports:
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../database/app/app_config.dart';
 import '../../plugins/mikan/mikan_api.dart';
+import '../../store/app_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import 'rss_mk_card2.dart';
@@ -14,16 +16,16 @@ import 'rss_mk_card2.dart';
 /// 负责 MikanProject RSS 页面的显示
 /// 包括 RSSClassic 和 RSSPersonal
 /// 前者是列表模式显示站点的RSS更新，后者是个人订阅的RSS更新
-class RssMkPage extends StatefulWidget {
+class RssMkPage extends ConsumerStatefulWidget {
   /// 构造函数
   const RssMkPage({super.key});
 
   @override
-  State<RssMkPage> createState() => _RssMkPageState();
+  ConsumerState<RssMkPage> createState() => _RssMkPageState();
 }
 
 /// MikanRSS 页面状态
-class _RssMkPageState extends State<RssMkPage>
+class _RssMkPageState extends ConsumerState<RssMkPage>
     with AutomaticKeepAliveClientMixin {
   /// 请求客户端
   final BtrMikanApi mikanAPI = BtrMikanApi();
@@ -42,6 +44,9 @@ class _RssMkPageState extends State<RssMkPage>
 
   /// 数据库
   final BtsAppConfig sqlite = BtsAppConfig();
+
+  /// mikan 镜像
+  String? get mikanRss => ref.watch(appStoreProvider).mikanRss;
 
   /// 保存状态
   @override
@@ -145,7 +150,9 @@ class _RssMkPageState extends State<RssMkPage>
           );
           if (!check) return;
         }
-        await sqlite.writeMikanUrl(defaultMikanMirror, url);
+        await ref
+            .read(appStoreProvider.notifier)
+            .setMikanRss(defaultMikanMirror);
         return;
       }
       if (input == url) {
@@ -161,7 +168,7 @@ class _RssMkPageState extends State<RssMkPage>
         if (!confirm) return;
       }
       if (input.endsWith("/")) input = input.substring(0, input.length - 1);
-      await sqlite.writeMikanUrl(input, url);
+      await ref.read(appStoreProvider.notifier).setMikanRss(input);
       if (mounted) await BtInfobar.success(context, 'URL 已保存');
     }
   }

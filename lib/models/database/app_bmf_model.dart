@@ -20,6 +20,12 @@ class AppBmfModel {
   /// RSS URL
   late String? rss;
 
+  /// mikan bangymi id
+  late String? mkBgmId;
+
+  /// mikan group id
+  late String? mkGroupId;
+
   /// 下载目录
   late String? download;
 
@@ -30,6 +36,8 @@ class AppBmfModel {
     this.title,
     this.rss,
     this.download,
+    this.mkBgmId,
+    this.mkGroupId,
   });
 
   /// JSON 序列化

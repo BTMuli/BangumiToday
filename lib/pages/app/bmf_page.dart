@@ -70,6 +70,26 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
     setState(() {});
     bmfList = await sqlite.readAll();
     setState(() {});
+    var cnt = 0;
+    for (var item in bmfList) {
+      if (item.rss != null && item.rss!.isNotEmpty && item.mkBgmId == null) {
+        cnt++;
+        var url = Uri.parse(item.rss!);
+        await sqlite.write(
+          AppBmfModel(
+            subject: item.subject,
+            rss: item.rss,
+            download: item.download,
+            title: item.title,
+            mkBgmId: url.queryParameters['bangumiId'],
+            mkGroupId: url.queryParameters['subgroupid'],
+          ),
+        );
+      }
+    }
+    if (cnt > 0 && mounted) {
+      await BtInfobar.warn(context, '更新了 $cnt 条BMF配置');
+    }
     if (mounted) await BtInfobar.success(context, '成功加载BMF配置');
   }
 

@@ -37,12 +37,18 @@ class BtrClient {
   /// 构造函数
   BtrClient() {
     _dio = Dio(BaseOptions());
+    _dio.options.validateStatus = (status) {
+      return true;
+    };
     var interceptor = getInterceptor();
     _dio.interceptors.add(interceptor);
   }
 
   BtrClient.withHeader() {
     _dio = Dio(BaseOptions());
+    _dio.options.validateStatus = (status) {
+      return true;
+    };
     var interceptor = getInterceptor();
     _dio.interceptors.add(interceptor);
     Future.microtask(() async {
