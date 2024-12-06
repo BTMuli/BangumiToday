@@ -49,15 +49,15 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
   /// 前置检查，删除未使用的rss
   Future<void> preCheck() async {
     var read = await sqlite.readAll();
-    var rssList = await rss.readAllRss();
+    var rssList = await rss.readAll();
     for (var item in read) {
       if (item.rss != null && item.rss!.isNotEmpty) {
-        rssList.remove(item.rss);
+        rssList.removeWhere((e) => e.mkBgmId == item.mkBgmId);
       }
     }
     var cnt = rssList.length;
     for (var item in rssList) {
-      await rss.delete(item);
+      await rss.deleteByMkId(item.mkBgmId!);
     }
     if (cnt > 0 && mounted) {
       await BtInfobar.warn(context, '删除了 $cnt 条未使用的RSS');

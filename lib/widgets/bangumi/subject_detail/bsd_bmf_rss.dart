@@ -74,9 +74,20 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     super.initState();
     timerRss = getTimerRss();
     Future.microtask(() async {
-      appRssModel = await sqlite.read(bmf.rss!);
+      if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) {
+        appRssModel = await sqlite.read(bmf.rss!);
+      } else {
+        appRssModel = await sqlite.readByMkId(bmf.rss!);
+      }
       if (appRssModel == null) {
-        appRssModel = AppRssModel(rss: bmf.rss!, data: '', ttl: 0, updated: 0);
+        appRssModel = AppRssModel(
+          rss: bmf.rss!,
+          data: '',
+          ttl: 0,
+          updated: 0,
+          mkBgmId: bmf.mkBgmId,
+          mkGroupId: bmf.mkGroupId,
+        );
         setState(() {});
         await freshRss();
         return;

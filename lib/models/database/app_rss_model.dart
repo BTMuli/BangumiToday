@@ -11,6 +11,12 @@ class AppRssModel {
   /// RSS URL
   final String rss;
 
+  /// mkBgmId
+  String? mkBgmId;
+
+  /// mkGroupId
+  String? mkGroupId;
+
   /// RSS 数据，为xml.toXmlString后的feed
   String data;
 
@@ -26,6 +32,8 @@ class AppRssModel {
     required this.data,
     required this.ttl,
     this.updated = 0,
+    this.mkBgmId,
+    this.mkGroupId,
   });
 
   /// JSON 序列化

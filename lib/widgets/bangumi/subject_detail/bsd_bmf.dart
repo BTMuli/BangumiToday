@@ -7,8 +7,6 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:path/path.dart' as path;
-import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../../controller/app/progress_controller.dart';
@@ -19,7 +17,6 @@ import '../../../models/database/app_bmf_model.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../store/nav_store.dart';
 import '../../../tools/file_tool.dart';
-import '../../../tools/notifier_tool.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_icon.dart';
 import '../../../ui/bt_infobar.dart';
@@ -91,19 +88,6 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
     if (bmfGet == null) return;
     bmf = bmfGet;
     setState(() {});
-  }
-
-  /// showNotify
-  Future<void> showNotify(String file) async {
-    await BTNotifierTool.showMini(
-      title: '下载完成',
-      body: '下载完成：$file',
-      onClick: () async {
-        var filePath = path.join(bmf.download!, file);
-        filePath = filePath.replaceAll(r'\', '/');
-        await launchUrlString('potplayer://$filePath');
-      },
-    );
   }
 
   /// 获取title

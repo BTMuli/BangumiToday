@@ -22,6 +22,9 @@ class BtsAppRss {
   /// BMF 数据库
   final BtsAppBmf bmf = BtsAppBmf();
 
+  /// 是否有mkBgmId
+  static bool hasMkBgmId = false;
+
   /// 表名
   final String _tableName = 'AppRss';
 
@@ -33,19 +36,36 @@ class BtsAppRss {
         CREATE TABLE $_tableName (
           rss TEXT PRIMARY KEY NOT NULL,
           data TEXT,
+          mkBgmId TEXT,
+          mkGroupId TEXT,
           ttl INTEGER NOT NULL,
           updated INTEGER NOT NULL
         );
       ''');
       BTLogTool.info('Create table $_tableName');
     }
+    if (!hasMkBgmId) await updateMkId();
+  }
+
+  /// 更新mkId
+  Future<void> updateMkId() async {
+    var check =
+        await instance.sqlite.db.query(_tableName, columns: ['mkBgmId']);
+    hasMkBgmId = check.isNotEmpty;
+    if (hasMkBgmId) return;
+    await instance.sqlite.db.execute('''
+      ALTER TABLE $_tableName ADD COLUMN mkBgmId TEXT;
+      ALTER TABLE $_tableName ADD COLUMN mkGroupId TEXT;
+    ''');
+    BTLogTool.info('Update table $_tableName');
   }
 
   /// 读取所有 rss 链接
-  Future<List<String>> readAllRss() async {
+  Future<List<AppRssModel>> readAll() async {
     await instance.preCheck();
     var result = await instance.sqlite.db.query(_tableName);
-    return result.map((e) => e['rss'] as String).toList();
+    if (result.isEmpty) return [];
+    return result.map(AppRssModel.fromJson).toList();
   }
 
   /// 读取配置
@@ -99,5 +119,28 @@ class BtsAppRss {
   Future<void> updateMikanUrl(String url, String ori) async {
     await instance.preCheck();
     await bmf.updateMikanUrl(url, ori);
+  }
+
+  /// 删除 Mikan URL
+  Future<void> deleteByMkId(String s) async {
+    await instance.preCheck();
+    await instance.sqlite.db.delete(
+      _tableName,
+      where: 'mkBgmId = ?',
+      whereArgs: [s],
+    );
+  }
+
+  /// 读取 Mikan URL
+  Future<AppRssModel?> readByMkId(String s) async {
+    await instance.preCheck();
+    var result = await instance.sqlite.db.query(
+      _tableName,
+      where: 'mkBgmId = ?',
+      whereArgs: [s],
+    );
+    if (result.isEmpty) return null;
+    var value = result.first;
+    return AppRssModel.fromJson(value);
   }
 }
