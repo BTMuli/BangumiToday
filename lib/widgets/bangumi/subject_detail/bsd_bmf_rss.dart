@@ -77,7 +77,7 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
       if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) {
         appRssModel = await sqlite.read(bmf.rss!);
       } else {
-        appRssModel = await sqlite.readByMkId(bmf.rss!);
+        appRssModel = await sqlite.readByMkId(bmf.mkBgmId!);
       }
       if (appRssModel == null) {
         appRssModel = AppRssModel(
