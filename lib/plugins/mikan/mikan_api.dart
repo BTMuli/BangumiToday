@@ -107,7 +107,7 @@ class BtrMikanApi {
         '/Home/Search',
         queryParameters: {'searchstr': search},
       );
-      var parseList = parseSearchResult(resp.data, baseUrl);
+      var parseList = parseSearchResult(resp.data, client.dio.options.baseUrl);
       return BTResponse.success(data: parseList);
     } on DioException catch (e) {
       var errInfo = [

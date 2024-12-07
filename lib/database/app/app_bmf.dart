@@ -119,7 +119,7 @@ class BtsAppBmf {
       await _instance.sqlite.db.rawInsert(
           'INSERT INTO $_tableName '
           '(subject, rss, download,title, mkBgmId, mkGroupId) '
-          'VALUES (?, ?, ?, ?)',
+          'VALUES (?, ?, ?, ?, ?, ?)',
           [
             model.subject,
             model.rss,
