@@ -81,13 +81,14 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
       }
       if (appRssModel == null) {
         appRssModel = AppRssModel(
-          rss: bmf.rss!,
+          rss: getRss(),
           data: '',
           ttl: 0,
           updated: 0,
           mkBgmId: bmf.mkBgmId,
           mkGroupId: bmf.mkGroupId,
         );
+        await sqlite.write(appRssModel!);
         setState(() {});
         await freshRss();
         return;
@@ -163,6 +164,8 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     if (rssItems.isEmpty) {
       rssItems = feed.items;
       appRssModel = AppRssModel(
+        mkBgmId: bmf.mkBgmId,
+        mkGroupId: bmf.mkGroupId,
         rss: url,
         data: rssGet.data,
         ttl: feed.ttl,
@@ -188,6 +191,8 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     if (newList.isNotEmpty) {
       BTLogTool.info('发现新的 RSS 信息');
       appRssModel = AppRssModel(
+        mkBgmId: bmf.mkBgmId,
+        mkGroupId: bmf.mkGroupId,
         rss: url,
         data: rssGet.data as String,
         ttl: feed.ttl,

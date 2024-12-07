@@ -57,7 +57,7 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
     }
     var cnt = rssList.length;
     for (var item in rssList) {
-      await rss.deleteByMkId(item.mkBgmId!);
+      if (item.mkBgmId != null) await rss.deleteByMkId(item.mkBgmId!);
     }
     if (cnt > 0 && mounted) {
       await BtInfobar.warn(context, '删除了 $cnt 条未使用的RSS');

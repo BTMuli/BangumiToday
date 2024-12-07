@@ -50,8 +50,8 @@ class BtsAppRss {
   /// 更新mkId
   Future<void> updateMkId() async {
     var check =
-        await instance.sqlite.db.query(_tableName, columns: ['mkBgmId']);
-    hasMkBgmId = check.isNotEmpty;
+        await instance.sqlite.db.rawQuery('PRAGMA table_info($_tableName)');
+    hasMkBgmId = check.any((element) => element['name'] == 'mkBgmId');
     if (hasMkBgmId) return;
     await instance.sqlite.db.execute('''
       ALTER TABLE $_tableName ADD COLUMN mkBgmId TEXT;
@@ -85,6 +85,10 @@ class BtsAppRss {
   Future<void> write(AppRssModel model) async {
     await instance.preCheck();
     model.updated = DateTime.now().millisecondsSinceEpoch;
+    if (model.mkBgmId != null) {
+      await writeByMkId(model);
+      return;
+    }
     var check = await instance.sqlite.db.query(
       _tableName,
       where: 'rss = ?',
@@ -142,5 +146,53 @@ class BtsAppRss {
     if (result.isEmpty) return null;
     var value = result.first;
     return AppRssModel.fromJson(value);
+  }
+
+  /// 写入/更新配置
+  Future<void> writeByMkId(AppRssModel model) async {
+    await instance.preCheck();
+    model.updated = DateTime.now().millisecondsSinceEpoch;
+    var check = await instance.sqlite.db.query(
+      _tableName,
+      where: 'mkBgmId = ?',
+      whereArgs: [model.mkBgmId],
+    );
+    // 检测是否有rss重复
+    var rssCheck = await instance.sqlite.db.query(
+      _tableName,
+      where: 'rss = ?',
+      whereArgs: [model.rss],
+    );
+    if (rssCheck.isNotEmpty) {
+      // 如果有重复的，检测是否是同一个mkId
+      var rssValue = rssCheck.first;
+      if (rssValue['mkBgmId'] != model.mkBgmId) {
+        await instance.sqlite.db.delete(
+          _tableName,
+          where: 'rss = ?',
+          whereArgs: [model.rss],
+        );
+      } else {
+        // 如果是同一个mkId，更新数据
+        await instance.sqlite.db.update(
+          _tableName,
+          model.toJson(),
+          where: 'rss = ?',
+          whereArgs: [model.rss],
+        );
+      }
+    } else if (check.isEmpty) {
+      await instance.sqlite.db.insert(
+        _tableName,
+        model.toJson(),
+      );
+    } else {
+      await instance.sqlite.db.update(
+        _tableName,
+        model.toJson(),
+        where: 'mkBgmId = ?',
+        whereArgs: [model.mkBgmId],
+      );
+    }
   }
 }
