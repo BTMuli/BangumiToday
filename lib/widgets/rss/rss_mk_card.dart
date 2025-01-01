@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../database/app/app_bmf.dart';
+import '../../database/app/app_config.dart';
 import '../../database/app/app_rss.dart';
 import '../../tools/download_tool.dart';
 import '../../ui/bt_infobar.dart';
@@ -60,6 +61,9 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
   /// bmf数据库
   final BtsAppBmf sqliteBmf = BtsAppBmf();
 
+  /// app数据库
+  final BtsAppConfig sqliteConfig = BtsAppConfig();
+
   /// download tool
   final BTDownloadTool dtt = BTDownloadTool();
 
@@ -82,8 +86,17 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
   Future<String?> getSavePath(BuildContext context, String saveDir) async {
     assert(item.enclosure?.url != null && item.enclosure?.url != '');
     assert(item.title != null && item.title != '');
+    // 获取mikan下载链接
+    var mikanUrl = await sqliteConfig.readMikanUrl();
+    var urlReal = item.enclosure!.url!;
+    if (mikanUrl != null && mikanUrl.isNotEmpty) {
+      var url = Uri.parse(item.enclosure!.url!);
+      var urlDomain = '${url.scheme}://${url.host}';
+      urlReal = item.enclosure!.url!.replaceFirst(urlDomain, mikanUrl);
+    }
+    if (!context.mounted) return null;
     var savePath = await dtt.downloadRssTorrent(
-      item.enclosure!.url!,
+      urlReal,
       item.title!,
       context: context,
     );
