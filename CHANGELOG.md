@@ -2,12 +2,18 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2024-11-08
+Update: 2025-01-02
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:15`
 >
-> 更新于 `2024-11-08 15:12:42`
+> 更新于 `2025-01-02 09:12:33`
+
+## [v0.6.2](https://github.com/BTMuli/BangumiToday/releases/tag/v0.6.2) (2025-01-02)
+
+- 🐛 修复从查询结果添加时遗漏标题数据
+- 🐛 修复放送日历初始化异常
+- ♻️ 重构数据库，更新Mikan链接时同步更新订阅链接
 
 ## [v0.6.1](https://github.com/BTMuli/BangumiToday/releases/tag/v0.6.1) (2024-11-08)
 
