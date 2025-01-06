@@ -12,8 +12,8 @@ import '../../../models/app/response.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../ui/bt_dialog.dart';
+import '../../../ui/bt_icon.dart';
 import 'bsd_rate_chart.dart';
-import 'bsd_sites.dart';
 
 /// 详情页面的信息卡片
 class BsdOverview extends StatelessWidget {
@@ -35,10 +35,7 @@ class BsdOverview extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(
-                FluentIcons.photo_error,
-                color: FluentTheme.of(context).accentColor,
-              ),
+              BtIcon(FluentIcons.photo_error),
               Text(
                 err ?? '无封面',
                 style: TextStyle(
@@ -82,7 +79,7 @@ class BsdOverview extends StatelessWidget {
 
   /// 构建信息文本
   Widget buildText(String text) {
-    return Text(text, style: TextStyle(fontSize: 16.sp));
+    return Text(text, style: TextStyle(fontSize: 16));
   }
 
   /// 构建收藏badge
@@ -94,10 +91,10 @@ class BsdOverview extends StatelessWidget {
     return Tooltip(
       message: type.label,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(4),
-          color: FluentTheme.of(context).accentColor.withOpacity(0.2),
+          color: FluentTheme.of(context).accentColor.withValues(alpha: 0.2),
           border: Border.all(color: FluentTheme.of(context).accentColor),
         ),
         child: Row(
@@ -105,16 +102,9 @@ class BsdOverview extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              type.icon,
-              size: 16.sp,
-              color: FluentTheme.of(context).accentColor,
-            ),
-            SizedBox(width: 4.w),
-            Text(
-              count?.toString() ?? '0',
-              style: TextStyle(fontSize: 12.sp),
-            ),
+            BtIcon(type.icon, size: 16),
+            SizedBox(width: 4),
+            Text(count?.toString() ?? '0', style: TextStyle(fontSize: 12)),
           ],
         ),
       ),
@@ -135,14 +125,11 @@ class BsdOverview extends StatelessWidget {
       Row(
         children: [
           buildText('ID: ${item.id}'),
-          SizedBox(width: 12.w),
+          SizedBox(width: 12),
           Tooltip(
             message: '前往Bangumi',
             child: IconButton(
-              icon: Icon(
-                FluentIcons.edge_logo,
-                color: FluentTheme.of(context).accentColor,
-              ),
+              icon: BtIcon(FluentIcons.edge_logo),
               onPressed: () async {
                 await launchUrlString('https://bgm.tv/subject/${item.id}');
               },
@@ -159,21 +146,21 @@ class BsdOverview extends StatelessWidget {
         ],
       ),
       ...nameW,
-      SizedBox(height: 4.h),
+      SizedBox(height: 4),
       buildText('首播: ${item.date}'),
-      SizedBox(height: 4.h),
+      SizedBox(height: 4),
       buildText('集数: ${item.eps}/${item.totalEpisodes}'),
-      SizedBox(height: 4.h),
+      SizedBox(height: 4),
       buildText('平台: ${item.platform}'),
-      SizedBox(height: 4.h),
+      SizedBox(height: 4),
       buildText('收藏情况：'),
-      SizedBox(height: 4.h),
+      SizedBox(height: 4),
       Wrap(
         runAlignment: WrapAlignment.center,
-        spacing: 4.w,
-        runSpacing: 4.h,
+        spacing: 4,
+        runSpacing: 4,
         children: [
-          SizedBox(width: 12.w),
+          SizedBox(width: 12),
           buildCollectionInfoBadge(
             context,
             BangumiCollectionType.wish,
@@ -223,8 +210,6 @@ class BsdOverview extends StatelessWidget {
             ),
           ),
         ),
-        BsdSites(item.name),
-        SizedBox(width: 12.w),
         BsdRateChart(item.rating),
         SizedBox(width: 12.w),
       ],
