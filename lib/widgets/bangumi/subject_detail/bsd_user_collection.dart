@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
+import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_infobar.dart';
@@ -20,8 +21,11 @@ class BsdUserCollection extends StatefulWidget {
   /// user
   final BangumiUser user;
 
+  /// provider
+  final BangumiDetailProvider provider;
+
   /// 构造函数
-  const BsdUserCollection(this.subject, this.user, {super.key});
+  const BsdUserCollection(this.subject, this.user, this.provider, {super.key});
 
   @override
   State<BsdUserCollection> createState() => _BsdUserCollectionState();
@@ -98,6 +102,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
       if (mounted) await showRespErr(resp, context);
     } else {
       collectionType = type;
+      widget.provider.set(true);
       if (mounted) {
         await BtInfobar.success(
           context,

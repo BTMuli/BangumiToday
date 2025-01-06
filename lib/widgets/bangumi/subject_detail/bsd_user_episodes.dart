@@ -5,8 +5,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 // Project imports:
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
+import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../store/bgm_user_hive.dart';
+import '../../../ui/bt_infobar.dart';
 import 'bsd_episode.dart';
 
 /// SubjectDetail页面的章节模块，负责显示/操作章节信息
@@ -14,8 +16,11 @@ class BsdUserEpisodes extends StatefulWidget {
   /// subjectInfo
   final BangumiSubject subject;
 
+  /// provider
+  final BangumiDetailProvider provider;
+
   /// 构造函数
-  const BsdUserEpisodes(this.subject, {super.key});
+  const BsdUserEpisodes(this.subject, this.provider, {super.key});
 
   @override
   State<BsdUserEpisodes> createState() => _BsdUserEpisodesState();
@@ -58,6 +63,25 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
         await load();
       }
     });
+    addProviderListener();
+  }
+
+  /// 添加provider监听
+  void addProviderListener() {
+    widget.provider.addListener((val) async {
+      if (!val) return;
+      if (user == null) return;
+      if (isCollection) return;
+      if (widget.subject.type == BangumiSubjectType.anime) {
+        offset = 0;
+        episodes.clear();
+        userEpisodes.clear();
+        setState(() {});
+        await check();
+        await load();
+        if (mounted) await BtInfobar.success(context, '成功更新章节信息');
+      }
+    });
   }
 
   /// 检测是否收藏
@@ -75,9 +99,11 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
       offset: offset,
       limit: 30,
     );
+    var pageLen = 0;
     if (ep1Resp.code == 0) {
       var page = ep1Resp.data as BangumiPageT<BangumiEpisode>;
       episodes.addAll(page.data);
+      pageLen = page.data.length;
     }
     if (user != null && isCollection) {
       var ep2Resp = await api.getCollectionEpisodes(
@@ -90,7 +116,7 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
         userEpisodes.addAll(page.data);
       }
     }
-    offset += 30;
+    offset += pageLen;
     if (mounted) setState(() {});
   }
 

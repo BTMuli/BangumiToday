@@ -24,6 +24,15 @@ import '../../widgets/bangumi/subject_detail/bsd_relation.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_episodes.dart';
 
+/// 数据监听Provider，用于监听收藏状态变更
+class BangumiDetailProvider extends StateNotifier<bool> {
+  /// 构造函数
+  BangumiDetailProvider() : super(false);
+
+  /// set
+  void set(bool value) => state = value;
+}
+
 /// 番剧详情
 class BangumiDetail extends ConsumerStatefulWidget {
   /// 番剧 id
@@ -50,6 +59,9 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
 
   /// bmf数据库
   final BtsAppBmf sqliteBmf = BtsAppBmf();
+
+  /// provider
+  final BangumiDetailProvider provider = BangumiDetailProvider();
 
   /// progress
   late ProgressController progress = ProgressController();
@@ -327,10 +339,10 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
         BsdOverview(data!),
         SizedBox(height: 12.h),
         if (hiveUser.user != null) ...[
-          BsdUserCollection(data!, hiveUser.user!),
+          BsdUserCollection(data!, hiveUser.user!, provider),
           SizedBox(height: 12.h)
         ],
-        BsdUserEpisodes(data!),
+        BsdUserEpisodes(data!, provider),
         SizedBox(height: 12.h),
         BsdBmfWidget(
           data!.id,
