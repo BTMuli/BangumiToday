@@ -343,6 +343,14 @@ class BtrBangumiApi {
         options: Options(headers: authHeader, contentType: 'application/json'),
       );
       assert(resp.data is Map<String, dynamic>);
+      if (resp.data.containsKey('request_id')) {
+        var failResp = BangumiErrorDetail.fromJson(resp.data);
+        return BTResponse<BangumiErrorDetail>(
+          code: 404,
+          message: 'User collection item not found',
+          data: failResp,
+        );
+      }
       return BangumiCollectionSubjectItemResp.success(
         data: BangumiUserSubjectCollection.fromJson(resp.data),
       );

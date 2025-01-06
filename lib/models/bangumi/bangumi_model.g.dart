@@ -914,6 +914,7 @@ BangumiErrorDetail _$BangumiErrorDetailFromJson(Map<String, dynamic> json) =>
       title: json['title'] as String,
       description: json['description'] as String,
       details: json['details'],
+      requestId: json['request_id'] as String,
     );
 
 Map<String, dynamic> _$BangumiErrorDetailToJson(BangumiErrorDetail instance) =>
@@ -921,6 +922,7 @@ Map<String, dynamic> _$BangumiErrorDetailToJson(BangumiErrorDetail instance) =>
       'title': instance.title,
       'description': instance.description,
       'details': instance.details,
+      'request_id': instance.requestId,
     };
 
 BangumiErrorOauth _$BangumiErrorOauthFromJson(Map<String, dynamic> json) =>

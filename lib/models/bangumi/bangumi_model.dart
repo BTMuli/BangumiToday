@@ -1729,11 +1729,16 @@ class BangumiErrorDetail {
   @JsonKey(name: 'details')
   dynamic details;
 
+  /// request_id
+  @JsonKey(name: 'request_id')
+  String requestId;
+
   /// constructor
   BangumiErrorDetail({
     required this.title,
     required this.description,
     required this.details,
+    required this.requestId,
   });
 
   /// from json
