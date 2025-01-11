@@ -90,6 +90,11 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
           .toList();
       if (diffFiles.isNotEmpty) {
         for (var file in diffFiles) {
+          // 判断file是否存在
+          var exist = await fileTool.isFileExist(
+            path.join(widget.bmfFile, file),
+          );
+          if (!exist) continue;
           await notifierTool.showVideo(
             subject: widget.subject,
             dir: widget.bmfFile,
@@ -103,27 +108,35 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
     setState(() {});
   }
 
-  List<Widget> buildFileAct(BuildContext context, String file) {
+  Widget buildFileAct(BuildContext context, String file) {
     var potplayerBtn = BsdBmfFilePotPlayerBtn(file, widget.bmfFile);
     var deleteBtn = BsdBmfFileDelBtn(
       file: file,
       dir: widget.bmfFile,
       onDelete: refreshFiles,
     );
-    if (file.endsWith(".torrent")) return [deleteBtn];
+    if (file.endsWith(".torrent")) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [deleteBtn],
+      );
+    }
     if (aria2Files.contains(file)) {
       var size = fileTool.getFileSize(path.join(widget.bmfFile, file));
-      return [
+      return Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
         const SizedBox(width: double.infinity, child: ProgressBar(value: null)),
         const SizedBox(height: 6),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [Text('下载中：${filesize(size)}')],
         ),
-      ];
+      ]);
     }
-    if (!file.endsWith('.mp4') && !file.endsWith('.mkv')) return [deleteBtn];
-    return [potplayerBtn, const SizedBox(height: 6), deleteBtn];
+    if (!file.endsWith('.mp4') && !file.endsWith('.mkv')) return deleteBtn;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [potplayerBtn, const SizedBox(width: 6), deleteBtn],
+    );
   }
 
   List<Widget> buildFileCards(BuildContext context) {
@@ -148,7 +161,7 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
             children: [
               title,
               const Spacer(),
-              ...buildFileAct(context, file),
+              buildFileAct(context, file),
             ],
           ),
         ),
@@ -222,6 +235,7 @@ class BsdBmfFilePotPlayerBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return Button(
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           BtIcon(FluentIcons.open_file),
           SizedBox(width: 8.w),
@@ -247,24 +261,41 @@ class BsdBmfFileDelBtn extends StatelessWidget {
   /// 删除回调
   final Future<void> Function() onDelete;
 
+  final BTFileTool fileTool = BTFileTool();
+
   /// 构造
-  const BsdBmfFileDelBtn({
+  BsdBmfFileDelBtn({
     required this.file,
     required this.dir,
     required this.onDelete,
     super.key,
   });
 
+  Future<void> tryDeleteFile(String filePath, BuildContext context) async {
+    var check = await fileTool.deleteFile(filePath);
+    if (!check) {
+      if (context.mounted) {
+        await BtInfobar.error(context, '删除文件失败');
+      }
+      return;
+    }
+    await onDelete();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Button(
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(FluentIcons.delete, color: FluentTheme.of(context).accentColor),
           SizedBox(width: 8.w),
           const Text('删除'),
         ],
       ),
+      onLongPress: () async {
+        await tryDeleteFile(path.join(dir, file), context);
+      },
       onPressed: () async {
         var confirm = await showConfirm(
           context,
@@ -272,15 +303,9 @@ class BsdBmfFileDelBtn extends StatelessWidget {
           content: '确定删除文件 $file 吗？',
         );
         if (!confirm) return;
-        var fileTool = BTFileTool();
         var filePath = path.join(dir, file);
         if (context.mounted) {
-          var check = await fileTool.deleteFile(filePath, context: context);
-          if (!check) return;
-          if (context.mounted) {
-            await BtInfobar.success(context, '成功删除文件 $file');
-            await onDelete();
-          }
+          await tryDeleteFile(filePath, context);
         }
       },
     );
