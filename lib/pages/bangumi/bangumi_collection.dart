@@ -27,25 +27,7 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
 
   /// 保存状态
   @override
-  bool get wantKeepAlive => false;
-
-  ///  根据type获取icon
-  IconData getIcon(BangumiCollectionType type) {
-    switch (type) {
-      case BangumiCollectionType.wish:
-        return FluentIcons.add_bookmark;
-      case BangumiCollectionType.collect:
-        return FluentIcons.heart;
-      case BangumiCollectionType.doing:
-        return FluentIcons.play;
-      case BangumiCollectionType.onHold:
-        return FluentIcons.archive;
-      case BangumiCollectionType.dropped:
-        return FluentIcons.cancel;
-      default:
-        return FluentIcons.warning;
-    }
-  }
+  bool get wantKeepAlive => true;
 
   /// 构建标签
   List<Tab> buildTabs() {
@@ -55,7 +37,7 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
       var type = values[i];
       if (type == BangumiCollectionType.unknown) continue;
       result.add(Tab(
-        icon: Icon(getIcon(type)),
+        icon: Icon(type.icon),
         text: Text(type.label),
         body: BucTabView(type),
       ));
