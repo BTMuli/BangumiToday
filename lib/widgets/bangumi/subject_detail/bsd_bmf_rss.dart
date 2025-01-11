@@ -120,10 +120,19 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
 
   /// showNewRss
   Future<void> showNewRss(List<RssItem> newList) async {
-    for (var item in newList) {
+    if (newList.length > 1) {
       await BTNotifierTool.showMini(
         title: 'RSS 订阅更新',
-        body: '${item.title}',
+        body: bmf.title ?? '动画：${bmf.subject}',
+        onClick: () => ref
+            .read(navStoreProvider.notifier)
+            .addNavItemB(subject: bmf.subject, type: '动画'),
+      );
+    }
+    if (newList.length == 1) {
+      await BTNotifierTool.showMini(
+        title: 'RSS 订阅更新',
+        body: '${newList[0].title}',
         onClick: () => ref
             .read(navStoreProvider.notifier)
             .addNavItemB(subject: bmf.subject, type: '动画'),
