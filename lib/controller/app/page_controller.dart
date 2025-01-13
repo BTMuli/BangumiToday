@@ -100,17 +100,13 @@ class _PageWidgetState extends State<PageWidget> {
   @override
   void initState() {
     super.initState();
-    controller.addListener(() {
-      setState(() {});
-    });
+    controller.addListener(() => setState);
   }
 
   /// 获取背景色
   Color getBackgroundColor(int index) {
     var base = FluentTheme.of(context).accentColor;
-    if (index == controller.cur) {
-      return base;
-    }
+    if (index == controller.cur) return base;
     return Colors.transparent;
   }
 

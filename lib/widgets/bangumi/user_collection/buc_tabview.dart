@@ -79,9 +79,7 @@ class _BucTabState extends ConsumerState<BucTabView>
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration.zero, () async {
-      await loadData();
-    });
+    Future.delayed(Duration.zero, () async => await loadData());
   }
 
   /// dispose
@@ -239,7 +237,7 @@ class _BucTabState extends ConsumerState<BucTabView>
       SizedBox(width: 8.w),
       buildRefresh(context),
       SizedBox(width: 8.w),
-      SizedBox(width: 600.w, child: buildJump(context)),
+      SizedBox(width: 450.w, child: buildJump(context)),
       const Spacer(),
       PageWidget(pageController),
       SizedBox(width: 8.w),
@@ -255,7 +253,7 @@ class _BucTabState extends ConsumerState<BucTabView>
       controller: ScrollController(),
       padding: const EdgeInsets.all(8),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
+        crossAxisCount: 3,
         childAspectRatio: 10 / 7,
         mainAxisSpacing: 8,
         crossAxisSpacing: 8,
