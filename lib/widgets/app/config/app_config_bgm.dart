@@ -219,7 +219,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       progress.update(
         title: '获取收藏信息',
         text: '偏移：$offset，总计：$total',
-        progress: null,
+        progress: cnt * 100 / total,
       );
       resp = await apiBgm.getCollectionSubjects(
         username: hive.user!.id.toString(),
