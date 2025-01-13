@@ -111,7 +111,7 @@ class _BucCardState extends ConsumerState<BucCard>
       rating: score,
       iconSize: 20.sp,
       starSpacing: 1.sp,
-      unratedIconColor: FluentTheme.of(context).accentColor.withOpacity(0.5),
+      unratedIconColor: FluentTheme.of(context).accentColor.withAlpha(50),
     ));
     rateWidget.add(SizedBox(height: 5.h));
     rateWidget.add(Text('${data.score} $label'));

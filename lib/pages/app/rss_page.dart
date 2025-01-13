@@ -44,7 +44,7 @@ class _RssPageState extends State<RssPage> with AutomaticKeepAliveClientMixin {
           body: const RssMkPage(),
           semanticLabel: 'Mikan',
           selectedBackgroundColor: FluentTheme.of(context).accentColor,
-          backgroundColor: FluentTheme.of(context).accentColor.withOpacity(0.2),
+          backgroundColor: FluentTheme.of(context).accentColor.withAlpha(20),
         ),
         Tab(
           icon: Image.asset('assets/images/platforms/comicat-favicon.ico'),
@@ -52,7 +52,7 @@ class _RssPageState extends State<RssPage> with AutomaticKeepAliveClientMixin {
           body: const RssCmcPage(),
           semanticLabel: 'Comicat',
           selectedBackgroundColor: FluentTheme.of(context).accentColor,
-          backgroundColor: FluentTheme.of(context).accentColor.withOpacity(0.2),
+          backgroundColor: FluentTheme.of(context).accentColor.withAlpha(20),
         ),
       ],
       closeButtonVisibility: CloseButtonVisibilityMode.never,

@@ -190,7 +190,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
               child: Container(
                 padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withAlpha(20),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(episode.desc),
