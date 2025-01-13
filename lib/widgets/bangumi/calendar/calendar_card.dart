@@ -158,9 +158,12 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
               FluentIcons.info,
               color: FluentTheme.of(context).accentColor.light,
             ),
-            onPressed: () => ref
-                .read(navStoreProvider)
-                .addNavItemB(type: '动画', subject: data.id),
+            onPressed: () async {
+              var title = data.nameCn == '' ? data.name : data.nameCn;
+              ref
+                  .read(navStoreProvider)
+                  .addNavItemB(type: '动画', subject: data.id, paneTitle: title);
+            },
           ),
         ),
       ],
@@ -178,7 +181,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
         rating: score,
         iconSize: 20.sp,
         starSpacing: 1.sp,
-        unratedIconColor: FluentTheme.of(context).accentColor.withOpacity(0.5),
+        unratedIconColor: FluentTheme.of(context).accentColor.withAlpha(50)
       ));
       rateWidget.add(SizedBox(height: 5.h));
       rateWidget.add(Text(

@@ -303,11 +303,14 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
     if (!widget.isConfig) title = 'BMF Config - $title';
     return Expander(
       leading: BsdBmfLeading(widget.isConfig, bmf),
-      header: Text(
-        title,
-        style: TextStyle(fontSize: 20),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      header: Tooltip(
+        message: title,
+        child: Text(
+          title,
+          style: TextStyle(fontSize: 20),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
