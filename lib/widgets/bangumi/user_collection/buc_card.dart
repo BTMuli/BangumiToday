@@ -182,9 +182,11 @@ class _BucCardState extends ConsumerState<BucCard>
               FluentIcons.info,
               color: FluentTheme.of(context).accentColor.light,
             ),
-            onPressed: () => ref
-                .read(navStoreProvider)
-                .addNavItemB(type: data.type.label, subject: data.id),
+            onPressed: () => ref.read(navStoreProvider).addNavItemB(
+                  type: data.type.label,
+                  subject: data.id,
+                  paneTitle: data.nameCn == '' ? data.name : data.nameCn,
+                ),
           ),
         ),
       ],

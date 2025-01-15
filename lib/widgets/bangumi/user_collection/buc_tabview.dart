@@ -106,9 +106,14 @@ class _BucTabState extends ConsumerState<BucTabView>
   }
 
   /// 跳转
-  void jump(BangumiUserSubjectCollection subject) => ref
-      .read(navStoreProvider)
-      .addNavItemB(type: subject.subjectType.label, subject: subject.subjectId);
+  void jump(BangumiUserSubjectCollection subject) =>
+      ref.read(navStoreProvider).addNavItemB(
+            type: subject.subjectType.label,
+            subject: subject.subjectId,
+            paneTitle: subject.subject.nameCn == ''
+                ? subject.subject.name
+                : subject.subject.nameCn,
+          );
 
   /// 刷新收藏
   Future<void> freshCollection() async {

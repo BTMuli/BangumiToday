@@ -96,9 +96,11 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
                     FluentIcons.info,
                     color: FluentTheme.of(context).accentColor,
                   ),
-                  onPressed: () => ref
-                      .read(navStoreProvider)
-                      .addNavItemB(type: data.type.label, subject: data.id),
+                  onPressed: () => ref.read(navStoreProvider).addNavItemB(
+                        type: data.type.label,
+                        subject: data.id,
+                        paneTitle: data.nameCn == '' ? data.name : data.nameCn,
+                      ),
                 ),
               ),
               SizedBox(width: 4.w),

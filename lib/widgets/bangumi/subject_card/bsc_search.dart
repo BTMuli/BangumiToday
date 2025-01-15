@@ -113,11 +113,11 @@ class _BscSearchState extends ConsumerState<BscSearch> {
         message: '查看$label详情',
         child: IconButton(
           icon: const BtIcon(FluentIcons.info),
-          onPressed: () {
-            ref
-                .read(navStoreProvider)
-                .addNavItemB(type: label, subject: subject.id);
-          },
+          onPressed: () => ref.read(navStoreProvider).addNavItemB(
+                type: label,
+                subject: subject.id,
+                paneTitle: subject.nameCn == '' ? subject.name : subject.nameCn,
+              ),
         ),
       ),
       if (subject.rank != 0) ...[
