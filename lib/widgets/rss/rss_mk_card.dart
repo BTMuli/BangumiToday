@@ -111,7 +111,8 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     if (saveDir == null || saveDir.isEmpty) {
       return;
     }
-    var check = ref.read(dttStoreProvider.notifier).addTask(item, saveDir);
+    var check =
+        await ref.read(dttStoreProvider.notifier).addTask(item, saveDir);
     if (check) {
       if (context.mounted) await BtInfobar.success(context, '添加下载任务成功');
     } else {

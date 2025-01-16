@@ -1,3 +1,6 @@
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,7 +24,7 @@ final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
 /// 侧边栏状态，用于控制侧边栏动态组件的加载与卸载
 class BTNavStore extends ChangeNotifier {
   /// 保留的顶部固定侧边栏
-  final int topNavCount = 4;
+  final int topNavCount = kDebugMode ? 4 : 3;
 
   /// 当前索引
   int curIndex = 0;

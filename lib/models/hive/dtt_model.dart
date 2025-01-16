@@ -3,6 +3,9 @@ import 'package:hive/hive.dart';
 
 /// 下载列表
 class DttHiveModel {
+  /// 索引
+  late int index;
+
   /// RssItem
   final MiniRssItem item;
 
@@ -10,7 +13,7 @@ class DttHiveModel {
   final String dir;
 
   /// 构造函数
-  DttHiveModel(this.item, this.dir);
+  DttHiveModel(this.item, this.dir, {this.index = 0});
 }
 
 /// 下载列表的适配器
@@ -22,13 +25,15 @@ class DttItemAdapter extends TypeAdapter<DttHiveModel> {
   DttHiveModel read(BinaryReader reader) {
     var item = reader.read() as MiniRssItem;
     var dir = reader.read() as String;
-    return DttHiveModel(item, dir);
+    var index = reader.read() as int;
+    return DttHiveModel(item, dir, index: index);
   }
 
   @override
   void write(BinaryWriter writer, DttHiveModel obj) {
     writer.write(obj.item);
     writer.write(obj.dir);
+    writer.write(obj.index);
   }
 }
 

@@ -70,7 +70,7 @@ class _RssCmcCardState extends ConsumerState<RssCmcCard> {
                 if (context.mounted) await BtInfobar.error(context, '未选择下载目录');
                 return;
               }
-              var check = ref.read(dttStoreProvider.notifier).addTask(
+              var check = await ref.read(dttStoreProvider.notifier).addTask(
                     item,
                     saveDir,
                   );

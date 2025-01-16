@@ -146,17 +146,9 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
 
   /// 下载
   Future<String?> getSavePath(BuildContext context, String saveDir) async {
-    // 获取mikan下载链接
-    var mikanUrl = await sqliteConfig.readMikanUrl();
-    var urlReal = item.link;
-    if (mikanUrl != null && mikanUrl.isNotEmpty) {
-      var url = Uri.parse(item.link);
-      var urlDomain = '${url.scheme}://${url.host}';
-      urlReal = item.link.replaceFirst(urlDomain, mikanUrl);
-    }
     if (!context.mounted) return null;
     var savePath = await downloadTool.downloadRssTorrent(
-      urlReal,
+      item.link,
       item.title,
       context: context,
     );
@@ -172,7 +164,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
     }
     BTLogTool.info('Parse torrent file: $filePath');
     if (filePath.isEmpty) {
-      ref.read(dttStoreProvider.notifier).removeTask(item);
+      await ref.read(dttStoreProvider.notifier).removeTask(item);
       return;
     }
     model = await Torrent.parse(filePath);
@@ -202,7 +194,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
     );
     await Future.delayed(const Duration(seconds: 5), () async {
       await deleteStateFile();
-      ref.read(dttStoreProvider.notifier).removeTask(item);
+      await ref.read(dttStoreProvider.notifier).removeTask(item);
     });
   }
 
@@ -313,6 +305,10 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
     return IconButton(
       icon: const Icon(FluentIcons.delete),
       onPressed: () async {
+        if (task.state != TaskState.stopped) {
+          await BtInfobar.error(context, '请先停止任务');
+          return;
+        }
         var confirmF = await showConfirm(
           context,
           title: '删除任务？',
@@ -330,7 +326,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
           }
           await stopDownload();
         }
-        ref.read(dttStoreProvider.notifier).removeTask(item);
+        await ref.read(dttStoreProvider.notifier).removeTask(item);
       },
     );
   }
