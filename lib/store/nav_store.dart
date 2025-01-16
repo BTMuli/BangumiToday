@@ -21,7 +21,7 @@ final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
 /// 侧边栏状态，用于控制侧边栏动态组件的加载与卸载
 class BTNavStore extends ChangeNotifier {
   /// 保留的顶部固定侧边栏
-  final int topNavCount = 3;
+  final int topNavCount = 4;
 
   /// 当前索引
   int curIndex = 0;

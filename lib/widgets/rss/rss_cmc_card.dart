@@ -8,6 +8,7 @@ import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../store/dtt_store.dart';
 import '../../tools/download_tool.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
@@ -60,6 +61,30 @@ class _RssCmcCardState extends ConsumerState<RssCmcCard> {
           ),
         ),
         Tooltip(
+          message: '内置下载',
+          child: IconButton(
+            icon: Icon(FluentIcons.download, color: color),
+            onPressed: () async {
+              var saveDir = await getDirectoryPath();
+              if (saveDir == null || saveDir.isEmpty) {
+                if (context.mounted) await BtInfobar.error(context, '未选择下载目录');
+                return;
+              }
+              var check = ref.read(dttStoreProvider.notifier).addTask(
+                    item,
+                    saveDir,
+                  );
+              if (check) {
+                if (context.mounted) {
+                  await BtInfobar.success(context, '添加下载任务成功');
+                }
+              } else {
+                if (context.mounted) await BtInfobar.warn(context, '已经在下载列表中');
+              }
+            },
+          ),
+        ),
+        Tooltip(
           message: '打开链接',
           child: IconButton(
             icon: Icon(FluentIcons.edge_logo, color: color),
@@ -96,7 +121,7 @@ class _RssCmcCardState extends ConsumerState<RssCmcCard> {
         children: [
           Text(
             title,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 8.h),
           Text(item.link ?? ''),

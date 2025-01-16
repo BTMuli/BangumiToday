@@ -118,7 +118,7 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
       leading: const Icon(FluentIcons.color),
       title: const Text('主题色'),
       subtitle: Text(
-        curAccentColor.value.toRadixString(16),
+        curAccentColor.colorValue.toRadixString(16),
         style: TextStyle(color: curAccentColor),
       ),
       trailing: SplitButton(

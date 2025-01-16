@@ -134,7 +134,7 @@ class BtsAppConfig {
 
   /// 写/更新主题色配置
   Future<void> writeAccentColor(AccentColor value) async {
-    await _instance.write('accentColor', value.value.toString());
+    await _instance.write('accentColor', value.colorValue.toString());
   }
 
   /// 读取 mikan token

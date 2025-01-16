@@ -17,6 +17,7 @@ class BtInfobarType {
 
   /// show
   Future<void> show() async {
+    if (!context.mounted) return;
     return await displayInfoBar(context, builder: (_, __) => infoBar);
   }
 }

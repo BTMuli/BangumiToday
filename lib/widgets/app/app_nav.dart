@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 
 // Project imports:
 import '../../pages/app/bmf_page.dart';
+import '../../pages/app/download_page.dart';
 import '../../pages/app/rss_page.dart';
 import '../../pages/app/setting_page.dart';
 import '../../pages/app/test_page.dart';
@@ -152,6 +153,11 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
         title: const Text('BMF配置'),
         body: const BmfPage(),
       ),
+      PaneItem(
+        icon: const Icon(FluentIcons.cloud_download),
+        title: const Text('下载管理'),
+        body: const DownloadPage(),
+      )
     ];
   }
 
