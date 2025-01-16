@@ -7,7 +7,6 @@ import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../pages/bangumi/bangumi_detail.dart';
 import '../../../request/bangumi/bangumi_api.dart';
-import '../../../store/bgm_user_hive.dart';
 import '../../../ui/bt_infobar.dart';
 import 'bsd_episode.dart';
 
@@ -16,11 +15,14 @@ class BsdUserEpisodes extends StatefulWidget {
   /// subjectInfo
   final BangumiSubject subject;
 
+  /// user
+  final BangumiUser? user;
+
   /// provider
   final BangumiDetailProvider provider;
 
   /// 构造函数
-  const BsdUserEpisodes(this.subject, this.provider, {super.key});
+  const BsdUserEpisodes(this.subject, this.user, this.provider, {super.key});
 
   @override
   State<BsdUserEpisodes> createState() => _BsdUserEpisodesState();
@@ -33,7 +35,7 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
   int get subjectId => widget.subject.id;
 
   /// 用户
-  BangumiUser? get user => BgmUserHive().user;
+  BangumiUser? get user => widget.user;
 
   /// 是否收藏
   late bool isCollection;
@@ -76,7 +78,7 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
         offset = 0;
         episodes.clear();
         userEpisodes.clear();
-        setState(() {});
+        if (mounted) setState(() {});
         await check();
         await load();
         if (mounted) await BtInfobar.success(context, '成功更新章节信息');

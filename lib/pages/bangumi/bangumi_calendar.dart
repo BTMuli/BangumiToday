@@ -403,7 +403,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           setState(() {});
           await getData();
         },
-        child: const Icon(FluentIcons.favorite_star),
+        child: const Icon(FluentIcons.favorite_star, color: Colors.white),
       ),
     );
   }

@@ -342,7 +342,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
           BsdUserCollection(data!, hiveUser.user!, provider),
           SizedBox(height: 12.h)
         ],
-        BsdUserEpisodes(data!, provider),
+        BsdUserEpisodes(data!, hiveUser.user, provider),
         SizedBox(height: 12.h),
         BsdBmfWidget(
           data!.id,
