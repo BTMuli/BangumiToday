@@ -2,6 +2,7 @@
 import 'package:dart_rss/dart_rss.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jiffy/jiffy.dart';
@@ -60,30 +61,31 @@ class _RssCmcCardState extends ConsumerState<RssCmcCard> {
             },
           ),
         ),
-        Tooltip(
-          message: '内置下载',
-          child: IconButton(
-            icon: Icon(FluentIcons.download, color: color),
-            onPressed: () async {
-              var saveDir = await getDirectoryPath();
-              if (saveDir == null || saveDir.isEmpty) {
-                if (context.mounted) await BtInfobar.error(context, '未选择下载目录');
-                return;
-              }
-              var check = await ref.read(dttStoreProvider.notifier).addTask(
-                    item,
-                    saveDir,
-                  );
-              if (check) {
-                if (context.mounted) {
-                  await BtInfobar.success(context, '添加下载任务成功');
+        if (kDebugMode)
+          Tooltip(
+            message: '内置下载',
+            child: IconButton(
+              icon: Icon(FluentIcons.download, color: color),
+              onPressed: () async {
+                var saveDir = await getDirectoryPath();
+                if (saveDir == null || saveDir.isEmpty) {
+                  if (context.mounted) {
+                    await BtInfobar.error(context, '未选择下载目录');
+                  }
+                  return;
                 }
-              } else {
+                var check = await ref.read(dttStoreProvider.notifier).addTask(
+                      item,
+                      saveDir,
+                    );
+                if (check && context.mounted) {
+                  await BtInfobar.success(context, '添加下载任务成功');
+                  return;
+                }
                 if (context.mounted) await BtInfobar.warn(context, '已经在下载列表中');
-              }
-            },
+              },
+            ),
           ),
-        ),
         Tooltip(
           message: '打开链接',
           child: IconButton(
