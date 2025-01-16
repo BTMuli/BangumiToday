@@ -46,7 +46,7 @@ class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
   Widget getTiles(double value, TitleMeta meta) {
     var style = TextStyle(fontWeight: FontWeight.bold, fontSize: 16.sp);
     return SideTitleWidget(
-      axisSide: AxisSide.left,
+      meta: meta,
       child: Text(value.toInt().toString(), style: style),
     );
   }
@@ -57,8 +57,8 @@ class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
     var title5 = [0, max * 0.2, max * 0.4, max * 0.6, max * 0.8, max];
     if (title5.contains(value)) {
       return SideTitleWidget(
+        meta: meta,
         space: 0,
-        axisSide: meta.axisSide,
         child: Text(value.toInt().toString(), style: style),
       );
     }
@@ -161,7 +161,7 @@ class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
           sideTitles: SideTitles(
             showTitles: true,
             getTitlesWidget: getTiles,
-            reservedSize: 20,
+            reservedSize: 25,
           ),
         ),
         leftTitles: AxisTitles(
