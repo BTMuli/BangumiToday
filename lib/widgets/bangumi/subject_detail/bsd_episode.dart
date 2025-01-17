@@ -70,14 +70,6 @@ class _BsdEpisodeState extends State<BsdEpisode> {
     return text;
   }
 
-  /// 获取Tooltip
-  String getTooltip() {
-    if (episode.nameCn.isEmpty) {
-      return episode.name;
-    }
-    return episode.nameCn;
-  }
-
   /// 构建Flyout
   void buildFlyout() {
     controller.showFlyout(
@@ -256,15 +248,14 @@ class _BsdEpisodeState extends State<BsdEpisode> {
   @override
   Widget build(BuildContext context) {
     var bgColor = getBgColor();
-    var tooltip = getTooltip();
     return FlyoutTarget(
       controller: controller,
       child: Button(
         style: ButtonStyle(backgroundColor: WidgetStatePropertyAll(bgColor)),
         onPressed: buildFlyout,
         child: Tooltip(
-          message: tooltip,
-          child: Text(text, style: TextStyle(fontSize: 16.sp)),
+          message: episode.nameCn.isEmpty ? episode.name : episode.nameCn,
+          child: Text(text, style: TextStyle(fontSize: 16)),
         ),
       ),
     );

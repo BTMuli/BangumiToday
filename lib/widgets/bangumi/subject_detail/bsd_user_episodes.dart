@@ -1,6 +1,5 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../../models/bangumi/bangumi_enum.dart';
@@ -125,14 +124,14 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
   /// buildEpHint 用于表示章节的提示信息
   Widget buildEpHint(BangumiEpType type) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4.sp),
+        borderRadius: BorderRadius.circular(4),
         color: FluentTheme.of(context).accentColor,
       ),
       child: Text(
         '${type.label} →',
-        style: const TextStyle(fontWeight: FontWeight.bold),
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
       ),
     );
   }
@@ -181,6 +180,6 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
   Widget build(BuildContext context) {
     super.build(context);
     if (episodes.isEmpty) return const SizedBox.shrink();
-    return Wrap(spacing: 8.w, runSpacing: 12.h, children: buildList());
+    return Wrap(spacing: 8, runSpacing: 8, children: buildList());
   }
 }

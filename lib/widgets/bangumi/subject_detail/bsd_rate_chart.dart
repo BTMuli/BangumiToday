@@ -44,7 +44,7 @@ class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
 
   /// 获取Tiles
   Widget getTiles(double value, TitleMeta meta) {
-    var style = TextStyle(fontWeight: FontWeight.bold, fontSize: 16.sp);
+    var style = TextStyle(fontWeight: FontWeight.bold, fontSize: 16);
     return SideTitleWidget(
       meta: meta,
       child: Text(value.toInt().toString(), style: style),
@@ -200,7 +200,7 @@ class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
                       '(${rating!.total}人评分)',
               style: FluentTheme.of(context).typography.subtitle,
             ),
-            SizedBox(height: 20.h),
+            SizedBox(height: 20),
             Expanded(child: BarChart(getData(context))),
           ],
         ),

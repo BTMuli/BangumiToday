@@ -337,22 +337,22 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
       children: [
         BsdOverview(data!),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12),
         if (hiveUser.user != null) ...[
           BsdUserCollection(data!, hiveUser.user!, provider),
-          SizedBox(height: 12.h)
+          SizedBox(height: 12)
         ],
         BsdUserEpisodes(data!, hiveUser.user, provider),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12),
         BsdBmfWidget(
           data!.id,
           data!.nameCn.isEmpty ? data!.name : data!.nameCn,
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12),
         BsdRelation(data!.id),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12),
         buildSummary(data!.summary),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12),
         buildOtherInfo(data!.infobox),
       ],
     );
