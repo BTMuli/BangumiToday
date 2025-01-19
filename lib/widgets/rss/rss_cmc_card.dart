@@ -125,15 +125,15 @@ class _RssCmcCardState extends ConsumerState<RssCmcCard> {
         children: [
           Text(
             title,
-            style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8),
           Text(item.link ?? ''),
           Text('发布者: ${item.author ?? ''}'),
           Text('发布时间: $time'),
           Text('资源类型: ${item.enclosure?.type ?? ''}'),
           Text('资源链接: ${item.enclosure?.url ?? ''}'),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8),
           buildAct(context),
         ],
       ),

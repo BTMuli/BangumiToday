@@ -90,10 +90,7 @@ class _RssCmcPageState extends State<RssCmcPage>
     } else {
       return ListView.builder(
         itemCount: rssItems.length,
-        itemBuilder: (context, index) {
-          var item = rssItems[index];
-          return RssCmcCard(item);
-        },
+        itemBuilder: (_, index) => RssCmcCard(rssItems[index]),
       );
     }
   }
@@ -115,10 +112,10 @@ class _RssCmcPageState extends State<RssCmcPage>
             child: buildContent(),
           ),
           Positioned(
-            bottom: 8.h,
-            right: 8.w,
+            bottom: 8,
+            right: 8,
             child: SizedBox(
-              width: 150.w,
+              width: 150,
               child: Image.asset('assets/images/platforms/comicat-kb.png'),
             ),
           ),
