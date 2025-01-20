@@ -299,7 +299,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       body: CalendarDay(data: getTabData(index), loading: isRequesting),
       semanticLabel: '星期${weekday[index]}',
       selectedBackgroundColor: FluentTheme.of(context).accentColor,
-      backgroundColor: FluentTheme.of(context).accentColor.withAlpha(20),
+      backgroundColor: FluentTheme.of(context).accentColor.withAlpha(60),
     );
   }
 
@@ -336,7 +336,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       trailing: Text(
         version,
         style: TextStyle(
-          color: FluentTheme.of(context).accentColor.withAlpha(50),
+          color: FluentTheme.of(context).accentColor.withAlpha(128),
         ),
       ),
       onPressed: refreshBgmData,

@@ -48,7 +48,7 @@ class AppRespErrWidget extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
-          color: Colors.white.withAlpha(20),
+          color: Colors.white.withAlpha(60),
         ),
         child: SingleChildScrollView(
           child: Text(text, style: TextStyle(fontSize: 20)),
