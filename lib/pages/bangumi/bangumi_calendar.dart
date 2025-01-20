@@ -229,6 +229,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       return;
     }
     progress.update(title: '成功获取远程版本，即将更新', text: '$version→$remote');
+    await Future.delayed(const Duration(milliseconds: 500));
+    progress.end();
     await updateData(remote);
   }
 
