@@ -17,6 +17,7 @@ import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../store/nav_store.dart';
 import '../../../ui/bt_dialog.dart';
+import '../../../ui/bt_infobar.dart';
 import '../../../utils/bangumi_utils.dart';
 
 /// 收藏卡片
@@ -187,6 +188,12 @@ class _BucCardState extends ConsumerState<BucCard>
                   subject: data.id,
                   paneTitle: data.nameCn == '' ? data.name : data.nameCn,
                 ),
+            onLongPress: () async {
+              var name = data.nameCn == '' ? data.name : data.nameCn;
+              ref.read(navStoreProvider).addNavItemB(
+                  type: '动画', subject: data.id, paneTitle: name, jump: false);
+              await BtInfobar.success(context, '$name 添加成功');
+            },
           ),
         ),
       ],

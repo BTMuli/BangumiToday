@@ -17,6 +17,7 @@ import '../../../models/app/response.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../store/nav_store.dart';
 import '../../../ui/bt_dialog.dart';
+import '../../../ui/bt_infobar.dart';
 import '../../../utils/bangumi_utils.dart';
 
 /// 今日放送-番剧卡片
@@ -145,8 +146,6 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
               }
               if (await canLaunchUrlString(data.url)) {
                 await launchUrlString(data.url);
-              } else {
-                throw 'Could not launch ${data.url}';
               }
             },
           ),
@@ -158,11 +157,15 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
               FluentIcons.info,
               color: FluentTheme.of(context).accentColor.light,
             ),
-            onPressed: () async {
-              var title = data.nameCn == '' ? data.name : data.nameCn;
-              ref
-                  .read(navStoreProvider)
-                  .addNavItemB(type: '动画', subject: data.id, paneTitle: title);
+            onPressed: () => ref.read(navStoreProvider).addNavItemB(
+                type: '动画',
+                subject: data.id,
+                paneTitle: data.nameCn == '' ? data.name : data.nameCn),
+            onLongPress: () async {
+              var name = data.nameCn == '' ? data.name : data.nameCn;
+              ref.read(navStoreProvider).addNavItemB(
+                  type: '动画', subject: data.id, paneTitle: name, jump: false);
+              await BtInfobar.success(context, '$name 添加成功');
             },
           ),
         ),

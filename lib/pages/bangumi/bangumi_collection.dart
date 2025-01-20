@@ -6,7 +6,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 // Project imports:
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../store/nav_store.dart';
-import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/user_collection/buc_tabview.dart';
 
 /// bangumi.tv 用户收藏页面
@@ -36,12 +35,14 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
     for (var i = 0; i < values.length; i++) {
       var type = values[i];
       if (type == BangumiCollectionType.unknown) continue;
-      result.add(Tab(
-        selectedBackgroundColor: FluentTheme.of(context).accentColor,
-        icon: Icon(type.icon),
-        text: Text(type.label),
-        body: BucTabView(type),
-      ));
+      result.add(
+        Tab(
+          selectedBackgroundColor: FluentTheme.of(context).accentColor,
+          icon: Icon(type.icon),
+          text: Text(type.label),
+          body: BucTabView(type),
+        ),
+      );
     }
     return result;
   }
@@ -79,13 +80,7 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
       tabs: buildTabs(),
       header: buildHeader(),
       currentIndex: tabIndex,
-      onChanged: (index) async {
-        if (index == tabIndex) {
-          await BtInfobar.warn(context, '已经在当前标签页');
-          return;
-        }
-        setState(() => tabIndex = index);
-      },
+      onChanged: (index) => setState(() => tabIndex = index),
       footer: buildFooter(),
       closeButtonVisibility: CloseButtonVisibilityMode.never,
       tabWidthBehavior: TabWidthBehavior.sizeToContent,

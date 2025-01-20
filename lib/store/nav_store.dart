@@ -74,6 +74,7 @@ class BTNavStore extends ChangeNotifier {
     String type = '条目',
     required int subject,
     String? paneTitle,
+    bool jump = true,
   }) {
     var title = '$type详情 $subject';
     if (paneTitle != null && paneTitle.isNotEmpty) title = paneTitle;
@@ -84,7 +85,7 @@ class BTNavStore extends ChangeNotifier {
     );
     var paneType = BtmAppNavItemType.subject;
     var param = 'subjectDetail_$subject';
-    addNavItem(pane, title, type: paneType, param: param);
+    addNavItem(pane, title, type: paneType, param: param, jump: jump);
   }
 
   /// 添加侧边栏动态组件
