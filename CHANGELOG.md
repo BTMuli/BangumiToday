@@ -2,12 +2,22 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2025-01-02
+Update: 2025-01-22
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:15`
 >
-> 更新于 `2025-01-02 09:12:33`
+> 更新于 `2025-01-22 11:06:48`
+
+## [v0.6.3](https://github.com/BTMuli/BangumiToday/releases/tag/v0.6.3) (2025-01-22)
+
+- 💄 移除详情页站点信息，调整放缩
+- 💄 调整BMF卡片UI
+- 🚸 修改收藏状态时同步更新章节信息
+- 🚸 订阅更新时单条目只发送一次通知
+- 🚸 用户收藏页保持状态
+- 🚸 调整侧边栏标题显示
+- 🐛 修复首页更新数据后loading未消失
 
 ## [v0.6.2](https://github.com/BTMuli/BangumiToday/releases/tag/v0.6.2) (2025-01-02)
 
