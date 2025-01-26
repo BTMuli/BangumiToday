@@ -198,21 +198,18 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
         ),
       );
     }
-    return Container(
-      margin: EdgeInsets.only(right: 12.w),
-      child: Expander(
-        leading: const Icon(FluentIcons.link),
-        header: Text('关联条目', style: TextStyle(fontSize: 20)),
-        trailing: Button(onPressed: load, child: const Text('刷新')),
-        content: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: 600.h),
-          child: SingleChildScrollView(
-            padding: EdgeInsets.zero,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: relations.map(buildRelationCard).toList(),
-            ),
+    return Expander(
+      leading: const Icon(FluentIcons.link),
+      header: Text('关联条目', style: TextStyle(fontSize: 20)),
+      trailing: Button(onPressed: load, child: const Text('刷新')),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: 600.h),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.zero,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: relations.map(buildRelationCard).toList(),
           ),
         ),
       ),

@@ -43,7 +43,7 @@ dependencies:
   file_selector: ^1.0.3
   fl_chart: ^0.70.0
   fluent_ui: ^4.10.0
-  fluentui_system_icons: ^1.1.270
+  fluentui_system_icons: ^1.1.271
   flutter:
     sdk: flutter
   flutter_acrylic: ^1.1.3

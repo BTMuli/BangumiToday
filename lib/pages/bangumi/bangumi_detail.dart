@@ -282,13 +282,11 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
         title: Text('没有简介', style: TextStyle(fontSize: 20)),
       );
     }
-    return Container(
-      margin: EdgeInsets.only(right: 12.w),
-      child: Expander(
-          initiallyExpanded: true,
-          leading: const Icon(FluentIcons.info),
-          header: Text('简介', style: TextStyle(fontSize: 20)),
-          content: Text(summary)),
+    return Expander(
+      initiallyExpanded: true,
+      leading: const Icon(FluentIcons.info),
+      header: Text('简介', style: TextStyle(fontSize: 20)),
+      content: Text(summary),
     );
   }
 
@@ -315,16 +313,13 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
       }
       res.add(SizedBox(height: 12.h));
     }
-    return Container(
-      margin: EdgeInsets.only(right: 12.w),
-      child: Expander(
-        leading: const Icon(FluentIcons.info),
-        header: Text('其他信息', style: TextStyle(fontSize: 20)),
-        content: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: res,
-        ),
+    return Expander(
+      leading: const Icon(FluentIcons.info),
+      header: Text('其他信息', style: TextStyle(fontSize: 20)),
+      content: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: res,
       ),
     );
   }
