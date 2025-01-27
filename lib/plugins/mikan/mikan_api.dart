@@ -9,7 +9,7 @@ import '../../request/core/client.dart';
 import '../../tools/log_tool.dart';
 import 'mikan_utils.dart';
 
-const String defaultMikanMirror = 'https://mikan.hakurei.red';
+const String defaultMikanMirror = 'https://mikanani.me';
 
 /// 蜜柑计划的API，主要是 rss 订阅
 /// 站点：https://mikanani.me
