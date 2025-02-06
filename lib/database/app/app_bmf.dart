@@ -106,8 +106,8 @@ class BtsAppBmf {
     await _instance.preCheck();
     if (model.rss != null && model.rss!.isNotEmpty) {
       var url = Uri.parse(model.rss!);
-      model.mkBgmId ??= url.queryParameters['bangumiId'];
-      model.mkGroupId ??= url.queryParameters['subgroupid'];
+      model.mkBgmId = url.queryParameters['bangumiId'];
+      model.mkGroupId = url.queryParameters['subgroupid'];
     }
     var result = await _instance.sqlite.db.query(
       _tableName,
