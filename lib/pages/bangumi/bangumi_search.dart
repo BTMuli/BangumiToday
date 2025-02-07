@@ -268,20 +268,16 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
   }
 
   /// 构建搜索框
-  /// todo 搜索结果与站点搜索结果不一致，详见 https://github.com/bangumi/server/issues/545
   Widget buildSearch() {
     return Row(
       children: [
         SizedBox(width: 16.w),
         IconButton(
           icon: const Icon(FluentIcons.search),
-          onPressed: () async {
-            await search();
-          },
+          onPressed: () async => await search(),
         ),
         SizedBox(width: 4.w),
-        SizedBox(
-          width: 600.w,
+        Flexible(
           child: TextBox(
             controller: textController,
             placeholder: '搜索内容',
@@ -294,7 +290,7 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
         // buildSortSelect(),
         // SizedBox(width: 8.w),
         buildNsfwCheck(),
-        const Spacer(),
+        SizedBox(width: 160.w),
         PageWidget(controller),
         SizedBox(width: 16.w),
       ],

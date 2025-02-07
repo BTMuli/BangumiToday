@@ -9,6 +9,7 @@ import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/request_subject.dart';
 import '../../../store/nav_store.dart';
 import '../../../ui/bt_icon.dart';
+import '../../../ui/bt_infobar.dart';
 import '../../../utils/bangumi_utils.dart';
 
 /// Bangumi 条目卡片-搜索结果
@@ -106,8 +107,9 @@ class _BscSearchState extends ConsumerState<BscSearch> {
 
   /// 构建卡片操作
   /// 左侧是评分/排名，右侧是相关操作
-  Widget buildAction() {
-    var scoreLabel = getBangumiRateLabel(subject.score);
+  Widget buildAction(BuildContext context) {
+    var scoreLabel = getBangumiRateLabel(subject.rating.score);
+    var paneTitle = subject.nameCn == '' ? subject.name : subject.nameCn;
     return Row(children: [
       Tooltip(
         message: '查看$label详情',
@@ -116,21 +118,27 @@ class _BscSearchState extends ConsumerState<BscSearch> {
           onPressed: () => ref.read(navStoreProvider).addNavItemB(
                 type: label,
                 subject: subject.id,
-                paneTitle: subject.nameCn == '' ? subject.name : subject.nameCn,
+                paneTitle: paneTitle,
               ),
+          onLongPress: () async {
+            ref.read(navStoreProvider).addNavItemB(
+                  type: label,
+                  subject: subject.id,
+                  paneTitle: paneTitle,
+                  jump: false,
+                );
+            if (context.mounted) {
+              await BtInfobar.success(context, '已将 $paneTitle 加入到标签页');
+            }
+          },
         ),
       ),
-      if (subject.rank != 0) ...[
-        const SizedBox(width: 4),
-        Text('#${subject.rank}'),
-      ],
-      const Spacer(),
-      Text('${subject.score}($scoreLabel)'),
+      Text('${subject.rating.score}($scoreLabel)'),
     ]);
   }
 
   /// 构建卡片信息
-  Widget buildInfo() {
+  Widget buildInfo(BuildContext context) {
     var name = subject.nameCn == '' ? subject.name : subject.nameCn;
     var subTitle = subject.nameCn == '' ? '' : subject.name;
     return Column(
@@ -160,7 +168,7 @@ class _BscSearchState extends ConsumerState<BscSearch> {
         const SizedBox(height: 4),
         buildTags(),
         const Spacer(),
-        buildAction(),
+        buildAction(context),
       ],
     );
   }
@@ -177,12 +185,12 @@ class _BscSearchState extends ConsumerState<BscSearch> {
             SizedBox(
               width: 100,
               height: 150,
-              child: buildCover(subject.image),
+              child: buildCover(subject.images.common),
             ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(8),
-                child: buildInfo(),
+                child: buildInfo(context),
               ),
             ),
           ],

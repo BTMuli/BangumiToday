@@ -345,23 +345,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     );
   }
 
-  /// 构建搜索按钮
-  MenuFlyoutItem buildFlyoutSearch(BuildContext context) {
-    var title = "Bangumi-条目搜索";
-    var pane = PaneItem(
-      icon: BtIcon(FluentIcons.search),
-      title: Text(title),
-      body: const BangumiSearchPage(),
-    );
-    return MenuFlyoutItem(
-      leading: BtIcon(FluentIcons.search),
-      text: const Text('Bangumi-条目搜索'),
-      onPressed: () async {
-        ref.read(navStoreProvider).addNavItem(pane, title);
-      },
-    );
-  }
-
   /// 构建flyout
   void buildFlyout() {
     controller.showFlyout(
@@ -372,7 +355,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         items: [
           buildFlyoutCollection(context),
           buildFlyoutData(context),
-          buildFlyoutSearch(context),
         ],
       ),
     );
@@ -390,6 +372,26 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         ),
         onPressed: buildFlyout,
         child: const Tooltip(message: '更多', child: Icon(FluentIcons.more)),
+      ),
+    );
+  }
+
+  /// 构建搜索按钮
+  Widget buildSearch(BuildContext context) {
+    return Tooltip(
+      message: '搜索条目',
+      child: FilledButton(
+        child: const Icon(FluentIcons.search, color: Colors.white),
+        onPressed: () {
+          ref.read(navStoreProvider).addNavItem(
+                PaneItem(
+                  icon: const Icon(FluentIcons.search),
+                  title: const Text('Bangumi-条目搜索'),
+                  body: const BangumiSearchPage(),
+                ),
+                'Bangumi-条目搜索',
+              );
+        },
       ),
     );
   }
@@ -413,6 +415,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   /// 构建 Tab 底部
   Widget buildTabFooter() {
     return Row(children: [
+      buildSearch(context),
+      SizedBox(width: 8.w),
       buildCollectSwitch(context),
       SizedBox(width: 8.w),
       buildFlyoutButton(context),

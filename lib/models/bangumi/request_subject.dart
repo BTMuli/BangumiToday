@@ -5,6 +5,7 @@ import 'package:json_annotation/json_annotation.dart';
 import '../app/response.dart';
 import 'bangumi_enum.dart';
 import 'bangumi_model.dart';
+import 'bangumi_model_patch.dart';
 
 /// bangumi.tv请求-条目模块的相关数据结构
 /// 见：https://bangumi.github.io/api/#/条目
@@ -162,18 +163,6 @@ class BangumiSubjectSearchData {
   @JsonKey(name: 'type')
   BangumiSubjectType? type;
 
-  /// date
-  @JsonKey(name: 'date')
-  String date;
-
-  /// image
-  @JsonKey(name: 'image')
-  String image;
-
-  /// summary
-  @JsonKey(name: 'summary')
-  String summary;
-
   /// name
   @JsonKey(name: 'name')
   String name;
@@ -182,30 +171,87 @@ class BangumiSubjectSearchData {
   @JsonKey(name: 'name_cn')
   String nameCn;
 
+  /// summary
+  @JsonKey(name: 'summary')
+  String summary;
+
+  /// series
+  @JsonKey(name: 'series')
+  bool series;
+
+  /// nsfw
+  @JsonKey(name: 'nsfw')
+  bool nsfw;
+
+  /// locked
+  @JsonKey(name: 'locked')
+  bool locked;
+
+  /// date
+  @JsonKey(name: 'date')
+  String? date;
+
+  /// platform
+  @JsonKey(name: 'platform')
+  String platform;
+
+  /// images
+  @JsonKey(name: 'images')
+  BangumiImages images;
+
+  /// infobox
+  @JsonKey(name: 'infobox')
+  dynamic infobox;
+
+  /// volumes
+  @JsonKey(name: 'volumes')
+  int volumes;
+
+  /// eps
+  @JsonKey(name: 'eps')
+  int eps;
+
+  /// total_episodes
+  @JsonKey(name: 'total_episodes')
+  int? totalEpisodes;
+
+  /// rating
+  @JsonKey(name: 'rating')
+  BangumiPatchRating rating;
+
+  /// collection
+  @JsonKey(name: 'collection')
+  BangumiPatchCollection collection;
+
+  /// meta_tags
+  @JsonKey(name: 'meta_tags')
+  List<String> metaTags;
+
   /// tags
   @JsonKey(name: 'tags')
   List<BangumiTag> tags;
-
-  /// score
-  @JsonKey(name: 'score')
-  double score;
-
-  /// rank，该数据不具有实时性
-  @JsonKey(name: 'rank')
-  int rank;
 
   /// constructor
   BangumiSubjectSearchData({
     required this.id,
     required this.type,
-    required this.date,
-    required this.image,
-    required this.summary,
     required this.name,
     required this.nameCn,
+    required this.summary,
+    required this.series,
+    required this.nsfw,
+    required this.locked,
+    required this.date,
+    required this.platform,
+    required this.images,
+    required this.infobox,
+    required this.volumes,
+    required this.eps,
+    required this.totalEpisodes,
+    required this.rating,
+    required this.collection,
+    required this.metaTags,
     required this.tags,
-    required this.score,
-    required this.rank,
   });
 
   /// from json

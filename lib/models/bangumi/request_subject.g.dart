@@ -86,16 +86,28 @@ BangumiSubjectSearchData _$BangumiSubjectSearchDataFromJson(
     BangumiSubjectSearchData(
       id: (json['id'] as num).toInt(),
       type: $enumDecodeNullable(_$BangumiSubjectTypeEnumMap, json['type']),
-      date: json['date'] as String,
-      image: json['image'] as String,
-      summary: json['summary'] as String,
       name: json['name'] as String,
       nameCn: json['name_cn'] as String,
+      summary: json['summary'] as String,
+      series: json['series'] as bool,
+      nsfw: json['nsfw'] as bool,
+      locked: json['locked'] as bool,
+      date: json['date'] as String?,
+      platform: json['platform'] as String,
+      images: BangumiImages.fromJson(json['images'] as Map<String, dynamic>),
+      infobox: json['infobox'],
+      volumes: (json['volumes'] as num).toInt(),
+      eps: (json['eps'] as num).toInt(),
+      totalEpisodes: (json['total_episodes'] as num?)?.toInt(),
+      rating:
+          BangumiPatchRating.fromJson(json['rating'] as Map<String, dynamic>),
+      collection: BangumiPatchCollection.fromJson(
+          json['collection'] as Map<String, dynamic>),
+      metaTags:
+          (json['meta_tags'] as List<dynamic>).map((e) => e as String).toList(),
       tags: (json['tags'] as List<dynamic>)
           .map((e) => BangumiTag.fromJson(e as Map<String, dynamic>))
           .toList(),
-      score: (json['score'] as num).toDouble(),
-      rank: (json['rank'] as num).toInt(),
     );
 
 Map<String, dynamic> _$BangumiSubjectSearchDataToJson(
@@ -103,14 +115,23 @@ Map<String, dynamic> _$BangumiSubjectSearchDataToJson(
     <String, dynamic>{
       'id': instance.id,
       'type': _$BangumiSubjectTypeEnumMap[instance.type],
-      'date': instance.date,
-      'image': instance.image,
-      'summary': instance.summary,
       'name': instance.name,
       'name_cn': instance.nameCn,
+      'summary': instance.summary,
+      'series': instance.series,
+      'nsfw': instance.nsfw,
+      'locked': instance.locked,
+      'date': instance.date,
+      'platform': instance.platform,
+      'images': instance.images.toJson(),
+      'infobox': instance.infobox,
+      'volumes': instance.volumes,
+      'eps': instance.eps,
+      'total_episodes': instance.totalEpisodes,
+      'rating': instance.rating.toJson(),
+      'collection': instance.collection.toJson(),
+      'meta_tags': instance.metaTags,
       'tags': instance.tags.map((e) => e.toJson()).toList(),
-      'score': instance.score,
-      'rank': instance.rank,
     };
 
 const _$BangumiSubjectTypeEnumMap = {
