@@ -163,7 +163,9 @@ class BgmUserHive extends ChangeNotifier {
   /// 检测是否过期，为null表示无法刷新
   Future<bool?> checkExpired() async {
     if (_refreshToken == null || _refreshToken!.isEmpty) return null;
-    if (_expireTime != null && DateTime.now().isBefore(_expireTime!)) {
+    if (_expireTime != null) {
+      var diff = _expireTime!.difference(DateTime.now());
+      if (diff.inDays <= 1) return true;
       return false;
     }
     return true;
