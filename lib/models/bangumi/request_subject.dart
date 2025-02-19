@@ -193,7 +193,7 @@ class BangumiSubjectSearchData {
 
   /// platform
   @JsonKey(name: 'platform')
-  String platform;
+  String? platform;
 
   /// images
   @JsonKey(name: 'images')

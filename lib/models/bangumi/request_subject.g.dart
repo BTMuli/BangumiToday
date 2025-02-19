@@ -93,7 +93,7 @@ BangumiSubjectSearchData _$BangumiSubjectSearchDataFromJson(
       nsfw: json['nsfw'] as bool,
       locked: json['locked'] as bool,
       date: json['date'] as String?,
-      platform: json['platform'] as String,
+      platform: json['platform'] as String?,
       images: BangumiImages.fromJson(json['images'] as Map<String, dynamic>),
       infobox: json['infobox'],
       volumes: (json['volumes'] as num).toInt(),
