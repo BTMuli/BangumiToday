@@ -30,7 +30,6 @@ linter:
     - avoid_unnecessary_containers
     - lines_longer_than_80_chars
     - no_literal_bool_comparisons
-    - package_api_docs
     - sized_box_for_whitespace
     - sized_box_shrink_expand
     - unawaited_futures
