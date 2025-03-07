@@ -6,6 +6,7 @@ import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../database/app/app_config.dart';
 import '../../tools/download_tool.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
@@ -18,13 +19,24 @@ class RssMikanCard2 extends StatelessWidget {
   /// 目录，可选
   final String? dir;
 
+  /// app数据库
+  final BtsAppConfig sqliteConfig = BtsAppConfig();
+
   /// 构造函数
-  const RssMikanCard2(this.item, {super.key, this.dir});
+  RssMikanCard2(this.item, {super.key, this.dir});
 
   /// 下载
   Future<void> download(BuildContext context) async {
     assert(item.enclosure != null && item.enclosure!.url != null);
     assert(item.title != null && item.title != '');
+    // 获取mikan下载链接
+    var mikanUrl = await sqliteConfig.readMikanUrl();
+    var urlReal = item.enclosure!.url!;
+    if (mikanUrl != null && mikanUrl.isNotEmpty) {
+      var url = Uri.parse(item.enclosure!.url!);
+      var urlDomain = '${url.scheme}://${url.host}';
+      urlReal = item.enclosure!.url!.replaceFirst(urlDomain, mikanUrl);
+    }
     String? saveDir;
     if (dir == null || dir!.isEmpty) {
       saveDir = await getDirectoryPath();
@@ -35,15 +47,18 @@ class RssMikanCard2 extends StatelessWidget {
       if (context.mounted) await BtInfobar.error(context, '未选择下载目录');
       return;
     }
-    var savePath = await BTDownloadTool().downloadRssTorrent(
-      item.enclosure!.url!,
-      item.title!,
-    );
-    if (savePath != '') {
-      await launchUrlString(
-        'mo://new-task/?type=torrent&dir=$saveDir',
+    if (context.mounted) {
+      var savePath = await BTDownloadTool().downloadRssTorrent(
+        urlReal,
+        item.title!,
+        context: context,
       );
-      await launchUrlString('file://$savePath');
+      if (savePath != '') {
+        await launchUrlString(
+          'mo://new-task/?type=torrent&dir=$saveDir',
+        );
+        await launchUrlString('file://$savePath');
+      }
     }
   }
 
@@ -57,9 +72,7 @@ class RssMikanCard2 extends StatelessWidget {
           message: '下载',
           child: IconButton(
             icon: Icon(FluentIcons.link, color: color),
-            onPressed: () async {
-              await download(context);
-            },
+            onPressed: () async => await download(context),
           ),
         ),
         Tooltip(
@@ -114,16 +127,24 @@ class RssMikanCard2 extends StatelessWidget {
             Row(
               children: [
                 const Text('发布时间: '),
-                Text(pubDate,
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  pubDate,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
             Row(
               children: [
                 const Text('资源大小: '),
-                Text(sizeStr,
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  sizeStr,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             buildAct(context),
