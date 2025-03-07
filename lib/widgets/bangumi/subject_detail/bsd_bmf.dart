@@ -7,6 +7,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../../controller/app/progress_controller.dart';
@@ -86,8 +87,7 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
   Future<void> init() async {
     var bmfGet = await sqliteBmf.read(widget.subjectId);
     if (bmfGet == null) return;
-    bmf = bmfGet;
-    setState(() {});
+    setState(() => bmf = bmfGet);
   }
 
   /// 获取title
@@ -180,8 +180,7 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
     await sqliteBmf.write(bmf);
     var read = await sqliteBmf.read(bmf.subject);
     if (read != null) {
-      bmf = read;
-      setState(() {});
+      setState(() => bmf = read);
     }
     if (mounted) await BtInfobar.success(context, '成功设置 MikanRSS');
   }
@@ -213,10 +212,18 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
       title: '删除 BMF',
       content: '确定删除 BMF 信息吗？',
     );
-    if (!confirm) return;
+    if (!confirm || !mounted) return;
+    var delDirCheck = await showConfirm(
+      context,
+      title: '删除下载目录',
+      content: '是否删除下载目录？',
+    );
     await sqliteBmf.delete(bmf.subject);
     if (bmf.rss != null && bmf.rss!.isNotEmpty) {
       await sqliteRss.delete(bmf.rss!);
+    }
+    if (delDirCheck && bmf.download != null && bmf.download!.isNotEmpty) {
+      await fileTool.deleteDir(bmf.download!);
     }
     if (mounted) await BtInfobar.success(context, '成功删除 BMF 信息');
     bmf = AppBmfModel(subject: widget.subjectId);
@@ -242,7 +249,9 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
       message: hasRss ? '修改 RSS' : '设置 RSS',
       child: IconButton(
         icon: BtIcon(hasRss ? MdiIcons.rssBox : MdiIcons.rss),
-        onPressed: updateRss,
+        onPressed: () async => await updateRss(),
+        onLongPress:
+            hasRss ? () async => await launchUrlString(bmf.rss!) : null,
       ),
     );
   }
@@ -255,6 +264,7 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
       child: IconButton(
         icon: BtIcon(hasFolder ? MdiIcons.folderOpen : MdiIcons.folder),
         onPressed: updateFolder,
+        onLongPress: () async => await fileTool.openDir(bmf.download!),
       ),
     );
   }

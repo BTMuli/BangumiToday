@@ -61,7 +61,6 @@ dependencies:
   logger: ^2.5.0
   material_design_icons_flutter: ^7.0.7296
   package_info_plus: ^8.1.2
-  pasteboard: ^0.3.0
   path: ^1.9.0
   path_provider: ^2.1.5
   provider: ^6.1.2

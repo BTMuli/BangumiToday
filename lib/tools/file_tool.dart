@@ -127,4 +127,11 @@ class BTFileTool {
     var dir = path.join(await getAppDataDir(), 'screenshots');
     await openDir(dir);
   }
+
+  /// 删除目录
+  Future<void> deleteDir(String dirPath) async {
+    var check = await isDirExist(dirPath);
+    if (!check) return;
+    await Directory(dirPath).delete(recursive: true);
+  }
 }

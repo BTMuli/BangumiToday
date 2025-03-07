@@ -7,7 +7,7 @@ import 'package:dart_rss/domain/rss_item.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:pasteboard/pasteboard.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:xml/xml.dart';
 
 // Project imports:
@@ -20,7 +20,7 @@ import '../../../store/nav_store.dart';
 import '../../../tools/log_tool.dart';
 import '../../../tools/notifier_tool.dart';
 import '../../../ui/bt_dialog.dart';
-import '../../../ui/bt_infobar.dart';
+import '../../../ui/bt_icon.dart';
 import '../../rss/rss_mk_card.dart';
 
 /// bmf RSS部分的组件
@@ -100,6 +100,14 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
       setState(() {});
       await freshRss();
     });
+  }
+
+  @override
+  void didUpdateWidget(BsdBmfRss oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.bmf.rss != widget.bmf.rss) {
+      Future.microtask(() async => await freshRss());
+    }
   }
 
   /// dispose
@@ -216,20 +224,35 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
 
   /// buildRssTitle
   Widget buildTitle() {
-    return Row(
-      children: [
-        Button(
-          onPressed: freshRss,
-          onLongPress: () async {
-            Pasteboard.writeText(bmf.rss!);
-            if (mounted) await BtInfobar.success(context, '已复制 RSS 链接');
-          },
-          child: const Text('刷新'),
+    var rssLink = getRss();
+    return Flex(direction: Axis.horizontal, children: [
+      Flexible(
+        child: Tooltip(
+          message: rssLink,
+          child: Text(
+            'Mikan RSS: $rssLink',
+            style: TextStyle(fontSize: 20),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-        SizedBox(width: 12.w),
-        Text('Mikan RSS: ${getRss()}', style: TextStyle(fontSize: 20)),
-      ],
-    );
+      ),
+      const SizedBox(width: 8),
+      Tooltip(
+        message: '刷新 RSS',
+        child: IconButton(
+          icon: BtIcon(FluentIcons.refresh),
+          onPressed: freshRss,
+        ),
+      ),
+      Tooltip(
+        message: '打开 RSS',
+        child: IconButton(
+          icon: BtIcon(FluentIcons.edge_logo),
+          onPressed: () async => await launchUrlString(rssLink),
+        ),
+      )
+    ]);
   }
 
   @override
@@ -239,7 +262,7 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         buildTitle(),
-        SizedBox(height: 12.h),
+        const SizedBox(height: 12),
         if (rssItems.isEmpty)
           const Text('没有找到任何 RSS 信息')
         else

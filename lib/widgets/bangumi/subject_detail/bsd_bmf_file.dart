@@ -5,7 +5,6 @@ import 'dart:async';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:pasteboard/pasteboard.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -182,27 +181,49 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
   }
 
   /// buildTitle
-  /// buildDirTitle
   Widget buildTitle() {
-    return Row(
+    return Flex(
+      direction: Axis.horizontal,
       children: [
-        Button(
-          child: const Text('刷新'),
-          onPressed: () async {
-            if (widget.bmfFile.isEmpty) {
-              await BtInfobar.error(context, '请先设置下载目录');
-              return;
-            }
-            await refreshFiles();
-            if (mounted) await BtInfobar.success(context, '刷新文件成功');
-          },
-          onLongPress: () async {
-            Pasteboard.writeText(widget.bmfFile);
-            if (mounted) await BtInfobar.success(context, '已复制下载目录');
-          },
+        Flexible(
+          child: Tooltip(
+            message: widget.bmfFile,
+            child: Text(
+              '下载目录: ${widget.bmfFile}',
+              style: TextStyle(fontSize: 20),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ),
-        SizedBox(width: 12.w),
-        Text('下载目录: ${widget.bmfFile}', style: TextStyle(fontSize: 20)),
+        const SizedBox(width: 8),
+        Tooltip(
+          message: '刷新文件',
+          child: IconButton(
+            icon: BtIcon(FluentIcons.refresh),
+            onPressed: () async {
+              if (widget.bmfFile.isEmpty) {
+                await BtInfobar.error(context, '请先设置下载目录');
+                return;
+              }
+              await refreshFiles();
+              if (mounted) await BtInfobar.success(context, '刷新文件成功');
+            },
+          ),
+        ),
+        Tooltip(
+          message: '打开目录',
+          child: IconButton(
+            icon: BtIcon(FluentIcons.folder),
+            onPressed: () async {
+              if (widget.bmfFile.isEmpty) {
+                await BtInfobar.error(context, '请先设置下载目录');
+                return;
+              }
+              await fileTool.openDir(widget.bmfFile);
+            },
+          ),
+        ),
       ],
     );
   }
@@ -213,7 +234,7 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         buildTitle(),
-        SizedBox(height: 12.h),
+        const SizedBox(height: 12),
         buildFiles(),
       ],
     );
