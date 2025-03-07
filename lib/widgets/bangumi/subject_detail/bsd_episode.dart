@@ -107,6 +107,36 @@ class _BsdEpisodeState extends State<BsdEpisode> {
     await freshUserEpisodes();
   }
 
+  /// 更新章节收藏状态-快速
+  Future<void> updateTypeQ(BuildContext context) async {
+    if (userEpisode == null) {
+      if (context.mounted) {
+        await BtInfobar.warn(context, '未获取到用户收藏状态');
+      }
+      return;
+    }
+    BangumiEpisodeCollectionType target;
+    if (userEpisode!.type != BangumiEpisodeCollectionType.done) {
+      target = BangumiEpisodeCollectionType.done;
+    } else {
+      target = BangumiEpisodeCollectionType.none;
+    }
+    var resp = await api.updateCollectionEpisode(
+      type: target,
+      episode: episode.id,
+    );
+    if (resp.code != 0) {
+      if (context.mounted) {
+        await showRespErr(resp, context, title: '更新章节 $text 状态失败');
+      }
+      return;
+    }
+    if (context.mounted) {
+      await BtInfobar.success(context, '成功更新章节 $text 状态为 ${target.label}');
+    }
+    await freshUserEpisodes();
+  }
+
   /// 获取当前状态对应的图标
   IconData getIcon(BangumiEpisodeCollectionType? type) {
     if (type == null) {
@@ -253,6 +283,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
       child: Button(
         style: ButtonStyle(backgroundColor: WidgetStatePropertyAll(bgColor)),
         onPressed: buildFlyout,
+        onLongPress: () async => await updateTypeQ(context),
         child: Tooltip(
           message: episode.nameCn.isEmpty ? episode.name : episode.nameCn,
           child: Text(text, style: TextStyle(fontSize: 16)),

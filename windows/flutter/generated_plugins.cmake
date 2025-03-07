@@ -8,7 +8,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_acrylic
   isar_flutter_libs
   local_notifier
-  pasteboard
   screen_retriever_windows
   system_theme
   url_launcher_windows
