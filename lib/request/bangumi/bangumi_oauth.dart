@@ -27,7 +27,6 @@ class BtrBangumiOauth {
 
   /// 打开授权页面
   Future<void> openAuthorizePage() async {
-    // todo 前置判断是否已经授权
     var appId = getBgmAppId();
     var params = BangumiOauthParams(appId: appId);
     var url = Uri(

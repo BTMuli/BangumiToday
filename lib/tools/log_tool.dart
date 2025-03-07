@@ -30,10 +30,10 @@ class BTLogTool {
   static final BTLogTool instance = BTLogTool._();
 
   /// 日志
-  late Logger logger;
+  static late Logger logger;
 
   /// 日志目录
-  late String logDir;
+  static late String logDir;
 
   /// 获取实例
   factory BTLogTool() => instance;
@@ -48,7 +48,7 @@ class BTLogTool {
   }
 
   /// 获取日志文件
-  Future<File> _getLogFile() async {
+  static Future<File> _getLogFile() async {
     var file = path.join(logDir, _getFileName());
     if (!await instance.fileTool.isFileExist(file)) {
       return await instance.fileTool.createFile(file);
@@ -57,7 +57,7 @@ class BTLogTool {
   }
 
   /// 初始化
-  Future<void> init() async {
+  static Future<void> init() async {
     logDir = await instance.fileTool.getAppDataPath('log');
     var outputC = ConsoleOutput();
     var outputs = <LogOutput>[outputC];
@@ -100,7 +100,7 @@ class BTLogTool {
     if (message is List<String>) {
       str = message.join('\n');
     }
-    instance.logger.log(Level.info, str);
+    logger.log(Level.info, str);
   }
 
   /// 打印警告日志
@@ -109,7 +109,7 @@ class BTLogTool {
     if (message is List<String>) {
       str = message.join('\n');
     }
-    instance.logger.log(Level.warning, str);
+    logger.log(Level.warning, str);
   }
 
   /// 打印错误日志
@@ -118,6 +118,6 @@ class BTLogTool {
     if (message is List<String>) {
       str = message.join('\n');
     }
-    instance.logger.log(Level.error, str);
+    logger.log(Level.error, str);
   }
 }

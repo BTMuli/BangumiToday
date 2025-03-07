@@ -20,7 +20,7 @@ class BTSqlite {
   factory BTSqlite() => _instance;
 
   /// 获取数据库路径
-  Future<String> getDbPath() async {
+  static Future<String> getDbPath() async {
     var fileTool = BTFileTool();
     var dir = await fileTool.getAppDataDir();
     var dbPath = path.join(dir, 'app', 'BangumiToday.db');
@@ -31,7 +31,7 @@ class BTSqlite {
   }
 
   /// 初始化
-  Future<void> init() async {
+  static Future<void> init() async {
     var ffi = databaseFactoryFfi;
     sqfliteFfiInit();
     var path = await getDbPath();

@@ -23,12 +23,12 @@ class BTHiveTool {
   final BTFileTool fileTool = BTFileTool();
 
   /// 获取应用数据目录
-  Future<String> getDataDir() async {
+  static Future<String> getDataDir() async {
     return await instance.fileTool.getAppDataPath('hive');
   }
 
   /// 初始化
-  Future<void> init() async {
+  static Future<void> init() async {
     var dir = await getDataDir();
     await instance.fileTool.createDir(dir);
     Hive.init(dir);
@@ -39,27 +39,27 @@ class BTHiveTool {
   }
 
   /// 初始化 navHiveBox
-  Future<void> initNavHiveBox() async {
+  static Future<void> initNavHiveBox() async {
     Hive.registerAdapter(BtmAppNavItemAdapter());
     await Hive.openBox<BtmAppNavHive>('nav');
   }
 
   /// 初始化 bgmUserHiveBox
-  Future<void> initBgmUserHiveBox() async {
+  static Future<void> initBgmUserHiveBox() async {
     Hive.registerAdapter(BgmUserHiveAdapter());
     await Hive.openBox<BgmUserHiveModel>('bgmUser');
     await BgmUserHive().initUser();
   }
 
   /// 初始化 trackerHiveBox
-  Future<void> initTrackerHiveBox() async {
+  static Future<void> initTrackerHiveBox() async {
     Hive.registerAdapter(TrackerHiveAdapter());
     await Hive.openBox<TrackerHiveModel>('tracker');
     await TrackerHive().init();
   }
 
   /// 初始化 dttHiveBox
-  Future<void> initDttHiveBox() async {
+  static Future<void> initDttHiveBox() async {
     Hive.registerAdapter(RssItemAdapter());
     Hive.registerAdapter(DttItemAdapter());
     await Hive.openBox<DttHiveModel>('dtt');

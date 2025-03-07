@@ -66,7 +66,7 @@ class BTNotifierTool {
   factory BTNotifierTool() => _instance;
 
   /// 初始化
-  Future<void> init() async {
+  static Future<void> init() async {
     await localNotifier.setup(appName: 'BangumiToday');
   }
 

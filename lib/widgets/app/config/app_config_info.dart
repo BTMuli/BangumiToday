@@ -146,7 +146,7 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
     return ListTile(
       leading: const Icon(FluentIcons.folder_search),
       title: const Text('日志信息'),
-      subtitle: Text(logTool.logDir),
+      subtitle: Text(BTLogTool.logDir),
       trailing: IconButton(
         icon: BtIcon(MdiIcons.folderOpen),
         onPressed: logTool.openLogDir,

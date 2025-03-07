@@ -2,7 +2,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -21,10 +21,10 @@ void main() async {
   await dotenv.load(fileName: ".env");
 
   /// 初始化配置
-  await BTLogTool().init();
-  await BTNotifierTool().init();
-  await BTSqlite().init();
-  await BTHiveTool().init();
+  await BTLogTool.init();
+  await BTNotifierTool.init();
+  await BTSqlite.init();
+  await BTHiveTool.init();
   WindowOptions windowOpts = const WindowOptions(
     title: 'BangumiToday',
     size: Size(1280, 720),
