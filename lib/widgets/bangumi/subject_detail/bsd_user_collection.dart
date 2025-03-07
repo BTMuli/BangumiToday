@@ -267,21 +267,6 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
     );
   }
 
-  /// 刷新状态的button
-  Widget buildFreshBtn() {
-    return Button(
-      child: const Text('刷新状态'),
-      onPressed: () async {
-        await init();
-        if (mounted) {
-          await BtInfobar.success(context, '条目 ${subject.id} 状态刷新成功');
-        }
-      },
-    );
-  }
-
-  /// 构建站点按钮
-
   /// 未收藏
   Widget buildUnCollection() {
     return Row(
@@ -338,8 +323,6 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           '未收藏',
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        SizedBox(width: 8),
-        buildFreshBtn(),
       ],
     );
   }
@@ -410,9 +393,6 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
         ),
         SizedBox(width: 8),
         buildRateBox(),
-        SizedBox(width: 8),
-        buildFreshBtn(),
-        SizedBox(width: 8),
       ],
     );
   }
