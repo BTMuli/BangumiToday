@@ -43,7 +43,7 @@ class BtInfobarQueue extends ChangeNotifier {
       queue.removeAt(0);
       notifyListeners();
     }
-    timer = Timer.periodic(Duration(seconds: 3), (timer) async {
+    timer = Timer.periodic(Duration(seconds: 1), (timer) async {
       if (queue.isEmpty) {
         timer.cancel();
         return;
