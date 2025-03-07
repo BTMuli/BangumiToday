@@ -102,7 +102,6 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
       if (mounted) await showRespErr(resp, context);
     } else {
       collectionType = type;
-      widget.provider.set(true);
       if (mounted) {
         await BtInfobar.success(
           context,
@@ -323,6 +322,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
                             this.context,
                             '条目 ${subject.id} 添加到收藏列表成功',
                           );
+                          widget.provider.set(true);
                           await init();
                         }
                       },
