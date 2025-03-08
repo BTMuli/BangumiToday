@@ -104,15 +104,13 @@ class _BsdEpisodeState extends State<BsdEpisode> {
     if (mounted) {
       await BtInfobar.success(context, '成功更新章节 $text 状态为 ${type.label}');
     }
-    await freshUserEpisodes();
+    setState(() => userEpisode!.type = type);
   }
 
   /// 更新章节收藏状态-快速
-  Future<void> updateTypeQ(BuildContext context) async {
+  Future<void> updateTypeQ() async {
     if (userEpisode == null) {
-      if (context.mounted) {
-        await BtInfobar.warn(context, '未获取到用户收藏状态');
-      }
+      await BtInfobar.warn(context, '未找到章节 $text 的章节信息');
       return;
     }
     BangumiEpisodeCollectionType target;
@@ -126,15 +124,15 @@ class _BsdEpisodeState extends State<BsdEpisode> {
       episode: episode.id,
     );
     if (resp.code != 0) {
-      if (context.mounted) {
+      if (mounted) {
         await showRespErr(resp, context, title: '更新章节 $text 状态失败');
       }
       return;
     }
-    if (context.mounted) {
+    if (mounted) {
       await BtInfobar.success(context, '成功更新章节 $text 状态为 ${target.label}');
     }
-    await freshUserEpisodes();
+    setState(() => userEpisode!.type = target);
   }
 
   /// 获取当前状态对应的图标
@@ -282,8 +280,8 @@ class _BsdEpisodeState extends State<BsdEpisode> {
       controller: controller,
       child: Button(
         style: ButtonStyle(backgroundColor: WidgetStatePropertyAll(bgColor)),
-        onPressed: buildFlyout,
-        onLongPress: () async => await updateTypeQ(context),
+        onPressed: updateTypeQ,
+        onLongPress: buildFlyout,
         child: Tooltip(
           message: episode.nameCn.isEmpty ? episode.name : episode.nameCn,
           child: Text(text, style: TextStyle(fontSize: 16)),
