@@ -36,7 +36,7 @@ class BtrBangumiApi {
   }
 
   /// 获取需要访问令牌的 header 项
-  Future<Map<String, dynamic>> getAuthHeader() async {
+  Map<String, dynamic> getAuthHeader() {
     if (hive.tokenAC == null || hive.tokenAC!.isEmpty) {
       return client.dio.options.headers;
     }
@@ -112,7 +112,7 @@ class BtrBangumiApi {
     BTLogTool.info('searchSubjectsData: ${jsonEncode(data)}');
     BTLogTool.info('searchSubjectsParams: ${jsonEncode(params)}');
     try {
-      var authHeader = await getAuthHeader();
+      var authHeader = getAuthHeader();
       var resp = await client.dio.post(
         '/v0/search/subjects',
         queryParameters: params,
@@ -145,7 +145,7 @@ class BtrBangumiApi {
   /// 获取番剧详情
   Future<BTResponse> getSubjectDetail(String id) async {
     try {
-      var authHeader = await getAuthHeader();
+      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/subjects/$id',
         options: Options(headers: authHeader, contentType: 'application/json'),
@@ -175,7 +175,7 @@ class BtrBangumiApi {
   /// 获取条目关联条目
   Future<BTResponse> getSubjectRelations(int id) async {
     try {
-      var authHeader = await getAuthHeader();
+      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/subjects/$id/subjects',
         options: Options(headers: authHeader, contentType: 'application/json'),
@@ -221,7 +221,7 @@ class BtrBangumiApi {
     if (limit != null) params['limit'] = limit;
     if (offset != null) params['offset'] = offset;
     try {
-      var authHeader = await getAuthHeader();
+      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/episodes',
         queryParameters: params,
@@ -257,7 +257,7 @@ class BtrBangumiApi {
   /// 获取用户信息
   Future<BTResponse> getUserInfo() async {
     try {
-      var authHeader = await getAuthHeader();
+      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/me',
         options: Options(headers: authHeader, contentType: 'application/json'),
@@ -299,7 +299,7 @@ class BtrBangumiApi {
     if (limit != null) params['limit'] = limit;
     if (offset != null) params['offset'] = offset;
     try {
-      var authHeader = await getAuthHeader();
+      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/users/$username/collections',
         queryParameters: params,
@@ -337,7 +337,7 @@ class BtrBangumiApi {
     int subjectId,
   ) async {
     try {
-      var authHeader = await getAuthHeader();
+      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/users/$username/collections/$subjectId',
         options: Options(headers: authHeader, contentType: 'application/json'),
@@ -385,7 +385,7 @@ class BtrBangumiApi {
   /// 新增用户单个条目的收藏
   Future<BTResponse> addCollectionSubject(int subjectId) async {
     try {
-      var authHeader = await getAuthHeader();
+      var authHeader = getAuthHeader();
       await client.dio.post(
         '/v0/users/-/collections/$subjectId',
         data: {'type': BangumiCollectionType.wish.value},
@@ -432,7 +432,7 @@ class BtrBangumiApi {
     if (private != null) data['private'] = private;
     if (tags != null) data['tags'] = tags;
     try {
-      var authHeader = await getAuthHeader();
+      var authHeader = getAuthHeader();
       var resp = await client.dio.patch(
         '/v0/users/-/collections/$subjectId',
         data: data,
@@ -470,7 +470,7 @@ class BtrBangumiApi {
     if (limit != null) params['limit'] = limit;
     if (type != null) params['type'] = type.value;
     try {
-      var authHeader = await getAuthHeader();
+      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/users/-/collections/$subjectId/episodes',
         queryParameters: params,
@@ -505,7 +505,7 @@ class BtrBangumiApi {
   /// 获取用户单个章节收藏
   Future<BTResponse> getCollectionEpisode(int episodeId) async {
     try {
-      var authHeader = await getAuthHeader();
+      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/users/-/collections/-/episodes/$episodeId',
         options: Options(headers: authHeader, contentType: 'application/json'),
@@ -539,7 +539,7 @@ class BtrBangumiApi {
     required int episode,
   }) async {
     try {
-      var authHeader = await getAuthHeader();
+      var authHeader = getAuthHeader();
       var resp = await client.dio.put(
         '/v0/users/-/collections/-/episodes/$episode',
         queryParameters: {'episode_id': episode},
