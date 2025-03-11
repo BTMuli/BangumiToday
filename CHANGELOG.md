@@ -2,12 +2,22 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2025-01-22
+Update: 2025-03-11
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:15`
 >
-> 更新于 `2025-01-22 11:06:48`
+> 更新于 `2025-03-11 09:39:27`
+
+## [v0.6.4](https://github.com/BTMuli/BangumiToday/releases/tag/v0.6.4) (2025-03-11)
+
+- 💄 调整多处UI
+- 🐛 修复更新RSS链接失败
+- 🐛 修复rss页面下载异常
+- 🐛 修复收藏时剧集未更新
+- 👽️ 适配搜索结果返回，修复搜索异常
+- 🚸 缩短底部提示显示间隔
+- 🚸 短按剧集快速切换收藏状态，长按自定义收藏状态
 
 ## [v0.6.3](https://github.com/BTMuli/BangumiToday/releases/tag/v0.6.3) (2025-01-22)
 
