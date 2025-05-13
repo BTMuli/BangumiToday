@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2025-01-17
+Update: 2025-05-13
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2025-01-17 17:20:38`
+> 更新于 `2025-05-13 10:24:09`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -28,7 +28,6 @@ Update: 2025-01-17
 
 结合本地目录，提供番剧更新提醒、SSR订阅&下载、进度记录等功能。
 
-
 ## 下载
 
 > 程序已经通过微软商店审核，可以直接在商店下载。
@@ -36,8 +35,6 @@ Update: 2025-01-17
 <a href="https://apps.microsoft.com/detail/9phwnbm93jzn?mode=direct">
 	<img src="https://get.microsoft.com/images/zh-cn%20dark.svg" width="200" alt="icon"/>
 </a>
-
-通过 [Github Release](https://github.com/BTMuli/BangumiToday/releases/latest) 下载的则需安装证书，见下方[关于证书](#关于证书)。
 
 ## 使用前提
 
