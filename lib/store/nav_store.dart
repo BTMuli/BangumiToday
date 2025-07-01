@@ -144,7 +144,9 @@ class BTNavStore extends ChangeNotifier {
     var findIndex = getNavIndex(type, title, param);
     if (findIndex == -1) return;
     _navItems.removeAt(findIndex);
-    if (lastIndex > _navItems.length + topNavCount - 1) {
+    if (curIndex != findIndex + topNavCount) {
+      // 如果当前索引不是被删除的索引，则不变
+    } else if (lastIndex > _navItems.length + topNavCount - 1) {
       curIndex = 0;
     } else {
       curIndex = lastIndex;
