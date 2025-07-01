@@ -267,8 +267,21 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
     );
   }
 
+  /// 添加到收藏列表
+  Future<void> addToCollection(BuildContext context) async {
+    var resp = await api.addCollectionSubject(subject.id);
+    if (!context.mounted) return;
+    if (resp.code != 0) {
+      await showRespErr(resp, context, title: '添加收藏失败');
+      return;
+    }
+    await BtInfobar.success(context, '条目 ${subject.id} 添加到收藏列表成功');
+    widget.provider.set(true);
+    await init();
+  }
+
   /// 未收藏
-  Widget buildUnCollection() {
+  Widget buildUnCollection(BuildContext context) {
     return Row(
       children: [
         FlyoutTarget(
@@ -279,6 +292,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
               size: 20,
               color: FluentTheme.of(context).accentColor,
             ),
+            onLongPress: () async => addToCollection(context),
             onPressed: () {
               controller.showFlyout(
                 barrierDismissible: true,
@@ -293,24 +307,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
                         color: FluentTheme.of(context).accentColor,
                       ),
                       text: const Text('添加到收藏列表'),
-                      onPressed: () async {
-                        var resp = await api.addCollectionSubject(subject.id);
-                        if (!mounted) return;
-                        if (resp.code != 0) {
-                          await showRespErr(
-                            resp,
-                            this.context,
-                            title: '添加收藏失败',
-                          );
-                        } else {
-                          await BtInfobar.success(
-                            this.context,
-                            '条目 ${subject.id} 添加到收藏列表成功',
-                          );
-                          widget.provider.set(true);
-                          await init();
-                        }
-                      },
+                      onPressed: () async => await addToCollection(context),
                     ),
                   ],
                 ),
@@ -402,7 +399,7 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
   Widget build(BuildContext context) {
     super.build(context);
     return collectionType == BangumiCollectionType.unknown
-        ? buildUnCollection()
+        ? buildUnCollection(context)
         : buildCollection();
   }
 }

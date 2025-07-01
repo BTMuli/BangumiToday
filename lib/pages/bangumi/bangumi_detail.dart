@@ -1,5 +1,6 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -235,14 +236,34 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
         mainAxisAlignment: MainAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(FluentIcons.refresh),
-            onPressed: init,
+          Tooltip(
+            message: '复制标题',
+            child: IconButton(
+              icon: const Icon(FluentIcons.copy),
+              onPressed: () {
+                if (title == null) {
+                  BtInfobar.error(context, '标题为空');
+                  return;
+                }
+                Clipboard.setData(ClipboardData(text: title));
+                BtInfobar.success(context, '已复制标题: $title');
+              },
+            ),
           ),
-          IconButton(
-            icon: const Icon(FluentIcons.search),
-            onPressed: searchBangumi,
-          )
+          Tooltip(
+            message: '刷新页面',
+            child: IconButton(
+              icon: const Icon(FluentIcons.refresh),
+              onPressed: init,
+            ),
+          ),
+          Tooltip(
+            message: '搜索RSS(Mikan)',
+            child: IconButton(
+              icon: const Icon(FluentIcons.search),
+              onPressed: searchBangumi,
+            ),
+          ),
         ],
       ),
     );

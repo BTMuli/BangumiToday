@@ -300,8 +300,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           : const Icon(FluentIcons.calendar),
       body: CalendarDay(data: getTabData(index), loading: isRequesting),
       semanticLabel: '星期${weekday[index]}',
-      selectedBackgroundColor: FluentTheme.of(context).accentColor,
-      backgroundColor: FluentTheme.of(context).accentColor.withAlpha(60),
+      selectedBackgroundColor: WidgetStateProperty.resolveWith(
+        (_) => FluentTheme.of(context).accentColor,
+      ),
+      backgroundColor: WidgetStateProperty.resolveWith(
+        (_) => FluentTheme.of(context).accentColor.withAlpha(60),
+      ),
     );
   }
 

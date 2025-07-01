@@ -37,7 +37,9 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
       if (type == BangumiCollectionType.unknown) continue;
       result.add(
         Tab(
-          selectedBackgroundColor: FluentTheme.of(context).accentColor,
+          selectedBackgroundColor: WidgetStateProperty.resolveWith(
+            (_) => FluentTheme.of(context).accentColor,
+          ),
           icon: Icon(type.icon),
           text: Text(type.label),
           body: BucTabView(type),
