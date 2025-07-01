@@ -15,11 +15,7 @@ class CalendarDay extends StatelessWidget {
   final bool loading;
 
   /// 构造函数
-  const CalendarDay({
-    super.key,
-    required this.data,
-    required this.loading,
-  });
+  const CalendarDay({super.key, required this.data, required this.loading});
 
   /// 构建错误
   Widget buildError(BuildContext context) {

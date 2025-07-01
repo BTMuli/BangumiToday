@@ -9,6 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:html_unescape/html_unescape.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
@@ -47,9 +48,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration.zero, () async {
-      await getTime();
-    });
+    Future.delayed(Duration.zero, () async => await getTime());
   }
 
   @override
@@ -239,8 +238,11 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
 
   /// 构建右侧内容
   Widget buildInfo(BuildContext context) {
+    var unescape = HtmlUnescape();
     var title = data.nameCn == '' ? data.name : data.nameCn;
     var subTitle = data.nameCn == '' ? '' : data.name;
+    title = unescape.convert(title);
+    subTitle = unescape.convert(subTitle);
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.start,
