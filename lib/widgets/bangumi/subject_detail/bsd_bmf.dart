@@ -360,9 +360,25 @@ class _BsdBmfLeadingState extends ConsumerState<BsdBmfLeading> {
         );
   }
 
+  void onLongPressed() async {
+    if (!widget.isConfig) return;
+    var name = widget.bmf.title ?? '';
+    ref.read(navStoreProvider).addNavItemB(
+          subject: widget.bmf.subject,
+          paneTitle: name,
+          type: '动画',
+          jump: false,
+        );
+    await BtInfobar.success(context, '$name 添加成功');
+  }
+
   /// build
   @override
   Widget build(BuildContext context) {
-    return IconButton(icon: BtIcon(FluentIcons.settings), onPressed: onPressed);
+    return IconButton(
+      icon: BtIcon(FluentIcons.settings),
+      onPressed: onPressed,
+      onLongPress: onLongPressed,
+    );
   }
 }
