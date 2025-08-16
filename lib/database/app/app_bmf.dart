@@ -85,7 +85,9 @@ class BtsAppBmf {
     await _instance.preCheck();
     var result = await _instance.sqlite.db.query(_tableName);
     if (result.isEmpty) return [];
-    return result.map(AppBmfModel.fromJson).toList();
+    var list = result.map(AppBmfModel.fromJson).toList();
+    list.sort((a, b) => b.subject.compareTo(a.subject));
+    return list;
   }
 
   /// 读取配置
