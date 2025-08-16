@@ -59,6 +59,9 @@ class _BscSearchState extends ConsumerState<BscSearch> {
     if (img.isEmpty) return buildCoverEmpty();
     // bangumi 在线切图 https://github.com/bangumi/img-proxy
     var pathGet = Uri.parse(img).path;
+    // 可能是以 /r/xxx/pic 开头，用正则进行替换为 /pic
+    var rReg = RegExp(r'^/r/[^/]+/pic');
+    if (rReg.hasMatch(pathGet)) pathGet = pathGet.replaceFirst(rReg, '/pic');
     return CachedNetworkImage(
       imageUrl: 'https://lain.bgm.tv/r/0x600$pathGet',
       fit: BoxFit.cover,
