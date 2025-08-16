@@ -20,7 +20,7 @@ version: 0.6.4+8
 
 environment:
   sdk: '>=3.5.4 <4.0.0'
-  flutter: "3.32.5"
+  flutter: "3.32.8"
 
 # To solve dependency conflicts between sdk and proj;
 dependency_overrides:
@@ -33,19 +33,19 @@ dependency_overrides:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
-  app_links: ^6.4.0
+  app_links: ^6.4.1
   cached_network_image: ^3.4.0
   crypto: ^3.0.6
   cupertino_icons: ^1.0.8
   dart_rss: ^3.0.3
   device_info_plus: ^11.4.0
-  dio: ^5.8.0+1
+  dio: ^5.9.0
   dtorrent_parser: ^1.0.8
   dtorrent_task: ^0.4.0
   events_emitter2: ^1.0.4
   file_selector: ^1.0.3
   fl_chart: ^1.0.0
-  fluent_ui: ^4.11.3
+  fluent_ui: ^4.12.0
   fluentui_system_icons: ^1.1.273
   flutter:
     sdk: flutter
@@ -59,20 +59,19 @@ dependencies:
   html: ^0.15.6
   html_unescape: ^2.0.0
   intl: ^0.19.0
-  isar_flutter_libs: ^4.0.0-dev.14
   jiffy: ^6.3.1
   json_annotation: ^4.8.1
   local_notifier: ^0.1.6
-  logger: ^2.5.0
+  logger: ^2.6.1
   material_design_icons_flutter: ^7.0.7296
-  package_info_plus: ^8.1.2
+  package_info_plus: ^8.3.1
   path: ^1.9.0
   path_provider: ^2.1.5
   provider: ^6.1.5
   sqflite_common_ffi: ^2.3.5
   system_theme: ^3.1.2
-  url_launcher: ^6.3.1
-  window_manager: ^0.5.0
+  url_launcher: ^6.3.2
+  window_manager: ^0.5.1
   windows_taskbar: ^1.1.2
   xml: ^6.5.0
 
@@ -82,13 +81,13 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  build_runner: ^2.4.15
+  build_runner: ^2.7.0
   flutter_lints: ^6.0.0
   husky: ^0.1.7
   import_sorter: ^4.6.0 # dart run import_sorter:main
-  json_serializable: 6.9.0
+  json_serializable: 6.10.0
   lint_staged: ^0.5.1
-  msix: ^3.16.9
+  msix: ^3.16.12
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

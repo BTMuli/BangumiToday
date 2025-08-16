@@ -9,7 +9,6 @@
 #include <app_links/app_links_plugin_c_api.h>
 #include <file_selector_windows/file_selector_windows.h>
 #include <flutter_acrylic/flutter_acrylic_plugin.h>
-#include <isar_flutter_libs/isar_flutter_libs_plugin.h>
 #include <local_notifier/local_notifier_plugin.h>
 #include <screen_retriever_windows/screen_retriever_windows_plugin_c_api.h>
 #include <system_theme/system_theme_plugin.h>
@@ -24,8 +23,6 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("FileSelectorWindows"));
   FlutterAcrylicPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("FlutterAcrylicPlugin"));
-  IsarFlutterLibsPluginRegisterWithRegistrar(
-      registry->GetRegistrarForPlugin("IsarFlutterLibsPlugin"));
   LocalNotifierPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("LocalNotifierPlugin"));
   ScreenRetrieverWindowsPluginCApiRegisterWithRegistrar(
