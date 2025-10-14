@@ -13,27 +13,27 @@ import 'package:html_unescape/html_unescape.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../../database/bangumi/bangumi_data.dart';
-import '../../../models/app/response.dart';
-import '../../../models/bangumi/bangumi_model.dart';
-import '../../../store/nav_store.dart';
-import '../../../ui/bt_dialog.dart';
-import '../../../ui/bt_infobar.dart';
-import '../../../utils/bangumi_utils.dart';
+import '../../database/bangumi/bangumi_data.dart';
+import '../../models/app/response.dart';
+import '../../models/bangumi/bangumi_model.dart';
+import '../../store/nav_store.dart';
+import '../../ui/bt_dialog.dart';
+import '../../ui/bt_infobar.dart';
+import '../../utils/bangumi_utils.dart';
 
 /// 今日放送-番剧卡片
-class CalendarCard extends ConsumerStatefulWidget {
+class BcpCardWidget extends ConsumerStatefulWidget {
   /// 数据
   final BangumiLegacySubjectSmall data;
 
   /// 构造函数
-  const CalendarCard({super.key, required this.data});
+  const BcpCardWidget({super.key, required this.data});
 
   @override
-  ConsumerState<CalendarCard> createState() => _CalendarCardState();
+  ConsumerState<BcpCardWidget> createState() => _BcpCardState();
 }
 
-class _CalendarCardState extends ConsumerState<CalendarCard>
+class _BcpCardState extends ConsumerState<BcpCardWidget>
     with AutomaticKeepAliveClientMixin {
   /// 数据
   BangumiLegacySubjectSmall get data => widget.data;
@@ -114,10 +114,8 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
           value: dp.progress == null ? 0 : dp.progress! * 100,
         ),
       ),
-      errorWidget: (context, url, error) => buildCoverError(
-        context,
-        err: error.toString(),
-      ),
+      errorWidget: (context, url, error) =>
+          buildCoverError(context, err: error.toString()),
     );
   }
 
@@ -149,21 +147,36 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
             },
           ),
         ),
+        SizedBox(width: 8.w),
         Tooltip(
           message: '查看详情',
-          child: IconButton(
-            icon: Icon(
-              FluentIcons.info,
-              color: FluentTheme.of(context).accentColor.light,
+          child: FilledButton(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(FluentIcons.info),
+                SizedBox(width: 4.w),
+                Text('详情', style: TextStyle(fontSize: 12.sp)),
+              ],
             ),
-            onPressed: () => ref.read(navStoreProvider).addNavItemB(
-                type: '动画',
-                subject: data.id,
-                paneTitle: data.nameCn == '' ? data.name : data.nameCn),
+            onPressed: () => ref
+                .read(navStoreProvider)
+                .addNavItemB(
+                  type: '动画',
+                  subject: data.id,
+                  paneTitle: data.nameCn == '' ? data.name : data.nameCn,
+                ),
             onLongPress: () async {
               var name = data.nameCn == '' ? data.name : data.nameCn;
-              ref.read(navStoreProvider).addNavItemB(
-                  type: '动画', subject: data.id, paneTitle: name, jump: false);
+              ref
+                  .read(navStoreProvider)
+                  .addNavItemB(
+                    type: '动画',
+                    subject: data.id,
+                    paneTitle: name,
+                    jump: false,
+                  );
               await BtInfobar.success(context, '$name 添加成功');
             },
           ),
@@ -179,20 +192,24 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
     if (data.rating != null) {
       var score = data.rating!.score / 2;
       var label = getBangumiRateLabel(data.rating!.score);
-      rateWidget.add(RatingBar(
+      rateWidget.add(
+        RatingBar(
           rating: score,
           iconSize: 20.sp,
           starSpacing: 1.sp,
-          unratedIconColor:
-              FluentTheme.of(context).accentColor.withAlpha(128)));
-      rateWidget.add(SizedBox(height: 5.h));
-      rateWidget.add(Text(
-        '${data.rating?.score} $label (${data.rating?.total}人评分)',
-        style: TextStyle(
-          color: FluentTheme.of(context).accentColor.lighter,
-          fontSize: 14,
+          unratedIconColor: FluentTheme.of(context).accentColor.withAlpha(128),
         ),
-      ));
+      );
+      rateWidget.add(SizedBox(height: 5.h));
+      rateWidget.add(
+        Text(
+          '${data.rating?.score} $label (${data.rating?.total}人评分)',
+          style: TextStyle(
+            color: FluentTheme.of(context).accentColor.lighter,
+            fontSize: 14,
+          ),
+        ),
+      );
     }
     if (data.collection?.doing != null) {
       viewWidget = Row(
@@ -205,10 +222,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ...rateWidget,
-        viewWidget,
-      ],
+      children: [...rateWidget, viewWidget],
     );
   }
 
@@ -284,7 +298,7 @@ class _CalendarCardState extends ConsumerState<CalendarCard>
       children: [
         Expanded(child: buildCover(context)),
         SizedBox(width: 5.w),
-        Expanded(child: buildInfo(context))
+        Expanded(child: buildInfo(context)),
       ],
     );
   }

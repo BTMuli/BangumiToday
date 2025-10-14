@@ -3,11 +3,11 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
-import '../../../models/bangumi/bangumi_model.dart';
-import 'calendar_card.dart';
+import '../../models/bangumi/bangumi_model.dart';
+import 'bc_pw_card.dart';
 
 /// 今日放送-单日
-class CalendarDay extends StatelessWidget {
+class BcpDayWidget extends StatelessWidget {
   /// 数据
   final List<BangumiLegacySubjectSmall> data;
 
@@ -15,7 +15,7 @@ class CalendarDay extends StatelessWidget {
   final bool loading;
 
   /// 构造函数
-  const CalendarDay({super.key, required this.data, required this.loading});
+  const BcpDayWidget({super.key, required this.data, required this.loading});
 
   /// 构建错误
   Widget buildError(BuildContext context) {
@@ -54,7 +54,7 @@ class CalendarDay extends StatelessWidget {
         mainAxisSpacing: 8,
         crossAxisSpacing: 8,
       ),
-      children: data.map((e) => CalendarCard(data: e)).toList(),
+      children: data.map((e) => BcpCardWidget(data: e)).toList(),
     );
   }
 

@@ -19,21 +19,22 @@ import '../../tools/notifier_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
-import '../../widgets/bangumi/calendar/calendar_day.dart';
-import 'bangumi_collection.dart';
-import 'bangumi_search.dart';
+import '../bangumi/bangumi_collection.dart';
+import '../subject-search/subject_search_page.dart';
+import 'bc_pw_day.dart';
 
 /// 今日放送
-class CalendarPage extends ConsumerStatefulWidget {
+class BangumiCalendarPage extends ConsumerStatefulWidget {
   /// 构造函数
-  const CalendarPage({super.key});
+  const BangumiCalendarPage({super.key});
 
   @override
-  ConsumerState<CalendarPage> createState() => _CalendarPageState();
+  ConsumerState<BangumiCalendarPage> createState() =>
+      _BangumiCalendarPageState();
 }
 
 /// 今日放送状态
-class _CalendarPageState extends ConsumerState<CalendarPage>
+class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     with AutomaticKeepAliveClientMixin {
   /// bangumiAPI
   final BtrBangumiApi apiBgm = BtrBangumiApi();
@@ -267,28 +268,15 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   /// 刷新
   Widget buildLoading() {
     return Center(
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        const ProgressRing(),
-        SizedBox(height: 20.h),
-        const Text('正在加载数据...'),
-      ]),
-    );
-  }
-
-  /// 构建 Tab 头部
-  Widget buildTabHeader() {
-    return Row(children: [
-      Image.asset('assets/images/platforms/bangumi-text.png'),
-      const SizedBox(width: 8),
-      Text('星期${weekday[today]}'),
-      Tooltip(
-        message: '刷新',
-        child: IconButton(
-          icon: BtIcon(FluentIcons.refresh),
-          onPressed: getData,
-        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const ProgressRing(),
+          SizedBox(height: 20.h),
+          const Text('正在加载数据...'),
+        ],
       ),
-    ]);
+    );
   }
 
   /// 构建单tab
@@ -298,13 +286,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       icon: index == today
           ? const Icon(FluentIcons.away_status)
           : const Icon(FluentIcons.calendar),
-      body: CalendarDay(data: getTabData(index), loading: isRequesting),
+      body: BcpDayWidget(data: getTabData(index), loading: isRequesting),
       semanticLabel: '星期${weekday[index]}',
       selectedBackgroundColor: WidgetStateProperty.resolveWith(
         (_) => FluentTheme.of(context).accentColor,
       ),
       backgroundColor: WidgetStateProperty.resolveWith(
-        (_) => FluentTheme.of(context).accentColor.withAlpha(60),
+        (_) => FluentTheme.of(context).accentColor.withAlpha(80),
       ),
     );
   }
@@ -356,10 +344,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       dismissOnPointerMoveAway: false,
       dismissWithEsc: true,
       builder: (context) => MenuFlyout(
-        items: [
-          buildFlyoutCollection(context),
-          buildFlyoutData(context),
-        ],
+        items: [buildFlyoutCollection(context), buildFlyoutData(context)],
       ),
     );
   }
@@ -387,15 +372,28 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       child: FilledButton(
         child: const Icon(FluentIcons.search, color: Colors.white),
         onPressed: () {
-          ref.read(navStoreProvider).addNavItem(
+          ref
+              .read(navStoreProvider)
+              .addNavItem(
                 PaneItem(
                   icon: const Icon(FluentIcons.search),
                   title: const Text('Bangumi-条目搜索'),
-                  body: const BangumiSearchPage(),
+                  body: const SubjectSearchPage(),
                 ),
                 'Bangumi-条目搜索',
               );
         },
+      ),
+    );
+  }
+
+  /// 构建刷新按钮
+  Widget buildRefresh(BuildContext context) {
+    return Tooltip(
+      message: '刷新数据',
+      child: FilledButton(
+        onPressed: getData,
+        child: const Icon(FluentIcons.refresh, color: Colors.white),
       ),
     );
   }
@@ -418,16 +416,18 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
 
   /// 构建 Tab 底部
   Widget buildTabFooter() {
-    return Row(children: [
-      buildSearch(context),
-      SizedBox(width: 8.w),
-      buildCollectSwitch(context),
-      SizedBox(width: 8.w),
-      buildFlyoutButton(context),
-      SizedBox(width: 8.w),
-      Image.asset('assets/images/platforms/bangumi-logo.png'),
-      SizedBox(width: 16.w),
-    ]);
+    return Row(
+      children: [
+        buildSearch(context),
+        SizedBox(width: 8.w),
+        buildRefresh(context),
+        SizedBox(width: 8.w),
+        buildCollectSwitch(context),
+        SizedBox(width: 8.w),
+        buildFlyoutButton(context),
+        SizedBox(width: 16.w),
+      ],
+    );
   }
 
   @override
@@ -435,7 +435,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     super.build(context);
     return TabView(
       tabs: List.generate(7, buildTabItem),
-      header: buildTabHeader(),
+      header: Image.asset('assets/images/platforms/bangumi-logo.png'),
       footer: buildTabFooter(),
       currentIndex: tabIndex,
       onChanged: (index) => setState(() => tabIndex = index),
