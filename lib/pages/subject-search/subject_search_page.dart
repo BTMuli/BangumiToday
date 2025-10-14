@@ -15,16 +15,16 @@ import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_card/bsc_search.dart';
 
 /// 搜索页面
-class BangumiSearchPage extends ConsumerStatefulWidget {
+class SubjectSearchPage extends ConsumerStatefulWidget {
   /// 构造函数
-  const BangumiSearchPage({super.key});
+  const SubjectSearchPage({super.key});
 
   @override
-  ConsumerState<BangumiSearchPage> createState() => _BangumiSearchPageState();
+  ConsumerState<SubjectSearchPage> createState() => _SubjectSearchPageState();
 }
 
 /// 搜索页面状态
-class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
+class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
     with AutomaticKeepAliveClientMixin {
   /// api
   final BtrBangumiApi api = BtrBangumiApi();
@@ -43,12 +43,7 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
   final TextEditingController textController = TextEditingController();
 
   /// 排序方式-label对照
-  final sortMap = {
-    'match': '匹配度',
-    'heat': '收藏人数',
-    'rank': '排名',
-    'score': '评分',
-  };
+  final sortMap = {'match': '匹配度', 'heat': '收藏人数', 'rank': '排名', 'score': '评分'};
 
   /// 当前排序方式
   String sort = 'match';
@@ -230,21 +225,23 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
     return DropDownButton(
       title: const Text('搜索类型'),
       items: BangumiSubjectType.values
-          .map((e) => MenuFlyoutItem(
-                text: Text(e.label),
-                selected: types.contains(e),
-                trailing: types.contains(e)
-                    ? const Icon(FluentIcons.check_mark)
-                    : null,
-                onPressed: () {
-                  if (types.contains(e)) {
-                    types.remove(e);
-                  } else {
-                    types.add(e);
-                  }
-                  setState(() {});
-                },
-              ))
+          .map(
+            (e) => MenuFlyoutItem(
+              text: Text(e.label),
+              selected: types.contains(e),
+              trailing: types.contains(e)
+                  ? const Icon(FluentIcons.check_mark)
+                  : null,
+              onPressed: () {
+                if (types.contains(e)) {
+                  types.remove(e);
+                } else {
+                  types.add(e);
+                }
+                setState(() {});
+              },
+            ),
+          )
           .toList(),
     );
   }
@@ -281,6 +278,7 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
           child: TextBox(
             controller: textController,
             placeholder: '搜索内容',
+            onSubmitted: (_) async => await search(),
           ),
         ),
         SizedBox(width: 8.w),
@@ -328,10 +326,12 @@ class _BangumiSearchPageState extends ConsumerState<BangumiSearchPage>
     super.build(context);
     return ScaffoldPage(
       header: buildHeader(context),
-      content: Column(children: [
-        buildSearch(),
-        Expanded(child: buildResult()),
-      ]),
+      content: Column(
+        children: [
+          buildSearch(),
+          Expanded(child: buildResult()),
+        ],
+      ),
     );
   }
 }
