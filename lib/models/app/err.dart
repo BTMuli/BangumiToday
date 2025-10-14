@@ -39,42 +39,27 @@ class BTError implements Exception {
 
   /// 构造函数-未知错误
   static BTError unknownError({String msg = 'unknown error'}) {
-    return BTError(
-      type: BTErrorType.unknownError,
-      message: msg,
-    );
+    return BTError(type: BTErrorType.unknownError, message: msg);
   }
 
   /// 构造函数-资源错误
   static BTError sourceError({String msg = 'source is not bangumi'}) {
-    return BTError(
-      type: BTErrorType.sourceError,
-      message: msg,
-    );
+    return BTError(type: BTErrorType.sourceError, message: msg);
   }
 
   /// 构造函数-数据错误
   static BTError dataError({String msg = 'data is null'}) {
-    return BTError(
-      type: BTErrorType.dataError,
-      message: msg,
-    );
+    return BTError(type: BTErrorType.dataError, message: msg);
   }
 
   /// 构造函数-未实现错误
   static BTError unimplementedError({String msg = 'unimplemented'}) {
-    return BTError(
-      type: BTErrorType.unimplementedError,
-      message: msg,
-    );
+    return BTError(type: BTErrorType.unimplementedError, message: msg);
   }
 
   /// 构造函数-请求错误
   static BTError requestError({String msg = 'request error'}) {
-    return BTError(
-      type: BTErrorType.requestError,
-      message: msg,
-    );
+    return BTError(type: BTErrorType.requestError, message: msg);
   }
 
   @override

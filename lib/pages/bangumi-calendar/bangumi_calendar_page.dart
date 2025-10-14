@@ -292,7 +292,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
         (_) => FluentTheme.of(context).accentColor,
       ),
       backgroundColor: WidgetStateProperty.resolveWith(
-        (_) => FluentTheme.of(context).accentColor.withAlpha(80),
+        (_) => FluentTheme.of(context).accentColor.withValues(alpha: 0.5),
       ),
     );
   }

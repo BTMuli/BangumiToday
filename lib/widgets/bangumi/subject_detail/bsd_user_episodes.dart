@@ -4,7 +4,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 // Project imports:
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
-import '../../../pages/bangumi/bangumi_detail.dart';
+import '../../../pages/subject-detail/subject_detail_page.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../ui/bt_infobar.dart';
 import 'bsd_episode.dart';
@@ -18,7 +18,7 @@ class BsdUserEpisodes extends StatefulWidget {
   final BangumiUser? user;
 
   /// provider
-  final BangumiDetailProvider provider;
+  final SubjectDetailPageProvider provider;
 
   /// 构造函数
   const BsdUserEpisodes(this.subject, this.user, this.provider, {super.key});

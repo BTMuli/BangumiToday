@@ -45,7 +45,8 @@ class BTSqlite {
 
   /// 检测表是否存在
   Future<bool> isTableExist(String table) async {
-    var sql = '''
+    var sql =
+        '''
       SELECT COUNT(*) AS count
       FROM sqlite_master
       WHERE type='table' AND name='$table';

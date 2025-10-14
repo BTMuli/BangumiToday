@@ -22,9 +22,9 @@ class BangumiCalendarResp extends BTResponse<List<BangumiCalendarRespData>> {
   });
 
   /// success
-  static BangumiCalendarResp success(
-          {required List<BangumiCalendarRespData> data}) =>
-      BangumiCalendarResp(code: 0, message: 'success', data: data);
+  static BangumiCalendarResp success({
+    required List<BangumiCalendarRespData> data,
+  }) => BangumiCalendarResp(code: 0, message: 'success', data: data);
 
   /// from json
   factory BangumiCalendarResp.fromJson(Map<String, dynamic> json) =>
@@ -43,9 +43,9 @@ class BangumiSubjectSearchResp
   });
 
   /// success
-  static BangumiSubjectSearchResp success(
-          {required BangumiPageT<BangumiSubjectSearchData> data}) =>
-      BangumiSubjectSearchResp(code: 0, message: 'success', data: data);
+  static BangumiSubjectSearchResp success({
+    required BangumiPageT<BangumiSubjectSearchData> data,
+  }) => BangumiSubjectSearchResp(code: 0, message: 'success', data: data);
 
   /// from json
   factory BangumiSubjectSearchResp.fromJson(Map<String, dynamic> json) =>
@@ -83,9 +83,9 @@ class BangumiSubjectRelationsResp
   });
 
   /// success
-  static BangumiSubjectRelationsResp success(
-          {required List<BangumiSubjectRelation> data}) =>
-      BangumiSubjectRelationsResp(code: 0, message: 'success', data: data);
+  static BangumiSubjectRelationsResp success({
+    required List<BangumiSubjectRelation> data,
+  }) => BangumiSubjectRelationsResp(code: 0, message: 'success', data: data);
 
   /// from json
   factory BangumiSubjectRelationsResp.fromJson(Map<String, dynamic> json) =>
@@ -104,10 +104,7 @@ class BangumiCalendarRespData {
   List<BangumiLegacySubjectSmall> items;
 
   /// constructor
-  BangumiCalendarRespData({
-    required this.weekday,
-    required this.items,
-  });
+  BangumiCalendarRespData({required this.weekday, required this.items});
 
   /// from json
   factory BangumiCalendarRespData.fromJson(Map<String, dynamic> json) =>

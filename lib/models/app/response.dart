@@ -19,16 +19,14 @@ class BTResponse<T> {
   T? data;
 
   /// constructor
-  BTResponse({
-    required this.code,
-    required this.message,
-    required this.data,
-  });
+  BTResponse({required this.code, required this.message, required this.data});
 
   /// error
-  static BTResponse<T> error<T>(
-          {required int code, required String message, required T? data}) =>
-      BTResponse(code: code, message: message, data: data);
+  static BTResponse<T> error<T>({
+    required int code,
+    required String message,
+    required T? data,
+  }) => BTResponse(code: code, message: message, data: data);
 
   /// success
   static BTResponse<T> success<T>({required T data}) =>
@@ -38,8 +36,7 @@ class BTResponse<T> {
   factory BTResponse.fromJson(
     Map<String, dynamic> json,
     T Function(dynamic json) fromJsonT,
-  ) =>
-      _$BTResponseFromJson(json, fromJsonT);
+  ) => _$BTResponseFromJson(json, fromJsonT);
 
   /// to json
   Map<String, dynamic> toJson(dynamic Function(T value) toJsonT) =>

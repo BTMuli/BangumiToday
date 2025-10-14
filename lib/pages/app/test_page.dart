@@ -20,10 +20,7 @@ class _TestPageState extends ConsumerState<TestPage> {
 
   /// 构建测试按钮
   Widget buildTest() {
-    return Button(
-      onPressed: () async {},
-      child: const Text('Test'),
-    );
+    return Button(onPressed: () async {}, child: const Text('Test'));
   }
 
   /// 构建函数
@@ -31,9 +28,7 @@ class _TestPageState extends ConsumerState<TestPage> {
   Widget build(BuildContext context) {
     return ScaffoldPage(
       header: const PageHeader(title: Text('Test Page')),
-      content: Center(
-        child: buildTest(),
-      ),
+      content: Center(child: buildTest()),
     );
   }
 }

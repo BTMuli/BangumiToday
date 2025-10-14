@@ -7,11 +7,12 @@ part of 'request_episode.dart';
 // **************************************************************************
 
 BangumiEpisodeListResp _$BangumiEpisodeListRespFromJson(
-        Map<String, dynamic> json) =>
-    BangumiEpisodeListResp(
-      code: (json['code'] as num).toInt(),
-      message: json['message'] as String,
-      data: BangumiPageT<BangumiEpisode>.fromJson(
-          json['data'] as Map<String, dynamic>,
-          (value) => BangumiEpisode.fromJson(value as Map<String, dynamic>)),
-    );
+  Map<String, dynamic> json,
+) => BangumiEpisodeListResp(
+  code: (json['code'] as num).toInt(),
+  message: json['message'] as String,
+  data: BangumiPageT<BangumiEpisode>.fromJson(
+    json['data'] as Map<String, dynamic>,
+    (value) => BangumiEpisode.fromJson(value as Map<String, dynamic>),
+  ),
+);

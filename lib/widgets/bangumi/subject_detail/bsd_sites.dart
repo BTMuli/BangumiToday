@@ -71,17 +71,20 @@ class _BsdSitesState extends State<BsdSites>
     sites = await sqlite.readSiteAll();
     if (sites.isEmpty) return;
     for (var siteItem in item.sites) {
-      BangumiDataSiteFull? siteF =
-          sites.firstWhere((e) => e.key == siteItem.site);
+      BangumiDataSiteFull? siteF = sites.firstWhere(
+        (e) => e.key == siteItem.site,
+      );
       if (siteF == null) continue;
       if (siteItem.id == null) continue;
       var link = siteF.urlTemplate.replaceAll('{{id}}', siteItem.id!);
-      res.add(BsdSiteItem(
-        name: siteF.title,
-        url: link,
-        key: siteF.key,
-        type: siteF.type,
-      ));
+      res.add(
+        BsdSiteItem(
+          name: siteF.title,
+          url: link,
+          key: siteF.key,
+          type: siteF.type,
+        ),
+      );
     }
     siteItems = res;
     setState(() {});
@@ -128,8 +131,8 @@ class _BsdSitesState extends State<BsdSites>
             SizedBox(height: 8.h),
             for (var item in siteItems) ...[
               buildSiteItem(item),
-              SizedBox(height: 8.h)
-            ]
+              SizedBox(height: 8.h),
+            ],
           ],
         ),
       ),

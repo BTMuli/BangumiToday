@@ -58,10 +58,10 @@ class BtsAppConfig {
       whereArgs: [key],
     );
     if (result.isEmpty) {
-      await _instance.sqlite.db.insert(
-        _tableName,
-        {'key': key, 'value': value},
-      );
+      await _instance.sqlite.db.insert(_tableName, {
+        'key': key,
+        'value': value,
+      });
       BTLogTool.info('Write config: $key = $value');
     } else {
       await _instance.sqlite.db.update(

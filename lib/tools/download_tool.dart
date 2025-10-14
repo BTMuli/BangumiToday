@@ -98,11 +98,7 @@ class BTDownloadTool {
       return '';
     } on Exception catch (e) {
       if (context != null && context.mounted) {
-        var resp = BTResponse(
-          code: 666,
-          message: e.toString(),
-          data: null,
-        );
+        var resp = BTResponse(code: 666, message: e.toString(), data: null);
         await showRespErr(resp, context);
       }
       errInfo[0] = 'DownloadTorrentError: \n\t${e.toString()}';

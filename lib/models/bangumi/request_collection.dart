@@ -21,14 +21,15 @@ class BangumiCollectionSubjectListResp
   });
 
   /// success
-  static BangumiCollectionSubjectListResp success(
-          {required BangumiPageT<BangumiUserSubjectCollection> data}) =>
+  static BangumiCollectionSubjectListResp success({
+    required BangumiPageT<BangumiUserSubjectCollection> data,
+  }) =>
       BangumiCollectionSubjectListResp(code: 0, message: 'success', data: data);
 
   /// from json
   factory BangumiCollectionSubjectListResp.fromJson(
-          Map<String, dynamic> json) =>
-      _$BangumiCollectionSubjectListRespFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$BangumiCollectionSubjectListRespFromJson(json);
 }
 
 /// 获取用户单个收藏的请求返回
@@ -43,14 +44,15 @@ class BangumiCollectionSubjectItemResp
   });
 
   /// success
-  static BangumiCollectionSubjectItemResp success(
-          {required BangumiUserSubjectCollection data}) =>
+  static BangumiCollectionSubjectItemResp success({
+    required BangumiUserSubjectCollection data,
+  }) =>
       BangumiCollectionSubjectItemResp(code: 0, message: 'success', data: data);
 
   /// from json
   factory BangumiCollectionSubjectItemResp.fromJson(
-          Map<String, dynamic> json) =>
-      _$BangumiCollectionSubjectItemRespFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$BangumiCollectionSubjectItemRespFromJson(json);
 }
 
 /// 获取用户章节收藏的请求返回
@@ -65,14 +67,15 @@ class BangumiCollectionEpisodeListResp
   });
 
   /// success
-  static BangumiCollectionEpisodeListResp success(
-          {required BangumiPageT<BangumiUserEpisodeCollection> data}) =>
+  static BangumiCollectionEpisodeListResp success({
+    required BangumiPageT<BangumiUserEpisodeCollection> data,
+  }) =>
       BangumiCollectionEpisodeListResp(code: 0, message: 'success', data: data);
 
   /// from json
   factory BangumiCollectionEpisodeListResp.fromJson(
-          Map<String, dynamic> json) =>
-      _$BangumiCollectionEpisodeListRespFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$BangumiCollectionEpisodeListRespFromJson(json);
 }
 
 /// 获取用户单个章节收藏的请求返回
@@ -87,12 +90,13 @@ class BangumiCollectionEpisodeItemResp
   });
 
   /// success
-  static BangumiCollectionEpisodeItemResp success(
-          {required BangumiUserEpisodeCollection data}) =>
+  static BangumiCollectionEpisodeItemResp success({
+    required BangumiUserEpisodeCollection data,
+  }) =>
       BangumiCollectionEpisodeItemResp(code: 0, message: 'success', data: data);
 
   /// from json
   factory BangumiCollectionEpisodeItemResp.fromJson(
-          Map<String, dynamic> json) =>
-      _$BangumiCollectionEpisodeItemRespFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$BangumiCollectionEpisodeItemRespFromJson(json);
 }

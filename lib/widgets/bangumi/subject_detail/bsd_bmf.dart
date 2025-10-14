@@ -250,8 +250,9 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
       child: IconButton(
         icon: BtIcon(hasRss ? MdiIcons.rssBox : MdiIcons.rss),
         onPressed: () async => await updateRss(),
-        onLongPress:
-            hasRss ? () async => await launchUrlString(bmf.rss!) : null,
+        onLongPress: hasRss
+            ? () async => await launchUrlString(bmf.rss!)
+            : null,
       ),
     );
   }
@@ -279,12 +280,14 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
 
   /// buildHeaderAction
   Widget buildHeaderAction(BuildContext context) {
-    return Row(children: [
-      if (bmf.id != -1) buildHeaderActTitle(context),
-      buildHeaderActRss(context),
-      buildHeaderActFile(context),
-      if (bmf.id != -1) buildHeaderDel(context),
-    ]);
+    return Row(
+      children: [
+        if (bmf.id != -1) buildHeaderActTitle(context),
+        buildHeaderActRss(context),
+        buildHeaderActFile(context),
+        if (bmf.id != -1) buildHeaderDel(context),
+      ],
+    );
   }
 
   /// buildContent
@@ -353,7 +356,9 @@ class _BsdBmfLeadingState extends ConsumerState<BsdBmfLeading> {
       ref.read(navStoreProvider).goIndex(2);
       return;
     }
-    ref.read(navStoreProvider).addNavItemB(
+    ref
+        .read(navStoreProvider)
+        .addNavItemB(
           subject: widget.bmf.subject,
           paneTitle: widget.bmf.title,
           type: '动画',
@@ -363,7 +368,9 @@ class _BsdBmfLeadingState extends ConsumerState<BsdBmfLeading> {
   void onLongPressed() async {
     if (!widget.isConfig) return;
     var name = widget.bmf.title ?? '';
-    ref.read(navStoreProvider).addNavItemB(
+    ref
+        .read(navStoreProvider)
+        .addNavItemB(
           subject: widget.bmf.subject,
           paneTitle: name,
           type: '动画',

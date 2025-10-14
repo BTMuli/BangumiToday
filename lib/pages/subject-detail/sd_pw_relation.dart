@@ -6,28 +6,28 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../../models/bangumi/bangumi_enum.dart';
-import '../../../models/bangumi/bangumi_model.dart';
-import '../../../request/bangumi/bangumi_api.dart';
-import '../../../store/nav_store.dart';
-import '../../../ui/bt_dialog.dart';
-import '../../../utils/tool_func.dart';
+import '../../models/bangumi/bangumi_enum.dart';
+import '../../models/bangumi/bangumi_model.dart';
+import '../../request/bangumi/bangumi_api.dart';
+import '../../store/nav_store.dart';
+import '../../ui/bt_dialog.dart';
+import '../../utils/tool_func.dart';
 
 /// Bangumi Subject Detail 的 Relation 部件
 /// 用于展示条目的关联条目
-class BsdRelation extends ConsumerStatefulWidget {
+class SdpRelationWidget extends ConsumerStatefulWidget {
   /// 条目id
   final int subjectId;
 
   /// 构造函数
-  const BsdRelation(this.subjectId, {super.key});
+  const SdpRelationWidget(this.subjectId, {super.key});
 
   @override
-  ConsumerState<BsdRelation> createState() => _BsdRelationState();
+  ConsumerState<SdpRelationWidget> createState() => _SdpRelationWidgetState();
 }
 
 /// Bangumi Subject Detail 的 Relation 部件状态
-class _BsdRelationState extends ConsumerState<BsdRelation>
+class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
     with AutomaticKeepAliveClientMixin {
   /// 条目id
   int get subjectId => widget.subjectId;
@@ -74,10 +74,7 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
             message: data.name,
             child: Text(
               '【${data.relation}】${replaceEscape(data.name)}',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
@@ -96,7 +93,9 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
                     FluentIcons.info,
                     color: FluentTheme.of(context).accentColor,
                   ),
-                  onPressed: () => ref.read(navStoreProvider).addNavItemB(
+                  onPressed: () => ref
+                      .read(navStoreProvider)
+                      .addNavItemB(
                         type: data.type.label,
                         subject: data.id,
                         paneTitle: data.nameCn == '' ? data.name : data.nameCn,
@@ -137,9 +136,8 @@ class _BsdRelationState extends ConsumerState<BsdRelation>
           value: dp.progress == null ? 0 : dp.progress! * 100,
         ),
       ),
-      errorWidget: (context, url, error) => Center(
-        child: Text(error.toString()),
-      ),
+      errorWidget: (context, url, error) =>
+          Center(child: Text(error.toString())),
     );
   }
 

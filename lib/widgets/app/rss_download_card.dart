@@ -366,8 +366,10 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text('${filesizeW((ds * 1000).toInt())}/s'
-                  '(${filesizeW((ads * 1000).toInt())})'),
+              Text(
+                '${filesizeW((ds * 1000).toInt())}/s'
+                '(${filesizeW((ads * 1000).toInt())})',
+              ),
               SizedBox(width: 8.w),
               Text('节点：$active/$seeders/$all'),
             ],

@@ -54,9 +54,7 @@ class RssMikanCard2 extends StatelessWidget {
         context: context,
       );
       if (savePath != '') {
-        await launchUrlString(
-          'mo://new-task/?type=torrent&dir=$saveDir',
-        );
+        await launchUrlString('mo://new-task/?type=torrent&dir=$saveDir');
         await launchUrlString('file://$savePath');
       }
     }
@@ -129,9 +127,7 @@ class RssMikanCard2 extends StatelessWidget {
                 const Text('发布时间: '),
                 Text(
                   pubDate,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -141,9 +137,7 @@ class RssMikanCard2 extends StatelessWidget {
                 const Text('资源大小: '),
                 Text(
                   sizeStr,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
             ),

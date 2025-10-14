@@ -28,8 +28,9 @@ BangumiDataSite _$BangumiDataSiteFromJson(Map<String, dynamic> json) =>
       title: json['title'] as String,
       urlTemplate: json['urlTemplate'] as String,
       type: json['type'] as String,
-      regions:
-          (json['regions'] as List<dynamic>?)?.map((e) => e as String).toList(),
+      regions: (json['regions'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
     );
 
 Map<String, dynamic> _$BangumiDataSiteToJson(BangumiDataSite instance) =>
@@ -44,7 +45,8 @@ BangumiDataItem _$BangumiDataItemFromJson(Map<String, dynamic> json) =>
     BangumiDataItem(
       title: json['title'] as String,
       titleTranslate: BangumiDataItemTitleTranslate.fromJson(
-          json['titleTranslate'] as Map<String, dynamic>),
+        json['titleTranslate'] as Map<String, dynamic>,
+      ),
       type: json['type'] as String,
       lang: json['lang'] as String,
       officialSite: json['officialSite'] as String,
@@ -72,16 +74,14 @@ Map<String, dynamic> _$BangumiDataItemToJson(BangumiDataItem instance) =>
     };
 
 BangumiDataItemTitleTranslate _$BangumiDataItemTitleTranslateFromJson(
-        Map<String, dynamic> json) =>
-    BangumiDataItemTitleTranslate(
-      zh: (json['zh-Hans'] as List<dynamic>?)?.map((e) => e as String).toList(),
-    );
+  Map<String, dynamic> json,
+) => BangumiDataItemTitleTranslate(
+  zh: (json['zh-Hans'] as List<dynamic>?)?.map((e) => e as String).toList(),
+);
 
 Map<String, dynamic> _$BangumiDataItemTitleTranslateToJson(
-        BangumiDataItemTitleTranslate instance) =>
-    <String, dynamic>{
-      'zh-Hans': instance.zh,
-    };
+  BangumiDataItemTitleTranslate instance,
+) => <String, dynamic>{'zh-Hans': instance.zh};
 
 BangumiDataItemSite _$BangumiDataItemSiteFromJson(Map<String, dynamic> json) =>
     BangumiDataItemSite(
@@ -92,13 +92,13 @@ BangumiDataItemSite _$BangumiDataItemSiteFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$BangumiDataItemSiteToJson(
-        BangumiDataItemSite instance) =>
-    <String, dynamic>{
-      'site': instance.site,
-      'id': instance.id,
-      'begin': instance.begin,
-      'broadcast': instance.broadcast,
-    };
+  BangumiDataItemSite instance,
+) => <String, dynamic>{
+  'site': instance.site,
+  'id': instance.id,
+  'begin': instance.begin,
+  'broadcast': instance.broadcast,
+};
 
 BangumiDataSiteFull _$BangumiDataSiteFullFromJson(Map<String, dynamic> json) =>
     BangumiDataSiteFull(
@@ -106,19 +106,20 @@ BangumiDataSiteFull _$BangumiDataSiteFullFromJson(Map<String, dynamic> json) =>
       title: json['title'] as String,
       urlTemplate: json['urlTemplate'] as String,
       type: json['type'] as String,
-      regions:
-          (json['regions'] as List<dynamic>?)?.map((e) => e as String).toList(),
+      regions: (json['regions'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
     );
 
 Map<String, dynamic> _$BangumiDataSiteFullToJson(
-        BangumiDataSiteFull instance) =>
-    <String, dynamic>{
-      'title': instance.title,
-      'urlTemplate': instance.urlTemplate,
-      'type': instance.type,
-      'regions': instance.regions,
-      'key': instance.key,
-    };
+  BangumiDataSiteFull instance,
+) => <String, dynamic>{
+  'title': instance.title,
+  'urlTemplate': instance.urlTemplate,
+  'type': instance.type,
+  'regions': instance.regions,
+  'key': instance.key,
+};
 
 BangumiDataResp _$BangumiDataRespFromJson(Map<String, dynamic> json) =>
     BangumiDataResp(

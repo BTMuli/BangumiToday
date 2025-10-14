@@ -291,8 +291,8 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
         imageUrl: hive.user!.avatar.small,
         width: 20,
         height: 20,
-        placeholder: (_, __) => const ProgressRing(),
-        errorWidget: (_, __, ___) => const Icon(FluentIcons.error),
+        placeholder: (_, _) => const ProgressRing(),
+        errorWidget: (_, _, _) => const Icon(FluentIcons.error),
       ),
       title: Text(hive.user!.nickname),
       subtitle: Text('ID: ${hive.user!.id}(${hive.user!.userGroup.label})'),
@@ -312,7 +312,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
               icon: BtIcon(FluentIcons.delete),
               onPressed: tryDeleteUserInfo,
             ),
-          )
+          ),
         ],
       ),
     );

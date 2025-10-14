@@ -22,34 +22,35 @@ import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
 import '../../widgets/bangumi/subject_detail/bsd_bmf.dart';
-import '../../widgets/bangumi/subject_detail/bsd_overview.dart';
-import '../../widgets/bangumi/subject_detail/bsd_relation.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_episodes.dart';
+import 'sd_pw_overview.dart';
+import 'sd_pw_relation.dart';
 
 /// 数据监听Provider，用于监听收藏状态变更
-class BangumiDetailProvider extends StateNotifier<bool> {
+class SubjectDetailPageProvider extends StateNotifier<bool> {
   /// 构造函数
-  BangumiDetailProvider() : super(false);
+  SubjectDetailPageProvider() : super(false);
 
   /// set
   void set(bool value) => state = value;
 }
 
 /// 番剧详情
-class BangumiDetail extends ConsumerStatefulWidget {
+/// TODO: 页面UI重构
+class SubjectDetailPage extends ConsumerStatefulWidget {
   /// 番剧 id
   final String id;
 
   /// 构造函数
-  const BangumiDetail({super.key, required this.id});
+  const SubjectDetailPage({super.key, required this.id});
 
   @override
-  ConsumerState<BangumiDetail> createState() => _BangumiDetailState();
+  ConsumerState<SubjectDetailPage> createState() => _SubjectDetailPageState();
 }
 
 /// 番剧详情状态
-class _BangumiDetailState extends ConsumerState<BangumiDetail>
+class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     with AutomaticKeepAliveClientMixin {
   /// 番剧数据
   BangumiSubject? data;
@@ -64,7 +65,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
   final BtsAppBmf sqliteBmf = BtsAppBmf();
 
   /// provider
-  final BangumiDetailProvider provider = BangumiDetailProvider();
+  final SubjectDetailPageProvider provider = SubjectDetailPageProvider();
 
   /// progress
   late ProgressController progress = ProgressController();
@@ -77,7 +78,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
 
   /// 当id改变时, 重新加载数据
   @override
-  void didUpdateWidget(BangumiDetail oldWidget) {
+  void didUpdateWidget(SubjectDetailPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.id != widget.id) {
       data = null;
@@ -221,10 +222,13 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
             BtInfobar.error(context, '数据为空');
             return;
           }
-          ref.read(navStoreProvider).removeNavItem(
-              '${data!.type.label}详情 ${widget.id}',
-              type: BtmAppNavItemType.subject,
-              param: 'subjectDetail_${widget.id}');
+          ref
+              .read(navStoreProvider)
+              .removeNavItem(
+                '${data!.type.label}详情 ${widget.id}',
+                type: BtmAppNavItemType.subject,
+                param: 'subjectDetail_${widget.id}',
+              );
         },
       ),
       title: Tooltip(
@@ -327,9 +331,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
             .toList()
             .map((e) => replaceEscape(e as String))
             .join(gap);
-        res.add(
-          Text('${item.key}:$gap$value'),
-        );
+        res.add(Text('${item.key}:$gap$value'));
       } else {
         value = replaceEscape(item.value as String);
         res.add(Text('${item.key}: $value'));
@@ -354,11 +356,11 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
     return ListView(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
       children: [
-        BsdOverview(data!),
+        SdpOverviewWidget(data!),
         SizedBox(height: 12),
         if (hiveUser.user != null) ...[
           BsdUserCollection(data!, hiveUser.user!, provider),
-          SizedBox(height: 12)
+          SizedBox(height: 12),
         ],
         BsdUserEpisodes(data!, hiveUser.user, provider),
         SizedBox(height: 12),
@@ -367,7 +369,7 @@ class _BangumiDetailState extends ConsumerState<BangumiDetail>
           data!.nameCn.isEmpty ? data!.name : data!.nameCn,
         ),
         SizedBox(height: 12),
-        BsdRelation(data!.id),
+        SdpRelationWidget(data!.id),
         SizedBox(height: 12),
         buildSummary(data!.summary),
         SizedBox(height: 12),

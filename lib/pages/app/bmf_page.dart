@@ -95,16 +95,18 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
 
   /// 构建头部
   Widget buildHeader() {
-    return Row(children: [
-      Image.asset('assets/images/logo.png', height: 28, width: 28),
-      SizedBox(width: 4),
-      Text('BMF配置', style: FluentTheme.of(context).typography.title),
-      SizedBox(width: 8),
-      IconButton(
-        icon: BtIcon(FluentIcons.refresh),
-        onPressed: () async => await init(),
-      ),
-    ]);
+    return Row(
+      children: [
+        Image.asset('assets/images/logo.png', height: 28, width: 28),
+        SizedBox(width: 4),
+        Text('BMF配置', style: FluentTheme.of(context).typography.title),
+        SizedBox(width: 8),
+        IconButton(
+          icon: BtIcon(FluentIcons.refresh),
+          onPressed: () async => await init(),
+        ),
+      ],
+    );
   }
 
   /// 构建函数
@@ -120,7 +122,7 @@ class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
           bmfList[i].title ?? '',
           isConfig: true,
         ),
-        separatorBuilder: (_, __) => SizedBox(height: 8),
+        separatorBuilder: (_, _) => SizedBox(height: 8),
         itemCount: bmfList.length,
         padding: EdgeInsets.all(8),
       ),

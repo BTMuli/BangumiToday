@@ -75,10 +75,10 @@ class BtsBangumiUser {
       whereArgs: ['user'],
     );
     if (result.isEmpty) {
-      await _instance.sqlite.db.insert(
-        _tableNameUser,
-        {'key': 'user', 'value': jsonEncode(user)},
-      );
+      await _instance.sqlite.db.insert(_tableNameUser, {
+        'key': 'user',
+        'value': jsonEncode(user),
+      });
     } else {
       await _instance.sqlite.db.update(
         _tableNameUser,
@@ -157,10 +157,10 @@ class BtsBangumiUser {
       whereArgs: [key],
     );
     if (result.isEmpty) {
-      await _instance.sqlite.db.insert(
-        _tableNameUser,
-        {'key': key, 'value': value},
-      );
+      await _instance.sqlite.db.insert(_tableNameUser, {
+        'key': key,
+        'value': value,
+      });
       BTLogTool.info('Write $key: $value');
     } else {
       await _instance.sqlite.db.update(

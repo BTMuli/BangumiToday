@@ -7,13 +7,13 @@ part of 'app_rss_model.dart';
 // **************************************************************************
 
 AppRssModel _$AppRssModelFromJson(Map<String, dynamic> json) => AppRssModel(
-      rss: json['rss'] as String,
-      data: json['data'] as String,
-      ttl: (json['ttl'] as num).toInt(),
-      updated: (json['updated'] as num?)?.toInt() ?? 0,
-      mkBgmId: json['mkBgmId'] as String?,
-      mkGroupId: json['mkGroupId'] as String?,
-    );
+  rss: json['rss'] as String,
+  data: json['data'] as String,
+  ttl: (json['ttl'] as num).toInt(),
+  updated: (json['updated'] as num?)?.toInt() ?? 0,
+  mkBgmId: json['mkBgmId'] as String?,
+  mkGroupId: json['mkGroupId'] as String?,
+);
 
 Map<String, dynamic> _$AppRssModelToJson(AppRssModel instance) =>
     <String, dynamic>{

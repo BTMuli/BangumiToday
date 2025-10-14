@@ -122,14 +122,20 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
     }
     if (aria2Files.contains(file)) {
       var size = fileTool.getFileSize(path.join(widget.bmfFile, file));
-      return Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        const SizedBox(width: double.infinity, child: ProgressBar(value: null)),
-        const SizedBox(height: 6),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [Text('下载中：${filesize(size)}')],
-        ),
-      ]);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          const SizedBox(
+            width: double.infinity,
+            child: ProgressBar(value: null),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [Text('下载中：${filesize(size)}')],
+          ),
+        ],
+      );
     }
     if (!file.endsWith('.mp4') && !file.endsWith('.mkv')) return deleteBtn;
     return Row(
@@ -157,11 +163,7 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
           padding: const EdgeInsets.all(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              title,
-              const Spacer(),
-              buildFileAct(context, file),
-            ],
+            children: [title, const Spacer(), buildFileAct(context, file)],
           ),
         ),
       );
@@ -173,11 +175,7 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
   /// 构建文件
   Widget buildFiles() {
     if (files.isEmpty) return const Text('没有找到任何文件');
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: buildFileCards(context),
-    );
+    return Wrap(spacing: 8, runSpacing: 8, children: buildFileCards(context));
   }
 
   /// buildTitle
@@ -232,11 +230,7 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        buildTitle(),
-        const SizedBox(height: 12),
-        buildFiles(),
-      ],
+      children: [buildTitle(), const SizedBox(height: 12), buildFiles()],
     );
   }
 }

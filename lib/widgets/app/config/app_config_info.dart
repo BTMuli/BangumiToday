@@ -66,8 +66,9 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
   MenuFlyoutItemBase buildThemeFlyout(ThemeModeConfig theme) {
     return MenuFlyoutItem(
       text: Text(theme.label),
-      leading:
-          curThemeMode == theme.cur ? BtIcon(theme.icon) : Icon(theme.icon),
+      leading: curThemeMode == theme.cur
+          ? BtIcon(theme.icon)
+          : Icon(theme.icon),
       onPressed: () async {
         if (curThemeMode == theme.cur) {
           if (mounted) await BtInfobar.warn(context, '当前主题已经是${theme.label}主题');

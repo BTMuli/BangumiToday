@@ -29,8 +29,9 @@ MikanSearchItemModel? parseSearchItem(dom.Element li, String baseUrl) {
   var rss = '$baseUrl/RSS/Bangumi?bangumiId=$id';
   var title = li.querySelector(".an-text")?.attributes['title'];
   if (title == null) return null;
-  var cover =
-      a.querySelector(".b-lazy.b-loaded")?.attributes['background-image'];
+  var cover = a
+      .querySelector(".b-lazy.b-loaded")
+      ?.attributes['background-image'];
   if (cover != null) {
     cover = cover.split('?').first;
     cover = cover.substring(5);

@@ -217,7 +217,7 @@ class _RssMkPageState extends ConsumerState<RssMkPage>
           onPressed: useUserRSS ? refreshUserRSS : refreshMikanRSS,
         ),
         SizedBox(width: 10.w),
-        ...buildTokenBar()
+        ...buildTokenBar(),
       ],
     );
   }

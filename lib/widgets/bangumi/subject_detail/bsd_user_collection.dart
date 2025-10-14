@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
-import '../../../pages/bangumi/bangumi_detail.dart';
+import '../../../pages/subject-detail/subject_detail_page.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_infobar.dart';
@@ -22,7 +22,7 @@ class BsdUserCollection extends StatefulWidget {
   final BangumiUser user;
 
   /// provider
-  final BangumiDetailProvider provider;
+  final SubjectDetailPageProvider provider;
 
   /// 构造函数
   const BsdUserCollection(this.subject, this.user, this.provider, {super.key});
@@ -349,18 +349,12 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
           content: '确认将条目 ${subject.id} 评分更新为 $val 分吗？',
         );
         if (!confirm) return;
-        var resp = await api.updateCollectionSubject(
-          subject.id,
-          rate: val,
-        );
+        var resp = await api.updateCollectionSubject(subject.id, rate: val);
         if (resp.code != 0 || resp.data == null) {
           if (mounted) await showRespErr(resp, context);
         } else {
           if (mounted) {
-            await BtInfobar.success(
-              context,
-              '条目 ${subject.id} 评分更新为 $val 分',
-            );
+            await BtInfobar.success(context, '条目 ${subject.id} 评分更新为 $val 分');
           }
           setState(() {});
           await init();

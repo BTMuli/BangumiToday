@@ -117,9 +117,10 @@ class BtrBangumiOauth {
   /// 查询授权信息
   Future<BTResponse> getStatus(String accessToken) async {
     try {
-      var response = await client.dio.get('/token_status', queryParameters: {
-        'access_token': accessToken,
-      });
+      var response = await client.dio.get(
+        '/token_status',
+        queryParameters: {'access_token': accessToken},
+      );
       assert(response.data is Map<String, dynamic>);
       return BangumiOauthTokenStatusResp.success(
         data: BangumiOauthTokenStatusData.fromJson(

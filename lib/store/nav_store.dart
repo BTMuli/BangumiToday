@@ -8,7 +8,7 @@ import 'package:hive/hive.dart';
 
 // Project imports:
 import '../models/hive/nav_model.dart';
-import '../pages/bangumi/bangumi_detail.dart';
+import '../pages/subject-detail/subject_detail_page.dart';
 
 /// 侧边栏状态提供者
 final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
@@ -81,7 +81,7 @@ class BTNavStore extends ChangeNotifier {
     var pane = PaneItem(
       icon: const Icon(FluentIcons.info),
       title: Text(title),
-      body: BangumiDetail(id: subject.toString()),
+      body: SubjectDetailPage(id: subject.toString()),
     );
     var paneType = BtmAppNavItemType.subject;
     var param = 'subjectDetail_$subject';

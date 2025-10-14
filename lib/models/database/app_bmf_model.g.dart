@@ -7,14 +7,14 @@ part of 'app_bmf_model.dart';
 // **************************************************************************
 
 AppBmfModel _$AppBmfModelFromJson(Map<String, dynamic> json) => AppBmfModel(
-      id: (json['id'] as num?)?.toInt() ?? -1,
-      subject: (json['subject'] as num).toInt(),
-      title: json['title'] as String?,
-      rss: json['rss'] as String?,
-      download: json['download'] as String?,
-      mkBgmId: json['mkBgmId'] as String?,
-      mkGroupId: json['mkGroupId'] as String?,
-    );
+  id: (json['id'] as num?)?.toInt() ?? -1,
+  subject: (json['subject'] as num).toInt(),
+  title: json['title'] as String?,
+  rss: json['rss'] as String?,
+  download: json['download'] as String?,
+  mkBgmId: json['mkBgmId'] as String?,
+  mkGroupId: json['mkGroupId'] as String?,
+);
 
 Map<String, dynamic> _$AppBmfModelToJson(AppBmfModel instance) =>
     <String, dynamic>{

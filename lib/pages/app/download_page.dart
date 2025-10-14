@@ -61,7 +61,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           for (var item in list) ...[
             RssDownloadCard(item.item, item.dir),
             SizedBox(height: 16.h),
-          ]
+          ],
         ],
       ),
     );

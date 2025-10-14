@@ -106,14 +106,15 @@ class _BucTabState extends ConsumerState<BucTabView>
   }
 
   /// 跳转
-  void jump(BangumiUserSubjectCollection subject) =>
-      ref.read(navStoreProvider).addNavItemB(
-            type: subject.subjectType.label,
-            subject: subject.subjectId,
-            paneTitle: subject.subject.nameCn == ''
-                ? subject.subject.name
-                : subject.subject.nameCn,
-          );
+  void jump(BangumiUserSubjectCollection subject) => ref
+      .read(navStoreProvider)
+      .addNavItemB(
+        type: subject.subjectType.label,
+        subject: subject.subjectId,
+        paneTitle: subject.subject.nameCn == ''
+            ? subject.subject.name
+            : subject.subject.nameCn,
+      );
 
   /// 刷新收藏
   Future<void> freshCollection() async {
@@ -236,17 +237,19 @@ class _BucTabState extends ConsumerState<BucTabView>
   /// 构建顶部
   Widget buildTop(BuildContext context) {
     var titleStyle = FluentTheme.of(context).typography.subtitle;
-    return Row(children: [
-      SizedBox(width: 8.w),
-      Text('共 ${data.length} 部', style: titleStyle),
-      SizedBox(width: 8.w),
-      buildRefresh(context),
-      SizedBox(width: 8.w),
-      SizedBox(width: 450.w, child: buildJump(context)),
-      const Spacer(),
-      PageWidget(pageController),
-      SizedBox(width: 8.w),
-    ]);
+    return Row(
+      children: [
+        SizedBox(width: 8.w),
+        Text('共 ${data.length} 部', style: titleStyle),
+        SizedBox(width: 8.w),
+        buildRefresh(context),
+        SizedBox(width: 8.w),
+        SizedBox(width: 450.w, child: buildJump(context)),
+        const Spacer(),
+        PageWidget(pageController),
+        SizedBox(width: 8.w),
+      ],
+    );
   }
 
   /// 构建列表
@@ -271,11 +274,13 @@ class _BucTabState extends ConsumerState<BucTabView>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Column(children: [
-      SizedBox(height: 8.h),
-      buildTop(context),
-      SizedBox(height: 8.h),
-      Expanded(child: buildList()),
-    ]);
+    return Column(
+      children: [
+        SizedBox(height: 8.h),
+        buildTop(context),
+        SizedBox(height: 8.h),
+        Expanded(child: buildList()),
+      ],
+    );
   }
 }

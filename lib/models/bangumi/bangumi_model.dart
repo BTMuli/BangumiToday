@@ -1149,10 +1149,7 @@ class BangumiCreator {
   String nickname;
 
   /// constructor
-  BangumiCreator({
-    required this.username,
-    required this.nickname,
-  });
+  BangumiCreator({required this.username, required this.nickname});
 
   /// from json
   factory BangumiCreator.fromJson(Map<String, dynamic> json) =>
@@ -1355,9 +1352,7 @@ class BangumiRevisionExtra {
   String img;
 
   /// constructor
-  BangumiRevisionExtra({
-    required this.img,
-  });
+  BangumiRevisionExtra({required this.img});
 
   /// from json
   factory BangumiRevisionExtra.fromJson(Map<String, dynamic> json) =>
@@ -1555,8 +1550,8 @@ class BangumiCharacterRevisionDataItem {
 
   /// from json
   factory BangumiCharacterRevisionDataItem.fromJson(
-          Map<String, dynamic> json) =>
-      _$BangumiCharacterRevisionDataItemFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$BangumiCharacterRevisionDataItemFromJson(json);
 
   /// to json
   Map<String, dynamic> toJson() =>
@@ -1761,10 +1756,7 @@ class BangumiErrorOauth {
   String errorDescription;
 
   /// constructor
-  BangumiErrorOauth({
-    required this.error,
-    required this.errorDescription,
-  });
+  BangumiErrorOauth({required this.error, required this.errorDescription});
 
   /// from json
   factory BangumiErrorOauth.fromJson(Map<String, dynamic> json) =>
@@ -1942,10 +1934,7 @@ class BangumiIndexBasicInfo1 {
   String description;
 
   /// constructor
-  BangumiIndexBasicInfo1({
-    required this.title,
-    required this.description,
-  });
+  BangumiIndexBasicInfo1({required this.title, required this.description});
 
   /// from json
   factory BangumiIndexBasicInfo1.fromJson(Map<String, dynamic> json) =>
@@ -1999,10 +1988,7 @@ class BangumiIndexBasicInfo3 {
   String comment;
 
   /// constructor
-  BangumiIndexBasicInfo3({
-    required this.sort,
-    required this.comment,
-  });
+  BangumiIndexBasicInfo3({required this.sort, required this.comment});
 
   /// from json
   factory BangumiIndexBasicInfo3.fromJson(Map<String, dynamic> json) =>
@@ -2026,10 +2012,7 @@ class BangumiInfoBoxItem {
   dynamic value;
 
   /// constructor
-  BangumiInfoBoxItem({
-    required this.key,
-    required this.value,
-  });
+  BangumiInfoBoxItem({required this.key, required this.value});
 
   /// from json
   factory BangumiInfoBoxItem.fromJson(Map<String, dynamic> json) =>
@@ -2055,11 +2038,7 @@ class BangumiPage {
   int offset;
 
   /// constructor
-  BangumiPage({
-    required this.total,
-    required this.limit,
-    required this.offset,
-  });
+  BangumiPage({required this.total, required this.limit, required this.offset});
 
   /// from json
   factory BangumiPage.fromJson(Map<String, dynamic> json) =>
@@ -2102,8 +2081,7 @@ class BangumiPageT<T> {
   factory BangumiPageT.fromJson(
     Map<String, dynamic> json,
     T Function(Object? json) fromJsonT,
-  ) =>
-      _$BangumiPageTFromJson(json, fromJsonT);
+  ) => _$BangumiPageTFromJson(json, fromJsonT);
 
   /// to json
   Map<String, dynamic> toJson(dynamic Function(T value) toJsonT) =>
@@ -2483,10 +2461,7 @@ class BangumiStat {
   int collects;
 
   /// constructor
-  BangumiStat({
-    required this.comments,
-    required this.collects,
-  });
+  BangumiStat({required this.comments, required this.collects});
 
   /// from json
   factory BangumiStat.fromJson(Map<String, dynamic> json) =>
@@ -2684,10 +2659,7 @@ class BangumiTag {
   int count;
 
   /// constructor
-  BangumiTag({
-    required this.name,
-    required this.count,
-  });
+  BangumiTag({required this.name, required this.count});
 
   /// from json
   factory BangumiTag.fromJson(Map<String, dynamic> json) =>
@@ -2847,8 +2819,8 @@ class BangumiUserSubjectCollectionModifyPayload {
 
   /// from json
   factory BangumiUserSubjectCollectionModifyPayload.fromJson(
-          Map<String, dynamic> json) =>
-      _$BangumiUserSubjectCollectionModifyPayloadFromJson(json);
+    Map<String, dynamic> json,
+  ) => _$BangumiUserSubjectCollectionModifyPayloadFromJson(json);
 
   /// to json
   Map<String, dynamic> toJson() =>
@@ -2867,10 +2839,7 @@ class BangumiUserEpisodeCollection {
   BangumiEpisodeCollectionType type;
 
   /// constructor
-  BangumiUserEpisodeCollection({
-    required this.episode,
-    required this.type,
-  });
+  BangumiUserEpisodeCollection({required this.episode, required this.type});
 
   /// from json
   factory BangumiUserEpisodeCollection.fromJson(Map<String, dynamic> json) =>

@@ -49,9 +49,9 @@ class DttHive extends ChangeNotifier {
   /// 移除下载任务
   Future<void> removeTask(MiniRssItem item) async {
     _list.remove(_list.firstWhere((e) => e.item == item));
-    var hiveItem = Hive.box<DttHiveModel>('dtt')
-        .values
-        .firstWhere((e) => e.item.link == item.link);
+    var hiveItem = Hive.box<DttHiveModel>(
+      'dtt',
+    ).values.firstWhere((e) => e.item.link == item.link);
     await Hive.box<DttHiveModel>('dtt').delete(hiveItem.index);
     notifyListeners();
   }

@@ -76,10 +76,9 @@ class _RssCmcCardState extends ConsumerState<RssCmcCard> {
                   }
                   return;
                 }
-                var check = await ref.read(dttStoreProvider.notifier).addTask(
-                      item,
-                      saveDir,
-                    );
+                var check = await ref
+                    .read(dttStoreProvider.notifier)
+                    .addTask(item, saveDir);
                 if (check && context.mounted) {
                   await BtInfobar.success(context, '添加下载任务成功');
                   return;

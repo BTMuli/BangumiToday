@@ -23,21 +23,21 @@ Map<String, dynamic> _$BangumiPatchRatingToJson(BangumiPatchRating instance) =>
     };
 
 BangumiPatchCollection _$BangumiPatchCollectionFromJson(
-        Map<String, dynamic> json) =>
-    BangumiPatchCollection(
-      wish: (json['wish'] as num?)?.toInt(),
-      collect: (json['collect'] as num?)?.toInt(),
-      doing: (json['doing'] as num?)?.toInt(),
-      onHold: (json['on_hold'] as num?)?.toInt(),
-      dropped: (json['dropped'] as num?)?.toInt(),
-    );
+  Map<String, dynamic> json,
+) => BangumiPatchCollection(
+  wish: (json['wish'] as num?)?.toInt(),
+  collect: (json['collect'] as num?)?.toInt(),
+  doing: (json['doing'] as num?)?.toInt(),
+  onHold: (json['on_hold'] as num?)?.toInt(),
+  dropped: (json['dropped'] as num?)?.toInt(),
+);
 
 Map<String, dynamic> _$BangumiPatchCollectionToJson(
-        BangumiPatchCollection instance) =>
-    <String, dynamic>{
-      'wish': instance.wish,
-      'collect': instance.collect,
-      'doing': instance.doing,
-      'on_hold': instance.onHold,
-      'dropped': instance.dropped,
-    };
+  BangumiPatchCollection instance,
+) => <String, dynamic>{
+  'wish': instance.wish,
+  'collect': instance.collect,
+  'doing': instance.doing,
+  'on_hold': instance.onHold,
+  'dropped': instance.dropped,
+};

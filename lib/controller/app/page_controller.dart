@@ -132,11 +132,13 @@ class _PageWidgetState extends State<PageWidget> {
       if (page == -1) {
         result.add(const PageItemText('...'));
       } else {
-        result.add(PageItemPage(
-          page: page,
-          cur: controller.cur,
-          onPressed: controller.jump,
-        ));
+        result.add(
+          PageItemPage(
+            page: page,
+            cur: controller.cur,
+            onPressed: controller.jump,
+          ),
+        );
       }
       result.add(const SizedBox(width: 4));
     }
@@ -190,10 +192,7 @@ class PageItemBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: text,
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon),
-      ),
+      child: IconButton(onPressed: onPressed, icon: Icon(icon)),
     );
   }
 }

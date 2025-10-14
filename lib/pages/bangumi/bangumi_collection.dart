@@ -62,16 +62,18 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
 
   /// 构建底部
   Widget buildFooter() {
-    return Row(children: [
-      FilledButton(
-        child: const Text('关闭'),
-        onPressed: () =>
-            ref.read(navStoreProvider).removeNavItem('Bangumi-用户收藏'),
-      ),
-      SizedBox(width: 16.w),
-      Image.asset('assets/images/platforms/bangumi-logo.png'),
-      SizedBox(width: 16.w),
-    ]);
+    return Row(
+      children: [
+        FilledButton(
+          child: const Text('关闭'),
+          onPressed: () =>
+              ref.read(navStoreProvider).removeNavItem('Bangumi-用户收藏'),
+        ),
+        SizedBox(width: 16.w),
+        Image.asset('assets/images/platforms/bangumi-logo.png'),
+        SizedBox(width: 16.w),
+      ],
+    );
   }
 
   /// build

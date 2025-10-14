@@ -46,9 +46,7 @@ class _AppConfigDeviceWidgetState extends State<AppConfigDeviceWidget> {
           ListTile(
             leading: Icon(MdiIcons.identifier),
             title: const Text('标识符'),
-            subtitle: Text(
-              diw.deviceId.substring(1, diw.deviceId.length - 1),
-            ),
+            subtitle: Text(diw.deviceId.substring(1, diw.deviceId.length - 1)),
           ),
         ],
       ),

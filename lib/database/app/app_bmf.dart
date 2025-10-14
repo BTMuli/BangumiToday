@@ -119,17 +119,18 @@ class BtsAppBmf {
     // 因为这边有个自增ID, 所以不能直接 toJson及调用insert
     if (result.isEmpty) {
       await _instance.sqlite.db.rawInsert(
-          'INSERT INTO $_tableName '
-          '(subject, rss, download,title, mkBgmId, mkGroupId) '
-          'VALUES (?, ?, ?, ?, ?, ?)',
-          [
-            model.subject,
-            model.rss,
-            model.download,
-            model.title,
-            model.mkBgmId,
-            model.mkGroupId
-          ]);
+        'INSERT INTO $_tableName '
+        '(subject, rss, download,title, mkBgmId, mkGroupId) '
+        'VALUES (?, ?, ?, ?, ?, ?)',
+        [
+          model.subject,
+          model.rss,
+          model.download,
+          model.title,
+          model.mkBgmId,
+          model.mkGroupId,
+        ],
+      );
     } else {
       await _instance.sqlite.db.rawUpdate(
         'UPDATE $_tableName SET '

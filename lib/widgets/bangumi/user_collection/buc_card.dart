@@ -95,10 +95,8 @@ class _BucCardState extends ConsumerState<BucCard>
           value: dp.progress == null ? 0 : dp.progress! * 100,
         ),
       ),
-      errorWidget: (context, url, error) => buildCoverError(
-        context,
-        err: error.toString(),
-      ),
+      errorWidget: (context, url, error) =>
+          buildCoverError(context, err: error.toString()),
     );
   }
 
@@ -108,21 +106,20 @@ class _BucCardState extends ConsumerState<BucCard>
     Widget viewWidget = Container();
     var score = data.score / 2;
     var label = getBangumiRateLabel(data.score);
-    rateWidget.add(RatingBar(
-      rating: score,
-      iconSize: 20.sp,
-      starSpacing: 1.sp,
-      unratedIconColor: FluentTheme.of(context).accentColor.withAlpha(128),
-    ));
+    rateWidget.add(
+      RatingBar(
+        rating: score,
+        iconSize: 20.sp,
+        starSpacing: 1.sp,
+        unratedIconColor: FluentTheme.of(context).accentColor.withAlpha(128),
+      ),
+    );
     rateWidget.add(SizedBox(height: 5.h));
     rateWidget.add(Text('${data.score} $label'));
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ...rateWidget,
-        viewWidget,
-      ],
+      children: [...rateWidget, viewWidget],
     );
   }
 
@@ -183,15 +180,23 @@ class _BucCardState extends ConsumerState<BucCard>
               FluentIcons.info,
               color: FluentTheme.of(context).accentColor.light,
             ),
-            onPressed: () => ref.read(navStoreProvider).addNavItemB(
+            onPressed: () => ref
+                .read(navStoreProvider)
+                .addNavItemB(
                   type: data.type.label,
                   subject: data.id,
                   paneTitle: data.nameCn == '' ? data.name : data.nameCn,
                 ),
             onLongPress: () async {
               var name = data.nameCn == '' ? data.name : data.nameCn;
-              ref.read(navStoreProvider).addNavItemB(
-                  type: '动画', subject: data.id, paneTitle: name, jump: false);
+              ref
+                  .read(navStoreProvider)
+                  .addNavItemB(
+                    type: '动画',
+                    subject: data.id,
+                    paneTitle: name,
+                    jump: false,
+                  );
               await BtInfobar.success(context, '$name 添加成功');
             },
           ),
@@ -244,7 +249,7 @@ class _BucCardState extends ConsumerState<BucCard>
       children: [
         Expanded(child: buildCover(context)),
         SizedBox(width: 5.w),
-        Expanded(child: buildInfo(context))
+        Expanded(child: buildInfo(context)),
       ],
     );
   }

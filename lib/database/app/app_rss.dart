@@ -49,8 +49,9 @@ class BtsAppRss {
 
   /// 更新mkId
   Future<void> updateMkId() async {
-    var check =
-        await instance.sqlite.db.rawQuery('PRAGMA table_info($_tableName)');
+    var check = await instance.sqlite.db.rawQuery(
+      'PRAGMA table_info($_tableName)',
+    );
     hasMkBgmId = check.any((element) => element['name'] == 'mkBgmId');
     if (hasMkBgmId) return;
     await instance.sqlite.db.execute('''
@@ -95,10 +96,7 @@ class BtsAppRss {
       whereArgs: [model.rss],
     );
     if (check.isEmpty) {
-      await instance.sqlite.db.insert(
-        _tableName,
-        model.toJson(),
-      );
+      await instance.sqlite.db.insert(_tableName, model.toJson());
     } else {
       await instance.sqlite.db.update(
         _tableName,
@@ -182,10 +180,7 @@ class BtsAppRss {
         );
       }
     } else if (check.isEmpty) {
-      await instance.sqlite.db.insert(
-        _tableName,
-        model.toJson(),
-      );
+      await instance.sqlite.db.insert(_tableName, model.toJson());
     } else {
       await instance.sqlite.db.update(
         _tableName,

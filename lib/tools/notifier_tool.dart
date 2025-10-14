@@ -81,10 +81,7 @@ class BTNotifierTool {
     required String body,
     void Function()? onClick,
   }) async {
-    var notification = LocalNotification(
-      title: title,
-      body: body,
-    );
+    var notification = LocalNotification(title: title, body: body);
     if (onClick != null) notification.onClick = onClick;
     await _notifications.add(notification);
   }

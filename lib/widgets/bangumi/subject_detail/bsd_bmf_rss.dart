@@ -132,15 +132,22 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
       await BTNotifierTool.showMini(
         title: 'RSS 订阅更新',
         body: bmf.title ?? '动画：${bmf.subject}',
-        onClick: () => ref.read(navStoreProvider.notifier).addNavItemB(
-            subject: bmf.subject, type: '动画', paneTitle: bmf.title),
+        onClick: () => ref
+            .read(navStoreProvider.notifier)
+            .addNavItemB(
+              subject: bmf.subject,
+              type: '动画',
+              paneTitle: bmf.title,
+            ),
       );
     }
     if (newList.length == 1) {
       await BTNotifierTool.showMini(
         title: 'RSS 订阅更新',
         body: '${newList[0].title}',
-        onClick: () => ref.read(navStoreProvider.notifier).addNavItemB(
+        onClick: () => ref
+            .read(navStoreProvider.notifier)
+            .addNavItemB(
               subject: bmf.subject,
               type: '动画',
               paneTitle: bmf.title,
@@ -225,34 +232,37 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
   /// buildRssTitle
   Widget buildTitle() {
     var rssLink = getRss();
-    return Flex(direction: Axis.horizontal, children: [
-      Flexible(
-        child: Tooltip(
-          message: rssLink,
-          child: Text(
-            'Mikan RSS: $rssLink',
-            style: TextStyle(fontSize: 20),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+    return Flex(
+      direction: Axis.horizontal,
+      children: [
+        Flexible(
+          child: Tooltip(
+            message: rssLink,
+            child: Text(
+              'Mikan RSS: $rssLink',
+              style: TextStyle(fontSize: 20),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
-      ),
-      const SizedBox(width: 8),
-      Tooltip(
-        message: '刷新 RSS',
-        child: IconButton(
-          icon: BtIcon(FluentIcons.refresh),
-          onPressed: freshRss,
+        const SizedBox(width: 8),
+        Tooltip(
+          message: '刷新 RSS',
+          child: IconButton(
+            icon: BtIcon(FluentIcons.refresh),
+            onPressed: freshRss,
+          ),
         ),
-      ),
-      Tooltip(
-        message: '打开 RSS',
-        child: IconButton(
-          icon: BtIcon(FluentIcons.edge_logo),
-          onPressed: () async => await launchUrlString(rssLink),
+        Tooltip(
+          message: '打开 RSS',
+          child: IconButton(
+            icon: BtIcon(FluentIcons.edge_logo),
+            onPressed: () async => await launchUrlString(rssLink),
+          ),
         ),
-      )
-    ]);
+      ],
+    );
   }
 
   @override
@@ -266,15 +276,19 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
         if (rssItems.isEmpty)
           const Text('没有找到任何 RSS 信息')
         else
-          Wrap(spacing: 12.w, runSpacing: 12.h, children: [
-            for (var i = 0; i < rssItems.length; i++)
-              RssMikanCard(
-                bmf.rss!,
-                rssItems[i],
-                dir: bmf.download,
-                subject: bmf.subject,
-              ),
-          ]),
+          Wrap(
+            spacing: 12.w,
+            runSpacing: 12.h,
+            children: [
+              for (var i = 0; i < rssItems.length; i++)
+                RssMikanCard(
+                  bmf.rss!,
+                  rssItems[i],
+                  dir: bmf.download,
+                  subject: bmf.subject,
+                ),
+            ],
+          ),
       ],
     );
   }

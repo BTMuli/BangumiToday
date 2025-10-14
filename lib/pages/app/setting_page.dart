@@ -101,7 +101,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
           Flexible(
             child: ListView.separated(
               itemBuilder: (_, int idx) => configList[idx],
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemCount: configList.length,
             ),
           ),

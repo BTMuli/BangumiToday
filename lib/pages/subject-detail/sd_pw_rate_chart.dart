@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
-import '../../../models/bangumi/bangumi_model_patch.dart';
-import '../../../store/app_store.dart';
-import '../../../utils/bangumi_utils.dart';
+import '../../models/bangumi/bangumi_model_patch.dart';
+import '../../store/app_store.dart';
+import '../../utils/bangumi_utils.dart';
 
 /// 番剧评分折线图
 /// 参考：fl_chart的bar_chart_sample8.dart
@@ -15,18 +15,18 @@ import '../../../utils/bangumi_utils.dart';
 /// 代码：https://github.com/imaNNeo/fl_chart/blob/main/example/lib/presentation/samples/bar/bar_chart_sample8.dart
 /// 动画部分参考同类型下的 sample1
 /// 代码：https://github.com/imaNNeo/fl_chart/blob/main/example/lib/presentation/samples/bar/bar_chart_sample1.dart
-class BsdRateChart extends ConsumerStatefulWidget {
+class SdpRateChartWidget extends ConsumerStatefulWidget {
   /// 评分数据
   final BangumiPatchRating? rating;
 
   /// 构造函数
-  const BsdRateChart(this.rating, {super.key});
+  const SdpRateChartWidget(this.rating, {super.key});
 
   @override
-  ConsumerState<BsdRateChart> createState() => _BangumiRateBarChartState();
+  ConsumerState<SdpRateChartWidget> createState() => _SdpRateChartWidgetState();
 }
 
-class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
+class _SdpRateChartWidgetState extends ConsumerState<SdpRateChartWidget> {
   /// 数据
   BangumiPatchRating? get rating => widget.rating;
 
@@ -173,8 +173,9 @@ class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
           ),
         ),
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles:
-            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
       ),
       maxY: maxY,
       borderData: FlBorderData(show: false),
@@ -197,7 +198,7 @@ class _BangumiRateBarChartState extends ConsumerState<BsdRateChart> {
               empty
                   ? '暂无评分'
                   : '${rating!.score} ${getBangumiRateLabel(rating!.score)}'
-                      '(${rating!.total}人评分)',
+                        '(${rating!.total}人评分)',
               style: FluentTheme.of(context).typography.subtitle,
             ),
             SizedBox(height: 20),

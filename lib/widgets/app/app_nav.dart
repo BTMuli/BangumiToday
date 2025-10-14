@@ -12,7 +12,7 @@ import '../../pages/app/download_page.dart';
 import '../../pages/app/rss_page.dart';
 import '../../pages/app/setting_page.dart';
 import '../../pages/app/test_page.dart';
-import '../../pages/bangumi/bangumi_calendar.dart';
+import '../../pages/bangumi-calendar/bangumi_calendar_page.dart';
 import '../../store/app_store.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../store/nav_store.dart';
@@ -79,12 +79,8 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
       barrierDismissible: true,
       dismissOnPointerMoveAway: false,
       dismissWithEsc: true,
-      builder: (context) => MenuFlyout(
-        items: [
-          buildResetWinItem(),
-          buildPinWinItem(),
-        ],
-      ),
+      builder: (context) =>
+          MenuFlyout(items: [buildResetWinItem(), buildPinWinItem()]),
     );
   }
 
@@ -138,7 +134,7 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
       PaneItem(
         icon: Image.asset('assets/images/platforms/bangumi-favicon.ico'),
         title: const Text('Bangumi-今日放送'),
-        body: const CalendarPage(),
+        body: const BangumiCalendarPage(),
       ),
       PaneItem(
         icon: Image.asset(
@@ -158,7 +154,7 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
           icon: const Icon(FluentIcons.cloud_download),
           title: const Text('下载管理'),
           body: const DownloadPage(),
-        )
+        ),
     ];
   }
 

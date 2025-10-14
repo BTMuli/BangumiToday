@@ -53,7 +53,7 @@ class AppRespErrWidget extends StatelessWidget {
         child: SingleChildScrollView(
           child: Text(text, style: TextStyle(fontSize: 20)),
         ),
-      )
+      ),
     ];
   }
 

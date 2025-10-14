@@ -20,9 +20,9 @@ class BangumiEpisodeListResp extends BTResponse<BangumiPageT<BangumiEpisode>> {
   });
 
   /// success
-  static BangumiEpisodeListResp success(
-          {required BangumiPageT<BangumiEpisode> data}) =>
-      BangumiEpisodeListResp(code: 0, message: 'success', data: data);
+  static BangumiEpisodeListResp success({
+    required BangumiPageT<BangumiEpisode> data,
+  }) => BangumiEpisodeListResp(code: 0, message: 'success', data: data);
 
   /// from json
   factory BangumiEpisodeListResp.fromJson(Map<String, dynamic> json) =>

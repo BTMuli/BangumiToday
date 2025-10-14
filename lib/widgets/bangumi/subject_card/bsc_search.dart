@@ -70,9 +70,8 @@ class _BscSearchState extends ConsumerState<BscSearch> {
           value: dp.progress == null ? 0 : dp.progress! * 100,
         ),
       ),
-      errorWidget: (context, url, error) => buildCoverEmpty(
-        err: error.toString(),
-      ),
+      errorWidget: (context, url, error) =>
+          buildCoverEmpty(err: error.toString()),
     );
   }
 
@@ -113,31 +112,37 @@ class _BscSearchState extends ConsumerState<BscSearch> {
   Widget buildAction(BuildContext context) {
     var scoreLabel = getBangumiRateLabel(subject.rating.score);
     var paneTitle = subject.nameCn == '' ? subject.name : subject.nameCn;
-    return Row(children: [
-      Tooltip(
-        message: '查看$label详情',
-        child: IconButton(
-          icon: const BtIcon(FluentIcons.info),
-          onPressed: () => ref.read(navStoreProvider).addNavItemB(
-                type: label,
-                subject: subject.id,
-                paneTitle: paneTitle,
-              ),
-          onLongPress: () async {
-            ref.read(navStoreProvider).addNavItemB(
+    return Row(
+      children: [
+        Tooltip(
+          message: '查看$label详情',
+          child: IconButton(
+            icon: const BtIcon(FluentIcons.info),
+            onPressed: () => ref
+                .read(navStoreProvider)
+                .addNavItemB(
                   type: label,
                   subject: subject.id,
                   paneTitle: paneTitle,
-                  jump: false,
-                );
-            if (context.mounted) {
-              await BtInfobar.success(context, '已将 $paneTitle 加入到标签页');
-            }
-          },
+                ),
+            onLongPress: () async {
+              ref
+                  .read(navStoreProvider)
+                  .addNavItemB(
+                    type: label,
+                    subject: subject.id,
+                    paneTitle: paneTitle,
+                    jump: false,
+                  );
+              if (context.mounted) {
+                await BtInfobar.success(context, '已将 $paneTitle 加入到标签页');
+              }
+            },
+          ),
         ),
-      ),
-      Text('${subject.rating.score}($scoreLabel)'),
-    ]);
+        Text('${subject.rating.score}($scoreLabel)'),
+      ],
+    );
   }
 
   /// 构建卡片信息
@@ -166,7 +171,7 @@ class _BscSearchState extends ConsumerState<BscSearch> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-          )
+          ),
         ],
         const SizedBox(height: 4),
         buildTags(),

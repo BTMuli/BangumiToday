@@ -31,11 +31,11 @@ class BgmUserHive extends ChangeNotifier {
 
   /// 获取模型
   BgmUserHiveModel get model => BgmUserHiveModel(
-        user: _user,
-        accessToken: _accessToken,
-        refreshToken: _refreshToken,
-        expireTime: _expireTime,
-      );
+    user: _user,
+    accessToken: _accessToken,
+    refreshToken: _refreshToken,
+    expireTime: _expireTime,
+  );
 
   /// 用户
   BangumiUser? _user;

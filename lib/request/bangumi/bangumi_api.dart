@@ -229,9 +229,7 @@ class BtrBangumiApi {
       );
       var dataList = BangumiPageT<BangumiEpisode>.fromJson(
         resp.data as Map<String, dynamic>,
-        (e) => BangumiEpisode.fromJson(
-          e as Map<String, dynamic>,
-        ),
+        (e) => BangumiEpisode.fromJson(e as Map<String, dynamic>),
       );
       return BangumiEpisodeListResp.success(data: dataList);
     } on DioException catch (e) {
@@ -307,15 +305,14 @@ class BtrBangumiApi {
       );
       var dataList = BangumiPageT<BangumiUserSubjectCollection>.fromJson(
         resp.data as Map<String, dynamic>,
-        (e) => BangumiUserSubjectCollection.fromJson(
-          e as Map<String, dynamic>,
-        ),
+        (e) => BangumiUserSubjectCollection.fromJson(e as Map<String, dynamic>),
       );
       return BangumiCollectionSubjectListResp.success(data: dataList);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       BTLogTool.error(
-          'Failed to load user collections: ${jsonEncode(errResp)}');
+        'Failed to load user collections: ${jsonEncode(errResp)}',
+      );
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load user collections',
@@ -395,7 +392,8 @@ class BtrBangumiApi {
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       BTLogTool.error(
-          'Failed to add user collection item: ${jsonEncode(errResp)}');
+        'Failed to add user collection item: ${jsonEncode(errResp)}',
+      );
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to add user collection item',
@@ -442,7 +440,8 @@ class BtrBangumiApi {
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       BTLogTool.error(
-          'Failed to update user collection item: ${jsonEncode(errResp)}');
+        'Failed to update user collection item: ${jsonEncode(errResp)}',
+      );
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to update user collection item',
@@ -478,15 +477,14 @@ class BtrBangumiApi {
       );
       var dataList = BangumiPageT<BangumiUserEpisodeCollection>.fromJson(
         resp.data as Map<String, dynamic>,
-        (e) => BangumiUserEpisodeCollection.fromJson(
-          e as Map<String, dynamic>,
-        ),
+        (e) => BangumiUserEpisodeCollection.fromJson(e as Map<String, dynamic>),
       );
       return BangumiCollectionEpisodeListResp.success(data: dataList);
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       BTLogTool.error(
-          'Failed to load user collection episodes: ${jsonEncode(errResp)}');
+        'Failed to load user collection episodes: ${jsonEncode(errResp)}',
+      );
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load user collection episodes',
@@ -516,8 +514,10 @@ class BtrBangumiApi {
       );
     } on DioException catch (e) {
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error('Failed to load user collection episode item:'
-          '${jsonEncode(errResp)}');
+      BTLogTool.error(
+        'Failed to load user collection episode item:'
+        '${jsonEncode(errResp)}',
+      );
       return BTResponse<BangumiErrorDetail>(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load user collection episode item',
@@ -579,10 +579,7 @@ class BtrBangumiApi {
     int? start,
     int? maxResults,
   }) async {
-    var params = <String, dynamic>{
-      'type': type.value,
-      'responseGroup': group,
-    };
+    var params = <String, dynamic>{'type': type.value, 'responseGroup': group};
     if (start != null) params['start'] = start;
     if (maxResults != null && maxResults >= 1 && maxResults <= 25) {
       params['max_results'] = maxResults;

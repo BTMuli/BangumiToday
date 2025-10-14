@@ -33,13 +33,7 @@ class RssMikanCard extends ConsumerStatefulWidget {
   final int? subject;
 
   /// 构造函数
-  const RssMikanCard(
-    this.link,
-    this.item, {
-    super.key,
-    this.dir,
-    this.subject,
-  });
+  const RssMikanCard(this.link, this.item, {super.key, this.dir, this.subject});
 
   @override
   ConsumerState<RssMikanCard> createState() => _RssMikanCardState();
@@ -114,8 +108,9 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     if (saveDir == null || saveDir.isEmpty) {
       return;
     }
-    var check =
-        await ref.read(dttStoreProvider.notifier).addTask(item, saveDir);
+    var check = await ref
+        .read(dttStoreProvider.notifier)
+        .addTask(item, saveDir);
     if (check) {
       if (context.mounted) await BtInfobar.success(context, '添加下载任务成功');
     } else {
@@ -132,9 +127,7 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
     if (!context.mounted) return;
     var savePath = await getSavePath(context, saveDir);
     if (savePath == null) return;
-    await launchUrlString(
-      'mo://new-task/?type=torrent&dir=$saveDir',
-    );
+    await launchUrlString('mo://new-task/?type=torrent&dir=$saveDir');
     await launchUrlString('file://$savePath');
   }
 

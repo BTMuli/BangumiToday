@@ -18,7 +18,8 @@ class BtrBangumiDataApi {
   final String jsonUrl = 'https://unpkg.com/bangumi-data@0.3/dist/data.json';
 
   /// 仓库的基础 URL，用于获取版本信息
-  final String repoUrl = 'https://api.github.com/repos/'
+  final String repoUrl =
+      'https://api.github.com/repos/'
       'bangumi-data/bangumi-data/releases/latest';
 
   /// 构造函数

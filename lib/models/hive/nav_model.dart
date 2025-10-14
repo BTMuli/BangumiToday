@@ -46,10 +46,7 @@ class BtmAppNavHive {
   final int subjectId;
 
   /// 构造函数
-  const BtmAppNavHive({
-    required this.title,
-    required this.subjectId,
-  });
+  const BtmAppNavHive({required this.title, required this.subjectId});
 }
 
 /// 侧边栏项的适配器

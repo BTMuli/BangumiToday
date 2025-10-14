@@ -22,10 +22,7 @@ class BangumiDataJson {
   List<BangumiDataItem> items;
 
   /// constructor
-  BangumiDataJson({
-    required this.siteMeta,
-    required this.items,
-  });
+  BangumiDataJson({required this.siteMeta, required this.items});
 
   /// from json
   factory BangumiDataJson.fromJson(Map<String, dynamic> json) =>
@@ -141,22 +138,23 @@ class BangumiDataItem {
 
   /// toSqlJson
   Map<String, dynamic> toSqlJson() => {
-        'title': title,
-        'titleTranslate': jsonEncode(titleTranslate.toJson()),
-        'type': type,
-        'lang': lang,
-        'officialSite': officialSite,
-        'begin': begin,
-        'broadcast': broadcast,
-        'end': end,
-        'comment': comment,
-        'sites': jsonEncode(sites.map((e) => e.toJson()).toList()),
-      };
+    'title': title,
+    'titleTranslate': jsonEncode(titleTranslate.toJson()),
+    'type': type,
+    'lang': lang,
+    'officialSite': officialSite,
+    'begin': begin,
+    'broadcast': broadcast,
+    'end': end,
+    'comment': comment,
+    'sites': jsonEncode(sites.map((e) => e.toJson()).toList()),
+  };
 
   /// fromSqlJson
   factory BangumiDataItem.fromSqlJson(Map<String, dynamic> json) {
     var titleTranslate = BangumiDataItemTitleTranslate.fromJson(
-        jsonDecode(json['titleTranslate']) as Map<String, dynamic>);
+      jsonDecode(json['titleTranslate']) as Map<String, dynamic>,
+    );
     var sites = (jsonDecode(json['sites']) as List<dynamic>)
         .map((e) => BangumiDataItemSite.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -183,9 +181,7 @@ class BangumiDataItemTitleTranslate {
   List<String>? zh;
 
   /// constructor
-  BangumiDataItemTitleTranslate({
-    required this.zh,
-  });
+  BangumiDataItemTitleTranslate({required this.zh});
 
   /// from json
   factory BangumiDataItemTitleTranslate.fromJson(Map<String, dynamic> json) =>
@@ -273,12 +269,12 @@ class BangumiDataSiteFull extends BangumiDataSite {
 
   /// to sql json
   Map<String, dynamic> toSqlJson() => {
-        'key': key,
-        'title': title,
-        'urlTemplate': urlTemplate,
-        'type': type,
-        'regions': jsonEncode(regions),
-      };
+    'key': key,
+    'title': title,
+    'urlTemplate': urlTemplate,
+    'type': type,
+    'regions': jsonEncode(regions),
+  };
 
   /// from sql json
   factory BangumiDataSiteFull.fromSqlJson(Map<String, dynamic> json) {

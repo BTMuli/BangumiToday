@@ -64,9 +64,7 @@ class BangumiOauthParams {
   String redirectUri = 'BangumiToday://oauth/bangumi/callback';
 
   /// constructor
-  BangumiOauthParams({
-    required this.appId,
-  });
+  BangumiOauthParams({required this.appId});
 
   /// from json
   factory BangumiOauthParams.fromJson(Map<String, dynamic> json) =>
@@ -131,9 +129,9 @@ class BangumiOauthTokenGetResp extends BTResponse<BangumiOauthTokenGetData> {
   });
 
   /// success
-  static BangumiOauthTokenGetResp success(
-          {required BangumiOauthTokenGetData data}) =>
-      BangumiOauthTokenGetResp(code: 0, message: 'success', data: data);
+  static BangumiOauthTokenGetResp success({
+    required BangumiOauthTokenGetData data,
+  }) => BangumiOauthTokenGetResp(code: 0, message: 'success', data: data);
 
   /// from json
   factory BangumiOauthTokenGetResp.fromJson(Map<String, dynamic> json) =>
@@ -232,9 +230,9 @@ class BangumiOauthTokenRefreshResp
   });
 
   /// success
-  static BangumiOauthTokenRefreshResp success(
-          {required BangumiOauthTokenRefreshData data}) =>
-      BangumiOauthTokenRefreshResp(code: 0, message: 'success', data: data);
+  static BangumiOauthTokenRefreshResp success({
+    required BangumiOauthTokenRefreshData data,
+  }) => BangumiOauthTokenRefreshResp(code: 0, message: 'success', data: data);
 
   /// from json
   factory BangumiOauthTokenRefreshResp.fromJson(Map<String, dynamic> json) =>
@@ -294,9 +292,9 @@ class BangumiOauthTokenStatusResp
   });
 
   /// success
-  static BangumiOauthTokenStatusResp success(
-          {required BangumiOauthTokenStatusData data}) =>
-      BangumiOauthTokenStatusResp(code: 0, message: 'success', data: data);
+  static BangumiOauthTokenStatusResp success({
+    required BangumiOauthTokenStatusData data,
+  }) => BangumiOauthTokenStatusResp(code: 0, message: 'success', data: data);
 
   /// from json
   factory BangumiOauthTokenStatusResp.fromJson(Map<String, dynamic> json) =>
