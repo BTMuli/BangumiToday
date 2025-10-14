@@ -14,8 +14,13 @@ import '../pages/bangumi/bangumi_detail.dart';
 final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
   var store = BTNavStore();
   var items = Hive.box<BtmAppNavHive>('nav').values.toList();
+  items.sort((a, b) => a.subjectId.compareTo(b.subjectId));
   for (var item in items) {
-    store.addNavItemB(subject: item.subjectId, paneTitle: item.title);
+    store.addNavItemB(
+      subject: item.subjectId,
+      paneTitle: item.title,
+      jump: false,
+    );
   }
   store.goIndex(0);
   return store;
@@ -29,9 +34,6 @@ class BTNavStore extends ChangeNotifier {
   /// 当前索引
   int curIndex = 0;
 
-  /// 上一次的索引
-  int lastIndex = 0;
-
   /// 侧边栏动态组件
   final List<BtmAppNavItem> _navItems = [];
 
@@ -42,7 +44,6 @@ class BTNavStore extends ChangeNotifier {
 
   /// 设置当前索引
   void setCurIndex(int index) {
-    lastIndex = curIndex;
     curIndex = index;
     notifyListeners();
   }
@@ -64,7 +65,6 @@ class BTNavStore extends ChangeNotifier {
 
   /// 前往指定index
   void goIndex(int index) {
-    lastIndex = curIndex;
     curIndex = index;
     notifyListeners();
   }
@@ -126,7 +126,6 @@ class BTNavStore extends ChangeNotifier {
     }
     notifyListeners();
     if (!jump) return;
-    lastIndex = curIndex;
     if (findIndex != -1) {
       curIndex = findIndex + topNavCount;
     } else {
@@ -144,12 +143,10 @@ class BTNavStore extends ChangeNotifier {
     var findIndex = getNavIndex(type, title, param);
     if (findIndex == -1) return;
     _navItems.removeAt(findIndex);
-    if (curIndex != findIndex + topNavCount) {
-      // 如果当前索引不是被删除的索引，则不变
-    } else if (lastIndex > _navItems.length + topNavCount - 1) {
+    if (curIndex == findIndex + topNavCount) {
       curIndex = 0;
-    } else {
-      curIndex = lastIndex;
+    } else if (curIndex > findIndex + topNavCount) {
+      curIndex -= 1;
     }
     if (type == BtmAppNavItemType.subject) {
       var subject = param!.replaceAll('subjectDetail_', '');
