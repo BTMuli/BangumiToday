@@ -1,3 +1,6 @@
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
@@ -26,7 +29,7 @@ void main() async {
   await BTSqlite.init();
   await BTHiveTool.init();
   WindowOptions windowOpts = const WindowOptions(
-    title: 'BangumiToday',
+    title: kDebugMode ? 'BangumiToday[Dev]' : 'BangumiToday',
     size: Size(1280, 720),
     center: true,
   );

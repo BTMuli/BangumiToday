@@ -44,6 +44,7 @@ class BTApp extends ConsumerWidget {
           themeMode: appStore.themeMode,
           theme: getTheme(context, appStore),
           home: const AppNavWidget(),
+          debugShowCheckedModeBanner: false,
         );
       },
     );
