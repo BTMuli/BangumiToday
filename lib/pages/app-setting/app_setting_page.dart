@@ -5,9 +5,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 // Project imports:
-import '../../widgets/app/config/app_config_bgm.dart';
-import '../../widgets/app/config/app_config_device.dart';
-import '../../widgets/app/config/app_config_info.dart';
+import 'as_pw_bangumi.dart';
+import 'as_pw_device.dart';
+import 'as_pw_info.dart';
 
 /// 设置页面
 class SettingPage extends ConsumerStatefulWidget {
@@ -80,11 +80,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
 
   /// 构建配置项
   List<Widget> buildConfigList() {
-    return [
-      AppConfigInfoWidget(),
-      AppConfigDeviceWidget(),
-      AppConfigBgmWidget(),
-    ];
+    return [AspInfoWidget(), AppConfigDeviceWidget(), AppConfigBgmWidget()];
   }
 
   /// 构建设置页面

@@ -7,22 +7,24 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../../store/app_store.dart';
-import '../../../tools/file_tool.dart';
-import '../../../tools/log_tool.dart';
-import '../../../ui/bt_icon.dart';
-import '../../../ui/bt_infobar.dart';
-import '../../../utils/get_theme_label.dart';
+import '../../controller/app/progress_controller.dart';
+import '../../store/app_store.dart';
+import '../../tools/download_tool.dart';
+import '../../tools/file_tool.dart';
+import '../../tools/log_tool.dart';
+import '../../ui/bt_dialog.dart';
+import '../../ui/bt_icon.dart';
+import '../../ui/bt_infobar.dart';
+import '../../utils/get_theme_label.dart';
 
-class AppConfigInfoWidget extends ConsumerStatefulWidget {
-  const AppConfigInfoWidget({super.key});
+class AspInfoWidget extends ConsumerStatefulWidget {
+  const AspInfoWidget({super.key});
 
   @override
-  ConsumerState<AppConfigInfoWidget> createState() =>
-      _AppConfigInfoWidgetState();
+  ConsumerState<AspInfoWidget> createState() => _AspInfoWidgetState();
 }
 
-class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
+class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
   /// 应用信息
   PackageInfo? packageInfo;
 
@@ -31,6 +33,8 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
 
   /// logTool
   final BTLogTool logTool = BTLogTool();
+
+  late ProgressController progress = ProgressController();
 
   /// 当前主题
   ThemeMode get curThemeMode => ref.watch(appStoreProvider).themeMode;
@@ -45,6 +49,32 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
       packageInfo = await PackageInfo.fromPlatform();
       if (mounted) setState(() {});
     });
+  }
+
+  /// 删除文件
+  Future<void> deleteFiles(
+    String dir,
+    List<String> files,
+    BuildContext context,
+  ) async {
+    var total = files.length;
+    var cnt = 0;
+    if (progress.isShow) {
+      progress.update(title: '正在删除文件', text: '已删除 $cnt / $total 个文件');
+    } else {
+      progress = ProgressWidget.show(
+        context,
+        title: '正在删除文件',
+        text: '已删除 $cnt / $total 个文件',
+      );
+    }
+    for (var file in files) {
+      await fileTool.deleteFile('$dir/$file');
+      cnt++;
+      progress.update(text: '已删除 $cnt / $total 个文件');
+    }
+    progress.end();
+    if (context.mounted) await BtInfobar.success(context, '已成功删除 $total 个文件');
   }
 
   /// 构建应用信息
@@ -155,6 +185,45 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
     );
   }
 
+  /// 构建bt下载目录
+  Widget buildDownloadInfo() {
+    return ListTile(
+      leading: const Icon(FluentIcons.download),
+      title: const Text('下载目录'),
+      subtitle: Text(BTDownloadTool.downloadDir),
+      trailing: Row(
+        children: [
+          IconButton(
+            icon: BtIcon(FluentIcons.delete),
+            onPressed: () async {
+              var files = await fileTool.getFileNames(
+                BTDownloadTool.downloadDir,
+              );
+              if (files.isEmpty) {
+                if (mounted) await BtInfobar.info(context, '下载目录为空，无需清理');
+                return;
+              }
+              var len = files.length;
+              if (mounted) {
+                var check = await showConfirm(
+                  context,
+                  title: '清理下载目录',
+                  content: '下载目录下共有 $len 个文件，是否确认清理？',
+                );
+                if (!check || !mounted) return;
+                await deleteFiles(BTDownloadTool.downloadDir, files, context);
+              }
+            },
+          ),
+          IconButton(
+            icon: BtIcon(MdiIcons.folderOpen),
+            onPressed: BTDownloadTool.openDownloadDir,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Expander(
@@ -170,6 +239,7 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
           buildThemeSwitch(),
           buildColorSwitch(),
           buildLogInfo(),
+          buildDownloadInfo(),
         ],
       ),
     );

@@ -12,6 +12,7 @@ import 'package:window_manager/window_manager.dart';
 // Project imports:
 import 'app.dart';
 import 'database/bt_sqlite.dart';
+import 'tools/download_tool.dart';
 import 'tools/hive_tool.dart';
 import 'tools/log_tool.dart';
 import 'tools/notifier_tool.dart';
@@ -25,6 +26,7 @@ void main() async {
 
   /// 初始化配置
   await BTLogTool.init();
+  await BTDownloadTool.init();
   await BTNotifierTool.init();
   await BTSqlite.init();
   await BTHiveTool.init();

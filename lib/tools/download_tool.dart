@@ -19,7 +19,7 @@ class BTDownloadTool {
   static final BTDownloadTool instance = BTDownloadTool._();
 
   /// 默认 torrent 下载路径
-  late String defaultPath;
+  static late String downloadDir;
 
   /// 是否初始化
   late bool isInit = false;
@@ -34,13 +34,13 @@ class BTDownloadTool {
   final BTFileTool fileTool = BTFileTool();
 
   /// 初始化
-  Future<void> init() async {
+  static Future<void> init() async {
     if (instance.isInit) return;
-    instance.defaultPath = await instance.fileTool.getAppDataPath('download');
-    var check = await instance.fileTool.isDirExist(instance.defaultPath);
+    downloadDir = await instance.fileTool.getAppDataPath('download');
+    var check = await instance.fileTool.isDirExist(downloadDir);
     if (!check) {
       BTLogTool.info('Create default download dir');
-      await instance.fileTool.createDir(instance.defaultPath);
+      await instance.fileTool.createDir(downloadDir);
     }
     instance.isInit = true;
     BTLogTool.info('BTDownloadTool init success');
@@ -58,15 +58,17 @@ class BTDownloadTool {
     return true;
   }
 
+  /// 打开下载目录
+  static Future<void> openDownloadDir() async {
+    await instance.fileTool.openDir(downloadDir);
+  }
+
   /// 下载文件
   Future<String> downloadRssTorrent(
     String url,
     String title, {
     BuildContext? context,
   }) async {
-    if (!instance.isInit) {
-      await instance.init();
-    }
     var link = Uri.parse(url);
     var fileName = path.basename(link.path);
     if (fileName == '/') {
@@ -78,7 +80,7 @@ class BTDownloadTool {
         fileName = '${DateTime.now().millisecondsSinceEpoch}.torrent';
       }
     }
-    var saveDetailPath = path.join(instance.defaultPath, fileName);
+    var saveDetailPath = path.join(downloadDir, fileName);
     var fileCheck = await instance.checkFile(saveDetailPath);
     if (fileCheck) return saveDetailPath;
     var errInfo = ['', 'TorrentLink: $url', 'Title: $title'];
