@@ -17,8 +17,20 @@ else
 # 如果版本号与 .env 文件中的版本号一致，不构建
 if ($version -eq $versionGet)
 {
-    Write-Output "已安装应用版本与设置版本一致：$version，不执行构建"
-    exit
+    Write-Output "已安装应用版本与设置版本一致：$version，是否抬升版本号？(y/n)"
+    $check = Read-Host
+    if ($check -eq "y")
+    {
+        Write-Output "请输入新的版本号（格式：x.x.x.x）"
+        $versionNew = Read-Host
+        $version = $versionNew
+        (Get-Content .env) -replace "MSIX_VERSION=$versionGet" , "MSIX_VERSION=$version" | Set-Content .env
+        Write-Output "版本号已更新为：$version"
+    }
+    else
+    {
+        exit
+    }
 }
 # 如果版本号低于已安装的版本号，不构建
 $vers = $version -split "\."
