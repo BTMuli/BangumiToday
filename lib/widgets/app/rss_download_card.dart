@@ -167,7 +167,7 @@ class _RssDownloadCardState extends ConsumerState<RssDownloadCard>
       await ref.read(dttStoreProvider.notifier).removeTask(item);
       return;
     }
-    model = await Torrent.parse(filePath);
+    model = await Torrent.parseFromFile(filePath);
     task = TorrentTask.newTask(model!, dir);
     await initListener(task);
     await task.start();
