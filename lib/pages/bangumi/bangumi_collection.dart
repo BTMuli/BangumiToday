@@ -49,17 +49,6 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
     return result;
   }
 
-  /// 构建头部
-  Widget buildHeader() {
-    return Row(
-      children: [
-        Image.asset('assets/images/platforms/bangumi-text.png'),
-        SizedBox(width: 8.w),
-        const Text('用户收藏'),
-      ],
-    );
-  }
-
   /// 构建底部
   Widget buildFooter() {
     return Row(
@@ -82,10 +71,11 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
     super.build(context);
     return TabView(
       tabs: buildTabs(),
-      header: buildHeader(),
+      header: Image.asset('assets/images/platforms/bangumi-text.png'),
       currentIndex: tabIndex,
       onChanged: (index) => setState(() => tabIndex = index),
-      footer: buildFooter(),
+      // TODO: 刷新授权&收藏
+      // footer: buildFooter(),
       closeButtonVisibility: CloseButtonVisibilityMode.never,
       tabWidthBehavior: TabWidthBehavior.sizeToContent,
     );

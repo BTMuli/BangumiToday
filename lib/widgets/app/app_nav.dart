@@ -1,4 +1,6 @@
 // Flutter imports:
+import 'package:app_links/app_links.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 
 // Package imports:
@@ -7,12 +9,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Project imports:
+import '../../controller/app/progress_controller.dart';
+import '../../models/bangumi/bangumi_model.dart';
+import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../pages/app-setting/app_setting_page.dart';
 import '../../pages/app/bmf_page.dart';
 import '../../pages/app/download_page.dart';
 import '../../pages/app/rss_page.dart';
 import '../../pages/app/test_page.dart';
 import '../../pages/bangumi-calendar/bangumi_calendar_page.dart';
+import '../../pages/bangumi/bangumi_collection.dart';
+import '../../request/bangumi/bangumi_api.dart';
+import '../../request/bangumi/bangumi_oauth.dart';
 import '../../store/app_store.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../store/nav_store.dart';
@@ -41,11 +49,26 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
   /// 侧边动态组件
   List<PaneItem> get _navItems => ref.watch(navStoreProvider).navItems;
 
-  /// flyoutController
-  final FlyoutController flyout = FlyoutController();
+  /// moreFlyoutController
+  final FlyoutController flyoutMore = FlyoutController();
+
+  /// UserFlyoutController
+  final FlyoutController flyoutUser = FlyoutController();
 
   /// bangumi用户Hive
   final BgmUserHive hive = BgmUserHive();
+
+  /// 认证相关客户端
+  final BtrBangumiOauth apiOauth = BtrBangumiOauth();
+
+  /// Bangumi 请求客户端
+  final BtrBangumiApi apiBgm = BtrBangumiApi();
+
+  /// app-link 监听
+  final AppLinks appLinks = AppLinks();
+
+  /// 进度条
+  late ProgressController progress = ProgressController();
 
   /// 保存状态
   @override
@@ -69,19 +92,100 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
   /// dispose
   @override
   void dispose() {
-    flyout.dispose();
+    flyoutMore.dispose();
+    flyoutUser.dispose();
     super.dispose();
   }
 
   /// 展示设置flyout
   void showOptionsFlyout() {
-    flyout.showFlyout(
+    flyoutMore.showFlyout(
       barrierDismissible: true,
       dismissOnPointerMoveAway: false,
       dismissWithEsc: true,
       builder: (context) =>
           MenuFlyout(items: [buildResetWinItem(), buildPinWinItem()]),
     );
+  }
+
+  /// 展示用户 Flyout
+  void showUserFlyout() {
+    flyoutUser.showFlyout(
+      barrierDismissible: true,
+      dismissOnPointerMoveAway: false,
+      dismissWithEsc: true,
+      builder: (context) =>
+          MenuFlyout(items: [buildResetWinItem(), buildPinWinItem()]),
+    );
+  }
+
+  /// 刷新用户信息
+  Future<void> freshUserInfo() async {
+    if (progress.isShow) {
+      progress.update(title: '获取用户信息', text: '正在获取用户信息', progress: null);
+    } else {
+      progress = ProgressWidget.show(context, title: '获取用户信息');
+    }
+    if (hive.tokenAC == null) {
+      progress.end();
+      if (mounted) await BtInfobar.error(context, '未找到访问令牌');
+      return;
+    }
+    var userResp = await apiBgm.getUserInfo();
+    if (userResp.code != 0 || userResp.data == null) {
+      progress.end();
+      if (mounted) await showRespErr(userResp, context);
+      return;
+    }
+    await hive.updateUser(userResp.data! as BangumiUser);
+    progress.update(title: '获取用户信息成功', text: '用户信息：${hive.user!.nickname}');
+    progress.end();
+    if (mounted) {
+      await BtInfobar.success(
+        context,
+        '成功获取[${hive.user!.id}]${hive.user!.nickname}信息',
+      );
+    }
+    setState(() {});
+  }
+
+  /// 认证用户
+  Future<void> oauthUser() async {
+    if (progress.isShow) {
+      progress.update(title: '处理用户授权', text: '正在前往授权页面', progress: null);
+    } else {
+      progress = ProgressWidget.show(context, title: '前往授权页面');
+    }
+    await apiOauth.openAuthorizePage();
+    progress.update(text: '等待授权回调');
+    appLinks.uriLinkStream.listen((uri) async {
+      debugPrint(uri.toString());
+      if (uri.toString().startsWith('bangumitoday://oauth')) {
+        progress.update(text: '处理授权回调');
+        var code = uri.queryParameters['code'];
+        if (code == null) {
+          if (mounted) await BtInfobar.error(context, '授权失败：未找到授权码');
+          progress.end();
+          // 停止监听
+          appLinks.uriLinkStream.listen((_) {});
+          return;
+        }
+        progress.update(text: '授权码：$code');
+        var res = await apiOauth.getAccessToken(code);
+        if (res.code != 0 || res.data == null) {
+          progress.end();
+          if (mounted) await showRespErr(res, context);
+          return;
+        }
+        assert(res.data != null);
+        var at = res.data as BangumiOauthTokenGetData;
+        await hive.updateAccessToken(at.accessToken, update: false);
+        await hive.updateRefreshToken(at.refreshToken, update: false);
+        await hive.updateExpireTime(at.expiresIn, update: false);
+        await hive.updateBox();
+        await freshUserInfo();
+      }
+    });
   }
 
   /// 构建重置窗口大小项
@@ -113,6 +217,28 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
         var str = isAlwaysOnTop ? '取消置顶' : '置顶';
         if (mounted) await BtInfobar.success(context, '$str成功');
       },
+    );
+  }
+
+  /// 构建用户信息项
+  PaneItem buildUserItem() {
+    if (hive.user == null) {
+      return PaneItemAction(
+        icon: const Icon(FluentIcons.account_management),
+        title: const Text('未登录'),
+        onTap: () async => oauthUser(),
+      );
+    }
+    return PaneItem(
+      icon: CachedNetworkImage(
+        imageUrl: hive.user!.avatar.small,
+        width: 18,
+        height: 18,
+        placeholder: (_, _) => const ProgressRing(),
+        errorWidget: (_, _, _) => const Icon(FluentIcons.error),
+      ),
+      title: Text(hive.user!.nickname),
+      body: BangumiCollectionPage(),
     );
   }
 
@@ -173,9 +299,10 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
       body: const TestPage(),
     );
     var footerItems = [
+      buildUserItem(),
       PaneItemAction(
         icon: FlyoutTarget(
-          controller: flyout,
+          controller: flyoutMore,
           child: const Icon(FluentIcons.graph_symbol),
         ),
         title: const Text('更多设置'),
