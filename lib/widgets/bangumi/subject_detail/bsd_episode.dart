@@ -280,7 +280,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
       controller: controller,
       child: Button(
         style: ButtonStyle(backgroundColor: WidgetStatePropertyAll(bgColor)),
-        onPressed: updateTypeQ,
+        onPressed: userEpisode == null ? buildFlyout : updateTypeQ,
         onLongPress: buildFlyout,
         child: Tooltip(
           message: episode.nameCn.isEmpty ? episode.name : episode.nameCn,

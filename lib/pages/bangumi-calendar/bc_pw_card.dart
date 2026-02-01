@@ -150,15 +150,10 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
         SizedBox(width: 8.w),
         Tooltip(
           message: '查看详情',
-          child: FilledButton(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(FluentIcons.info),
-                SizedBox(width: 4.w),
-                Text('详情', style: TextStyle(fontSize: 12.sp)),
-              ],
+          child: IconButton(
+            icon: Icon(
+              FluentIcons.info,
+              color: FluentTheme.of(context).accentColor.light,
             ),
             onPressed: () => ref
                 .read(navStoreProvider)

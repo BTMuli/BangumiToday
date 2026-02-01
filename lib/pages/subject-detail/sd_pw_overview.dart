@@ -15,7 +15,7 @@ import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import 'sd_pw_rate_chart.dart';
 
-/// 详情页面的信息卡片 TODO: 调整UI
+/// 详情页面的信息卡片
 class SdpOverviewWidget extends StatelessWidget {
   /// 番剧数据
   final BangumiSubject item;
