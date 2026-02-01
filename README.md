@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2025-05-13
+Update: 2026-02-01
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2025-05-13 10:24:09`
+> 更新于 `2026-02-01 21:13:10`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -16,6 +16,8 @@ Update: 2025-05-13
       <img src="https://s2.loli.net/2024/04/18/xe7bEKiQMBCtPZo.png" alt="logo">
     </a>
 </div>
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/BTMuli/BangumiToday)
 
 [![](https://img.shields.io/github/license/BTMuli/BangumiToday)](./LICENSE)
 [![](https://img.shields.io/github/v/release/BTMuli/BangumiToday)](https://github.com/BTMuli/BangumiToday/releases/latest)
