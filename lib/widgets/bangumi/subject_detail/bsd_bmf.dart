@@ -15,6 +15,7 @@ import '../../../database/app/app_bmf.dart';
 import '../../../database/app/app_rss.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../models/database/app_bmf_model.dart';
+import '../../../pages/subject-detail/subject_detail_page.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../store/nav_store.dart';
 import '../../../tools/file_tool.dart';
@@ -26,7 +27,7 @@ import 'bsd_bmf_rss.dart';
 
 /// Bangumi Subject Detail 的 Bangumi-Mikan-File Widget
 /// 用于管理该 Subject 对应的 MikanRSS 及下载目录
-class BsdBmfWidget extends StatefulWidget {
+class BsdBmfWidget extends ConsumerStatefulWidget {
   /// subjectId
   final int subjectId;
 
@@ -36,20 +37,24 @@ class BsdBmfWidget extends StatefulWidget {
   /// 模式-是用于详情页还是用于配置页
   final bool isConfig;
 
+  /// rss 变更 provider
+  final SubjectRssStatProvider? rssProvider;
+
   /// 构造函数
   const BsdBmfWidget(
     this.subjectId,
     this.title, {
     super.key,
     this.isConfig = false,
+    this.rssProvider,
   });
 
   @override
-  State<BsdBmfWidget> createState() => _BsdBmfWidgetState();
+  ConsumerState<BsdBmfWidget> createState() => _BsdBmfWidgetState();
 }
 
 /// BsdBmfState
-class _BsdBmfWidgetState extends State<BsdBmfWidget>
+class _BsdBmfWidgetState extends ConsumerState<BsdBmfWidget>
     with AutomaticKeepAliveClientMixin {
   /// 数据库
   final BtsAppBmf sqliteBmf = BtsAppBmf();
@@ -81,6 +86,12 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
   void initState() {
     super.initState();
     Future.microtask(() async => await init());
+    if (widget.rssProvider != null) addRssListener(widget.rssProvider!);
+  }
+
+  /// 监听rss变化
+  void addRssListener(SubjectRssStatProvider provider) {
+    provider.addListener((val) async => await updateRss(val));
   }
 
   /// 初始化
@@ -155,18 +166,13 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
   }
 
   /// 更新Rss链接
-  Future<void> updateRss() async {
-    var input = await showInput(
-      context,
-      title: '设置 MikanRSS',
-      content: '建议精准到字幕组',
-    );
-    if (input == null) return;
-    if (input == bmf.rss) {
+  Future<void> updateRss(String? newRss) async {
+    if (newRss == null) return;
+    if (newRss == bmf.rss) {
       if (mounted) await BtInfobar.error(context, '未修改 MikanRSS');
       return;
     }
-    var check = await sqliteBmf.checkRss(input);
+    var check = await sqliteBmf.checkRss(newRss);
     if (check) {
       if (mounted) await BtInfobar.error(context, '该RSS已经被其他BMF使用');
       return;
@@ -175,13 +181,10 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
       await sqliteRss.delete(bmf.rss!);
       if (mounted) await BtInfobar.success(context, '成功删除旧 RSS 数据');
     }
-    bmf.rss = input;
+    bmf = bmf.copyWith(rss: newRss);
     await titleCheck();
     await sqliteBmf.write(bmf);
-    var read = await sqliteBmf.read(bmf.subject);
-    if (read != null) {
-      setState(() => bmf = read);
-    }
+    setState(() {});
     if (mounted) await BtInfobar.success(context, '成功设置 MikanRSS');
   }
 
@@ -249,7 +252,14 @@ class _BsdBmfWidgetState extends State<BsdBmfWidget>
       message: hasRss ? '修改 RSS' : '设置 RSS',
       child: IconButton(
         icon: BtIcon(hasRss ? MdiIcons.rssBox : MdiIcons.rss),
-        onPressed: () async => await updateRss(),
+        onPressed: () async {
+          var input = await showInput(
+            context,
+            title: '设置 MikanRSS',
+            content: '建议精准到字幕组',
+          );
+          await updateRss(input);
+        },
         onLongPress: hasRss
             ? () async => await launchUrlString(bmf.rss!)
             : null,

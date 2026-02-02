@@ -22,7 +22,7 @@ class BsdUserCollection extends StatefulWidget {
   final BangumiUser user;
 
   /// provider
-  final SubjectDetailPageProvider provider;
+  final SubjectCollectStatProvider provider;
 
   /// 构造函数
   const BsdUserCollection(this.subject, this.user, this.provider, {super.key});

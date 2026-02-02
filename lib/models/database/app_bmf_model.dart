@@ -46,4 +46,25 @@ class AppBmfModel {
 
   /// JSON 反序列化
   Map<String, dynamic> toJson() => _$AppBmfModelToJson(this);
+
+  /// 复制
+  AppBmfModel copyWith({
+    int? id,
+    int? subject,
+    String? title,
+    String? rss,
+    String? mkBgmId,
+    String? mkGroupId,
+    String? download,
+  }) {
+    return AppBmfModel(
+      id: id ?? this.id,
+      subject: subject ?? this.subject,
+      title: title ?? this.title,
+      rss: rss ?? this.rss,
+      mkBgmId: mkBgmId ?? this.mkBgmId,
+      mkGroupId: mkGroupId ?? this.mkGroupId,
+      download: download ?? this.download,
+    );
+  }
 }

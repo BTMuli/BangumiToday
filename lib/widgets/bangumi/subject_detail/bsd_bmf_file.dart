@@ -53,7 +53,15 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
   void initState() {
     super.initState();
     timerFiles = getTimerFiles();
-    Future.delayed(Duration.zero, () async => await refreshFiles());
+    Future.microtask(refreshFiles);
+  }
+
+  @override
+  void didUpdateWidget(BsdBmfFile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.bmfFile != widget.bmfFile) {
+      Future.microtask(refreshFiles);
+    }
   }
 
   /// dispose

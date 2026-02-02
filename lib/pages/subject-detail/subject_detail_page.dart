@@ -12,7 +12,6 @@ import '../../controller/app/progress_controller.dart';
 import '../../database/app/app_bmf.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
-import '../../models/database/app_bmf_model.dart';
 import '../../models/hive/nav_model.dart';
 import '../../plugins/mikan/mikan_api.dart';
 import '../../plugins/mikan/models/mikan_model.dart';
@@ -28,13 +27,22 @@ import '../../widgets/bangumi/subject_detail/bsd_user_episodes.dart';
 import 'sd_pw_overview.dart';
 import 'sd_pw_relation.dart';
 
-/// 数据监听Provider，用于监听收藏状态变更
-class SubjectDetailPageProvider extends StateNotifier<bool> {
+/// 监听收藏状态变更
+class SubjectCollectStatProvider extends StateNotifier<bool> {
   /// 构造函数
-  SubjectDetailPageProvider() : super(false);
+  SubjectCollectStatProvider() : super(false);
 
   /// set
   void set(bool value) => state = value;
+}
+
+/// 监听Rss变更
+class SubjectRssStatProvider extends StateNotifier<String?> {
+  /// 构造函数
+  SubjectRssStatProvider() : super(null);
+
+  /// set
+  void set(String value) => state = value;
 }
 
 /// 番剧详情
@@ -65,8 +73,12 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   /// bmf数据库
   final BtsAppBmf sqliteBmf = BtsAppBmf();
 
-  /// provider
-  final SubjectDetailPageProvider provider = SubjectDetailPageProvider();
+  /// collect provider
+  final SubjectCollectStatProvider collectProvider =
+      SubjectCollectStatProvider();
+
+  /// rss provider
+  final SubjectRssStatProvider rssProvider = SubjectRssStatProvider();
 
   /// progress
   late ProgressController progress = ProgressController();
@@ -173,24 +185,11 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
                     content: '将该结果设为BMF的RSS',
                   );
                   if (!confirm) return;
-                  // 转成 int
-                  var bmf = await sqliteBmf.read(int.parse(widget.id));
-                  if (bmf == null) {
-                    bmf = AppBmfModel(
-                      subject: int.parse(widget.id),
-                      title: data!.nameCn.isEmpty ? data!.name : data!.nameCn,
-                      rss: item.rss,
-                    );
-                  } else {
-                    bmf.rss = item.rss;
-                  }
-                  await sqliteBmf.write(bmf);
+                  rssProvider.set(item.rss);
                   if (context.mounted) {
                     await BtInfobar.success(context, '成功设置RSS');
-                    setState(() {});
                   }
                   if (context.mounted) Navigator.of(context).pop();
-                  await init();
                 },
               );
             },
@@ -360,14 +359,15 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
         SdpOverviewWidget(data!),
         SizedBox(height: 12),
         if (hiveUser.user != null) ...[
-          BsdUserCollection(data!, hiveUser.user!, provider),
+          BsdUserCollection(data!, hiveUser.user!, collectProvider),
           SizedBox(height: 12),
         ],
-        BsdUserEpisodes(data!, hiveUser.user, provider),
+        BsdUserEpisodes(data!, hiveUser.user, collectProvider),
         SizedBox(height: 12),
         BsdBmfWidget(
           data!.id,
           data!.nameCn.isEmpty ? data!.name : data!.nameCn,
+          rssProvider: rssProvider,
         ),
         SizedBox(height: 12),
         SdpRelationWidget(data!.id),
