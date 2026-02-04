@@ -184,6 +184,8 @@ class _BsdBmfWidgetState extends ConsumerState<BsdBmfWidget>
     bmf = bmf.copyWith(rss: newRss);
     await titleCheck();
     await sqliteBmf.write(bmf);
+    var read = (await sqliteBmf.read(bmf.subject));
+    if (read != null) bmf = read;
     setState(() {});
     if (mounted) await BtInfobar.success(context, '成功设置 MikanRSS');
   }
@@ -210,24 +212,25 @@ class _BsdBmfWidgetState extends ConsumerState<BsdBmfWidget>
 
   /// 删除BMF
   Future<void> deleteBmf() async {
-    var confirm = await showConfirm(
+    var isDelBmf = await showConfirm(
       context,
       title: '删除 BMF',
       content: '确定删除 BMF 信息吗？',
     );
-    if (!confirm || !mounted) return;
-    var delDirCheck = await showConfirm(
-      context,
-      title: '删除下载目录',
-      content: '是否删除下载目录？',
-    );
+    if (!isDelBmf || !mounted) return;
+    var isDelDir = false;
+    if (bmf.download != null && bmf.download!.isNotEmpty) {
+      isDelDir = await showConfirm(
+        context,
+        title: '删除下载目录',
+        content: '是否删除下载目录？',
+      );
+    }
     await sqliteBmf.delete(bmf.subject);
     if (bmf.rss != null && bmf.rss!.isNotEmpty) {
       await sqliteRss.delete(bmf.rss!);
     }
-    if (delDirCheck && bmf.download != null && bmf.download!.isNotEmpty) {
-      await fileTool.deleteDir(bmf.download!);
-    }
+    if (isDelDir) await fileTool.deleteDir(bmf.download!);
     if (mounted) await BtInfobar.success(context, '成功删除 BMF 信息');
     bmf = AppBmfModel(subject: widget.subjectId);
     setState(() {});
