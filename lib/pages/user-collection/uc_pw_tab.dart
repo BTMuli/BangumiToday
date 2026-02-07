@@ -7,32 +7,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
-import '../../../controller/app/page_controller.dart';
-import '../../../controller/app/progress_controller.dart';
-import '../../../database/bangumi/bangumi_collection.dart';
-import '../../../models/bangumi/bangumi_enum.dart';
-import '../../../models/bangumi/bangumi_model.dart';
-import '../../../request/bangumi/bangumi_api.dart';
-import '../../../store/bgm_user_hive.dart';
-import '../../../store/nav_store.dart';
-import '../../../ui/bt_dialog.dart';
-import '../../../ui/bt_infobar.dart';
-import 'buc_card.dart';
+import '../../controller/app/page_controller.dart';
+import '../../controller/app/progress_controller.dart';
+import '../../database/bangumi/bangumi_collection.dart';
+import '../../models/bangumi/bangumi_enum.dart';
+import '../../models/bangumi/bangumi_model.dart';
+import '../../request/bangumi/bangumi_api.dart';
+import '../../store/bgm_user_hive.dart';
+import '../../store/nav_store.dart';
+import '../../ui/bt_dialog.dart';
+import '../../ui/bt_infobar.dart';
+import 'uc_pw_card.dart';
 
 /// 用户收藏 tab
-class BucTabView extends ConsumerStatefulWidget {
+class UcpTabWidget extends ConsumerStatefulWidget {
   /// 收藏类型
   final BangumiCollectionType type;
 
   /// 构造
-  const BucTabView(this.type, {super.key});
+  const UcpTabWidget(this.type, {super.key});
 
   @override
-  ConsumerState<BucTabView> createState() => _BucTabState();
+  ConsumerState<UcpTabWidget> createState() => _UcpTabState();
 }
 
 /// 用户收藏 tab 状态
-class _BucTabState extends ConsumerState<BucTabView>
+class _UcpTabState extends ConsumerState<UcpTabWidget>
     with AutomaticKeepAliveClientMixin {
   /// 收藏类型
   BangumiCollectionType get type => widget.type;
@@ -266,7 +266,7 @@ class _BucTabState extends ConsumerState<BucTabView>
         mainAxisSpacing: 8,
         crossAxisSpacing: 8,
       ),
-      children: showData.map((e) => BucCard(data: e)).toList(),
+      children: showData.map((e) => UcpCardWidget(data: e)).toList(),
     );
   }
 

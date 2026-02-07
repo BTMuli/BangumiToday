@@ -12,7 +12,7 @@ import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../models/bangumi/bangumi_oauth_model.dart';
-import '../../../pages/bangumi/bangumi_collection.dart';
+import '../../../pages/user-collection/user_collection_page.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../request/bangumi/bangumi_oauth.dart';
 import '../../../store/bgm_user_hive.dart';
@@ -240,7 +240,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     var paneItem = PaneItem(
       icon: const BtIcon(FluentIcons.favorite_star),
       title: const Text('Bangumi-用户收藏'),
-      body: const BangumiCollectionPage(),
+      body: const UserCollectionPage(),
     );
     ref.read(navStoreProvider).addNavItem(paneItem, 'Bangumi-用户收藏');
   }

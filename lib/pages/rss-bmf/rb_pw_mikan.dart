@@ -11,21 +11,21 @@ import '../../plugins/mikan/mikan_api.dart';
 import '../../store/app_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
-import 'rss_mk_card2.dart';
+import '../../widgets/rss/rss_mk_card2.dart';
 
 /// 负责 MikanProject RSS 页面的显示
 /// 包括 RSSClassic 和 RSSPersonal
 /// 前者是列表模式显示站点的RSS更新，后者是个人订阅的RSS更新
-class RssMkPage extends ConsumerStatefulWidget {
+class RbpMikanWidget extends ConsumerStatefulWidget {
   /// 构造函数
-  const RssMkPage({super.key});
+  const RbpMikanWidget({super.key});
 
   @override
-  ConsumerState<RssMkPage> createState() => _RssMkPageState();
+  ConsumerState<RbpMikanWidget> createState() => _RbpMikanState();
 }
 
 /// MikanRSS 页面状态
-class _RssMkPageState extends ConsumerState<RssMkPage>
+class _RbpMikanState extends ConsumerState<RbpMikanWidget>
     with AutomaticKeepAliveClientMixin {
   /// 请求客户端
   final BtrMikanApi mikanAPI = BtrMikanApi();
@@ -296,7 +296,7 @@ class _RssMkPageState extends ConsumerState<RssMkPage>
     super.build(context);
     return ScaffoldPage.withPadding(
       padding: EdgeInsets.zero,
-      header: PageHeader(title: buildTitle()),
+      header: Padding(padding: EdgeInsets.all(8), child: buildTitle()),
       content: buildContent(useUserRSS ? userItems : rssItems),
     );
   }

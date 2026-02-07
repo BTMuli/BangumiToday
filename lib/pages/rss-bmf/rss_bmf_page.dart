@@ -2,21 +2,22 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 // Project imports:
-import '../../widgets/rss/rss_cmc_page.dart';
-import '../../widgets/rss/rss_mk_page.dart';
+import 'rb_pw_bmf.dart';
+import 'rb_pw_comicat.dart';
+import 'rb_pw_mikan.dart';
 
-/// 负责各种 rss 页面的显示
-/// 目前包括 MikanRss 和 ComicatRss
-class RssPage extends StatefulWidget {
+/// Rss & Bmf
+class RssBmfPage extends StatefulWidget {
   /// 构造函数
-  const RssPage({super.key});
+  const RssBmfPage({super.key});
 
   @override
-  State<RssPage> createState() => _RssPageState();
+  State<RssBmfPage> createState() => _RssBmfPageState();
 }
 
 /// Rss 页面状态
-class _RssPageState extends State<RssPage> with AutomaticKeepAliveClientMixin {
+class _RssBmfPageState extends State<RssBmfPage>
+    with AutomaticKeepAliveClientMixin {
   /// 保存状态
   @override
   bool get wantKeepAlive => true;
@@ -36,30 +37,33 @@ class _RssPageState extends State<RssPage> with AutomaticKeepAliveClientMixin {
       },
       tabs: [
         Tab(
+          icon: Image.asset('assets/images/logo.png', height: 16, width: 16),
+          text: const Text('BMF'),
+          body: const RbpBmfWidget(),
+          semanticLabel: 'BMF',
+          selectedBackgroundColor: WidgetStateProperty.resolveWith(
+            (_) => FluentTheme.of(context).accentColor.withAlpha(80),
+          ),
+        ),
+        Tab(
           icon: Image.asset(
             'assets/images/platforms/mikan-favicon.ico',
             height: 16,
           ),
           text: const Text('Mikan'),
-          body: const RssMkPage(),
+          body: const RbpMikanWidget(),
           semanticLabel: 'Mikan',
           selectedBackgroundColor: WidgetStateProperty.resolveWith(
-            (_) => FluentTheme.of(context).accentColor,
-          ),
-          backgroundColor: WidgetStateProperty.resolveWith(
-            (_) => FluentTheme.of(context).accentColor.withAlpha(60),
+            (_) => FluentTheme.of(context).accentColor.withAlpha(80),
           ),
         ),
         Tab(
           icon: Image.asset('assets/images/platforms/comicat-favicon.ico'),
           text: const Text('Comicat'),
-          body: const RssCmcPage(),
+          body: const RbpComicatWidget(),
           semanticLabel: 'Comicat',
           selectedBackgroundColor: WidgetStateProperty.resolveWith(
-            (_) => FluentTheme.of(context).accentColor,
-          ),
-          backgroundColor: WidgetStateProperty.resolveWith(
-            (_) => FluentTheme.of(context).accentColor.withAlpha(60),
+            (_) => FluentTheme.of(context).accentColor.withAlpha(80),
           ),
         ),
       ],

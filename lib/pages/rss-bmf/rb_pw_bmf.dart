@@ -13,16 +13,17 @@ import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_detail/bsd_bmf.dart';
 
 /// BMF 配置页面
-class BmfPage extends StatefulWidget {
+class RbpBmfWidget extends StatefulWidget {
   /// 构造函数
-  const BmfPage({super.key});
+  const RbpBmfWidget({super.key});
 
   @override
-  State<BmfPage> createState() => _BmfPageState();
+  State<RbpBmfWidget> createState() => _RbpBmfState();
 }
 
 /// BMF 配置页面状态
-class _BmfPageState extends State<BmfPage> with AutomaticKeepAliveClientMixin {
+class _RbpBmfState extends State<RbpBmfWidget>
+    with AutomaticKeepAliveClientMixin {
   /// Bmf 数据库
   final BtsAppBmf sqlite = BtsAppBmf();
 

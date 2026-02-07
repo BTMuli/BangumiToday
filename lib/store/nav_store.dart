@@ -124,8 +124,13 @@ class BTNavStore extends ChangeNotifier {
       var hiveItem = BtmAppNavHive(title: title, subjectId: int.parse(subject));
       Hive.box<BtmAppNavHive>('nav').put(subject, hiveItem);
     }
-    notifyListeners();
-    if (!jump) return;
+    if (!jump) {
+      if (curIndex == topNavCount + _navItems.length - 1) {
+        curIndex = curIndex + 1;
+      }
+      notifyListeners();
+      return;
+    }
     if (findIndex != -1) {
       curIndex = findIndex + topNavCount;
     } else {

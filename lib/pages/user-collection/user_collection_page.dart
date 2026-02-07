@@ -6,20 +6,19 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 // Project imports:
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../store/nav_store.dart';
-import '../../widgets/bangumi/user_collection/buc_tabview.dart';
+import 'uc_pw_tab.dart';
 
-/// bangumi.tv 用户收藏页面
-class BangumiCollectionPage extends ConsumerStatefulWidget {
+/// user-collection.tv 用户收藏页面
+class UserCollectionPage extends ConsumerStatefulWidget {
   /// 构造函数
-  const BangumiCollectionPage({super.key});
+  const UserCollectionPage({super.key});
 
   @override
-  ConsumerState<BangumiCollectionPage> createState() =>
-      _BangumiCollectionPageState();
+  ConsumerState<UserCollectionPage> createState() => _UserCollectionPageState();
 }
 
-/// bangumi.tv 用户收藏页面状态
-class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
+/// user-collection.tv 用户收藏页面状态
+class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
     with AutomaticKeepAliveClientMixin {
   /// tabIndex
   int tabIndex = 0;
@@ -42,7 +41,7 @@ class _BangumiCollectionPageState extends ConsumerState<BangumiCollectionPage>
           ),
           icon: Icon(type.icon),
           text: Text(type.label),
-          body: BucTabView(type),
+          body: UcpTabWidget(type),
         ),
       );
     }

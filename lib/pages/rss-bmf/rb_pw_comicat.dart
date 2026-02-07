@@ -7,19 +7,19 @@ import 'package:url_launcher/url_launcher_string.dart';
 // Project imports:
 import '../../request/rss/comicat_api.dart';
 import '../../ui/bt_dialog.dart';
-import 'rss_cmc_card.dart';
+import '../../widgets/rss/rss_cmc_card.dart';
 
 /// 负责 ComicatProject RSS 页面的显示
-class RssCmcPage extends StatefulWidget {
+class RbpComicatWidget extends StatefulWidget {
   /// 构造函数
-  const RssCmcPage({super.key});
+  const RbpComicatWidget({super.key});
 
   @override
-  State<RssCmcPage> createState() => _RssCmcPageState();
+  State<RbpComicatWidget> createState() => _RbpComicatState();
 }
 
 /// ComicatRSS 页面状态
-class _RssCmcPageState extends State<RssCmcPage>
+class _RbpComicatState extends State<RbpComicatWidget>
     with AutomaticKeepAliveClientMixin {
   /// 请求客户端
   final ComicatAPI comicatAPI = ComicatAPI();
@@ -101,7 +101,7 @@ class _RssCmcPageState extends State<RssCmcPage>
     super.build(context);
     return ScaffoldPage.withPadding(
       padding: EdgeInsets.zero,
-      header: PageHeader(title: buildTitle()),
+      header: Padding(padding: EdgeInsets.all(8), child: buildTitle()),
       content: Stack(
         children: [
           Positioned(
@@ -115,7 +115,7 @@ class _RssCmcPageState extends State<RssCmcPage>
             bottom: 8,
             right: 8,
             child: SizedBox(
-              width: 150,
+              width: 120.spMin,
               child: Image.asset('assets/images/platforms/comicat-kb.png'),
             ),
           ),

@@ -12,28 +12,28 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../../models/app/response.dart';
-import '../../../models/bangumi/bangumi_enum.dart';
-import '../../../models/bangumi/bangumi_model.dart';
-import '../../../store/nav_store.dart';
-import '../../../ui/bt_dialog.dart';
-import '../../../ui/bt_infobar.dart';
-import '../../../utils/bangumi_utils.dart';
+import '../../models/app/response.dart';
+import '../../models/bangumi/bangumi_enum.dart';
+import '../../models/bangumi/bangumi_model.dart';
+import '../../store/nav_store.dart';
+import '../../ui/bt_dialog.dart';
+import '../../ui/bt_infobar.dart';
+import '../../utils/bangumi_utils.dart';
 
 /// 收藏卡片
-class BucCard extends ConsumerStatefulWidget {
+class UcpCardWidget extends ConsumerStatefulWidget {
   /// 数据
   final BangumiUserSubjectCollection data;
 
   /// 构造函数
-  const BucCard({super.key, required this.data});
+  const UcpCardWidget({super.key, required this.data});
 
   @override
-  ConsumerState<BucCard> createState() => _BucCardState();
+  ConsumerState<UcpCardWidget> createState() => _UcpCardState();
 }
 
 /// 收藏卡片状态
-class _BucCardState extends ConsumerState<BucCard>
+class _UcpCardState extends ConsumerState<UcpCardWidget>
     with AutomaticKeepAliveClientMixin {
   /// 数据
   BangumiSlimSubject get data => widget.data.subject;
@@ -192,7 +192,7 @@ class _BucCardState extends ConsumerState<BucCard>
               ref
                   .read(navStoreProvider)
                   .addNavItemB(
-                    type: '动画',
+                    type: data.type.label,
                     subject: data.id,
                     paneTitle: name,
                     jump: false,

@@ -19,8 +19,8 @@ import '../../tools/notifier_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
-import '../bangumi/bangumi_collection.dart';
 import '../subject-search/subject_search_page.dart';
+import '../user-collection/user_collection_page.dart';
 import 'bc_pw_day.dart';
 
 /// 今日放送
@@ -306,7 +306,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     var pane = PaneItem(
       icon: Icon(FluentIcons.favorite_star, color: color),
       title: Text(title),
-      body: const BangumiCollectionPage(),
+      body: const UserCollectionPage(),
     );
     return MenuFlyoutItem(
       leading: Icon(

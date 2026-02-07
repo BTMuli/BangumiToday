@@ -13,12 +13,10 @@ import '../../controller/app/progress_controller.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../pages/app-setting/app_setting_page.dart';
-import '../../pages/app/bmf_page.dart';
 import '../../pages/app/download_page.dart';
-import '../../pages/app/rss_page.dart';
-import '../../pages/app/test_page.dart';
 import '../../pages/bangumi-calendar/bangumi_calendar_page.dart';
-import '../../pages/bangumi/bangumi_collection.dart';
+import '../../pages/rss-bmf/rss_bmf_page.dart';
+import '../../pages/user-collection/user_collection_page.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
 import '../../store/app_store.dart';
@@ -220,28 +218,6 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
     );
   }
 
-  /// 构建用户信息项
-  PaneItem buildUserItem() {
-    if (hive.user == null) {
-      return PaneItemAction(
-        icon: const Icon(FluentIcons.account_management),
-        title: const Text('未登录'),
-        onTap: () async => oauthUser(),
-      );
-    }
-    return PaneItem(
-      icon: CachedNetworkImage(
-        imageUrl: hive.user!.avatar.small,
-        width: 18,
-        height: 18,
-        placeholder: (_, _) => const ProgressRing(),
-        errorWidget: (_, _, _) => const Icon(FluentIcons.error),
-      ),
-      title: Text(hive.user!.nickname),
-      body: BangumiCollectionPage(),
-    );
-  }
-
   /// 构建主题模式项
   PaneItemAction buildThemeModeItem() {
     var config = getThemeModeConfig(_curThemeMode);
@@ -263,18 +239,27 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
         body: const BangumiCalendarPage(),
       ),
       PaneItem(
-        icon: Image.asset(
-          'assets/images/platforms/mikan-favicon.ico',
-          height: 16,
-        ),
-        title: const Text('RSS 页面'),
-        body: const RssPage(),
-      ),
-      PaneItem(
         icon: Image.asset('assets/images/logo.png', height: 16),
-        title: const Text('BMF配置'),
-        body: const BmfPage(),
+        title: const Text('RSS & BMF'),
+        body: const RssBmfPage(),
       ),
+      hive.user == null
+          ? PaneItemAction(
+              icon: const Icon(FluentIcons.account_management),
+              title: const Text('未登录'),
+              onTap: () async => oauthUser(),
+            )
+          : PaneItem(
+              icon: CachedNetworkImage(
+                imageUrl: hive.user!.avatar.small,
+                width: 18,
+                height: 18,
+                placeholder: (_, _) => const ProgressRing(),
+                errorWidget: (_, _, _) => const Icon(FluentIcons.error),
+              ),
+              title: Text(hive.user!.nickname),
+              body: const UserCollectionPage(),
+            ),
       if (kDebugMode)
         PaneItem(
           icon: const Icon(FluentIcons.cloud_download),
@@ -284,55 +269,32 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
     ];
   }
 
-  /// 获取导航项
-  List<PaneItem> getNavItems(BuildContext context) {
-    var constItems = getConstItems();
-    var items = [...constItems, ..._navItems];
-    return items;
-  }
-
-  /// 获取底部项
-  List<PaneItem> getFooterItems() {
-    var debugPane = PaneItem(
-      icon: const Icon(FluentIcons.bug),
-      title: const Text('调试页面'),
-      body: const TestPage(),
-    );
-    var footerItems = [
-      buildUserItem(),
-      PaneItemAction(
-        icon: FlyoutTarget(
-          controller: flyoutMore,
-          child: const Icon(FluentIcons.graph_symbol),
-        ),
-        title: const Text('更多设置'),
-        onTap: showOptionsFlyout,
-      ),
-      buildThemeModeItem(),
-      PaneItem(
-        icon: const Icon(FluentIcons.settings),
-        title: const Text('应用设置'),
-        body: const SettingPage(),
-      ),
-    ];
-    if (kDebugMode) footerItems.insert(0, debugPane);
-    return footerItems;
-  }
-
-  /// 导航面板
-  NavigationPane buildNavPane(BuildContext context) {
-    return NavigationPane(
-      selected: curIndex,
-      onChanged: (index) => ref.read(navStoreProvider).setCurIndex(index),
-      displayMode: PaneDisplayMode.compact,
-      items: getNavItems(context),
-      footerItems: getFooterItems(),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return NavigationView(pane: buildNavPane(context));
+    return NavigationView(
+      pane: NavigationPane(
+        selected: curIndex,
+        onChanged: (index) => ref.read(navStoreProvider).setCurIndex(index),
+        displayMode: PaneDisplayMode.compact,
+        items: [...getConstItems(), ..._navItems],
+        footerItems: [
+          PaneItemAction(
+            icon: FlyoutTarget(
+              controller: flyoutMore,
+              child: const Icon(FluentIcons.graph_symbol),
+            ),
+            title: const Text('更多设置'),
+            onTap: showOptionsFlyout,
+          ),
+          buildThemeModeItem(),
+          PaneItem(
+            icon: const Icon(FluentIcons.settings),
+            title: const Text('应用设置'),
+            body: const SettingPage(),
+          ),
+        ],
+      ),
+    );
   }
 }
