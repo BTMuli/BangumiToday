@@ -29,11 +29,16 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
 
   /// 构建标签
   List<Tab> buildTabs() {
-    var values = BangumiCollectionType.values;
+    var values = [
+      BangumiCollectionType.doing,
+      BangumiCollectionType.wish,
+      BangumiCollectionType.collect,
+      BangumiCollectionType.onHold,
+      BangumiCollectionType.dropped,
+    ];
     var result = <Tab>[];
     for (var i = 0; i < values.length; i++) {
       var type = values[i];
-      if (type == BangumiCollectionType.unknown) continue;
       result.add(
         Tab(
           selectedBackgroundColor: WidgetStateProperty.resolveWith(
