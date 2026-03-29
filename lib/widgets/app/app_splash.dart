@@ -18,13 +18,21 @@ class BTSplashScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const ProgressRing(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
                 const Text(
                   'BangumiToday',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF333333),
+                    letterSpacing: 1.2,
+                  ),
                 ),
-                const SizedBox(height: 8),
-                const Text('正在加载...', style: TextStyle(fontSize: 14)),
+                const SizedBox(height: 12),
+                const Text(
+                  '正在加载...',
+                  style: TextStyle(fontSize: 16, color: Color(0xFF666666)),
+                ),
               ],
             ),
           ),
