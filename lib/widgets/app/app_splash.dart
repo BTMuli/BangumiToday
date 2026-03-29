@@ -7,27 +7,24 @@ class BTSplashScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return FluentApp(
       debugShowCheckedModeBanner: false,
+      theme: FluentThemeData.light(),
+      darkTheme: FluentThemeData.dark(),
       home: ScaffoldPage(
         padding: EdgeInsets.zero,
         content: Container(
-          decoration: BoxDecoration(
-            color: Colors.grey[20],
-          ),
+          decoration: BoxDecoration(color: Colors.grey[20]),
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const ProgressRing(),
                 const SizedBox(height: 24),
-                Text(
+                const Text(
                   'BangumiToday',
-                  style: FluentTheme.of(context).typography.subtitle,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '正在加载...',
-                  style: FluentTheme.of(context).typography.body,
-                ),
+                const Text('正在加载...', style: TextStyle(fontSize: 14)),
               ],
             ),
           ),
