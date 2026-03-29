@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 // Project imports:
+import '../../core/network/request_manager.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
@@ -29,6 +30,9 @@ class BtrBangumiApi {
   /// 用户Hive
   final BgmUserHive hive = BgmUserHive();
 
+  /// 请求管理器
+  final RequestManager _requestManager = RequestManager();
+
   /// 构造函数
   BtrBangumiApi() {
     client = BtrClient.withHeader();
@@ -49,10 +53,18 @@ class BtrBangumiApi {
   /// 条目模块
 
   /// 每日放送
-  Future<BTResponse> getToday() async {
+  Future<BTResponse> getToday({
+    bool deduplicate = true,
+    bool cancelPrevious = true,
+  }) async {
     try {
-      var response = await client.dio.get('/calendar');
-      var data = response.data as List;
+      var result = await _requestManager.request<Response>(
+        key: RequestKey.calendar(),
+        deduplicate: deduplicate,
+        cancelPrevious: cancelPrevious,
+        request: (token) => client.dio.get('/calendar', cancelToken: token),
+      );
+      var data = result.data as List;
       var list = data
           .map(
             (e) => BangumiCalendarRespData.fromJson(e as Map<String, dynamic>),
@@ -60,6 +72,13 @@ class BtrBangumiApi {
           .toList();
       return BangumiCalendarResp.success(data: list);
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        return BTResponse.error(
+          code: 499,
+          message: 'Request cancelled',
+          data: null,
+        );
+      }
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       BTLogTool.error('Failed to load today: ${jsonEncode(errResp)}');
       return BTResponse<BangumiErrorDetail>(
@@ -98,6 +117,8 @@ class BtrBangumiApi {
     List<String>? rating,
     List<String>? rank,
     bool? nsfw = false,
+    bool deduplicate = true,
+    bool cancelPrevious = true,
   }) async {
     var data = <String, dynamic>{'keyword': keyword, 'sort': sort};
     var filter = <String, dynamic>{};
@@ -113,18 +134,27 @@ class BtrBangumiApi {
     BTLogTool.info('searchSubjectsParams: ${jsonEncode(params)}');
     try {
       var authHeader = getAuthHeader();
-      var resp = await client.dio.post(
-        '/v0/search/subjects',
-        queryParameters: params,
-        data: data,
-        options: Options(contentType: 'application/json', headers: authHeader),
+      var result = await _requestManager.request<Response>(
+        key: RequestKey.search(keyword, offset),
+        deduplicate: deduplicate,
+        cancelPrevious: cancelPrevious,
+        request: (token) => client.dio.post(
+          '/v0/search/subjects',
+          queryParameters: params,
+          data: data,
+          options: Options(contentType: 'application/json', headers: authHeader),
+          cancelToken: token,
+        ),
       );
       var list = BangumiPageT<BangumiSubjectSearchData>.fromJson(
-        resp.data as Map<String, dynamic>,
+        result.data as Map<String, dynamic>,
         (e) => BangumiSubjectSearchData.fromJson(e as Map<String, dynamic>),
       );
       return BangumiSubjectSearchResp.success(data: list);
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        return BTResponse.error(code: 499, message: 'Request cancelled', data: null);
+      }
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       BTLogTool.error('Failed to search subjects: ${jsonEncode(errResp)}');
       return BTResponse<BangumiErrorDetail>(
@@ -143,18 +173,31 @@ class BtrBangumiApi {
   }
 
   /// 获取番剧详情
-  Future<BTResponse> getSubjectDetail(String id) async {
+  Future<BTResponse> getSubjectDetail(
+    String id, {
+    bool deduplicate = true,
+    bool cancelPrevious = true,
+  }) async {
     try {
       var authHeader = getAuthHeader();
-      var resp = await client.dio.get(
-        '/v0/subjects/$id',
-        options: Options(headers: authHeader, contentType: 'application/json'),
+      var result = await _requestManager.request<Response>(
+        key: RequestKey.subjectDetail(int.parse(id)),
+        deduplicate: deduplicate,
+        cancelPrevious: cancelPrevious,
+        request: (token) => client.dio.get(
+          '/v0/subjects/$id',
+          options: Options(headers: authHeader, contentType: 'application/json'),
+          cancelToken: token,
+        ),
       );
-      assert(resp.data is Map<String, dynamic>);
+      assert(result.data is Map<String, dynamic>);
       return BangumiSubjectResp.success(
-        data: BangumiSubject.fromJson(resp.data),
+        data: BangumiSubject.fromJson(result.data),
       );
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        return BTResponse.error(code: 499, message: 'Request cancelled', data: null);
+      }
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       BTLogTool.error('Failed to load subject detail: ${jsonEncode(errResp)}');
       return BTResponse<BangumiErrorDetail>(
