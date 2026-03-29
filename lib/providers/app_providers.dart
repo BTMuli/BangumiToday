@@ -1,37 +1,34 @@
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
-import '../data/repositories/bangumi_repository_impl.dart';
-import '../domain/repositories/bangumi_repository.dart';
-import '../request/bangumi/bangumi_api.dart';
-import '../store/app_store.dart';
-import '../store/bgm_user_hive.dart';
-import '../store/dtt_store.dart';
-import '../store/nav_store.dart';
-import '../store/tracker_hive.dart';
+import '../../data/repositories/bangumi_repository_impl.dart';
+import '../../domain/repositories/bangumi_repository.dart';
+import '../../request/bangumi/bangumi_api.dart';
+import '../../store/app_store.dart';
+import '../../store/bgm_user_hive.dart';
+import '../../store/dtt_store.dart';
+import '../../store/nav_store.dart';
+import '../../store/tracker_hive.dart';
 
-final appStoreProvider = ChangeNotifierProvider.autoDispose<BTAppStore>((ref) {
+final appStoreProvider = ChangeNotifierProvider<BTAppStore>((ref) {
   return BTAppStore();
 });
 
-final navStoreProvider = ChangeNotifierProvider.autoDispose<BTNavStore>((ref) {
+final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
   var store = BTNavStore();
   return store;
 });
 
-final bgmUserHiveProvider = ChangeNotifierProvider.autoDispose<BgmUserHive>((
-  ref,
-) {
+final bgmUserHiveProvider = ChangeNotifierProvider<BgmUserHive>((ref) {
   return BgmUserHive();
 });
 
-final dttStoreProvider = ChangeNotifierProvider.autoDispose<DttHive>((ref) {
+final dttStoreProvider = ChangeNotifierProvider<DttHive>((ref) {
   return DttHive();
 });
 
-final trackerHiveProvider = ChangeNotifierProvider.autoDispose<TrackerHive>((
-  ref,
-) {
+final trackerHiveProvider = ChangeNotifierProvider<TrackerHive>((ref) {
   return TrackerHive();
 });
 
@@ -42,4 +39,22 @@ final bangumiApiProvider = Provider<BtrBangumiApi>((ref) {
 final bangumiRepositoryProvider = Provider<BTBangumiRepository>((ref) {
   var api = ref.watch(bangumiApiProvider);
   return BTBangumiRepositoryImpl(api: api);
+});
+
+final isLoggedInProvider = Provider<bool>((ref) {
+  var user = ref.watch(bgmUserHiveProvider).user;
+  return user != null;
+});
+
+final currentUsernameProvider = Provider<String?>((ref) {
+  var user = ref.watch(bgmUserHiveProvider).user;
+  return user?.nickname;
+});
+
+final themeModeProvider = Provider<ThemeMode>((ref) {
+  return ref.watch(appStoreProvider).themeMode;
+});
+
+final accentColorProvider = Provider<Color>((ref) {
+  return ref.watch(appStoreProvider).accentColor;
 });
