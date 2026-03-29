@@ -18,6 +18,7 @@ import '../../store/bgm_user_hive.dart';
 import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import '../../widgets/common/empty_state.dart';
 import 'uc_pw_card.dart';
 
 /// 用户收藏 tab
@@ -256,7 +257,13 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
   /// 构建列表
   Widget buildList(BuildContext context) {
     if (showData.isEmpty) {
-      return const Center(child: Text('没有数据'));
+      return BTEmptyState.noCollection(
+        actionText: '浏览今日放送',
+        onAction: () => ref.read(navStoreProvider).addNavItemB(
+          type: '动画',
+          subject: 0,
+        ),
+      );
     }
     return LayoutBuilder(
       builder: (context, constraints) {
