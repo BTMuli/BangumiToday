@@ -1,4 +1,6 @@
 // Flutter imports:
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 // Package imports:
@@ -16,20 +18,18 @@ import 'tools/download_tool.dart';
 import 'tools/hive_tool.dart';
 import 'tools/log_tool.dart';
 import 'tools/notifier_tool.dart';
+import 'widgets/app/app_splash.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await windowManager.ensureInitialized();
-  await Window.initialize();
-  await SystemTheme.accentColor.load();
-  await dotenv.load(fileName: ".env");
 
-  /// 初始化配置
-  await BTLogTool.init();
-  await BTDownloadTool.init();
-  await BTNotifierTool.init();
-  await BTSqlite.init();
-  await BTHiveTool.init();
+  await Future.wait([
+    windowManager.ensureInitialized(),
+    Window.initialize(),
+    SystemTheme.accentColor.load(),
+    dotenv.load(fileName: ".env"),
+  ]);
+
   WindowOptions windowOpts = const WindowOptions(
     title: kDebugMode ? 'BangumiToday[Dev]' : 'BangumiToday',
     size: Size(1280, 720),
@@ -39,6 +39,22 @@ void main() async {
     (windowOpts),
     () async => await windowManager.show(),
   );
-  runApp(const ProviderScope(child: BTApp()));
+
+  runApp(const ProviderScope(child: BTSplashScreen()));
+
+  unawaited(_initBackgroundServices());
+}
+
+Future<void> _initBackgroundServices() async {
+  await Future.wait([
+    BTLogTool.init(),
+    BTDownloadTool.init(),
+    BTNotifierTool.init(),
+    BTSqlite.init(),
+    BTHiveTool.init(),
+  ]);
+
   await Window.setEffect(effect: WindowEffect.acrylic);
+
+  runApp(const ProviderScope(child: BTApp()));
 }
