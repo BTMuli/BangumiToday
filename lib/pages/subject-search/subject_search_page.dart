@@ -13,6 +13,7 @@ import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_card/bsc_search.dart';
+import '../../widgets/common/empty_state.dart';
 
 /// 搜索页面
 class SubjectSearchPage extends ConsumerStatefulWidget {
@@ -298,19 +299,17 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
   /// 构建列表
   Widget buildResult() {
     if (loading) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const ProgressRing(),
-            SizedBox(height: 12.h),
-            const Text('加载中'),
-          ],
-        ),
-      );
+      return BTEmptyState.loading(message: '正在搜索...');
     }
     if (controller.total == 0) {
-      return const Center(child: Text('没有数据'));
+      return BTEmptyState.noSearchResult(
+        keyword: textController.text.isEmpty ? null : textController.text,
+        actionText: '清除搜索',
+        onAction: () {
+          textController.clear();
+          setState(() {});
+        },
+      );
     }
     return ListView.separated(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
