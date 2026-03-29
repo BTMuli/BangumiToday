@@ -8,8 +8,7 @@ import '../../controller/app/page_controller.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_subject.dart';
-import '../../request/bangumi/bangumi_api.dart';
-import '../../store/nav_store.dart';
+import '../../providers/app_providers.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_card/bsc_search.dart';
@@ -27,9 +26,6 @@ class SubjectSearchPage extends ConsumerStatefulWidget {
 /// 搜索页面状态
 class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
     with AutomaticKeepAliveClientMixin {
-  /// api
-  final BtrBangumiApi api = BtrBangumiApi();
-
   /// controller
   late BtcPageController controller = BtcPageController.defaultInit();
 
@@ -92,7 +88,8 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
       return;
     }
     setState(() => loading = true);
-    var resp = await api.searchSubjects(
+    var repository = ref.read(bangumiRepositoryProvider);
+    var resp = await repository.searchSubjects(
       textController.text,
       sort: sort,
       type: types,
@@ -138,7 +135,8 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
       setState(() {});
       return;
     }
-    var resp = await api.searchSubjects(
+    var repository = ref.read(bangumiRepositoryProvider);
+    var resp = await repository.searchSubjects(
       input,
       sort: sort,
       type: types,

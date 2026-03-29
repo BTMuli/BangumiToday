@@ -13,9 +13,8 @@ import '../../core/layout/responsive.dart';
 import '../../database/bangumi/bangumi_collection.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
-import '../../request/bangumi/bangumi_api.dart';
+import '../../providers/app_providers.dart';
 import '../../store/bgm_user_hive.dart';
-import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/common/empty_state.dart';
@@ -50,9 +49,6 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
 
   /// 用户Hive
   final BgmUserHive hive = BgmUserHive();
-
-  /// api
-  final BtrBangumiApi api = BtrBangumiApi();
 
   /// 收藏数据库
   final BtsBangumiCollection sqlite = BtsBangumiCollection();
@@ -133,7 +129,8 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
     }
     const limitC = 50;
     var offsetC = 0;
-    var resp = await api.getCollectionSubjects(
+    var repository = ref.read(bangumiRepositoryProvider);
+    var resp = await repository.getCollectionSubjects(
       username: hive.user!.id.toString(),
       limit: limitC,
       offset: offsetC,
@@ -145,7 +142,7 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
       return;
     }
     var checkFlag = true;
-    var pageResp = resp.data as BangumiPageT<BangumiUserSubjectCollection>;
+    var pageResp = resp.data!;
     var total = pageResp.total;
     var cnt = 0;
     while (checkFlag) {
@@ -168,7 +165,7 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
         text: '偏移：$offsetC，总计：$total',
         progress: (cnt / total) * 100,
       );
-      resp = await api.getCollectionSubjects(
+      resp = await repository.getCollectionSubjects(
         username: hive.user!.id.toString(),
         limit: limitC,
         offset: offsetC,
@@ -179,7 +176,7 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
         if (mounted) await showRespErr(resp, context);
         return;
       }
-      pageResp = resp.data as BangumiPageT<BangumiUserSubjectCollection>;
+      pageResp = resp.data!;
     }
   }
 
@@ -259,10 +256,8 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
     if (showData.isEmpty) {
       return BTEmptyState.noCollection(
         actionText: '浏览今日放送',
-        onAction: () => ref.read(navStoreProvider).addNavItemB(
-          type: '动画',
-          subject: 0,
-        ),
+        onAction: () =>
+            ref.read(navStoreProvider).addNavItemB(type: '动画', subject: 0),
       );
     }
     return LayoutBuilder(

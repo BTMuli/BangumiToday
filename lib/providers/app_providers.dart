@@ -8,16 +8,12 @@ import '../request/bangumi/bangumi_api.dart';
 import '../store/app_store.dart';
 import '../store/bgm_user_hive.dart';
 import '../store/dtt_store.dart';
-import '../store/nav_store.dart';
 import '../store/tracker_hive.dart';
+
+export '../store/nav_store.dart';
 
 final appStoreProvider = ChangeNotifierProvider<BTAppStore>((ref) {
   return BTAppStore();
-});
-
-final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
-  var store = BTNavStore();
-  return store;
 });
 
 final bgmUserHiveProvider = ChangeNotifierProvider<BgmUserHive>((ref) {

@@ -8,8 +8,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 // Project imports:
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
-import '../../request/bangumi/bangumi_api.dart';
-import '../../store/nav_store.dart';
+import '../../providers/app_providers.dart';
 import '../../ui/bt_dialog.dart';
 import '../../utils/tool_func.dart';
 
@@ -32,9 +31,6 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
   /// 条目id
   int get subjectId => widget.subjectId;
 
-  /// 请求客户端
-  final BtrBangumiApi api = BtrBangumiApi();
-
   /// 关联条目
   List<BangumiSubjectRelation> relations = [];
 
@@ -52,12 +48,13 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
 
   /// 加载
   Future<void> load() async {
-    var resp = await api.getSubjectRelations(subjectId);
+    var repository = ref.read(bangumiRepositoryProvider);
+    var resp = await repository.getSubjectRelations(subjectId);
     if (resp.code != 0 || resp.data == null) {
       if (mounted) await showRespErr(resp, context);
       return;
     }
-    relations = resp.data;
+    relations = resp.data!;
     setState(() {});
   }
 

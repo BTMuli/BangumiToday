@@ -15,9 +15,8 @@ import '../../models/bangumi/bangumi_model.dart';
 import '../../models/hive/nav_model.dart';
 import '../../plugins/mikan/mikan_api.dart';
 import '../../plugins/mikan/models/mikan_model.dart';
-import '../../request/bangumi/bangumi_api.dart';
+import '../../providers/app_providers.dart';
 import '../../store/bgm_user_hive.dart';
-import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
@@ -109,8 +108,8 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   Future<void> init() async {
     if (showError) setState(() => showError = false);
     setState(() => data = null);
-    var api = BtrBangumiApi();
-    var detailGet = await api.getSubjectDetail(widget.id);
+    var repository = ref.read(bangumiRepositoryProvider);
+    var detailGet = await repository.getSubjectDetail(widget.id);
     if (detailGet.code != 0 || detailGet.data == null) {
       if (mounted) await showRespErr(detailGet, context);
       showError = true;
