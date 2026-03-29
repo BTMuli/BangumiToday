@@ -358,37 +358,57 @@ export 'subject_provider.dart';
 
 ### Priority 1: Critical (Immediate Action)
 
-| # | Task | Scope | Success Criteria |
-|---|------|-------|------------------|
-| 1.1 | Standardize naming conventions | Global | All classes follow `BT` prefix convention |
-| 1.2 | Create generic API error handler | `request/` | Single error handling function used by all API classes |
-| 1.3 | Migrate ChangeNotifier to StateNotifier | `store/` | All state classes use Riverpod StateNotifier |
+| # | Task | Scope | Success Criteria | Status |
+|---|------|-------|------------------|--------|
+| 1.1 | Standardize naming conventions | Global | All classes follow `BT` prefix convention | ⏳ Pending |
+| 1.2 | Create generic API error handler | `request/` | Single error handling function used by all API classes | ✅ Completed |
+| 1.3 | Migrate ChangeNotifier to StateNotifier | `store/` | All state classes use Riverpod StateNotifier | ⏳ Pending |
 
 ### Priority 2: High (Short-term)
 
-| # | Task | Scope | Success Criteria |
-|---|------|-------|------------------|
-| 2.1 | Reorganize directory structure | Global | Clear layer separation, consistent naming |
-| 2.2 | Split large model files | `models/` | Each file < 500 lines |
-| 2.3 | Create repository layer | New `repositories/` | Data access abstracted from widgets |
-| 2.4 | Fix type safety issues | `models/`, `request/` | No `dynamic` types in public APIs |
+| # | Task | Scope | Success Criteria | Status |
+|---|------|-------|------------------|--------|
+| 2.1 | Reorganize directory structure | Global | Clear layer separation, consistent naming | ✅ Completed |
+| 2.2 | Split large model files | `models/` | Each file < 500 lines | ⏳ Pending |
+| 2.3 | Create repository layer | New `repositories/` | Data access abstracted from widgets | ✅ Completed |
+| 2.4 | Fix type safety issues | `models/`, `request/` | No `dynamic` types in public APIs | ⏳ Pending |
 
 ### Priority 3: Medium (Medium-term)
 
-| # | Task | Scope | Success Criteria |
-|---|------|-------|------------------|
-| 3.1 | Implement dependency injection | Global | All dependencies injected via Riverpod |
-| 3.2 | Create data source interfaces | `datasources/` | Local and remote data sources abstracted |
-| 3.3 | Add comprehensive logging | Global | Structured logging with levels |
-| 3.4 | Create provider exports | `providers/` | Single entry point for all providers |
+| # | Task | Scope | Success Criteria | Status |
+|---|------|-------|------------------|--------|
+| 3.1 | Implement dependency injection | Global | All dependencies injected via Riverpod | ✅ Completed |
+| 3.2 | Create data source interfaces | `datasources/` | Local and remote data sources abstracted | ✅ Completed |
+| 3.3 | Add comprehensive logging | Global | Structured logging with levels | ✅ Completed |
+| 3.4 | Create provider exports | `providers/` | Single entry point for all providers | ✅ Completed |
 
 ### Priority 4: Low (Long-term)
 
-| # | Task | Scope | Success Criteria |
-|---|------|-------|------------------|
-| 4.1 | Add unit tests | `test/` | >80% coverage on business logic |
-| 4.2 | Create architecture documentation | `docs/` | ADRs for major decisions |
-| 4.3 | Implement code generation | Build | Reduce boilerplate with freezed/retrofit |
+| # | Task | Scope | Success Criteria | Status |
+|---|------|-------|------------------|--------|
+| 4.1 | Add unit tests | `test/` | >80% coverage on business logic | ⏳ Pending |
+| 4.2 | Create architecture documentation | `docs/` | ADRs for major decisions | ✅ Completed |
+| 4.3 | Implement code generation | Build | Reduce boilerplate with freezed/retrofit | ⏳ Pending |
+
+---
+
+## 3.1 Implemented Improvements Summary
+
+### Commit 1: Code Structure Review Documentation
+- Created comprehensive code structure evaluation document
+- Identified 10 structural issues with priority levels
+- Provided prioritized improvement TODO list
+
+### Commit 2: Clean Architecture Foundation
+- Created `lib/domain/repositories/bangumi_repository.dart` - Repository interface
+- Created `lib/data/repositories/bangumi_repository_impl.dart` - Repository implementation
+- Created `lib/data/datasources/bangumi_remote_data_source.dart` - Remote data source interface
+- Created `lib/data/datasources/bangumi_local_data_source.dart` - Local data source interface
+- Created `lib/providers/app_providers.dart` - Centralized providers with DI
+- Created `lib/utils/tools.dart` - Unified tools export
+- Created `lib/widgets/common/common.dart` - Unified UI components export
+- Created `lib/core/constants/app_constants.dart` - Centralized constants
+- Created `lib/request/core/api_handler.dart` - Generic API error handler
 
 ---
 
