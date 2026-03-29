@@ -2,14 +2,14 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
-import '../../data/repositories/bangumi_repository_impl.dart';
-import '../../domain/repositories/bangumi_repository.dart';
-import '../../request/bangumi/bangumi_api.dart';
-import '../../store/app_store.dart';
-import '../../store/bgm_user_hive.dart';
-import '../../store/dtt_store.dart';
-import '../../store/nav_store.dart';
-import '../../store/tracker_hive.dart';
+import '../core/providers/repository_providers.dart';
+import '../domain/repositories/bangumi_repository.dart';
+import '../request/bangumi/bangumi_api.dart';
+import '../store/app_store.dart';
+import '../store/bgm_user_hive.dart';
+import '../store/dtt_store.dart';
+import '../store/nav_store.dart';
+import '../store/tracker_hive.dart';
 
 final appStoreProvider = ChangeNotifierProvider<BTAppStore>((ref) {
   return BTAppStore();
@@ -37,8 +37,7 @@ final bangumiApiProvider = Provider<BtrBangumiApi>((ref) {
 });
 
 final bangumiRepositoryProvider = Provider<BTBangumiRepository>((ref) {
-  var api = ref.watch(bangumiApiProvider);
-  return BTBangumiRepositoryImpl(api: api);
+  return BTRepositoryProviders.provideBangumiRepository();
 });
 
 final isLoggedInProvider = Provider<bool>((ref) {

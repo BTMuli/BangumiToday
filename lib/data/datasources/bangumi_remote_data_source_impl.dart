@@ -2,18 +2,23 @@ import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_subject.dart';
-import '../datasources/bangumi_remote_data_source.dart';
-import '../../domain/repositories/bangumi_repository.dart';
+import '../../request/bangumi/bangumi_api.dart';
+import 'bangumi_remote_data_source.dart';
 
-class BTBangumiRepositoryImpl implements BTBangumiRepository {
-  final BTBangumiRemoteDataSource _remoteDataSource;
+class BTBangumiRemoteDataSourceImpl implements BTBangumiRemoteDataSource {
+  final BtrBangumiApi _api;
 
-  BTBangumiRepositoryImpl({required BTBangumiRemoteDataSource remoteDataSource})
-    : _remoteDataSource = remoteDataSource;
+  BTBangumiRemoteDataSourceImpl({BtrBangumiApi? api})
+    : _api = api ?? BtrBangumiApi();
 
   @override
   Future<BTResponse<List<BangumiCalendarRespData>>> getToday() async {
-    return await _remoteDataSource.getToday();
+    var response = await _api.getToday();
+    return BTResponse(
+      code: response.code,
+      message: response.message,
+      data: response.data as List<BangumiCalendarRespData>?,
+    );
   }
 
   @override
@@ -29,7 +34,7 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     List<String>? rank,
     bool? nsfw,
   }) async {
-    return await _remoteDataSource.searchSubjects(
+    return await _api.searchSubjects(
       keyword,
       sort: sort,
       offset: offset,
@@ -45,14 +50,24 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
 
   @override
   Future<BTResponse<BangumiSubject>> getSubjectDetail(String id) async {
-    return await _remoteDataSource.getSubjectDetail(id);
+    var response = await _api.getSubjectDetail(id);
+    return BTResponse(
+      code: response.code,
+      message: response.message,
+      data: response.data as BangumiSubject?,
+    );
   }
 
   @override
   Future<BTResponse<List<BangumiSubjectRelation>>> getSubjectRelations(
     int id,
   ) async {
-    return await _remoteDataSource.getSubjectRelations(id);
+    var response = await _api.getSubjectRelations(id);
+    return BTResponse(
+      code: response.code,
+      message: response.message,
+      data: response.data as List<BangumiSubjectRelation>?,
+    );
   }
 
   @override
@@ -62,17 +77,27 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     int? limit,
     int? offset,
   }) async {
-    return await _remoteDataSource.getEpisodeList(
+    var response = await _api.getEpisodeList(
       id,
       type: type,
       limit: limit,
       offset: offset,
     );
+    return BTResponse(
+      code: response.code,
+      message: response.message,
+      data: response.data as BangumiPageT<BangumiEpisode>?,
+    );
   }
 
   @override
   Future<BTResponse<BangumiUser>> getUserInfo() async {
-    return await _remoteDataSource.getUserInfo();
+    var response = await _api.getUserInfo();
+    return BTResponse(
+      code: response.code,
+      message: response.message,
+      data: response.data as BangumiUser?,
+    );
   }
 
   @override
@@ -84,12 +109,17 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     int? limit,
     int? offset,
   }) async {
-    return await _remoteDataSource.getCollectionSubjects(
-      username: username,
+    var response = await _api.getCollectionSubjects(
+      username: username ?? '-',
       subjectType: subjectType,
       collectionType: collectionType,
       limit: limit,
       offset: offset,
+    );
+    return BTResponse(
+      code: response.code,
+      message: response.message,
+      data: response.data as BangumiPageT<BangumiUserSubjectCollection>?,
     );
   }
 
@@ -98,12 +128,22 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     String username,
     int subjectId,
   ) async {
-    return await _remoteDataSource.getCollectionSubject(username, subjectId);
+    var response = await _api.getCollectionSubject(username, subjectId);
+    return BTResponse(
+      code: response.code,
+      message: response.message,
+      data: response.data as BangumiUserSubjectCollection?,
+    );
   }
 
   @override
   Future<BTResponse<void>> addCollectionSubject(int subjectId) async {
-    return await _remoteDataSource.addCollectionSubject(subjectId);
+    var response = await _api.addCollectionSubject(subjectId);
+    return BTResponse(
+      code: response.code,
+      message: response.message,
+      data: null,
+    );
   }
 
   @override
@@ -117,7 +157,7 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     bool? private,
     List<String>? tags,
   }) async {
-    return await _remoteDataSource.updateCollectionSubject(
+    var response = await _api.updateCollectionSubject(
       subjectId,
       type: type,
       rate: rate,
@@ -126,6 +166,11 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
       comment: comment,
       private: private,
       tags: tags,
+    );
+    return BTResponse(
+      code: response.code,
+      message: response.message,
+      data: null,
     );
   }
 
@@ -137,11 +182,16 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     int? limit,
     BangumiLegacyEpisodeType? type,
   }) async {
-    return await _remoteDataSource.getCollectionEpisodes(
+    var response = await _api.getCollectionEpisodes(
       subjectId,
       offset: offset,
       limit: limit,
       type: type,
+    );
+    return BTResponse(
+      code: response.code,
+      message: response.message,
+      data: response.data as BangumiPageT<BangumiUserEpisodeCollection>?,
     );
   }
 
@@ -149,7 +199,12 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   Future<BTResponse<BangumiUserEpisodeCollection>> getCollectionEpisode(
     int episodeId,
   ) async {
-    return await _remoteDataSource.getCollectionEpisode(episodeId);
+    var response = await _api.getCollectionEpisode(episodeId);
+    return BTResponse(
+      code: response.code,
+      message: response.message,
+      data: response.data as BangumiUserEpisodeCollection?,
+    );
   }
 
   @override
@@ -157,9 +212,14 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     required BangumiEpisodeCollectionType type,
     required int episode,
   }) async {
-    return await _remoteDataSource.updateCollectionEpisode(
+    var response = await _api.updateCollectionEpisode(
       type: type,
       episode: episode,
+    );
+    return BTResponse(
+      code: response.code,
+      message: response.message,
+      data: null,
     );
   }
 }
