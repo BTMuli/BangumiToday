@@ -353,29 +353,85 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   Widget buildContent() {
     if (data == null) return buildLoading();
     assert(data != null);
-    return ListView(
+    return SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-      children: [
-        SdpOverviewWidget(data!),
-        SizedBox(height: 12),
-        if (hiveUser.user != null) ...[
-          BsdUserCollection(data!, hiveUser.user!, collectProvider),
-          SizedBox(height: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 基本信息和评分
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(12.w),
+              child: SdpOverviewWidget(data!),
+            ),
+          ),
+          SizedBox(height: 16.h),
+
+          // 用户相关功能
+          if (hiveUser.user != null) ...[
+            Card(
+              child: Padding(
+                padding: EdgeInsets.all(12.w),
+                child: BsdUserCollection(
+                  data!,
+                  hiveUser.user!,
+                  collectProvider,
+                ),
+              ),
+            ),
+            SizedBox(height: 16.h),
+          ],
+
+          // 剧集信息
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(12.w),
+              child: BsdUserEpisodes(data!, hiveUser.user, collectProvider),
+            ),
+          ),
+          SizedBox(height: 16.h),
+
+          // BMF和RSS功能
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(12.w),
+              child: BsdBmfWidget(
+                data!.id,
+                data!.nameCn.isEmpty ? data!.name : data!.nameCn,
+                rssProvider: rssProvider,
+              ),
+            ),
+          ),
+          SizedBox(height: 16.h),
+
+          // 关联条目
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(12.w),
+              child: SdpRelationWidget(data!.id),
+            ),
+          ),
+          SizedBox(height: 16.h),
+
+          // 简介
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(12.w),
+              child: buildSummary(data!.summary),
+            ),
+          ),
+          SizedBox(height: 16.h),
+
+          // 其他信息
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(12.w),
+              child: buildOtherInfo(data!.infobox),
+            ),
+          ),
+          SizedBox(height: 24.h),
         ],
-        BsdUserEpisodes(data!, hiveUser.user, collectProvider),
-        SizedBox(height: 12),
-        BsdBmfWidget(
-          data!.id,
-          data!.nameCn.isEmpty ? data!.name : data!.nameCn,
-          rssProvider: rssProvider,
-        ),
-        SizedBox(height: 12),
-        SdpRelationWidget(data!.id),
-        SizedBox(height: 12),
-        buildSummary(data!.summary),
-        SizedBox(height: 12),
-        buildOtherInfo(data!.infobox),
-      ],
+      ),
     );
   }
 

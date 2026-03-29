@@ -5,7 +5,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../models/bangumi/bangumi_enum.dart';
+import '../../store/bgm_user_hive.dart';
 import '../../store/nav_store.dart';
+import '../../ui/bt_infobar.dart';
 import 'uc_pw_tab.dart';
 
 /// user-collection.tv 用户收藏页面
@@ -53,15 +55,31 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
     return result;
   }
 
+  /// 刷新授权
+  Future<void> refreshAuth() async {
+    var hiveUser = BgmUserHive();
+    var result = await hiveUser.refreshAuth(force: true);
+    if (!mounted) return;
+    if (result == null) {
+      await BtInfobar.info(context, '授权未过期，无需刷新');
+    } else if (result) {
+      await BtInfobar.success(context, '授权刷新成功');
+    } else {
+      await BtInfobar.error(context, '授权刷新失败');
+    }
+  }
+
   /// 构建底部
   Widget buildFooter() {
     return Row(
       children: [
         FilledButton(
-          child: const Text('关闭'),
           onPressed: () =>
               ref.read(navStoreProvider).removeNavItem('Bangumi-用户收藏'),
+          child: const Text('关闭'),
         ),
+        SizedBox(width: 16.w),
+        FilledButton(onPressed: refreshAuth, child: const Text('刷新授权')),
         SizedBox(width: 16.w),
         Image.asset('assets/images/platforms/bangumi-logo.png'),
         SizedBox(width: 16.w),
@@ -78,8 +96,7 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
       header: Image.asset('assets/images/platforms/bangumi-text.png'),
       currentIndex: tabIndex,
       onChanged: (index) => setState(() => tabIndex = index),
-      // TODO: 刷新授权&收藏
-      // footer: buildFooter(),
+      footer: buildFooter(),
       closeButtonVisibility: CloseButtonVisibilityMode.never,
       tabWidthBehavior: TabWidthBehavior.sizeToContent,
     );
