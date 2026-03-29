@@ -47,14 +47,17 @@ void main() async {
 }
 
 Future<void> _initBackgroundServices() async {
+  await BTLogTool.init();
+
+  await BTSqlite.init();
+
   await Future.wait([
-    BTLogTool.init(),
     BTDownloadTool.init(),
     BTNotifierTool.init(),
-    BTSqlite.init(),
     BTHiveTool.init(),
-    BTCacheManager.instance.init(),
   ]);
+
+  await BTCacheManager.instance.init();
 
   await Window.setEffect(effect: WindowEffect.acrylic);
 
