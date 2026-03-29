@@ -9,6 +9,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 // Project imports:
 import '../../controller/app/page_controller.dart';
 import '../../controller/app/progress_controller.dart';
+import '../../core/layout/responsive.dart';
 import '../../database/bangumi/bangumi_collection.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
@@ -253,20 +254,30 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
   }
 
   /// 构建列表
-  Widget buildList() {
+  Widget buildList(BuildContext context) {
     if (showData.isEmpty) {
       return const Center(child: Text('没有数据'));
     }
-    return GridView(
-      controller: ScrollController(),
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 10 / 7,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-      ),
-      children: showData.map((e) => UcpCardWidget(data: e)).toList(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        var columns = BTBreakpoints.getGridColumns(constraints.maxWidth);
+        return GridView.builder(
+          controller: ScrollController(),
+          padding: const EdgeInsets.all(8),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            childAspectRatio: 10 / 7,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+          ),
+          itemCount: showData.length,
+          cacheExtent: 500,
+          itemBuilder: (context, index) => RepaintBoundary(
+            key: ValueKey(showData[index].subjectId),
+            child: UcpCardWidget(data: showData[index]),
+          ),
+        );
+      },
     );
   }
 
@@ -279,7 +290,7 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
         SizedBox(height: 8.h),
         buildTop(context),
         SizedBox(height: 8.h),
-        Expanded(child: buildList()),
+        Expanded(child: buildList(context)),
       ],
     );
   }

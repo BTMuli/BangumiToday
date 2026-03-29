@@ -3,6 +3,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
+import '../../core/layout/responsive.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import 'bc_pw_card.dart';
 
@@ -44,17 +45,27 @@ class BcpDayWidget extends StatelessWidget {
   }
 
   /// 构建列表
-  Widget buildList() {
-    return GridView(
-      controller: ScrollController(),
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 10 / 7,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-      ),
-      children: data.map((e) => BcpCardWidget(data: e)).toList(),
+  Widget buildList(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        var columns = BTBreakpoints.getGridColumns(constraints.maxWidth);
+        return GridView.builder(
+          controller: ScrollController(),
+          padding: const EdgeInsets.all(8),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            childAspectRatio: 10 / 7,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+          ),
+          itemCount: data.length,
+          cacheExtent: 500,
+          itemBuilder: (context, index) => RepaintBoundary(
+            key: ValueKey(data[index].id),
+            child: BcpCardWidget(data: data[index]),
+          ),
+        );
+      },
     );
   }
 
@@ -63,7 +74,7 @@ class BcpDayWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ScaffoldPage(
       padding: EdgeInsets.zero,
-      content: data.isEmpty ? buildError(context) : buildList(),
+      content: data.isEmpty ? buildError(context) : buildList(context),
     );
   }
 }
