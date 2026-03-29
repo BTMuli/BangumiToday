@@ -80,10 +80,13 @@ dev_dependencies:
   # rules and activating additional ones.
   build_runner: ^2.10.5
   flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
   husky: ^0.1.7
   import_sorter: ^4.6.0 # dart run import_sorter:main
   json_serializable: 6.11.1
   lint_staged: ^0.5.1
+  mockito: ^5.4.4
   msix: ^3.16.13
 
 # For information on the generic Dart part of this file, see the
