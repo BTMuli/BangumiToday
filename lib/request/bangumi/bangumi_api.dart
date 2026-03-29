@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 // Project imports:
+import '../../core/cache/cache_manager.dart';
 import '../../core/network/request_manager.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
@@ -56,7 +57,24 @@ class BtrBangumiApi {
   Future<BTResponse> getToday({
     bool deduplicate = true,
     bool cancelPrevious = true,
+    bool useCache = true,
+    Duration? cacheMaxAge,
   }) async {
+    if (useCache) {
+      var cached = await BTCacheManager.instance.get<List<dynamic>>(
+        CacheKeys.bangumiCalendar,
+        maxAge: cacheMaxAge ?? CacheDuration.medium,
+      );
+      if (cached != null) {
+        var list = cached
+            .map(
+              (e) => BangumiCalendarRespData.fromJson(e as Map<String, dynamic>),
+            )
+            .toList();
+        return BangumiCalendarResp.success(data: list);
+      }
+    }
+
     try {
       var result = await _requestManager.request<Response>(
         key: RequestKey.calendar(),
@@ -70,6 +88,14 @@ class BtrBangumiApi {
             (e) => BangumiCalendarRespData.fromJson(e as Map<String, dynamic>),
           )
           .toList();
+
+      if (useCache) {
+        await BTCacheManager.instance.set(
+          CacheKeys.bangumiCalendar,
+          data,
+        );
+      }
+
       return BangumiCalendarResp.success(data: list);
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {

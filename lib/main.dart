@@ -13,6 +13,7 @@ import 'package:window_manager/window_manager.dart';
 
 // Project imports:
 import 'app.dart';
+import 'core/cache/cache_manager.dart';
 import 'database/bt_sqlite.dart';
 import 'tools/download_tool.dart';
 import 'tools/hive_tool.dart';
@@ -52,6 +53,7 @@ Future<void> _initBackgroundServices() async {
     BTNotifierTool.init(),
     BTSqlite.init(),
     BTHiveTool.init(),
+    BTCacheManager.instance.init(),
   ]);
 
   await Window.setEffect(effect: WindowEffect.acrylic);
