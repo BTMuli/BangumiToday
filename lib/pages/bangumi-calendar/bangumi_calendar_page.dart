@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../controller/app/progress_controller.dart';
+import '../../core/errors/error_handler.dart';
 import '../../database/app/app_config.dart';
 import '../../database/bangumi/bangumi_collection.dart';
 import '../../database/bangumi/bangumi_data.dart';
@@ -111,7 +112,9 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     if (calendarGet.code != 0 || calendarGet.data == null) {
       isRequesting = false;
       setState(() {});
-      if (mounted) await showRespErr(calendarGet, context);
+      if (mounted) {
+        await BTErrorHandler.handle(context, calendarGet, title: '获取放送数据失败');
+      }
       return;
     }
     var data = calendarGet.data as List<BangumiCalendarRespData>;
