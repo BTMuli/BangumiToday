@@ -82,7 +82,14 @@ class RssMikanCard2 extends StatelessWidget {
                 await BtInfobar.error(context, '链接为空');
                 return;
               }
-              await launchUrlString(item.link!);
+              var mikanUrl = await sqliteConfig.readMikanUrl();
+              var linkReal = item.link!;
+              if (mikanUrl != null && mikanUrl.isNotEmpty) {
+                var url = Uri.parse(item.link!);
+                var urlDomain = '${url.scheme}://${url.host}';
+                linkReal = item.link!.replaceFirst(urlDomain, mikanUrl);
+              }
+              await launchUrlString(linkReal);
             },
           ),
         ),

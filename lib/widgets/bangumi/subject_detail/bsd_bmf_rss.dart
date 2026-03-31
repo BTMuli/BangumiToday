@@ -8,7 +8,6 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
-import 'package:xml/xml.dart';
 
 // Project imports:
 import '../../../database/app/app_rss.dart';
@@ -55,8 +54,8 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
   /// AppRssModel
   AppRssModel? appRssModel;
 
-  /// 用于对比的 rssItems
-  List<XmlElement> rssItemsXml = [];
+  /// 用于对比的 rssItems 关键信息 (title + pubDate)
+  Set<String> rssItemsKey = {};
 
   /// rssItems
   List<RssItem> rssItems = [];
@@ -94,9 +93,9 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
         return;
       }
       rssItems = RssFeed.parse(appRssModel!.data).items;
-      var parse = XmlDocument.parse(appRssModel!.data);
-      var channel = parse.findAllElements('channel').first;
-      rssItemsXml = channel.findAllElements('item').toList();
+      rssItemsKey = rssItems
+          .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
+          .toSet();
       setState(() {});
       await freshRss();
     });
@@ -188,6 +187,9 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     var feed = RssFeed.parse(rssGet.data);
     if (rssItems.isEmpty) {
       rssItems = feed.items;
+      rssItemsKey = rssItems
+          .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
+          .toSet();
       appRssModel = AppRssModel(
         mkBgmId: bmf.mkBgmId,
         mkGroupId: bmf.mkGroupId,
@@ -201,18 +203,17 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
       setState(() {});
       return;
     }
-    var parse = XmlDocument.parse(rssGet.data);
-    var channel = parse.findAllElements('channel').first;
-    var items = channel.findAllElements('item');
     var newList = <RssItem>[];
-    for (var item in items) {
-      var check = rssItemsXml.any(
-        (element) => element.toXmlString() == item.toXmlString(),
-      );
-      if (!check) newList.add(RssItem.parse(item));
+    for (var item in feed.items) {
+      var key = '${item.title ?? ''}|${item.pubDate ?? ''}';
+      if (!rssItemsKey.contains(key)) {
+        newList.add(item);
+      }
     }
     rssItems = feed.items;
-    rssItemsXml = items.toList();
+    rssItemsKey = rssItems
+        .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
+        .toSet();
     if (newList.isNotEmpty) {
       BTLogTool.info('发现新的 RSS 信息');
       appRssModel = AppRssModel(
