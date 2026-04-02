@@ -25,10 +25,7 @@ Future<String?> showInput(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            content,
-            style: BTTypography.body(context),
-          ),
+          Text(content, style: BTTypography.body(context)),
           SizedBox(height: 16.h),
           TextBox(
             controller: controller,
@@ -63,10 +60,7 @@ Future<bool> showConfirm(
     context: context,
     builder: (_) => _BTContentDialog(
       title: title,
-      content: Text(
-        content,
-        style: BTTypography.body(context),
-      ),
+      content: Text(content, style: BTTypography.body(context)),
       actions: [
         _BTDialogAction(
           text: '取消',
@@ -168,20 +162,14 @@ class _BTContentDialogState extends State<_BTContentDialog>
       builder: (context, child) {
         return ScaleTransition(
           scale: _scaleAnimation,
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: child,
-          ),
+          child: FadeTransition(opacity: _fadeAnimation, child: child),
         );
       },
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Center(
           child: Container(
-            constraints: BoxConstraints(
-              maxWidth: 450.w,
-              minWidth: 300.w,
-            ),
+            constraints: BoxConstraints(maxWidth: 450.w, minWidth: 300.w),
             margin: EdgeInsets.symmetric(horizontal: 24.w),
             decoration: BoxDecoration(
               color: BTColors.surfacePrimary(context).withValues(alpha: 0.95),
@@ -205,14 +193,18 @@ class _BTContentDialogState extends State<_BTContentDialog>
                         Container(
                           padding: EdgeInsets.all(8.w),
                           decoration: BoxDecoration(
-                            color: (widget.iconColor ?? FluentTheme.of(context).accentColor)
-                                .withValues(alpha: 0.1),
+                            color:
+                                (widget.iconColor ??
+                                        FluentTheme.of(context).accentColor)
+                                    .withValues(alpha: 0.1),
                             borderRadius: BTRadius.smallBR,
                           ),
                           child: Icon(
                             widget.icon,
                             size: 20.sp,
-                            color: widget.iconColor ?? FluentTheme.of(context).accentColor,
+                            color:
+                                widget.iconColor ??
+                                FluentTheme.of(context).accentColor,
                           ),
                         ),
                         SizedBox(width: 12.w),
@@ -220,18 +212,15 @@ class _BTContentDialogState extends State<_BTContentDialog>
                       Expanded(
                         child: Text(
                           widget.title,
-                          style: BTTypography.subtitle(context).copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: BTTypography.subtitle(
+                            context,
+                          ).copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
                   ),
                 ),
-                Padding(
-                  padding: EdgeInsets.all(20.w),
-                  child: widget.content,
-                ),
+                Padding(padding: EdgeInsets.all(20.w), child: widget.content),
                 Container(
                   padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 20.w),
                   child: Row(
@@ -239,12 +228,14 @@ class _BTContentDialogState extends State<_BTContentDialog>
                     children: widget.actions
                         .asMap()
                         .entries
-                        .map((entry) => Padding(
-                              padding: EdgeInsets.only(
-                                left: entry.key > 0 ? 8.w : 0,
-                              ),
-                              child: entry.value,
-                            ))
+                        .map(
+                          (entry) => Padding(
+                            padding: EdgeInsets.only(
+                              left: entry.key > 0 ? 8.w : 0,
+                            ),
+                            child: entry.value,
+                          ),
+                        )
                         .toList(),
                   ),
                 ),
@@ -285,9 +276,10 @@ class _BTDialogActionState extends State<_BTDialogAction>
       duration: BTTheme.animationDurationFast,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.96,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
   }
 
   @override
@@ -324,26 +316,23 @@ class _BTDialogActionState extends State<_BTDialogAction>
         child: AnimatedBuilder(
           animation: _scaleAnimation,
           builder: (context, child) {
-            return Transform.scale(
-              scale: _scaleAnimation.value,
-              child: child,
-            );
+            return Transform.scale(scale: _scaleAnimation.value, child: child);
           },
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
             decoration: BoxDecoration(
               color: widget.isPrimary
-                  ? (_isHovered ? accentColor : accentColor.withValues(alpha: 0.9))
+                  ? (_isHovered
+                        ? accentColor
+                        : accentColor.withValues(alpha: 0.9))
                   : (_isHovered
-                      ? BTColors.surfaceSecondary(context)
-                      : Colors.transparent),
+                        ? BTColors.surfaceSecondary(context)
+                        : Colors.transparent),
               borderRadius: BTRadius.smallBR,
               border: widget.isPrimary
                   ? null
-                  : Border.all(
-                      color: BTColors.divider(context),
-                    ),
+                  : Border.all(color: BTColors.divider(context)),
               boxShadow: widget.isPrimary && _isHovered
                   ? [
                       BoxShadow(
@@ -357,7 +346,9 @@ class _BTDialogActionState extends State<_BTDialogAction>
             child: Text(
               widget.text,
               style: TextStyle(
-                color: widget.isPrimary ? Colors.white : BTColors.textPrimary(context),
+                color: widget.isPrimary
+                    ? Colors.white
+                    : BTColors.textPrimary(context),
                 fontSize: 14.sp,
                 fontWeight: FontWeight.w500,
               ),
@@ -426,26 +417,17 @@ class _BTProgressDialogContent extends StatelessWidget {
                 SizedBox(
                   width: 24.w,
                   height: 24.w,
-                  child: ProgressRing(
-                    value: progress,
-                    strokeWidth: 2,
-                  ),
+                  child: ProgressRing(value: progress, strokeWidth: 2),
                 ),
                 SizedBox(width: 16.w),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: BTTypography.subtitle(context),
-                  ),
+                  child: Text(title, style: BTTypography.subtitle(context)),
                 ),
               ],
             ),
             if (message != null) ...[
               SizedBox(height: 12.h),
-              Text(
-                message!,
-                style: BTTypography.caption(context),
-              ),
+              Text(message!, style: BTTypography.caption(context)),
             ],
           ],
         ),
