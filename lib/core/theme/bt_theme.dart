@@ -6,18 +6,28 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 class BTTheme {
   BTTheme._();
 
-  static Duration get animationDurationFast => const Duration(milliseconds: 150);
-  static Duration get animationDurationNormal => const Duration(milliseconds: 250);
-  static Duration get animationDurationSlow => const Duration(milliseconds: 350);
+  static Duration get animationDurationFast =>
+      const Duration(milliseconds: 150);
+
+  static Duration get animationDurationNormal =>
+      const Duration(milliseconds: 250);
+
+  static Duration get animationDurationSlow =>
+      const Duration(milliseconds: 350);
 
   static Curve get animationCurve => Curves.easeOutCubic;
+
   static Curve get animationCurveEnter => Curves.easeOutQuart;
+
   static Curve get animationCurveExit => Curves.easeInQuart;
 
-  static List<BoxShadow> shadow(BuildContext context, {BTShadowLevel level = BTShadowLevel.medium}) {
+  static List<BoxShadow> shadow(
+    BuildContext context, {
+    BTShadowLevel level = BTShadowLevel.medium,
+  }) {
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     var baseColor = isDark ? Colors.black : const Color(0xFF000000);
-    
+
     switch (level) {
       case BTShadowLevel.none:
         return [];
@@ -76,10 +86,13 @@ class BTAcrylic {
 
   static Color luminosityColor(BuildContext context) {
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
-    return isDark ? Colors.black.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.9);
+    return isDark
+        ? Colors.black.withValues(alpha: 0.8)
+        : Colors.white.withValues(alpha: 0.9);
   }
 
   static double get defaultBlurAmount => 20.0;
+
   static double get cardBlurAmount => 30.0;
 
   static Widget acrylicContainer({
@@ -93,7 +106,7 @@ class BTAcrylic {
   }) {
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     var bgColor = backgroundColor(context, opacity: opacity);
-    
+
     Widget content = ClipRRect(
       borderRadius: borderRadius ?? BorderRadius.circular(8.r),
       child: BackdropFilter(
@@ -126,8 +139,11 @@ class BTColors {
   BTColors._();
 
   static Color get success => const Color(0xFF107C10);
+
   static Color get warning => const Color(0xFFFFB900);
+
   static Color get error => const Color(0xFFD13438);
+
   static Color get info => const Color(0xFF0078D4);
 
   static Color successLight(BuildContext context) {
@@ -177,7 +193,9 @@ class BTColors {
 
   static Color divider(BuildContext context) {
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
-    return isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06);
+    return isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.black.withValues(alpha: 0.06);
   }
 }
 
@@ -196,18 +214,29 @@ class BTRadius {
   BTRadius._();
 
   static double get none => 0;
+
   static double get small => 4.r;
+
   static double get medium => 8.r;
+
   static double get large => 12.r;
+
   static double get xlarge => 16.r;
+
   static double get xxlarge => 24.r;
+
   static double get round => 999.r;
 
   static BorderRadius get smallBR => BorderRadius.circular(small);
+
   static BorderRadius get mediumBR => BorderRadius.circular(medium);
+
   static BorderRadius get largeBR => BorderRadius.circular(large);
+
   static BorderRadius get xlargeBR => BorderRadius.circular(xlarge);
+
   static BorderRadius get xxlargeBR => BorderRadius.circular(xxlarge);
+
   static BorderRadius get roundBR => BorderRadius.circular(round);
 }
 
