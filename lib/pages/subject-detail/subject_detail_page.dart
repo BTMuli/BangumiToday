@@ -1,6 +1,4 @@
 // Flutter imports:
-import 'package:flutter/material.dart'
-    show AdaptiveTextSelectionToolbar, EditableTextState;
 import 'package:flutter/services.dart';
 
 // Package imports:
@@ -309,6 +307,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     var accentColor = FluentTheme.of(context).accentColor;
     return Tooltip(
       message: '打开 BMF 配置',
+      excludeFromSemantics: true,
       child: IconButton(
         icon: Icon(
           FluentIcons.app_icon_default,

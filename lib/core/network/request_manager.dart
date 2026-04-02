@@ -18,6 +18,7 @@ class RequestManager {
     if (token != null && !token.isCancelled) {
       token.cancel('Request cancelled');
       _pendingRequests.remove(key);
+      _deduplicationMap.remove(key);
       return true;
     }
     return false;

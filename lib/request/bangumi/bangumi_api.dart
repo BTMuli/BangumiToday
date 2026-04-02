@@ -68,7 +68,8 @@ class BtrBangumiApi {
       if (cached != null) {
         var list = cached
             .map(
-              (e) => BangumiCalendarRespData.fromJson(e as Map<String, dynamic>),
+              (e) =>
+                  BangumiCalendarRespData.fromJson(e as Map<String, dynamic>),
             )
             .toList();
         return BangumiCalendarResp.success(data: list);
@@ -90,10 +91,7 @@ class BtrBangumiApi {
           .toList();
 
       if (useCache) {
-        await BTCacheManager.instance.set(
-          CacheKeys.bangumiCalendar,
-          data,
-        );
+        await BTCacheManager.instance.set(CacheKeys.bangumiCalendar, data);
       }
 
       return BangumiCalendarResp.success(data: list);
@@ -168,7 +166,10 @@ class BtrBangumiApi {
           '/v0/search/subjects',
           queryParameters: params,
           data: data,
-          options: Options(contentType: 'application/json', headers: authHeader),
+          options: Options(
+            contentType: 'application/json',
+            headers: authHeader,
+          ),
           cancelToken: token,
         ),
       );
@@ -179,7 +180,11 @@ class BtrBangumiApi {
       return BangumiSubjectSearchResp.success(data: list);
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
-        return BTResponse.error(code: 499, message: 'Request cancelled', data: null);
+        return BTResponse.error(
+          code: 499,
+          message: 'Request cancelled',
+          data: null,
+        );
       }
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       BTLogTool.error('Failed to search subjects: ${jsonEncode(errResp)}');
@@ -212,7 +217,10 @@ class BtrBangumiApi {
         cancelPrevious: cancelPrevious,
         request: (token) => client.dio.get(
           '/v0/subjects/$id',
-          options: Options(headers: authHeader, contentType: 'application/json'),
+          options: Options(
+            headers: authHeader,
+            contentType: 'application/json',
+          ),
           cancelToken: token,
         ),
       );
@@ -222,7 +230,11 @@ class BtrBangumiApi {
       );
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
-        return BTResponse.error(code: 499, message: 'Request cancelled', data: null);
+        return BTResponse.error(
+          code: 499,
+          message: 'Request cancelled',
+          data: null,
+        );
       }
       var errResp = BangumiErrorDetail.fromJson(e.response?.data);
       BTLogTool.error('Failed to load subject detail: ${jsonEncode(errResp)}');

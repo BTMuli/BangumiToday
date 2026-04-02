@@ -171,7 +171,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
       children: [
         buildActionButton(
           context: context,
-          icon: FluentIcons.open_in_new_tab,
+          icon: FluentIcons.edge_logo,
           tooltip: '在浏览器中打开',
           onPressed: () async {
             if (kDebugMode) {
