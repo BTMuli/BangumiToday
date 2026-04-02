@@ -1,6 +1,8 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../core/theme/bt_theme.dart';
+
 enum EmptyStateType {
   noData,
   noSearchResult,
@@ -10,7 +12,7 @@ enum EmptyStateType {
   error,
 }
 
-class BTEmptyState extends StatelessWidget {
+class BTEmptyState extends StatefulWidget {
   final EmptyStateType type;
   final String? title;
   final String? message;
@@ -107,8 +109,57 @@ class BTEmptyState extends StatelessWidget {
     );
   }
 
+  @override
+  State<BTEmptyState> createState() => _BTEmptyStateState();
+}
+
+class _BTEmptyStateState extends State<BTEmptyState>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+      ),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOutBack),
+      ),
+    );
+
+    _slideAnimation = Tween<double>(begin: 20.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.2, 0.7, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
   IconData _getIcon() {
-    switch (type) {
+    switch (widget.type) {
       case EmptyStateType.noData:
         return FluentIcons.folder;
       case EmptyStateType.noSearchResult:
@@ -125,63 +176,291 @@ class BTEmptyState extends StatelessWidget {
   }
 
   Color _getIconColor(BuildContext context) {
-    switch (type) {
+    switch (widget.type) {
       case EmptyStateType.noData:
       case EmptyStateType.noSearchResult:
       case EmptyStateType.noCollection:
         return FluentTheme.of(context).accentColor.lighter;
       case EmptyStateType.networkError:
       case EmptyStateType.error:
-        return Colors.red;
+        return BTColors.errorLight(context);
       case EmptyStateType.loading:
         return FluentTheme.of(context).accentColor;
     }
   }
 
+  Widget _buildAnimatedIcon(BuildContext context) {
+    if (widget.type == EmptyStateType.loading) {
+      return SizedBox(
+        width: 64.w,
+        height: 64.w,
+        child: ProgressRing(
+          strokeWidth: 3,
+          activeColor: _getIconColor(context),
+        ),
+      );
+    }
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.elasticOut,
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: 0.5 + (value * 0.5),
+          child: Opacity(
+            opacity: value,
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        width: 80.w,
+        height: 80.w,
+        decoration: BoxDecoration(
+          color: _getIconColor(context).withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: widget.icon ??
+              Icon(
+                _getIcon(),
+                size: 40.sp,
+                color: _getIconColor(context),
+              ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: EdgeInsets.all(32.w),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (type == EmptyStateType.loading) ...[
-              ProgressRing(),
-              SizedBox(height: 16.h),
-            ] else ...[
-              icon ??
-                  Icon(_getIcon(), size: 64.sp, color: _getIconColor(context)),
-              SizedBox(height: 16.h),
-            ],
-            if (title != null) ...[
-              Text(
-                title!,
-                style: FluentTheme.of(context).typography.subtitle,
-                textAlign: TextAlign.center,
+      child: AnimatedBuilder(
+        animation: _animationController,
+        builder: (context, child) {
+          return Opacity(
+            opacity: _fadeAnimation.value,
+            child: Transform.scale(
+              scale: _scaleAnimation.value,
+              child: Transform.translate(
+                offset: Offset(0, _slideAnimation.value),
+                child: child,
               ),
-              SizedBox(height: 8.h),
-            ],
-            if (message != null) ...[
-              Text(
-                message!,
-                style: FluentTheme.of(
-                  context,
-                ).typography.body?.copyWith(color: Colors.grey[100]),
-                textAlign: TextAlign.center,
-              ),
+            ),
+          );
+        },
+        child: Padding(
+          padding: EdgeInsets.all(32.w),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildAnimatedIcon(context),
               SizedBox(height: 24.h),
+              if (widget.title != null) ...[
+                Text(
+                  widget.title!,
+                  style: BTTypography.subtitle(context).copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8.h),
+              ],
+              if (widget.message != null) ...[
+                Text(
+                  widget.message!,
+                  style: BTTypography.body(context).copyWith(
+                    color: BTColors.textSecondary(context),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 24.h),
+              ],
+              if (widget.customContent != null) ...[
+                widget.customContent!,
+                SizedBox(height: 24.h),
+              ],
+              if (widget.onAction != null && widget.actionText != null)
+                _AnimatedActionButton(
+                  text: widget.actionText!,
+                  onPressed: widget.onAction!,
+                ),
             ],
-            if (customContent != null) ...[
-              customContent!,
-              SizedBox(height: 24.h),
-            ],
-            if (onAction != null && actionText != null) ...[
-              FilledButton(onPressed: onAction, child: Text(actionText!)),
-            ],
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _AnimatedActionButton extends StatefulWidget {
+  final String text;
+  final VoidCallback onPressed;
+
+  const _AnimatedActionButton({
+    required this.text,
+    required this.onPressed,
+  });
+
+  @override
+  State<_AnimatedActionButton> createState() => _AnimatedActionButtonState();
+}
+
+class _AnimatedActionButtonState extends State<_AnimatedActionButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: BTTheme.animationDurationFast,
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    _controller.forward();
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    _controller.reverse();
+  }
+
+  void _onTapCancel() {
+    _controller.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTapDown: _onTapDown,
+        onTapUp: _onTapUp,
+        onTapCancel: _onTapCancel,
+        onTap: widget.onPressed,
+        child: AnimatedBuilder(
+          animation: _scaleAnimation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _scaleAnimation.value,
+              child: child,
+            );
+          },
+          child: AnimatedContainer(
+            duration: BTTheme.animationDurationFast,
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? FluentTheme.of(context).accentColor
+                  : FluentTheme.of(context).accentColor.withValues(alpha: 0.9),
+              borderRadius: BTRadius.mediumBR,
+              boxShadow: _isHovered
+                  ? [
+                      BoxShadow(
+                        color: FluentTheme.of(context)
+                            .accentColor
+                            .withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Text(
+              widget.text,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class BTEmptyStateWithRetry extends StatelessWidget {
+  final EmptyStateType type;
+  final String? title;
+  final String? message;
+  final VoidCallback onRetry;
+  final String? retryText;
+
+  const BTEmptyStateWithRetry({
+    super.key,
+    required this.type,
+    required this.onRetry,
+    this.title,
+    this.message,
+    this.retryText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return BTEmptyState(
+      type: type,
+      title: title,
+      message: message,
+      actionText: retryText ?? '重试',
+      onAction: onRetry,
+    );
+  }
+}
+
+class BTLoadingState extends StatelessWidget {
+  final String? message;
+  final double? progress;
+
+  const BTLoadingState({
+    super.key,
+    this.message,
+    this.progress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 48.w,
+            height: 48.w,
+            child: ProgressRing(
+              value: progress,
+              strokeWidth: 3,
+              activeColor: FluentTheme.of(context).accentColor,
+            ),
+          ),
+          if (message != null) ...[
+            SizedBox(height: 16.h),
+            Text(
+              message!,
+              style: BTTypography.body(context).copyWith(
+                color: BTColors.textSecondary(context),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
