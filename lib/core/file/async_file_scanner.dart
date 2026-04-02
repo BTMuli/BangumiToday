@@ -139,7 +139,7 @@ class AsyncDirectoryScanner {
       _activeScans[directoryPath] = isolate;
     } catch (e) {
       receivePort.close();
-      progressController.close();
+      await progressController.close();
       _receivePorts.remove(directoryPath);
       _progressControllers.remove(directoryPath);
       if (!completer.isCompleted) {
