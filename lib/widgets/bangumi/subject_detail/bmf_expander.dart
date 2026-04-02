@@ -298,7 +298,7 @@ class _FileItemActions extends StatelessWidget {
             ),
           ),
         Tooltip(
-          message: '删除',
+          message: '删除 (长按直接删除)',
           child: IconButton(
             icon: BtIcon(
               FluentIcons.delete,
@@ -312,6 +312,10 @@ class _FileItemActions extends StatelessWidget {
                 content: '确定删除文件 $file 吗？',
               );
               if (!confirm) return;
+              var filePath = path.join(dir, file);
+              if (context.mounted) await tryDeleteFile(filePath, context);
+            },
+            onLongPress: () async {
               var filePath = path.join(dir, file);
               if (context.mounted) await tryDeleteFile(filePath, context);
             },
