@@ -94,7 +94,7 @@ class PaginationManager<T> extends ChangeNotifier {
     _stateController.add(_state);
 
     try {
-      final result = await fetchPage(1, pageSize);
+      var result = await fetchPage(1, pageSize);
 
       _pageCache[1] = result.items;
       _cleanupCache();
@@ -129,13 +129,13 @@ class PaginationManager<T> extends ChangeNotifier {
     _stateController.add(_state);
 
     try {
-      final nextPage = _state.currentPage + 1;
-      final result = await fetchPage(nextPage, pageSize);
+      var nextPage = _state.currentPage + 1;
+      var result = await fetchPage(nextPage, pageSize);
 
       _pageCache[nextPage] = result.items;
       _cleanupCache();
 
-      final newItems = keepAllItems
+      var newItems = keepAllItems
           ? [..._state.items, ...result.items]
           : _getVisibleItems(nextPage);
 
@@ -184,7 +184,7 @@ class PaginationManager<T> extends ChangeNotifier {
     _stateController.add(_state);
 
     try {
-      final result = await fetchPage(page, pageSize);
+      var result = await fetchPage(page, pageSize);
 
       _pageCache[page] = result.items;
       _cleanupCache();
@@ -212,7 +212,7 @@ class PaginationManager<T> extends ChangeNotifier {
 
   List<T> _getVisibleItems(int currentPage) {
     if (keepAllItems) {
-      final allItems = <T>[];
+      var allItems = <T>[];
       for (int i = 1; i <= currentPage; i++) {
         if (_pageCache.containsKey(i)) {
           allItems.addAll(_pageCache[i]!);
@@ -226,7 +226,7 @@ class PaginationManager<T> extends ChangeNotifier {
 
   void _cleanupCache() {
     while (_pageCache.length > maxCachedPages) {
-      final oldestPage = _pageCache.keys.reduce((a, b) => a < b ? a : b);
+      var oldestPage = _pageCache.keys.reduce((a, b) => a < b ? a : b);
       _pageCache.remove(oldestPage);
     }
   }
@@ -280,7 +280,7 @@ class LazyListManager<T> {
     _emitState();
 
     try {
-      final newItems = await fetchData(0, initialLimit);
+      var newItems = await fetchData(0, initialLimit);
 
       _items = newItems;
       _currentOffset = newItems.length;
@@ -302,7 +302,7 @@ class LazyListManager<T> {
     _emitState();
 
     try {
-      final newItems = await fetchData(_currentOffset, loadMoreLimit);
+      var newItems = await fetchData(_currentOffset, loadMoreLimit);
 
       if (newItems.length < loadMoreLimit) {
         _hasMore = false;
@@ -312,7 +312,7 @@ class LazyListManager<T> {
       _currentOffset += newItems.length;
 
       if (_items.length > maxCachedItems) {
-        final removeCount = _items.length - maxCachedItems;
+        var removeCount = _items.length - maxCachedItems;
         _items.removeRange(0, removeCount);
       }
 
@@ -409,7 +409,7 @@ class DataBatchProcessor<T> {
     if (_pendingItems.isEmpty || _isProcessing) return;
 
     _isProcessing = true;
-    final batch = _pendingItems.toList();
+    var batch = _pendingItems.toList();
     _pendingItems.clear();
 
     try {

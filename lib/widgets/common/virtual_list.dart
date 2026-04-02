@@ -72,8 +72,8 @@ class _VirtualListViewState<T> extends State<VirtualListView<T>> {
     if (widget.onLoadMore != null &&
         widget.hasMore &&
         !_scrollController.position.atEdge) {
-      final maxScroll = _scrollController.position.maxScrollExtent;
-      final currentScroll = _scrollController.position.pixels;
+      var maxScroll = _scrollController.position.maxScrollExtent;
+      var currentScroll = _scrollController.position.pixels;
 
       if (maxScroll - currentScroll <= widget.loadMoreThreshold) {
         widget.onLoadMore!();
@@ -82,12 +82,12 @@ class _VirtualListViewState<T> extends State<VirtualListView<T>> {
   }
 
   void _updateVisibleRange(double viewportHeight, double scrollOffset) {
-    final itemFullHeight = widget.itemHeight + widget.mainAxisSpacing;
+    var itemFullHeight = widget.itemHeight + widget.mainAxisSpacing;
     _firstVisibleIndex =
         (scrollOffset / itemFullHeight).floor() - _cachePadding;
     _firstVisibleIndex = _firstVisibleIndex.clamp(0, widget.items.length - 1);
 
-    final visibleCount =
+    var visibleCount =
         (viewportHeight / itemFullHeight).ceil() + _cachePadding * 2;
     _lastVisibleIndex = _firstVisibleIndex + visibleCount;
     _lastVisibleIndex = _lastVisibleIndex.clamp(0, widget.items.length);
@@ -96,14 +96,14 @@ class _VirtualListViewState<T> extends State<VirtualListView<T>> {
   }
 
   void _cleanupCache() {
-    final keysToRemove = <int>[];
-    for (final key in _widgetCache.keys) {
+    var keysToRemove = <int>[];
+    for (var key in _widgetCache.keys) {
       if (key < _firstVisibleIndex - _cachePadding * 2 ||
           key > _lastVisibleIndex + _cachePadding * 2) {
         keysToRemove.add(key);
       }
     }
-    for (final key in keysToRemove) {
+    for (var key in keysToRemove) {
       _widgetCache.remove(key);
     }
   }
@@ -121,8 +121,8 @@ class _VirtualListViewState<T> extends State<VirtualListView<T>> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final viewportHeight = constraints.maxHeight;
-        final scrollOffset = _scrollController.hasClients
+        var viewportHeight = constraints.maxHeight;
+        var scrollOffset = _scrollController.hasClients
             ? _scrollController.position.pixels
             : 0.0;
 
@@ -245,8 +245,8 @@ class _VirtualGridViewState<T> extends State<VirtualGridView<T>> {
     if (widget.onLoadMore != null &&
         widget.hasMore &&
         !_scrollController.position.atEdge) {
-      final maxScroll = _scrollController.position.maxScrollExtent;
-      final currentScroll = _scrollController.position.pixels;
+      var maxScroll = _scrollController.position.maxScrollExtent;
+      var currentScroll = _scrollController.position.pixels;
 
       if (maxScroll - currentScroll <= widget.loadMoreThreshold) {
         widget.onLoadMore!();
@@ -363,8 +363,8 @@ class _LazyLoadScrollViewState<T> extends State<LazyLoadScrollView<T>> {
   void _onScroll() {
     if (_isLoading || !_hasMore) return;
 
-    final maxScroll = _scrollController.position.maxScrollExtent;
-    final currentScroll = _scrollController.position.pixels;
+    var maxScroll = _scrollController.position.maxScrollExtent;
+    var currentScroll = _scrollController.position.pixels;
 
     if (maxScroll - currentScroll <= 200) {
       _loadMore();
@@ -379,7 +379,7 @@ class _LazyLoadScrollViewState<T> extends State<LazyLoadScrollView<T>> {
     });
 
     try {
-      final newItems = await widget.loadMore(
+      var newItems = await widget.loadMore(
         _currentOffset,
         widget.loadMoreLimit,
       );

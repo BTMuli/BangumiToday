@@ -25,7 +25,7 @@ class RssCacheEntry {
   });
 
   bool get isExpired {
-    final expiresAt = fetchTime.add(Duration(seconds: ttl));
+    var expiresAt = fetchTime.add(Duration(seconds: ttl));
     return DateTime.now().isAfter(expiresAt);
   }
 
@@ -47,8 +47,8 @@ class RssCacheEntry {
 
   static RssCacheEntry? fromJson(Map<String, dynamic> json) {
     try {
-      final items = (json['items'] as List).map((e) {
-        final itemMap = e as Map<String, dynamic>;
+      var items = (json['items'] as List).map((e) {
+        var itemMap = e as Map<String, dynamic>;
         return RssItem(
           title: itemMap['title'] as String?,
           link: itemMap['link'] as String?,
@@ -103,11 +103,11 @@ class OptimizedRssService {
     bool forceRefresh = false,
     Duration? cacheDuration,
   }) async {
-    final cacheKey = 'rss_${url.hashCode}';
-    final effectiveCacheDuration = cacheDuration ?? _defaultCacheDuration;
+    var cacheKey = 'rss_${url.hashCode}';
+    var effectiveCacheDuration = cacheDuration ?? _defaultCacheDuration;
 
     if (!forceRefresh) {
-      final cachedEntry = await _cacheManager.getJson<RssCacheEntry>(
+      var cachedEntry = await _cacheManager.getJson<RssCacheEntry>(
         cacheKey,
         fromJson: (json) => RssCacheEntry.fromJson(json)!,
         maxAge: effectiveCacheDuration,
@@ -125,13 +125,13 @@ class OptimizedRssService {
       }
     }
 
-    final cachedEntry = await _cacheManager.getJson<RssCacheEntry>(
+    var cachedEntry = await _cacheManager.getJson<RssCacheEntry>(
       cacheKey,
       fromJson: (json) => RssCacheEntry.fromJson(json)!,
       maxAge: _maxCacheDuration,
     );
 
-    final headers = <String, String>{};
+    var headers = <String, String>{};
     if (cachedEntry?.etag != null) {
       headers['If-None-Match'] = cachedEntry!.etag!;
     }
@@ -140,8 +140,8 @@ class OptimizedRssService {
     }
 
     try {
-      final client = BtrClient();
-      final response = await client.dio.get(
+      var client = BtrClient();
+      var response = await client.dio.get(
         url,
         options: Options(headers: headers),
       );
@@ -165,14 +165,14 @@ class OptimizedRssService {
         }
       }
 
-      final feed = RssFeed.parse(response.data.toString());
-      final newItems = feed.items;
+      var feed = RssFeed.parse(response.data.toString());
+      var newItems = feed.items;
 
-      final etag = response.headers.value('etag');
-      final lastModified = response.headers.value('last-modified');
-      final ttl = feed.ttl > 0 ? feed.ttl : 3600;
+      var etag = response.headers.value('etag');
+      var lastModified = response.headers.value('last-modified');
+      var ttl = feed.ttl > 0 ? feed.ttl : 3600;
 
-      final newEntry = RssCacheEntry(
+      var newEntry = RssCacheEntry(
         items: newItems,
         fetchTime: DateTime.now(),
         etag: etag,
@@ -186,9 +186,9 @@ class OptimizedRssService {
         toJson: (e) => e.toJson(),
       );
 
-      final oldItems = cachedEntry?.items ?? [];
-      final oldLinks = oldItems.map((e) => e.link).toSet();
-      final actualNewItems =
+      var oldItems = cachedEntry?.items ?? [];
+      var oldLinks = oldItems.map((e) => e.link).toSet();
+      var actualNewItems =
           newItems.where((e) => !oldLinks.contains(e.link)).toList();
 
       return BTResponse.success(
@@ -251,27 +251,27 @@ class OptimizedRssService {
     bool parallel = true,
     void Function(String url, int completed, int total)? onProgress,
   }) async {
-    final allItems = <RssItem>[];
+    var allItems = <RssItem>[];
     int completed = 0;
 
     if (parallel) {
-      final futures = urls.map((url) async {
-        final result = await fetchRssIncremental(url);
+      var futures = urls.map((url) async {
+        var result = await fetchRssIncremental(url);
         completed++;
         onProgress?.call(url, completed, urls.length);
         return result;
       });
 
-      final results = await Future.wait(futures);
+      var results = await Future.wait(futures);
 
-      for (final result in results) {
+      for (var result in results) {
         if (result.code == 0 && result.data != null) {
           allItems.addAll(result.data!.allItems);
         }
       }
     } else {
-      for (final url in urls) {
-        final result = await fetchRssIncremental(url);
+      for (var url in urls) {
+        var result = await fetchRssIncremental(url);
         completed++;
         onProgress?.call(url, completed, urls.length);
 
@@ -282,8 +282,8 @@ class OptimizedRssService {
     }
 
     allItems.sort((a, b) {
-      final dateA = a.pubDate != null ? DateTime.tryParse(a.pubDate!) : null;
-      final dateB = b.pubDate != null ? DateTime.tryParse(b.pubDate!) : null;
+      var dateA = a.pubDate != null ? DateTime.tryParse(a.pubDate!) : null;
+      var dateB = b.pubDate != null ? DateTime.tryParse(b.pubDate!) : null;
       if (dateA == null && dateB == null) return 0;
       if (dateA == null) return 1;
       if (dateB == null) return -1;
@@ -294,7 +294,7 @@ class OptimizedRssService {
   }
 
   void cancelRequest(String url) {
-    final cacheKey = 'rss_${url.hashCode}';
+    var cacheKey = 'rss_${url.hashCode}';
     _requestManager.cancel(cacheKey);
   }
 
@@ -352,7 +352,7 @@ class RssSubscriptionManager {
   }
 
   Future<void> _refreshSubscription(String url) async {
-    final result = await _rssService.fetchRssIncremental(url);
+    var result = await _rssService.fetchRssIncremental(url);
 
     if (result.code == 0 && result.data != null) {
       _subscriptions[url] = result.data!.allItems;
@@ -373,7 +373,7 @@ class RssSubscriptionManager {
   }
 
   void unsubscribeAll() {
-    for (final timer in _refreshTimers.values) {
+    for (var timer in _refreshTimers.values) {
       timer.cancel();
     }
     _refreshTimers.clear();
@@ -381,7 +381,7 @@ class RssSubscriptionManager {
   }
 
   Future<void> refreshAll() async {
-    for (final url in _refreshTimers.keys) {
+    for (var url in _refreshTimers.keys) {
       await _refreshSubscription(url);
     }
   }

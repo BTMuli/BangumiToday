@@ -81,19 +81,19 @@ class LRUCacheManager {
   Future<void> _loadFromDisk() async {
     if (_box == null) return;
 
-    final keys = _box!.keys.toList();
+    var keys = _box!.keys.toList();
     keys.sort((a, b) {
-      final entryA = _box!.get(a);
-      final entryB = _box!.get(b);
+      var entryA = _box!.get(a);
+      var entryB = _box!.get(b);
       if (entryA == null || entryB == null) return 0;
 
       try {
-        final jsonA = jsonDecode(entryA) as Map<String, dynamic>;
-        final jsonB = jsonDecode(entryB) as Map<String, dynamic>;
-        final timeA = DateTime.parse(
+        var jsonA = jsonDecode(entryA) as Map<String, dynamic>;
+        var jsonB = jsonDecode(entryB) as Map<String, dynamic>;
+        var timeA = DateTime.parse(
           jsonA['lastAccessed'] ?? jsonA['timestamp'],
         );
-        final timeB = DateTime.parse(
+        var timeB = DateTime.parse(
           jsonB['lastAccessed'] ?? jsonB['timestamp'],
         );
         return timeA.compareTo(timeB);
@@ -102,12 +102,12 @@ class LRUCacheManager {
       }
     });
 
-    for (final key in keys) {
+    for (var key in keys) {
       if (_memoryCache.length >= _maxMemoryCacheSize) break;
-      final data = _box!.get(key);
+      var data = _box!.get(key);
       if (data != null) {
         try {
-          final json = jsonDecode(data) as Map<String, dynamic>;
+          var json = jsonDecode(data) as Map<String, dynamic>;
           _memoryCache[key.toString()] = LRUCacheEntry.fromJson(json);
           _accessOrder.add(key.toString());
         } catch (_) {}
@@ -116,9 +116,9 @@ class LRUCacheManager {
   }
 
   Future<T?> get<T>(String key, {Duration? maxAge}) async {
-    final effectiveMaxAge = maxAge ?? _defaultMaxAge;
+    var effectiveMaxAge = maxAge ?? _defaultMaxAge;
 
-    final memEntry = _memoryCache[key];
+    var memEntry = _memoryCache[key];
     if (memEntry != null && !memEntry.isExpired(effectiveMaxAge)) {
       memEntry.accessCount++;
       memEntry.lastAccessed = DateTime.now();
@@ -127,11 +127,11 @@ class LRUCacheManager {
     }
 
     if (_box != null) {
-      final diskData = _box!.get(key);
+      var diskData = _box!.get(key);
       if (diskData != null) {
         try {
-          final json = jsonDecode(diskData) as Map<String, dynamic>;
-          final entry = LRUCacheEntry.fromJson(json);
+          var json = jsonDecode(diskData) as Map<String, dynamic>;
+          var entry = LRUCacheEntry.fromJson(json);
           if (!entry.isExpired(effectiveMaxAge)) {
             _setMemoryCache(key, entry);
             return entry.data as T;
@@ -153,7 +153,7 @@ class LRUCacheManager {
     bool saveToMemory = true,
     bool saveToDisk = true,
   }) async {
-    final entry = LRUCacheEntry(
+    var entry = LRUCacheEntry(
       data: data,
       timestamp: DateTime.now(),
       etag: etag,
@@ -178,7 +178,7 @@ class LRUCacheManager {
     bool saveToMemory = true,
     bool saveToDisk = true,
   }) async {
-    final entry = LRUCacheEntry(
+    var entry = LRUCacheEntry(
       data: toJson(data),
       timestamp: DateTime.now(),
       etag: etag,
@@ -199,9 +199,9 @@ class LRUCacheManager {
     required T Function(Map<String, dynamic>) fromJson,
     Duration? maxAge,
   }) async {
-    final effectiveMaxAge = maxAge ?? _defaultMaxAge;
+    var effectiveMaxAge = maxAge ?? _defaultMaxAge;
 
-    final memEntry = _memoryCache[key];
+    var memEntry = _memoryCache[key];
     if (memEntry != null && !memEntry.isExpired(effectiveMaxAge)) {
       memEntry.accessCount++;
       memEntry.lastAccessed = DateTime.now();
@@ -215,11 +215,11 @@ class LRUCacheManager {
     }
 
     if (_box != null) {
-      final diskData = _box!.get(key);
+      var diskData = _box!.get(key);
       if (diskData != null) {
         try {
-          final json = jsonDecode(diskData) as Map<String, dynamic>;
-          final entry = LRUCacheEntry.fromJson(json);
+          var json = jsonDecode(diskData) as Map<String, dynamic>;
+          var entry = LRUCacheEntry.fromJson(json);
           if (!entry.isExpired(effectiveMaxAge)) {
             _setMemoryCache(key, entry);
             return fromJson(entry.data as Map<String, dynamic>);
@@ -237,7 +237,7 @@ class LRUCacheManager {
     if (_memoryCache.containsKey(key)) {
       _accessOrder.remove(key);
     } else if (_memoryCache.length >= _maxMemoryCacheSize) {
-      final oldestKey = _accessOrder.isNotEmpty
+      var oldestKey = _accessOrder.isNotEmpty
           ? _accessOrder.removeAt(0)
           : null;
       if (oldestKey != null) {
@@ -271,13 +271,13 @@ class LRUCacheManager {
   }
 
   Future<void> clearExpired([Duration? maxAge]) async {
-    final effectiveMaxAge = maxAge ?? _defaultMaxAge;
-    final now = DateTime.now();
+    var effectiveMaxAge = maxAge ?? _defaultMaxAge;
+    var now = DateTime.now();
 
-    final keysToRemove = <String>[];
+    var keysToRemove = <String>[];
 
     _memoryCache.removeWhere((key, entry) {
-      final shouldRemove = now.difference(entry.timestamp) > effectiveMaxAge;
+      var shouldRemove = now.difference(entry.timestamp) > effectiveMaxAge;
       if (shouldRemove) {
         keysToRemove.add(key);
         _accessOrder.remove(key);
@@ -286,12 +286,12 @@ class LRUCacheManager {
     });
 
     if (_box != null) {
-      for (final key in _box!.keys) {
-        final data = _box!.get(key);
+      for (var key in _box!.keys) {
+        var data = _box!.get(key);
         if (data != null) {
           try {
-            final json = jsonDecode(data) as Map<String, dynamic>;
-            final timestamp = DateTime.parse(json['timestamp']);
+            var json = jsonDecode(data) as Map<String, dynamic>;
+            var timestamp = DateTime.parse(json['timestamp']);
             if (now.difference(timestamp) > effectiveMaxAge) {
               keysToRemove.add(key.toString());
             }
@@ -301,7 +301,7 @@ class LRUCacheManager {
         }
       }
 
-      for (final key in keysToRemove) {
+      for (var key in keysToRemove) {
         await _box!.delete(key);
       }
     }
@@ -309,7 +309,7 @@ class LRUCacheManager {
 
   Future<void> evictLeastRecentlyUsed() async {
     while (_memoryCache.length > _maxMemoryCacheSize) {
-      final oldestKey = _accessOrder.isNotEmpty
+      var oldestKey = _accessOrder.isNotEmpty
           ? _accessOrder.removeAt(0)
           : null;
       if (oldestKey != null) {
@@ -320,14 +320,14 @@ class LRUCacheManager {
     }
 
     if (_box != null && _box!.length > _maxDiskCacheSize) {
-      final allEntries = <MapEntry<dynamic, DateTime>>[];
+      var allEntries = <MapEntry<dynamic, DateTime>>[];
 
-      for (final key in _box!.keys) {
-        final data = _box!.get(key);
+      for (var key in _box!.keys) {
+        var data = _box!.get(key);
         if (data != null) {
           try {
-            final json = jsonDecode(data) as Map<String, dynamic>;
-            final lastAccessed = json['lastAccessed'] != null
+            var json = jsonDecode(data) as Map<String, dynamic>;
+            var lastAccessed = json['lastAccessed'] != null
                 ? DateTime.parse(json['lastAccessed'])
                 : DateTime.parse(json['timestamp']);
             allEntries.add(MapEntry(key, lastAccessed));
@@ -337,8 +337,8 @@ class LRUCacheManager {
 
       allEntries.sort((a, b) => a.value.compareTo(b.value));
 
-      final toRemove = allEntries.take(_box!.length - _maxDiskCacheSize);
-      for (final entry in toRemove) {
+      var toRemove = allEntries.take(_box!.length - _maxDiskCacheSize);
+      for (var entry in toRemove) {
         await _box!.delete(entry.key);
       }
     }
@@ -398,8 +398,8 @@ class IncrementalCacheManager<T> {
   }) : _cacheManager = cacheManager ?? LRUCacheManager.instance;
 
   Future<void> saveItems(String cacheKey, List<T> items) async {
-    final now = DateTime.now();
-    final data = {
+    var now = DateTime.now();
+    var data = {
       'items': items.map((e) => e).toList(),
       'lastUpdate': now.toIso8601String(),
       'count': items.length,
@@ -411,41 +411,41 @@ class IncrementalCacheManager<T> {
     required String cacheKey,
     required List<T> newItems,
   }) async {
-    final cachedData = await _cacheManager.get<Map<String, dynamic>>(cacheKey);
+    var cachedData = await _cacheManager.get<Map<String, dynamic>>(cacheKey);
     if (cachedData == null) {
       return null;
     }
 
-    final cachedItems = (cachedData['items'] as List).cast<T>();
-    final lastUpdate = DateTime.parse(cachedData['lastUpdate']);
+    var cachedItems = (cachedData['items'] as List).cast<T>();
+    var lastUpdate = DateTime.parse(cachedData['lastUpdate']);
 
-    final cachedMap = <String, T>{};
-    for (final item in cachedItems) {
+    var cachedMap = <String, T>{};
+    for (var item in cachedItems) {
       cachedMap[getId(item)] = item;
     }
 
-    final newMap = <String, T>{};
-    for (final item in newItems) {
+    var newMap = <String, T>{};
+    for (var item in newItems) {
       newMap[getId(item)] = item;
     }
 
-    final newItemsList = <T>[];
-    final updatedItems = <T>[];
-    final deletedItems = <T>[];
+    var newItemsList = <T>[];
+    var updatedItems = <T>[];
+    var deletedItems = <T>[];
 
-    for (final entry in newMap.entries) {
+    for (var entry in newMap.entries) {
       if (!cachedMap.containsKey(entry.key)) {
         newItemsList.add(entry.value);
       } else if (getUpdatedAt != null || compareUpdate != null) {
-        final cachedItem = cachedMap[entry.key]!;
-        final newItem = entry.value;
+        var cachedItem = cachedMap[entry.key] as T;
+        var newItem = entry.value;
 
         bool isUpdated = false;
         if (compareUpdate != null) {
           isUpdated = compareUpdate!(cachedItem, newItem) != 0;
         } else if (getUpdatedAt != null) {
-          final cachedTime = getUpdatedAt!(cachedItem);
-          final newTime = getUpdatedAt!(newItem);
+          var cachedTime = getUpdatedAt!(cachedItem);
+          var newTime = getUpdatedAt!(newItem);
           isUpdated = newTime.isAfter(cachedTime);
         }
 
@@ -455,7 +455,7 @@ class IncrementalCacheManager<T> {
       }
     }
 
-    for (final entry in cachedMap.entries) {
+    for (var entry in cachedMap.entries) {
       if (!newMap.containsKey(entry.key)) {
         deletedItems.add(entry.value);
       }
@@ -470,14 +470,14 @@ class IncrementalCacheManager<T> {
   }
 
   Future<List<T>> getItems(String cacheKey) async {
-    final cachedData = await _cacheManager.get<Map<String, dynamic>>(cacheKey);
+    var cachedData = await _cacheManager.get<Map<String, dynamic>>(cacheKey);
     if (cachedData == null) return [];
 
     return (cachedData['items'] as List).cast<T>();
   }
 
   Future<DateTime?> getLastUpdate(String cacheKey) async {
-    final cachedData = await _cacheManager.get<Map<String, dynamic>>(cacheKey);
+    var cachedData = await _cacheManager.get<Map<String, dynamic>>(cacheKey);
     if (cachedData == null) return null;
 
     return DateTime.parse(cachedData['lastUpdate']);

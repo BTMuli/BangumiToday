@@ -56,18 +56,18 @@ class BTNavStore extends ChangeNotifier {
   }
 
   void _markIndexAsNotInUse(int index) {
-    final navIndex = index - topNavCount;
+    var navIndex = index - topNavCount;
     if (navIndex >= 0 && navIndex < _navItems.length) {
-      final item = _navItems[navIndex];
-      final key = 'nav_item_${item.param ?? item.title}';
+      var item = _navItems[navIndex];
+      var key = 'nav_item_${item.param ?? item.title}';
       MemoryManager.instance.unregisterDisposable(key);
     }
   }
 
   void _preloadAdjacent(int index) {
     for (int i = 1; i <= 2; i++) {
-      final prevIndex = index - i;
-      final nextIndex = index + i;
+      var prevIndex = index - i;
+      var nextIndex = index + i;
       if (prevIndex >= 0) _loadedIndices.add(prevIndex);
       if (nextIndex < topNavCount + _navItems.length) {
         _loadedIndices.add(nextIndex);
@@ -78,14 +78,14 @@ class BTNavStore extends ChangeNotifier {
   void _cleanupCache() {
     if (_cachedBodies.length <= maxCachedPages) return;
 
-    final keysToRemove = <int>[];
-    for (final key in _cachedBodies.keys) {
+    var keysToRemove = <int>[];
+    for (var key in _cachedBodies.keys) {
       if ((key - curIndex).abs() > 3) {
         keysToRemove.add(key);
       }
     }
 
-    for (final key in keysToRemove) {
+    for (var key in keysToRemove) {
       _cachedBodies.remove(key);
       _loadedIndices.remove(key);
     }
@@ -195,7 +195,7 @@ class BTNavStore extends ChangeNotifier {
     var findIndex = getNavIndex(type, title, param);
     if (findIndex == -1) return;
 
-    final actualIndex = findIndex + topNavCount;
+    var actualIndex = findIndex + topNavCount;
     _cachedBodies.remove(actualIndex);
     _loadedIndices.remove(actualIndex);
 

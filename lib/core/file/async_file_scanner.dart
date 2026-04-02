@@ -82,10 +82,10 @@ class AsyncDirectoryScanner {
     void Function(DirectoryScanProgress)? onProgress,
     CancellationToken? cancellationToken,
   }) async {
-    final completer = Completer<List<FileScanResult>>();
-    final results = <FileScanResult>[];
-    final receivePort = ReceivePort();
-    final progressController = StreamController<DirectoryScanProgress>();
+    var completer = Completer<List<FileScanResult>>();
+    var results = <FileScanResult>[];
+    var receivePort = ReceivePort();
+    var progressController = StreamController<DirectoryScanProgress>();
 
     _receivePorts[directoryPath] = receivePort;
     _progressControllers[directoryPath] = progressController;
@@ -93,7 +93,7 @@ class AsyncDirectoryScanner {
     receivePort.listen((message) {
       if (message is Map<String, dynamic>) {
         if (message['type'] == 'progress') {
-          final progress = DirectoryScanProgress(
+          var progress = DirectoryScanProgress(
             filesScanned: message['filesScanned'],
             directoriesScanned: message['directoriesScanned'],
             currentPath: message['currentPath'],
@@ -126,7 +126,7 @@ class AsyncDirectoryScanner {
     });
 
     try {
-      final isolate = await Isolate.spawn(
+      var isolate = await Isolate.spawn(
         _scanIsolate,
         _ScanConfig(
           sendPort: receivePort.sendPort,
@@ -151,7 +151,7 @@ class AsyncDirectoryScanner {
   }
 
   static void _scanIsolate(_ScanConfig config) {
-    final sendPort = config.sendPort;
+    var sendPort = config.sendPort;
     int filesScanned = 0;
     int directoriesScanned = 0;
 
@@ -169,16 +169,16 @@ class AsyncDirectoryScanner {
       if (depth > config.maxDepth) return;
 
       try {
-        final dir = Directory(dirPath);
+        var dir = Directory(dirPath);
         if (!dir.existsSync()) return;
 
-        final entities = dir.listSync(recursive: false);
+        var entities = dir.listSync(recursive: false);
 
-        for (final entity in entities) {
+        for (var entity in entities) {
           try {
             if (entity is File) {
-              final stat = entity.statSync();
-              final ext = path.extension(entity.path).toLowerCase();
+              var stat = entity.statSync();
+              var ext = path.extension(entity.path).toLowerCase();
 
               if (config.extensions == null ||
                   config.extensions!.isEmpty ||
@@ -216,19 +216,19 @@ class AsyncDirectoryScanner {
   }
 
   void cancelScan(String directoryPath) {
-    final isolate = _activeScans[directoryPath];
+    var isolate = _activeScans[directoryPath];
     if (isolate != null) {
       isolate.kill(priority: Isolate.immediate);
       _activeScans.remove(directoryPath);
     }
 
-    final receivePort = _receivePorts[directoryPath];
+    var receivePort = _receivePorts[directoryPath];
     if (receivePort != null) {
       receivePort.close();
       _receivePorts.remove(directoryPath);
     }
 
-    final progressController = _progressControllers[directoryPath];
+    var progressController = _progressControllers[directoryPath];
     if (progressController != null) {
       progressController.close();
       _progressControllers.remove(directoryPath);
@@ -236,17 +236,17 @@ class AsyncDirectoryScanner {
   }
 
   void cancelAllScans() {
-    for (final entry in _activeScans.entries) {
+    for (var entry in _activeScans.entries) {
       entry.value.kill(priority: Isolate.immediate);
     }
     _activeScans.clear();
 
-    for (final port in _receivePorts.values) {
+    for (var port in _receivePorts.values) {
       port.close();
     }
     _receivePorts.clear();
 
-    for (final controller in _progressControllers.values) {
+    for (var controller in _progressControllers.values) {
       controller.close();
     }
     _progressControllers.clear();
@@ -303,7 +303,7 @@ class DirectoryWatcher {
   FileSystemEvent? _lastEvent;
 
   Future<void> start() async {
-    final dir = Directory(directoryPath);
+    var dir = Directory(directoryPath);
     if (!await dir.exists()) {
       throw Exception('Directory does not exist: $directoryPath');
     }
@@ -347,7 +347,7 @@ class DirectoryWatcherManager {
       return;
     }
 
-    final watcher = DirectoryWatcher(
+    var watcher = DirectoryWatcher(
       directoryPath: directoryPath,
       onChanged: onChanged,
       debounceTime: debounceTime,
@@ -358,12 +358,12 @@ class DirectoryWatcherManager {
   }
 
   void unwatch(String directoryPath) {
-    final watcher = _watchers.remove(directoryPath);
+    var watcher = _watchers.remove(directoryPath);
     watcher?.stop();
   }
 
   void unwatchAll() {
-    for (final watcher in _watchers.values) {
+    for (var watcher in _watchers.values) {
       watcher.stop();
     }
     _watchers.clear();

@@ -59,16 +59,16 @@ class _LazyLoadWrapperState extends State<LazyLoadWrapper>
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification is ScrollUpdateNotification) {
-          final renderBox = context.findRenderObject() as RenderBox?;
+          var renderBox = context.findRenderObject() as RenderBox?;
           if (renderBox != null && mounted) {
-            final scrollableState = Scrollable.of(context);
-            final position = scrollableState.position;
-            final viewport = position.viewportDimension;
+            var scrollableState = Scrollable.of(context);
+            var position = scrollableState.position;
+            var viewport = position.viewportDimension;
 
-            final widgetTop = renderBox.localToGlobal(Offset.zero).dy;
-            final widgetBottom = widgetTop + renderBox.size.height;
+            var widgetTop = renderBox.localToGlobal(Offset.zero).dy;
+            var widgetBottom = widgetTop + renderBox.size.height;
 
-            final isVisible = widgetBottom > 0 && widgetTop < viewport;
+            var isVisible = widgetBottom > 0 && widgetTop < viewport;
 
             _onVisibilityChanged(isVisible);
           }
@@ -136,7 +136,7 @@ class _LazyTabPageState extends State<LazyTabPage> {
           child: IndexedStack(
             index: _currentIndex,
             children: widget.tabs.asMap().entries.map((entry) {
-              final index = entry.key;
+              var index = entry.key;
 
               if (!widget.lazyLoad || _loadedIndices.contains(index)) {
                 return _cachedBodies.putIfAbsent(
@@ -203,8 +203,8 @@ class _LazyNavigationViewState extends State<LazyNavigationView> {
 
   void _preloadAdjacent() {
     for (int i = 1; i <= widget.preloadCount; i++) {
-      final prevIndex = _selectedIndex - i;
-      final nextIndex = _selectedIndex + i;
+      var prevIndex = _selectedIndex - i;
+      var nextIndex = _selectedIndex + i;
       if (prevIndex >= 0) _loadedIndices.add(prevIndex);
       if (nextIndex < widget.items.length) _loadedIndices.add(nextIndex);
     }
@@ -215,8 +215,8 @@ class _LazyNavigationViewState extends State<LazyNavigationView> {
     return IndexedStack(
       index: _selectedIndex,
       children: widget.items.asMap().entries.map((entry) {
-        final index = entry.key;
-        final item = entry.value;
+        var index = entry.key;
+        var item = entry.value;
 
         if (!widget.lazyLoad || _loadedIndices.contains(index)) {
           return _cachedBodies.putIfAbsent(

@@ -154,26 +154,26 @@ class DataDiff<T> {
     Object Function(T) getId,
     bool Function(T, T) isEqual,
   ) {
-    final oldMap = <Object, T>{};
-    for (final item in oldList) {
+    var oldMap = <Object, T>{};
+    for (var item in oldList) {
       oldMap[getId(item)] = item;
     }
 
-    final newMap = <Object, T>{};
-    for (final item in newList) {
+    var newMap = <Object, T>{};
+    for (var item in newList) {
       newMap[getId(item)] = item;
     }
 
-    final added = <T>[];
-    final removed = <T>[];
-    final updated = <(T, T)>[];
-    final unchanged = <T>[];
+    var added = <T>[];
+    var removed = <T>[];
+    var updated = <(T, T)>[];
+    var unchanged = <T>[];
 
-    for (final entry in newMap.entries) {
+    for (var entry in newMap.entries) {
       if (!oldMap.containsKey(entry.key)) {
         added.add(entry.value);
       } else {
-        final oldItem = oldMap[entry.key]!;
+        var oldItem = oldMap[entry.key] as T;
         if (!isEqual(oldItem, entry.value)) {
           updated.add((oldItem, entry.value));
         } else {
@@ -182,7 +182,7 @@ class DataDiff<T> {
       }
     }
 
-    for (final entry in oldMap.entries) {
+    for (var entry in oldMap.entries) {
       if (!newMap.containsKey(entry.key)) {
         removed.add(entry.value);
       }
@@ -223,11 +223,11 @@ class DataStore<T> extends ChangeNotifier {
   }
 
   void appendData(List<T> items, {int? totalCount, String? cursor}) {
-    final newItems = [..._data.items, ...items];
+    var newItems = [..._data.items, ...items];
     if (newItems.length > maxSize) {
-      final evictedCount = newItems.length - maxSize;
-      final evictedItems = newItems.take(evictedCount);
-      for (final item in evictedItems) {
+      var evictedCount = newItems.length - maxSize;
+      var evictedItems = newItems.take(evictedCount);
+      for (var item in evictedItems) {
         onEvict?.call(item);
       }
       newItems.removeRange(0, evictedCount);
@@ -247,7 +247,7 @@ class DataStore<T> extends ChangeNotifier {
   }
 
   void updateItem(int index, T newItem) {
-    final newItems = List<T>.from(_data.items);
+    var newItems = List<T>.from(_data.items);
     newItems[index] = newItem;
     _data = OptimizedDataList(
       items: newItems,
@@ -258,8 +258,8 @@ class DataStore<T> extends ChangeNotifier {
   }
 
   void removeItem(int index) {
-    final newItems = List<T>.from(_data.items);
-    final removedItem = newItems.removeAt(index);
+    var newItems = List<T>.from(_data.items);
+    var removedItem = newItems.removeAt(index);
     onEvict?.call(removedItem);
     _data = OptimizedDataList(
       items: newItems,
@@ -270,8 +270,8 @@ class DataStore<T> extends ChangeNotifier {
   }
 
   void removeWhere(bool Function(T) test) {
-    final newItems = <T>[];
-    for (final item in _data.items) {
+    var newItems = <T>[];
+    for (var item in _data.items) {
       if (test(item)) {
         onEvict?.call(item);
       } else {
@@ -287,7 +287,7 @@ class DataStore<T> extends ChangeNotifier {
   }
 
   void clear() {
-    for (final item in _data.items) {
+    for (var item in _data.items) {
       onEvict?.call(item);
     }
     _data = OptimizedDataList(items: []);
@@ -295,14 +295,14 @@ class DataStore<T> extends ChangeNotifier {
   }
 
   void applyDiff(DataDiff<T> diff) {
-    final newItems = List<T>.from(_data.items);
+    var newItems = List<T>.from(_data.items);
 
-    for (final item in diff.removed) {
+    for (var item in diff.removed) {
       newItems.remove(item);
     }
 
     for (final (oldItem, newItem) in diff.updated) {
-      final index = newItems.indexOf(oldItem);
+      var index = newItems.indexOf(oldItem);
       if (index != -1) {
         newItems[index] = newItem;
       }
@@ -342,7 +342,7 @@ class LazyDataLoader<T> {
 
     _isLoading = true;
     try {
-      final items = await fetchFunction(0, batchSize);
+      var items = await fetchFunction(0, batchSize);
       _cache.clear();
       _cache.addAll(items);
       _hasMore = items.length >= batchSize;
@@ -358,12 +358,12 @@ class LazyDataLoader<T> {
 
     _isLoading = true;
     try {
-      final items = await fetchFunction(_cache.length, batchSize);
+      var items = await fetchFunction(_cache.length, batchSize);
       _cache.addAll(items);
       _hasMore = items.length >= batchSize;
 
       if (_cache.length > maxCacheSize) {
-        final removeCount = _cache.length - maxCacheSize;
+        var removeCount = _cache.length - maxCacheSize;
         _cache.removeRange(0, removeCount);
       }
 
@@ -384,7 +384,7 @@ class LazyDataLoader<T> {
       await loadMore();
     }
 
-    final actualEnd = end.clamp(0, _cache.length);
+    var actualEnd = end.clamp(0, _cache.length);
     return _cache.sublist(start, actualEnd);
   }
 

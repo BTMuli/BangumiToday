@@ -30,7 +30,7 @@ class _OptimizedRbpMikanWidgetState
   final OptimizedRssService _rssService = OptimizedRssService.instance;
 
   List<RssItem> _allItems = [];
-  List<RssItem> _displayItems = [];
+  final List<RssItem> _displayItems = [];
   bool _isLoading = false;
   bool _hasMore = true;
   int _currentPage = 0;
@@ -63,10 +63,10 @@ class _OptimizedRbpMikanWidgetState
     });
 
     try {
-      final baseUrl = mikanRss ?? 'https://mikanani.me';
-      final url = '$baseUrl/RSS/Classic';
+      var baseUrl = mikanRss ?? 'https://mikanani.me';
+      var url = '$baseUrl/RSS/Classic';
 
-      final result = await _rssService.fetchRssIncremental(
+      var result = await _rssService.fetchRssIncremental(
         url,
         forceRefresh: forceRefresh,
       );
@@ -77,7 +77,7 @@ class _OptimizedRbpMikanWidgetState
         _loadPage(0);
 
         if (mounted) {
-          final message = result.data!.hasNewItems
+          var message = result.data!.hasNewItems
               ? '已刷新Mikan列表，新增${result.data!.newItems.length}条'
               : '已刷新Mikan列表';
           await BtInfobar.success(context, message);
@@ -103,10 +103,10 @@ class _OptimizedRbpMikanWidgetState
     });
 
     try {
-      final baseUrl = mikanRss ?? 'https://mikanani.me';
-      final url = '$baseUrl/RSS/MyBangumi?token=$token';
+      var baseUrl = mikanRss ?? 'https://mikanani.me';
+      var url = '$baseUrl/RSS/MyBangumi?token=$token';
 
-      final result = await _rssService.fetchRssIncremental(
+      var result = await _rssService.fetchRssIncremental(
         url,
         forceRefresh: forceRefresh,
       );
@@ -117,7 +117,7 @@ class _OptimizedRbpMikanWidgetState
         _loadPage(0);
 
         if (mounted) {
-          final message = result.data!.hasNewItems
+          var message = result.data!.hasNewItems
               ? '已刷新用户列表，新增${result.data!.newItems.length}条'
               : '已刷新用户列表';
           await BtInfobar.success(context, message);
@@ -133,8 +133,8 @@ class _OptimizedRbpMikanWidgetState
   }
 
   void _loadPage(int page) {
-    final start = page * _pageSize;
-    final end = min(start + _pageSize, _allItems.length);
+    var start = page * _pageSize;
+    var end = min(start + _pageSize, _allItems.length);
 
     if (start < _allItems.length) {
       _displayItems.addAll(_allItems.sublist(start, end));

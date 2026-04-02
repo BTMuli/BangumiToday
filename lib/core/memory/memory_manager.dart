@@ -49,7 +49,7 @@ class MemoryManager {
   }
 
   Future<MemoryInfo> _checkMemory() async {
-    final info = await getMemoryInfo();
+    var info = await getMemoryInfo();
     _addToHistory(info);
     _memoryStreamController.add(info);
 
@@ -69,11 +69,11 @@ class MemoryManager {
 
   Future<MemoryInfo> getMemoryInfo() async {
     try {
-      final memoryUsage = ProcessInfo.currentRss;
-      final usedMemoryMB = memoryUsage ~/ (1024 * 1024);
+      var memoryUsage = ProcessInfo.currentRss;
+      var usedMemoryMB = memoryUsage ~/ (1024 * 1024);
 
       const estimatedTotalMB = 2048;
-      final usagePercent = (usedMemoryMB / estimatedTotalMB) * 100;
+      var usagePercent = (usedMemoryMB / estimatedTotalMB) * 100;
 
       return MemoryInfo(
         usedMemoryMB: usedMemoryMB,
@@ -92,14 +92,14 @@ class MemoryManager {
   }
 
   Future<void> _performCleanup() async {
-    final keysToRemove = <String>[];
+    var keysToRemove = <String>[];
 
-    for (final entry in _disposables.entries) {
-      final ref = entry.value;
+    for (var entry in _disposables.entries) {
+      var ref = entry.value;
       if (ref.target == null) {
         keysToRemove.add(entry.key);
       } else {
-        final disposable = ref.target!;
+        var disposable = ref.target!;
         if (!disposable.isInUse) {
           disposable.dispose();
           keysToRemove.add(entry.key);
@@ -107,7 +107,7 @@ class MemoryManager {
       }
     }
 
-    for (final key in keysToRemove) {
+    for (var key in keysToRemove) {
       _disposables.remove(key);
     }
 

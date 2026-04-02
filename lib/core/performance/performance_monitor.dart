@@ -126,20 +126,20 @@ class PerformanceMonitor {
   }
 
   Future<PerformanceMetrics> _collectMetrics() async {
-    final memoryInfo = await _memoryManager.getMemoryInfo();
-    final cacheStats = _cacheManager.getCacheStats();
+    var memoryInfo = await _memoryManager.getMemoryInfo();
+    var cacheStats = _cacheManager.getCacheStats();
 
-    final navStatsMap = _getNavStats != null
+    var navStatsMap = _getNavStats != null
         ? _getNavStats!()
         : <String, dynamic>{};
-    final navStats = NavStats(
+    var navStats = NavStats(
       totalNavCount: navStatsMap['totalNavCount'] ?? 0,
       loadedIndices: navStatsMap['loadedIndices'] ?? 0,
       cachedBodies: navStatsMap['cachedBodies'] ?? 0,
       curIndex: navStatsMap['curIndex'] ?? 0,
     );
 
-    final metrics = PerformanceMetrics(
+    var metrics = PerformanceMetrics(
       memoryInfo: memoryInfo,
       cacheStats: CacheStats(
         memoryCacheSize: cacheStats['memoryCacheSize'] ?? 0,
@@ -177,20 +177,20 @@ class PerformanceMonitor {
       };
     }
 
-    final memoryUsages = _metricsHistory
+    var memoryUsages = _metricsHistory
         .where((m) => m.memoryInfo != null)
         .map((m) => m.memoryInfo!.usedMemoryMB)
         .toList();
 
-    final avgMemory = memoryUsages.isNotEmpty
+    var avgMemory = memoryUsages.isNotEmpty
         ? memoryUsages.reduce((a, b) => a + b) / memoryUsages.length
         : 0;
 
-    final maxMemory = memoryUsages.isNotEmpty
+    var maxMemory = memoryUsages.isNotEmpty
         ? memoryUsages.reduce((a, b) => a > b ? a : b)
         : 0;
 
-    final minMemory = memoryUsages.isNotEmpty
+    var minMemory = memoryUsages.isNotEmpty
         ? memoryUsages.reduce((a, b) => a < b ? a : b)
         : 0;
 
@@ -241,8 +241,8 @@ class PerformanceOptimizer {
   }
 
   Future<Map<String, dynamic>> getOptimizationReport() async {
-    final memoryInfo = await _memoryManager.getMemoryInfo();
-    final cacheStats = _cacheManager.getCacheStats();
+    var memoryInfo = await _memoryManager.getMemoryInfo();
+    var cacheStats = _cacheManager.getCacheStats();
 
     return {
       'memory': {
@@ -260,7 +260,7 @@ class PerformanceOptimizer {
     MemoryInfo memoryInfo,
     Map<String, dynamic> cacheStats,
   ) {
-    final recommendations = <String>[];
+    var recommendations = <String>[];
 
     if (memoryInfo.isCriticalMemoryUsage) {
       recommendations.add('内存使用率过高，建议立即清理缓存');
@@ -268,8 +268,8 @@ class PerformanceOptimizer {
       recommendations.add('内存使用率较高，建议进行内存优化');
     }
 
-    final memoryCacheSize = cacheStats['memoryCacheSize'] as int? ?? 0;
-    final maxMemoryCacheSize = cacheStats['maxMemoryCacheSize'] as int? ?? 1;
+    var memoryCacheSize = cacheStats['memoryCacheSize'] as int? ?? 0;
+    var maxMemoryCacheSize = cacheStats['maxMemoryCacheSize'] as int? ?? 1;
     if (memoryCacheSize > maxMemoryCacheSize * 0.8) {
       recommendations.add('内存缓存接近上限，建议清理');
     }
