@@ -28,14 +28,8 @@ class _BTFadeInState extends State<BTFadeIn>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: widget.curve,
-    );
+    _controller = AnimationController(duration: widget.duration, vsync: this);
+    _animation = CurvedAnimation(parent: _controller, curve: widget.curve);
     Future.delayed(widget.delay, () {
       if (mounted) _controller.forward();
     });
@@ -49,10 +43,7 @@ class _BTFadeInState extends State<BTFadeIn>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _animation,
-      child: widget.child,
-    );
+    return FadeTransition(opacity: _animation, child: widget.child);
   }
 }
 
@@ -84,17 +75,11 @@ class _BTSlideInState extends State<BTSlideIn>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
+    _controller = AnimationController(duration: widget.duration, vsync: this);
     _animation = Tween<Offset>(
       begin: widget.offset,
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: widget.curve,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
     Future.delayed(widget.delay, () {
       if (mounted) _controller.forward();
     });
@@ -108,10 +93,7 @@ class _BTSlideInState extends State<BTSlideIn>
 
   @override
   Widget build(BuildContext context) {
-    return SlideTransition(
-      position: _animation,
-      child: widget.child,
-    );
+    return SlideTransition(position: _animation, child: widget.child);
   }
 }
 
@@ -143,17 +125,11 @@ class _BTScaleInState extends State<BTScaleIn>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
+    _controller = AnimationController(duration: widget.duration, vsync: this);
     _animation = Tween<double>(
       begin: widget.beginScale,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: widget.curve,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
     Future.delayed(widget.delay, () {
       if (mounted) _controller.forward();
     });
@@ -167,10 +143,7 @@ class _BTScaleInState extends State<BTScaleIn>
 
   @override
   Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _animation,
-      child: widget.child,
-    );
+    return ScaleTransition(scale: _animation, child: widget.child);
   }
 }
 
@@ -203,21 +176,12 @@ class _BTFadeSlideInState extends State<BTFadeSlideIn>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: widget.curve,
-    );
+    _controller = AnimationController(duration: widget.duration, vsync: this);
+    _fadeAnimation = CurvedAnimation(parent: _controller, curve: widget.curve);
     _slideAnimation = Tween<Offset>(
       begin: widget.offset,
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: widget.curve,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
     Future.delayed(widget.delay, () {
       if (mounted) _controller.forward();
     });
@@ -233,10 +197,7 @@ class _BTFadeSlideInState extends State<BTFadeSlideIn>
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: _fadeAnimation,
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: widget.child,
-      ),
+      child: SlideTransition(position: _slideAnimation, child: widget.child),
     );
   }
 }
@@ -306,17 +267,11 @@ class _BTPulseAnimationState extends State<BTPulseAnimation>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
+    _controller = AnimationController(duration: widget.duration, vsync: this);
     _animation = Tween<double>(
       begin: widget.minScale,
       end: widget.maxScale,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     if (widget.repeat) {
       _controller.repeat(reverse: true);
     } else {
@@ -332,10 +287,7 @@ class _BTPulseAnimationState extends State<BTPulseAnimation>
 
   @override
   Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _animation,
-      child: widget.child,
-    );
+    return ScaleTransition(scale: _animation, child: widget.child);
   }
 }
 
@@ -365,19 +317,19 @@ class _BTShakeAnimationState extends State<BTShakeAnimation>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
+    _controller = AnimationController(duration: widget.duration, vsync: this);
     _animation = TweenSequence<double>([
       TweenSequenceItem(tween: Tween(begin: 0, end: widget.offset), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: widget.offset, end: -widget.offset), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: -widget.offset, end: widget.offset), weight: 2),
+      TweenSequenceItem(
+        tween: Tween(begin: widget.offset, end: -widget.offset),
+        weight: 2,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: -widget.offset, end: widget.offset),
+        weight: 2,
+      ),
       TweenSequenceItem(tween: Tween(begin: widget.offset, end: 0), weight: 1),
-    ]).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     _controller.forward().then((_) {
       widget.onComplete?.call();
     });
@@ -430,17 +382,11 @@ class _BTHoverScaleState extends State<BTHoverScale>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
+    _controller = AnimationController(duration: widget.duration, vsync: this);
     _animation = Tween<double>(
       begin: 1.0,
       end: widget.hoverScale,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: widget.curve,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
   }
 
   @override
@@ -458,10 +404,7 @@ class _BTHoverScaleState extends State<BTHoverScale>
       onExit: (_) {
         _controller.reverse();
       },
-      child: ScaleTransition(
-        scale: _animation,
-        child: widget.child,
-      ),
+      child: ScaleTransition(scale: _animation, child: widget.child),
     );
   }
 }
@@ -485,10 +428,7 @@ class BTAnimatedNumber extends StatelessWidget {
       duration: duration,
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {
-        return Text(
-          value.toString(),
-          style: style,
-        );
+        return Text(value.toString(), style: style);
       },
     );
   }
@@ -503,61 +443,60 @@ class BTPageTransition extends PageRouteBuilder {
     this.type = BTTransitionType.fadeSlide,
     super.settings,
   }) : super(
-          pageBuilder: (context, animation, secondaryAnimation) => page,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            switch (type) {
-              case BTTransitionType.fade:
-                return FadeTransition(
-                  opacity: animation,
-                  child: child,
-                );
-              case BTTransitionType.slide:
-                return SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.1, 0),
-                    end: Offset.zero,
-                  ).animate(CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOutCubic,
-                  )),
-                  child: child,
-                );
-              case BTTransitionType.fadeSlide:
-                return FadeTransition(
-                  opacity: CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOut,
-                  ),
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0.05, 0),
-                      end: Offset.zero,
-                    ).animate(CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutCubic,
-                    )),
-                    child: child,
-                  ),
-                );
-              case BTTransitionType.scale:
-                return ScaleTransition(
-                  scale: Tween<double>(
-                    begin: 0.95,
-                    end: 1.0,
-                  ).animate(CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOutCubic,
-                  )),
-                  child: FadeTransition(
-                    opacity: animation,
-                    child: child,
-                  ),
-                );
-            }
-          },
-          transitionDuration: BTTheme.animationDurationNormal,
-          reverseTransitionDuration: BTTheme.animationDurationFast,
-        );
+         pageBuilder: (context, animation, secondaryAnimation) => page,
+         transitionsBuilder: (context, animation, secondaryAnimation, child) {
+           switch (type) {
+             case BTTransitionType.fade:
+               return FadeTransition(opacity: animation, child: child);
+             case BTTransitionType.slide:
+               return SlideTransition(
+                 position:
+                     Tween<Offset>(
+                       begin: const Offset(0.1, 0),
+                       end: Offset.zero,
+                     ).animate(
+                       CurvedAnimation(
+                         parent: animation,
+                         curve: Curves.easeOutCubic,
+                       ),
+                     ),
+                 child: child,
+               );
+             case BTTransitionType.fadeSlide:
+               return FadeTransition(
+                 opacity: CurvedAnimation(
+                   parent: animation,
+                   curve: Curves.easeOut,
+                 ),
+                 child: SlideTransition(
+                   position:
+                       Tween<Offset>(
+                         begin: const Offset(0.05, 0),
+                         end: Offset.zero,
+                       ).animate(
+                         CurvedAnimation(
+                           parent: animation,
+                           curve: Curves.easeOutCubic,
+                         ),
+                       ),
+                   child: child,
+                 ),
+               );
+             case BTTransitionType.scale:
+               return ScaleTransition(
+                 scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                   CurvedAnimation(
+                     parent: animation,
+                     curve: Curves.easeOutCubic,
+                   ),
+                 ),
+                 child: FadeTransition(opacity: animation, child: child),
+               );
+           }
+         },
+         transitionDuration: BTTheme.animationDurationNormal,
+         reverseTransitionDuration: BTTheme.animationDurationFast,
+       );
 }
 
 enum BTTransitionType { fade, slide, fadeSlide, scale }
