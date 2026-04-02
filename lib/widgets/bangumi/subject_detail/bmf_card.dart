@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:path/path.dart' as path;
 
 import '../../../core/theme/bt_theme.dart';
 import '../../../database/app/app_bmf.dart';
@@ -64,11 +64,12 @@ class _BmfCardState extends ConsumerState<BmfCard>
   Future<void> loadData() async {
     setState(() => isLoading = true);
 
-    var futures = await Future.wait([_loadFileStats(), _loadRssStats()]);
+    var fileStats = await _loadFileStats();
+    var rssStats = await _loadRssStats();
 
-    fileCount = futures[0]['count'] as int;
-    totalSize = futures[0]['size'] as String;
-    rssNewCount = futures[1] as int;
+    fileCount = fileStats['count'] as int;
+    totalSize = fileStats['size'] as String;
+    rssNewCount = rssStats;
 
     setState(() => isLoading = false);
   }
@@ -161,14 +162,26 @@ class _BmfCardState extends ConsumerState<BmfCard>
         ),
         SizedBox(width: 8.w),
         Expanded(
-          child: Tooltip(
-            message: bmf.title ?? '未命名',
-            child: Text(
-              bmf.title ?? '未命名',
-              style: BTTypography.subtitle(context),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Tooltip(
+                message: bmf.title ?? '未命名',
+                child: Text(
+                  bmf.title ?? '未命名',
+                  style: BTTypography.subtitle(context),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(height: 2.h),
+              Text(
+                'ID: ${bmf.subject}',
+                style: BTTypography.caption(
+                  context,
+                ).copyWith(color: BTColors.textTertiary(context)),
+              ),
+            ],
           ),
         ),
         if (rssNewCount > 0)
@@ -264,7 +277,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
         Tooltip(
           message: '查看详情',
           child: IconButton(
-            icon: BtIcon(FluentIcons.openFile, size: 14.sp),
+            icon: BtIcon(FluentIcons.preview, size: 14.sp),
             onPressed: _showDetailDialog,
           ),
         ),
@@ -276,108 +289,119 @@ class _BmfCardState extends ConsumerState<BmfCard>
           ),
         ),
         const Spacer(),
-        Tooltip(
-          message: '更多操作',
-          child: IconButton(
-            icon: BtIcon(FluentIcons.more, size: 14.sp),
-            onPressed: () => _showContextMenu(context),
-          ),
+        _buildMoreButton(context, accentColor),
+      ],
+    );
+  }
+
+  Widget _buildMoreButton(BuildContext context, Color accentColor) {
+    var flyoutController = FlyoutController();
+
+    return FlyoutTarget(
+      controller: flyoutController,
+      child: Tooltip(
+        message: '更多操作',
+        child: IconButton(
+          icon: BtIcon(FluentIcons.more, size: 14.sp),
+          onPressed: () {
+            flyoutController.showFlyout(
+              barrierDismissible: true,
+              dismissOnPointerMoveAway: false,
+              dismissWithEsc: true,
+              builder: (context) => _buildMenuFlyout(context, accentColor),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuFlyout(BuildContext context, Color accentColor) {
+    return MenuFlyout(
+      items: [
+        MenuFlyoutItem(
+          leading: BtIcon(MdiIcons.bookEdit, size: 14.sp),
+          text: const Text('设置标题'),
+          onPressed: () => _handleSetTitle(context),
+        ),
+        MenuFlyoutItem(
+          leading: BtIcon(MdiIcons.rss, size: 14.sp),
+          text: const Text('设置 RSS'),
+          onPressed: () => _handleSetRss(context),
+        ),
+        MenuFlyoutItem(
+          leading: BtIcon(MdiIcons.folder, size: 14.sp),
+          text: const Text('设置下载目录'),
+          onPressed: () => _handleSetDownloadDir(context),
+        ),
+        const MenuFlyoutSeparator(),
+        MenuFlyoutItem(
+          leading: Icon(FluentIcons.delete, size: 14.sp, color: accentColor),
+          text: Text('删除', style: TextStyle(color: accentColor)),
+          onPressed: () => _handleDelete(context),
         ),
       ],
     );
   }
 
-  void _showContextMenu(BuildContext context) {
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        MediaQuery.of(context).size.width - 200,
-        100,
-        0,
-        0,
-      ),
-      items: [
-        MenuFlyoutItem(
-          leading: BtIcon(MdiIcons.bookEdit, size: 14.sp),
-          text: const Text('设置标题'),
-          onPressed: () async {
-            var res = await showInput(
-              context,
-              title: '设置标题',
-              value: bmf.title ?? '',
-            );
-            if (res != null && mounted) {
-              var sqlite = BtsAppBmf();
-              bmf.title = res;
-              await sqlite.write(bmf);
-              widget.onUpdate?.call();
-            }
-          },
-        ),
-        MenuFlyoutItem(
-          leading: BtIcon(MdiIcons.rss, size: 14.sp),
-          text: const Text('设置 RSS'),
-          onPressed: () async {
-            var res = await showInput(
-              context,
-              title: '设置 MikanRSS',
-              content: '建议精准到字幕组',
-            );
-            if (res != null && mounted) {
-              var sqlite = BtsAppBmf();
-              var check = await sqlite.checkRss(res);
-              if (check) {
-                await BtInfobar.error(context, '该RSS已经被其他BMF使用');
-                return;
-              }
-              bmf.rss = res;
-              await sqlite.write(bmf);
-              widget.onUpdate?.call();
-            }
-          },
-        ),
-        MenuFlyoutItem(
-          leading: BtIcon(MdiIcons.folder, size: 14.sp),
-          text: const Text('设置下载目录'),
-          onPressed: () async {
-            var dir = await getDirectoryPath();
-            if (dir != null && mounted) {
-              var sqlite = BtsAppBmf();
-              var check = await sqlite.checkDir(dir);
-              if (check) {
-                await BtInfobar.error(context, '该目录已经被其他BMF使用');
-                return;
-              }
-              bmf.download = dir;
-              await sqlite.write(bmf);
-              widget.onUpdate?.call();
-            }
-          },
-        ),
-        const MenuFlyoutSeparator(),
-        MenuFlyoutItem(
-          leading: Icon(
-            FluentIcons.delete,
-            size: 14.sp,
-            color: FluentTheme.of(context).accentColor,
-          ),
-          text: Text(
-            '删除',
-            style: TextStyle(color: FluentTheme.of(context).accentColor),
-          ),
-          onPressed: () async {
-            var confirm = await showConfirm(
-              context,
-              title: '删除 BMF',
-              content: '确定删除 ${bmf.title ?? bmf.subject} 吗？',
-            );
-            if (confirm) {
-              widget.onDelete?.call();
-            }
-          },
-        ),
-      ],
+  Future<void> _handleSetTitle(BuildContext context) async {
+    var res = await showInput(
+      context,
+      title: '设置标题',
+      content: '',
+      value: bmf.title ?? '',
     );
+    if (res != null && mounted) {
+      var sqlite = BtsAppBmf();
+      bmf.title = res;
+      await sqlite.write(bmf);
+      widget.onUpdate?.call();
+    }
+  }
+
+  Future<void> _handleSetRss(BuildContext context) async {
+    var res = await showInput(
+      context,
+      title: '设置 MikanRSS',
+      content: '建议精准到字幕组',
+    );
+    if (res != null && mounted) {
+      var sqlite = BtsAppBmf();
+      var check = await sqlite.checkRss(res);
+      if (check) {
+        await BtInfobar.error(context, '该RSS已经被其他BMF使用');
+        return;
+      }
+      bmf.rss = res;
+      await sqlite.write(bmf);
+      widget.onUpdate?.call();
+    }
+  }
+
+  Future<void> _handleSetDownloadDir(BuildContext context) async {
+    var dir = await getDirectoryPath();
+    if (dir != null && mounted) {
+      var sqlite = BtsAppBmf();
+      var check = await sqlite.checkDir(dir);
+      if (check) {
+        await BtInfobar.error(context, '该目录已经被其他BMF使用');
+        return;
+      }
+      bmf.download = dir;
+      await sqlite.write(bmf);
+      widget.onUpdate?.call();
+    }
+  }
+
+  Future<void> _handleDelete(BuildContext context) async {
+    var confirm = await showConfirm(
+      context,
+      title: '删除 BMF',
+      content: '确定删除 ${bmf.title ?? bmf.subject} 吗？',
+    );
+    if (confirm) {
+      widget.onDelete?.call();
+    }
   }
 }
 
@@ -407,19 +431,30 @@ class _BmfDetailDialogState extends State<_BmfDetailDialog> {
     var maxHeight = screenHeight * 0.7;
 
     return ContentDialog(
-      title: Row(
-        children: [
-          Icon(FluentIcons.settings, size: 18.sp),
-          SizedBox(width: 8.w),
-          Expanded(
-            child: Text(
-              widget.bmf.title ?? 'BMF 配置',
-              style: BTTypography.subtitle(context),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+      title: Tooltip(
+        message: '点击复制标题',
+        child: GestureDetector(
+          onTap: () async {
+            await Clipboard.setData(
+              ClipboardData(text: widget.bmf.title ?? ''),
+            );
+            if (context.mounted) await BtInfobar.success(context, '已复制到剪贴板');
+          },
+          child: Row(
+            children: [
+              Icon(FluentIcons.settings, size: 18.sp),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Text(
+                  widget.bmf.title ?? 'BMF 配置',
+                  style: BTTypography.subtitle(context),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
       constraints: BoxConstraints(maxWidth: 600.w, maxHeight: maxHeight),
       content: SingleChildScrollView(
