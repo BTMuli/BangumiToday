@@ -437,34 +437,29 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
               delay: const Duration(milliseconds: 50),
               child: Container(
                 margin: EdgeInsets.symmetric(vertical: 8.h),
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                padding: EdgeInsets.all(12.w),
                 decoration: BoxDecoration(
                   color: BTColors.surfaceSecondary(context),
                   borderRadius: BTRadius.mediumBR,
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: BsdUserCollection(
-                        data!,
-                        hiveUser.user!,
-                        collectProvider,
-                      ),
-                    ),
-                    Container(
-                      height: 24.h,
-                      width: 1.w,
-                      margin: EdgeInsets.symmetric(horizontal: 12.w),
-                      color: BTColors.divider(context),
-                    ),
-                    Expanded(
-                      child: BsdBmfWidget(
-                        data!.id,
-                        data!.nameCn.isEmpty ? data!.name : data!.nameCn,
-                        rssProvider: rssProvider,
-                      ),
-                    ),
-                  ],
+                child: BsdUserCollection(
+                  data!,
+                  hiveUser.user!,
+                  collectProvider,
+                ),
+              ),
+            ),
+
+          if (hiveUser.user != null)
+            BTFadeSlideIn(
+              duration: const Duration(milliseconds: 400),
+              delay: const Duration(milliseconds: 100),
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 4.h),
+                child: BsdBmfWidget(
+                  data!.id,
+                  data!.nameCn.isEmpty ? data!.name : data!.nameCn,
+                  rssProvider: rssProvider,
                 ),
               ),
             ),
