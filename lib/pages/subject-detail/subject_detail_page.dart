@@ -1,4 +1,6 @@
 // Flutter imports:
+import 'package:flutter/material.dart'
+    show AdaptiveTextSelectionToolbar, EditableTextState;
 import 'package:flutter/services.dart';
 
 // Package imports:
@@ -23,7 +25,7 @@ import '../../utils/tool_func.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../widgets/common/bt_animations.dart';
 import '../../widgets/common/bt_drawer.dart';
-import '../../widgets/bangumi/subject_detail/bsd_bmf.dart';
+import '../../widgets/bangumi/subject_detail/bsd_bmf_drawer.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_episodes.dart';
 import 'sd_pw_overview.dart';
@@ -308,19 +310,42 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     return Tooltip(
       message: '打开 BMF 配置',
       child: IconButton(
-        icon: Icon(FluentIcons.download, size: 18.sp, color: accentColor),
+        icon: Icon(
+          FluentIcons.app_icon_default,
+          size: 18.sp,
+          color: accentColor,
+        ),
         onPressed: () => showBTDrawer(
           context: context,
           width: 420,
-          child: BTDrawer(
-            title: 'BMF 配置',
-            child: BsdBmfWidget(
-              data!.id,
-              data!.nameCn.isEmpty ? data!.name : data!.nameCn,
-              rssProvider: rssProvider,
-            ),
+          child: BsdBmfDrawer(
+            subjectId: data!.id,
+            title: data!.nameCn.isEmpty ? data!.name : data!.nameCn,
+            rssProvider: rssProvider,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget buildContextMenu(BuildContext context, EditableTextState state) {
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var backgroundColor = isDark ? const Color(0xFF2D2D2D) : Colors.white;
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: AdaptiveTextSelectionToolbar.buttonItems(
+        anchors: state.contextMenuAnchors,
+        buttonItems: state.contextMenuButtonItems,
       ),
     );
   }
@@ -344,7 +369,11 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     }
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 4.h),
-      child: SelectableText(summary, style: BTTypography.body(context)),
+      child: SelectableText(
+        summary,
+        style: BTTypography.body(context),
+        contextMenuBuilder: buildContextMenu,
+      ),
     );
   }
 
@@ -383,7 +412,11 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
               children: [
                 Text(item.key, style: BTTypography.bodyStrong(context)),
                 SizedBox(height: 2.h),
-                SelectableText(value, style: BTTypography.body(context)),
+                SelectableText(
+                  value,
+                  style: BTTypography.body(context),
+                  contextMenuBuilder: buildContextMenu,
+                ),
               ],
             ),
           ),
@@ -408,6 +441,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
                   child: SelectableText(
                     value,
                     style: BTTypography.body(context),
+                    contextMenuBuilder: buildContextMenu,
                   ),
                 ),
               ],
@@ -484,6 +518,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
             duration: const Duration(milliseconds: 400),
             delay: const Duration(milliseconds: 100),
             child: Expander(
+              initiallyExpanded: true,
               leading: Icon(
                 FluentIcons.video,
                 size: 18.sp,
