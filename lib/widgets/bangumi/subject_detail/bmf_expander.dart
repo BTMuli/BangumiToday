@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dart_rss/domain/rss_feed.dart';
 import 'package:dart_rss/domain/rss_item.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -10,11 +11,15 @@ import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../core/theme/bt_theme.dart';
+import '../../../database/app/app_config.dart';
 import '../../../database/app/app_rss.dart';
 import '../../../models/database/app_bmf_model.dart';
 import '../../../models/database/app_rss_model.dart';
 import '../../../plugins/mikan/mikan_api.dart';
 import '../../../store/app_store.dart';
+import '../../../store/dtt_store.dart';
+import '../../../store/nav_store.dart';
+import '../../../tools/download_tool.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/log_tool.dart';
 import '../../../tools/notifier_tool.dart';
@@ -51,6 +56,16 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     super.initState();
     timerFiles = getTimerFiles();
     Future.microtask(refreshFiles);
+  }
+
+  @override
+  void didUpdateWidget(BmfFileExpander oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.downloadDir != widget.downloadDir) {
+      files.clear();
+      aria2Files.clear();
+      Future.microtask(refreshFiles);
+    }
   }
 
   @override
@@ -393,6 +408,18 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
   }
 
   @override
+  void didUpdateWidget(BmfRssExpander oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.bmf.rss != widget.bmf.rss ||
+        oldWidget.bmf.mkBgmId != widget.bmf.mkBgmId ||
+        oldWidget.bmf.mkGroupId != widget.bmf.mkGroupId) {
+      rssItems.clear();
+      rssItemsKey.clear();
+      Future.microtask(() async => await freshRss());
+    }
+  }
+
+  @override
   void dispose() {
     timerRss.cancel();
     super.dispose();
@@ -458,6 +485,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
         .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
         .toSet();
     if (newList.isNotEmpty) {
+      BTLogTool.info('发现新的 RSS 信息');
       appRssModel = AppRssModel(
         mkBgmId: bmf.mkBgmId,
         mkGroupId: bmf.mkGroupId,
@@ -467,8 +495,38 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
         updated: DateTime.now().millisecondsSinceEpoch,
       );
       await sqlite.write(appRssModel!);
+      if (!widget.isConfig) await showNewRss(newList);
     }
     setState(() {});
+  }
+
+  Future<void> showNewRss(List<RssItem> newList) async {
+    if (newList.length > 1) {
+      await BTNotifierTool.showMini(
+        title: 'RSS 订阅更新',
+        body: bmf.title ?? '动画：${bmf.subject}',
+        onClick: () => ref
+            .read(navStoreProvider.notifier)
+            .addNavItemB(
+              subject: bmf.subject,
+              type: '动画',
+              paneTitle: bmf.title,
+            ),
+      );
+    }
+    if (newList.length == 1) {
+      await BTNotifierTool.showMini(
+        title: 'RSS 订阅更新',
+        body: '${newList[0].title}',
+        onClick: () => ref
+            .read(navStoreProvider.notifier)
+            .addNavItemB(
+              subject: bmf.subject,
+              type: '动画',
+              paneTitle: bmf.title,
+            ),
+      );
+    }
   }
 
   Widget buildRssItem(BuildContext context, RssItem item) {
@@ -484,64 +542,64 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
         borderRadius: BTRadius.smallBR,
         border: Border.all(color: BTColors.divider(context), width: 1),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            MdiIcons.download,
-            size: 16.sp,
-            color: BTColors.textSecondary(context),
-          ),
-          SizedBox(width: 8.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Tooltip(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                MdiIcons.download,
+                size: 16.sp,
+                color: BTColors.textSecondary(context),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Tooltip(
                   message: item.title ?? '',
                   child: Text(
                     item.title ?? '',
                     style: BTTypography.body(context),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                SizedBox(height: 2.h),
-                Row(
-                  children: [
-                    if (fileSize != null) ...[
-                      Icon(
-                        FluentIcons.save,
-                        size: 10.sp,
-                        color: BTColors.textTertiary(context),
-                      ),
-                      SizedBox(width: 4.w),
-                      Text(fileSize, style: BTTypography.caption(context)),
-                      SizedBox(width: 12.w),
-                    ],
-                    if (item.pubDate != null) ...[
-                      Icon(
-                        FluentIcons.clock,
-                        size: 10.sp,
-                        color: BTColors.textTertiary(context),
-                      ),
-                      SizedBox(width: 4.w),
-                      Text(
-                        item.pubDate!.substring(0, 10),
-                        style: BTTypography.caption(context),
-                      ),
-                    ],
-                  ],
+              ),
+            ],
+          ),
+          SizedBox(height: 4.h),
+          Row(
+            children: [
+              if (fileSize != null) ...[
+                Icon(
+                  FluentIcons.save,
+                  size: 10.sp,
+                  color: BTColors.textTertiary(context),
+                ),
+                SizedBox(width: 4.w),
+                Text(fileSize, style: BTTypography.caption(context)),
+                SizedBox(width: 12.w),
+              ],
+              if (item.pubDate != null) ...[
+                Icon(
+                  FluentIcons.clock,
+                  size: 10.sp,
+                  color: BTColors.textTertiary(context),
+                ),
+                SizedBox(width: 4.w),
+                Text(
+                  item.pubDate!.substring(0, 10),
+                  style: BTTypography.caption(context),
                 ),
               ],
-            ),
-          ),
-          SizedBox(width: 8.w),
-          _RssItemActions(
-            item: item,
-            dir: bmf.download,
-            subject: bmf.subject,
-            rssLink: bmf.rss!,
+              const Spacer(),
+              _RssItemActions(
+                item: item,
+                dir: bmf.download,
+                subject: bmf.subject,
+                rssLink: bmf.rss!,
+              ),
+            ],
           ),
         ],
       ),
@@ -650,6 +708,21 @@ class _RssItemActions extends ConsumerWidget {
     required this.rssLink,
   });
 
+  Future<String?> getSavePath(BuildContext context) async {
+    if (item.enclosure?.url == null || item.title == null) return null;
+    var sqliteConfig = BtsAppConfig();
+    var mikanUrl = await sqliteConfig.readMikanUrl();
+    var urlReal = item.enclosure!.url!;
+    if (mikanUrl != null && mikanUrl.isNotEmpty) {
+      var url = Uri.parse(item.enclosure!.url!);
+      var urlDomain = '${url.scheme}://${url.host}';
+      urlReal = item.enclosure!.url!.replaceFirst(urlDomain, mikanUrl);
+    }
+    var dtt = BTDownloadTool();
+    var savePath = await dtt.downloadRssTorrent(urlReal, item.title!);
+    return savePath.isEmpty ? null : savePath;
+  }
+
   Future<void> downloadWithMotrix(BuildContext context) async {
     if (item.enclosure?.url == null || item.title == null) return;
     var saveDir = dir;
@@ -657,12 +730,40 @@ class _RssItemActions extends ConsumerWidget {
       await BtInfobar.error(context, '未设置下载目录');
       return;
     }
+    var savePath = await getSavePath(context);
+    if (savePath == null) return;
     await launchUrlString('mo://new-task/?type=torrent&dir=$saveDir');
+    await launchUrlString('file://$savePath');
+  }
+
+  Future<void> downloadInner(BuildContext context, WidgetRef ref) async {
+    if (item.enclosure?.url == null || item.title == null) return;
+    var saveDir = dir;
+    if (saveDir == null || saveDir.isEmpty) {
+      await BtInfobar.error(context, '未设置下载目录');
+      return;
+    }
+    var check = await ref
+        .read(dttStoreProvider.notifier)
+        .addTask(item, saveDir);
+    if (check) {
+      if (context.mounted) await BtInfobar.success(context, '添加下载任务成功');
+    } else {
+      if (context.mounted) await BtInfobar.warn(context, '已经在下载列表中');
+    }
   }
 
   Future<void> openLink(BuildContext context) async {
     if (item.link == null) return;
-    await launchUrlString(item.link!);
+    var sqliteConfig = BtsAppConfig();
+    var mikanUrl = await sqliteConfig.readMikanUrl();
+    var linkReal = item.link!;
+    if (mikanUrl != null && mikanUrl.isNotEmpty) {
+      var url = Uri.parse(item.link!);
+      var urlDomain = '${url.scheme}://${url.host}';
+      linkReal = item.link!.replaceFirst(urlDomain, mikanUrl);
+    }
+    await launchUrlString(linkReal);
   }
 
   @override
@@ -670,6 +771,14 @@ class _RssItemActions extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (kDebugMode)
+          Tooltip(
+            message: '内置下载',
+            child: IconButton(
+              icon: BtIcon(FluentIcons.link, size: 14.sp),
+              onPressed: () async => await downloadInner(context, ref),
+            ),
+          ),
         Tooltip(
           message: 'Motrix 下载',
           child: IconButton(
