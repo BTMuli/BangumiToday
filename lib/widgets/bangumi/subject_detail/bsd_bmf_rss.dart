@@ -283,13 +283,15 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        buildTitle(),
-        SizedBox(height: 12.h),
-        buildRssList(),
-      ],
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          buildTitle(),
+          SizedBox(height: 12.h),
+          buildRssList(),
+        ],
+      ),
     );
   }
 }

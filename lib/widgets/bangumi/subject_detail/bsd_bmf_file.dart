@@ -147,7 +147,10 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
               message: file,
               child: Text(
                 file,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -237,13 +240,15 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        buildTitle(),
-        SizedBox(height: 12.h),
-        buildFilesList(),
-      ],
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          buildTitle(),
+          SizedBox(height: 12.h),
+          buildFilesList(),
+        ],
+      ),
     );
   }
 }
