@@ -16,13 +16,11 @@ import '../../utils/tool_func.dart';
 class RssComicatCardFluent extends ConsumerStatefulWidget {
   final RssItem item;
 
-  const RssComicatCardFluent({
-    super.key,
-    required this.item,
-  });
+  const RssComicatCardFluent({super.key, required this.item});
 
   @override
-  ConsumerState<RssComicatCardFluent> createState() => _RssComicatCardFluentState();
+  ConsumerState<RssComicatCardFluent> createState() =>
+      _RssComicatCardFluentState();
 }
 
 class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
@@ -58,7 +56,9 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
       return;
     }
 
-    var check = await ref.read(dttStoreProvider.notifier).addTask(item, saveDir);
+    var check = await ref
+        .read(dttStoreProvider.notifier)
+        .addTask(item, saveDir);
     if (check && context.mounted) {
       await BtInfobar.success(context, '添加下载任务成功');
       return;
@@ -108,8 +108,6 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
-          transform: Matrix4.identity()
-            ..translate(0.0, _isPressed ? 2.0 : 0.0),
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(8.r),
@@ -135,156 +133,163 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                 sigmaX: _isHovered ? 20 : 10,
                 sigmaY: _isHovered ? 20 : 10,
               ),
-              child: Padding(
-                padding: EdgeInsets.all(12.r),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Tooltip(
-                        message: title,
-                        child: Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w600,
-                            height: 1.4,
+              child: Transform.translate(
+                offset: Offset(0, _isPressed ? 2.0 : 0.0),
+                child: Padding(
+                  padding: EdgeInsets.all(12.r),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Tooltip(
+                          message: title,
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w600,
+                              height: 1.4,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
-                    SizedBox(height: 8.h),
-                    Row(
-                      children: [
-                        if (item.author != null && item.author!.isNotEmpty) ...[
+                      SizedBox(height: 8.h),
+                      Row(
+                        children: [
+                          if (item.author != null &&
+                              item.author!.isNotEmpty) ...[
+                            Icon(
+                              FluentIcons.contact,
+                              size: 12.sp,
+                              color: theme.brightness == Brightness.light
+                                  ? Colors.grey[130]
+                                  : Colors.grey[100],
+                            ),
+                            SizedBox(width: 4.w),
+                            Expanded(
+                              child: Text(
+                                item.author!,
+                                style: TextStyle(
+                                  fontSize: 11.sp,
+                                  color: theme.brightness == Brightness.light
+                                      ? Colors.grey[130]
+                                      : Colors.grey[100],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            SizedBox(width: 12.w),
+                          ],
                           Icon(
-                            FluentIcons.contact,
+                            FluentIcons.clock,
                             size: 12.sp,
                             color: theme.brightness == Brightness.light
                                 ? Colors.grey[130]
                                 : Colors.grey[100],
                           ),
                           SizedBox(width: 4.w),
-                          Expanded(
-                            child: Text(
-                              item.author!,
-                              style: TextStyle(
-                                fontSize: 11.sp,
-                                color: theme.brightness == Brightness.light
-                                    ? Colors.grey[130]
-                                    : Colors.grey[100],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          Text(
+                            time,
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: theme.brightness == Brightness.light
+                                  ? Colors.grey[130]
+                                  : Colors.grey[100],
                             ),
                           ),
-                          SizedBox(width: 12.w),
                         ],
-                        Icon(
-                          FluentIcons.clock,
-                          size: 12.sp,
-                          color: theme.brightness == Brightness.light
-                              ? Colors.grey[130]
-                              : Colors.grey[100],
-                        ),
-                        SizedBox(width: 4.w),
-                        Text(
-                          time,
-                          style: TextStyle(
-                            fontSize: 11.sp,
+                      ),
+                      SizedBox(height: 4.h),
+                      Row(
+                        children: [
+                          Icon(
+                            FluentIcons.download,
+                            size: 12.sp,
                             color: theme.brightness == Brightness.light
                                 ? Colors.grey[130]
                                 : Colors.grey[100],
                           ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 4.h),
-                    Row(
-                      children: [
-                        Icon(
-                          FluentIcons.download,
-                          size: 12.sp,
-                          color: theme.brightness == Brightness.light
-                              ? Colors.grey[130]
-                              : Colors.grey[100],
-                        ),
-                        SizedBox(width: 4.w),
-                        Text(
-                          sizeStr,
-                          style: TextStyle(
-                            fontSize: 11.sp,
-                            color: theme.brightness == Brightness.light
-                                ? Colors.grey[130]
-                                : Colors.grey[100],
+                          SizedBox(width: 4.w),
+                          Text(
+                            sizeStr,
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: theme.brightness == Brightness.light
+                                  ? Colors.grey[130]
+                                  : Colors.grey[100],
+                            ),
                           ),
-                        ),
-                        if (item.enclosure?.type != null &&
-                            item.enclosure!.type!.isNotEmpty) ...[
-                          SizedBox(width: 12.w),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 6.w,
-                              vertical: 2.h,
+                          if (item.enclosure?.type != null &&
+                              item.enclosure!.type!.isNotEmpty) ...[
+                            SizedBox(width: 12.w),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6.w,
+                                vertical: 2.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: accentColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4.r),
+                              ),
+                              child: Text(
+                                item.enclosure!.type!
+                                    .split('/')
+                                    .last
+                                    .toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 10.sp,
+                                  color: accentColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                            decoration: BoxDecoration(
-                              color: accentColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4.r),
-                            ),
-                            child: Text(
-                              item.enclosure!.type!.split('/').last.toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 10.sp,
+                          ],
+                        ],
+                      ),
+                      SizedBox(height: 8.h),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Tooltip(
+                            message: '下载',
+                            child: IconButton(
+                              icon: Icon(
+                                FluentIcons.download,
+                                size: 16.sp,
                                 color: accentColor,
-                                fontWeight: FontWeight.w600,
                               ),
+                              onPressed: () => _download(context),
+                            ),
+                          ),
+                          Tooltip(
+                            message: '内置下载',
+                            child: IconButton(
+                              icon: Icon(
+                                FluentIcons.save,
+                                size: 16.sp,
+                                color: accentColor,
+                              ),
+                              onPressed: () => _downloadInner(context),
+                            ),
+                          ),
+                          Tooltip(
+                            message: '打开链接',
+                            child: IconButton(
+                              icon: Icon(
+                                FluentIcons.edge_logo,
+                                size: 16.sp,
+                                color: accentColor,
+                              ),
+                              onPressed: _openLink,
                             ),
                           ),
                         ],
-                      ],
-                    ),
-                    SizedBox(height: 8.h),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Tooltip(
-                          message: '下载',
-                          child: IconButton(
-                            icon: Icon(
-                              FluentIcons.download,
-                              size: 16.sp,
-                              color: accentColor,
-                            ),
-                            onPressed: () => _download(context),
-                          ),
-                        ),
-                        Tooltip(
-                          message: '内置下载',
-                          child: IconButton(
-                            icon: Icon(
-                              FluentIcons.save,
-                              size: 16.sp,
-                              color: accentColor,
-                            ),
-                            onPressed: () => _downloadInner(context),
-                          ),
-                        ),
-                        Tooltip(
-                          message: '打开链接',
-                          child: IconButton(
-                            icon: Icon(
-                              FluentIcons.edge_logo,
-                              size: 16.sp,
-                              color: accentColor,
-                            ),
-                            onPressed: _openLink,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

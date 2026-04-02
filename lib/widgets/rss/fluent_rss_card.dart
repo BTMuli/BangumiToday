@@ -50,8 +50,6 @@ class _FluentRssCardState extends State<FluentRssCard> {
           curve: Curves.easeInOut,
           width: widget.width,
           height: widget.height,
-          transform: Matrix4.identity()
-            ..translate(0.0, _isPressed ? 2.0 : 0.0),
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(8.r),
@@ -77,9 +75,12 @@ class _FluentRssCardState extends State<FluentRssCard> {
                 sigmaX: _isHovered ? 20 : 10,
                 sigmaY: _isHovered ? 20 : 10,
               ),
-              child: Padding(
-                padding: widget.padding ?? EdgeInsets.all(12.r),
-                child: widget.child,
+              child: Transform.translate(
+                offset: Offset(0, _isPressed ? 2.0 : 0.0),
+                child: Padding(
+                  padding: widget.padding ?? EdgeInsets.all(12.r),
+                  child: widget.child,
+                ),
               ),
             ),
           ),

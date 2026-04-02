@@ -16,11 +16,7 @@ class RssMikanCardFluent extends StatefulWidget {
   final RssItem item;
   final String? dir;
 
-  const RssMikanCardFluent({
-    super.key,
-    required this.item,
-    this.dir,
-  });
+  const RssMikanCardFluent({super.key, required this.item, this.dir});
 
   @override
   State<RssMikanCardFluent> createState() => _RssMikanCardFluentState();
@@ -115,8 +111,6 @@ class _RssMikanCardFluentState extends State<RssMikanCardFluent> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
-          transform: Matrix4.identity()
-            ..translate(0.0, _isPressed ? 2.0 : 0.0),
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(8.r),
@@ -142,95 +136,98 @@ class _RssMikanCardFluentState extends State<RssMikanCardFluent> {
                 sigmaX: _isHovered ? 20 : 10,
                 sigmaY: _isHovered ? 20 : 10,
               ),
-              child: Padding(
-                padding: EdgeInsets.all(12.r),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Tooltip(
-                        message: item.title ?? '',
-                        child: Text(
-                          item.title ?? '',
-                          style: TextStyle(
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w600,
-                            height: 1.4,
+              child: Transform.translate(
+                offset: Offset(0, _isPressed ? 2.0 : 0.0),
+                child: Padding(
+                  padding: EdgeInsets.all(12.r),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Tooltip(
+                          message: item.title ?? '',
+                          child: Text(
+                            item.title ?? '',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w600,
+                              height: 1.4,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
-                    SizedBox(height: 8.h),
-                    Row(
-                      children: [
-                        Icon(
-                          FluentIcons.clock,
-                          size: 12.sp,
-                          color: theme.brightness == Brightness.light
-                              ? Colors.grey[130]
-                              : Colors.grey[100],
-                        ),
-                        SizedBox(width: 4.w),
-                        Text(
-                          pubDate,
-                          style: TextStyle(
-                            fontSize: 11.sp,
+                      SizedBox(height: 8.h),
+                      Row(
+                        children: [
+                          Icon(
+                            FluentIcons.clock,
+                            size: 12.sp,
                             color: theme.brightness == Brightness.light
                                 ? Colors.grey[130]
                                 : Colors.grey[100],
                           ),
-                        ),
-                        SizedBox(width: 12.w),
-                        Icon(
-                          FluentIcons.download,
-                          size: 12.sp,
-                          color: theme.brightness == Brightness.light
-                              ? Colors.grey[130]
-                              : Colors.grey[100],
-                        ),
-                        SizedBox(width: 4.w),
-                        Text(
-                          sizeStr,
-                          style: TextStyle(
-                            fontSize: 11.sp,
+                          SizedBox(width: 4.w),
+                          Text(
+                            pubDate,
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: theme.brightness == Brightness.light
+                                  ? Colors.grey[130]
+                                  : Colors.grey[100],
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Icon(
+                            FluentIcons.download,
+                            size: 12.sp,
                             color: theme.brightness == Brightness.light
                                 ? Colors.grey[130]
                                 : Colors.grey[100],
                           ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 8.h),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Tooltip(
-                          message: '下载',
-                          child: IconButton(
-                            icon: Icon(
-                              FluentIcons.download,
-                              size: 16.sp,
-                              color: accentColor,
+                          SizedBox(width: 4.w),
+                          Text(
+                            sizeStr,
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: theme.brightness == Brightness.light
+                                  ? Colors.grey[130]
+                                  : Colors.grey[100],
                             ),
-                            onPressed: () => _download(context),
                           ),
-                        ),
-                        Tooltip(
-                          message: '打开链接',
-                          child: IconButton(
-                            icon: Icon(
-                              FluentIcons.edge_logo,
-                              size: 16.sp,
-                              color: accentColor,
+                        ],
+                      ),
+                      SizedBox(height: 8.h),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Tooltip(
+                            message: '下载',
+                            child: IconButton(
+                              icon: Icon(
+                                FluentIcons.download,
+                                size: 16.sp,
+                                color: accentColor,
+                              ),
+                              onPressed: () => _download(context),
                             ),
-                            onPressed: _openLink,
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          Tooltip(
+                            message: '打开链接',
+                            child: IconButton(
+                              icon: Icon(
+                                FluentIcons.edge_logo,
+                                size: 16.sp,
+                                color: accentColor,
+                              ),
+                              onPressed: _openLink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

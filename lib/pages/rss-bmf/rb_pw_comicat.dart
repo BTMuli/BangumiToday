@@ -91,9 +91,12 @@ class _RbpComicatState extends State<RbpComicatWidget>
       return LayoutBuilder(
         builder: (context, constraints) {
           var cardWidth = 320.0;
-          var crossAxisCount = (constraints.maxWidth / cardWidth).floor().clamp(1, 6);
+          var crossAxisCount = (constraints.maxWidth / cardWidth).floor().clamp(
+            1,
+            6,
+          );
           var mainAxisExtent = 200.0;
-          
+
           return Stack(
             children: [
               GridView.builder(
@@ -116,7 +119,9 @@ class _RbpComicatState extends State<RbpComicatWidget>
                   opacity: 0.3,
                   child: SizedBox(
                     width: 100.spMin,
-                    child: Image.asset('assets/images/platforms/comicat-kb.png'),
+                    child: Image.asset(
+                      'assets/images/platforms/comicat-kb.png',
+                    ),
                   ),
                 ),
               ),

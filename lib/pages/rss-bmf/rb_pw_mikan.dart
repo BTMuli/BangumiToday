@@ -276,9 +276,12 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
       return LayoutBuilder(
         builder: (context, constraints) {
           var cardWidth = 280.0;
-          var crossAxisCount = (constraints.maxWidth / cardWidth).floor().clamp(1, 6);
+          var crossAxisCount = (constraints.maxWidth / cardWidth).floor().clamp(
+            1,
+            6,
+          );
           var mainAxisExtent = 180.0;
-          
+
           return GridView.builder(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
