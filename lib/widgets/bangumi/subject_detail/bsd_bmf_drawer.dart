@@ -192,6 +192,15 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
     setState(() {});
   }
 
+  Future<void> deleteRss() async {
+    if (bmf.rss == null || bmf.rss!.isEmpty) return;
+    await sqliteRss.delete(bmf.rss!);
+    bmf = bmf.copyWith(rss: null);
+    await sqliteBmf.write(bmf);
+    if (mounted) await BtInfobar.success(context, '成功删除 RSS 订阅');
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     var screenHeight = MediaQuery.of(context).size.height;
@@ -221,6 +230,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
                     bmf: bmf,
                     isConfig: false,
                     maxHeight: maxExpanderHeight,
+                    onDelete: deleteRss,
                   ),
                 if (bmf.id == -1)
                   Padding(
