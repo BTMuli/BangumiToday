@@ -18,8 +18,7 @@ import '../../../tools/file_tool.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_icon.dart';
 import '../../../ui/bt_infobar.dart';
-import 'bsd_bmf_file.dart';
-import 'bsd_bmf_rss.dart';
+import 'bmf_expander.dart';
 
 class BsdBmfDrawer extends ConsumerStatefulWidget {
   final int subjectId;
@@ -195,11 +194,11 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final titleBarHeight = 48.h;
-    final paddingHeight = 24.h;
-    final maxExpanderHeight =
-        (screenHeight - titleBarHeight - paddingHeight) * 0.45;
+    var screenHeight = MediaQuery.of(context).size.height;
+    var titleBarHeight = 48.h;
+    var paddingHeight = 24.h;
+    var maxExpanderHeight =
+        (screenHeight - titleBarHeight - paddingHeight) * 0.35;
 
     return Column(
       children: [
@@ -210,35 +209,18 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
             child: Column(
               children: [
                 if (bmf.download != null && bmf.download!.isNotEmpty)
-                  Expander(
-                    leading: Icon(
-                      FluentIcons.folder_open,
-                      size: 18.sp,
-                      color: FluentTheme.of(context).accentColor,
-                    ),
-                    header: Text('下载文件', style: BTTypography.subtitle(context)),
-                    content: SizedBox(
-                      height: maxExpanderHeight,
-                      child: BsdBmfFile(bmf.download!, bmf.subject),
-                    ),
+                  BmfFileExpander(
+                    downloadDir: bmf.download!,
+                    subject: bmf.subject,
+                    maxHeight: maxExpanderHeight,
                   ),
                 if (bmf.download != null && bmf.download!.isNotEmpty)
                   SizedBox(height: 8.h),
                 if (bmf.rss != null && bmf.rss!.isNotEmpty)
-                  Expander(
-                    leading: Icon(
-                      MdiIcons.rss,
-                      size: 18.sp,
-                      color: FluentTheme.of(context).accentColor,
-                    ),
-                    header: Text(
-                      'RSS 订阅',
-                      style: BTTypography.subtitle(context),
-                    ),
-                    content: SizedBox(
-                      height: maxExpanderHeight,
-                      child: BsdBmfRss(bmf, false),
-                    ),
+                  BmfRssExpander(
+                    bmf: bmf,
+                    isConfig: false,
+                    maxHeight: maxExpanderHeight,
                   ),
                 if (bmf.id == -1)
                   Padding(
