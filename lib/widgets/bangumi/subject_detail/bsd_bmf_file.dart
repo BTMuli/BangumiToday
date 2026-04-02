@@ -177,6 +177,8 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
     }
 
     return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: files.length,
       itemBuilder: (context, index) {
         return Padding(

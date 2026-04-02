@@ -263,6 +263,8 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     }
 
     return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: rssItems.length,
       itemBuilder: (context, index) {
         return Padding(

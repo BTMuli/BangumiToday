@@ -196,7 +196,10 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    final maxExpanderHeight = screenHeight * 0.35;
+    final titleBarHeight = 48.h;
+    final paddingHeight = 24.h;
+    final maxExpanderHeight =
+        (screenHeight - titleBarHeight - paddingHeight) * 0.45;
 
     return Column(
       children: [
