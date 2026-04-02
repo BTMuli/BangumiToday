@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -281,14 +282,22 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
         children: [
           Expanded(
             child: Tooltip(
-              message: bmf.title ?? widget.title,
-              child: Text(
-                bmf.title ?? widget.title,
-                style: BTTypography.subtitle(
-                  context,
-                ).copyWith(fontWeight: FontWeight.w600),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              message: '点击复制标题',
+              child: GestureDetector(
+                onTap: () async {
+                  await Clipboard.setData(
+                    ClipboardData(text: bmf.title ?? widget.title),
+                  );
+                  if (mounted) await BtInfobar.success(context, '已复制到剪贴板');
+                },
+                child: Text(
+                  bmf.title ?? widget.title,
+                  style: BTTypography.subtitle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ),
