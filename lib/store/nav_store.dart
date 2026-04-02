@@ -1,16 +1,13 @@
-// Flutter imports:
 import 'package:flutter/foundation.dart';
 
-// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hive/hive.dart';
 
-// Project imports:
+import '../core/memory/memory_manager.dart';
 import '../models/hive/nav_model.dart';
 import '../pages/subject-detail/subject_detail_page.dart';
 
-/// 侧边栏状态提供者
 final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
   var store = BTNavStore();
   var items = Hive.box<BtmAppNavHive>('nav').values.toList();
@@ -26,29 +23,81 @@ final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
   return store;
 });
 
-/// 侧边栏状态，用于控制侧边栏动态组件的加载与卸载
 class BTNavStore extends ChangeNotifier {
-  /// 保留的顶部固定侧边栏
   final int topNavCount = kDebugMode ? 4 : 3;
 
-  /// 当前索引
   int curIndex = 0;
 
-  /// 侧边栏动态组件
   final List<BtmAppNavItem> _navItems = [];
 
-  /// 获取侧边栏动态组件
+  final Set<int> _loadedIndices = {};
+
+  final Map<int, Widget> _cachedBodies = {};
+
+  final int maxCachedPages = 10;
+
   List<PaneItem> get navItems {
     return _navItems.map((e) => e.body).toList();
   }
 
-  /// 设置当前索引
+  Set<int> get loadedIndices => Set.unmodifiable(_loadedIndices);
+
+  bool isIndexLoaded(int index) => _loadedIndices.contains(index);
+
   void setCurIndex(int index) {
+    if (curIndex != index) {
+      _markIndexAsNotInUse(curIndex);
+    }
     curIndex = index;
+    _loadedIndices.add(index);
+    _preloadAdjacent(index);
+    _cleanupCache();
     notifyListeners();
   }
 
-  /// 获取navIndex
+  void _markIndexAsNotInUse(int index) {
+    final navIndex = index - topNavCount;
+    if (navIndex >= 0 && navIndex < _navItems.length) {
+      final item = _navItems[navIndex];
+      final key = 'nav_item_${item.param ?? item.title}';
+      MemoryManager.instance.unregisterDisposable(key);
+    }
+  }
+
+  void _preloadAdjacent(int index) {
+    for (int i = 1; i <= 2; i++) {
+      final prevIndex = index - i;
+      final nextIndex = index + i;
+      if (prevIndex >= 0) _loadedIndices.add(prevIndex);
+      if (nextIndex < topNavCount + _navItems.length) {
+        _loadedIndices.add(nextIndex);
+      }
+    }
+  }
+
+  void _cleanupCache() {
+    if (_cachedBodies.length <= maxCachedPages) return;
+
+    final keysToRemove = <int>[];
+    for (final key in _cachedBodies.keys) {
+      if ((key - curIndex).abs() > 3) {
+        keysToRemove.add(key);
+      }
+    }
+
+    for (final key in keysToRemove) {
+      _cachedBodies.remove(key);
+      _loadedIndices.remove(key);
+    }
+  }
+
+  void clearCache() {
+    _cachedBodies.clear();
+    _loadedIndices.clear();
+    _loadedIndices.add(curIndex);
+    notifyListeners();
+  }
+
   int getNavIndex(BtmAppNavItemType type, String? title, String? param) {
     var res = -1;
     if (type == BtmAppNavItemType.app) {
@@ -63,13 +112,12 @@ class BTNavStore extends ChangeNotifier {
     return res;
   }
 
-  /// 前往指定index
   void goIndex(int index) {
     curIndex = index;
+    _loadedIndices.add(index);
     notifyListeners();
   }
 
-  /// 封装-添加条目详情侧边栏动态组件
   void addNavItemB({
     String type = '条目',
     required int subject,
@@ -88,7 +136,6 @@ class BTNavStore extends ChangeNotifier {
     addNavItem(pane, title, type: paneType, param: param, jump: jump);
   }
 
-  /// 添加侧边栏动态组件
   void addNavItem(
     PaneItem item,
     String title, {
@@ -136,10 +183,10 @@ class BTNavStore extends ChangeNotifier {
     } else {
       curIndex = _navItems.length + topNavCount - 1;
     }
+    _loadedIndices.add(curIndex);
     notifyListeners();
   }
 
-  /// 移除侧边栏动态组件
   void removeNavItem(
     String title, {
     BtmAppNavItemType type = BtmAppNavItemType.app,
@@ -147,10 +194,15 @@ class BTNavStore extends ChangeNotifier {
   }) {
     var findIndex = getNavIndex(type, title, param);
     if (findIndex == -1) return;
+
+    final actualIndex = findIndex + topNavCount;
+    _cachedBodies.remove(actualIndex);
+    _loadedIndices.remove(actualIndex);
+
     _navItems.removeAt(findIndex);
-    if (curIndex == findIndex + topNavCount) {
+    if (curIndex == actualIndex) {
       curIndex = 0;
-    } else if (curIndex > findIndex + topNavCount) {
+    } else if (curIndex > actualIndex) {
       curIndex -= 1;
     }
     if (type == BtmAppNavItemType.subject) {
@@ -158,5 +210,16 @@ class BTNavStore extends ChangeNotifier {
       Hive.box<BtmAppNavHive>('nav').delete(subject);
     }
     notifyListeners();
+  }
+
+  int get totalNavCount => topNavCount + _navItems.length;
+
+  Map<String, dynamic> getStats() {
+    return {
+      'totalNavCount': totalNavCount,
+      'loadedIndices': _loadedIndices.length,
+      'cachedBodies': _cachedBodies.length,
+      'curIndex': curIndex,
+    };
   }
 }
