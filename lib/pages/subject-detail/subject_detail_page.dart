@@ -22,6 +22,7 @@ import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../widgets/common/bt_animations.dart';
+import '../../widgets/common/bt_drawer.dart';
 import '../../widgets/bangumi/subject_detail/bsd_bmf.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_episodes.dart';
@@ -302,6 +303,28 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     );
   }
 
+  Widget _buildBmfDrawerButton(BuildContext context) {
+    final accentColor = FluentTheme.of(context).accentColor;
+    return Tooltip(
+      message: '打开 BMF 配置',
+      child: IconButton(
+        icon: Icon(FluentIcons.download, size: 18.sp, color: accentColor),
+        onPressed: () => showBTDrawer(
+          context: context,
+          width: 420,
+          child: BTDrawer(
+            title: 'BMF 配置',
+            child: BsdBmfWidget(
+              data!.id,
+              data!.nameCn.isEmpty ? data!.name : data!.nameCn,
+              rssProvider: rssProvider,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget buildSummary(String summary) {
     if (summary == '') {
       return Padding(
@@ -441,28 +464,25 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
                   color: BTColors.surfaceSecondary(context),
                   borderRadius: BTRadius.mediumBR,
                 ),
-                child: BsdUserCollection(
-                  data!,
-                  hiveUser.user!,
-                  collectProvider,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: BsdUserCollection(
+                        data!,
+                        hiveUser.user!,
+                        collectProvider,
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    _buildBmfDrawerButton(context),
+                  ],
                 ),
               ),
             ),
 
-          if (hiveUser.user != null)
-            BTFadeSlideIn(
-              duration: const Duration(milliseconds: 400),
-              delay: const Duration(milliseconds: 100),
-              child: BsdBmfWidget(
-                data!.id,
-                data!.nameCn.isEmpty ? data!.name : data!.nameCn,
-                rssProvider: rssProvider,
-              ),
-            ),
-
           BTFadeSlideIn(
-            duration: const Duration(milliseconds: 450),
-            delay: const Duration(milliseconds: 150),
+            duration: const Duration(milliseconds: 400),
+            delay: const Duration(milliseconds: 100),
             child: Expander(
               leading: Icon(
                 FluentIcons.video,
@@ -475,8 +495,8 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
           ),
 
           BTFadeSlideIn(
-            duration: const Duration(milliseconds: 500),
-            delay: const Duration(milliseconds: 200),
+            duration: const Duration(milliseconds: 450),
+            delay: const Duration(milliseconds: 150),
             child: Expander(
               leading: Icon(
                 FluentIcons.link,
@@ -489,8 +509,8 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
           ),
 
           BTFadeSlideIn(
-            duration: const Duration(milliseconds: 550),
-            delay: const Duration(milliseconds: 250),
+            duration: const Duration(milliseconds: 500),
+            delay: const Duration(milliseconds: 200),
             child: Expander(
               initiallyExpanded: true,
               leading: Icon(
@@ -504,8 +524,8 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
           ),
 
           BTFadeSlideIn(
-            duration: const Duration(milliseconds: 600),
-            delay: const Duration(milliseconds: 300),
+            duration: const Duration(milliseconds: 550),
+            delay: const Duration(milliseconds: 250),
             child: Expander(
               leading: Icon(
                 FluentIcons.settings,
