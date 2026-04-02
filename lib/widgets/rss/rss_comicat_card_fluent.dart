@@ -89,10 +89,10 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
       ).format(pattern: 'MM-dd HH:mm');
     }
 
-    String sizeStr = '';
-    if (item.enclosure?.length != null) {
-      sizeStr = filesize(item.enclosure!.length);
-    }
+    // String sizeStr = '';
+    // if (item.enclosure?.length != null) {
+    //   sizeStr = filesize(item.enclosure!.length);
+    // }
 
     var backgroundColor = theme.brightness == Brightness.light
         ? Colors.white.withValues(alpha: _isHovered ? 0.95 : 0.85)
@@ -158,6 +158,29 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                       SizedBox(height: 8.h),
                       Row(
                         children: [
+                          if (item.categories.isNotEmpty &&
+                              item.categories.first.value != null &&
+                              item.categories.first.value!.isNotEmpty) ...[
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6.w,
+                                vertical: 2.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: accentColor.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4.r),
+                              ),
+                              child: Text(
+                                item.categories.first.value!,
+                                style: TextStyle(
+                                  fontSize: 10.sp,
+                                  color: accentColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8.w),
+                          ],
                           if (item.author != null &&
                               item.author!.isNotEmpty) ...[
                             Icon(
@@ -205,26 +228,25 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                       SizedBox(height: 4.h),
                       Row(
                         children: [
-                          Icon(
-                            FluentIcons.download,
-                            size: 12.sp,
-                            color: theme.brightness == Brightness.light
-                                ? Colors.grey[130]
-                                : Colors.grey[100],
-                          ),
-                          SizedBox(width: 4.w),
-                          Text(
-                            sizeStr,
-                            style: TextStyle(
-                              fontSize: 11.sp,
-                              color: theme.brightness == Brightness.light
-                                  ? Colors.grey[130]
-                                  : Colors.grey[100],
-                            ),
-                          ),
+                          // Icon(
+                          //   FluentIcons.download,
+                          //   size: 12.sp,
+                          //   color: theme.brightness == Brightness.light
+                          //       ? Colors.grey[130]
+                          //       : Colors.grey[100],
+                          // ),
+                          // SizedBox(width: 4.w),
+                          // Text(
+                          //   sizeStr,
+                          //   style: TextStyle(
+                          //     fontSize: 11.sp,
+                          //     color: theme.brightness == Brightness.light
+                          //         ? Colors.grey[130]
+                          //         : Colors.grey[100],
+                          //   ),
+                          // ),
                           if (item.enclosure?.type != null &&
                               item.enclosure!.type!.isNotEmpty) ...[
-                            SizedBox(width: 12.w),
                             Container(
                               padding: EdgeInsets.symmetric(
                                 horizontal: 6.w,
