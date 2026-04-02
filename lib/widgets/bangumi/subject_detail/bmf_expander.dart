@@ -114,60 +114,61 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
         borderRadius: BTRadius.smallBR,
         border: Border.all(color: BTColors.divider(context), width: 1),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            isTorrent
-                ? FluentIcons.file_code
-                : isVideo
-                ? FluentIcons.video
-                : FluentIcons.document,
-            size: 16.sp,
-            color: isDownloading
-                ? FluentTheme.of(context).accentColor
-                : BTColors.textSecondary(context),
-          ),
-          SizedBox(width: 8.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Tooltip(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                isTorrent
+                    ? FluentIcons.file_code
+                    : isVideo
+                    ? FluentIcons.video
+                    : FluentIcons.document,
+                size: 16.sp,
+                color: isDownloading
+                    ? FluentTheme.of(context).accentColor
+                    : BTColors.textSecondary(context),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Tooltip(
                   message: file,
                   child: Text(
                     file,
                     style: BTTypography.body(context),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (isDownloading) ...[
-                  SizedBox(height: 4.h),
-                  Row(
-                    children: [
-                      Expanded(child: ProgressBar(value: null, strokeWidth: 2)),
-                      SizedBox(width: 8.w),
-                      Text(
-                        '下载中',
-                        style: BTTypography.caption(
-                          context,
-                        ).copyWith(color: FluentTheme.of(context).accentColor),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
+              ),
+            ],
           ),
-          SizedBox(width: 8.w),
-          _FileItemActions(
-            file: file,
-            dir: widget.downloadDir,
-            isVideo: isVideo,
-            isTorrent: isTorrent,
-            isDownloading: isDownloading,
-            onDelete: refreshFiles,
+          SizedBox(height: 6.h),
+          Row(
+            children: [
+              if (isDownloading) ...[
+                Expanded(child: ProgressBar(value: null, strokeWidth: 2)),
+                SizedBox(width: 8.w),
+                Text(
+                  '下载中',
+                  style: BTTypography.caption(
+                    context,
+                  ).copyWith(color: FluentTheme.of(context).accentColor),
+                ),
+                SizedBox(width: 8.w),
+              ] else
+                const Spacer(),
+              _FileItemActions(
+                file: file,
+                dir: widget.downloadDir,
+                isVideo: isVideo,
+                isTorrent: isTorrent,
+                isDownloading: isDownloading,
+                onDelete: refreshFiles,
+              ),
+            ],
           ),
         ],
       ),
@@ -325,12 +326,14 @@ class BmfRssExpander extends ConsumerStatefulWidget {
   final AppBmfModel bmf;
   final bool isConfig;
   final double maxHeight;
+  final Future<void> Function()? onDelete;
 
   const BmfRssExpander({
     super.key,
     required this.bmf,
     required this.isConfig,
     required this.maxHeight,
+    this.onDelete,
   });
 
   @override
@@ -589,6 +592,26 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
             ),
           ),
           const Spacer(),
+          if (widget.onDelete != null)
+            Tooltip(
+              message: '删除订阅',
+              child: IconButton(
+                icon: BtIcon(
+                  FluentIcons.delete,
+                  size: 14.sp,
+                  color: FluentTheme.of(context).accentColor,
+                ),
+                onPressed: () async {
+                  var confirm = await showConfirm(
+                    context,
+                    title: '删除 RSS 订阅',
+                    content: '确定删除该 RSS 订阅配置吗？',
+                  );
+                  if (!confirm) return;
+                  await widget.onDelete!();
+                },
+              ),
+            ),
           Tooltip(
             message: '刷新 RSS',
             child: IconButton(
