@@ -269,7 +269,7 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Column(
+    Widget content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         buildTitle(),
@@ -292,5 +292,13 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
           ),
       ],
     );
+
+    if (rssItems.length > 6) {
+      return ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: 500.h),
+        child: SingleChildScrollView(child: content),
+      );
+    }
+    return content;
   }
 }

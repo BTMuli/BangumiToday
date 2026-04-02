@@ -436,7 +436,6 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
               duration: const Duration(milliseconds: 350),
               delay: const Duration(milliseconds: 50),
               child: Container(
-                margin: EdgeInsets.symmetric(vertical: 8.h),
                 padding: EdgeInsets.all(12.w),
                 decoration: BoxDecoration(
                   color: BTColors.surfaceSecondary(context),
@@ -454,19 +453,16 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
             BTFadeSlideIn(
               duration: const Duration(milliseconds: 400),
               delay: const Duration(milliseconds: 100),
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 4.h),
-                child: BsdBmfWidget(
-                  data!.id,
-                  data!.nameCn.isEmpty ? data!.name : data!.nameCn,
-                  rssProvider: rssProvider,
-                ),
+              child: BsdBmfWidget(
+                data!.id,
+                data!.nameCn.isEmpty ? data!.name : data!.nameCn,
+                rssProvider: rssProvider,
               ),
             ),
 
           BTFadeSlideIn(
-            duration: const Duration(milliseconds: 400),
-            delay: const Duration(milliseconds: 100),
+            duration: const Duration(milliseconds: 450),
+            delay: const Duration(milliseconds: 150),
             child: Expander(
               leading: Icon(
                 FluentIcons.video,
@@ -477,11 +473,10 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
               content: BsdUserEpisodes(data!, hiveUser.user, collectProvider),
             ),
           ),
-          SizedBox(height: 8.h),
 
           BTFadeSlideIn(
-            duration: const Duration(milliseconds: 450),
-            delay: const Duration(milliseconds: 150),
+            duration: const Duration(milliseconds: 500),
+            delay: const Duration(milliseconds: 200),
             child: Expander(
               leading: Icon(
                 FluentIcons.link,
@@ -492,11 +487,10 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
               content: SdpRelationWidget(data!.id),
             ),
           ),
-          SizedBox(height: 8.h),
 
           BTFadeSlideIn(
-            duration: const Duration(milliseconds: 500),
-            delay: const Duration(milliseconds: 200),
+            duration: const Duration(milliseconds: 550),
+            delay: const Duration(milliseconds: 250),
             child: Expander(
               initiallyExpanded: true,
               leading: Icon(
@@ -508,11 +502,10 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
               content: buildSummary(data!.summary),
             ),
           ),
-          SizedBox(height: 8.h),
 
           BTFadeSlideIn(
-            duration: const Duration(milliseconds: 550),
-            delay: const Duration(milliseconds: 250),
+            duration: const Duration(milliseconds: 600),
+            delay: const Duration(milliseconds: 300),
             child: Expander(
               leading: Icon(
                 FluentIcons.settings,
@@ -523,7 +516,6 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
               content: buildOtherInfo(data!.infobox),
             ),
           ),
-          SizedBox(height: 24.h),
         ],
       ),
     );

@@ -183,7 +183,14 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
   /// 构建文件
   Widget buildFiles() {
     if (files.isEmpty) return const Text('没有找到任何文件');
-    return Wrap(spacing: 8, runSpacing: 8, children: buildFileCards(context));
+    var content = Wrap(spacing: 8, runSpacing: 8, children: buildFileCards(context));
+    if (files.length > 6) {
+      return ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: 450.h),
+        child: SingleChildScrollView(child: content),
+      );
+    }
+    return content;
   }
 
   /// buildTitle
