@@ -9,6 +9,7 @@ import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../../core/theme/bt_theme.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/notifier_tool.dart';
 import '../../../ui/bt_dialog.dart';
@@ -16,39 +17,23 @@ import '../../../ui/bt_icon.dart';
 import '../../../ui/bt_infobar.dart';
 import '../../../utils/tool_func.dart';
 
-/// bmf文件部分的组件
 class BsdBmfFile extends ConsumerStatefulWidget {
-  /// bmf file
   final String bmfFile;
-
-  /// bmf subject
   final int subject;
 
-  /// 构造
   const BsdBmfFile(this.bmfFile, this.subject, {super.key});
 
   @override
   ConsumerState<BsdBmfFile> createState() => _BsdBmfFileState();
 }
 
-/// 状态
 class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
-  /// fileTool
   final BTFileTool fileTool = BTFileTool();
-
-  /// notifyTool
   final BTNotifierTool notifierTool = BTNotifierTool();
-
-  /// 文件
   List<String> files = [];
-
-  /// aria2文件，motrix缓存文件
   List<String> aria2Files = [];
-
-  /// 刷新定时器
   late Timer timerFiles;
 
-  /// initState
   @override
   void initState() {
     super.initState();
@@ -64,7 +49,6 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
     }
   }
 
-  /// dispose
   @override
   void dispose() {
     timerFiles.cancel();
@@ -78,7 +62,6 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
     );
   }
 
-  /// 刷新文件
   Future<void> refreshFiles() async {
     var filesGet = await fileTool.getFileNames(widget.bmfFile);
     var aria2FilesGet = filesGet
@@ -97,7 +80,6 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
           .toList();
       if (diffFiles.isNotEmpty) {
         for (var file in diffFiles) {
-          // 判断file是否存在
           var exist = await fileTool.isFileExist(
             path.join(widget.bmfFile, file),
           );
@@ -152,64 +134,77 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
     );
   }
 
-  List<Widget> buildFileCards(BuildContext context) {
-    var res = <Widget>[];
-    for (var file in files) {
-      var title = Tooltip(
-        message: file,
-        child: Text(
-          file,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
+  Widget buildFileCard(BuildContext context, String file) {
+    return SizedBox(
+      width: 275,
+      height: 200,
+      child: Card(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Tooltip(
+              message: file,
+              child: Text(
+                file,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Spacer(),
+            buildFileAct(context, file),
+          ],
         ),
-      );
-      var card = SizedBox(
-        width: 275,
-        height: 200,
-        child: Card(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [title, const Spacer(), buildFileAct(context, file)],
-          ),
-        ),
-      );
-      res.add(card);
-    }
-    return res;
+      ),
+    );
   }
 
-  /// 构建文件
-  Widget buildFiles() {
-    if (files.isEmpty) return const Text('没有找到任何文件');
-    var content = Wrap(spacing: 8, runSpacing: 8, children: buildFileCards(context));
-    if (files.length > 6) {
-      return ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: 450.h),
-        child: SingleChildScrollView(child: content),
+  Widget buildFilesList() {
+    if (files.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.h),
+        child: Text('没有找到任何文件', style: BTTypography.body(context)),
       );
     }
-    return content;
+
+    if (files.length <= 6) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: files.map((f) => buildFileCard(context, f)).toList(),
+      );
+    }
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: 450.h),
+      child: ListView.builder(
+        itemCount: files.length,
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: 8.h),
+            child: buildFileCard(context, files[index]),
+          );
+        },
+      ),
+    );
   }
 
-  /// buildTitle
   Widget buildTitle() {
-    return Flex(
-      direction: Axis.horizontal,
+    return Row(
       children: [
-        Flexible(
+        Expanded(
           child: Tooltip(
             message: widget.bmfFile,
             child: Text(
               '下载目录: ${widget.bmfFile}',
-              style: TextStyle(fontSize: 20),
+              style: BTTypography.subtitle(context),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.w),
         Tooltip(
           message: '刷新文件',
           child: IconButton(
@@ -245,20 +240,19 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [buildTitle(), const SizedBox(height: 12), buildFiles()],
+      children: [
+        buildTitle(),
+        SizedBox(height: 12.h),
+        buildFilesList(),
+      ],
     );
   }
 }
 
-/// 调用potplayer
 class BsdBmfFilePotPlayerBtn extends StatelessWidget {
-  /// 文件
   final String file;
-
-  /// 下载目录
   final String download;
 
-  /// 构造
   const BsdBmfFilePotPlayerBtn(this.file, this.download, {super.key});
 
   @override
@@ -280,20 +274,12 @@ class BsdBmfFilePotPlayerBtn extends StatelessWidget {
   }
 }
 
-/// 删除按钮
 class BsdBmfFileDelBtn extends StatelessWidget {
-  /// 文件
   final String file;
-
-  /// 目录
   final String dir;
-
-  /// 删除回调
   final Future<void> Function() onDelete;
-
   final BTFileTool fileTool = BTFileTool();
 
-  /// 构造
   BsdBmfFileDelBtn({
     required this.file,
     required this.dir,
