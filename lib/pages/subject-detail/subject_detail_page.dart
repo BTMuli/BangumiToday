@@ -20,6 +20,8 @@ import '../../store/bgm_user_hive.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
+import '../../core/theme/bt_theme.dart';
+import '../../widgets/common/bt_animations.dart';
 import '../../widgets/bangumi/subject_detail/bsd_bmf.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_episodes.dart';
@@ -300,132 +302,230 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     );
   }
 
-  /// 构建简介
   Widget buildSummary(String summary) {
     if (summary == '') {
-      return ListTile(
-        leading: const Icon(FluentIcons.error_badge),
-        title: Text('没有简介', style: TextStyle(fontSize: 20)),
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.h),
+        child: Row(
+          children: [
+            Icon(
+              FluentIcons.error_badge,
+              size: 16.sp,
+              color: BTColors.textTertiary(context),
+            ),
+            SizedBox(width: 8.w),
+            Text('暂无简介', style: BTTypography.body(context)),
+          ],
+        ),
       );
     }
-    return Expander(
-      initiallyExpanded: true,
-      leading: const Icon(FluentIcons.info),
-      header: Text('简介', style: TextStyle(fontSize: 20)),
-      content: Text(summary),
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4.h),
+      child: SelectableText(summary, style: BTTypography.body(context)),
     );
   }
 
-  /// 构建其他信息
   Widget buildOtherInfo(List<BangumiInfoBoxItem> infobox) {
+    if (infobox.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.h),
+        child: Row(
+          children: [
+            Icon(
+              FluentIcons.info,
+              size: 16.sp,
+              color: BTColors.textTertiary(context),
+            ),
+            SizedBox(width: 8.w),
+            Text('暂无其他信息', style: BTTypography.body(context)),
+          ],
+        ),
+      );
+    }
     var res = <Widget>[];
-    // 换行加tab
-    var gap = "\n    ";
     for (var item in infobox) {
       String value;
       if (item.value is List) {
         var list = item.value as List;
         value = list
-            .map((e) => e['k'] != null ? '${e['k']}:${e['v']}' : e['v'])
+            .map((e) => e['k'] != null ? '${e['k']}: ${e['v']}' : e['v'])
             .toList()
             .map((e) => replaceEscape(e as String))
-            .join(gap);
-        res.add(Text('${item.key}:$gap$value'));
+            .join('\n');
+        res.add(
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 4.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.key, style: BTTypography.bodyStrong(context)),
+                SizedBox(height: 2.h),
+                SelectableText(value, style: BTTypography.body(context)),
+              ],
+            ),
+          ),
+        );
       } else {
         value = replaceEscape(item.value as String);
-        res.add(Text('${item.key}: $value'));
+        res.add(
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 4.h),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 80.w,
+                  child: Text(
+                    item.key,
+                    style: BTTypography.bodyStrong(context),
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: SelectableText(
+                    value,
+                    style: BTTypography.body(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
       }
-      res.add(SizedBox(height: 12.h));
     }
-    return Expander(
-      leading: const Icon(FluentIcons.info),
-      header: Text('其他信息', style: TextStyle(fontSize: 20)),
-      content: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: res,
-      ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: res,
     );
   }
 
-  /// 构建内容
   Widget buildContent() {
     if (data == null) return buildLoading();
     assert(data != null);
+    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+
     return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+      padding: EdgeInsets.all(16.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 基本信息和评分
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(12.w),
+          BTFadeSlideIn(
+            duration: const Duration(milliseconds: 300),
+            child: Container(
+              padding: EdgeInsets.all(16.w),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? BTColors.surfaceSecondary(context)
+                    : BTColors.surfacePrimary(context),
+                borderRadius: BTRadius.largeBR,
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.black.withValues(alpha: 0.04),
+                ),
+                boxShadow: BTTheme.shadow(context, level: BTShadowLevel.medium),
+              ),
               child: SdpOverviewWidget(data!),
             ),
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 12.h),
 
-          // 用户相关功能
-          if (hiveUser.user != null) ...[
-            Card(
-              child: Padding(
-                padding: EdgeInsets.all(12.w),
-                child: BsdUserCollection(
-                  data!,
-                  hiveUser.user!,
-                  collectProvider,
+          if (hiveUser.user != null)
+            BTFadeSlideIn(
+              duration: const Duration(milliseconds: 350),
+              delay: const Duration(milliseconds: 50),
+              child: Container(
+                margin: EdgeInsets.symmetric(vertical: 8.h),
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: BTColors.surfaceSecondary(context),
+                  borderRadius: BTRadius.mediumBR,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: BsdUserCollection(
+                        data!,
+                        hiveUser.user!,
+                        collectProvider,
+                      ),
+                    ),
+                    Container(
+                      height: 24.h,
+                      width: 1.w,
+                      margin: EdgeInsets.symmetric(horizontal: 12.w),
+                      color: BTColors.divider(context),
+                    ),
+                    Expanded(
+                      child: BsdBmfWidget(
+                        data!.id,
+                        data!.nameCn.isEmpty ? data!.name : data!.nameCn,
+                        rssProvider: rssProvider,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            SizedBox(height: 16.h),
-          ],
 
-          // 剧集信息
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(12.w),
-              child: BsdUserEpisodes(data!, hiveUser.user, collectProvider),
-            ),
-          ),
-          SizedBox(height: 16.h),
-
-          // BMF和RSS功能
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(12.w),
-              child: BsdBmfWidget(
-                data!.id,
-                data!.nameCn.isEmpty ? data!.name : data!.nameCn,
-                rssProvider: rssProvider,
+          BTFadeSlideIn(
+            duration: const Duration(milliseconds: 400),
+            delay: const Duration(milliseconds: 100),
+            child: Expander(
+              leading: Icon(
+                FluentIcons.video,
+                size: 18.sp,
+                color: FluentTheme.of(context).accentColor,
               ),
+              header: Text('剧集列表', style: BTTypography.subtitle(context)),
+              content: BsdUserEpisodes(data!, hiveUser.user, collectProvider),
             ),
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 8.h),
 
-          // 关联条目
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(12.w),
-              child: SdpRelationWidget(data!.id),
+          BTFadeSlideIn(
+            duration: const Duration(milliseconds: 450),
+            delay: const Duration(milliseconds: 150),
+            child: Expander(
+              leading: Icon(
+                FluentIcons.link,
+                size: 18.sp,
+                color: FluentTheme.of(context).accentColor,
+              ),
+              header: Text('关联条目', style: BTTypography.subtitle(context)),
+              content: SdpRelationWidget(data!.id),
             ),
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 8.h),
 
-          // 简介
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(12.w),
-              child: buildSummary(data!.summary),
+          BTFadeSlideIn(
+            duration: const Duration(milliseconds: 500),
+            delay: const Duration(milliseconds: 200),
+            child: Expander(
+              initiallyExpanded: true,
+              leading: Icon(
+                FluentIcons.info,
+                size: 18.sp,
+                color: FluentTheme.of(context).accentColor,
+              ),
+              header: Text('简介', style: BTTypography.subtitle(context)),
+              content: buildSummary(data!.summary),
             ),
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 8.h),
 
-          // 其他信息
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(12.w),
-              child: buildOtherInfo(data!.infobox),
+          BTFadeSlideIn(
+            duration: const Duration(milliseconds: 550),
+            delay: const Duration(milliseconds: 250),
+            child: Expander(
+              leading: Icon(
+                FluentIcons.settings,
+                size: 18.sp,
+                color: FluentTheme.of(context).accentColor,
+              ),
+              header: Text('详细信息', style: BTTypography.subtitle(context)),
+              content: buildOtherInfo(data!.infobox),
             ),
           ),
           SizedBox(height: 24.h),
