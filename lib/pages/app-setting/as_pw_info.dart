@@ -1,13 +1,19 @@
 // Package imports:
+import 'dart:io';
+
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../controller/app/progress_controller.dart';
+import '../../core/cache/cache_manager.dart';
+import '../../core/cache/lru_cache_manager.dart';
 import '../../store/app_store.dart';
 import '../../tools/download_tool.dart';
 import '../../tools/file_tool.dart';
@@ -42,6 +48,12 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
   /// 当前主题色
   AccentColor get curAccentColor => ref.watch(appStoreProvider).accentColor;
 
+  /// 缓存大小
+  int _cacheSize = 0;
+
+  /// 是否正在计算缓存
+  bool _calculatingCache = false;
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +61,38 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
       packageInfo = await PackageInfo.fromPlatform();
       if (mounted) setState(() {});
     });
+    _calculateCacheSize();
+  }
+
+  /// 计算缓存大小
+  Future<void> _calculateCacheSize() async {
+    if (_calculatingCache) return;
+    _calculatingCache = true;
+    var downloadDir = BTDownloadTool.downloadDir;
+
+    var downloadSize = await fileTool.getDirSize(downloadDir);
+    var cacheSize = BTCacheManager.instance.diskCacheSize;
+    var lruSize = LRUCacheManager.instance.diskCacheSize;
+    var imageSize = await _getImageCacheSize();
+
+    if (mounted) {
+      setState(() {
+        _cacheSize = downloadSize + cacheSize + lruSize + imageSize;
+        _calculatingCache = false;
+      });
+    }
+  }
+
+  /// 获取图片缓存大小
+  Future<int> _getImageCacheSize() async {
+    try {
+      var tempDir = await getTemporaryDirectory();
+      var cacheDir = Directory('${tempDir.path}/libCachedImageData');
+      if (await cacheDir.exists()) {
+        return await fileTool.getDirSize(cacheDir.path);
+      }
+    } catch (_) {}
+    return 0;
   }
 
   /// 删除文件
@@ -224,6 +268,73 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
     );
   }
 
+  /// 构建缓存信息
+  Widget buildCacheInfo() {
+    return ListTile(
+      leading: const Icon(FluentIcons.broom),
+      title: const Text('缓存管理'),
+      subtitle: Text(
+        _calculatingCache
+            ? '正在计算缓存大小...'
+            : '缓存大小：${BTFileTool.formatSize(_cacheSize)}',
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: BtIcon(FluentIcons.refresh),
+            onPressed: _calculatingCache ? null : _calculateCacheSize,
+          ),
+          IconButton(
+            icon: BtIcon(FluentIcons.delete),
+            onPressed: _cacheSize == 0 ? null : _clearCache,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 清除缓存
+  Future<void> _clearCache() async {
+    var check = await showConfirm(
+      context,
+      title: '清除缓存',
+      content: '确定要清除缓存吗？\n这将清除：\n• 应用数据缓存\n• 图片缓存\n• 下载文件',
+    );
+    if (!check || !mounted) return;
+
+    if (progress.isShow) {
+      progress.update(title: '正在清除缓存', text: '正在清除缓存...');
+    } else {
+      progress = ProgressWidget.show(
+        context,
+        title: '正在清除缓存',
+        text: '正在清除缓存...',
+      );
+    }
+
+    try {
+      await BTCacheManager.instance.clear();
+      progress.update(text: '已清除应用缓存');
+
+      await LRUCacheManager.instance.clear();
+      progress.update(text: '已清除 LRU 缓存');
+
+      await DefaultCacheManager().emptyCache();
+      progress.update(text: '已清除图片缓存');
+
+      await fileTool.clearDir(BTDownloadTool.downloadDir);
+      progress.update(text: '已清除下载文件');
+
+      progress.end();
+      await _calculateCacheSize();
+      if (mounted) await BtInfobar.success(context, '缓存已清除');
+    } catch (e) {
+      progress.end();
+      if (mounted) await BtInfobar.error(context, '清除缓存失败：$e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Expander(
@@ -238,6 +349,7 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
           buildAppInfo(),
           buildThemeSwitch(),
           buildColorSwitch(),
+          buildCacheInfo(),
           buildLogInfo(),
           buildDownloadInfo(),
         ],
