@@ -14,6 +14,8 @@ import 'package:window_manager/window_manager.dart';
 // Project imports:
 import 'app.dart';
 import 'core/cache/cache_manager.dart';
+import 'core/cache/lru_cache_manager.dart';
+import 'core/memory/memory_manager.dart';
 import 'database/bt_sqlite.dart';
 import 'tools/download_tool.dart';
 import 'tools/hive_tool.dart';
@@ -57,7 +59,14 @@ Future<void> _initBackgroundServices() async {
     BTHiveTool.init(),
   ]);
 
-  await BTCacheManager.instance.init();
+  await Future.wait([
+    BTCacheManager.instance.init(),
+    LRUCacheManager.instance.init(),
+  ]);
+
+  MemoryManager.instance.startMonitoring(
+    interval: const Duration(seconds: 60),
+  );
 
   await Window.setEffect(effect: WindowEffect.acrylic);
 
