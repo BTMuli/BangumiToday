@@ -22,7 +22,6 @@ import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_icon.dart';
 import '../../../ui/bt_infobar.dart';
 import '../../../utils/tool_func.dart';
-import '../../rss/rss_mk_card.dart';
 
 class BmfFileExpander extends ConsumerStatefulWidget {
   final String downloadDir;
@@ -102,68 +101,75 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     setState(() {});
   }
 
-  Widget buildFileAct(BuildContext context, String file) {
-    var potplayerBtn = _FileOpenBtn(file, widget.downloadDir);
-    var deleteBtn = _FileDeleteBtn(
-      file: file,
-      dir: widget.downloadDir,
-      onDelete: refreshFiles,
-    );
-    if (file.endsWith(".torrent")) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [deleteBtn],
-      );
-    }
-    if (aria2Files.contains(file)) {
-      var size = fileTool.getFileSize(path.join(widget.downloadDir, file));
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+  Widget buildFileItem(BuildContext context, String file) {
+    var isDownloading = aria2Files.contains(file);
+    var isVideo = file.endsWith('.mp4') || file.endsWith('.mkv');
+    var isTorrent = file.endsWith('.torrent');
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 6.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: BTColors.surfaceSecondary(context),
+        borderRadius: BTRadius.smallBR,
+        border: Border.all(color: BTColors.divider(context), width: 1),
+      ),
+      child: Row(
         children: [
-          const SizedBox(
-            width: double.infinity,
-            child: ProgressBar(value: null),
+          Icon(
+            isTorrent
+                ? FluentIcons.file_code
+                : isVideo
+                ? FluentIcons.video
+                : FluentIcons.document,
+            size: 16.sp,
+            color: isDownloading
+                ? FluentTheme.of(context).accentColor
+                : BTColors.textSecondary(context),
           ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [Text('下载中：${filesize(size)}')],
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Tooltip(
+                  message: file,
+                  child: Text(
+                    file,
+                    style: BTTypography.body(context),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (isDownloading) ...[
+                  SizedBox(height: 4.h),
+                  Row(
+                    children: [
+                      Expanded(child: ProgressBar(value: null, strokeWidth: 2)),
+                      SizedBox(width: 8.w),
+                      Text(
+                        '下载中',
+                        style: BTTypography.caption(
+                          context,
+                        ).copyWith(color: FluentTheme.of(context).accentColor),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(width: 8.w),
+          _FileItemActions(
+            file: file,
+            dir: widget.downloadDir,
+            isVideo: isVideo,
+            isTorrent: isTorrent,
+            isDownloading: isDownloading,
+            onDelete: refreshFiles,
           ),
         ],
-      );
-    }
-    if (!file.endsWith('.mp4') && !file.endsWith('.mkv')) return deleteBtn;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [potplayerBtn, const SizedBox(width: 6), deleteBtn],
-    );
-  }
-
-  Widget buildFileCard(BuildContext context, String file) {
-    return SizedBox(
-      width: 275,
-      height: 200,
-      child: Card(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Tooltip(
-              message: file,
-              child: Text(
-                file,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const Spacer(),
-            buildFileAct(context, file),
-          ],
-        ),
       ),
     );
   }
@@ -176,25 +182,20 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       );
     }
 
-    if (files.length <= 6) {
-      return Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: files.map((f) => buildFileCard(context, f)).toList(),
-      );
-    }
-
     return SizedBox(
-      height: widget.maxHeight,
-      child: ListView.builder(
-        itemCount: files.length,
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: EdgeInsets.only(bottom: 8.h),
-            child: buildFileCard(context, files[index]),
-          );
-        },
-      ),
+      height: files.length <= 6 ? null : widget.maxHeight,
+      child: files.length <= 6
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: files.map((f) => buildFileItem(context, f)).toList(),
+            )
+          : ListView.builder(
+              shrinkWrap: true,
+              itemCount: files.length,
+              itemBuilder: (context, index) {
+                return buildFileItem(context, files[index]);
+              },
+            ),
     );
   }
 
@@ -205,7 +206,18 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       leading: Icon(FluentIcons.folder_open, size: 18.sp, color: accentColor),
       header: Row(
         children: [
-          Text('下载文件', style: BTTypography.subtitle(context)),
+          Text('下载目录', style: BTTypography.subtitle(context)),
+          SizedBox(width: 8.w),
+          Tooltip(
+            message: widget.downloadDir.isEmpty
+                ? '未设置下载目录'
+                : widget.downloadDir,
+            child: Icon(
+              FluentIcons.info,
+              size: 14.sp,
+              color: BTColors.textTertiary(context),
+            ),
+          ),
           const Spacer(),
           Tooltip(
             message: '刷新文件',
@@ -241,40 +253,21 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   }
 }
 
-class _FileOpenBtn extends StatelessWidget {
-  final String file;
-  final String download;
-
-  const _FileOpenBtn(this.file, this.download);
-
-  @override
-  Widget build(BuildContext context) {
-    return Button(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          BtIcon(FluentIcons.open_file),
-          SizedBox(width: 8.w),
-          const Text('打开'),
-        ],
-      ),
-      onPressed: () async {
-        var filePath = path.join(download, file);
-        await launchUrlString('file://$filePath');
-      },
-    );
-  }
-}
-
-class _FileDeleteBtn extends StatelessWidget {
+class _FileItemActions extends StatelessWidget {
   final String file;
   final String dir;
+  final bool isVideo;
+  final bool isTorrent;
+  final bool isDownloading;
   final Future<void> Function() onDelete;
   final BTFileTool fileTool = BTFileTool();
 
-  _FileDeleteBtn({
+  _FileItemActions({
     required this.file,
     required this.dir,
+    required this.isVideo,
+    required this.isTorrent,
+    required this.isDownloading,
     required this.onDelete,
   });
 
@@ -289,27 +282,41 @@ class _FileDeleteBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Button(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(FluentIcons.delete, color: FluentTheme.of(context).accentColor),
-          SizedBox(width: 8.w),
-          const Text('删除'),
-        ],
-      ),
-      onLongPress: () async =>
-          await tryDeleteFile(path.join(dir, file), context),
-      onPressed: () async {
-        var confirm = await showConfirm(
-          context,
-          title: '删除文件',
-          content: '确定删除文件 $file 吗？',
-        );
-        if (!confirm) return;
-        var filePath = path.join(dir, file);
-        if (context.mounted) await tryDeleteFile(filePath, context);
-      },
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isVideo && !isDownloading)
+          Tooltip(
+            message: '打开文件',
+            child: IconButton(
+              icon: BtIcon(FluentIcons.open_file, size: 14.sp),
+              onPressed: () async {
+                var filePath = path.join(dir, file);
+                await launchUrlString('file://$filePath');
+              },
+            ),
+          ),
+        Tooltip(
+          message: '删除',
+          child: IconButton(
+            icon: BtIcon(
+              FluentIcons.delete,
+              size: 14.sp,
+              color: FluentTheme.of(context).accentColor,
+            ),
+            onPressed: () async {
+              var confirm = await showConfirm(
+                context,
+                title: '删除文件',
+                content: '确定删除文件 $file 吗？',
+              );
+              if (!confirm) return;
+              var filePath = path.join(dir, file);
+              if (context.mounted) await tryDeleteFile(filePath, context);
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -457,6 +464,83 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
     setState(() {});
   }
 
+  Widget buildRssItem(BuildContext context, RssItem item) {
+    var fileSize = item.enclosure?.length != null
+        ? filesize(item.enclosure!.length)
+        : null;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 6.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: BTColors.surfaceSecondary(context),
+        borderRadius: BTRadius.smallBR,
+        border: Border.all(color: BTColors.divider(context), width: 1),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            MdiIcons.download,
+            size: 16.sp,
+            color: BTColors.textSecondary(context),
+          ),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Tooltip(
+                  message: item.title ?? '',
+                  child: Text(
+                    item.title ?? '',
+                    style: BTTypography.body(context),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Row(
+                  children: [
+                    if (fileSize != null) ...[
+                      Icon(
+                        FluentIcons.save,
+                        size: 10.sp,
+                        color: BTColors.textTertiary(context),
+                      ),
+                      SizedBox(width: 4.w),
+                      Text(fileSize, style: BTTypography.caption(context)),
+                      SizedBox(width: 12.w),
+                    ],
+                    if (item.pubDate != null) ...[
+                      Icon(
+                        FluentIcons.clock,
+                        size: 10.sp,
+                        color: BTColors.textTertiary(context),
+                      ),
+                      SizedBox(width: 4.w),
+                      Text(
+                        item.pubDate!.substring(0, 10),
+                        style: BTTypography.caption(context),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 8.w),
+          _RssItemActions(
+            item: item,
+            dir: bmf.download,
+            subject: bmf.subject,
+            rssLink: bmf.rss!,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget buildContent() {
     if (rssItems.isEmpty) {
       return Padding(
@@ -465,39 +549,22 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
       );
     }
 
-    if (rssItems.length <= 6) {
-      return Wrap(
-        spacing: 12.w,
-        runSpacing: 12.h,
-        children: rssItems
-            .map(
-              (item) => RssMikanCard(
-                bmf.rss!,
-                item,
-                dir: bmf.download,
-                subject: bmf.subject,
-              ),
-            )
-            .toList(),
-      );
-    }
-
     return SizedBox(
-      height: widget.maxHeight,
-      child: ListView.builder(
-        itemCount: rssItems.length,
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: EdgeInsets.only(bottom: 12.h),
-            child: RssMikanCard(
-              bmf.rss!,
-              rssItems[index],
-              dir: bmf.download,
-              subject: bmf.subject,
+      height: rssItems.length <= 6 ? null : widget.maxHeight,
+      child: rssItems.length <= 6
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: rssItems
+                  .map((item) => buildRssItem(context, item))
+                  .toList(),
+            )
+          : ListView.builder(
+              shrinkWrap: true,
+              itemCount: rssItems.length,
+              itemBuilder: (context, index) {
+                return buildRssItem(context, rssItems[index]);
+              },
             ),
-          );
-        },
-      ),
     );
   }
 
@@ -511,9 +578,17 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
       leading: Icon(MdiIcons.rss, size: 18.sp, color: accentColor),
       header: Row(
         children: [
-          Expanded(
-            child: Text('RSS 订阅', style: BTTypography.subtitle(context)),
+          Text('RSS 订阅', style: BTTypography.subtitle(context)),
+          SizedBox(width: 8.w),
+          Tooltip(
+            message: rssLink,
+            child: Icon(
+              FluentIcons.info,
+              size: 14.sp,
+              color: BTColors.textTertiary(context),
+            ),
           ),
+          const Spacer(),
           Tooltip(
             message: '刷新 RSS',
             child: IconButton(
@@ -531,6 +606,62 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
         ],
       ),
       content: buildContent(),
+    );
+  }
+}
+
+class _RssItemActions extends ConsumerWidget {
+  final RssItem item;
+  final String? dir;
+  final int? subject;
+  final String rssLink;
+
+  const _RssItemActions({
+    required this.item,
+    required this.dir,
+    required this.subject,
+    required this.rssLink,
+  });
+
+  Future<void> downloadWithMotrix(BuildContext context) async {
+    if (item.enclosure?.url == null || item.title == null) return;
+    var saveDir = dir;
+    if (saveDir == null || saveDir.isEmpty) {
+      await BtInfobar.error(context, '未设置下载目录');
+      return;
+    }
+    await launchUrlString('mo://new-task/?type=torrent&dir=$saveDir');
+  }
+
+  Future<void> openLink(BuildContext context) async {
+    if (item.link == null) return;
+    await launchUrlString(item.link!);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Tooltip(
+          message: 'Motrix 下载',
+          child: IconButton(
+            icon: Image.asset(
+              'assets/images/platforms/motrix-logo.png',
+              width: 14.sp,
+              height: 14.sp,
+            ),
+            onPressed: () async => await downloadWithMotrix(context),
+          ),
+        ),
+        Tooltip(
+          message: '打开链接',
+          child: IconButton(
+            icon: BtIcon(FluentIcons.edge_logo, size: 14.sp),
+            onPressed: () async => await openLink(context),
+          ),
+        ),
+      ],
     );
   }
 }
