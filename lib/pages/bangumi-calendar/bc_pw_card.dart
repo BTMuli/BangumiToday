@@ -213,7 +213,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
   }
 
   Widget buildCoverInfo(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     var rateWidget = <Widget>[];
     Widget viewWidget = Container();
     
@@ -362,7 +362,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),

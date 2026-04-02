@@ -115,7 +115,7 @@ class BTSnackBar {
     VoidCallback? onAction,
     Duration duration = const Duration(seconds: 3),
   }) async {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     await displayInfoBar(
       context,
@@ -179,7 +179,7 @@ class BTToast {
     _overlayEntry?.remove();
     _timer?.cancel();
 
-    final overlay = Overlay.of(context);
+    var overlay = Overlay.of(context);
     _overlayEntry = OverlayEntry(
       builder: (context) => _BTToastWidget(
         message: message,
@@ -214,7 +214,7 @@ class _BTToastWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return Positioned(
       bottom: 80.h,

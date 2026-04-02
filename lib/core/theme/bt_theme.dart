@@ -15,8 +15,8 @@ class BTTheme {
   static Curve get animationCurveExit => Curves.easeInQuart;
 
   static List<BoxShadow> shadow(BuildContext context, {BTShadowLevel level = BTShadowLevel.medium}) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
-    final baseColor = isDark ? Colors.black : const Color(0xFF000000);
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var baseColor = isDark ? Colors.black : const Color(0xFF000000);
     
     switch (level) {
       case BTShadowLevel.none:
@@ -65,17 +65,17 @@ class BTAcrylic {
   BTAcrylic._();
 
   static Color backgroundColor(BuildContext context, {double opacity = 0.7}) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     return (isDark ? Colors.black : Colors.white).withValues(alpha: opacity);
   }
 
   static Color tintColor(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     return isDark ? const Color(0xFF202020) : const Color(0xFFF9F9F9);
   }
 
   static Color luminosityColor(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     return isDark ? Colors.black.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.9);
   }
 
@@ -91,8 +91,8 @@ class BTAcrylic {
     EdgeInsetsGeometry? padding,
     EdgeInsetsGeometry? margin,
   }) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
-    final bgColor = backgroundColor(context, opacity: opacity);
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var bgColor = backgroundColor(context, opacity: opacity);
     
     Widget content = ClipRRect(
       borderRadius: borderRadius ?? BorderRadius.circular(8.r),
@@ -131,52 +131,52 @@ class BTColors {
   static Color get info => const Color(0xFF0078D4);
 
   static Color successLight(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     return isDark ? const Color(0xFF6BBF6B) : const Color(0xFF107C10);
   }
 
   static Color warningLight(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     return isDark ? const Color(0xFFFFD75E) : const Color(0xFFFFB900);
   }
 
   static Color errorLight(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     return isDark ? const Color(0xFFFF6B6B) : const Color(0xFFD13438);
   }
 
   static Color surfacePrimary(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     return isDark ? const Color(0xFF1A1A1A) : const Color(0xFFFFFFFF);
   }
 
   static Color surfaceSecondary(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     return isDark ? const Color(0xFF252525) : const Color(0xFFF5F5F5);
   }
 
   static Color surfaceTertiary(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     return isDark ? const Color(0xFF303030) : const Color(0xFFEBEBEB);
   }
 
   static Color textPrimary(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     return isDark ? const Color(0xFFFFFFFF) : const Color(0xFF1A1A1A);
   }
 
   static Color textSecondary(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     return isDark ? const Color(0xFFB3B3B3) : const Color(0xFF666666);
   }
 
   static Color textTertiary(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     return isDark ? const Color(0xFF808080) : const Color(0xFF999999);
   }
 
   static Color divider(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     return isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06);
   }
 }

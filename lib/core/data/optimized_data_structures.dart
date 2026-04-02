@@ -301,7 +301,7 @@ class DataStore<T> extends ChangeNotifier {
       newItems.remove(item);
     }
 
-    for (final (oldItem, newItem) in diff.updated) {
+    for (var (oldItem, newItem) in diff.updated) {
       var index = newItems.indexOf(oldItem);
       if (index != -1) {
         newItems[index] = newItem;

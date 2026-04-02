@@ -304,7 +304,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   }
 
   Widget _buildBmfDrawerButton(BuildContext context) {
-    final accentColor = FluentTheme.of(context).accentColor;
+    var accentColor = FluentTheme.of(context).accentColor;
     return Tooltip(
       message: '打开 BMF 配置',
       child: IconButton(
@@ -426,7 +426,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   Widget buildContent() {
     if (data == null) return buildLoading();
     assert(data != null);
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.w),

@@ -31,8 +31,8 @@ class _FluentRssCardState extends State<FluentRssCard> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    final backgroundColor = theme.brightness == Brightness.light
+    var theme = FluentTheme.of(context);
+    var backgroundColor = theme.brightness == Brightness.light
         ? Colors.white.withValues(alpha: _isHovered ? 0.95 : 0.85)
         : Colors.grey[190].withValues(alpha: _isHovered ? 0.95 : 0.85);
 

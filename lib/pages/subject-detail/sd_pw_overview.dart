@@ -85,7 +85,7 @@ class SdpOverviewWidget extends StatelessWidget {
     BangumiCollectionType type,
     int? count,
   ) {
-    final accentColor = FluentTheme.of(context).accentColor;
+    var accentColor = FluentTheme.of(context).accentColor;
     return Tooltip(
       message: type.label,
       child: Container(
@@ -113,7 +113,7 @@ class SdpOverviewWidget extends StatelessWidget {
   }
 
   Widget buildTag(BuildContext context, String text) {
-    final accentColor = FluentTheme.of(context).accentColor;
+    var accentColor = FluentTheme.of(context).accentColor;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
       decoration: BoxDecoration(

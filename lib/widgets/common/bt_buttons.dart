@@ -71,8 +71,8 @@ class _BTButtonState extends State<BTButton>
   }
 
   (Color, Color, Color) _getButtonColors(BuildContext context) {
-    final accentColor = FluentTheme.of(context).accentColor;
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var accentColor = FluentTheme.of(context).accentColor;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     switch (widget.type) {
       case BTButtonType.primary:
@@ -104,9 +104,9 @@ class _BTButtonState extends State<BTButton>
 
   @override
   Widget build(BuildContext context) {
-    final (baseColor, hoverColor, pressedColor) = _getButtonColors(context);
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
-    final isDisabled = widget.onPressed == null || widget.isLoading;
+    var (baseColor, hoverColor, pressedColor) = _getButtonColors(context);
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDisabled = widget.onPressed == null || widget.isLoading;
 
     Widget content = Row(
       mainAxisSize: widget.isFullWidth ? MainAxisSize.max : MainAxisSize.min,
@@ -253,9 +253,9 @@ class _BTIconButtonState extends State<BTIconButton>
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = FluentTheme.of(context).accentColor;
-    final iconColor = widget.color ?? (widget.isActive ? accentColor : BTColors.textSecondary(context));
-    final iconSize = widget.size ?? 18.sp;
+    var accentColor = FluentTheme.of(context).accentColor;
+    var iconColor = widget.color ?? (widget.isActive ? accentColor : BTColors.textSecondary(context));
+    var iconSize = widget.size ?? 18.sp;
 
     Widget iconWidget = AnimatedContainer(
       duration: BTTheme.animationDurationFast,
@@ -330,8 +330,8 @@ class BTSegmentedControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
-    final accentColor = FluentTheme.of(context).accentColor;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var accentColor = FluentTheme.of(context).accentColor;
 
     return Container(
       padding: EdgeInsets.all(4.w),
@@ -347,7 +347,7 @@ class BTSegmentedControl extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: options.asMap().entries.map((entry) {
-          final isSelected = entry.key == selectedIndex;
+          var isSelected = entry.key == selectedIndex;
           return GestureDetector(
             onTap: onChanged != null ? () => onChanged!(entry.key) : null,
             child: AnimatedContainer(
@@ -398,8 +398,8 @@ class _BTToggleButtonState extends State<BTToggleButton> {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = FluentTheme.of(context).accentColor;
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var accentColor = FluentTheme.of(context).accentColor;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -507,7 +507,7 @@ class _BTFloatingActionButtonState extends State<BTFloatingActionButton>
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = FluentTheme.of(context).accentColor;
+    var accentColor = FluentTheme.of(context).accentColor;
 
     Widget content = widget.isExtended && widget.label != null
         ? Row(

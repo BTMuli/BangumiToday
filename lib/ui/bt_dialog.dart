@@ -161,7 +161,7 @@ class _BTContentDialogState extends State<_BTContentDialog>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return AnimatedBuilder(
       animation: _animationController,
@@ -310,7 +310,7 @@ class _BTDialogActionState extends State<_BTDialogAction>
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = FluentTheme.of(context).accentColor;
+    var accentColor = FluentTheme.of(context).accentColor;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -401,7 +401,7 @@ class _BTProgressDialogContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return Center(
       child: Container(

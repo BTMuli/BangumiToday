@@ -8,7 +8,6 @@ import '../../core/theme/bt_theme.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
-import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../utils/tool_func.dart';
 
@@ -149,8 +148,8 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
   }
 
   Widget buildRelationCard(BangumiSubjectRelation data) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
-    final hasImage = data.images.large.isNotEmpty;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var hasImage = data.images.large.isNotEmpty;
 
     return Container(
       width: 260.w,

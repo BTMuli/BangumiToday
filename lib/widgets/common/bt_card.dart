@@ -73,7 +73,7 @@ class _BTCardState extends State<BTCard> with SingleTickerProviderStateMixin {
 
   void _handleHover(PointerHoverEvent event) {
     if (!widget.useReveal) return;
-    final RenderBox? renderBox =
+    var renderBox =
         _cardKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
@@ -107,9 +107,9 @@ class _BTCardState extends State<BTCard> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
-    final borderRadius = widget.borderRadius ?? BTRadius.large;
-    final effectivePadding = widget.padding ?? EdgeInsets.all(12.w);
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var borderRadius = widget.borderRadius ?? BTRadius.large;
+    var effectivePadding = widget.padding ?? EdgeInsets.all(12.w);
 
     Widget cardContent = Container(
       key: _cardKey,
@@ -221,7 +221,7 @@ class _RevealPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (position.dx < 0 || position.dy < 0) return;
 
-    final gradient = RadialGradient(
+    var gradient = RadialGradient(
       center: Alignment(
         (position.dx / size.width) * 2 - 1,
         (position.dy / size.height) * 2 - 1,
@@ -235,8 +235,8 @@ class _RevealPainter extends CustomPainter {
       stops: const [0.0, 1.0],
     );
 
-    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
-    final paint = Paint()
+    var rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    var paint = Paint()
       ..shader = gradient.createShader(rect)
       ..blendMode = BlendMode.srcOver;
 
@@ -345,11 +345,11 @@ class _BTShimmerState extends State<BTShimmer>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
-    final baseColor =
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var baseColor =
         widget.baseColor ??
         (isDark ? const Color(0xFF424242) : const Color(0xFFEEEEEE));
-    final highlightColor =
+    var highlightColor =
         widget.highlightColor ??
         (isDark ? const Color(0xFF616161) : const Color(0xFFF5F5F5));
 

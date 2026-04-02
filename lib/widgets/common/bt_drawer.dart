@@ -36,8 +36,8 @@ class BTDrawerRoute<T> extends PopupRoute<T> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
   ) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
-    final isRight = position == BTDrawerPosition.right;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isRight = position == BTDrawerPosition.right;
 
     return Align(
       alignment: isRight ? Alignment.centerRight : Alignment.centerLeft,
@@ -113,7 +113,7 @@ class BTDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -186,7 +186,7 @@ class _BTDrawerButtonState extends State<BTDrawerButton> {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = FluentTheme.of(context).accentColor;
+    var accentColor = FluentTheme.of(context).accentColor;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),

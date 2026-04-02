@@ -166,20 +166,16 @@ abstract class Disposable {
 }
 
 class CacheableData<T> extends Disposable {
-  T? _data;
+  T? data;
   final DateTime createdAt;
   final Duration? maxAge;
   final void Function(T?)? onDisposeCallback;
 
   CacheableData({
-    T? data,
+    this.data,
     this.maxAge,
     this.onDisposeCallback,
-  })  : _data = data,
-        createdAt = DateTime.now();
-
-  T? get data => _data;
-  set data(T? value) => _data = value;
+  }) : createdAt = DateTime.now();
 
   bool get isExpired {
     if (maxAge == null) return false;
@@ -189,8 +185,8 @@ class CacheableData<T> extends Disposable {
   @override
   void onDispose() {
     if (onDisposeCallback != null) {
-      onDisposeCallback!(_data);
+      onDisposeCallback!(data);
     }
-    _data = null;
+    data = null;
   }
 }

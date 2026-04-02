@@ -85,8 +85,8 @@ class _RssMikanCardFluentState extends State<RssMikanCardFluent> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    final accentColor = theme.accentColor;
+    var theme = FluentTheme.of(context);
+    var accentColor = theme.accentColor;
 
     String sizeStr = '';
     if (item.enclosure?.length != null) {
@@ -101,7 +101,7 @@ class _RssMikanCardFluentState extends State<RssMikanCardFluent> {
       ).format(pattern: 'MM-dd HH:mm');
     }
 
-    final backgroundColor = theme.brightness == Brightness.light
+    var backgroundColor = theme.brightness == Brightness.light
         ? Colors.white.withValues(alpha: _isHovered ? 0.95 : 0.85)
         : Colors.grey[190].withValues(alpha: _isHovered ? 0.95 : 0.85);
 

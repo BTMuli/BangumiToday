@@ -73,8 +73,8 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    final accentColor = theme.accentColor;
+    var theme = FluentTheme.of(context);
+    var accentColor = theme.accentColor;
 
     String title = '';
     if (item.title != null && item.title!.isNotEmpty) {
@@ -94,7 +94,7 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
       sizeStr = filesize(item.enclosure!.length);
     }
 
-    final backgroundColor = theme.brightness == Brightness.light
+    var backgroundColor = theme.brightness == Brightness.light
         ? Colors.white.withValues(alpha: _isHovered ? 0.95 : 0.85)
         : Colors.grey[190].withValues(alpha: _isHovered ? 0.95 : 0.85);
 
