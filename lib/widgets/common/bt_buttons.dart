@@ -43,9 +43,10 @@ class _BTButtonState extends State<BTButton>
       duration: BTTheme.animationDurationFast,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.97).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.97,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
   }
 
   @override
@@ -76,11 +77,7 @@ class _BTButtonState extends State<BTButton>
 
     switch (widget.type) {
       case BTButtonType.primary:
-        return (
-          accentColor,
-          accentColor.lighter,
-          accentColor.darker,
-        );
+        return (accentColor, accentColor.lighter, accentColor.darker);
       case BTButtonType.secondary:
         return (
           BTColors.surfaceSecondary(context),
@@ -90,7 +87,9 @@ class _BTButtonState extends State<BTButton>
       case BTButtonType.subtle:
         return (
           Colors.transparent,
-          isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+          isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.black.withValues(alpha: 0.03),
           Colors.transparent,
         );
       case BTButtonType.danger:
@@ -150,7 +149,9 @@ class _BTButtonState extends State<BTButton>
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      cursor: isDisabled ? SystemMouseCursors.forbidden : SystemMouseCursors.click,
+      cursor: isDisabled
+          ? SystemMouseCursors.forbidden
+          : SystemMouseCursors.click,
       child: GestureDetector(
         onTapDown: _onTapDown,
         onTapUp: _onTapUp,
@@ -159,10 +160,7 @@ class _BTButtonState extends State<BTButton>
         child: AnimatedBuilder(
           animation: _scaleAnimation,
           builder: (context, child) {
-            return Transform.scale(
-              scale: _scaleAnimation.value,
-              child: child,
-            );
+            return Transform.scale(scale: _scaleAnimation.value, child: child);
           },
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
@@ -174,8 +172,8 @@ class _BTButtonState extends State<BTButton>
               color: isDisabled
                   ? baseColor.withValues(alpha: 0.5)
                   : (_isPressed
-                      ? pressedColor
-                      : (_isHovered ? hoverColor : baseColor)),
+                        ? pressedColor
+                        : (_isHovered ? hoverColor : baseColor)),
               borderRadius: BTRadius.mediumBR,
               border: widget.type == BTButtonType.secondary
                   ? Border.all(
@@ -184,12 +182,15 @@ class _BTButtonState extends State<BTButton>
                           : Colors.black.withValues(alpha: 0.06),
                     )
                   : null,
-              boxShadow: widget.type == BTButtonType.primary && _isHovered && !isDisabled
+              boxShadow:
+                  widget.type == BTButtonType.primary &&
+                      _isHovered &&
+                      !isDisabled
                   ? [
                       BoxShadow(
-                        color: FluentTheme.of(context)
-                            .accentColor
-                            .withValues(alpha: 0.3),
+                        color: FluentTheme.of(
+                          context,
+                        ).accentColor.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -240,9 +241,10 @@ class _BTIconButtonState extends State<BTIconButton>
       duration: BTTheme.animationDurationFast,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.92).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.92,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
   }
 
   @override
@@ -254,7 +256,9 @@ class _BTIconButtonState extends State<BTIconButton>
   @override
   Widget build(BuildContext context) {
     var accentColor = FluentTheme.of(context).accentColor;
-    var iconColor = widget.color ?? (widget.isActive ? accentColor : BTColors.textSecondary(context));
+    var iconColor =
+        widget.color ??
+        (widget.isActive ? accentColor : BTColors.textSecondary(context));
     var iconSize = widget.size ?? 18.sp;
 
     Widget iconWidget = AnimatedContainer(
@@ -263,21 +267,16 @@ class _BTIconButtonState extends State<BTIconButton>
       decoration: BoxDecoration(
         color: _isHovered
             ? accentColor.withValues(alpha: 0.1)
-            : (widget.isActive ? accentColor.withValues(alpha: 0.08) : Colors.transparent),
+            : (widget.isActive
+                  ? accentColor.withValues(alpha: 0.08)
+                  : Colors.transparent),
         borderRadius: BTRadius.smallBR,
       ),
-      child: Icon(
-        widget.icon,
-        size: iconSize,
-        color: iconColor,
-      ),
+      child: Icon(widget.icon, size: iconSize, color: iconColor),
     );
 
     if (_isPressed) {
-      iconWidget = ScaleTransition(
-        scale: _scaleAnimation,
-        child: iconWidget,
-      );
+      iconWidget = ScaleTransition(scale: _scaleAnimation, child: iconWidget);
     }
 
     if (widget.tooltip != null) {
@@ -406,7 +405,9 @@ class _BTToggleButtonState extends State<BTToggleButton> {
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: widget.onChanged != null ? () => widget.onChanged!(!widget.value) : null,
+        onTap: widget.onChanged != null
+            ? () => widget.onChanged!(!widget.value)
+            : null,
         child: AnimatedContainer(
           duration: BTTheme.animationDurationFast,
           padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
@@ -414,15 +415,17 @@ class _BTToggleButtonState extends State<BTToggleButton> {
             color: widget.value
                 ? accentColor
                 : (_isHovered
-                    ? (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03))
-                    : Colors.transparent),
+                      ? (isDark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.black.withValues(alpha: 0.03))
+                      : Colors.transparent),
             borderRadius: BTRadius.mediumBR,
             border: Border.all(
               color: widget.value
                   ? accentColor
                   : (isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.black.withValues(alpha: 0.06)),
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.06)),
             ),
             boxShadow: widget.value
                 ? [
@@ -441,7 +444,9 @@ class _BTToggleButtonState extends State<BTToggleButton> {
                 Icon(
                   widget.icon,
                   size: 16.sp,
-                  color: widget.value ? Colors.white : BTColors.textSecondary(context),
+                  color: widget.value
+                      ? Colors.white
+                      : BTColors.textSecondary(context),
                 ),
                 SizedBox(width: 8.w),
               ],
@@ -449,7 +454,9 @@ class _BTToggleButtonState extends State<BTToggleButton> {
                 style: TextStyle(
                   fontSize: 14.sp,
                   fontWeight: FontWeight.w500,
-                  color: widget.value ? Colors.white : BTColors.textPrimary(context),
+                  color: widget.value
+                      ? Colors.white
+                      : BTColors.textPrimary(context),
                 ),
                 child: widget.child,
               ),
@@ -494,9 +501,10 @@ class _BTFloatingActionButtonState extends State<BTFloatingActionButton>
       duration: BTTheme.animationDurationFast,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
   }
 
   @override
@@ -530,10 +538,7 @@ class _BTFloatingActionButtonState extends State<BTFloatingActionButton>
     Widget fab = AnimatedBuilder(
       animation: _scaleAnimation,
       builder: (context, child) {
-        return Transform.scale(
-          scale: _scaleAnimation.value,
-          child: child,
-        );
+        return Transform.scale(scale: _scaleAnimation.value, child: child);
       },
       child: AnimatedContainer(
         duration: BTTheme.animationDurationFast,
