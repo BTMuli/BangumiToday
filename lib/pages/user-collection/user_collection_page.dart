@@ -78,11 +78,13 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
               ref.read(navStoreProvider).removeNavItem('Bangumi-用户收藏'),
           child: const Text('关闭'),
         ),
-        SizedBox(width: 16.w),
-        FilledButton(onPressed: refreshAuth, child: const Text('刷新授权')),
-        SizedBox(width: 16.w),
+        SizedBox(width: 12.w),
+        Button(
+          onPressed: refreshAuth,
+          child: const Text('刷新授权'),
+        ),
+        SizedBox(width: 12.w),
         Image.asset('assets/images/platforms/bangumi-logo.png'),
-        SizedBox(width: 16.w),
       ],
     );
   }
