@@ -11,7 +11,7 @@ import '../../plugins/mikan/mikan_api.dart';
 import '../../store/app_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
-import '../../widgets/rss/rss_mk_card2.dart';
+import '../../widgets/rss/rss_mikan_card_fluent.dart';
 
 /// 负责 MikanProject RSS 页面的显示
 /// 包括 RSSClassic 和 RSSPersonal
@@ -272,20 +272,26 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
         ),
       );
     } else {
-      return SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: double.infinity),
-          child: Wrap(
-            alignment: WrapAlignment.start,
-            crossAxisAlignment: WrapCrossAlignment.start,
-            direction: Axis.horizontal,
-            runAlignment: WrapAlignment.start,
-            spacing: 12.w,
-            runSpacing: 12.h,
-            children: data.map(RssMikanCard2.new).toList(),
-          ),
-        ),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          var cardWidth = 280.0;
+          var crossAxisCount = (constraints.maxWidth / cardWidth).floor().clamp(1, 6);
+          var mainAxisExtent = 180.0;
+          
+          return GridView.builder(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              mainAxisExtent: mainAxisExtent,
+              crossAxisSpacing: 12.w,
+              mainAxisSpacing: 12.h,
+            ),
+            itemCount: data.length,
+            itemBuilder: (context, index) {
+              return RssMikanCardFluent(item: data[index]);
+            },
+          );
+        },
       );
     }
   }
