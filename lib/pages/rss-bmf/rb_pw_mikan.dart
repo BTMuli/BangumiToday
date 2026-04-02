@@ -203,7 +203,8 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
             fit: BoxFit.cover,
           ),
           onPressed: () async {
-            await launchUrlString('https://mikanani.me/');
+            var url = mikanRss ?? 'https://mikanani.me';
+            await launchUrlString(url);
           },
         ),
         Image.asset(
