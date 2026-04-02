@@ -178,11 +178,31 @@ class SdpOverviewWidget extends StatelessWidget {
           spacing: 6.w,
           runSpacing: 4.h,
           children: [
-            buildCollectionInfoBadge(context, BangumiCollectionType.wish, item.collection.wish),
-            buildCollectionInfoBadge(context, BangumiCollectionType.doing, item.collection.doing),
-            buildCollectionInfoBadge(context, BangumiCollectionType.collect, item.collection.collect),
-            buildCollectionInfoBadge(context, BangumiCollectionType.onHold, item.collection.onHold),
-            buildCollectionInfoBadge(context, BangumiCollectionType.dropped, item.collection.dropped),
+            buildCollectionInfoBadge(
+              context,
+              BangumiCollectionType.wish,
+              item.collection.wish,
+            ),
+            buildCollectionInfoBadge(
+              context,
+              BangumiCollectionType.doing,
+              item.collection.doing,
+            ),
+            buildCollectionInfoBadge(
+              context,
+              BangumiCollectionType.collect,
+              item.collection.collect,
+            ),
+            buildCollectionInfoBadge(
+              context,
+              BangumiCollectionType.onHold,
+              item.collection.onHold,
+            ),
+            buildCollectionInfoBadge(
+              context,
+              BangumiCollectionType.dropped,
+              item.collection.dropped,
+            ),
           ],
         ),
         SizedBox(height: 8.h),
@@ -211,15 +231,13 @@ class SdpOverviewWidget extends StatelessWidget {
             width: 48.w,
             child: Text(
               label,
-              style: BTTypography.caption(context).copyWith(
-                color: BTColors.textSecondary(context),
-              ),
+              style: BTTypography.caption(
+                context,
+              ).copyWith(color: BTColors.textSecondary(context)),
             ),
           ),
           SizedBox(width: 8.w),
-          Expanded(
-            child: Text(value, style: BTTypography.body(context)),
-          ),
+          Expanded(child: Text(value, style: BTTypography.body(context))),
         ],
       ),
     );
@@ -245,7 +263,9 @@ class SdpOverviewWidget extends StatelessWidget {
           ),
         ),
         SizedBox(width: 12.w),
-        SdpRateChartWidget(item.rating),
+        Flexible(
+          child: SdpRateChartWidget(item.rating),
+        ),
       ],
     );
   }
