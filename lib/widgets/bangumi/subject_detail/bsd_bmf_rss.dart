@@ -262,22 +262,19 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
       );
     }
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: 500.h),
-      child: ListView.builder(
-        itemCount: rssItems.length,
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: EdgeInsets.only(bottom: 12.h),
-            child: RssMikanCard(
-              bmf.rss!,
-              rssItems[index],
-              dir: bmf.download,
-              subject: bmf.subject,
-            ),
-          );
-        },
-      ),
+    return ListView.builder(
+      itemCount: rssItems.length,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 12.h),
+          child: RssMikanCard(
+            bmf.rss!,
+            rssItems[index],
+            dir: bmf.download,
+            subject: bmf.subject,
+          ),
+        );
+      },
     );
   }
 

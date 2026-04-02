@@ -176,17 +176,14 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
       );
     }
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: 450.h),
-      child: ListView.builder(
-        itemCount: files.length,
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: EdgeInsets.only(bottom: 8.h),
-            child: buildFileCard(context, files[index]),
-          );
-        },
-      ),
+    return ListView.builder(
+      itemCount: files.length,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 8.h),
+          child: buildFileCard(context, files[index]),
+        );
+      },
     );
   }
 

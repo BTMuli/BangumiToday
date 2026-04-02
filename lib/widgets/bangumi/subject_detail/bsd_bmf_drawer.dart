@@ -196,7 +196,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    final maxExpanderHeight = screenHeight * 0.4;
+    final maxExpanderHeight = screenHeight * 0.35;
 
     return Column(
       children: [
@@ -207,37 +207,34 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
             child: Column(
               children: [
                 if (bmf.download != null && bmf.download!.isNotEmpty)
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: maxExpanderHeight),
-                    child: Expander(
-                      leading: Icon(
-                        FluentIcons.folder_open,
-                        size: 18.sp,
-                        color: FluentTheme.of(context).accentColor,
-                      ),
-                      header: Text(
-                        '下载文件',
-                        style: BTTypography.subtitle(context),
-                      ),
-                      content: BsdBmfFile(bmf.download!, bmf.subject),
+                  Expander(
+                    leading: Icon(
+                      FluentIcons.folder_open,
+                      size: 18.sp,
+                      color: FluentTheme.of(context).accentColor,
+                    ),
+                    header: Text('下载文件', style: BTTypography.subtitle(context)),
+                    content: SizedBox(
+                      height: maxExpanderHeight,
+                      child: BsdBmfFile(bmf.download!, bmf.subject),
                     ),
                   ),
                 if (bmf.download != null && bmf.download!.isNotEmpty)
                   SizedBox(height: 8.h),
                 if (bmf.rss != null && bmf.rss!.isNotEmpty)
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: maxExpanderHeight),
-                    child: Expander(
-                      leading: Icon(
-                        MdiIcons.rss,
-                        size: 18.sp,
-                        color: FluentTheme.of(context).accentColor,
-                      ),
-                      header: Text(
-                        'RSS 订阅',
-                        style: BTTypography.subtitle(context),
-                      ),
-                      content: BsdBmfRss(bmf, false),
+                  Expander(
+                    leading: Icon(
+                      MdiIcons.rss,
+                      size: 18.sp,
+                      color: FluentTheme.of(context).accentColor,
+                    ),
+                    header: Text(
+                      'RSS 订阅',
+                      style: BTTypography.subtitle(context),
+                    ),
+                    content: SizedBox(
+                      height: maxExpanderHeight,
+                      child: BsdBmfRss(bmf, false),
                     ),
                   ),
                 if (bmf.id == -1)
