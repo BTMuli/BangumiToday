@@ -131,7 +131,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
       if (mounted) await BtInfobar.error(context, '未修改 MikanRSS');
       return;
     }
-    var check = await sqliteBmf.checkRss(newRss);
+    var check = await sqliteBmf.checkRss(newRss, excludeSubject: bmf.subject);
     if (check) {
       if (mounted) await BtInfobar.error(context, '该RSS已经被其他BMF使用');
       return;
@@ -152,7 +152,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
   Future<void> updateFolder() async {
     var dir = await getDirectoryPath();
     if (dir == null) return;
-    var check = await sqliteBmf.checkDir(dir);
+    var check = await sqliteBmf.checkDir(dir, excludeSubject: bmf.subject);
     if (check) {
       if (mounted) await BtInfobar.error(context, '该目录已经被其他BMF使用');
       return;

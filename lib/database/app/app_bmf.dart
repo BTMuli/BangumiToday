@@ -171,21 +171,35 @@ class BtsAppBmf {
   }
 
   /// 检测RSS链接是否存在
-  Future<bool> checkRss(String input) async {
+  /// [excludeSubject] 排除的条目ID，用于修改时排除自身
+  Future<bool> checkRss(String input, {int? excludeSubject}) async {
+    String where = 'rss = ?';
+    List<dynamic> whereArgs = [input];
+    if (excludeSubject != null) {
+      where += ' AND subject != ?';
+      whereArgs.add(excludeSubject);
+    }
     var res = await _instance.sqlite.db.query(
       _tableName,
-      where: 'rss = ?',
-      whereArgs: [input],
+      where: where,
+      whereArgs: whereArgs,
     );
     return res.isNotEmpty;
   }
 
   /// 检测下载目录是否存在
-  Future<bool> checkDir(String dir) async {
+  /// [excludeSubject] 排除的条目ID，用于修改时排除自身
+  Future<bool> checkDir(String dir, {int? excludeSubject}) async {
+    String where = 'download = ?';
+    List<dynamic> whereArgs = [dir];
+    if (excludeSubject != null) {
+      where += ' AND subject != ?';
+      whereArgs.add(excludeSubject);
+    }
     var res = await _instance.sqlite.db.query(
       _tableName,
-      where: 'download = ?',
-      whereArgs: [dir],
+      where: where,
+      whereArgs: whereArgs,
     );
     return res.isNotEmpty;
   }
