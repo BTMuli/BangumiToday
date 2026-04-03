@@ -202,6 +202,25 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
     setState(() {});
   }
 
+  Future<void> deleteFolder() async {
+    if (bmf.download == null || bmf.download!.isEmpty) return;
+    var isDelDir = await showConfirm(
+      context,
+      title: '删除下载目录',
+      content: '是否删除实际下载目录？\n取消则仅删除记录',
+    );
+    if (!mounted) return;
+    bmf = bmf.copyWith(download: null);
+    await sqliteBmf.write(bmf);
+    if (isDelDir) {
+      await fileTool.deleteDir(bmf.download!);
+      if (mounted) await BtInfobar.success(context, '成功删除下载目录及记录');
+    } else {
+      if (mounted) await BtInfobar.success(context, '成功删除下载记录');
+    }
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     var screenHeight = MediaQuery.of(context).size.height;
@@ -223,6 +242,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
                     downloadDir: bmf.download!,
                     subject: bmf.subject,
                     maxHeight: maxExpanderHeight,
+                    onDelete: deleteFolder,
                   ),
                 if (bmf.download != null && bmf.download!.isNotEmpty)
                   SizedBox(height: 8.h),

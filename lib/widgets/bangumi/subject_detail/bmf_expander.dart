@@ -30,12 +30,14 @@ class BmfFileExpander extends ConsumerStatefulWidget {
   final String downloadDir;
   final int subject;
   final double maxHeight;
+  final Future<void> Function()? onDelete;
 
   const BmfFileExpander({
     super.key,
     required this.downloadDir,
     required this.subject,
     required this.maxHeight,
+    this.onDelete,
   });
 
   @override
@@ -233,6 +235,26 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
             ),
           ),
           const Spacer(),
+          if (widget.onDelete != null)
+            Tooltip(
+              message: '删除目录',
+              child: IconButton(
+                icon: BtIcon(
+                  FluentIcons.delete,
+                  size: 14.sp,
+                  color: FluentTheme.of(context).accentColor,
+                ),
+                onPressed: () async {
+                  var confirm = await showConfirm(
+                    context,
+                    title: '删除下载目录',
+                    content: '确定删除该下载目录配置吗？',
+                  );
+                  if (!confirm) return;
+                  await widget.onDelete!();
+                },
+              ),
+            ),
           Tooltip(
             message: '刷新文件',
             child: IconButton(
