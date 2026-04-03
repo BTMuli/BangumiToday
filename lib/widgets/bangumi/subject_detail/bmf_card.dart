@@ -277,14 +277,14 @@ class _BmfCardState extends ConsumerState<BmfCard>
         Tooltip(
           message: '查看详情',
           child: IconButton(
-            icon: BtIcon(FluentIcons.preview, size: 14.sp),
+            icon: BtIcon(FluentIcons.view, size: 14.sp),
             onPressed: _showDetailDialog,
           ),
         ),
         Tooltip(
           message: '跳转到详情页',
           child: IconButton(
-            icon: BtIcon(FluentIcons.page, size: 14.sp),
+            icon: BtIcon(FluentIcons.open_in_new_tab, size: 14.sp),
             onPressed: _navigateToDetail,
           ),
         ),
@@ -427,9 +427,6 @@ class _BmfDetailDialog extends StatefulWidget {
 class _BmfDetailDialogState extends State<_BmfDetailDialog> {
   @override
   Widget build(BuildContext context) {
-    var screenHeight = MediaQuery.of(context).size.height;
-    var maxHeight = screenHeight * 0.7;
-
     return ContentDialog(
       title: Tooltip(
         message: '点击复制标题',
@@ -456,35 +453,33 @@ class _BmfDetailDialogState extends State<_BmfDetailDialog> {
           ),
         ),
       ),
-      constraints: BoxConstraints(maxWidth: 600.w, maxHeight: maxHeight),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.bmf.download != null && widget.bmf.download!.isNotEmpty)
-              BmfFileExpander(
-                downloadDir: widget.bmf.download!,
-                subject: widget.bmf.subject,
-                maxHeight: maxHeight * 0.35,
-              ),
-            if (widget.bmf.download != null && widget.bmf.download!.isNotEmpty)
-              SizedBox(height: 8.h),
-            if (widget.bmf.rss != null && widget.bmf.rss!.isNotEmpty)
-              BmfRssExpander(
-                bmf: widget.bmf,
-                isConfig: true,
-                maxHeight: maxHeight * 0.35,
-                onDelete: () async {
-                  var sqlite = BtsAppBmf();
-                  widget.bmf.rss = null;
-                  await sqlite.write(widget.bmf);
-                  widget.onUpdate?.call();
-                  if (context.mounted) Navigator.of(context).pop();
-                },
-              ),
-          ],
-        ),
+      constraints: BoxConstraints(maxWidth: 960.w),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.bmf.download != null && widget.bmf.download!.isNotEmpty)
+            BmfFileExpander(
+              downloadDir: widget.bmf.download!,
+              subject: widget.bmf.subject,
+              maxHeight: 200.h,
+            ),
+          if (widget.bmf.download != null && widget.bmf.download!.isNotEmpty)
+            SizedBox(height: 4.h),
+          if (widget.bmf.rss != null && widget.bmf.rss!.isNotEmpty)
+            BmfRssExpander(
+              bmf: widget.bmf,
+              isConfig: true,
+              maxHeight: 200.h,
+              onDelete: () async {
+                var sqlite = BtsAppBmf();
+                widget.bmf.rss = null;
+                await sqlite.write(widget.bmf);
+                widget.onUpdate?.call();
+                if (context.mounted) Navigator.of(context).pop();
+              },
+            ),
+        ],
       ),
       actions: [
         Button(
