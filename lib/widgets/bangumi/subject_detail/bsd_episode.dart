@@ -42,15 +42,33 @@ class _BsdEpisodeState extends State<BsdEpisode> {
   /// 章节text
   late String text = getText();
 
+  /// 判断章节是否已放送
+  bool isAired() {
+    if (episode.airDate.isEmpty) return false;
+    try {
+      var airDate = DateTime.parse(episode.airDate);
+      var now = DateTime.now();
+      return airDate.isBefore(now) || airDate.isAtSameMomentAs(now);
+    } catch (e) {
+      return false;
+    }
+  }
+
   /// 获取背景颜色
   Color getBgColor() {
+    var base = FluentTheme.of(context).accentColor;
     if (userEpisode == null) {
+      if (isAired()) {
+        return base.lightest;
+      }
       return Colors.transparent;
     }
-    var base = FluentTheme.of(context).accentColor;
     var userType = userEpisode!.type;
     switch (userType) {
       case BangumiEpisodeCollectionType.none:
+        if (isAired()) {
+          return base.lightest;
+        }
         return Colors.transparent;
       case BangumiEpisodeCollectionType.wish:
         return base.lighter;

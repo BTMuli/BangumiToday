@@ -5,12 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
+import '../../../core/theme/bt_theme.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/request_subject.dart';
 import '../../../store/nav_store.dart';
 import '../../../ui/bt_icon.dart';
-import '../../../ui/bt_infobar.dart';
 import '../../../utils/bangumi_utils.dart';
+import '../../common/bt_card.dart';
 
 /// Bangumi 条目卡片-搜索结果
 class BscSearch extends ConsumerStatefulWidget {
@@ -75,74 +76,124 @@ class _BscSearchState extends ConsumerState<BscSearch> {
     );
   }
 
-  /// 构建单个标签
   Widget buildTag(String name, int count) {
     return Tooltip(
-      message: count.toString(),
-      child: DecoratedBox(
+      message: '$name ($count)',
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
         decoration: BoxDecoration(
-          color: FluentTheme.of(context).accentColor,
-          borderRadius: BorderRadius.circular(4),
+          color: FluentTheme.of(context).accentColor.withValues(alpha: 0.15),
+          borderRadius: BTRadius.smallBR,
+          border: Border.all(
+            color: FluentTheme.of(context).accentColor.withValues(alpha: 0.3),
+            width: 1,
+          ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: Text(name),
+        child: Text(
+          name,
+          style: TextStyle(
+            fontSize: 11.sp,
+            color: FluentTheme.of(context).accentColor,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );
   }
 
-  /// 构建卡片标签
   Widget buildTags() {
-    var maxNum = 12;
+    var maxNum = 5;
     var tags = subject.tags;
     tags.sort((a, b) => b.count.compareTo(a.count));
     if (tags.length > maxNum) {
       tags = tags.sublist(0, maxNum);
     }
-    return Wrap(
-      spacing: 4,
-      runSpacing: 4,
-      children: tags.map((e) => buildTag(e.name, e.count)).toList(),
+    return SizedBox(
+      height: 24.h,
+      child: Wrap(
+        spacing: 4.w,
+        runSpacing: 4.h,
+        children: tags.map((e) => buildTag(e.name, e.count)).toList(),
+      ),
     );
   }
 
-  /// 构建卡片操作
-  /// 左侧是评分/排名，右侧是相关操作
   Widget buildAction(BuildContext context) {
-    var scoreLabel = getBangumiRateLabel(subject.rating.score);
     var paneTitle = subject.nameCn == '' ? subject.name : subject.nameCn;
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
+        Flexible(child: _buildScoreWidget()),
+        SizedBox(width: 8.w),
         Tooltip(
           message: '查看$label详情',
-          child: IconButton(
-            icon: const BtIcon(FluentIcons.info),
-            onPressed: () => ref
+          child: BTCard(
+            useShadow: false,
+            useAcrylic: false,
+            padding: EdgeInsets.all(8.w),
+            borderRadius: BTRadius.medium,
+            onTap: () => ref
                 .read(navStoreProvider)
                 .addNavItemB(
                   type: label,
                   subject: subject.id,
                   paneTitle: paneTitle,
                 ),
-            onLongPress: () async {
-              ref
-                  .read(navStoreProvider)
-                  .addNavItemB(
-                    type: label,
-                    subject: subject.id,
-                    paneTitle: paneTitle,
-                    jump: false,
-                  );
-              if (context.mounted) {
-                await BtInfobar.success(context, '已将 $paneTitle 加入到标签页');
-              }
-            },
+            child: Icon(
+              FluentIcons.open_in_new_tab,
+              size: 16.sp,
+              color: FluentTheme.of(context).accentColor,
+            ),
           ),
         ),
-        Text('${subject.rating.score}($scoreLabel)'),
       ],
     );
+  }
+
+  Widget _buildScoreWidget() {
+    var score = subject.rating.score;
+    var scoreLabel = getBangumiRateLabel(score);
+    var scoreColor = _getScoreColor(score);
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+      decoration: BoxDecoration(
+        color: scoreColor.withValues(alpha: 0.15),
+        borderRadius: BTRadius.mediumBR,
+        border: Border.all(color: scoreColor.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(FluentIcons.favorite_star_fill, size: 14.sp, color: scoreColor),
+          SizedBox(width: 4.w),
+          Text(
+            score.toStringAsFixed(1),
+            style: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w600,
+              color: scoreColor,
+            ),
+          ),
+          SizedBox(width: 6.w),
+          Text(
+            scoreLabel,
+            style: TextStyle(
+              fontSize: 12.sp,
+              color: BTColors.textSecondary(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getScoreColor(double score) {
+    if (score >= 8.0) return const Color(0xFF107C10);
+    if (score >= 7.0) return const Color(0xFF0078D4);
+    if (score >= 6.0) return const Color(0xFFFFB900);
+    if (score >= 5.0) return const Color(0xFFFF8C00);
+    return const Color(0xFFD13438);
   }
 
   /// 构建卡片信息
@@ -162,7 +213,7 @@ class _BscSearchState extends ConsumerState<BscSearch> {
           ),
         ),
         if (subTitle.isNotEmpty) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Tooltip(
             message: subTitle,
             child: Text(
@@ -174,20 +225,124 @@ class _BscSearchState extends ConsumerState<BscSearch> {
           ),
         ],
         const SizedBox(height: 4),
-        buildTags(),
-        const Spacer(),
-        buildAction(context),
+        _buildMetaInfo(),
+        const SizedBox(height: 4),
+        Expanded(child: buildTags()),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            _buildCollectionInfo(),
+            const Spacer(),
+            buildAction(context),
+          ],
+        ),
       ],
     );
   }
 
-  /// 构建
+  Widget _buildMetaInfo() {
+    return Wrap(
+      spacing: 8.w,
+      runSpacing: 4.h,
+      children: [
+        if (subject.date != null && subject.date!.isNotEmpty)
+          _buildMetaItem(FluentIcons.calendar, subject.date!),
+        if (subject.eps > 0)
+          _buildMetaItem(FluentIcons.play, '${subject.eps}集'),
+        if (subject.platform != null && subject.platform!.isNotEmpty)
+          _buildMetaItem(FluentIcons.devices2, subject.platform!),
+      ],
+    );
+  }
+
+  Widget _buildMetaItem(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12.sp, color: BTColors.textSecondary(context)),
+        SizedBox(width: 4.w),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 11.sp,
+            color: BTColors.textSecondary(context),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCollectionInfo() {
+    var collect = subject.collection.collect ?? 0;
+    var wish = subject.collection.wish ?? 0;
+    var doing = subject.collection.doing ?? 0;
+
+    if (collect == 0 && wish == 0 && doing == 0) return const SizedBox.shrink();
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (collect > 0) ...[
+          Icon(FluentIcons.heart_fill, size: 12.sp, color: Colors.red),
+          SizedBox(width: 3.w),
+          Text(
+            '$collect',
+            style: TextStyle(
+              fontSize: 11.sp,
+              color: BTColors.textSecondary(context),
+            ),
+          ),
+          SizedBox(width: 10.w),
+        ],
+        if (wish > 0) ...[
+          Icon(
+            FluentIcons.favorite_star_fill,
+            size: 12.sp,
+            color: Colors.orange,
+          ),
+          SizedBox(width: 3.w),
+          Text(
+            '$wish',
+            style: TextStyle(
+              fontSize: 11.sp,
+              color: BTColors.textSecondary(context),
+            ),
+          ),
+          SizedBox(width: 10.w),
+        ],
+        if (doing > 0) ...[
+          Icon(FluentIcons.play, size: 12.sp, color: Colors.green),
+          SizedBox(width: 3.w),
+          Text(
+            '$doing',
+            style: TextStyle(
+              fontSize: 11.sp,
+              color: BTColors.textSecondary(context),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 150,
-      child: Card(
-        padding: EdgeInsets.zero,
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
+
+    return BTCard(
+      padding: EdgeInsets.zero,
+      margin: EdgeInsets.zero,
+      useAcrylic: true,
+      acrylicOpacity: 0.8,
+      useReveal: true,
+      useShadow: true,
+      shadowLevel: BTShadowLevel.medium,
+      borderColor: isDark
+          ? Colors.white.withValues(alpha: 0.1)
+          : Colors.black.withValues(alpha: 0.06),
+      borderWidth: 1.5,
+      child: SizedBox(
+        height: 150,
         child: Row(
           children: [
             SizedBox(
@@ -197,7 +352,7 @@ class _BscSearchState extends ConsumerState<BscSearch> {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(12),
                 child: buildInfo(context),
               ),
             ),

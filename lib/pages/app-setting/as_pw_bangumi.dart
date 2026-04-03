@@ -10,13 +10,11 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../../controller/app/progress_controller.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
-import '../../../models/bangumi/bangumi_model.dart';
 import '../../../models/bangumi/bangumi_oauth_model.dart';
 import '../../../pages/user-collection/user_collection_page.dart';
-import '../../../request/bangumi/bangumi_api.dart';
+import '../../../providers/app_providers.dart';
 import '../../../request/bangumi/bangumi_oauth.dart';
 import '../../../store/bgm_user_hive.dart';
-import '../../../store/nav_store.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_icon.dart';
 import '../../../ui/bt_infobar.dart';
@@ -42,9 +40,6 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
 
   /// 认证相关客户端
   final BtrBangumiOauth apiOauth = BtrBangumiOauth();
-
-  /// Bangumi 请求客户端
-  final BtrBangumiApi apiBgm = BtrBangumiApi();
 
   /// app-link 监听
   final AppLinks appLinks = AppLinks();
@@ -114,13 +109,14 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       if (mounted) await BtInfobar.error(context, '未找到访问令牌');
       return;
     }
-    var userResp = await apiBgm.getUserInfo();
+    var repository = ref.read(bangumiRepositoryProvider);
+    var userResp = await repository.getUserInfo();
     if (userResp.code != 0 || userResp.data == null) {
       progress.end();
       if (mounted) await showRespErr(userResp, context);
       return;
     }
-    await hive.updateUser(userResp.data! as BangumiUser);
+    await hive.updateUser(userResp.data!);
     progress.update(title: '获取用户信息成功', text: '用户信息：${hive.user!.nickname}');
     progress.end();
     if (mounted) {
@@ -184,7 +180,8 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     );
     const limit = 50;
     var offset = 0;
-    var resp = await apiBgm.getCollectionSubjects(
+    var repository = ref.read(bangumiRepositoryProvider);
+    var resp = await repository.getCollectionSubjects(
       username: hive.user!.id.toString(),
       limit: limit,
       offset: offset,
@@ -197,7 +194,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     await sqlite.preCheck();
     var checkFlag = true;
     var cnt = 1;
-    BangumiPageT<BangumiUserSubjectCollection> pageResp = resp.data;
+    var pageResp = resp.data!;
     var total = pageResp.total;
     while (checkFlag) {
       offset += pageResp.data.length;
@@ -221,7 +218,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
         text: '偏移：$offset，总计：$total',
         progress: cnt * 100 / total,
       );
-      resp = await apiBgm.getCollectionSubjects(
+      resp = await repository.getCollectionSubjects(
         username: hive.user!.id.toString(),
         limit: limit,
         offset: offset,
@@ -231,7 +228,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
         if (mounted) await showRespErr(resp, context);
         return;
       }
-      pageResp = resp.data;
+      pageResp = resp.data!;
     }
   }
 

@@ -8,9 +8,9 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
-import 'package:xml/xml.dart';
 
 // Project imports:
+import '../../../core/theme/bt_theme.dart';
 import '../../../database/app/app_rss.dart';
 import '../../../models/database/app_bmf_model.dart';
 import '../../../models/database/app_rss_model.dart';
@@ -23,52 +23,30 @@ import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_icon.dart';
 import '../../rss/rss_mk_card.dart';
 
-/// bmf RSS部分的组件
 class BsdBmfRss extends ConsumerStatefulWidget {
-  /// bmf 配置
   final AppBmfModel bmf;
-
-  /// 是否是配置页面
   final bool isConfig;
 
-  /// 构造
   const BsdBmfRss(this.bmf, this.isConfig, {super.key});
 
   @override
   ConsumerState<BsdBmfRss> createState() => _BsdBmfRssState();
 }
 
-/// 状态
 class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     with AutomaticKeepAliveClientMixin {
-  /// bmf
   AppBmfModel get bmf => widget.bmf;
-
-  /// mikanApi
   final api = BtrMikanApi();
-
-  /// sqlite
   final sqlite = BtsAppRss();
-
   String? get mikanRss => ref.watch(appStoreProvider).mikanRss;
-
-  /// AppRssModel
   AppRssModel? appRssModel;
-
-  /// 用于对比的 rssItems
-  List<XmlElement> rssItemsXml = [];
-
-  /// rssItems
+  Set<String> rssItemsKey = {};
   List<RssItem> rssItems = [];
-
-  /// 刷新定时器
   late Timer timerRss;
 
-  /// 是否保持状态
   @override
   bool get wantKeepAlive => true;
 
-  /// initState
   @override
   void initState() {
     super.initState();
@@ -94,9 +72,9 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
         return;
       }
       rssItems = RssFeed.parse(appRssModel!.data).items;
-      var parse = XmlDocument.parse(appRssModel!.data);
-      var channel = parse.findAllElements('channel').first;
-      rssItemsXml = channel.findAllElements('item').toList();
+      rssItemsKey = rssItems
+          .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
+          .toSet();
       setState(() {});
       await freshRss();
     });
@@ -110,14 +88,12 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     }
   }
 
-  /// dispose
   @override
   void dispose() {
     timerRss.cancel();
     super.dispose();
   }
 
-  /// 初始化 timerRss
   Timer getTimerRss() {
     var minute = widget.isConfig ? 15 : 5;
     return Timer.periodic(Duration(minutes: minute), (timer) async {
@@ -126,7 +102,6 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     });
   }
 
-  /// showNewRss
   Future<void> showNewRss(List<RssItem> newList) async {
     if (newList.length > 1) {
       await BTNotifierTool.showMini(
@@ -156,7 +131,6 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     }
   }
 
-  /// 获取rss
   String getRss() {
     if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) {
       return bmf.rss!;
@@ -166,7 +140,6 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     return url;
   }
 
-  /// freshRss
   Future<void> freshRss() async {
     if (bmf.rss == null || bmf.rss!.isEmpty) return;
     var url = getRss();
@@ -188,6 +161,9 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     var feed = RssFeed.parse(rssGet.data);
     if (rssItems.isEmpty) {
       rssItems = feed.items;
+      rssItemsKey = rssItems
+          .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
+          .toSet();
       appRssModel = AppRssModel(
         mkBgmId: bmf.mkBgmId,
         mkGroupId: bmf.mkGroupId,
@@ -201,18 +177,17 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
       setState(() {});
       return;
     }
-    var parse = XmlDocument.parse(rssGet.data);
-    var channel = parse.findAllElements('channel').first;
-    var items = channel.findAllElements('item');
     var newList = <RssItem>[];
-    for (var item in items) {
-      var check = rssItemsXml.any(
-        (element) => element.toXmlString() == item.toXmlString(),
-      );
-      if (!check) newList.add(RssItem.parse(item));
+    for (var item in feed.items) {
+      var key = '${item.title ?? ''}|${item.pubDate ?? ''}';
+      if (!rssItemsKey.contains(key)) {
+        newList.add(item);
+      }
     }
     rssItems = feed.items;
-    rssItemsXml = items.toList();
+    rssItemsKey = rssItems
+        .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
+        .toSet();
     if (newList.isNotEmpty) {
       BTLogTool.info('发现新的 RSS 信息');
       appRssModel = AppRssModel(
@@ -229,24 +204,22 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     setState(() {});
   }
 
-  /// buildRssTitle
   Widget buildTitle() {
     var rssLink = getRss();
-    return Flex(
-      direction: Axis.horizontal,
+    return Row(
       children: [
-        Flexible(
+        Expanded(
           child: Tooltip(
             message: rssLink,
             child: Text(
               'Mikan RSS: $rssLink',
-              style: TextStyle(fontSize: 20),
+              style: BTTypography.subtitle(context),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.w),
         Tooltip(
           message: '刷新 RSS',
           child: IconButton(
@@ -265,31 +238,60 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     );
   }
 
+  Widget buildRssList() {
+    if (rssItems.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.h),
+        child: Text('没有找到任何 RSS 信息', style: BTTypography.body(context)),
+      );
+    }
+
+    if (rssItems.length <= 6) {
+      return Wrap(
+        spacing: 12.w,
+        runSpacing: 12.h,
+        children: [
+          for (var i = 0; i < rssItems.length; i++)
+            RssMikanCard(
+              bmf.rss!,
+              rssItems[i],
+              dir: bmf.download,
+              subject: bmf.subject,
+            ),
+        ],
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: rssItems.length,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 12.h),
+          child: RssMikanCard(
+            bmf.rss!,
+            rssItems[index],
+            dir: bmf.download,
+            subject: bmf.subject,
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        buildTitle(),
-        const SizedBox(height: 12),
-        if (rssItems.isEmpty)
-          const Text('没有找到任何 RSS 信息')
-        else
-          Wrap(
-            spacing: 12.w,
-            runSpacing: 12.h,
-            children: [
-              for (var i = 0; i < rssItems.length; i++)
-                RssMikanCard(
-                  bmf.rss!,
-                  rssItems[i],
-                  dir: bmf.download,
-                  subject: bmf.subject,
-                ),
-            ],
-          ),
-      ],
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          buildTitle(),
+          SizedBox(height: 12.h),
+          buildRssList(),
+        ],
+      ),
     );
   }
 }

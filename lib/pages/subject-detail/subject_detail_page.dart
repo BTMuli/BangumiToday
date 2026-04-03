@@ -15,13 +15,15 @@ import '../../models/bangumi/bangumi_model.dart';
 import '../../models/hive/nav_model.dart';
 import '../../plugins/mikan/mikan_api.dart';
 import '../../plugins/mikan/models/mikan_model.dart';
-import '../../request/bangumi/bangumi_api.dart';
+import '../../providers/app_providers.dart';
 import '../../store/bgm_user_hive.dart';
-import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
-import '../../widgets/bangumi/subject_detail/bsd_bmf.dart';
+import '../../core/theme/bt_theme.dart';
+import '../../widgets/common/bt_animations.dart';
+import '../../widgets/common/bt_drawer.dart';
+import '../../widgets/bangumi/subject_detail/bsd_bmf_drawer.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_episodes.dart';
 import 'sd_pw_overview.dart';
@@ -109,8 +111,8 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   Future<void> init() async {
     if (showError) setState(() => showError = false);
     setState(() => data = null);
-    var api = BtrBangumiApi();
-    var detailGet = await api.getSubjectDetail(widget.id);
+    var repository = ref.read(bangumiRepositoryProvider);
+    var detailGet = await repository.getSubjectDetail(widget.id);
     if (detailGet.code != 0 || detailGet.data == null) {
       if (mounted) await showRespErr(detailGet, context);
       showError = true;
@@ -301,81 +303,327 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     );
   }
 
-  /// 构建简介
-  Widget buildSummary(String summary) {
-    if (summary == '') {
-      return ListTile(
-        leading: const Icon(FluentIcons.error_badge),
-        title: Text('没有简介', style: TextStyle(fontSize: 20)),
-      );
-    }
-    return Expander(
-      initiallyExpanded: true,
-      leading: const Icon(FluentIcons.info),
-      header: Text('简介', style: TextStyle(fontSize: 20)),
-      content: Text(summary),
+  Widget _buildBmfDrawerButton(BuildContext context) {
+    var accentColor = FluentTheme.of(context).accentColor;
+    return Tooltip(
+      message: '打开 BMF 配置',
+      excludeFromSemantics: true,
+      child: IconButton(
+        icon: Icon(
+          FluentIcons.app_icon_default,
+          size: 18.sp,
+          color: accentColor,
+        ),
+        onPressed: () => showBTDrawer(
+          context: context,
+          width: 420,
+          child: BsdBmfDrawer(
+            subjectId: data!.id,
+            title: data!.nameCn.isEmpty ? data!.name : data!.nameCn,
+            rssProvider: rssProvider,
+          ),
+        ),
+      ),
     );
   }
 
-  /// 构建其他信息
+  Widget buildContextMenu(BuildContext context, EditableTextState state) {
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    var backgroundColor = isDark ? const Color(0xFF2D2D2D) : Colors.white;
+    var textColor = isDark ? Colors.white : Colors.black;
+    var hoverColor = isDark
+        ? Colors.white.withValues(alpha: 0.1)
+        : Colors.black.withValues(alpha: 0.05);
+
+    String getButtonLabel(ContextMenuButtonItem item) {
+      if (item.label != null) return item.label!;
+      switch (item.type) {
+        case ContextMenuButtonType.copy:
+          return '复制';
+        case ContextMenuButtonType.cut:
+          return '剪切';
+        case ContextMenuButtonType.paste:
+          return '粘贴';
+        case ContextMenuButtonType.selectAll:
+          return '全选';
+        case ContextMenuButtonType.delete:
+          return '删除';
+        case ContextMenuButtonType.lookUp:
+          return '查询';
+        case ContextMenuButtonType.searchWeb:
+          return '搜索';
+        case ContextMenuButtonType.share:
+          return '分享';
+        case ContextMenuButtonType.liveTextInput:
+          return '实时文本输入';
+        default:
+          return 'Unknown';
+      }
+    }
+
+    return CustomSingleChildLayout(
+      delegate: TextSelectionToolbarLayoutDelegate(
+        anchorAbove: state.contextMenuAnchors.primaryAnchor,
+        anchorBelow:
+            state.contextMenuAnchors.secondaryAnchor ??
+            state.contextMenuAnchors.primaryAnchor,
+      ),
+      child: IntrinsicWidth(
+        child: Container(
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: state.contextMenuButtonItems.map((item) {
+                return _ContextMenuButton(
+                  label: getButtonLabel(item),
+                  textColor: textColor,
+                  hoverColor: hoverColor,
+                  onPressed: item.onPressed,
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildSummary(String summary) {
+    if (summary == '') {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.h),
+        child: Row(
+          children: [
+            Icon(
+              FluentIcons.error_badge,
+              size: 16.sp,
+              color: BTColors.textTertiary(context),
+            ),
+            SizedBox(width: 8.w),
+            Text('暂无简介', style: BTTypography.body(context)),
+          ],
+        ),
+      );
+    }
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4.h),
+      child: SelectableText(
+        summary,
+        style: BTTypography.body(context),
+        contextMenuBuilder: buildContextMenu,
+      ),
+    );
+  }
+
   Widget buildOtherInfo(List<BangumiInfoBoxItem> infobox) {
+    if (infobox.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.h),
+        child: Row(
+          children: [
+            Icon(
+              FluentIcons.info,
+              size: 16.sp,
+              color: BTColors.textTertiary(context),
+            ),
+            SizedBox(width: 8.w),
+            Text('暂无其他信息', style: BTTypography.body(context)),
+          ],
+        ),
+      );
+    }
     var res = <Widget>[];
-    // 换行加tab
-    var gap = "\n    ";
     for (var item in infobox) {
       String value;
       if (item.value is List) {
         var list = item.value as List;
         value = list
-            .map((e) => e['k'] != null ? '${e['k']}:${e['v']}' : e['v'])
+            .map((e) => e['k'] != null ? '${e['k']}: ${e['v']}' : e['v'])
             .toList()
             .map((e) => replaceEscape(e as String))
-            .join(gap);
-        res.add(Text('${item.key}:$gap$value'));
+            .join('\n');
+        res.add(
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 4.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.key, style: BTTypography.bodyStrong(context)),
+                SizedBox(height: 2.h),
+                SelectableText(
+                  value,
+                  style: BTTypography.body(context),
+                  contextMenuBuilder: buildContextMenu,
+                ),
+              ],
+            ),
+          ),
+        );
       } else {
         value = replaceEscape(item.value as String);
-        res.add(Text('${item.key}: $value'));
+        res.add(
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 4.h),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 80.w,
+                  child: Text(
+                    item.key,
+                    style: BTTypography.bodyStrong(context),
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: SelectableText(
+                    value,
+                    style: BTTypography.body(context),
+                    contextMenuBuilder: buildContextMenu,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
       }
-      res.add(SizedBox(height: 12.h));
     }
-    return Expander(
-      leading: const Icon(FluentIcons.info),
-      header: Text('其他信息', style: TextStyle(fontSize: 20)),
-      content: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: res,
-      ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: res,
     );
   }
 
-  /// 构建内容
   Widget buildContent() {
     if (data == null) return buildLoading();
     assert(data != null);
-    return ListView(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-      children: [
-        SdpOverviewWidget(data!),
-        SizedBox(height: 12),
-        if (hiveUser.user != null) ...[
-          BsdUserCollection(data!, hiveUser.user!, collectProvider),
-          SizedBox(height: 12),
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          BTFadeSlideIn(
+            duration: const Duration(milliseconds: 300),
+            child: Container(
+              padding: EdgeInsets.all(16.w),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? BTColors.surfaceSecondary(context)
+                    : BTColors.surfacePrimary(context),
+                borderRadius: BTRadius.largeBR,
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.black.withValues(alpha: 0.04),
+                ),
+                boxShadow: BTTheme.shadow(context, level: BTShadowLevel.medium),
+              ),
+              child: SdpOverviewWidget(data!),
+            ),
+          ),
+          SizedBox(height: 12.h),
+
+          if (hiveUser.user != null)
+            BTFadeSlideIn(
+              duration: const Duration(milliseconds: 350),
+              delay: const Duration(milliseconds: 50),
+              child: Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: BTColors.surfaceSecondary(context),
+                  borderRadius: BTRadius.mediumBR,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: BsdUserCollection(
+                        data!,
+                        hiveUser.user!,
+                        collectProvider,
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    _buildBmfDrawerButton(context),
+                  ],
+                ),
+              ),
+            ),
+
+          BTFadeSlideIn(
+            duration: const Duration(milliseconds: 400),
+            delay: const Duration(milliseconds: 100),
+            child: Expander(
+              initiallyExpanded: true,
+              leading: Icon(
+                FluentIcons.video,
+                size: 18.sp,
+                color: FluentTheme.of(context).accentColor,
+              ),
+              header: Text('剧集列表', style: BTTypography.subtitle(context)),
+              content: BsdUserEpisodes(data!, hiveUser.user, collectProvider),
+            ),
+          ),
+
+          BTFadeSlideIn(
+            duration: const Duration(milliseconds: 450),
+            delay: const Duration(milliseconds: 150),
+            child: Expander(
+              leading: Icon(
+                FluentIcons.link,
+                size: 18.sp,
+                color: FluentTheme.of(context).accentColor,
+              ),
+              header: Text('关联条目', style: BTTypography.subtitle(context)),
+              content: SdpRelationWidget(data!.id),
+            ),
+          ),
+
+          BTFadeSlideIn(
+            duration: const Duration(milliseconds: 500),
+            delay: const Duration(milliseconds: 200),
+            child: Expander(
+              initiallyExpanded: true,
+              leading: Icon(
+                FluentIcons.info,
+                size: 18.sp,
+                color: FluentTheme.of(context).accentColor,
+              ),
+              header: Text('简介', style: BTTypography.subtitle(context)),
+              content: buildSummary(data!.summary),
+            ),
+          ),
+
+          BTFadeSlideIn(
+            duration: const Duration(milliseconds: 550),
+            delay: const Duration(milliseconds: 250),
+            child: Expander(
+              leading: Icon(
+                FluentIcons.settings,
+                size: 18.sp,
+                color: FluentTheme.of(context).accentColor,
+              ),
+              header: Text('详细信息', style: BTTypography.subtitle(context)),
+              content: buildOtherInfo(data!.infobox),
+            ),
+          ),
         ],
-        BsdUserEpisodes(data!, hiveUser.user, collectProvider),
-        SizedBox(height: 12),
-        BsdBmfWidget(
-          data!.id,
-          data!.nameCn.isEmpty ? data!.name : data!.nameCn,
-          rssProvider: rssProvider,
-        ),
-        SizedBox(height: 12),
-        SdpRelationWidget(data!.id),
-        SizedBox(height: 12),
-        buildSummary(data!.summary),
-        SizedBox(height: 12),
-        buildOtherInfo(data!.infobox),
-      ],
+      ),
     );
   }
 
@@ -383,5 +631,47 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   Widget build(BuildContext context) {
     super.build(context);
     return ScaffoldPage(header: buildHeader(), content: buildContent());
+  }
+}
+
+class _ContextMenuButton extends StatefulWidget {
+  final String label;
+  final Color textColor;
+  final Color hoverColor;
+  final VoidCallback? onPressed;
+
+  const _ContextMenuButton({
+    required this.label,
+    required this.textColor,
+    required this.hoverColor,
+    this.onPressed,
+  });
+
+  @override
+  State<_ContextMenuButton> createState() => _ContextMenuButtonState();
+}
+
+class _ContextMenuButtonState extends State<_ContextMenuButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onPressed,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          color: _isHovered ? widget.hoverColor : Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            widget.label,
+            style: TextStyle(color: widget.textColor, fontSize: 14),
+          ),
+        ),
+      ),
+    );
   }
 }

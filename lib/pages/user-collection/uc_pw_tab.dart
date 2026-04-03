@@ -9,14 +9,15 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 // Project imports:
 import '../../controller/app/page_controller.dart';
 import '../../controller/app/progress_controller.dart';
+import '../../core/layout/responsive.dart';
 import '../../database/bangumi/bangumi_collection.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
-import '../../request/bangumi/bangumi_api.dart';
+import '../../providers/app_providers.dart';
 import '../../store/bgm_user_hive.dart';
-import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import '../../widgets/common/empty_state.dart';
 import 'uc_pw_card.dart';
 
 /// 用户收藏 tab
@@ -48,9 +49,6 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
 
   /// 用户Hive
   final BgmUserHive hive = BgmUserHive();
-
-  /// api
-  final BtrBangumiApi api = BtrBangumiApi();
 
   /// 收藏数据库
   final BtsBangumiCollection sqlite = BtsBangumiCollection();
@@ -131,7 +129,8 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
     }
     const limitC = 50;
     var offsetC = 0;
-    var resp = await api.getCollectionSubjects(
+    var repository = ref.read(bangumiRepositoryProvider);
+    var resp = await repository.getCollectionSubjects(
       username: hive.user!.id.toString(),
       limit: limitC,
       offset: offsetC,
@@ -143,7 +142,7 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
       return;
     }
     var checkFlag = true;
-    var pageResp = resp.data as BangumiPageT<BangumiUserSubjectCollection>;
+    var pageResp = resp.data!;
     var total = pageResp.total;
     var cnt = 0;
     while (checkFlag) {
@@ -166,7 +165,7 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
         text: '偏移：$offsetC，总计：$total',
         progress: (cnt / total) * 100,
       );
-      resp = await api.getCollectionSubjects(
+      resp = await repository.getCollectionSubjects(
         username: hive.user!.id.toString(),
         limit: limitC,
         offset: offsetC,
@@ -177,7 +176,7 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
         if (mounted) await showRespErr(resp, context);
         return;
       }
-      pageResp = resp.data as BangumiPageT<BangumiUserSubjectCollection>;
+      pageResp = resp.data!;
     }
   }
 
@@ -214,59 +213,102 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
 
   /// 构建刷新按钮
   Widget buildRefresh(BuildContext context) {
-    return IconButton(
-      icon: const Icon(FluentIcons.refresh),
-      onPressed: () async {
-        data.clear();
-        pageController.cur = 1;
-        await loadData();
-        if (context.mounted) await BtInfobar.success(context, '刷新成功');
-      },
-      onLongPress: () async {
-        var check = await showConfirm(
-          context,
-          title: '是否从API刷新数据',
-          content: '将从 bangumi.tv 获取数据',
-        );
-        if (!check) return;
-        await freshCollection();
-      },
+    return Tooltip(
+      message: '刷新数据 (长按从API刷新)',
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: IconButton(
+          icon: const Icon(FluentIcons.refresh),
+          onPressed: () async {
+            data.clear();
+            pageController.cur = 1;
+            await loadData();
+            if (context.mounted) await BtInfobar.success(context, '刷新成功');
+          },
+          onLongPress: () async {
+            var check = await showConfirm(
+              context,
+              title: '是否从API刷新数据',
+              content: '将从 bangumi.tv 获取数据',
+            );
+            if (!check) return;
+            await freshCollection();
+          },
+        ),
+      ),
     );
   }
 
   /// 构建顶部
   Widget buildTop(BuildContext context) {
     var titleStyle = FluentTheme.of(context).typography.subtitle;
-    return Row(
-      children: [
-        SizedBox(width: 8.w),
-        Text('共 ${data.length} 部', style: titleStyle),
-        SizedBox(width: 8.w),
-        buildRefresh(context),
-        SizedBox(width: 8.w),
-        SizedBox(width: 450.w, child: buildJump(context)),
-        const Spacer(),
-        PageWidget(pageController),
-        SizedBox(width: 8.w),
-      ],
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: FluentTheme.of(context).micaBackgroundColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            type.icon,
+            size: 20.sp,
+            color: FluentTheme.of(context).accentColor,
+          ),
+          SizedBox(width: 8.w),
+          Text('共 ${data.length} 部', style: titleStyle),
+          SizedBox(width: 12.w),
+          buildRefresh(context),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Container(
+              constraints: BoxConstraints(maxWidth: 450.w),
+              child: buildJump(context),
+            ),
+          ),
+          SizedBox(width: 12.w),
+          PageWidget(pageController),
+        ],
+      ),
     );
   }
 
   /// 构建列表
-  Widget buildList() {
+  Widget buildList(BuildContext context) {
     if (showData.isEmpty) {
-      return const Center(child: Text('没有数据'));
+      return BTEmptyState.noCollection(
+        actionText: '浏览今日放送',
+        onAction: () =>
+            ref.read(navStoreProvider).addNavItemB(type: '动画', subject: 0),
+      );
     }
-    return GridView(
-      controller: ScrollController(),
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 10 / 7,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-      ),
-      children: showData.map((e) => UcpCardWidget(data: e)).toList(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        var columns = BTBreakpoints.getGridColumns(constraints.maxWidth);
+        return Container(
+          margin: EdgeInsets.all(8.w),
+          child: GridView.builder(
+            controller: ScrollController(),
+            padding: EdgeInsets.all(8.w),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              childAspectRatio: 10 / 7,
+              mainAxisSpacing: 12.w,
+              crossAxisSpacing: 12.w,
+            ),
+            itemCount: showData.length,
+            cacheExtent: 500,
+            itemBuilder: (context, index) => RepaintBoundary(
+              key: ValueKey(showData[index].subjectId),
+              child: UcpCardWidget(data: showData[index]),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -274,13 +316,19 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Column(
-      children: [
-        SizedBox(height: 8.h),
-        buildTop(context),
-        SizedBox(height: 8.h),
-        Expanded(child: buildList()),
-      ],
+    return Container(
+      color: FluentTheme.of(context).scaffoldBackgroundColor,
+      child: Column(
+        children: [
+          SizedBox(height: 12.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            child: buildTop(context),
+          ),
+          SizedBox(height: 12.h),
+          Expanded(child: buildList(context)),
+        ],
+      ),
     );
   }
 }

@@ -8,6 +8,8 @@ part 'app_bmf_model.g.dart';
 /// AppBmf 表的数据模型
 @JsonSerializable()
 class AppBmfModel {
+  static const _unset = Object();
+
   /// ID
   final int id;
 
@@ -47,24 +49,24 @@ class AppBmfModel {
   /// JSON 反序列化
   Map<String, dynamic> toJson() => _$AppBmfModelToJson(this);
 
-  /// 复制
+  /// 复制（支持设置 null 值）
   AppBmfModel copyWith({
-    int? id,
-    int? subject,
-    String? title,
-    String? rss,
-    String? mkBgmId,
-    String? mkGroupId,
-    String? download,
+    Object? id = _unset,
+    Object? subject = _unset,
+    Object? title = _unset,
+    Object? rss = _unset,
+    Object? mkBgmId = _unset,
+    Object? mkGroupId = _unset,
+    Object? download = _unset,
   }) {
     return AppBmfModel(
-      id: id ?? this.id,
-      subject: subject ?? this.subject,
-      title: title ?? this.title,
-      rss: rss ?? this.rss,
-      mkBgmId: mkBgmId ?? this.mkBgmId,
-      mkGroupId: mkGroupId ?? this.mkGroupId,
-      download: download ?? this.download,
+      id: id == _unset ? this.id : id as int,
+      subject: subject == _unset ? this.subject : subject as int,
+      title: title == _unset ? this.title : title as String?,
+      rss: rss == _unset ? this.rss : rss as String?,
+      mkBgmId: mkBgmId == _unset ? this.mkBgmId : mkBgmId as String?,
+      mkGroupId: mkGroupId == _unset ? this.mkGroupId : mkGroupId as String?,
+      download: download == _unset ? this.download : download as String?,
     );
   }
 }

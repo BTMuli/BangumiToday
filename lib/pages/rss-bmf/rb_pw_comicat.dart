@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 // Project imports:
 import '../../request/rss/comicat_api.dart';
 import '../../ui/bt_dialog.dart';
-import '../../widgets/rss/rss_cmc_card.dart';
+import '../../widgets/rss/rss_comicat_card_fluent.dart';
 
 /// 负责 ComicatProject RSS 页面的显示
 class RbpComicatWidget extends StatefulWidget {
@@ -88,9 +88,46 @@ class _RbpComicatState extends State<RbpComicatWidget>
         ),
       );
     } else {
-      return ListView.builder(
-        itemCount: rssItems.length,
-        itemBuilder: (_, index) => RssCmcCard(rssItems[index]),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          var cardWidth = 320.0;
+          var crossAxisCount = (constraints.maxWidth / cardWidth).floor().clamp(
+            1,
+            6,
+          );
+          var mainAxisExtent = 200.0;
+
+          return Stack(
+            children: [
+              GridView.builder(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  mainAxisExtent: mainAxisExtent,
+                  crossAxisSpacing: 12.w,
+                  mainAxisSpacing: 12.h,
+                ),
+                itemCount: rssItems.length,
+                itemBuilder: (context, index) {
+                  return RssComicatCardFluent(item: rssItems[index]);
+                },
+              ),
+              Positioned(
+                bottom: 16.h,
+                right: 16.w,
+                child: Opacity(
+                  opacity: 0.3,
+                  child: SizedBox(
+                    width: 100.spMin,
+                    child: Image.asset(
+                      'assets/images/platforms/comicat-kb.png',
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       );
     }
   }
@@ -102,25 +139,7 @@ class _RbpComicatState extends State<RbpComicatWidget>
     return ScaffoldPage.withPadding(
       padding: EdgeInsets.zero,
       header: Padding(padding: EdgeInsets.all(8), child: buildTitle()),
-      content: Stack(
-        children: [
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: buildContent(),
-          ),
-          Positioned(
-            bottom: 8,
-            right: 8,
-            child: SizedBox(
-              width: 120.spMin,
-              child: Image.asset('assets/images/platforms/comicat-kb.png'),
-            ),
-          ),
-        ],
-      ),
+      content: buildContent(),
     );
   }
 }

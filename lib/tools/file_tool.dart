@@ -134,4 +134,40 @@ class BTFileTool {
     if (!check) return;
     await Directory(dirPath).delete(recursive: true);
   }
+
+  /// 计算目录大小
+  Future<int> getDirSize(String dirPath) async {
+    var dir = Directory(dirPath);
+    if (!await dir.exists()) return 0;
+    var size = 0;
+    await for (var entity in dir.list(recursive: true)) {
+      if (entity is File) {
+        size += await entity.length();
+      }
+    }
+    return size;
+  }
+
+  /// 清空目录内容（不删除目录本身）
+  Future<void> clearDir(String dirPath) async {
+    var dir = Directory(dirPath);
+    if (!await dir.exists()) return;
+    await for (var entity in dir.list()) {
+      if (entity is File) {
+        await entity.delete();
+      } else if (entity is Directory) {
+        await entity.delete(recursive: true);
+      }
+    }
+  }
+
+  /// 格式化文件大小
+  static String formatSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(2)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
 }

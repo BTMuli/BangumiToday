@@ -5,16 +5,16 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../controller/app/progress_controller.dart';
+import '../../core/errors/error_handler.dart';
 import '../../database/app/app_config.dart';
 import '../../database/bangumi/bangumi_collection.dart';
 import '../../database/bangumi/bangumi_data.dart';
 import '../../models/bangumi/bangumi_data_model.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_subject.dart';
-import '../../request/bangumi/bangumi_api.dart';
+import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_data.dart';
 import '../../store/bgm_user_hive.dart';
-import '../../store/nav_store.dart';
 import '../../tools/notifier_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
@@ -36,9 +36,6 @@ class BangumiCalendarPage extends ConsumerStatefulWidget {
 /// 今日放送状态
 class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     with AutomaticKeepAliveClientMixin {
-  /// bangumiAPI
-  final BtrBangumiApi apiBgm = BtrBangumiApi();
-
   /// bangumiDataAPI
   final BtrBangumiDataApi apiBgd = BtrBangumiDataApi();
 
@@ -107,14 +104,17 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     calendarData.clear();
     if (freshTab) tabIndex = today;
     setState(() {});
-    var calendarGet = await apiBgm.getToday();
+    var repository = ref.read(bangumiRepositoryProvider);
+    var calendarGet = await repository.getToday();
     if (calendarGet.code != 0 || calendarGet.data == null) {
       isRequesting = false;
       setState(() {});
-      if (mounted) await showRespErr(calendarGet, context);
+      if (mounted) {
+        await BTErrorHandler.handle(context, calendarGet, title: '获取放送数据失败');
+      }
       return;
     }
-    var data = calendarGet.data as List<BangumiCalendarRespData>;
+    var data = calendarGet.data!;
     if (isShowCollection) {
       for (var d in data) {
         for (var item in d.items.toList()) {

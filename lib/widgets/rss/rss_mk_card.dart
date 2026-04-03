@@ -167,7 +167,14 @@ class _RssMikanCardState extends ConsumerState<RssMikanCard> {
         icon: const Icon(FluentIcons.edge_logo),
         onPressed: () async {
           assert(item.link != null && item.link != '');
-          await launchUrlString(item.link!);
+          var mikanUrl = await sqliteConfig.readMikanUrl();
+          var linkReal = item.link!;
+          if (mikanUrl != null && mikanUrl.isNotEmpty) {
+            var url = Uri.parse(item.link!);
+            var urlDomain = '${url.scheme}://${url.host}';
+            linkReal = item.link!.replaceFirst(urlDomain, mikanUrl);
+          }
+          await launchUrlString(linkReal);
         },
       ),
     );

@@ -187,23 +187,25 @@ class _SdpRateChartWidgetState extends ConsumerState<SdpRateChartWidget> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 500.w,
       height: 300.h,
       child: Card(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              empty
-                  ? '暂无评分'
-                  : '${rating!.score} ${getBangumiRateLabel(rating!.score)}'
-                        '(${rating!.total}人评分)',
-              style: FluentTheme.of(context).typography.subtitle,
-            ),
-            SizedBox(height: 20),
-            Expanded(child: BarChart(getData(context))),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                empty
+                    ? '暂无评分'
+                    : '${rating!.score} ${getBangumiRateLabel(rating!.score)}'
+                          '(${rating!.total}人评分)',
+                style: FluentTheme.of(context).typography.subtitle,
+              ),
+              SizedBox(height: 20),
+              Expanded(child: BarChart(getData(context))),
+            ],
+          ),
         ),
       ),
     );
