@@ -357,8 +357,7 @@ class BmfRssExpander extends ConsumerStatefulWidget {
   ConsumerState<BmfRssExpander> createState() => _BmfRssExpanderState();
 }
 
-class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
-    with AutomaticKeepAliveClientMixin {
+class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
   AppBmfModel get bmf => widget.bmf;
   final sqlite = BtsAppRss();
 
@@ -367,9 +366,6 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
   Set<String> rssItemsKey = {};
   List<RssItem> rssItems = [];
   StreamSubscription<BmfRssUpdateEvent>? _updateSubscription;
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -411,20 +407,20 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
     _updateSubscription = BmfRssService.instance.updateStream
         .where((event) => event.key == key)
         .listen((event) {
-      rssItems = event.items;
-      rssItemsKey = rssItems
-          .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
-          .toSet();
-      appRssModel = AppRssModel(
-        mkBgmId: bmf.mkBgmId,
-        mkGroupId: bmf.mkGroupId,
-        rss: getRss(),
-        data: event.rssData,
-        ttl: 0,
-        updated: event.updated.millisecondsSinceEpoch,
-      );
-      setState(() {});
-    });
+          rssItems = event.items;
+          rssItemsKey = rssItems
+              .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
+              .toSet();
+          appRssModel = AppRssModel(
+            mkBgmId: bmf.mkBgmId,
+            mkGroupId: bmf.mkGroupId,
+            rss: getRss(),
+            data: event.rssData,
+            ttl: 0,
+            updated: event.updated.millisecondsSinceEpoch,
+          );
+          setState(() {});
+        });
   }
 
   @override
@@ -434,9 +430,14 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
         oldWidget.bmf.mkBgmId != widget.bmf.mkBgmId ||
         oldWidget.bmf.mkGroupId != widget.bmf.mkGroupId) {
       _updateSubscription?.cancel();
-      _listenToUpdate();
       rssItems.clear();
       rssItemsKey.clear();
+      if (widget.bmf.rss == null || widget.bmf.rss!.isEmpty) {
+        appRssModel = null;
+        setState(() {});
+        return;
+      }
+      _listenToUpdate();
       Future.microtask(() async {
         if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) {
           appRssModel = await sqlite.read(bmf.rss!);
@@ -573,7 +574,6 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     var accentColor = FluentTheme.of(context).accentColor;
     var rssLink = getRss();
 
