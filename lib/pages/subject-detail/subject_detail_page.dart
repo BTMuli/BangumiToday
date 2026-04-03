@@ -1,4 +1,6 @@
 // Flutter imports:
+import 'package:flutter/material.dart'
+    show TextSelectionToolbarLayoutDelegate, TextSelectionToolbarTextButton;
 import 'package:flutter/services.dart';
 
 // Package imports:
@@ -330,21 +332,36 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   Widget buildContextMenu(BuildContext context, EditableTextState state) {
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     var backgroundColor = isDark ? const Color(0xFF2D2D2D) : Colors.white;
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(6),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+
+    return CustomSingleChildLayout(
+      delegate: TextSelectionToolbarLayoutDelegate(
+        anchorAbove: state.contextMenuAnchors.primaryAnchor,
+        anchorBelow:
+            state.contextMenuAnchors.secondaryAnchor ??
+            state.contextMenuAnchors.primaryAnchor,
       ),
-      child: AdaptiveTextSelectionToolbar.buttonItems(
-        anchors: state.contextMenuAnchors,
-        buttonItems: state.contextMenuButtonItems,
+      child: Container(
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: state.contextMenuButtonItems.map((item) {
+            return TextSelectionToolbarTextButton(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              onPressed: item.onPressed,
+              child: Text(item.label ?? ''),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
