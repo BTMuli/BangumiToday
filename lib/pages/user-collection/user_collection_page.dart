@@ -6,7 +6,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 // Project imports:
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../store/bgm_user_hive.dart';
-import '../../store/nav_store.dart';
 import '../../ui/bt_infobar.dart';
 import 'uc_pw_tab.dart';
 
@@ -73,12 +72,6 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
   Widget buildFooter() {
     return Row(
       children: [
-        FilledButton(
-          onPressed: () =>
-              ref.read(navStoreProvider).removeNavItem('Bangumi-用户收藏'),
-          child: const Text('关闭'),
-        ),
-        SizedBox(width: 12.w),
         Button(
           onPressed: refreshAuth,
           child: const Text('刷新授权'),

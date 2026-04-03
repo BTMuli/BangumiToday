@@ -11,7 +11,6 @@ import '../../../controller/app/progress_controller.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_oauth_model.dart';
-import '../../../pages/user-collection/user_collection_page.dart';
 import '../../../providers/app_providers.dart';
 import '../../../request/bangumi/bangumi_oauth.dart';
 import '../../../store/bgm_user_hive.dart';
@@ -234,12 +233,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
 
   /// 跳转到用户收藏
   Future<void> toUserCollection() async {
-    var paneItem = PaneItem(
-      icon: const BtIcon(FluentIcons.favorite_star),
-      title: const Text('Bangumi-用户收藏'),
-      body: const UserCollectionPage(),
-    );
-    ref.read(navStoreProvider).addNavItem(paneItem, 'Bangumi-用户收藏');
+    ref.read(navStoreProvider).goIndex(2);
   }
 
   /// 尝试刷新用户信息

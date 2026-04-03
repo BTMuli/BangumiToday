@@ -20,7 +20,6 @@ import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../subject-search/subject_search_page.dart';
-import '../user-collection/user_collection_page.dart';
 import 'bc_pw_day.dart';
 
 /// 今日放送
@@ -302,12 +301,6 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 构建收藏按钮
   MenuFlyoutItem buildFlyoutCollection(BuildContext context) {
     var color = FluentTheme.of(context).accentColor;
-    var title = "Bangumi-用户收藏";
-    var pane = PaneItem(
-      icon: Icon(FluentIcons.favorite_star, color: color),
-      title: Text(title),
-      body: const UserCollectionPage(),
-    );
     return MenuFlyoutItem(
       leading: Icon(
         FluentIcons.favorite_star,
@@ -319,7 +312,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
           await BtInfobar.warn(context, '请前往用户界面登录');
           return;
         }
-        ref.read(navStoreProvider).addNavItem(pane, title);
+        ref.read(navStoreProvider).goIndex(2);
       },
     );
   }
