@@ -10,18 +10,16 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
+import '../../../core/services/bmf_rss_service.dart';
 import '../../../core/theme/bt_theme.dart';
 import '../../../database/app/app_config.dart';
 import '../../../database/app/app_rss.dart';
 import '../../../models/database/app_bmf_model.dart';
 import '../../../models/database/app_rss_model.dart';
-import '../../../plugins/mikan/mikan_api.dart';
 import '../../../store/app_store.dart';
 import '../../../store/dtt_store.dart';
-import '../../../store/nav_store.dart';
 import '../../../tools/download_tool.dart';
 import '../../../tools/file_tool.dart';
-import '../../../tools/log_tool.dart';
 import '../../../tools/notifier_tool.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_icon.dart';
@@ -362,14 +360,13 @@ class BmfRssExpander extends ConsumerStatefulWidget {
 class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
     with AutomaticKeepAliveClientMixin {
   AppBmfModel get bmf => widget.bmf;
-  final api = BtrMikanApi();
   final sqlite = BtsAppRss();
 
   String? get mikanRss => ref.watch(appStoreProvider).mikanRss;
   AppRssModel? appRssModel;
   Set<String> rssItemsKey = {};
   List<RssItem> rssItems = [];
-  late Timer timerRss;
+  StreamSubscription<BmfRssUpdateEvent>? _updateSubscription;
 
   @override
   bool get wantKeepAlive => true;
@@ -377,7 +374,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
   @override
   void initState() {
     super.initState();
-    timerRss = getTimerRss();
+    _listenToUpdate();
     Future.microtask(() async {
       if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) {
         appRssModel = await sqlite.read(bmf.rss!);
@@ -395,15 +392,38 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
         );
         await sqlite.write(appRssModel!);
         setState(() {});
-        await freshRss();
         return;
       }
-      rssItems = RssFeed.parse(appRssModel!.data).items;
+      if (appRssModel!.data.isNotEmpty) {
+        rssItems = RssFeed.parse(appRssModel!.data).items;
+        rssItemsKey = rssItems
+            .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
+            .toSet();
+      }
+      setState(() {});
+    });
+  }
+
+  void _listenToUpdate() {
+    var key = bmf.mkBgmId ?? bmf.rss;
+    if (key == null) return;
+
+    _updateSubscription = BmfRssService.instance.updateStream
+        .where((event) => event.key == key)
+        .listen((event) {
+      rssItems = event.items;
       rssItemsKey = rssItems
           .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
           .toSet();
+      appRssModel = AppRssModel(
+        mkBgmId: bmf.mkBgmId,
+        mkGroupId: bmf.mkGroupId,
+        rss: getRss(),
+        data: event.rssData,
+        ttl: 0,
+        updated: event.updated.millisecondsSinceEpoch,
+      );
       setState(() {});
-      await freshRss();
     });
   }
 
@@ -413,24 +433,31 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
     if (oldWidget.bmf.rss != widget.bmf.rss ||
         oldWidget.bmf.mkBgmId != widget.bmf.mkBgmId ||
         oldWidget.bmf.mkGroupId != widget.bmf.mkGroupId) {
+      _updateSubscription?.cancel();
+      _listenToUpdate();
       rssItems.clear();
       rssItemsKey.clear();
-      Future.microtask(() async => await freshRss());
+      Future.microtask(() async {
+        if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) {
+          appRssModel = await sqlite.read(bmf.rss!);
+        } else {
+          appRssModel = await sqlite.readByMkId(bmf.mkBgmId!);
+        }
+        if (appRssModel != null && appRssModel!.data.isNotEmpty) {
+          rssItems = RssFeed.parse(appRssModel!.data).items;
+          rssItemsKey = rssItems
+              .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
+              .toSet();
+        }
+        setState(() {});
+      });
     }
   }
 
   @override
   void dispose() {
-    timerRss.cancel();
+    _updateSubscription?.cancel();
     super.dispose();
-  }
-
-  Timer getTimerRss() {
-    var minute = widget.isConfig ? 15 : 5;
-    return Timer.periodic(Duration(minutes: minute), (timer) async {
-      await freshRss();
-      BTLogTool.info('BMF RSS 页面刷新 ${bmf.subject}');
-    });
   }
 
   String getRss() {
@@ -438,95 +465,6 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
     var url = '$mikanRss/RSS/Bangumi?bangumiId=${bmf.mkBgmId}';
     if (bmf.mkGroupId != null) url += '&subgroupid=${bmf.mkGroupId}';
     return url;
-  }
-
-  Future<void> freshRss() async {
-    if (bmf.rss == null || bmf.rss!.isEmpty) return;
-    var url = getRss();
-    var rssGet = await api.getCustomRSS(url);
-    var tryTimes = 0;
-    while (rssGet.code != 0 && tryTimes < 3) {
-      BTLogTool.warn([
-        "【BmfRssExpander】【freshRss】Fail to load custom RSS,try $tryTimes times",
-        "RSS Link: ${bmf.rss}",
-      ]);
-      rssGet = await api.getCustomRSS(url);
-      tryTimes++;
-    }
-    if (rssGet.code != 0 || rssGet.data == null) {
-      if (mounted) await showRespErr(rssGet, context);
-      return;
-    }
-    var feed = RssFeed.parse(rssGet.data);
-    if (rssItems.isEmpty) {
-      rssItems = feed.items;
-      rssItemsKey = rssItems
-          .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
-          .toSet();
-      appRssModel = AppRssModel(
-        mkBgmId: bmf.mkBgmId,
-        mkGroupId: bmf.mkGroupId,
-        rss: url,
-        data: rssGet.data,
-        ttl: feed.ttl,
-        updated: DateTime.now().millisecondsSinceEpoch,
-      );
-      await sqlite.write(appRssModel!);
-      setState(() {});
-      return;
-    }
-    var newList = <RssItem>[];
-    for (var item in feed.items) {
-      var key = '${item.title ?? ''}|${item.pubDate ?? ''}';
-      if (!rssItemsKey.contains(key)) newList.add(item);
-    }
-    rssItems = feed.items;
-    rssItemsKey = rssItems
-        .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
-        .toSet();
-    if (newList.isNotEmpty) {
-      BTLogTool.info('发现新的 RSS 信息');
-      appRssModel = AppRssModel(
-        mkBgmId: bmf.mkBgmId,
-        mkGroupId: bmf.mkGroupId,
-        rss: url,
-        data: rssGet.data as String,
-        ttl: feed.ttl,
-        updated: DateTime.now().millisecondsSinceEpoch,
-      );
-      await sqlite.write(appRssModel!);
-      if (!widget.isConfig) await showNewRss(newList);
-    }
-    setState(() {});
-  }
-
-  Future<void> showNewRss(List<RssItem> newList) async {
-    if (newList.length > 1) {
-      await BTNotifierTool.showMini(
-        title: 'RSS 订阅更新',
-        body: bmf.title ?? '动画：${bmf.subject}',
-        onClick: () => ref
-            .read(navStoreProvider.notifier)
-            .addNavItemB(
-              subject: bmf.subject,
-              type: '动画',
-              paneTitle: bmf.title,
-            ),
-      );
-    }
-    if (newList.length == 1) {
-      await BTNotifierTool.showMini(
-        title: 'RSS 订阅更新',
-        body: '${newList[0].title}',
-        onClick: () => ref
-            .read(navStoreProvider.notifier)
-            .addNavItemB(
-              subject: bmf.subject,
-              type: '动画',
-              paneTitle: bmf.title,
-            ),
-      );
-    }
   }
 
   Widget buildRssItem(BuildContext context, RssItem item) {
@@ -678,7 +616,9 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander>
             message: '刷新 RSS',
             child: IconButton(
               icon: BtIcon(FluentIcons.refresh, size: 14.sp),
-              onPressed: freshRss,
+              onPressed: () async {
+                await BmfRssService.instance.onBmfWritten(bmf);
+              },
             ),
           ),
           Tooltip(

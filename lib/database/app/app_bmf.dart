@@ -1,4 +1,5 @@
 // Project imports:
+import '../../core/services/bmf_rss_service.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
@@ -147,17 +148,26 @@ class BtsAppBmf {
       );
     }
     BTLogTool.info('Write $_tableName subject: ${model.subject}');
+    await BmfRssService.instance.onBmfWritten(model);
   }
 
   /// 删除配置
   Future<void> delete(int subject) async {
     await _instance.preCheck();
+    var existing = await read(subject);
     await _instance.sqlite.db.delete(
       _tableName,
       where: 'subject = ?',
       whereArgs: [subject],
     );
     BTLogTool.info('Delete $_tableName subject: $subject');
+    if (existing != null) {
+      await BmfRssService.instance.onBmfDeleted(
+        subject,
+        existing.mkBgmId,
+        existing.rss,
+      );
+    }
   }
 
   /// 检测RSS链接是否存在
