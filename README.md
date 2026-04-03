@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2026-02-01
+Update: 2026-04-03
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2026-02-01 21:13:10`
+> 更新于 `2026-04-03 13:32:01`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -53,13 +53,19 @@ Update: 2026-02-01
 
 ![条目详情](./screenshots/subjectDetail.png)
 
-![条目详情2](./screenshots/subjectDetail2.png)
+![条目搜索-网格](./screenshots/subjectSearchGrid.png)
 
-![条目搜索](./screenshots/subjectSearch.png)
-
-![用户界面](./screenshots/userInfo.png)
+![条目搜索-列表](./screenshots/subjectSearchLine.png)
 
 ![用户收藏](./screenshots/userCollection.png)
+
+![BMF订阅](./screenshots/BMF.png)
+
+![BMF订阅详情](./screenshots/BMF2.png)
+
+![MikanRss](./screenshots/Mikan.png)
+
+![ComicatRss](./screenshots/Comicat.png)
 
 ## 依赖（按照字典序）
 
