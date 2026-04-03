@@ -49,19 +49,32 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
     title: widget.title,
   );
 
+  bool _initialized = false;
+
   @override
   void initState() {
     super.initState();
     Future.microtask(() async => await init());
     if (widget.rssProvider != null) {
-      widget.rssProvider!.addListener((val) async => await updateRss(val));
+      widget.rssProvider!.addListener(_onRssChanged);
     }
+  }
+
+  void _onRssChanged(String? val) async {
+    if (!_initialized) return;
+    await updateRss(val);
   }
 
   Future<void> init() async {
     var bmfGet = await sqliteBmf.read(widget.subjectId);
-    if (bmfGet == null) return;
-    setState(() => bmf = bmfGet);
+    if (bmfGet == null) {
+      _initialized = true;
+      return;
+    }
+    setState(() {
+      bmf = bmfGet;
+      _initialized = true;
+    });
   }
 
   Future<String?> getTitle() async {

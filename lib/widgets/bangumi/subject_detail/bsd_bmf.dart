@@ -77,6 +77,9 @@ class _BsdBmfWidgetState extends ConsumerState<BsdBmfWidget>
     title: widget.title,
   );
 
+  /// 是否已初始化完成
+  bool _initialized = false;
+
   /// 是否保持状态
   @override
   bool get wantKeepAlive => true;
@@ -91,14 +94,26 @@ class _BsdBmfWidgetState extends ConsumerState<BsdBmfWidget>
 
   /// 监听rss变化
   void addRssListener(SubjectRssStatProvider provider) {
-    provider.addListener((val) async => await updateRss(val));
+    provider.addListener(_onRssChanged);
+  }
+
+  /// RSS变化回调
+  void _onRssChanged(String? val) async {
+    if (!_initialized) return;
+    await updateRss(val);
   }
 
   /// 初始化
   Future<void> init() async {
     var bmfGet = await sqliteBmf.read(widget.subjectId);
-    if (bmfGet == null) return;
-    setState(() => bmf = bmfGet);
+    if (bmfGet == null) {
+      _initialized = true;
+      return;
+    }
+    setState(() {
+      bmf = bmfGet;
+      _initialized = true;
+    });
   }
 
   /// 获取title
