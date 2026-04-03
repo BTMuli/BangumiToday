@@ -1,6 +1,4 @@
 // Flutter imports:
-import 'package:flutter/material.dart'
-    show TextSelectionToolbarLayoutDelegate, TextSelectionToolbarTextButton;
 import 'package:flutter/services.dart';
 
 // Package imports:
@@ -332,6 +330,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   Widget buildContextMenu(BuildContext context, EditableTextState state) {
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     var backgroundColor = isDark ? const Color(0xFF2D2D2D) : Colors.white;
+    var textColor = isDark ? Colors.white : Colors.black;
 
     return CustomSingleChildLayout(
       delegate: TextSelectionToolbarLayoutDelegate(
@@ -354,11 +353,21 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: state.contextMenuButtonItems.map((item) {
-            return TextSelectionToolbarTextButton(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              onPressed: item.onPressed,
-              child: Text(item.label ?? ''),
+            return MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: item.onPressed,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Text(
+                    item.label ?? '',
+                    style: TextStyle(color: textColor, fontSize: 14),
+                  ),
+                ),
+              ),
             );
           }).toList(),
         ),
