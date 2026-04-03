@@ -1,4 +1,4 @@
-﻿name: Build Release
+name: Build Release
 
 on:
   push:
@@ -21,6 +21,8 @@ jobs:
         with:
           fetch-depth: 0
           ref: master
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 初始化 Flutter 环境
         uses: subosito/flutter-action@v2

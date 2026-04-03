@@ -2,12 +2,55 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2025-03-11
+Update: 2026-04-03
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:15`
 >
-> 更新于 `2025-03-11 09:39:27`
+> 更新于 `2026-04-03 17:34:51`
+
+## [v0.7.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.7.0) (2026-04-03)
+
+本版本进行了大规模架构重构和性能优化，UI 全面适配 Fluent Design 风格。
+
+### 架构重构
+
+- ♻️ 重构架构分层，实现 Clean Architecture
+- ♻️ 重构导航存储，支持懒加载和内存优化
+- ♻️ 重构页面依赖，使用 Repository 层替代直接 API 调用
+
+### 性能优化
+
+- ⚡️ 添加内存管理服务，支持内存监控和自动清理
+- ⚡️ 添加 LRU 缓存管理器，支持内存和磁盘双层缓存
+- ⚡️ 添加优化版 RSS 页面，支持虚拟滚动和增量加载
+- ⚡️ 优化启动性能，实现并行初始化和延迟加载
+- ⚡️ 集成 CacheManager 实现数据缓存策略
+- ⚡️ 集成 RequestManager 实现请求去重和取消机制
+
+### UI/UX
+
+- 💄 应用 UI 全面适配 Fluent Design 设计风格
+- 💄 BMF 组件重构为独立抽屉，优化布局与交互
+- 💄 优化启动页面文本样式，提升辨识度
+- ✨ 搜索页面支持网格视图切换
+- ✨ BMF 抽屉支持删除 RSS 订阅和下载目录
+
+### Bug 修复
+
+- 🐛 修复 RSS 服务的刷新间隔时间
+- 🐛 修复删除 RSS 异常
+- 🐛 修复 BMF 组件 RenderFlex 溢出问题
+- 🐛 修复 mikanUrl 变更后 RSS 更新提醒误触发
+- 🐛 修复启动页面主题上下文问题
+- 🐛 修复初始化顺序，确保 SQLite 在 Hive 之前初始化
+- 🩹 修复右键菜单在 Fluent UI 下文本颜色不显示的问题
+
+### 其他
+
+- 📝 添加 Fluent Design Flutter 开发指南
+- 📝 添加 Git 提交规则文档
+- ⬆️ 更新依赖
 
 ## [v0.6.4](https://github.com/BTMuli/BangumiToday/releases/tag/v0.6.4) (2025-03-11)
 
