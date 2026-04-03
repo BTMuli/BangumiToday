@@ -288,7 +288,9 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
                   await Clipboard.setData(
                     ClipboardData(text: bmf.title ?? widget.title),
                   );
-                  if (mounted) await BtInfobar.success(context, '已复制到剪贴板');
+                  if (context.mounted) {
+                    await BtInfobar.success(context, '已复制到剪贴板');
+                  }
                 },
                 child: Text(
                   bmf.title ?? widget.title,

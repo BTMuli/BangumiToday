@@ -368,7 +368,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
     if (res != null && mounted) {
       var sqlite = BtsAppBmf();
       var check = await sqlite.checkRss(res);
-      if (check) {
+      if (check && context.mounted) {
         await BtInfobar.error(context, '该RSS已经被其他BMF使用');
         return;
       }
@@ -383,7 +383,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
     if (dir != null && mounted) {
       var sqlite = BtsAppBmf();
       var check = await sqlite.checkDir(dir);
-      if (check) {
+      if (check && context.mounted) {
         await BtInfobar.error(context, '该目录已经被其他BMF使用');
         return;
       }
@@ -480,7 +480,7 @@ class _BmfDetailDialogState extends State<_BmfDetailDialog> {
                   widget.bmf.rss = null;
                   await sqlite.write(widget.bmf);
                   widget.onUpdate?.call();
-                  if (mounted) Navigator.of(context).pop();
+                  if (context.mounted) Navigator.of(context).pop();
                 },
               ),
           ],
