@@ -52,7 +52,7 @@ class BmfRssService {
   bool get isInitialized => _isInitialized;
 
   Future<void> start({
-    Duration refreshInterval = const Duration(minutes: 5),
+    Duration refreshInterval = const Duration(minutes: 15),
   }) async {
     if (_isInitialized) {
       BTLogTool.info('BMF RSS 服务已经在运行');
