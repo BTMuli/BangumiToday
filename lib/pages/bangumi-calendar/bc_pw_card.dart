@@ -221,7 +221,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
       var score = data.rating!.score / 2;
       var label = getBangumiRateLabel(data.rating!.score);
       rateWidget.add(
-        RatingBar(
+        RatingControl(
           rating: score,
           iconSize: 16.sp,
           starSpacing: 1.sp,
