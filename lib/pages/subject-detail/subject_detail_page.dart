@@ -12,6 +12,7 @@ import '../../controller/app/progress_controller.dart';
 import '../../database/app/app_bmf.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../models/database/app_bmf_model.dart';
 import '../../models/hive/nav_model.dart';
 import '../../plugins/mikan/mikan_api.dart';
 import '../../plugins/mikan/models/mikan_model.dart';
@@ -187,6 +188,29 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
                     content: '将该结果设为BMF的RSS',
                   );
                   if (!confirm) return;
+                  var repo = ref.read(bmfRepositoryProvider);
+                  var check = await repo.checkRss(
+                    item.rss,
+                    excludeSubject: data!.id,
+                  );
+                  if (check) {
+                    if (context.mounted) {
+                      await BtInfobar.error(context, '该RSS已经被其他BMF使用');
+                    }
+                    return;
+                  }
+                  var bmf = await repo.read(data!.id);
+                  if (bmf == null) {
+                    bmf = AppBmfModel(
+                      subject: data!.id,
+                      title: data!.nameCn.isEmpty ? data!.name : data!.nameCn,
+                      rss: item.rss,
+                    );
+                  } else {
+                    bmf = bmf.copyWith(rss: item.rss);
+                  }
+                  await repo.write(bmf);
+                  await repo.refreshRss(bmf);
                   rssProvider.set(item.rss);
                   if (context.mounted) {
                     await BtInfobar.success(context, '成功设置RSS');
