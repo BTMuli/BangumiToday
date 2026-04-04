@@ -32,17 +32,17 @@ dependencies:
   app_links: ^7.0.0
   cached_network_image: ^3.4.0
   crypto: ^3.0.7
-  cupertino_icons: ^1.0.8
+  cupertino_icons: ^1.0.9
   dart_rss:
     path: repos/dart_rss
-  device_info_plus: ^12.3.0
+  device_info_plus: ^12.4.0
   dio: ^5.9.1
   dtorrent_parser: ^1.0.9
   dtorrent_task: ^0.4.1
   events_emitter2: ^1.0.4
   file_selector: ^1.0.3
-  fl_chart: ^1.0.0
-  fluent_ui: ^4.13.0
+  fl_chart: ^1.2.0
+  fluent_ui: ^4.15.1
   fluentui_system_icons: ^1.1.273
   flutter:
     sdk: flutter
@@ -50,19 +50,19 @@ dependencies:
   flutter_cache_manager: ^3.4.0
   flutter_dotenv: ^6.0.0
   flutter_rating_bar: ^4.0.1
-  flutter_riverpod: ^3.2.0
+  flutter_riverpod: ^3.3.1
   flutter_screenutil: ^5.9.1
   hive: ^2.2.3
-  hooks_riverpod: ^3.2.0
+  hooks_riverpod: ^3.3.1
   html: ^0.15.6
   html_unescape: ^2.0.0
   intl: ^0.20.2
   jiffy: ^6.4.4
   json_annotation: ^4.9.0
   local_notifier: ^0.1.6
-  logger: ^2.6.2
+  logger: ^2.7.0
   material_design_icons_flutter: ^7.0.7296
-  package_info_plus: ^9.0.0
+  package_info_plus: ^9.0.1
   path: ^1.9.0
   path_provider: ^2.1.5
   provider: ^6.1.5
@@ -71,7 +71,7 @@ dependencies:
   url_launcher: ^6.3.2
   window_manager: ^0.5.1
   windows_taskbar: ^1.1.2
-  xml: ^6.5.0
+  xml: ^6.6.1
 
 dev_dependencies:
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -79,13 +79,13 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  build_runner: ^2.10.5
+  build_runner: ^2.13.1
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
   husky: ^0.1.7
   import_sorter: ^4.6.0 # dart run import_sorter:main
-  json_serializable: 6.11.1
+  json_serializable: 6.11.2
   lint_staged: ^0.5.1
   mockito: ^5.4.4
   msix: ^3.16.13
