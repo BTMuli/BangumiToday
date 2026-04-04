@@ -43,17 +43,10 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   BmfFilterType currentFilter = BmfFilterType.all;
 
   Timer? _debounceTimer;
+  bool _preCheckDone = false;
 
   @override
   bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() async {
-      await preCheck();
-    });
-  }
 
   @override
   void dispose() {
@@ -61,17 +54,24 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     super.dispose();
   }
 
-  Future<void> preCheck() async {
-    var bmfList = ref.read(bmfListProvider).value ?? [];
+  Future<void> _preCheck(List<AppBmfModel> bmfList) async {
+    if (_preCheckDone || bmfList.isEmpty) return;
+    _preCheckDone = true;
+
     var rssList = await rss.readAll();
-    for (var item in bmfList) {
-      if (item.rss != null && item.rss!.isNotEmpty) {
-        rssList.removeWhere((e) => e.mkBgmId == item.mkBgmId);
-      }
-    }
-    var cnt = rssList.length;
-    for (var item in rssList) {
-      if (item.mkBgmId != null) await rss.deleteByMkId(item.mkBgmId!);
+    var usedMkIds = bmfList
+        .where((item) => item.mkBgmId != null && item.mkBgmId!.isNotEmpty)
+        .map((item) => item.mkBgmId)
+        .toSet();
+
+    var unusedRss = rssList.where((rssItem) {
+      if (rssItem.mkBgmId == null || rssItem.mkBgmId!.isEmpty) return false;
+      return !usedMkIds.contains(rssItem.mkBgmId);
+    }).toList();
+
+    var cnt = unusedRss.length;
+    for (var item in unusedRss) {
+      await rss.deleteByMkId(item.mkBgmId!);
     }
     if (cnt > 0 && mounted) {
       await BtInfobar.warn(context, '删除了 $cnt 条未使用的RSS');
@@ -96,7 +96,8 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     _computeStats(bmfList);
 
     filteredList = bmfList.where((bmf) {
-      var matchesSearch = searchQuery.isEmpty ||
+      var matchesSearch =
+          searchQuery.isEmpty ||
           (bmf.title?.toLowerCase().contains(searchQuery.toLowerCase()) ??
               false) ||
           bmf.subject.toString().contains(searchQuery);
@@ -140,6 +141,14 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   Widget build(BuildContext context) {
     super.build(context);
     var bmfListAsync = ref.watch(bmfListProvider);
+
+    ref.listen<AsyncValue<List<AppBmfModel>>>(bmfListProvider, (prev, next) {
+      next.whenData((bmfList) {
+        if (!_preCheckDone) {
+          _preCheck(bmfList);
+        }
+      });
+    });
 
     return bmfListAsync.when(
       data: (bmfList) {
@@ -298,7 +307,8 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
         var crossAxisCount = _getCrossAxisCount(constraints.maxWidth);
         var spacing = 12.w;
         var horizontalPadding = 16.w;
-        var availableWidth = constraints.maxWidth -
+        var availableWidth =
+            constraints.maxWidth -
             horizontalPadding * 2 -
             (crossAxisCount - 1) * spacing;
         var itemWidth = availableWidth / crossAxisCount;
@@ -314,13 +324,12 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
             spacing: spacing,
             runSpacing: 12.h,
             children: filteredList
-                .map((bmf) => SizedBox(
-                      width: itemWidth,
-                      child: BmfCard(
-                        bmf: bmf,
-                        onDelete: () => deleteBmf(bmf),
-                      ),
-                    ))
+                .map(
+                  (bmf) => SizedBox(
+                    width: itemWidth,
+                    child: BmfCard(bmf: bmf, onDelete: () => deleteBmf(bmf)),
+                  ),
+                )
                 .toList(),
           ),
         );
@@ -349,9 +358,9 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
           SizedBox(height: 16.h),
           Text(
             searchQuery.isNotEmpty ? '没有找到匹配的配置' : '暂无 BMF 配置',
-            style: BTTypography.subtitle(context).copyWith(
-              color: BTColors.textSecondary(context),
-            ),
+            style: BTTypography.subtitle(
+              context,
+            ).copyWith(color: BTColors.textSecondary(context)),
           ),
           SizedBox(height: 8.h),
           Text(
