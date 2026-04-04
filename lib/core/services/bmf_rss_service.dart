@@ -217,17 +217,84 @@ class BmfRssService {
     await _refreshAllRss();
   }
 
-  Future<void> onBmfWritten(AppBmfModel bmf) async {
-    if (!_isInitialized) return;
-    if (bmf.rss == null || bmf.rss!.isEmpty) return;
+  Future<bool> onBmfWritten(AppBmfModel bmf) async {
+    if (!_isInitialized) return false;
+    if (bmf.rss == null || bmf.rss!.isEmpty) return false;
 
     var mikanUrl = await _configDb.readMikanUrl();
     var key = bmf.mkBgmId ?? _getRssUrl(bmf, mikanUrl);
 
     _knownItems.remove(key);
 
-    await _refreshSingleRss(bmf, mikanUrl);
-    BTLogTool.info('BMF 订阅已更新: ${bmf.title ?? bmf.subject}');
+    var result = await _refreshSingleRssAndGetResult(bmf, mikanUrl);
+    if (result) {
+      BTLogTool.info('BMF 订阅已更新: ${bmf.title ?? bmf.subject}');
+    }
+    return result;
+  }
+
+  Future<bool> _refreshSingleRssAndGetResult(
+    AppBmfModel bmf,
+    String? mikanUrl,
+  ) async {
+    var url = _getRssUrl(bmf, mikanUrl);
+    var key = bmf.mkBgmId ?? url;
+
+    try {
+      var rssGet = await _api.getCustomRSS(url);
+      var tryTimes = 0;
+      while (rssGet.code != 0 && tryTimes < 3) {
+        rssGet = await _api.getCustomRSS(url);
+        tryTimes++;
+      }
+
+      if (rssGet.code != 0 || rssGet.data == null) {
+        BTLogTool.warn('刷新 RSS 失败: ${bmf.subject}');
+        return false;
+      }
+
+      var feed = RssFeed.parse(rssGet.data);
+      var currentItems = feed.items;
+      var currentKeys = currentItems
+          .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
+          .toSet();
+
+      var knownKeys = _knownItems[key] ?? <String>{};
+      var newItems = currentItems.where((item) {
+        var itemKey = '${item.title ?? ""}|${item.pubDate ?? ""}';
+        return !knownKeys.contains(itemKey);
+      }).toList();
+
+      _knownItems[key] = currentKeys;
+
+      var appRssModel = AppRssModel(
+        rss: url,
+        data: rssGet.data,
+        ttl: feed.ttl,
+        updated: DateTime.now().millisecondsSinceEpoch,
+        mkBgmId: bmf.mkBgmId,
+        mkGroupId: bmf.mkGroupId,
+      );
+      await _rssDb.write(appRssModel);
+
+      _updateController.add(BmfRssUpdateEvent(
+        key: key,
+        rssData: rssGet.data,
+        items: currentItems,
+        updated: DateTime.now(),
+      ));
+
+      if (newItems.isNotEmpty && knownKeys.isNotEmpty) {
+        await _notifyNewItems(bmf, newItems);
+        BTLogTool.info(
+          '发现 ${newItems.length} 条新 RSS 更新: ${bmf.title ?? bmf.subject}',
+        );
+      }
+      return true;
+    } catch (e) {
+      BTLogTool.error(['刷新 RSS 异常', 'Subject: ${bmf.subject}', 'Error: $e']);
+      return false;
+    }
   }
 
   Future<void> onBmfDeleted(int subject, String? mkBgmId, String? rss) async {

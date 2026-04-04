@@ -639,7 +639,13 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
             child: IconButton(
               icon: BtIcon(FluentIcons.refresh, size: 14.sp),
               onPressed: () async {
-                await BmfRssService.instance.onBmfWritten(bmf);
+                var result = await BmfRssService.instance.onBmfWritten(bmf);
+                if (!context.mounted) return;
+                if (result) {
+                  await BtInfobar.success(context, 'RSS 刷新成功');
+                } else {
+                  await BtInfobar.error(context, 'RSS 刷新失败');
+                }
               },
             ),
           ),
