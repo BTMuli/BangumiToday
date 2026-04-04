@@ -41,7 +41,8 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
 
   void addItem(AppBmfModel item) {
     _bmfMap[item.subject] = item;
-    var current = state.value ?? [];
+    var current = state.value;
+    if (current == null) return;
     var index = current.indexWhere((e) => e.subject == item.subject);
     if (index == -1) {
       state = AsyncValue.data([item, ...current]);
@@ -54,7 +55,8 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
 
   void updateItem(AppBmfModel item) {
     _bmfMap[item.subject] = item;
-    var current = state.value ?? [];
+    var current = state.value;
+    if (current == null) return;
     var index = current.indexWhere((e) => e.subject == item.subject);
     if (index != -1) {
       var updated = List<AppBmfModel>.from(current);
@@ -65,10 +67,10 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
 
   void removeItem(int subjectId) {
     _bmfMap.remove(subjectId);
-    var current = state.value ?? [];
-    state = AsyncValue.data(
-      current.where((e) => e.subject != subjectId).toList(),
-    );
+    var current = state.value;
+    if (current == null) return;
+    var updated = current.where((e) => e.subject != subjectId).toList();
+    state = AsyncValue.data(updated);
   }
 
   AppBmfModel? getBySubject(int subject) {

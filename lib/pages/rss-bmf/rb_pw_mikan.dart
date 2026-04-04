@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../database/app/app_config.dart';
+import '../../domain/repositories/bmf_repository.dart';
 import '../../plugins/mikan/mikan_api.dart';
 import '../../store/app_store.dart';
 import '../../ui/bt_dialog.dart';
@@ -168,6 +169,8 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
         if (!confirm) return;
       }
       if (input.endsWith("/")) input = input.substring(0, input.length - 1);
+      var repo = ref.read(bmfRepositoryProvider);
+      await repo.updateMikanUrl(input, url);
       await ref.read(appStoreProvider.notifier).setMikanRss(input);
       if (mounted) await BtInfobar.success(context, 'URL 已保存');
     }

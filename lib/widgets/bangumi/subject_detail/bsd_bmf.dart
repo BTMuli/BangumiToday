@@ -86,11 +86,19 @@ class _BsdBmfWidgetState extends ConsumerState<BsdBmfWidget>
   }
 
   /// 监听 bmfListProvider 变化
-  void _listenBmfChanges() {
-    var latestBmf = ref
-        .read(bmfListProvider.notifier)
-        .getBySubject(widget.subjectId);
-    if (latestBmf != null && bmf.id != -1) {
+  void _onBmfListChanged(List<AppBmfModel> bmfList) {
+    var latestBmf = bmfList
+        .where((e) => e.subject == widget.subjectId)
+        .firstOrNull;
+    if (bmf.id == -1 && latestBmf != null) {
+      setState(() {
+        bmf = latestBmf;
+      });
+    } else if (bmf.id != -1 && latestBmf == null) {
+      setState(() {
+        bmf = AppBmfModel(subject: widget.subjectId);
+      });
+    } else if (latestBmf != null && bmf.id != -1) {
       if (bmf.rss != latestBmf.rss ||
           bmf.download != latestBmf.download ||
           bmf.title != latestBmf.title) {
@@ -345,7 +353,9 @@ class _BsdBmfWidgetState extends ConsumerState<BsdBmfWidget>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    _listenBmfChanges();
+    ref.listen<AsyncValue<List<AppBmfModel>>>(bmfListProvider, (prev, next) {
+      next.whenData(_onBmfListChanged);
+    });
     if (bmf.id == -1) {
       return ListTile(
         leading: const Icon(FluentIcons.error_badge),

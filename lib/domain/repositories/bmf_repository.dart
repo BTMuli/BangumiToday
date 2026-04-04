@@ -57,4 +57,18 @@ class BmfRepository {
   Future<void> refreshRss(AppBmfModel model) async {
     await BmfRssService.instance.onBmfWritten(model);
   }
+
+  Future<void> updateMikanUrl(String url, String ori) async {
+    var allBmf = await _sqlite.readAll();
+    for (var item in allBmf) {
+      if (item.rss != null &&
+          item.rss!.isNotEmpty &&
+          item.rss!.startsWith(ori)) {
+        var newRss = item.rss!.replaceFirst(ori, url);
+        var updated = item.copyWith(rss: newRss);
+        await _sqlite.write(updated);
+        _ref.read(bmfListProvider.notifier).updateItem(updated);
+      }
+    }
+  }
 }

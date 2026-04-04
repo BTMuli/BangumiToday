@@ -2,7 +2,6 @@
 import '../../models/database/app_rss_model.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
-import 'app_bmf.dart';
 
 /// AppRss 表，用于检测RSS订阅更新
 /// 目前采取的是存储 RSS URL-RSS资源链接-获取时间 的方式
@@ -18,9 +17,6 @@ class BtsAppRss {
 
   /// 数据库
   final BTSqlite sqlite = BTSqlite();
-
-  /// BMF 数据库
-  final BtsAppBmf bmf = BtsAppBmf();
 
   /// 是否有mkBgmId
   static bool hasMkBgmId = false;
@@ -115,12 +111,6 @@ class BtsAppRss {
       where: 'rss = ?',
       whereArgs: [rss],
     );
-  }
-
-  /// 更新 Mikan URL
-  Future<void> updateMikanUrl(String url, String ori) async {
-    await instance.preCheck();
-    await bmf.updateMikanUrl(url, ori);
   }
 
   /// 删除 Mikan URL
