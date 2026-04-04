@@ -107,10 +107,12 @@ class BmfRssService {
 
     var mikanUrl = await _configDb.readMikanUrl();
 
-    for (var bmf in bmfList) {
-      if (bmf.rss == null || bmf.rss!.isEmpty) continue;
-      await _refreshSingleRss(bmf, mikanUrl);
-    }
+    var futures = bmfList
+        .where((bmf) => bmf.rss != null && bmf.rss!.isNotEmpty)
+        .map((bmf) => _refreshSingleRss(bmf, mikanUrl))
+        .toList();
+
+    await Future.wait(futures);
   }
 
   Future<void> _refreshSingleRss(AppBmfModel bmf, String? mikanUrl) async {
