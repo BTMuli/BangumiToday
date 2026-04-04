@@ -33,12 +33,11 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     super.initState();
     Future.microtask(() async {
       await preCheck();
-      await ref.read(bmfStoreProvider).loadAll();
     });
   }
 
   Future<void> preCheck() async {
-    var bmfList = ref.read(bmfStoreProvider).bmfList;
+    var bmfList = ref.read(bmfListProvider).value ?? [];
     var rssList = await rss.readAll();
     for (var item in bmfList) {
       if (item.rss != null && item.rss!.isNotEmpty) {
@@ -92,14 +91,25 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    var bmfStore = ref.watch(bmfStoreProvider);
-    var bmfList = bmfStore.bmfList;
-    applyFilter(bmfList);
+    var bmfListAsync = ref.watch(bmfListProvider);
 
-    return ScaffoldPage(
-      padding: EdgeInsets.zero,
-      header: _buildHeader(context, bmfList),
-      content: _buildContent(context, bmfStore),
+    return bmfListAsync.when(
+      data: (bmfList) {
+        applyFilter(bmfList);
+        return ScaffoldPage(
+          padding: EdgeInsets.zero,
+          header: _buildHeader(context, bmfList),
+          content: _buildContent(context, bmfList),
+        );
+      },
+      loading: () => ScaffoldPage(
+        padding: EdgeInsets.zero,
+        content: Center(child: ProgressRing()),
+      ),
+      error: (error, stack) => ScaffoldPage(
+        padding: EdgeInsets.zero,
+        content: Center(child: Text('加载失败: $error')),
+      ),
     );
   }
 
@@ -119,7 +129,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
                 message: '刷新',
                 child: IconButton(
                   icon: BtIcon(FluentIcons.refresh),
-                  onPressed: () => ref.read(bmfStoreProvider).loadAll(),
+                  onPressed: () => ref.read(bmfListProvider.notifier).refresh(),
                 ),
               ),
             ],
@@ -234,11 +244,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     );
   }
 
-  Widget _buildContent(BuildContext context, BmfStore bmfStore) {
-    if (bmfStore.isLoading) {
-      return Center(child: ProgressRing());
-    }
-
+  Widget _buildContent(BuildContext context, List<AppBmfModel> bmfList) {
     if (filteredList.isEmpty) {
       return _buildEmptyState(context);
     }

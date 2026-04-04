@@ -1,5 +1,4 @@
-import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../database/app/app_bmf.dart';
 import '../models/database/app_bmf_model.dart';
@@ -14,73 +13,64 @@ class BmfChangeEvent {
   BmfChangeEvent({required this.type, this.item, this.subjectId});
 }
 
-final bmfStoreProvider = ChangeNotifierProvider<BmfStore>((ref) {
-  return BmfStore();
-});
+final bmfListProvider =
+    AsyncNotifierProvider<BmfListNotifier, List<AppBmfModel>>(() {
+      return BmfListNotifier();
+    });
 
-class BmfStore extends ChangeNotifier {
-  List<AppBmfModel> _bmfList = [];
-  bool _isLoading = false;
-  String? _error;
-  int _version = 0;
+class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
+  final BtsAppBmf _sqlite = BtsAppBmf();
 
-  List<AppBmfModel> get bmfList => _bmfList;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
-  int get version => _version;
-
-  Future<void> loadAll() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      var sqlite = BtsAppBmf();
-      _bmfList = await sqlite.readAll();
-      _bmfList.sort((a, b) => b.subject.compareTo(a.subject));
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      notifyListeners();
-    }
+  @override
+  Future<List<AppBmfModel>> build() async {
+    var list = await _sqlite.readAll();
+    list.sort((a, b) => b.subject.compareTo(a.subject));
+    return list;
   }
 
-  void onBmfAdded(AppBmfModel item) {
-    var index = _bmfList.indexWhere((e) => e.subject == item.subject);
+  Future<void> refresh() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      var list = await _sqlite.readAll();
+      list.sort((a, b) => b.subject.compareTo(a.subject));
+      return list;
+    });
+  }
+
+  void addItem(AppBmfModel item) {
+    var current = state.value ?? [];
+    var index = current.indexWhere((e) => e.subject == item.subject);
     if (index == -1) {
-      _bmfList.insert(0, item);
+      state = AsyncValue.data([item, ...current]);
     } else {
-      _bmfList[index] = item;
+      var updated = List<AppBmfModel>.from(current);
+      updated[index] = item;
+      state = AsyncValue.data(updated);
     }
-    _version++;
-    notifyListeners();
   }
 
-  void onBmfUpdated(AppBmfModel item) {
-    var index = _bmfList.indexWhere((e) => e.subject == item.subject);
+  void updateItem(AppBmfModel item) {
+    var current = state.value ?? [];
+    var index = current.indexWhere((e) => e.subject == item.subject);
     if (index != -1) {
-      _bmfList[index] = item;
-      _version++;
-      notifyListeners();
+      var updated = List<AppBmfModel>.from(current);
+      updated[index] = item;
+      state = AsyncValue.data(updated);
     }
   }
 
-  void onBmfDeleted(int subjectId) {
-    _bmfList.removeWhere((e) => e.subject == subjectId);
-    _version++;
-    notifyListeners();
-  }
-
-  void notifyBmfChanged() {
-    _version++;
-    notifyListeners();
+  void removeItem(int subjectId) {
+    var current = state.value ?? [];
+    state = AsyncValue.data(
+      current.where((e) => e.subject != subjectId).toList(),
+    );
   }
 
   AppBmfModel? getBySubject(int subject) {
+    var current = state.value;
+    if (current == null) return null;
     try {
-      return _bmfList.firstWhere((e) => e.subject == subject);
+      return current.firstWhere((e) => e.subject == subject);
     } catch (_) {
       return null;
     }

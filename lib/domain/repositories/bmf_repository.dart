@@ -27,12 +27,12 @@ class BmfRepository {
 
   Future<void> write(AppBmfModel model) async {
     await _sqlite.write(model);
-    _ref.read(bmfStoreProvider).onBmfAdded(model);
+    _ref.read(bmfListProvider.notifier).addItem(model);
   }
 
-  Future<void> update(AppBmfModel model) async {
+  Future<void> updateModel(AppBmfModel model) async {
     await _sqlite.write(model);
-    _ref.read(bmfStoreProvider).onBmfUpdated(model);
+    _ref.read(bmfListProvider.notifier).updateItem(model);
   }
 
   Future<void> delete(int subject) async {
@@ -43,7 +43,7 @@ class BmfRepository {
       }
     }
     await _sqlite.delete(subject);
-    _ref.read(bmfStoreProvider).onBmfDeleted(subject);
+    _ref.read(bmfListProvider.notifier).removeItem(subject);
   }
 
   Future<bool> checkRss(String rss, {int? excludeSubject}) async {
