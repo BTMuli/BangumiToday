@@ -73,9 +73,6 @@ class _BsdBmfWidgetState extends ConsumerState<BsdBmfWidget>
     title: widget.title,
   );
 
-  /// 是否已初始化完成
-  bool _initialized = false;
-
   /// 是否保持状态
   @override
   bool get wantKeepAlive => true;
@@ -88,28 +85,43 @@ class _BsdBmfWidgetState extends ConsumerState<BsdBmfWidget>
     if (widget.rssProvider != null) addRssListener(widget.rssProvider!);
   }
 
-  /// 监听rss变化
-  void addRssListener(SubjectRssStatProvider provider) {
-    provider.addListener(_onRssChanged);
+  /// 监听 bmfListProvider 变化
+  void _listenBmfChanges() {
+    var latestBmf = ref
+        .read(bmfListProvider.notifier)
+        .getBySubject(widget.subjectId);
+    if (latestBmf != null && bmf.id != -1) {
+      if (bmf.rss != latestBmf.rss ||
+          bmf.download != latestBmf.download ||
+          bmf.title != latestBmf.title) {
+        setState(() {
+          bmf = latestBmf;
+        });
+      }
+    }
   }
 
-  /// RSS变化回调
-  void _onRssChanged(String? val) async {
-    if (!_initialized) return;
-    await updateRss(val);
+  /// 监听rss变化
+  void addRssListener(SubjectRssStatProvider provider) {
+    provider.addListener((String? rss) {
+      if (rss != bmf.rss) {
+        updateRss(rss);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   /// 初始化
   Future<void> init() async {
     var repo = ref.read(bmfRepositoryProvider);
     var bmfGet = await repo.read(widget.subjectId);
-    if (bmfGet == null) {
-      _initialized = true;
-      return;
-    }
+    if (bmfGet == null) return;
     setState(() {
       bmf = bmfGet;
-      _initialized = true;
     });
   }
 
@@ -333,6 +345,7 @@ class _BsdBmfWidgetState extends ConsumerState<BsdBmfWidget>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    _listenBmfChanges();
     if (bmf.id == -1) {
       return ListTile(
         leading: const Icon(FluentIcons.error_badge),
@@ -367,7 +380,6 @@ class _BsdBmfWidgetState extends ConsumerState<BsdBmfWidget>
 class BsdBmfLeading extends ConsumerStatefulWidget {
   /// isConfig
   final bool isConfig;
-
   final AppBmfModel bmf;
 
   /// 构造函数
