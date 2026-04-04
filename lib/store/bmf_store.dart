@@ -3,16 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/app/app_bmf.dart';
 import '../models/database/app_bmf_model.dart';
 
-enum BmfChangeType { add, update, delete }
-
-class BmfChangeEvent {
-  final BmfChangeType type;
-  final AppBmfModel? item;
-  final int? subjectId;
-
-  BmfChangeEvent({required this.type, this.item, this.subjectId});
-}
-
 final bmfListProvider =
     AsyncNotifierProvider<BmfListNotifier, List<AppBmfModel>>(() {
       return BmfListNotifier();
@@ -20,24 +10,37 @@ final bmfListProvider =
 
 class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
   final BtsAppBmf _sqlite = BtsAppBmf();
+  final Map<int, AppBmfModel> _bmfMap = {};
+
+  Map<int, AppBmfModel> get bmfMap => Map.unmodifiable(_bmfMap);
 
   @override
   Future<List<AppBmfModel>> build() async {
     var list = await _sqlite.readAll();
+    _syncMap(list);
     list.sort((a, b) => b.subject.compareTo(a.subject));
     return list;
+  }
+
+  void _syncMap(List<AppBmfModel> list) {
+    _bmfMap.clear();
+    for (var item in list) {
+      _bmfMap[item.subject] = item;
+    }
   }
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       var list = await _sqlite.readAll();
+      _syncMap(list);
       list.sort((a, b) => b.subject.compareTo(a.subject));
       return list;
     });
   }
 
   void addItem(AppBmfModel item) {
+    _bmfMap[item.subject] = item;
     var current = state.value ?? [];
     var index = current.indexWhere((e) => e.subject == item.subject);
     if (index == -1) {
@@ -50,6 +53,7 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
   }
 
   void updateItem(AppBmfModel item) {
+    _bmfMap[item.subject] = item;
     var current = state.value ?? [];
     var index = current.indexWhere((e) => e.subject == item.subject);
     if (index != -1) {
@@ -60,6 +64,7 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
   }
 
   void removeItem(int subjectId) {
+    _bmfMap.remove(subjectId);
     var current = state.value ?? [];
     state = AsyncValue.data(
       current.where((e) => e.subject != subjectId).toList(),
@@ -67,12 +72,6 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
   }
 
   AppBmfModel? getBySubject(int subject) {
-    var current = state.value;
-    if (current == null) return null;
-    try {
-      return current.firstWhere((e) => e.subject == subject);
-    } catch (_) {
-      return null;
-    }
+    return _bmfMap[subject];
   }
 }

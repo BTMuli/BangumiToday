@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -9,6 +11,20 @@ import '../../providers/app_providers.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_detail/bmf_card.dart';
+
+class BmfFilterStats {
+  final int total;
+  final int hasRss;
+  final int hasDownload;
+
+  const BmfFilterStats({
+    required this.total,
+    required this.hasRss,
+    required this.hasDownload,
+  });
+
+  static const empty = BmfFilterStats(total: 0, hasRss: 0, hasDownload: 0);
+}
 
 class RbpBmfWidget extends ConsumerStatefulWidget {
   const RbpBmfWidget({super.key});
@@ -22,8 +38,11 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   final BtsAppRss rss = BtsAppRss();
 
   List<AppBmfModel> filteredList = [];
+  BmfFilterStats filterStats = BmfFilterStats.empty;
   String searchQuery = '';
   BmfFilterType currentFilter = BmfFilterType.all;
+
+  Timer? _debounceTimer;
 
   @override
   bool get wantKeepAlive => true;
@@ -34,6 +53,12 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     Future.microtask(() async {
       await preCheck();
     });
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> preCheck() async {
@@ -53,7 +78,23 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     }
   }
 
+  void _computeStats(List<AppBmfModel> bmfList) {
+    int hasRss = 0;
+    int hasDownload = 0;
+    for (var bmf in bmfList) {
+      if (bmf.rss != null && bmf.rss!.isNotEmpty) hasRss++;
+      if (bmf.download != null && bmf.download!.isNotEmpty) hasDownload++;
+    }
+    filterStats = BmfFilterStats(
+      total: bmfList.length,
+      hasRss: hasRss,
+      hasDownload: hasDownload,
+    );
+  }
+
   void applyFilter(List<AppBmfModel> bmfList) {
+    _computeStats(bmfList);
+
     filteredList = bmfList.where((bmf) {
       var matchesSearch = searchQuery.isEmpty ||
           (bmf.title?.toLowerCase().contains(searchQuery.toLowerCase()) ??
@@ -73,13 +114,20 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   }
 
   void onSearch(String query) {
-    searchQuery = query;
-    setState(() {});
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        setState(() {
+          searchQuery = query;
+        });
+      }
+    });
   }
 
   void onFilterChanged(BmfFilterType filter) {
-    currentFilter = filter;
-    setState(() {});
+    setState(() {
+      currentFilter = filter;
+    });
   }
 
   Future<void> deleteBmf(AppBmfModel bmf) async {
@@ -98,8 +146,8 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
         applyFilter(bmfList);
         return ScaffoldPage(
           padding: EdgeInsets.zero,
-          header: _buildHeader(context, bmfList),
-          content: _buildContent(context, bmfList),
+          header: _buildHeader(context),
+          content: _buildContent(context),
         );
       },
       loading: () => ScaffoldPage(
@@ -113,7 +161,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     );
   }
 
-  Widget _buildHeader(BuildContext context, List<AppBmfModel> bmfList) {
+  Widget _buildHeader(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       child: Column(
@@ -137,7 +185,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
           SizedBox(height: 12.h),
           Row(
             children: [
-              Expanded(child: _buildFilterChips(context, bmfList)),
+              Expanded(child: _buildFilterChips(context)),
               SizedBox(width: 16.w),
               SizedBox(
                 width: 240.w,
@@ -154,31 +202,27 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     );
   }
 
-  Widget _buildFilterChips(BuildContext context, List<AppBmfModel> bmfList) {
+  Widget _buildFilterChips(BuildContext context) {
     return Row(
       children: [
         _buildFilterChip(
           context,
           label: '全部',
-          count: bmfList.length,
+          count: filterStats.total,
           filter: BmfFilterType.all,
         ),
         SizedBox(width: 8.w),
         _buildFilterChip(
           context,
           label: '有RSS',
-          count: bmfList
-              .where((b) => b.rss != null && b.rss!.isNotEmpty)
-              .length,
+          count: filterStats.hasRss,
           filter: BmfFilterType.hasRss,
         ),
         SizedBox(width: 8.w),
         _buildFilterChip(
           context,
           label: '有下载目录',
-          count: bmfList
-              .where((b) => b.download != null && b.download!.isNotEmpty)
-              .length,
+          count: filterStats.hasDownload,
           filter: BmfFilterType.hasDownload,
         ),
       ],
@@ -244,7 +288,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     );
   }
 
-  Widget _buildContent(BuildContext context, List<AppBmfModel> bmfList) {
+  Widget _buildContent(BuildContext context) {
     if (filteredList.isEmpty) {
       return _buildEmptyState(context);
     }
