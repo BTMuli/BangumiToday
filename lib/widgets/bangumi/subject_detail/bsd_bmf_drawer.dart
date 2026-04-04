@@ -9,11 +9,11 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 
 import '../../../controller/app/progress_controller.dart';
 import '../../../core/theme/bt_theme.dart';
-import '../../../database/app/app_bmf.dart';
 import '../../../database/app/app_rss.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../models/database/app_bmf_model.dart';
 import '../../../pages/subject-detail/subject_detail_page.dart';
+import '../../../providers/app_providers.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../tools/file_tool.dart';
 import '../../../ui/bt_dialog.dart';
@@ -38,7 +38,6 @@ class BsdBmfDrawer extends ConsumerStatefulWidget {
 }
 
 class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
-  final BtsAppBmf sqliteBmf = BtsAppBmf();
   final BtsAppRss sqliteRss = BtsAppRss();
   final BtrBangumiApi apiBgm = BtrBangumiApi();
   late ProgressController progress = ProgressController();
@@ -66,7 +65,8 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
   }
 
   Future<void> init() async {
-    var bmfGet = await sqliteBmf.read(widget.subjectId);
+    var repo = ref.read(bmfRepositoryProvider);
+    var bmfGet = await repo.read(widget.subjectId);
     if (bmfGet == null) {
       _initialized = true;
       return;
@@ -105,7 +105,8 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
     var title = await getTitle();
     if (title != null) bmf.title = title;
     setState(() {});
-    await sqliteBmf.write(bmf);
+    var repo = ref.read(bmfRepositoryProvider);
+    await repo.write(bmf);
     if (mounted && bmf.id != -1) {
       await BtInfobar.success(context, '[${bmf.subject}]已设置标题：${bmf.title}');
     }
@@ -126,8 +127,9 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
       if (res == null) return;
       bmf.title = title;
       setState(() {});
-      await sqliteBmf.write(bmf);
-      var read = await sqliteBmf.read(bmf.subject);
+      var repo = ref.read(bmfRepositoryProvider);
+      await repo.write(bmf);
+      var read = await repo.read(bmf.subject);
       if (read != null) {
         bmf = read;
         setState(() {});
@@ -144,7 +146,8 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
       if (mounted) await BtInfobar.error(context, '未修改 MikanRSS');
       return;
     }
-    var check = await sqliteBmf.checkRss(newRss, excludeSubject: bmf.subject);
+    var repo = ref.read(bmfRepositoryProvider);
+    var check = await repo.checkRss(newRss, excludeSubject: bmf.subject);
     if (check) {
       if (mounted) await BtInfobar.error(context, '该RSS已经被其他BMF使用');
       return;
@@ -155,8 +158,9 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
     }
     bmf = bmf.copyWith(rss: newRss);
     await titleCheck();
-    await sqliteBmf.write(bmf);
-    var read = (await sqliteBmf.read(bmf.subject));
+    await repo.write(bmf);
+    await repo.refreshRss(bmf);
+    var read = await repo.read(bmf.subject);
     if (read != null) bmf = read;
     setState(() {});
     if (mounted) await BtInfobar.success(context, '成功设置 MikanRSS');
@@ -165,15 +169,16 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
   Future<void> updateFolder() async {
     var dir = await getDirectoryPath();
     if (dir == null) return;
-    var check = await sqliteBmf.checkDir(dir, excludeSubject: bmf.subject);
+    var repo = ref.read(bmfRepositoryProvider);
+    var check = await repo.checkDir(dir, excludeSubject: bmf.subject);
     if (check) {
       if (mounted) await BtInfobar.error(context, '该目录已经被其他BMF使用');
       return;
     }
     bmf.download = dir;
     await titleCheck();
-    await sqliteBmf.write(bmf);
-    var read = await sqliteBmf.read(bmf.subject);
+    await repo.write(bmf);
+    var read = await repo.read(bmf.subject);
     if (read != null) {
       bmf = read;
       setState(() {});
@@ -196,10 +201,8 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
         content: '是否删除下载目录？',
       );
     }
-    await sqliteBmf.delete(bmf.subject);
-    if (bmf.rss != null && bmf.rss!.isNotEmpty) {
-      await sqliteRss.delete(bmf.rss!);
-    }
+    var repo = ref.read(bmfRepositoryProvider);
+    await repo.delete(bmf.subject);
     if (isDelDir) await fileTool.deleteDir(bmf.download!);
     if (mounted) await BtInfobar.success(context, '成功删除 BMF 信息');
     bmf = AppBmfModel(subject: widget.subjectId);
@@ -210,7 +213,8 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
     if (bmf.rss == null || bmf.rss!.isEmpty) return;
     await sqliteRss.delete(bmf.rss!);
     bmf = bmf.copyWith(rss: null);
-    await sqliteBmf.write(bmf);
+    var repo = ref.read(bmfRepositoryProvider);
+    await repo.write(bmf);
     if (mounted) await BtInfobar.success(context, '成功删除 RSS 订阅');
     setState(() {});
   }
@@ -223,10 +227,12 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
       content: '是否删除实际下载目录？\n取消则仅删除记录',
     );
     if (!mounted) return;
+    var oldDir = bmf.download;
     bmf = bmf.copyWith(download: null);
-    await sqliteBmf.write(bmf);
-    if (isDelDir) {
-      await fileTool.deleteDir(bmf.download!);
+    var repo = ref.read(bmfRepositoryProvider);
+    await repo.write(bmf);
+    if (isDelDir && oldDir != null) {
+      await fileTool.deleteDir(oldDir);
       if (mounted) await BtInfobar.success(context, '成功删除下载目录及记录');
     } else {
       if (mounted) await BtInfobar.success(context, '成功删除下载记录');
