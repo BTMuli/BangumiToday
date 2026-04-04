@@ -135,7 +135,8 @@ class _BsdBmfRssState extends ConsumerState<BsdBmfRss>
     if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) {
       return bmf.rss!;
     }
-    var url = '$mikanRss/RSS/Bangumi?bangumiId=${bmf.mkBgmId}';
+    var baseUrl = mikanRss ?? 'https://mikanani.me';
+    var url = '$baseUrl/RSS/Bangumi?bangumiId=${bmf.mkBgmId}';
     if (bmf.mkGroupId != null) url += '&subgroupid=${bmf.mkGroupId}';
     return url;
   }
