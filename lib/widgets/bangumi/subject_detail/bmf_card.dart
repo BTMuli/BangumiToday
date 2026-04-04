@@ -54,7 +54,8 @@ class _BmfCardState extends ConsumerState<BmfCard>
   @override
   void didUpdateWidget(BmfCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.bmf != widget.bmf) {
+    if (oldWidget.bmf.rss != widget.bmf.rss ||
+        oldWidget.bmf.download != widget.bmf.download) {
       Future.microtask(loadData);
     }
   }
@@ -78,7 +79,6 @@ class _BmfCardState extends ConsumerState<BmfCard>
     }
     var files = await fileTool.getFileNames(bmf.download!);
     files = files.where((f) => !f.endsWith('.aria2')).toList();
-
     var totalBytes = await fileTool.getDirSize(bmf.download!);
 
     return {'count': files.length, 'size': filesize(totalBytes)};
@@ -90,9 +90,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
     var appRssModel = bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty
         ? await sqliteRss.readByMkId(bmf.mkBgmId!)
         : await sqliteRss.read(bmf.rss!);
-
     if (appRssModel == null || appRssModel.data.isEmpty) return 0;
-
     return 0;
   }
 
@@ -427,7 +425,9 @@ class _BmfDetailDialogState extends ConsumerState<_BmfDetailDialog> {
             await Clipboard.setData(
               ClipboardData(text: widget.bmf.title ?? ''),
             );
-            if (context.mounted) await BtInfobar.success(context, '已复制到剪贴板');
+            if (context.mounted) {
+              await BtInfobar.success(context, '已复制到剪贴板');
+            }
           },
           child: Row(
             children: [
@@ -464,9 +464,8 @@ class _BmfDetailDialogState extends ConsumerState<_BmfDetailDialog> {
               isConfig: true,
               maxHeight: 200.h,
               onDelete: () async {
-                var repo = context.mounted
-                    ? ref.read(bmfRepositoryProvider)
-                    : null;
+                var repo =
+                    context.mounted ? ref.read(bmfRepositoryProvider) : null;
                 if (repo == null) return;
                 widget.bmf.rss = null;
                 await repo.write(widget.bmf);
