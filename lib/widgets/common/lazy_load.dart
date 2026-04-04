@@ -221,7 +221,7 @@ class _LazyNavigationViewState extends State<LazyNavigationView> {
         if (!widget.lazyLoad || _loadedIndices.contains(index)) {
           return _cachedBodies.putIfAbsent(
             index,
-            () => item.body,
+            () => item.body!,
           );
         }
         return const SizedBox.shrink();

@@ -41,7 +41,7 @@ class _RssBmfPageState extends State<RssBmfPage>
           text: const Text('BMF'),
           body: const RbpBmfWidget(),
           semanticLabel: 'BMF',
-          selectedBackgroundColor: WidgetStateProperty.resolveWith(
+          selectedBackgroundColor: WidgetStateColor.resolveWith(
             (_) => FluentTheme.of(context).accentColor.withAlpha(80),
           ),
         ),
@@ -53,7 +53,7 @@ class _RssBmfPageState extends State<RssBmfPage>
           text: const Text('Mikan'),
           body: const RbpMikanWidget(),
           semanticLabel: 'Mikan',
-          selectedBackgroundColor: WidgetStateProperty.resolveWith(
+          selectedBackgroundColor: WidgetStateColor.resolveWith(
             (_) => FluentTheme.of(context).accentColor.withAlpha(80),
           ),
         ),
@@ -62,7 +62,7 @@ class _RssBmfPageState extends State<RssBmfPage>
           text: const Text('Comicat'),
           body: const RbpComicatWidget(),
           semanticLabel: 'Comicat',
-          selectedBackgroundColor: WidgetStateProperty.resolveWith(
+          selectedBackgroundColor: WidgetStateColor.resolveWith(
             (_) => FluentTheme.of(context).accentColor.withAlpha(80),
           ),
         ),

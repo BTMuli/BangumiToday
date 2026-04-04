@@ -42,7 +42,7 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
       var type = values[i];
       result.add(
         Tab(
-          selectedBackgroundColor: WidgetStateProperty.resolveWith(
+          selectedBackgroundColor: WidgetStateColor.resolveWith(
             (_) => FluentTheme.of(context).accentColor,
           ),
           icon: Icon(type.icon),

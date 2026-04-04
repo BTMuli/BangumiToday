@@ -287,11 +287,11 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
           : const Icon(FluentIcons.calendar),
       body: BcpDayWidget(data: getTabData(index), loading: isRequesting),
       semanticLabel: '星期${weekday[index]}',
-      selectedBackgroundColor: WidgetStateProperty.resolveWith(
+      selectedBackgroundColor: WidgetStateColor.resolveWith(
         (_) => FluentTheme.of(context).accentColor,
       ),
       backgroundColor: index == today
-          ? WidgetStateProperty.resolveWith(
+          ? WidgetStateColor.resolveWith(
               (_) => FluentTheme.of(context).accentColor.withValues(alpha: 0.5),
             )
           : null,
