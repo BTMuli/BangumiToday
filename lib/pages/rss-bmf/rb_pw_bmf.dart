@@ -186,7 +186,12 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
                 message: '刷新',
                 child: IconButton(
                   icon: BtIcon(FluentIcons.refresh),
-                  onPressed: () => ref.read(bmfListProvider.notifier).refresh(),
+                  onPressed: () async {
+                    await ref.read(bmfListProvider.notifier).refresh();
+                    if (context.mounted) {
+                      await BtInfobar.success(context, 'BMF 配置刷新完成');
+                    }
+                  },
                 ),
               ),
             ],
