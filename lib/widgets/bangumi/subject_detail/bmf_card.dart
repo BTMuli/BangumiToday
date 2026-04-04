@@ -8,10 +8,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 import '../../../core/theme/bt_theme.dart';
-import '../../../database/app/app_bmf.dart';
 import '../../../database/app/app_rss.dart';
 import '../../../models/database/app_bmf_model.dart';
-import '../../../store/nav_store.dart';
+import '../../../providers/app_providers.dart';
 import '../../../tools/file_tool.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_icon.dart';
@@ -23,10 +22,9 @@ enum BmfFilterType { all, hasRss, hasDownload, hasNew }
 
 class BmfCard extends ConsumerStatefulWidget {
   final AppBmfModel bmf;
-  final VoidCallback? onUpdate;
   final VoidCallback? onDelete;
 
-  const BmfCard({super.key, required this.bmf, this.onUpdate, this.onDelete});
+  const BmfCard({super.key, required this.bmf, this.onDelete});
 
   @override
   ConsumerState<BmfCard> createState() => _BmfCardState();
@@ -111,7 +109,6 @@ class _BmfCardState extends ConsumerState<BmfCard>
         bmf: bmf,
         fileCount: fileCount,
         totalSize: totalSize,
-        onUpdate: widget.onUpdate,
         onDelete: widget.onDelete,
       ),
     );
@@ -352,10 +349,9 @@ class _BmfCardState extends ConsumerState<BmfCard>
       value: bmf.title ?? '',
     );
     if (res != null && mounted) {
-      var sqlite = BtsAppBmf();
+      var repo = ref.read(bmfRepositoryProvider);
       bmf.title = res;
-      await sqlite.write(bmf);
-      widget.onUpdate?.call();
+      await repo.write(bmf);
     }
   }
 
@@ -366,30 +362,28 @@ class _BmfCardState extends ConsumerState<BmfCard>
       content: '建议精准到字幕组',
     );
     if (res != null && mounted) {
-      var sqlite = BtsAppBmf();
-      var check = await sqlite.checkRss(res);
+      var repo = ref.read(bmfRepositoryProvider);
+      var check = await repo.checkRss(res, excludeSubject: bmf.subject);
       if (check && context.mounted) {
         await BtInfobar.error(context, '该RSS已经被其他BMF使用');
         return;
       }
       bmf.rss = res;
-      await sqlite.write(bmf);
-      widget.onUpdate?.call();
+      await repo.write(bmf);
     }
   }
 
   Future<void> _handleSetDownloadDir(BuildContext context) async {
     var dir = await getDirectoryPath();
     if (dir != null && mounted) {
-      var sqlite = BtsAppBmf();
-      var check = await sqlite.checkDir(dir);
+      var repo = ref.read(bmfRepositoryProvider);
+      var check = await repo.checkDir(dir, excludeSubject: bmf.subject);
       if (check && context.mounted) {
         await BtInfobar.error(context, '该目录已经被其他BMF使用');
         return;
       }
       bmf.download = dir;
-      await sqlite.write(bmf);
-      widget.onUpdate?.call();
+      await repo.write(bmf);
     }
   }
 
@@ -405,26 +399,24 @@ class _BmfCardState extends ConsumerState<BmfCard>
   }
 }
 
-class _BmfDetailDialog extends StatefulWidget {
+class _BmfDetailDialog extends ConsumerStatefulWidget {
   final AppBmfModel bmf;
   final int fileCount;
   final String totalSize;
-  final VoidCallback? onUpdate;
   final VoidCallback? onDelete;
 
   const _BmfDetailDialog({
     required this.bmf,
     required this.fileCount,
     required this.totalSize,
-    this.onUpdate,
     this.onDelete,
   });
 
   @override
-  State<_BmfDetailDialog> createState() => _BmfDetailDialogState();
+  ConsumerState<_BmfDetailDialog> createState() => _BmfDetailDialogState();
 }
 
-class _BmfDetailDialogState extends State<_BmfDetailDialog> {
+class _BmfDetailDialogState extends ConsumerState<_BmfDetailDialog> {
   @override
   Widget build(BuildContext context) {
     return ContentDialog(
@@ -472,10 +464,12 @@ class _BmfDetailDialogState extends State<_BmfDetailDialog> {
               isConfig: true,
               maxHeight: 200.h,
               onDelete: () async {
-                var sqlite = BtsAppBmf();
+                var repo = context.mounted
+                    ? ref.read(bmfRepositoryProvider)
+                    : null;
+                if (repo == null) return;
                 widget.bmf.rss = null;
-                await sqlite.write(widget.bmf);
-                widget.onUpdate?.call();
+                await repo.write(widget.bmf);
                 if (context.mounted) Navigator.of(context).pop();
               },
             ),

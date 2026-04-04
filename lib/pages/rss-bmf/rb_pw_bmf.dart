@@ -1,33 +1,29 @@
-import 'dart:async';
-
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/theme/bt_theme.dart';
-import '../../database/app/app_bmf.dart';
 import '../../database/app/app_rss.dart';
 import '../../models/database/app_bmf_model.dart';
+import '../../providers/app_providers.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_detail/bmf_card.dart';
 
-class RbpBmfWidget extends StatefulWidget {
+class RbpBmfWidget extends ConsumerStatefulWidget {
   const RbpBmfWidget({super.key});
 
   @override
-  State<RbpBmfWidget> createState() => _RbpBmfState();
+  ConsumerState<RbpBmfWidget> createState() => _RbpBmfState();
 }
 
-class _RbpBmfState extends State<RbpBmfWidget>
+class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     with AutomaticKeepAliveClientMixin {
-  final BtsAppBmf sqlite = BtsAppBmf();
   final BtsAppRss rss = BtsAppRss();
 
-  List<AppBmfModel> bmfList = [];
   List<AppBmfModel> filteredList = [];
   String searchQuery = '';
   BmfFilterType currentFilter = BmfFilterType.all;
-  bool isLoading = true;
 
   @override
   bool get wantKeepAlive => true;
@@ -37,14 +33,14 @@ class _RbpBmfState extends State<RbpBmfWidget>
     super.initState();
     Future.microtask(() async {
       await preCheck();
-      await init();
+      await ref.read(bmfStoreProvider).loadAll();
     });
   }
 
   Future<void> preCheck() async {
-    var read = await sqlite.readAll();
+    var bmfList = ref.read(bmfStoreProvider).bmfList;
     var rssList = await rss.readAll();
-    for (var item in read) {
+    for (var item in bmfList) {
       if (item.rss != null && item.rss!.isNotEmpty) {
         rssList.removeWhere((e) => e.mkBgmId == item.mkBgmId);
       }
@@ -58,15 +54,7 @@ class _RbpBmfState extends State<RbpBmfWidget>
     }
   }
 
-  Future<void> init() async {
-    setState(() => isLoading = true);
-    bmfList = await sqlite.readAll();
-    applyFilter();
-    setState(() => isLoading = false);
-    if (mounted) await BtInfobar.success(context, '成功加载BMF配置');
-  }
-
-  void applyFilter() {
+  void applyFilter(List<AppBmfModel> bmfList) {
     filteredList = bmfList.where((bmf) {
       var matchesSearch = searchQuery.isEmpty ||
           (bmf.title?.toLowerCase().contains(searchQuery.toLowerCase()) ??
@@ -87,38 +75,35 @@ class _RbpBmfState extends State<RbpBmfWidget>
 
   void onSearch(String query) {
     searchQuery = query;
-    applyFilter();
     setState(() {});
   }
 
   void onFilterChanged(BmfFilterType filter) {
     currentFilter = filter;
-    applyFilter();
     setState(() {});
   }
 
   Future<void> deleteBmf(AppBmfModel bmf) async {
-    await sqlite.delete(bmf.subject);
-    if (bmf.rss != null && bmf.rss!.isNotEmpty) {
-      await rss.delete(bmf.rss!);
-    }
-    bmfList.removeWhere((e) => e.subject == bmf.subject);
-    applyFilter();
-    setState(() {});
+    var repo = ref.read(bmfRepositoryProvider);
+    await repo.delete(bmf.subject);
     if (mounted) await BtInfobar.success(context, '成功删除 BMF 信息');
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    var bmfStore = ref.watch(bmfStoreProvider);
+    var bmfList = bmfStore.bmfList;
+    applyFilter(bmfList);
+
     return ScaffoldPage(
       padding: EdgeInsets.zero,
-      header: _buildHeader(context),
-      content: _buildContent(context),
+      header: _buildHeader(context, bmfList),
+      content: _buildContent(context, bmfStore),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, List<AppBmfModel> bmfList) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       child: Column(
@@ -134,7 +119,7 @@ class _RbpBmfState extends State<RbpBmfWidget>
                 message: '刷新',
                 child: IconButton(
                   icon: BtIcon(FluentIcons.refresh),
-                  onPressed: init,
+                  onPressed: () => ref.read(bmfStoreProvider).loadAll(),
                 ),
               ),
             ],
@@ -142,7 +127,7 @@ class _RbpBmfState extends State<RbpBmfWidget>
           SizedBox(height: 12.h),
           Row(
             children: [
-              Expanded(child: _buildFilterChips(context)),
+              Expanded(child: _buildFilterChips(context, bmfList)),
               SizedBox(width: 16.w),
               SizedBox(
                 width: 240.w,
@@ -159,7 +144,7 @@ class _RbpBmfState extends State<RbpBmfWidget>
     );
   }
 
-  Widget _buildFilterChips(BuildContext context) {
+  Widget _buildFilterChips(BuildContext context, List<AppBmfModel> bmfList) {
     return Row(
       children: [
         _buildFilterChip(
@@ -249,8 +234,8 @@ class _RbpBmfState extends State<RbpBmfWidget>
     );
   }
 
-  Widget _buildContent(BuildContext context) {
-    if (isLoading) {
+  Widget _buildContent(BuildContext context, BmfStore bmfStore) {
+    if (bmfStore.isLoading) {
       return Center(child: ProgressRing());
     }
 
@@ -283,7 +268,6 @@ class _RbpBmfState extends State<RbpBmfWidget>
                       width: itemWidth,
                       child: BmfCard(
                         bmf: bmf,
-                        onUpdate: init,
                         onDelete: () => deleteBmf(bmf),
                       ),
                     ))
