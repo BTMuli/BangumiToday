@@ -2,6 +2,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 // Project imports:
+import 'rb_pw_anibt.dart';
 import 'rb_pw_bmf.dart';
 import 'rb_pw_comicat.dart';
 import 'rb_pw_mikan.dart';
@@ -66,9 +67,20 @@ class _RssBmfPageState extends State<RssBmfPage>
             (_) => FluentTheme.of(context).accentColor.withAlpha(80),
           ),
         ),
+        Tab(
+          icon: const Icon(FluentIcons.play_solid, size: 16),
+          text: const Text('AniBT'),
+          body: const RbpAnibtWidget(),
+          semanticLabel: 'AniBT',
+          selectedBackgroundColor: WidgetStateColor.resolveWith(
+            (_) => FluentTheme.of(context).accentColor.withAlpha(80),
+          ),
+        ),
       ],
       closeButtonVisibility: CloseButtonVisibilityMode.never,
-      tabWidthBehavior: TabWidthBehavior.sizeToContent,
+      tabWidthBehavior: TabWidthBehavior.equal,
+      minTabWidth: 80,
+      maxTabWidth: 120,
     );
   }
 }
