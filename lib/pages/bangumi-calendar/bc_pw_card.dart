@@ -225,7 +225,8 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
           rating: score,
           iconSize: 16.sp,
           starSpacing: 1.sp,
-          unratedIconColor: FluentTheme.of(context).accentColor.withAlpha(128),
+          ratedIconColor: FluentTheme.of(context).accentColor.withAlpha(128),
+          unratedIconColor: Colors.white.withAlpha(128),
         ),
       );
       rateWidget.add(SizedBox(height: 4.h));
