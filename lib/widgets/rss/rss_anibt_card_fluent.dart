@@ -19,8 +19,7 @@ class RssAnibtCardFluent extends ConsumerStatefulWidget {
   const RssAnibtCardFluent({super.key, required this.item});
 
   @override
-  ConsumerState<RssAnibtCardFluent> createState() =>
-      _RssAnibtCardFluentState();
+  ConsumerState<RssAnibtCardFluent> createState() => _RssAnibtCardFluentState();
 }
 
 class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent> {
@@ -60,7 +59,9 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent> {
       return;
     }
 
-    var check = await ref.read(dttStoreProvider.notifier).addTask(item, saveDir);
+    var check = await ref
+        .read(dttStoreProvider.notifier)
+        .addTask(item, saveDir);
     if (check && context.mounted) {
       await BtInfobar.success(context, '添加下载任务成功');
       return;
@@ -225,28 +226,28 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent> {
                               onPressed: () => _download(context),
                             ),
                           ),
-                          Tooltip(
-                            message: '内置下载',
-                            child: IconButton(
-                              icon: Icon(
-                                FluentIcons.save,
-                                size: 16.sp,
-                                color: accentColor,
-                              ),
-                              onPressed: () => _downloadInner(context),
-                            ),
-                          ),
-                          Tooltip(
-                            message: '磁力链接',
-                            child: IconButton(
-                              icon: Icon(
-                                FluentIcons.plug_connected,
-                                size: 16.sp,
-                                color: accentColor,
-                              ),
-                              onPressed: _copyMagnet,
-                            ),
-                          ),
+                          // Tooltip(
+                          //   message: '内置下载',
+                          //   child: IconButton(
+                          //     icon: Icon(
+                          //       FluentIcons.save,
+                          //       size: 16.sp,
+                          //       color: accentColor,
+                          //     ),
+                          //     onPressed: () => _downloadInner(context),
+                          //   ),
+                          // ),
+                          // Tooltip(
+                          //   message: '磁力链接',
+                          //   child: IconButton(
+                          //     icon: Icon(
+                          //       FluentIcons.plug_connected,
+                          //       size: 16.sp,
+                          //       color: accentColor,
+                          //     ),
+                          //     onPressed: _copyMagnet,
+                          //   ),
+                          // ),
                           Tooltip(
                             message: '打开链接',
                             child: IconButton(

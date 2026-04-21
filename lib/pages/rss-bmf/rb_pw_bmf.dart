@@ -40,7 +40,9 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   List<AppBmfModel> filteredList = [];
   BmfFilterStats filterStats = BmfFilterStats.empty;
   String searchQuery = '';
-  BmfFilterType currentFilter = BmfFilterType.all;
+  bool showAll = true;
+  bool filterHasRss = true;
+  bool filterHasDownload = true;
 
   Timer? _debounceTimer;
   bool _preCheckDone = false;
@@ -102,15 +104,15 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
               false) ||
           bmf.subject.toString().contains(searchQuery);
 
-      var matchesFilter = switch (currentFilter) {
-        BmfFilterType.all => true,
-        BmfFilterType.hasRss => bmf.rss != null && bmf.rss!.isNotEmpty,
-        BmfFilterType.hasDownload =>
-          bmf.download != null && bmf.download!.isNotEmpty,
-        BmfFilterType.hasNew => false,
-      };
+      if (showAll) return matchesSearch;
 
-      return matchesSearch && matchesFilter;
+      var hasRss = bmf.rss != null && bmf.rss!.isNotEmpty;
+      var hasDownload = bmf.download != null && bmf.download!.isNotEmpty;
+
+      var matchesRss = filterHasRss ? hasRss : !hasRss;
+      var matchesDownload = filterHasDownload ? hasDownload : !hasDownload;
+
+      return matchesSearch && matchesRss && matchesDownload;
     }).toList();
   }
 
@@ -122,12 +124,6 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
           searchQuery = query;
         });
       }
-    });
-  }
-
-  void onFilterChanged(BmfFilterType filter) {
-    setState(() {
-      currentFilter = filter;
     });
   }
 
@@ -223,21 +219,34 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
           context,
           label: '全部',
           count: filterStats.total,
-          filter: BmfFilterType.all,
+          isSelected: showAll,
+          onTap: () => setState(() {
+            showAll = true;
+            filterHasRss = true;
+            filterHasDownload = true;
+          }),
         ),
-        SizedBox(width: 8.w),
-        _buildFilterChip(
+        SizedBox(width: 16.w),
+        _buildFilterCheckbox(
           context,
           label: '有RSS',
           count: filterStats.hasRss,
-          filter: BmfFilterType.hasRss,
+          value: filterHasRss,
+          onChanged: (val) => setState(() {
+            showAll = false;
+            filterHasRss = val;
+          }),
         ),
-        SizedBox(width: 8.w),
-        _buildFilterChip(
+        SizedBox(width: 16.w),
+        _buildFilterCheckbox(
           context,
           label: '有下载目录',
           count: filterStats.hasDownload,
-          filter: BmfFilterType.hasDownload,
+          value: filterHasDownload,
+          onChanged: (val) => setState(() {
+            showAll = false;
+            filterHasDownload = val;
+          }),
         ),
       ],
     );
@@ -247,13 +256,13 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     BuildContext context, {
     required String label,
     required int count,
-    required BmfFilterType filter,
+    required bool isSelected,
+    required VoidCallback onTap,
   }) {
-    var isSelected = currentFilter == filter;
     var accentColor = FluentTheme.of(context).accentColor;
 
     return GestureDetector(
-      onTap: () => onFilterChanged(filter),
+      onTap: onTap,
       child: AnimatedContainer(
         duration: BTDurations.fadeTransition,
         padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
@@ -290,6 +299,71 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
                 '$count',
                 style: BTTypography.caption(context).copyWith(
                   color: isSelected
+                      ? accentColor
+                      : BTColors.textSecondary(context),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterCheckbox(
+    BuildContext context, {
+    required String label,
+    required int count,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    var accentColor = FluentTheme.of(context).accentColor;
+
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: AnimatedContainer(
+        duration: BTDurations.fadeTransition,
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+        decoration: BoxDecoration(
+          color: value
+              ? accentColor.withValues(alpha: 0.15)
+              : BTColors.surfaceSecondary(context),
+          borderRadius: BTRadius.mediumBR,
+          border: Border.all(
+            color: value ? accentColor : BTColors.divider(context),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              value ? FluentIcons.checkbox_composite : FluentIcons.checkbox,
+              size: 16.sp,
+              color: value ? accentColor : BTColors.textSecondary(context),
+            ),
+            SizedBox(width: 6.w),
+            Text(
+              label,
+              style: BTTypography.body(context).copyWith(
+                color: value ? accentColor : BTColors.textPrimary(context),
+                fontWeight: value ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+            SizedBox(width: 6.w),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+              decoration: BoxDecoration(
+                color: value
+                    ? accentColor.withValues(alpha: 0.2)
+                    : BTColors.surfaceTertiary(context),
+                borderRadius: BTRadius.smallBR,
+              ),
+              child: Text(
+                '$count',
+                style: BTTypography.caption(context).copyWith(
+                  color: value
                       ? accentColor
                       : BTColors.textSecondary(context),
                   fontWeight: FontWeight.w600,

@@ -1,11 +1,52 @@
 import 'dart:ui';
 
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../core/theme/bt_theme.dart';
 import '../models/app/response.dart';
 import '../widgets/app/app_resp_err.dart';
+
+class _KeyboardListenerWrapper extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onSubmit;
+
+  const _KeyboardListenerWrapper({required this.child, required this.onSubmit});
+
+  @override
+  State<_KeyboardListenerWrapper> createState() =>
+      _KeyboardListenerWrapperState();
+}
+
+class _KeyboardListenerWrapperState extends State<_KeyboardListenerWrapper> {
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleKey);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleKey);
+    super.dispose();
+  }
+
+  bool _handleKey(KeyEvent event) {
+    if (event is KeyDownEvent &&
+        (event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.numpadEnter)) {
+      widget.onSubmit();
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
+  }
+}
 
 Future<String?> showInput(
   BuildContext context, {
@@ -15,37 +56,42 @@ Future<String?> showInput(
 }) async {
   var controller = TextEditingController();
   if (value.isNotEmpty) controller.text = value;
+
+  void submit() {
+    Navigator.of(context).pop(controller.text);
+  }
+
   return await showDialog(
     barrierDismissible: true,
     context: context,
-    builder: (_) => _BTContentDialog(
-      title: title,
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(content, style: BTTypography.body(context)),
-          SizedBox(height: 16.h),
-          TextBox(
-            controller: controller,
-            autofocus: true,
-            unfocusedColor: BTColors.divider(context),
+    builder: (_) => _KeyboardListenerWrapper(
+      onSubmit: submit,
+      child: _BTContentDialog(
+        title: title,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(content, style: BTTypography.body(context)),
+            SizedBox(height: 16.h),
+            TextBox(
+              controller: controller,
+              autofocus: true,
+              unfocusedColor: BTColors.divider(context),
+              onSubmitted: (_) => submit(),
+            ),
+          ],
+        ),
+        actions: [
+          _BTDialogAction(
+            text: '取消',
+            onPressed: () => Navigator.of(context).pop(null),
+            isPrimary: false,
           ),
+          _BTDialogAction(text: '提交', onPressed: submit, isPrimary: true),
         ],
       ),
-      actions: [
-        _BTDialogAction(
-          text: '取消',
-          onPressed: () => Navigator.of(context).pop(null),
-          isPrimary: false,
-        ),
-        _BTDialogAction(
-          text: '提交',
-          onPressed: () => Navigator.of(context).pop(controller.text),
-          isPrimary: true,
-        ),
-      ],
     ),
   );
 }
