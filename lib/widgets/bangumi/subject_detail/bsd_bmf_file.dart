@@ -88,7 +88,6 @@ class _BsdBmfFileState extends ConsumerState<BsdBmfFile> {
             subject: widget.subject,
             dir: widget.bmfFile,
             file: file,
-            ref: ref,
           );
         }
       }

@@ -107,7 +107,6 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
             subject: widget.subject,
             dir: widget.downloadDir,
             file: file,
-            ref: ref,
           );
         }
       }

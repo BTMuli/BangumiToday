@@ -10,6 +10,7 @@ import 'package:window_manager/window_manager.dart';
 
 // Project imports:
 import '../../controller/app/progress_controller.dart';
+import '../../core/constants/app_constants.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../pages/app-setting/app_setting_page.dart';
@@ -83,6 +84,64 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
       );
       if (mounted && fresh == true) {
         await BtInfobar.success(context, '已成功刷新用户Token！');
+      }
+    });
+
+    appLinks.uriLinkStream.listen((uri) async {
+      debugPrint(uri.toString());
+      if (uri.scheme == BTAppConstants.urlScheme) {
+        _handleAppLink(uri);
+      } else if (uri.toString().startsWith('bangumitoday://oauth')) {
+        await _handleOAuth(uri);
+      }
+    });
+  }
+
+  void _handleAppLink(Uri uri) {
+    if (uri.host == BTAppConstants.subjectPath) {
+      var subjectId =
+          uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
+      if (subjectId != null) {
+        var id = int.tryParse(subjectId);
+        if (id != null) {
+          ref.read(navStoreProvider).addNavItemB(type: '条目', subject: id);
+        }
+      }
+    }
+  }
+
+  Future<void> _handleOAuth(Uri uri) async {
+    if (progress.isShow) {
+      progress.update(title: '处理用户授权', text: '正在前往授权页面', progress: null);
+    } else {
+      progress = ProgressWidget.show(context, title: '前往授权页面');
+    }
+    await apiOauth.openAuthorizePage();
+    progress.update(text: '等待授权回调');
+    appLinks.uriLinkStream.listen((uri) async {
+      debugPrint(uri.toString());
+      if (uri.toString().startsWith('bangumitoday://oauth')) {
+        progress.update(text: '处理授权回调');
+        var code = uri.queryParameters['code'];
+        if (code == null) {
+          if (mounted) await BtInfobar.error(context, '授权失败：未找到授权码');
+          progress.end();
+          return;
+        }
+        progress.update(text: '授权码：$code');
+        var res = await apiOauth.getAccessToken(code);
+        if (res.code != 0 || res.data == null) {
+          progress.end();
+          if (mounted) await showRespErr(res, context);
+          return;
+        }
+        assert(res.data != null);
+        var at = res.data as BangumiOauthTokenGetData;
+        await hive.updateAccessToken(at.accessToken, update: false);
+        await hive.updateRefreshToken(at.refreshToken, update: false);
+        await hive.updateExpireTime(at.expiresIn, update: false);
+        await hive.updateBox();
+        await freshUserInfo();
       }
     });
   }
@@ -185,34 +244,6 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
     }
     await apiOauth.openAuthorizePage();
     progress.update(text: '等待授权回调');
-    appLinks.uriLinkStream.listen((uri) async {
-      debugPrint(uri.toString());
-      if (uri.toString().startsWith('bangumitoday://oauth')) {
-        progress.update(text: '处理授权回调');
-        var code = uri.queryParameters['code'];
-        if (code == null) {
-          if (mounted) await BtInfobar.error(context, '授权失败：未找到授权码');
-          progress.end();
-          // 停止监听
-          appLinks.uriLinkStream.listen((_) {});
-          return;
-        }
-        progress.update(text: '授权码：$code');
-        var res = await apiOauth.getAccessToken(code);
-        if (res.code != 0 || res.data == null) {
-          progress.end();
-          if (mounted) await showRespErr(res, context);
-          return;
-        }
-        assert(res.data != null);
-        var at = res.data as BangumiOauthTokenGetData;
-        await hive.updateAccessToken(at.accessToken, update: false);
-        await hive.updateRefreshToken(at.refreshToken, update: false);
-        await hive.updateExpireTime(at.expiresIn, update: false);
-        await hive.updateBox();
-        await freshUserInfo();
-      }
-    });
   }
 
   /// 构建重置窗口大小项

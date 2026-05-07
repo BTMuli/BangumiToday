@@ -6,13 +6,12 @@ import 'package:flutter/cupertino.dart';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_notifier/local_notifier.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../store/nav_store.dart';
+import '../core/constants/app_constants.dart';
 
 //// 通知队列，changeNotifier
 class BTNotifierQueue extends ChangeNotifier {
@@ -92,7 +91,6 @@ class BTNotifierTool {
     required int subject,
     required String dir,
     required String file,
-    required WidgetRef ref,
   }) async {
     var notification = LocalNotification(
       title: '【$subject】视频下载完成',
@@ -102,6 +100,11 @@ class BTNotifierTool {
       ],
       body: file,
     );
+    notification.onClick = () async {
+      var url =
+          '${BTAppConstants.urlScheme}://${BTAppConstants.subjectPath}/$subject';
+      await launchUrlString(url);
+    };
     notification.onClickAction = (index) async {
       switch (index) {
         case 0:
@@ -109,7 +112,9 @@ class BTNotifierTool {
           await launchUrlString('file://$filePath');
           break;
         case 1:
-          ref.read(navStoreProvider).addNavItemB(type: '动画', subject: subject);
+          var url =
+              '${BTAppConstants.urlScheme}://${BTAppConstants.subjectPath}/$subject';
+          await launchUrlString(url);
           break;
         default:
           break;
