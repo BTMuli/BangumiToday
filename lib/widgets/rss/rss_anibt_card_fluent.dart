@@ -8,7 +8,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-import '../../store/dtt_store.dart';
 import '../../tools/download_tool.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
@@ -52,36 +51,9 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent> {
     }
   }
 
-  Future<void> _downloadInner(BuildContext context) async {
-    var saveDir = await getDirectoryPath();
-    if (saveDir == null || saveDir.isEmpty) {
-      if (context.mounted) await BtInfobar.error(context, '未选择下载目录');
-      return;
-    }
-
-    var check = await ref
-        .read(dttStoreProvider.notifier)
-        .addTask(item, saveDir);
-    if (check && context.mounted) {
-      await BtInfobar.success(context, '添加下载任务成功');
-      return;
-    }
-    if (context.mounted) await BtInfobar.warn(context, '已经在下载列表中');
-  }
-
   Future<void> _openLink() async {
     if (item.link == null || item.link!.isEmpty) return;
     await launchUrlString(item.link!);
-  }
-
-  Future<void> _copyMagnet() async {
-    var magnet = magnetUri;
-    if (magnet == null || magnet.isEmpty) {
-      if (mounted) await BtInfobar.warn(context, '未找到磁力链接');
-      return;
-    }
-    await launchUrlString(magnet);
-    if (mounted) await BtInfobar.success(context, '已打开磁力链接');
   }
 
   @override
