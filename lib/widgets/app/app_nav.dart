@@ -51,9 +51,6 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
   /// moreFlyoutController
   final FlyoutController flyoutMore = FlyoutController();
 
-  /// userFlyoutController
-  final FlyoutController flyoutUser = FlyoutController();
-
   /// bangumi用户Hive
   final BgmUserHive hive = BgmUserHive();
 
@@ -150,7 +147,6 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
   @override
   void dispose() {
     flyoutMore.dispose();
-    flyoutUser.dispose();
     super.dispose();
   }
 
@@ -163,37 +159,6 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
       builder: (context) =>
           MenuFlyout(items: [buildResetWinItem(), buildPinWinItem()]),
     );
-  }
-
-  /// 展示用户菜单flyout
-  void showUserMenuFlyout() {
-    flyoutUser.showFlyout(
-      barrierDismissible: true,
-      dismissOnPointerMoveAway: false,
-      dismissWithEsc: true,
-      builder: (context) => MenuFlyout(items: buildUserMenuItems()),
-    );
-  }
-
-  /// 构建用户菜单项
-  List<MenuFlyoutItemBase> buildUserMenuItems() {
-    return [
-      MenuFlyoutItem(
-        leading: const Icon(FluentIcons.refresh),
-        text: const Text('刷新用户信息'),
-        onPressed: () async {
-          await freshUserInfo();
-        },
-      ),
-      const MenuFlyoutSeparator(),
-      MenuFlyoutItem(
-        leading: const Icon(FluentIcons.sign_out),
-        text: const Text('退出登录'),
-        onPressed: () async {
-          await logoutUser();
-        },
-      ),
-    ];
   }
 
   /// 退出登录
@@ -310,19 +275,15 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
               onTap: () async => oauthUser(),
             )
           : PaneItem(
-              icon: FlyoutTarget(
-                controller: flyoutUser,
-                child: CachedNetworkImage(
-                  imageUrl: hive.user!.avatar.small,
-                  width: 18,
-                  height: 18,
-                  placeholder: (_, _) => const ProgressRing(),
-                  errorWidget: (_, _, _) => const Icon(FluentIcons.error),
-                ),
+              icon: CachedNetworkImage(
+                imageUrl: hive.user!.avatar.small,
+                width: 18,
+                height: 18,
+                placeholder: (_, _) => const ProgressRing(),
+                errorWidget: (_, _, _) => const Icon(FluentIcons.error),
               ),
               title: Text(hive.user!.nickname),
               body: const UserCollectionPage(),
-              onTap: showUserMenuFlyout,
             ),
       if (kDebugMode)
         PaneItem(
