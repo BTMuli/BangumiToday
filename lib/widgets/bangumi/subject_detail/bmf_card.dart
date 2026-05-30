@@ -100,6 +100,18 @@ class _BmfCardState extends ConsumerState<BmfCard>
         .addNavItemB(subject: bmf.subject, paneTitle: bmf.title, type: '动画');
   }
 
+  Future<void> _addToNavOnly() async {
+    ref.read(navStoreProvider.notifier).addNavItemB(
+          subject: bmf.subject,
+          paneTitle: bmf.title,
+          type: '动画',
+          jump: false,
+        );
+    if (mounted) {
+      await BtInfobar.success(context, '${bmf.title ?? bmf.subject} 添加成功');
+    }
+  }
+
   void _showDetailDialog() {
     showDialog(
       context: context,
@@ -281,6 +293,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
           child: IconButton(
             icon: BtIcon(FluentIcons.open_in_new_tab, size: 14.sp),
             onPressed: _navigateToDetail,
+            onLongPress: _addToNavOnly,
           ),
         ),
         const Spacer(),
