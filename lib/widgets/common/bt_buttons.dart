@@ -3,6 +3,72 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/theme/bt_theme.dart';
 
+mixin ButtonInteractionMixin<T extends StatefulWidget> on State<T> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  double get pressedScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: BTTheme.animationDurationFast,
+      vsync: this as TickerProvider,
+    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: pressedScale,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void handleTapDown(TapDownDetails details) {
+    _onTapPressed();
+  }
+
+  void handleTapUp(TapUpDetails details) {
+    _onTapReleased();
+  }
+
+  void handleTapCancel() {
+    _onTapReleased();
+  }
+
+  void handleMouseEnter(bool isEnabled) {
+    if (isEnabled) {
+      setState(() => _isHovered = true);
+    }
+  }
+
+  void handleMouseExit(bool isEnabled) {
+    if (isEnabled) {
+      setState(() => _isHovered = false);
+    }
+  }
+
+  void _onTapPressed() {
+    setState(() => _isPressed = true);
+    _controller.forward();
+  }
+
+  void _onTapReleased() {
+    setState(() => _isPressed = false);
+    _controller.reverse();
+  }
+
+  bool get isHovered => _isHovered;
+  bool get isPressed => _isPressed;
+  Animation<double> get scaleAnimation => _scaleAnimation;
+}
+
 enum BTButtonType { primary, secondary, subtle, danger }
 
 class BTButton extends StatefulWidget {
@@ -30,46 +96,10 @@ class BTButton extends StatefulWidget {
 }
 
 class _BTButtonState extends State<BTButton>
-    with SingleTickerProviderStateMixin {
-  bool _isHovered = false;
-  bool _isPressed = false;
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
+    with ButtonInteractionMixin<BTButton> {
 
   @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: BTTheme.animationDurationFast,
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.97,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails details) {
-    if (widget.onPressed == null || widget.isLoading) return;
-    setState(() => _isPressed = true);
-    _controller.forward();
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    setState(() => _isPressed = false);
-    _controller.reverse();
-  }
-
-  void _onTapCancel() {
-    setState(() => _isPressed = false);
-    _controller.reverse();
-  }
+  double get pressedScale => 0.97;
 
   (Color, Color, Color) _getButtonColors(BuildContext context) {
     var accentColor = FluentTheme.of(context).accentColor;
@@ -147,20 +177,20 @@ class _BTButtonState extends State<BTButton>
     );
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) => handleMouseEnter(!isDisabled),
+      onExit: (_) => handleMouseExit(!isDisabled),
       cursor: isDisabled
           ? SystemMouseCursors.forbidden
           : SystemMouseCursors.click,
       child: GestureDetector(
-        onTapDown: _onTapDown,
-        onTapUp: _onTapUp,
-        onTapCancel: _onTapCancel,
+        onTapDown: isDisabled ? null : handleTapDown,
+        onTapUp: isDisabled ? null : handleTapUp,
+        onTapCancel: isDisabled ? null : handleTapCancel,
         onTap: isDisabled ? null : widget.onPressed,
         child: AnimatedBuilder(
-          animation: _scaleAnimation,
+          animation: scaleAnimation,
           builder: (context, child) {
-            return Transform.scale(scale: _scaleAnimation.value, child: child);
+            return Transform.scale(scale: scaleAnimation.value, child: child);
           },
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
@@ -171,9 +201,9 @@ class _BTButtonState extends State<BTButton>
             decoration: BoxDecoration(
               color: isDisabled
                   ? baseColor.withValues(alpha: 0.5)
-                  : (_isPressed
+                  : (isPressed
                         ? pressedColor
-                        : (_isHovered ? hoverColor : baseColor)),
+                        : (isHovered ? hoverColor : baseColor)),
               borderRadius: BTRadius.mediumBR,
               border: widget.type == BTButtonType.secondary
                   ? Border.all(
@@ -184,7 +214,7 @@ class _BTButtonState extends State<BTButton>
                   : null,
               boxShadow:
                   widget.type == BTButtonType.primary &&
-                      _isHovered &&
+                      isHovered &&
                       !isDisabled
                   ? [
                       BoxShadow(
@@ -228,30 +258,10 @@ class BTIconButton extends StatefulWidget {
 }
 
 class _BTIconButtonState extends State<BTIconButton>
-    with SingleTickerProviderStateMixin {
-  bool _isHovered = false;
-  bool _isPressed = false;
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
+    with ButtonInteractionMixin<BTIconButton> {
 
   @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: BTTheme.animationDurationFast,
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.92,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  double get pressedScale => 0.92;
 
   @override
   Widget build(BuildContext context) {
@@ -265,7 +275,7 @@ class _BTIconButtonState extends State<BTIconButton>
       duration: BTTheme.animationDurationFast,
       padding: EdgeInsets.all(8.w),
       decoration: BoxDecoration(
-        color: _isHovered
+        color: isHovered
             ? accentColor.withValues(alpha: 0.1)
             : (widget.isActive
                   ? accentColor.withValues(alpha: 0.08)
@@ -275,8 +285,8 @@ class _BTIconButtonState extends State<BTIconButton>
       child: Icon(widget.icon, size: iconSize, color: iconColor),
     );
 
-    if (_isPressed) {
-      iconWidget = ScaleTransition(scale: _scaleAnimation, child: iconWidget);
+    if (isPressed) {
+      iconWidget = ScaleTransition(scale: scaleAnimation, child: iconWidget);
     }
 
     if (widget.tooltip != null) {
@@ -284,30 +294,15 @@ class _BTIconButtonState extends State<BTIconButton>
     }
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) => handleMouseEnter(widget.onPressed != null),
+      onExit: (_) => handleMouseExit(widget.onPressed != null),
       cursor: widget.onPressed != null
           ? SystemMouseCursors.click
           : SystemMouseCursors.forbidden,
       child: GestureDetector(
-        onTapDown: widget.onPressed != null
-            ? (_) {
-                setState(() => _isPressed = true);
-                _controller.forward();
-              }
-            : null,
-        onTapUp: widget.onPressed != null
-            ? (_) {
-                setState(() => _isPressed = false);
-                _controller.reverse();
-              }
-            : null,
-        onTapCancel: widget.onPressed != null
-            ? () {
-                setState(() => _isPressed = false);
-                _controller.reverse();
-              }
-            : null,
+        onTapDown: widget.onPressed != null ? handleTapDown : null,
+        onTapUp: widget.onPressed != null ? handleTapUp : null,
+        onTapCancel: widget.onPressed != null ? handleTapCancel : null,
         onTap: widget.onPressed,
         child: iconWidget,
       ),
@@ -489,29 +484,10 @@ class BTFloatingActionButton extends StatefulWidget {
 }
 
 class _BTFloatingActionButtonState extends State<BTFloatingActionButton>
-    with SingleTickerProviderStateMixin {
-  bool _isHovered = false;
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
+    with ButtonInteractionMixin<BTFloatingActionButton> {
 
   @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: BTTheme.animationDurationFast,
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.95,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  double get pressedScale => 0.95;
 
   @override
   Widget build(BuildContext context) {
@@ -536,9 +512,9 @@ class _BTFloatingActionButtonState extends State<BTFloatingActionButton>
         : Icon(widget.icon, size: 22.sp, color: Colors.white);
 
     Widget fab = AnimatedBuilder(
-      animation: _scaleAnimation,
+      animation: scaleAnimation,
       builder: (context, child) {
-        return Transform.scale(scale: _scaleAnimation.value, child: child);
+        return Transform.scale(scale: scaleAnimation.value, child: child);
       },
       child: AnimatedContainer(
         duration: BTTheme.animationDurationFast,
@@ -549,8 +525,8 @@ class _BTFloatingActionButtonState extends State<BTFloatingActionButton>
           boxShadow: [
             BoxShadow(
               color: accentColor.withValues(alpha: 0.4),
-              blurRadius: _isHovered ? 16 : 12,
-              offset: Offset(0, _isHovered ? 6 : 4),
+              blurRadius: isHovered ? 16 : 12,
+              offset: Offset(0, isHovered ? 6 : 4),
             ),
           ],
         ),
@@ -563,25 +539,13 @@ class _BTFloatingActionButtonState extends State<BTFloatingActionButton>
     }
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) => handleMouseEnter(true),
+      onExit: (_) => handleMouseExit(true),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTapDown: widget.onPressed != null
-            ? (_) {
-                _controller.forward();
-              }
-            : null,
-        onTapUp: widget.onPressed != null
-            ? (_) {
-                _controller.reverse();
-              }
-            : null,
-        onTapCancel: widget.onPressed != null
-            ? () {
-                _controller.reverse();
-              }
-            : null,
+        onTapDown: widget.onPressed != null ? handleTapDown : null,
+        onTapUp: widget.onPressed != null ? handleTapUp : null,
+        onTapCancel: widget.onPressed != null ? handleTapCancel : null,
         onTap: widget.onPressed,
         child: fab,
       ),
