@@ -214,6 +214,25 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     );
   }
 
+  Widget _buildCountBadge(BuildContext context, int count) {
+    var accentColor = FluentTheme.of(context).accentColor;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(
+          fontSize: 11.sp,
+          fontWeight: FontWeight.w600,
+          color: accentColor,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     var accentColor = FluentTheme.of(context).accentColor;
@@ -222,6 +241,10 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       header: Row(
         children: [
           Text('下载目录', style: BTTypography.subtitle(context)),
+          if (files.isNotEmpty) ...[
+            SizedBox(width: 8.w),
+            _buildCountBadge(context, files.length),
+          ],
           SizedBox(width: 8.w),
           Tooltip(
             message: widget.downloadDir.isEmpty
@@ -593,6 +616,25 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     );
   }
 
+  Widget _buildCountBadge(BuildContext context, int count) {
+    var accentColor = FluentTheme.of(context).accentColor;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(
+          fontSize: 11.sp,
+          fontWeight: FontWeight.w600,
+          color: accentColor,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     var accentColor = FluentTheme.of(context).accentColor;
@@ -603,6 +645,10 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
       header: Row(
         children: [
           Text('RSS 订阅', style: BTTypography.subtitle(context)),
+          if (rssItems.isNotEmpty) ...[
+            SizedBox(width: 8.w),
+            _buildCountBadge(context, rssItems.length),
+          ],
           SizedBox(width: 8.w),
           Tooltip(
             message: rssLink,
