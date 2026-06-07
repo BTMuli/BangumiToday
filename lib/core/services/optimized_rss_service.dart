@@ -4,7 +4,7 @@ import 'package:dart_rss/dart_rss.dart';
 import 'package:dio/dio.dart';
 
 import '../../core/cache/lru_cache_manager.dart';
-import '../../core/network/request_manager.dart';
+import '../../request/bangumi/bangumi_manager.dart';
 import '../../models/app/response.dart';
 import '../../request/core/client.dart';
 import '../../tools/log_tool.dart';

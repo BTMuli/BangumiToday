@@ -1,6 +1,5 @@
+import 'package:bangumi_today/request/bangumi/bangumi_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:bangumi_today/core/network/request_manager.dart';
 
 void main() {
   group('RequestKey', () {

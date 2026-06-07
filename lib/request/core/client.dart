@@ -3,6 +3,9 @@ import 'package:dio/dio.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+// Project imports:
+import '../bangumi/bangumi_interceptor.dart';
+
 /// 获取 Interceptor
 LogInterceptor getInterceptor() {
   return LogInterceptor(
@@ -47,6 +50,18 @@ class BtrClient {
     _dio.options.validateStatus = (status) => true;
     var interceptor = getInterceptor();
     _dio.interceptors.add(interceptor);
+    Future.microtask(() async {
+      var headers = {'User-Agent': await getClientUA()} as Map<String, dynamic>;
+      _dio.options.headers.addAll(headers);
+    });
+  }
+
+  /// 带认证拦截器的客户端（自动处理 token 附加和 401 刷新重试）
+  BtrClient.withAuth() {
+    _dio = Dio(BaseOptions());
+    _dio.options.validateStatus = (status) => true;
+    _dio.interceptors.add(getInterceptor());
+    _dio.interceptors.add(AuthInterceptor(_dio));
     Future.microtask(() async {
       var headers = {'User-Agent': await getClientUA()} as Map<String, dynamic>;
       _dio.options.headers.addAll(headers);

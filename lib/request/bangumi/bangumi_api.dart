@@ -6,7 +6,7 @@ import 'package:dio/dio.dart';
 
 // Project imports:
 import '../../core/cache/cache_manager.dart';
-import '../../core/network/request_manager.dart';
+import 'bangumi_manager.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
@@ -36,19 +36,8 @@ class BtrBangumiApi {
 
   /// 构造函数
   BtrBangumiApi() {
-    client = BtrClient.withHeader();
+    client = BtrClient.withAuth();
     client.dio.options.baseUrl = baseUrl;
-  }
-
-  /// 获取需要访问令牌的 header 项
-  Map<String, dynamic> getAuthHeader() {
-    if (hive.tokenAC == null || hive.tokenAC!.isEmpty) {
-      return client.dio.options.headers;
-    }
-    return {
-      ...client.dio.options.headers,
-      'Authorization': 'Bearer ${hive.tokenAC}',
-    };
   }
 
   /// 条目模块
@@ -157,7 +146,6 @@ class BtrBangumiApi {
     BTLogTool.info('searchSubjectsData: ${jsonEncode(data)}');
     BTLogTool.info('searchSubjectsParams: ${jsonEncode(params)}');
     try {
-      var authHeader = getAuthHeader();
       var result = await _requestManager.request<Response>(
         key: RequestKey.search(keyword, offset),
         deduplicate: deduplicate,
@@ -168,7 +156,6 @@ class BtrBangumiApi {
           data: data,
           options: Options(
             contentType: 'application/json',
-            headers: authHeader,
           ),
           cancelToken: token,
         ),
@@ -210,7 +197,6 @@ class BtrBangumiApi {
     bool cancelPrevious = true,
   }) async {
     try {
-      var authHeader = getAuthHeader();
       var result = await _requestManager.request<Response>(
         key: RequestKey.subjectDetail(int.parse(id)),
         deduplicate: deduplicate,
@@ -218,7 +204,6 @@ class BtrBangumiApi {
         request: (token) => client.dio.get(
           '/v0/subjects/$id',
           options: Options(
-            headers: authHeader,
             contentType: 'application/json',
           ),
           cancelToken: token,
@@ -256,10 +241,9 @@ class BtrBangumiApi {
   /// 获取条目关联条目
   Future<BTResponse> getSubjectRelations(int id) async {
     try {
-      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/subjects/$id/subjects',
-        options: Options(headers: authHeader, contentType: 'application/json'),
+        options: Options(contentType: 'application/json'),
       );
       var list = resp.data as List;
       var data = list
@@ -302,11 +286,10 @@ class BtrBangumiApi {
     if (limit != null) params['limit'] = limit;
     if (offset != null) params['offset'] = offset;
     try {
-      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/episodes',
         queryParameters: params,
-        options: Options(headers: authHeader, contentType: 'application/json'),
+        options: Options(contentType: 'application/json'),
       );
       var dataList = BangumiPageT<BangumiEpisode>.fromJson(
         resp.data as Map<String, dynamic>,
@@ -336,10 +319,9 @@ class BtrBangumiApi {
   /// 获取用户信息
   Future<BTResponse> getUserInfo() async {
     try {
-      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/me',
-        options: Options(headers: authHeader, contentType: 'application/json'),
+        options: Options(contentType: 'application/json'),
       );
       return BangumiUserInfoResp.success(
         data: BangumiUser.fromJson(resp.data as Map<String, dynamic>),
@@ -378,11 +360,10 @@ class BtrBangumiApi {
     if (limit != null) params['limit'] = limit;
     if (offset != null) params['offset'] = offset;
     try {
-      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/users/$username/collections',
         queryParameters: params,
-        options: Options(headers: authHeader, contentType: 'application/json'),
+        options: Options(contentType: 'application/json'),
       );
       var dataList = BangumiPageT<BangumiUserSubjectCollection>.fromJson(
         resp.data as Map<String, dynamic>,
@@ -415,10 +396,9 @@ class BtrBangumiApi {
     int subjectId,
   ) async {
     try {
-      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/users/$username/collections/$subjectId',
-        options: Options(headers: authHeader, contentType: 'application/json'),
+        options: Options(contentType: 'application/json'),
       );
       assert(resp.data is Map<String, dynamic>);
       if (resp.data.containsKey('request_id')) {
@@ -463,11 +443,10 @@ class BtrBangumiApi {
   /// 新增用户单个条目的收藏
   Future<BTResponse> addCollectionSubject(int subjectId) async {
     try {
-      var authHeader = getAuthHeader();
       await client.dio.post(
         '/v0/users/-/collections/$subjectId',
         data: {'type': BangumiCollectionType.wish.value},
-        options: Options(headers: authHeader, contentType: 'application/json'),
+        options: Options(contentType: 'application/json'),
       );
       return BTResponse.success(data: null);
     } on DioException catch (e) {
@@ -511,11 +490,10 @@ class BtrBangumiApi {
     if (private != null) data['private'] = private;
     if (tags != null) data['tags'] = tags;
     try {
-      var authHeader = getAuthHeader();
       var resp = await client.dio.patch(
         '/v0/users/-/collections/$subjectId',
         data: data,
-        options: Options(headers: authHeader, contentType: 'application/json'),
+        options: Options(contentType: 'application/json'),
       );
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
@@ -550,11 +528,10 @@ class BtrBangumiApi {
     if (limit != null) params['limit'] = limit;
     if (type != null) params['type'] = type.value;
     try {
-      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/users/-/collections/$subjectId/episodes',
         queryParameters: params,
-        options: Options(headers: authHeader, contentType: 'application/json'),
+        options: Options(contentType: 'application/json'),
       );
       var dataList = BangumiPageT<BangumiUserEpisodeCollection>.fromJson(
         resp.data as Map<String, dynamic>,
@@ -584,10 +561,9 @@ class BtrBangumiApi {
   /// 获取用户单个章节收藏
   Future<BTResponse> getCollectionEpisode(int episodeId) async {
     try {
-      var authHeader = getAuthHeader();
       var resp = await client.dio.get(
         '/v0/users/-/collections/-/episodes/$episodeId',
-        options: Options(headers: authHeader, contentType: 'application/json'),
+        options: Options(contentType: 'application/json'),
       );
       assert(resp.data is Map<String, dynamic>);
       return BangumiCollectionEpisodeItemResp.success(
@@ -620,12 +596,11 @@ class BtrBangumiApi {
     required int episode,
   }) async {
     try {
-      var authHeader = getAuthHeader();
       var resp = await client.dio.put(
         '/v0/users/-/collections/-/episodes/$episode',
         queryParameters: {'episode_id': episode},
         data: {'type': type.value},
-        options: Options(headers: authHeader, contentType: 'application/json'),
+        options: Options(contentType: 'application/json'),
       );
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
