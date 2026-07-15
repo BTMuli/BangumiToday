@@ -1,5 +1,6 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/rendering.dart';
 
 // Project imports:
 import '../../core/layout/responsive.dart';
@@ -41,7 +42,7 @@ class BcpDayWidget extends StatelessWidget {
             crossAxisSpacing: 8,
           ),
           itemCount: data.length,
-          cacheExtent: 500,
+          scrollCacheExtent: const ScrollCacheExtent.pixels(500),
           itemBuilder: (context, index) => RepaintBoundary(
             key: ValueKey(data[index].id),
             child: BcpCardWidget(data: data[index]),

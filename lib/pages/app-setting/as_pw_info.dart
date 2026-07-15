@@ -5,7 +5,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -128,7 +128,7 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
       title: Text('BangumiToday'),
       subtitle: Text('版本：${packageInfo?.version}+${packageInfo?.buildNumber}'),
       trailing: IconButton(
-        icon: BtIcon(MdiIcons.github),
+        icon: BtIcon(FluentIcons.link),
         onPressed: () async {
           await launchUrlString('https://github.com/BTMuli/BangumiToday');
         },

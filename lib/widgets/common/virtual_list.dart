@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 
 class VirtualListView<T> extends StatefulWidget {
@@ -137,7 +138,7 @@ class _VirtualListViewState<T> extends State<VirtualListView<T>> {
         return ListView.builder(
           controller: _scrollController,
           padding: widget.padding,
-          cacheExtent: widget.cacheExtent,
+          scrollCacheExtent: ScrollCacheExtent.pixels(widget.cacheExtent),
           shrinkWrap: widget.shrinkWrap,
           itemCount: widget.items.length + (widget.hasMore ? 1 : 0),
           itemBuilder: (context, index) {
@@ -268,7 +269,7 @@ class _VirtualGridViewState<T> extends State<VirtualGridView<T>> {
     return GridView.builder(
       controller: _scrollController,
       padding: widget.padding,
-      cacheExtent: widget.cacheExtent,
+      scrollCacheExtent: ScrollCacheExtent.pixels(widget.cacheExtent),
       shrinkWrap: widget.shrinkWrap,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: widget.crossAxisCount,

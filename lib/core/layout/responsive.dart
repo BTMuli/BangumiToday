@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 class BTBreakpoints {
@@ -161,7 +162,7 @@ class BTResponsiveGridView extends StatelessWidget {
           ),
           itemCount: itemCount,
           itemBuilder: itemBuilder,
-          cacheExtent: 500,
+          scrollCacheExtent: const ScrollCacheExtent.pixels(500),
         );
       },
     );
@@ -201,7 +202,7 @@ class BTResponsiveListView extends StatelessWidget {
           itemExtent: itemExtent,
           addAutomaticKeepAlives: addAutomaticKeepAlives,
           addRepaintBoundaries: addRepaintBoundaries,
-          cacheExtent: 500,
+          scrollCacheExtent: const ScrollCacheExtent.pixels(500),
         );
       },
     );

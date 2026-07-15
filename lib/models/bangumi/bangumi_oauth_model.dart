@@ -121,7 +121,6 @@ class BangumiOauthTokenGetParams {
 @JsonSerializable(createToJson: false)
 class BangumiOauthTokenGetResp extends BTResponse<BangumiOauthTokenGetData> {
   /// constructor
-  @override
   BangumiOauthTokenGetResp({
     required super.code,
     required super.message,
@@ -222,7 +221,6 @@ class BangumiOauthTokenRefreshParams {
 class BangumiOauthTokenRefreshResp
     extends BTResponse<BangumiOauthTokenRefreshData> {
   /// constructor
-  @override
   BangumiOauthTokenRefreshResp({
     required super.code,
     required super.message,
@@ -284,7 +282,6 @@ class BangumiOauthTokenRefreshData {
 class BangumiOauthTokenStatusResp
     extends BTResponse<BangumiOauthTokenStatusData> {
   /// constructor
-  @override
   BangumiOauthTokenStatusResp({
     required super.code,
     required super.message,

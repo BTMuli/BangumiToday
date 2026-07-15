@@ -3,6 +3,7 @@ import 'dart:math';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -218,9 +219,7 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(4)),
         child: IconButton(
           icon: const Icon(FluentIcons.refresh),
           onPressed: () async {
@@ -301,7 +300,7 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
               crossAxisSpacing: 12.w,
             ),
             itemCount: showData.length,
-            cacheExtent: 500,
+            scrollCacheExtent: const ScrollCacheExtent.pixels(500),
             itemBuilder: (context, index) => RepaintBoundary(
               key: ValueKey(showData[index].subjectId),
               child: UcpCardWidget(data: showData[index]),

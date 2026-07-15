@@ -47,8 +47,8 @@ class BTDrawerRoute<T> extends PopupRoute<T> {
           curve: Curves.easeOutCubic,
           reverseCurve: Curves.easeInCubic,
         ),
-        axis: isRight ? Axis.horizontal : Axis.horizontal,
-        axisAlignment: isRight ? 1.0 : -1.0,
+        axis: Axis.horizontal,
+        alignment: AlignmentDirectional(isRight ? 1.0 : -1.0, -1.0),
         child: Container(
           width: width.w,
           height: double.infinity,
@@ -134,12 +134,12 @@ class BTDrawer extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: BTTypography.subtitle(context).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: BTTypography.subtitle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
-              if (actions != null) ...actions!,
+              ...?actions,
               SizedBox(width: 8.w),
               Tooltip(
                 message: '关闭',
@@ -197,10 +197,7 @@ class _BTDrawerButtonState extends State<BTDrawerButton> {
           context: context,
           position: widget.position,
           width: widget.width,
-          child: BTDrawer(
-            title: widget.title,
-            child: widget.builder(context),
-          ),
+          child: BTDrawer(title: widget.title, child: widget.builder(context)),
         ),
         child: AnimatedContainer(
           duration: BTTheme.animationDurationFast,
@@ -215,19 +212,14 @@ class _BTDrawerButtonState extends State<BTDrawerButton> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (widget.icon != null) ...[
-                Icon(
-                  widget.icon,
-                  size: 16.sp,
-                  color: accentColor,
-                ),
+                Icon(widget.icon, size: 16.sp, color: accentColor),
                 SizedBox(width: 8.w),
               ],
               Text(
                 widget.title,
-                style: BTTypography.body(context).copyWith(
-                  color: accentColor,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: BTTypography.body(
+                  context,
+                ).copyWith(color: accentColor, fontWeight: FontWeight.w500),
               ),
             ],
           ),
