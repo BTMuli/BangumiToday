@@ -183,6 +183,7 @@ class BtsAppConfig {
     var res = await _instance.read('bangumiUrl');
     var isSupported =
         res == BTAppConstants.bangumiApiBaseUrl ||
+        res == BTAppConstants.bangumiLolApiBaseUrl ||
         res == BTAppConstants.officialBangumiApiBaseUrl;
     if (!isSupported) {
       if (res != null && res.isNotEmpty) {

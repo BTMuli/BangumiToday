@@ -272,7 +272,9 @@ class _BsdEpisodeState extends State<BsdEpisode> {
                 actions: [
                   IconButton(
                     onPressed: () async {
-                      await launchUrlString('https://bgm.tv/ep/${episode.id}');
+                      await launchUrlString(
+                        '${BtrBangumiApi.siteBaseUrl}/ep/${episode.id}',
+                      );
                       if (context.mounted) Navigator.of(context).pop();
                     },
                     icon: Icon(FluentIcons.edge_logo, color: color),

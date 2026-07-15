@@ -9,6 +9,7 @@ import '../../core/theme/bt_theme.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import 'sd_pw_rate_chart.dart';
@@ -55,7 +56,7 @@ class SdpOverviewWidget extends StatelessWidget {
       return buildCoverError(context);
     }
     var pathGet = Uri.parse(images.large).path;
-    var link = 'https://lain.bgm.tv/r/0x600$pathGet';
+    var link = '${BtrBangumiApi.imageBaseUrl}/r/0x600$pathGet';
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: 400.w, maxHeight: 280.h),
       child: ClipRRect(
@@ -142,7 +143,9 @@ class SdpOverviewWidget extends StatelessWidget {
               child: IconButton(
                 icon: BtIcon(FluentIcons.edge_logo, size: 14.sp),
                 onPressed: () async {
-                  await launchUrlString('https://bgm.tv/subject/${item.id}');
+                  await launchUrlString(
+                    '${BtrBangumiApi.siteBaseUrl}/subject/${item.id}',
+                  );
                 },
                 onLongPress: () async {
                   if (!kDebugMode) return;

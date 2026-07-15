@@ -34,6 +34,23 @@ BTResponse<T> handleBangumiDioException<T>(
   );
 }
 
+BTResponse<T> handleBangumiUnexpectedResponse<T>(
+  Response response, {
+  required String fallbackMessage,
+}) {
+  var message = _readErrorMessage(response.data);
+  message ??= '$fallbackMessage: Unexpected response format';
+  var statusCode = response.statusCode ?? 502;
+  if (statusCode >= 200 && statusCode < 300) statusCode = 502;
+
+  try {
+    BTLogTool.error('$fallbackMessage [${response.realUri}]: $message');
+  } catch (_) {
+    // Error handling must not fail when logging is not initialized yet.
+  }
+  return BTResponse.error(code: statusCode, message: message, data: null);
+}
+
 String? _readErrorMessage(dynamic data) {
   if (data is! Map) return null;
 

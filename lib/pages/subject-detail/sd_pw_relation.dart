@@ -8,6 +8,7 @@ import '../../core/theme/bt_theme.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
+import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../utils/tool_func.dart';
 
@@ -97,7 +98,9 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
                     color: FluentTheme.of(context).accentColor,
                   ),
                   onPressed: () {
-                    launchUrlString('https://bgm.tv/subject/${data.id}');
+                    launchUrlString(
+                      '${BtrBangumiApi.siteBaseUrl}/subject/${data.id}',
+                    );
                   },
                 ),
               ),
@@ -110,7 +113,7 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
 
   Widget buildCover(BangumiImages images) {
     var pathGet = Uri.parse(images.large).path;
-    var link = 'https://lain.bgm.tv/r/0x600$pathGet';
+    var link = '${BtrBangumiApi.imageBaseUrl}/r/0x600$pathGet';
     return ClipRRect(
       borderRadius: BTRadius.smallBR,
       child: CachedNetworkImage(

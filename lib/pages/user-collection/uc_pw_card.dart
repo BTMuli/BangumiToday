@@ -16,6 +16,7 @@ import '../../core/theme/bt_theme.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../request/bangumi/bangumi_api.dart';
 import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
@@ -109,7 +110,7 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
     // bangumi 在线切图
     // see: https://github.com/bangumi/img-proxy
     var pathGet = Uri.parse(data.images.large).path;
-    var link = 'https://lain.bgm.tv/r/0x600$pathGet';
+    var link = '${BtrBangumiApi.imageBaseUrl}/r/0x600$pathGet';
     return ClipRRect(
       borderRadius: BTRadius.mediumBR,
       child: CachedNetworkImage(
@@ -257,7 +258,7 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
               );
               return;
             }
-            var link = "https://bgm.tv/subject/${data.id}";
+            var link = '${BtrBangumiApi.siteBaseUrl}/subject/${data.id}';
             await launchUrlString(link);
           },
         ),

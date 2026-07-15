@@ -276,7 +276,7 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
             )
           : PaneItem(
               icon: CachedNetworkImage(
-                imageUrl: hive.user!.avatar.small,
+                imageUrl: BtrBangumiApi.rewriteUrl(hive.user!.avatar.small),
                 width: 18,
                 height: 18,
                 placeholder: (_, _) => const ProgressRing(),

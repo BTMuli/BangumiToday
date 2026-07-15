@@ -11,6 +11,7 @@ import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../providers/app_providers.dart';
+import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_card/bsc_search.dart';
@@ -553,7 +554,7 @@ class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
     if (rReg.hasMatch(pathGet)) pathGet = pathGet.replaceFirst(rReg, '/pic');
 
     return CachedNetworkImage(
-      imageUrl: 'https://lain.bgm.tv/r/0x600$pathGet',
+      imageUrl: '${BtrBangumiApi.imageBaseUrl}/r/0x600$pathGet',
       fit: BoxFit.cover,
       progressIndicatorBuilder: (context, url, dp) => Center(
         child: ProgressRing(

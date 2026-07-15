@@ -226,7 +226,9 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
             actions: [
               IconButton(
                 onPressed: () async {
-                  await launchUrlString('https://bgm.tv/subject/${subject.id}');
+                  await launchUrlString(
+                    '${BtrBangumiApi.siteBaseUrl}/subject/${subject.id}',
+                  );
                   if (context.mounted) Navigator.of(context).pop();
                 },
                 icon: Icon(FluentIcons.edge_logo, color: color),

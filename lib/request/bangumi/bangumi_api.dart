@@ -32,6 +32,41 @@ class BtrBangumiApi {
   /// 基础 URL
   static String get baseUrl => _baseUrl;
 
+  /// 当前站点 URL
+  static String get siteBaseUrl =>
+      BTAppConstants.bangumiSiteBaseUrlFor(baseUrl);
+
+  /// 当前图片 URL
+  static String get imageBaseUrl =>
+      BTAppConstants.bangumiImageBaseUrlFor(baseUrl);
+
+  /// 当前 Next URL
+  static String get nextBaseUrl =>
+      BTAppConstants.bangumiNextBaseUrlFor(baseUrl);
+
+  /// 将官方 URL 改写为当前镜像 URL
+  static String rewriteUrl(String value) {
+    return BTAppConstants.rewriteBangumiUrl(value, baseUrl);
+  }
+
+  /// 递归改写响应数据中的官方 URL，并保留原有 JSON 容器类型
+  static dynamic rewriteResponseData(dynamic data) {
+    if (data is String) return rewriteUrl(data);
+    if (data is List) {
+      for (var index = 0; index < data.length; index++) {
+        data[index] = rewriteResponseData(data[index]);
+      }
+      return data;
+    }
+    if (data is Map) {
+      for (var key in data.keys.toList()) {
+        data[key] = rewriteResponseData(data[key]);
+      }
+      return data;
+    }
+    return data;
+  }
+
   /// 更新基础 URL
   static void setBaseUrl(String value) {
     var normalized = value.trim().replaceFirst(RegExp(r'/+$'), '');
@@ -102,7 +137,7 @@ class BtrBangumiApi {
         e,
         fallbackMessage: 'Failed to load today',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to load today: $e');
       return BTResponse.error(
         code: 666,
@@ -173,7 +208,7 @@ class BtrBangumiApi {
         e,
         fallbackMessage: 'Failed to search subjects',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to search subjects: $e');
       return BTResponse.error(
         code: 666,
@@ -202,7 +237,12 @@ class BtrBangumiApi {
           cancelToken: token,
         ),
       );
-      assert(result.data is Map<String, dynamic>);
+      if (result.data is! Map<String, dynamic>) {
+        return handleBangumiUnexpectedResponse(
+          result,
+          fallbackMessage: 'Failed to load subject detail',
+        );
+      }
       return BangumiSubjectResp.success(
         data: BangumiSubject.fromJson(result.data),
       );
@@ -211,7 +251,7 @@ class BtrBangumiApi {
         e,
         fallbackMessage: 'Failed to load subject detail',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to load subject detail: $e');
       return BTResponse.error(
         code: 666,
@@ -240,7 +280,7 @@ class BtrBangumiApi {
         e,
         fallbackMessage: 'Failed to load subject relations',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to load subject relations: $e');
       return BTResponse.error(
         code: 666,
@@ -279,7 +319,7 @@ class BtrBangumiApi {
         e,
         fallbackMessage: 'Failed to load episode list',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to load episode list: $e');
       return BTResponse.error(
         code: 666,
@@ -306,7 +346,7 @@ class BtrBangumiApi {
         e,
         fallbackMessage: 'Failed to load user info',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to load user info: $e');
       return BTResponse.error(
         code: 666,
@@ -347,7 +387,7 @@ class BtrBangumiApi {
         e,
         fallbackMessage: 'Failed to load user collections',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to load user collections: $e');
       return BTResponse.error(
         code: 666,
@@ -367,7 +407,12 @@ class BtrBangumiApi {
         '/v0/users/$username/collections/$subjectId',
         options: Options(contentType: 'application/json'),
       );
-      assert(resp.data is Map<String, dynamic>);
+      if (resp.data is! Map<String, dynamic>) {
+        return handleBangumiUnexpectedResponse(
+          resp,
+          fallbackMessage: 'Failed to load user collection item',
+        );
+      }
       if (resp.data.containsKey('request_id')) {
         var failResp = BangumiErrorDetail.fromJson(resp.data);
         return BTResponse<BangumiErrorDetail>(
@@ -386,7 +431,7 @@ class BtrBangumiApi {
             ? 'User collection item not found'
             : 'Failed to load user collection item',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to load user collection item: $e');
       return BTResponse.error(
         code: 666,
@@ -410,7 +455,7 @@ class BtrBangumiApi {
         e,
         fallbackMessage: 'Failed to add user collection item',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       return BTResponse.error(
         code: 666,
         message: 'Failed to add user collection item',
@@ -452,7 +497,7 @@ class BtrBangumiApi {
         e,
         fallbackMessage: 'Failed to update user collection item',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to update user collection item: $e');
       return BTResponse.error(
         code: 666,
@@ -489,7 +534,7 @@ class BtrBangumiApi {
         e,
         fallbackMessage: 'Failed to load user collection episodes',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to load user collection episodes: $e');
       return BTResponse.error(
         code: 666,
@@ -506,7 +551,12 @@ class BtrBangumiApi {
         '/v0/users/-/collections/-/episodes/$episodeId',
         options: Options(contentType: 'application/json'),
       );
-      assert(resp.data is Map<String, dynamic>);
+      if (resp.data is! Map<String, dynamic>) {
+        return handleBangumiUnexpectedResponse(
+          resp,
+          fallbackMessage: 'Failed to load user collection episode item',
+        );
+      }
       return BangumiCollectionEpisodeItemResp.success(
         data: BangumiUserEpisodeCollection.fromJson(resp.data),
       );
@@ -515,7 +565,7 @@ class BtrBangumiApi {
         e,
         fallbackMessage: 'Failed to load user collection episode item',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to load user collection episode item: $e');
       return BTResponse.error(
         code: 666,
@@ -543,7 +593,7 @@ class BtrBangumiApi {
         e,
         fallbackMessage: 'Failed to update user collection episode item',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to update user collection episode item: $e');
       return BTResponse.error(
         code: 666,
@@ -583,7 +633,7 @@ class BtrBangumiApi {
         e,
         fallbackMessage: 'Failed to search subjects',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to search subjects: $e');
       return BTResponse.error(
         code: 666,
@@ -599,5 +649,11 @@ class _BangumiBaseUrlInterceptor extends Interceptor {
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     options.baseUrl = BtrBangumiApi.baseUrl;
     handler.next(options);
+  }
+
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    response.data = BtrBangumiApi.rewriteResponseData(response.data);
+    handler.next(response);
   }
 }

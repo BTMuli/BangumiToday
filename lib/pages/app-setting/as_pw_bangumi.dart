@@ -13,6 +13,7 @@ import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_oauth_model.dart';
 import '../../../providers/app_providers.dart';
+import '../../../request/bangumi/bangumi_api.dart';
 import '../../../request/bangumi/bangumi_oauth.dart';
 import '../../../store/bgm_user_hive.dart';
 import '../../../store/app_store.dart' as app_store;
@@ -285,7 +286,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     }
     return ListTile(
       leading: CachedNetworkImage(
-        imageUrl: hive.user!.avatar.small,
+        imageUrl: BtrBangumiApi.rewriteUrl(hive.user!.avatar.small),
         width: 20,
         height: 20,
         placeholder: (_, _) => const ProgressRing(),
@@ -332,7 +333,9 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
           Button(
             child: const Text('查看授权'),
             onPressed: () async {
-              await launchUrlString("https://next.bgm.tv/demo/access-token");
+              await launchUrlString(
+                '${BtrBangumiApi.nextBaseUrl}/demo/access-token',
+              );
             },
           ),
         ],
@@ -361,13 +364,21 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     return ListTile(
       leading: const Icon(FluentIcons.globe),
       title: const Text('Bangumi 镜像站'),
-      subtitle: Text(bangumiUrl),
+      subtitle: Text(
+        '站点：${BtrBangumiApi.siteBaseUrl}\n'
+        'API：$bangumiUrl\n'
+        '图片：${BtrBangumiApi.imageBaseUrl}',
+      ),
       trailing: ComboBox<String>(
         value: bangumiUrl,
         items: const [
           ComboBoxItem(
             value: BTAppConstants.bangumiApiBaseUrl,
-            child: Text('bangumi.one'),
+            child: Text('bgmmi.anibt.net'),
+          ),
+          ComboBoxItem(
+            value: BTAppConstants.bangumiLolApiBaseUrl,
+            child: Text('bangumi.lol'),
           ),
           ComboBoxItem(
             value: BTAppConstants.officialBangumiApiBaseUrl,

@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/bt_theme.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/request_subject.dart';
+import '../../../request/bangumi/bangumi_api.dart';
 import '../../../store/nav_store.dart';
 import '../../../ui/bt_icon.dart';
 import '../../../utils/bangumi_utils.dart';
@@ -64,7 +65,7 @@ class _BscSearchState extends ConsumerState<BscSearch> {
     var rReg = RegExp(r'^/r/[^/]+/pic');
     if (rReg.hasMatch(pathGet)) pathGet = pathGet.replaceFirst(rReg, '/pic');
     return CachedNetworkImage(
-      imageUrl: 'https://lain.bgm.tv/r/0x600$pathGet',
+      imageUrl: '${BtrBangumiApi.imageBaseUrl}/r/0x600$pathGet',
       fit: BoxFit.cover,
       progressIndicatorBuilder: (context, url, dp) => Center(
         child: ProgressRing(

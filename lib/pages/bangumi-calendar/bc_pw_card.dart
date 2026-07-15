@@ -12,6 +12,7 @@ import '../../core/theme/bt_theme.dart';
 import '../../database/bangumi/bangumi_data.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../request/bangumi/bangumi_api.dart';
 import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
@@ -108,7 +109,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
       return buildCoverError(context);
     }
     var pathGet = Uri.parse(data.images!.large).path;
-    var link = 'https://lain.bgm.tv/r/0x600$pathGet';
+    var link = '${BtrBangumiApi.imageBaseUrl}/r/0x600$pathGet';
     return ClipRRect(
       borderRadius: BTRadius.mediumBR,
       child: CachedNetworkImage(

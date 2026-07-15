@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../controller/app/progress_controller.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../providers/app_providers.dart';
+import '../../request/bangumi/bangumi_api.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
@@ -164,7 +165,7 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
       return const Icon(FluentIcons.account_management);
     }
     return CachedNetworkImage(
-      imageUrl: hive.user!.avatar.small,
+      imageUrl: BtrBangumiApi.rewriteUrl(hive.user!.avatar.small),
       width: 24,
       height: 24,
       placeholder: (_, _) => const ProgressRing(),

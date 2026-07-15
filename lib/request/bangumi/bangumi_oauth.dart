@@ -8,6 +8,7 @@ import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../tools/log_tool.dart';
 import '../../utils/bangumi_utils.dart';
 import '../core/client.dart';
+import 'bangumi_api.dart';
 import 'bangumi_error_handler.dart';
 
 /// bangumi.tv 的 OAuth
@@ -16,23 +17,24 @@ class BtrBangumiOauth {
   /// 请求客户端
   late final BtrClient client;
 
-  /// 基础 url
-  final String baseUrl = 'https://bgm.tv/oauth';
+  /// 当前站点 URL
+  static String get siteBaseUrl => BtrBangumiApi.siteBaseUrl;
+
+  /// 当前 OAuth URL
+  static String get oauthBaseUrl => '$siteBaseUrl/oauth';
 
   /// 构造函数
   BtrBangumiOauth() {
     client = BtrClient.withHeader();
-    client.dio.options.baseUrl = baseUrl;
+    client.dio.options.baseUrl = oauthBaseUrl;
+    client.dio.interceptors.insert(0, _BangumiOauthBaseUrlInterceptor());
   }
 
   /// 打开授权页面
   Future<void> openAuthorizePage() async {
     var appId = getBgmAppId();
     var params = BangumiOauthParams(appId: appId);
-    var url = Uri(
-      scheme: 'https',
-      host: 'bgm.tv',
-      path: '/oauth/authorize',
+    var url = Uri.parse('$siteBaseUrl/oauth/authorize').replace(
       queryParameters: params.toJson(),
     );
     await launchUrl(url);
@@ -52,8 +54,14 @@ class BtrBangumiOauth {
       var response = await client.dio.post(
         '/access_token',
         data: params.toJson(),
+        options: Options(contentType: Headers.formUrlEncodedContentType),
       );
-      assert(response.data is Map<String, dynamic>);
+      if (response.data is! Map<String, dynamic>) {
+        return handleBangumiUnexpectedResponse(
+          response,
+          fallbackMessage: 'Bangumi token get error',
+        );
+      }
       return BangumiOauthTokenGetResp.success(
         data: BangumiOauthTokenGetData.fromJson(response.data),
       );
@@ -62,7 +70,7 @@ class BtrBangumiOauth {
         e,
         fallbackMessage: 'Bangumi token get error',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to load bangumi token get: $e');
       return BTResponse.error(
         code: 666,
@@ -85,8 +93,14 @@ class BtrBangumiOauth {
       var response = await client.dio.post(
         '/access_token',
         data: params.toJson(),
+        options: Options(contentType: Headers.formUrlEncodedContentType),
       );
-      assert(response.data is Map<String, dynamic>);
+      if (response.data is! Map<String, dynamic>) {
+        return handleBangumiUnexpectedResponse(
+          response,
+          fallbackMessage: 'Bangumi token refresh error',
+        );
+      }
       return BangumiOauthTokenRefreshResp.success(
         data: BangumiOauthTokenRefreshData.fromJson(response.data),
       );
@@ -95,7 +109,7 @@ class BtrBangumiOauth {
         e,
         fallbackMessage: 'Bangumi token refresh error',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to load bangumi token refresh: $e');
       return BTResponse.error(
         code: 666,
@@ -108,11 +122,17 @@ class BtrBangumiOauth {
   /// 查询授权信息
   Future<BTResponse> getStatus(String accessToken) async {
     try {
-      var response = await client.dio.get(
+      var response = await client.dio.post(
         '/token_status',
-        queryParameters: {'access_token': accessToken},
+        data: {'access_token': accessToken},
+        options: Options(contentType: Headers.formUrlEncodedContentType),
       );
-      assert(response.data is Map<String, dynamic>);
+      if (response.data is! Map<String, dynamic>) {
+        return handleBangumiUnexpectedResponse(
+          response,
+          fallbackMessage: 'Bangumi token status error',
+        );
+      }
       return BangumiOauthTokenStatusResp.success(
         data: BangumiOauthTokenStatusData.fromJson(
           response.data as Map<String, dynamic>,
@@ -123,7 +143,7 @@ class BtrBangumiOauth {
         e,
         fallbackMessage: 'Bangumi token status error',
       );
-    } on Exception catch (e) {
+    } catch (e) {
       BTLogTool.error('Failed to load bangumi token status: $e');
       return BTResponse.error(
         code: 666,
@@ -131,5 +151,13 @@ class BtrBangumiOauth {
         data: null,
       );
     }
+  }
+}
+
+class _BangumiOauthBaseUrlInterceptor extends Interceptor {
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    options.baseUrl = BtrBangumiOauth.oauthBaseUrl;
+    handler.next(options);
   }
 }
