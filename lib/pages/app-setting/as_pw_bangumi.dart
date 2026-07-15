@@ -8,12 +8,14 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../../controller/app/progress_controller.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_oauth_model.dart';
 import '../../../providers/app_providers.dart';
 import '../../../request/bangumi/bangumi_oauth.dart';
 import '../../../store/bgm_user_hive.dart';
+import '../../../store/app_store.dart' as app_store;
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_icon.dart';
 import '../../../ui/bt_infobar.dart';
@@ -28,6 +30,10 @@ class AppConfigBgmWidget extends ConsumerStatefulWidget {
 }
 
 class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
+  /// 当前 Bangumi API 镜像地址
+  String get bangumiUrl =>
+      ref.watch(app_store.appStoreProvider).bangumiUrl;
+
   /// 用户 hive
   final BgmUserHive hive = BgmUserHive();
 
@@ -350,12 +356,43 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     );
   }
 
+  /// 构建 Bangumi API 镜像站配置
+  Widget buildMirror() {
+    return ListTile(
+      leading: const Icon(FluentIcons.globe),
+      title: const Text('Bangumi 镜像站'),
+      subtitle: Text(bangumiUrl),
+      trailing: ComboBox<String>(
+        value: bangumiUrl,
+        items: const [
+          ComboBoxItem(
+            value: BTAppConstants.bangumiApiBaseUrl,
+            child: Text('bangumi.one'),
+          ),
+          ComboBoxItem(
+            value: BTAppConstants.officialBangumiApiBaseUrl,
+            child: Text('bangumi.tv（官方）'),
+          ),
+        ],
+        onChanged: (value) async {
+          if (value == null || value == bangumiUrl) return;
+          await ref
+              .read(app_store.appStoreProvider.notifier)
+              .setBangumiUrl(value);
+          if (mounted) await BtInfobar.success(context, 'Bangumi 镜像站已更新');
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Expander(
       leading: Icon(FluentIcons.user_window),
-      header: const Text('Bangumi 用户信息'),
-      content: Column(children: [buildUser(), buildOauth(), buildCollection()]),
+      header: const Text('Bangumi 配置'),
+      content: Column(
+        children: [buildMirror(), buildUser(), buildOauth(), buildCollection()],
+      ),
     );
   }
 }

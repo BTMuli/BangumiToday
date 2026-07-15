@@ -11,7 +11,8 @@ class BTAppConstants {
   static const double defaultWindowHeight = 720;
 
   static const String defaultMikanMirror = 'https://mikanani.me';
-  static const String bangumiApiBaseUrl = 'https://api.bgm.tv';
+  static const String bangumiApiBaseUrl = 'https://api.bangumi.one';
+  static const String officialBangumiApiBaseUrl = 'https://api.bgm.tv';
 
   static const int defaultRequestTimeout = 30000;
   static const int defaultPageLimit = 10;

@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 
 // Project imports:
 import '../../core/cache/cache_manager.dart';
+import '../../core/constants/app_constants.dart';
 import 'bangumi_manager.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
@@ -18,15 +19,26 @@ import '../../models/bangumi/request_user.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../tools/log_tool.dart';
 import '../core/client.dart';
+import 'bangumi_error_handler.dart';
 
 /// bangumi.tv 的 API
 /// 详细文档请参考 https://bangumi.github.io/api/
 class BtrBangumiApi {
+  static String _baseUrl = BTAppConstants.bangumiApiBaseUrl;
+
   /// 请求客户端
   late final BtrClient client;
 
   /// 基础 URL
-  final String baseUrl = 'https://api.bgm.tv';
+  static String get baseUrl => _baseUrl;
+
+  /// 更新基础 URL
+  static void setBaseUrl(String value) {
+    var normalized = value.trim().replaceFirst(RegExp(r'/+$'), '');
+    _baseUrl = normalized.isEmpty
+        ? BTAppConstants.bangumiApiBaseUrl
+        : normalized;
+  }
 
   /// 用户Hive
   final BgmUserHive hive = BgmUserHive();
@@ -38,6 +50,7 @@ class BtrBangumiApi {
   BtrBangumiApi() {
     client = BtrClient.withAuth();
     client.dio.options.baseUrl = baseUrl;
+    client.dio.interceptors.insert(0, _BangumiBaseUrlInterceptor());
   }
 
   /// 条目模块
@@ -85,19 +98,9 @@ class BtrBangumiApi {
 
       return BangumiCalendarResp.success(data: list);
     } on DioException catch (e) {
-      if (e.type == DioExceptionType.cancel) {
-        return BTResponse.error(
-          code: 499,
-          message: 'Request cancelled',
-          data: null,
-        );
-      }
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error('Failed to load today: ${jsonEncode(errResp)}');
-      return BTResponse<BangumiErrorDetail>(
-        code: e.response?.statusCode ?? 666,
-        message: 'Failed to load today',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Failed to load today',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load today: $e');
@@ -166,19 +169,9 @@ class BtrBangumiApi {
       );
       return BangumiSubjectSearchResp.success(data: list);
     } on DioException catch (e) {
-      if (e.type == DioExceptionType.cancel) {
-        return BTResponse.error(
-          code: 499,
-          message: 'Request cancelled',
-          data: null,
-        );
-      }
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error('Failed to search subjects: ${jsonEncode(errResp)}');
-      return BTResponse<BangumiErrorDetail>(
-        code: e.response?.statusCode ?? 666,
-        message: 'Failed to search subjects',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Failed to search subjects',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to search subjects: $e');
@@ -214,19 +207,9 @@ class BtrBangumiApi {
         data: BangumiSubject.fromJson(result.data),
       );
     } on DioException catch (e) {
-      if (e.type == DioExceptionType.cancel) {
-        return BTResponse.error(
-          code: 499,
-          message: 'Request cancelled',
-          data: null,
-        );
-      }
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error('Failed to load subject detail: ${jsonEncode(errResp)}');
-      return BTResponse<BangumiErrorDetail>(
-        code: e.response?.statusCode ?? 666,
-        message: 'Failed to load subject detail',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Failed to load subject detail',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load subject detail: $e');
@@ -253,14 +236,9 @@ class BtrBangumiApi {
           .toList();
       return BangumiSubjectRelationsResp.success(data: data);
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error(
-        'Failed to load subject relations: ${jsonEncode(errResp)}',
-      );
-      return BTResponse<BangumiErrorDetail>(
-        code: e.response?.statusCode ?? 666,
-        message: 'Failed to load subject relations',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Failed to load subject relations',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load subject relations: $e');
@@ -297,12 +275,9 @@ class BtrBangumiApi {
       );
       return BangumiEpisodeListResp.success(data: dataList);
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error('Failed to load episode list: ${jsonEncode(errResp)}');
-      return BTResponse<BangumiErrorDetail>(
-        code: e.response?.statusCode ?? 666,
-        message: 'Failed to load episode list',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Failed to load episode list',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load episode list: $e');
@@ -327,12 +302,9 @@ class BtrBangumiApi {
         data: BangumiUser.fromJson(resp.data as Map<String, dynamic>),
       );
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error('Failed to load user info: ${jsonEncode(errResp)}');
-      return BTResponse<BangumiErrorDetail>(
-        code: e.response?.statusCode ?? 666,
-        message: 'Failed to load user info',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Failed to load user info',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load user info: $e');
@@ -371,14 +343,9 @@ class BtrBangumiApi {
       );
       return BangumiCollectionSubjectListResp.success(data: dataList);
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error(
-        'Failed to load user collections: ${jsonEncode(errResp)}',
-      );
-      return BTResponse<BangumiErrorDetail>(
-        code: e.response?.statusCode ?? 666,
-        message: 'Failed to load user collections',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Failed to load user collections',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load user collections: $e');
@@ -413,22 +380,11 @@ class BtrBangumiApi {
         data: BangumiUserSubjectCollection.fromJson(resp.data),
       );
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      var code = e.response?.statusCode ?? 666;
-      if (code == 404) {
-        return BTResponse.error(
-          code: code,
-          message: 'User collection item not found',
-          data: errResp,
-        );
-      }
-      BTLogTool.error(
-        'Failed to load user collection item: ${jsonEncode(errResp)}',
-      );
-      return BTResponse<BangumiErrorDetail>(
-        code: code,
-        message: 'Failed to load user collection item',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: e.response?.statusCode == 404
+            ? 'User collection item not found'
+            : 'Failed to load user collection item',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load user collection item: $e');
@@ -450,14 +406,9 @@ class BtrBangumiApi {
       );
       return BTResponse.success(data: null);
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error(
-        'Failed to add user collection item: ${jsonEncode(errResp)}',
-      );
-      return BTResponse.error(
-        code: e.response?.statusCode ?? 666,
-        message: 'Failed to add user collection item',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Failed to add user collection item',
       );
     } on Exception catch (e) {
       return BTResponse.error(
@@ -497,14 +448,9 @@ class BtrBangumiApi {
       );
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error(
-        'Failed to update user collection item: ${jsonEncode(errResp)}',
-      );
-      return BTResponse.error(
-        code: e.response?.statusCode ?? 666,
-        message: 'Failed to update user collection item',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Failed to update user collection item',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to update user collection item: $e');
@@ -539,14 +485,9 @@ class BtrBangumiApi {
       );
       return BangumiCollectionEpisodeListResp.success(data: dataList);
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error(
-        'Failed to load user collection episodes: ${jsonEncode(errResp)}',
-      );
-      return BTResponse<BangumiErrorDetail>(
-        code: e.response?.statusCode ?? 666,
-        message: 'Failed to load user collection episodes',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Failed to load user collection episodes',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load user collection episodes: $e');
@@ -570,15 +511,9 @@ class BtrBangumiApi {
         data: BangumiUserEpisodeCollection.fromJson(resp.data),
       );
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error(
-        'Failed to load user collection episode item:'
-        '${jsonEncode(errResp)}',
-      );
-      return BTResponse<BangumiErrorDetail>(
-        code: e.response?.statusCode ?? 666,
-        message: 'Failed to load user collection episode item',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Failed to load user collection episode item',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load user collection episode item: $e');
@@ -604,14 +539,9 @@ class BtrBangumiApi {
       );
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error(
-        'Failed to update user collection episode item: ${jsonEncode(errResp)}',
-      );
-      return BTResponse.error(
-        code: e.response?.statusCode ?? 666,
-        message: 'Failed to update user collection episode item',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Failed to update user collection episode item',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to update user collection episode item: $e');
@@ -649,12 +579,9 @@ class BtrBangumiApi {
       var data = BangumiSearchListData.fromJson(resp.data);
       return BangumiSearchListResp.success(data: data);
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error('Failed to search subjects: ${jsonEncode(errResp)}');
-      return BTResponse<BangumiErrorDetail>(
-        code: e.response?.statusCode ?? 666,
-        message: 'Failed to search subjects',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Failed to search subjects',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to search subjects: $e');
@@ -664,5 +591,13 @@ class BtrBangumiApi {
         data: null,
       );
     }
+  }
+}
+
+class _BangumiBaseUrlInterceptor extends Interceptor {
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    options.baseUrl = BtrBangumiApi.baseUrl;
+    handler.next(options);
   }
 }

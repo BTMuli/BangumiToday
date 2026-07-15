@@ -2,6 +2,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 // Project imports:
+import '../../core/constants/app_constants.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
 
@@ -175,5 +176,26 @@ class BtsAppConfig {
   /// 写入/更新 mikan url
   Future<void> writeMikanUrl(String url) async {
     await _instance.write('mikanUrl', url);
+  }
+
+  /// 读取 Bangumi API 镜像地址
+  Future<String> readBangumiUrl() async {
+    var res = await _instance.read('bangumiUrl');
+    var isSupported =
+        res == BTAppConstants.bangumiApiBaseUrl ||
+        res == BTAppConstants.officialBangumiApiBaseUrl;
+    if (!isSupported) {
+      if (res != null && res.isNotEmpty) {
+        BTLogTool.warn('Invalid Bangumi API URL: $res');
+      }
+      res = BTAppConstants.bangumiApiBaseUrl;
+      await _instance.writeBangumiUrl(res);
+    }
+    return res!;
+  }
+
+  /// 写入/更新 Bangumi API 镜像地址
+  Future<void> writeBangumiUrl(String url) async {
+    await _instance.write('bangumiUrl', url);
   }
 }

@@ -17,7 +17,9 @@ import 'core/cache/cache_manager.dart';
 import 'core/cache/lru_cache_manager.dart';
 import 'core/memory/memory_manager.dart';
 import 'core/services/bmf_rss_service.dart';
+import 'database/app/app_config.dart';
 import 'database/bt_sqlite.dart';
+import 'request/bangumi/bangumi_api.dart';
 import 'tools/download_tool.dart';
 import 'tools/hive_tool.dart';
 import 'tools/log_tool.dart';
@@ -58,6 +60,7 @@ Future<void> _initBackgroundServices() async {
   await BTLogTool.init();
 
   await BTSqlite.init();
+  BtrBangumiApi.setBaseUrl(await BtsAppConfig().readBangumiUrl());
 
   await Future.wait([
     BTDownloadTool.init(),

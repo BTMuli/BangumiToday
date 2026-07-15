@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:system_theme/system_theme.dart';
 
 // Project imports:
+import '../core/constants/app_constants.dart';
 import '../database/app/app_config.dart';
+import '../request/bangumi/bangumi_api.dart';
 
 /// 应用状态提供者
 final appStoreProvider = ChangeNotifierProvider<BTAppStore>((ref) {
@@ -21,6 +23,7 @@ class BTAppStore extends ChangeNotifier {
     initTheme();
     initAccentColor();
     initMikanRss();
+    initBangumiUrl();
   }
 
   /// 初始化主题
@@ -41,6 +44,13 @@ class BTAppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 初始化 Bangumi API 镜像地址
+  Future<void> initBangumiUrl() async {
+    _bangumiUrl = await sqlite.readBangumiUrl();
+    BtrBangumiApi.setBaseUrl(_bangumiUrl);
+    notifyListeners();
+  }
+
   /// 主题
   ThemeMode _themeMode = ThemeMode.system;
 
@@ -49,6 +59,9 @@ class BTAppStore extends ChangeNotifier {
 
   /// MikanRss
   String? _mikanRss;
+
+  /// Bangumi API 镜像地址
+  String _bangumiUrl = BTAppConstants.bangumiApiBaseUrl;
 
   /// 获取主题
   ThemeMode get themeMode => _themeMode;
@@ -83,6 +96,17 @@ class BTAppStore extends ChangeNotifier {
   Future<void> setMikanRss(String value) async {
     _mikanRss = value;
     await sqlite.writeMikanUrl(value);
+    notifyListeners();
+  }
+
+  /// 获取 Bangumi API 镜像地址
+  String get bangumiUrl => _bangumiUrl;
+
+  /// 设置 Bangumi API 镜像地址
+  Future<void> setBangumiUrl(String value) async {
+    BtrBangumiApi.setBaseUrl(value);
+    _bangumiUrl = BtrBangumiApi.baseUrl;
+    await sqlite.writeBangumiUrl(_bangumiUrl);
     notifyListeners();
   }
 }

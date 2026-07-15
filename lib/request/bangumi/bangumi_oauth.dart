@@ -4,11 +4,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 // Project imports:
 import '../../models/app/response.dart';
-import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../tools/log_tool.dart';
 import '../../utils/bangumi_utils.dart';
 import '../core/client.dart';
+import 'bangumi_error_handler.dart';
 
 /// bangumi.tv 的 OAuth
 /// 参考: https://github.com/bangumi/api/blob/master/docs-raw/How-to-Auth.md
@@ -58,12 +58,9 @@ class BtrBangumiOauth {
         data: BangumiOauthTokenGetData.fromJson(response.data),
       );
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error('Failed to load bangumi token get: $errResp');
-      return BTResponse<BangumiErrorDetail>(
-        code: e.response?.statusCode ?? 666,
-        message: 'Bangumi token get error',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Bangumi token get error',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load bangumi token get: $e');
@@ -94,15 +91,9 @@ class BtrBangumiOauth {
         data: BangumiOauthTokenRefreshData.fromJson(response.data),
       );
     } on DioException catch (e) {
-      var errResp = BangumiErrorOauth.fromJson(e.response?.data);
-      BTLogTool.error(
-        'Failed to load bangumi token refresh: '
-        '${errResp.toJson().toString()}',
-      );
-      return BTResponse<BangumiErrorOauth>(
-        code: e.response?.statusCode ?? 666,
-        message: 'Bangumi token refresh error',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Bangumi token refresh error',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load bangumi token refresh: $e');
@@ -128,12 +119,9 @@ class BtrBangumiOauth {
         ),
       );
     } on DioException catch (e) {
-      var errResp = BangumiErrorDetail.fromJson(e.response?.data);
-      BTLogTool.error('Failed to load bangumi token status: $errResp');
-      return BTResponse<BangumiErrorDetail>(
-        code: e.response?.statusCode ?? 666,
-        message: 'Bangumi token status error',
-        data: errResp,
+      return handleBangumiDioException(
+        e,
+        fallbackMessage: 'Bangumi token status error',
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load bangumi token status: $e');
