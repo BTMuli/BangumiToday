@@ -27,21 +27,13 @@ class BtsBangumiUser {
   /// 初始化用户表
   /// 数据类型参考：lib/models/bangumi/user_request.dart
   Future<void> initUser() async {
-    var check = await _instance.sqlite.isTableExist(_tableNameUser);
-    if (!check) {
-      await _instance.sqlite.db.execute('''
-        CREATE TABLE $_tableNameUser (
+    await _instance.sqlite.db.execute('''
+        CREATE TABLE IF NOT EXISTS $_tableNameUser (
           key TEXT NOT NULL PRIMARY KEY,
           value TEXT NOT NULL
         );
       ''');
-      BTLogTool.info('Create table $_tableNameUser');
-    } else {
-      BTLogTool.warn('Table $_tableNameUser already exists');
-      await _instance.sqlite.db.execute('DROP TABLE $_tableNameUser');
-      BTLogTool.warn('Table $_tableNameUser dropped');
-      await _instance.initUser();
-    }
+    BTLogTool.info('Ensure table $_tableNameUser exists');
   }
 
   /// 前置检查

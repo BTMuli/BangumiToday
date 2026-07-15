@@ -103,29 +103,36 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     calendarData.clear();
     if (freshTab) tabIndex = today;
     setState(() {});
-    var repository = ref.read(bangumiRepositoryProvider);
-    var calendarGet = await repository.getToday();
-    if (calendarGet.code != 0 || calendarGet.data == null) {
-      isRequesting = false;
-      setState(() {});
-      if (mounted) {
+    try {
+      var repository = ref.read(bangumiRepositoryProvider);
+      var calendarGet = await repository.getToday();
+      if (!mounted) return;
+      if (calendarGet.code != 0 || calendarGet.data == null) {
         await BTErrorHandler.handle(context, calendarGet, title: '获取放送数据失败');
+        return;
       }
-      return;
-    }
-    var data = calendarGet.data!;
-    if (isShowCollection) {
-      for (var d in data) {
-        for (var item in d.items.toList()) {
-          var check = await sqliteBc.isCollected(item.id);
-          if (!check) d.items.remove(item);
+
+      var data = calendarGet.data!;
+      if (isShowCollection) {
+        var collectedSubjectIds = await sqliteBc.getAllSubjectIds();
+        if (!mounted) return;
+        for (var day in data) {
+          day.items.removeWhere(
+            (item) => !collectedSubjectIds.contains(item.id),
+          );
         }
       }
+
+      calendarData = data;
+      await BtInfobar.success(context, '成功刷新放送数据');
+    } catch (error) {
+      if (mounted) {
+        await BtInfobar.error(context, '刷新放送数据失败：$error');
+      }
+    } finally {
+      isRequesting = false;
+      if (mounted) setState(() {});
     }
-    calendarData = data;
-    isRequesting = false;
-    setState(() {});
-    if (mounted) await BtInfobar.success(context, '成功刷新放送数据');
   }
 
   /// 获取 Tab 数据

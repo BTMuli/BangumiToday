@@ -32,6 +32,11 @@ class BTLogTool {
   /// 日志
   static late Logger logger;
 
+  static bool _isInitialized = false;
+
+  /// 日志工具是否已完成初始化
+  static bool get isInitialized => _isInitialized;
+
   /// 日志目录
   static late String logDir;
 
@@ -86,6 +91,7 @@ class BTLogTool {
       output: MultiOutput(outputs),
       printer: printer,
     );
+    _isInitialized = true;
   }
 
   /// 打开日志目录
@@ -100,6 +106,10 @@ class BTLogTool {
     if (message is List<String>) {
       str = message.join('\n');
     }
+    if (!_isInitialized) {
+      debugPrint(str);
+      return;
+    }
     logger.log(Level.info, str);
   }
 
@@ -109,6 +119,10 @@ class BTLogTool {
     if (message is List<String>) {
       str = message.join('\n');
     }
+    if (!_isInitialized) {
+      debugPrint(str);
+      return;
+    }
     logger.log(Level.warning, str);
   }
 
@@ -117,6 +131,10 @@ class BTLogTool {
     var str = message.toString();
     if (message is List<String>) {
       str = message.join('\n');
+    }
+    if (!_isInitialized) {
+      debugPrint(str);
+      return;
     }
     logger.log(Level.error, str);
   }

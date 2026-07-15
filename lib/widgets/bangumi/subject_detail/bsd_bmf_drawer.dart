@@ -16,6 +16,7 @@ import '../../../pages/subject-detail/subject_detail_page.dart';
 import '../../../providers/app_providers.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../tools/file_tool.dart';
+import '../../../tools/log_tool.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_icon.dart';
 import '../../../ui/bt_infobar.dart';
@@ -52,19 +53,39 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
   );
 
   bool _initialized = false;
+  VoidCallback? _removeRssListener;
 
   @override
   void initState() {
     super.initState();
     Future.microtask(() async => await init());
     if (widget.rssProvider != null) {
-      widget.rssProvider!.addListener(_onRssChanged);
+      _removeRssListener = widget.rssProvider!.addListener(_onRssChanged);
     }
+  }
+
+  @override
+  void didUpdateWidget(BsdBmfDrawer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.rssProvider, widget.rssProvider)) {
+      _removeRssListener?.call();
+      _removeRssListener = widget.rssProvider?.addListener(_onRssChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    _removeRssListener?.call();
+    super.dispose();
   }
 
   void _onRssChanged(String? val) async {
     if (!_initialized) return;
-    await updateRss(val);
+    try {
+      await updateRss(val);
+    } catch (error, stackTrace) {
+      BTLogTool.error(['更新 RSS 订阅失败', error.toString(), stackTrace.toString()]);
+    }
   }
 
   Future<void> init() async {
@@ -78,6 +99,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
     if (resolvedBmf.airDate == null || resolvedBmf.airDate!.isEmpty) {
       resolvedBmf = resolvedBmf.copyWith(airDate: widget.airDate);
     }
+    if (!mounted) return;
     setState(() {
       bmf = resolvedBmf;
       _initialized = true;

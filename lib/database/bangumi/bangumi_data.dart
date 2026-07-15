@@ -31,10 +31,8 @@ class BtsBangumiData {
   /// 初始化站点元数据表
   /// 数据类型参考：lib/models/bangumi/data_meta.dart
   Future<void> initSite() async {
-    var check = await _instance.sqlite.isTableExist(_tableNameSite);
-    if (!check) {
-      await _instance.sqlite.db.execute('''
-        CREATE TABLE $_tableNameSite (
+    await _instance.sqlite.db.execute('''
+        CREATE TABLE IF NOT EXISTS $_tableNameSite (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           key TEXT NOT NULL,
           title TEXT NOT NULL,
@@ -44,22 +42,14 @@ class BtsBangumiData {
           UNIQUE(key)
         );
       ''');
-      BTLogTool.info('Create table $_tableNameSite');
-    } else {
-      BTLogTool.warn('Table $_tableNameSite already exists');
-      await _instance.sqlite.db.execute('DROP TABLE $_tableNameSite');
-      BTLogTool.warn('Table $_tableNameSite dropped');
-      await _instance.initSite();
-    }
+    BTLogTool.info('Ensure table $_tableNameSite exists');
   }
 
   /// 初始化条目表
   /// 数据类型参考：lib/models/bangumi/bangumi_data_model.dart
   Future<void> initItem() async {
-    var check = await _instance.sqlite.isTableExist(_tableNameItem);
-    if (!check) {
-      await _instance.sqlite.db.execute('''
-        CREATE TABLE $_tableNameItem (
+    await _instance.sqlite.db.execute('''
+        CREATE TABLE IF NOT EXISTS $_tableNameItem (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
           titleTranslate TEXT,
@@ -73,13 +63,7 @@ class BtsBangumiData {
           sites TEXT
         );
       ''');
-      BTLogTool.info('Create table $_tableNameItem');
-    } else {
-      BTLogTool.warn('Table $_tableNameItem already exists');
-      await _instance.sqlite.db.execute('DROP TABLE $_tableNameItem');
-      BTLogTool.warn('Table $_tableNameItem dropped');
-      await _instance.initItem();
-    }
+    BTLogTool.info('Ensure table $_tableNameItem exists');
   }
 
   /// 前置检查-站点

@@ -6,6 +6,7 @@ import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../pages/subject-detail/subject_detail_page.dart';
 import '../../../request/bangumi/bangumi_api.dart';
+import '../../../tools/log_tool.dart';
 import '../../../ui/bt_infobar.dart';
 import 'bsd_episode.dart';
 
@@ -37,7 +38,10 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
   BangumiUser? get user => widget.user;
 
   /// 是否收藏
-  late bool isCollection;
+  bool isCollection = false;
+
+  VoidCallback? _removeProviderListener;
+  bool _isRefreshing = false;
 
   /// 请求客户端
   final BtrBangumiApi api = BtrBangumiApi();
@@ -64,25 +68,49 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
         await load();
       }
     });
-    addProviderListener();
+    _listenToProvider();
   }
 
-  /// 添加provider监听
-  void addProviderListener() {
-    widget.provider.addListener((val) async {
-      if (!val) return;
-      if (user == null) return;
-      if (isCollection) return;
-      if (widget.subject.type == BangumiSubjectType.anime) {
-        offset = 0;
-        episodes.clear();
-        userEpisodes.clear();
-        if (mounted) setState(() {});
-        await check();
-        await load();
-        if (mounted) await BtInfobar.success(context, '成功更新章节信息');
-      }
-    });
+  void _listenToProvider() {
+    _removeProviderListener = widget.provider.addListener(_onProviderChanged);
+  }
+
+  void _onProviderChanged(bool value) async {
+    if (!value || user == null || isCollection || _isRefreshing) return;
+    if (widget.subject.type != BangumiSubjectType.anime) return;
+    _isRefreshing = true;
+    try {
+      await _refreshEpisodes();
+    } catch (error, stackTrace) {
+      BTLogTool.error(['刷新章节信息失败', error.toString(), stackTrace.toString()]);
+    } finally {
+      _isRefreshing = false;
+    }
+  }
+
+  Future<void> _refreshEpisodes() async {
+    offset = 0;
+    episodes.clear();
+    userEpisodes.clear();
+    if (mounted) setState(() {});
+    await check();
+    await load();
+    if (mounted) await BtInfobar.success(context, '成功更新章节信息');
+  }
+
+  @override
+  void didUpdateWidget(BsdUserEpisodes oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.provider, widget.provider)) {
+      _removeProviderListener?.call();
+      _listenToProvider();
+    }
+  }
+
+  @override
+  void dispose() {
+    _removeProviderListener?.call();
+    super.dispose();
   }
 
   /// 检测是否收藏
@@ -90,7 +118,7 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
     if (user == null) return;
     var resp = await api.getCollectionSubject(user!.id.toString(), subjectId);
     isCollection = resp.code != 404;
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   /// 加载更多

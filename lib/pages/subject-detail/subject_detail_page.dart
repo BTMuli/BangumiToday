@@ -91,6 +91,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
 
   /// 是否显示错误组件
   bool showError = false;
+  int _loadGeneration = 0;
 
   /// 当id改变时, 重新加载数据
   @override
@@ -110,16 +111,29 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   }
 
   Future<void> init() async {
-    if (showError) setState(() => showError = false);
-    setState(() => data = null);
+    if (!mounted) return;
+    var generation = ++_loadGeneration;
+    setState(() {
+      showError = false;
+      data = null;
+    });
     var repository = ref.read(bangumiRepositoryProvider);
     var detailGet = await repository.getSubjectDetail(widget.id);
+    if (!mounted || generation != _loadGeneration) return;
     if (detailGet.code != 0 || detailGet.data == null) {
-      if (mounted) await showRespErr(detailGet, context);
-      showError = true;
+      setState(() => showError = true);
+      await showRespErr(detailGet, context);
       return;
     }
     setState(() => data = detailGet.data);
+  }
+
+  @override
+  void dispose() {
+    _loadGeneration++;
+    collectProvider.dispose();
+    rssProvider.dispose();
+    super.dispose();
   }
 
   Future<void> searchBangumi() async {

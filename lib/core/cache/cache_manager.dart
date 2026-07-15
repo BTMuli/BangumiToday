@@ -7,11 +7,7 @@ class CacheEntry<T> {
   final DateTime timestamp;
   final String? etag;
 
-  CacheEntry({
-    required this.data,
-    required this.timestamp,
-    this.etag,
-  });
+  CacheEntry({required this.data, required this.timestamp, this.etag});
 
   bool isExpired(Duration maxAge) {
     return DateTime.now().difference(timestamp) > maxAge;
@@ -48,11 +44,29 @@ class BTCacheManager {
 
   Box<dynamic>? _box;
 
+  Future<void>? _initialization;
+
   final Map<String, dynamic> _memoryCache = {};
 
   final int _maxMemoryCacheSize = 100;
 
   Future<void> init() async {
+    if (_box?.isOpen ?? false) return;
+    var inProgress = _initialization;
+    if (inProgress != null) return await inProgress;
+
+    var initialization = _initialize();
+    _initialization = initialization;
+    try {
+      await initialization;
+    } finally {
+      if (identical(_initialization, initialization)) {
+        _initialization = null;
+      }
+    }
+  }
+
+  Future<void> _initialize() async {
     _box = await Hive.openBox(_boxName);
   }
 
@@ -68,6 +82,7 @@ class BTCacheManager {
         if (maxAge == null || !memData.isExpired(maxAge)) {
           return memData.data;
         }
+        _memoryCache.remove(key);
       }
     }
 
@@ -83,6 +98,7 @@ class BTCacheManager {
             _setMemoryCache(key, entry);
             return entry.data;
           }
+          await delete(key);
         } catch (_) {
           await delete(key);
         }
@@ -99,21 +115,14 @@ class BTCacheManager {
     bool saveToMemory = true,
     bool saveToDisk = true,
   }) async {
-    var entry = CacheEntry(
-      data: data,
-      timestamp: DateTime.now(),
-      etag: etag,
-    );
+    var entry = CacheEntry(data: data, timestamp: DateTime.now(), etag: etag);
 
     if (saveToMemory) {
       _setMemoryCache(key, entry);
     }
 
     if (saveToDisk && _box != null) {
-      await _box!.put(
-        key,
-        jsonEncode(entry.toJson((d) => d)),
-      );
+      await _box!.put(key, jsonEncode(entry.toJson((d) => d)));
     }
   }
 
@@ -126,11 +135,7 @@ class BTCacheManager {
     bool saveToMemory = true,
     bool saveToDisk = true,
   }) async {
-    var entry = CacheEntry(
-      data: data,
-      timestamp: DateTime.now(),
-      etag: etag,
-    );
+    var entry = CacheEntry(data: data, timestamp: DateTime.now(), etag: etag);
 
     if (saveToMemory) {
       _setMemoryCache(key, entry);
@@ -159,6 +164,7 @@ class BTCacheManager {
         if (maxAge == null || !memData.isExpired(maxAge)) {
           return memData.data;
         }
+        _memoryCache.remove(key);
       }
     }
 
@@ -177,6 +183,7 @@ class BTCacheManager {
             _setMemoryCache(key, entry);
             return entry.data;
           }
+          await delete(key);
         } catch (_) {
           await delete(key);
         }
@@ -192,20 +199,20 @@ class BTCacheManager {
     bool saveToMemory = true,
     bool saveToDisk = true,
   }) async {
-    var entry = CacheEntry(
-      data: data,
-      timestamp: DateTime.now(),
-    );
+    var entry = CacheEntry(data: data, timestamp: DateTime.now());
 
     if (saveToMemory) {
       _setMemoryCache(key, entry);
     }
 
     if (saveToDisk && _box != null) {
-      await _box!.put(key, jsonEncode({
-        'data': data,
-        'timestamp': entry.timestamp.toIso8601String(),
-      }));
+      await _box!.put(
+        key,
+        jsonEncode({
+          'data': data,
+          'timestamp': entry.timestamp.toIso8601String(),
+        }),
+      );
     }
   }
 
@@ -221,6 +228,7 @@ class BTCacheManager {
         if (maxAge == null || !memData.isExpired(maxAge)) {
           return memData.data;
         }
+        _memoryCache.remove(key);
       }
     }
 
@@ -238,6 +246,7 @@ class BTCacheManager {
             _setMemoryCache(key, entry);
             return entry.data;
           }
+          await delete(key);
         } catch (_) {
           await delete(key);
         }
@@ -294,7 +303,8 @@ class BTCacheManager {
   }
 
   void _setMemoryCache(String key, CacheEntry entry) {
-    if (_memoryCache.length >= _maxMemoryCacheSize) {
+    if (!_memoryCache.containsKey(key) &&
+        _memoryCache.length >= _maxMemoryCacheSize) {
       _memoryCache.remove(_memoryCache.keys.first);
     }
     _memoryCache[key] = entry;
@@ -322,8 +332,7 @@ class CacheKeys {
   static String episodes(int id) => '${bangumiEpisodes}_$id';
   static String collection(String username, int subjectId) =>
       '${userCollection}_${username}_$subjectId';
-  static String collections(String username) =>
-      '${userCollections}_$username';
+  static String collections(String username) => '${userCollections}_$username';
   static String search(String keyword, int offset) =>
       '${searchResult}_${keyword}_$offset';
   static String rss(String source) => '${rssData}_$source';

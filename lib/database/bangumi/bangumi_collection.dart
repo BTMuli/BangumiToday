@@ -25,10 +25,8 @@ class BtsBangumiCollection {
 
   /// 初始化
   Future<void> init() async {
-    var check = await _instance.sqlite.isTableExist(_tableName);
-    if (!check) {
-      await _instance.sqlite.db.execute('''
-        CREATE TABLE $_tableName (
+    await _instance.sqlite.db.execute('''
+        CREATE TABLE IF NOT EXISTS $_tableName (
           subjectId INTEGER PRIMARY KEY,
           subjectType INTEGER NOT NULL,
           rate INTEGER NOT NULL,
@@ -42,13 +40,7 @@ class BtsBangumiCollection {
           subject TEXT
         );
       ''');
-      BTLogTool.info('Create table $_tableName');
-    } else {
-      BTLogTool.warn('Table $_tableName already exists');
-      await _instance.sqlite.db.execute('DROP TABLE $_tableName');
-      BTLogTool.warn('Table $_tableName dropped');
-      await _instance.init();
-    }
+    BTLogTool.info('Ensure table $_tableName exists');
   }
 
   /// 前置检查
@@ -65,6 +57,16 @@ class BtsBangumiCollection {
     await _instance.preCheck();
     var resp = await _instance.sqlite.db.query(_tableName);
     return resp.map(BangumiUserSubjectCollection.fromSqlJson).toList();
+  }
+
+  /// 获取全部收藏条目 ID
+  Future<Set<int>> getAllSubjectIds() async {
+    await _instance.preCheck();
+    var response = await _instance.sqlite.db.query(
+      _tableName,
+      columns: ['subjectId'],
+    );
+    return response.map((row) => row['subjectId']).whereType<int>().toSet();
   }
 
   /// 获取收藏数量

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/scheduler.dart';
 
 class VirtualListView<T> extends StatefulWidget {
   final List<T> items;
@@ -48,10 +47,7 @@ class VirtualListView<T> extends StatefulWidget {
 
 class _VirtualListViewState<T> extends State<VirtualListView<T>> {
   late ScrollController _scrollController;
-  int _firstVisibleIndex = 0;
-  int _lastVisibleIndex = 0;
-  final Map<int, Widget> _widgetCache = {};
-  static const int _cachePadding = 5;
+  bool _loadMoreRequested = false;
 
   @override
   void initState() {
@@ -61,51 +57,46 @@ class _VirtualListViewState<T> extends State<VirtualListView<T>> {
   }
 
   @override
+  void didUpdateWidget(VirtualListView<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      _scrollController.removeListener(_onScroll);
+      if (oldWidget.controller == null) {
+        _scrollController.dispose();
+      }
+      _scrollController = widget.controller ?? ScrollController();
+      _scrollController.addListener(_onScroll);
+    }
+    if (!identical(oldWidget.items, widget.items) ||
+        oldWidget.items.length != widget.items.length) {
+      _loadMoreRequested = false;
+    }
+    if (!oldWidget.hasMore && widget.hasMore) {
+      _loadMoreRequested = false;
+    }
+  }
+
+  @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     if (widget.controller == null) {
       _scrollController.dispose();
     }
-    _widgetCache.clear();
     super.dispose();
   }
 
   void _onScroll() {
-    if (widget.onLoadMore != null &&
-        widget.hasMore &&
-        !_scrollController.position.atEdge) {
+    if (widget.onLoadMore != null && widget.hasMore) {
       var maxScroll = _scrollController.position.maxScrollExtent;
       var currentScroll = _scrollController.position.pixels;
+      var remaining = maxScroll - currentScroll;
 
-      if (maxScroll - currentScroll <= widget.loadMoreThreshold) {
+      if (remaining > widget.loadMoreThreshold) {
+        _loadMoreRequested = false;
+      } else if (!_loadMoreRequested) {
+        _loadMoreRequested = true;
         widget.onLoadMore!();
       }
-    }
-  }
-
-  void _updateVisibleRange(double viewportHeight, double scrollOffset) {
-    var itemFullHeight = widget.itemHeight + widget.mainAxisSpacing;
-    _firstVisibleIndex =
-        (scrollOffset / itemFullHeight).floor() - _cachePadding;
-    _firstVisibleIndex = _firstVisibleIndex.clamp(0, widget.items.length - 1);
-
-    var visibleCount =
-        (viewportHeight / itemFullHeight).ceil() + _cachePadding * 2;
-    _lastVisibleIndex = _firstVisibleIndex + visibleCount;
-    _lastVisibleIndex = _lastVisibleIndex.clamp(0, widget.items.length);
-
-    _cleanupCache();
-  }
-
-  void _cleanupCache() {
-    var keysToRemove = <int>[];
-    for (var key in _widgetCache.keys) {
-      if (key < _firstVisibleIndex - _cachePadding * 2 ||
-          key > _lastVisibleIndex + _cachePadding * 2) {
-        keysToRemove.add(key);
-      }
-    }
-    for (var key in keysToRemove) {
-      _widgetCache.remove(key);
     }
   }
 
@@ -120,56 +111,28 @@ class _VirtualListViewState<T> extends State<VirtualListView<T>> {
       return widget.emptyPlaceholder ?? const SizedBox.shrink();
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        var viewportHeight = constraints.maxHeight;
-        var scrollOffset = _scrollController.hasClients
-            ? _scrollController.position.pixels
-            : 0.0;
+    return ListView.builder(
+      controller: _scrollController,
+      padding: widget.padding,
+      scrollCacheExtent: ScrollCacheExtent.pixels(widget.cacheExtent),
+      shrinkWrap: widget.shrinkWrap,
+      itemCount: widget.items.length + (widget.hasMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index >= widget.items.length) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
 
-        SchedulerBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() {
-              _updateVisibleRange(viewportHeight, scrollOffset);
-            });
-          }
-        });
-
-        return ListView.builder(
-          controller: _scrollController,
-          padding: widget.padding,
-          scrollCacheExtent: ScrollCacheExtent.pixels(widget.cacheExtent),
-          shrinkWrap: widget.shrinkWrap,
-          itemCount: widget.items.length + (widget.hasMore ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (index >= widget.items.length) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            }
-
-            if (index < _firstVisibleIndex || index > _lastVisibleIndex) {
-              return SizedBox(height: widget.itemHeight, child: null);
-            }
-
-            return _widgetCache.putIfAbsent(
-              index,
-              () => RepaintBoundary(
-                key: ValueKey('item_$index'),
-                child: SizedBox(
-                  height: widget.itemHeight,
-                  child: widget.itemBuilder(
-                    context,
-                    widget.items[index],
-                    index,
-                  ),
-                ),
-              ),
-            );
-          },
+        return RepaintBoundary(
+          key: ValueKey('item_$index'),
+          child: SizedBox(
+            height: widget.itemHeight,
+            child: widget.itemBuilder(context, widget.items[index], index),
+          ),
         );
       },
     );
@@ -224,7 +187,7 @@ class VirtualGridView<T> extends StatefulWidget {
 
 class _VirtualGridViewState<T> extends State<VirtualGridView<T>> {
   late ScrollController _scrollController;
-  final Map<int, Widget> _widgetCache = {};
+  bool _loadMoreRequested = false;
 
   @override
   void initState() {
@@ -234,22 +197,44 @@ class _VirtualGridViewState<T> extends State<VirtualGridView<T>> {
   }
 
   @override
+  void didUpdateWidget(VirtualGridView<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      _scrollController.removeListener(_onScroll);
+      if (oldWidget.controller == null) {
+        _scrollController.dispose();
+      }
+      _scrollController = widget.controller ?? ScrollController();
+      _scrollController.addListener(_onScroll);
+    }
+    if (!identical(oldWidget.items, widget.items) ||
+        oldWidget.items.length != widget.items.length) {
+      _loadMoreRequested = false;
+    }
+    if (!oldWidget.hasMore && widget.hasMore) {
+      _loadMoreRequested = false;
+    }
+  }
+
+  @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     if (widget.controller == null) {
       _scrollController.dispose();
     }
-    _widgetCache.clear();
     super.dispose();
   }
 
   void _onScroll() {
-    if (widget.onLoadMore != null &&
-        widget.hasMore &&
-        !_scrollController.position.atEdge) {
+    if (widget.onLoadMore != null && widget.hasMore) {
       var maxScroll = _scrollController.position.maxScrollExtent;
       var currentScroll = _scrollController.position.pixels;
+      var remaining = maxScroll - currentScroll;
 
-      if (maxScroll - currentScroll <= widget.loadMoreThreshold) {
+      if (remaining > widget.loadMoreThreshold) {
+        _loadMoreRequested = false;
+      } else if (!_loadMoreRequested) {
+        _loadMoreRequested = true;
         widget.onLoadMore!();
       }
     }
@@ -283,12 +268,9 @@ class _VirtualGridViewState<T> extends State<VirtualGridView<T>> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        return _widgetCache.putIfAbsent(
-          index,
-          () => RepaintBoundary(
-            key: ValueKey('grid_item_$index'),
-            child: widget.itemBuilder(context, widget.items[index], index),
-          ),
+        return RepaintBoundary(
+          key: ValueKey('grid_item_$index'),
+          child: widget.itemBuilder(context, widget.items[index], index),
         );
       },
     );
@@ -346,7 +328,16 @@ class _LazyLoadScrollViewState<T> extends State<LazyLoadScrollView<T>> {
   @override
   void didUpdateWidget(LazyLoadScrollView<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.items != oldWidget.items) {
+    if (oldWidget.controller != widget.controller) {
+      _scrollController.removeListener(_onScroll);
+      if (oldWidget.controller == null) {
+        _scrollController.dispose();
+      }
+      _scrollController = widget.controller ?? ScrollController();
+      _scrollController.addListener(_onScroll);
+    }
+    if (!identical(widget.items, oldWidget.items) ||
+        widget.items.length != oldWidget.items.length) {
       _loadedItems = List.from(widget.items);
       _currentOffset = _loadedItems.length;
       _hasMore = true;
@@ -355,6 +346,7 @@ class _LazyLoadScrollViewState<T> extends State<LazyLoadScrollView<T>> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     if (widget.controller == null) {
       _scrollController.dispose();
     }
@@ -387,16 +379,18 @@ class _LazyLoadScrollViewState<T> extends State<LazyLoadScrollView<T>> {
 
       if (newItems.isEmpty) {
         _hasMore = false;
-      } else {
+      } else if (mounted) {
         setState(() {
           _loadedItems.addAll(newItems);
           _currentOffset += newItems.length;
         });
       }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

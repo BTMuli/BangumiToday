@@ -108,8 +108,10 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
       offset: (page - 1) * limit,
       limit: limit,
     );
+    if (!mounted) return;
     if (resp.code != 0 || resp.data == null) {
-      if (mounted) await showRespErr(resp, context);
+      setState(() => loading = false);
+      await showRespErr(resp, context);
       return;
     }
     var data = resp.data as BangumiPageT<BangumiSubjectSearchData>;
@@ -155,8 +157,10 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
       offset: offset,
       limit: limit,
     );
+    if (!mounted) return;
     if (resp.code != 0 || resp.data == null) {
-      if (mounted) await showRespErr(resp, context);
+      setState(() => loading = false);
+      await showRespErr(resp, context);
       return;
     }
     var data = resp.data as BangumiPageT<BangumiSubjectSearchData>;

@@ -1,6 +1,10 @@
-import 'dart:async';
-
 import 'package:dio/dio.dart';
+
+class _DeduplicatedRequest {
+  final Future<dynamic> future;
+
+  const _DeduplicatedRequest(this.future);
+}
 
 class RequestManager {
   RequestManager._();
@@ -11,7 +15,7 @@ class RequestManager {
 
   final Map<String, CancelToken> _pendingRequests = {};
 
-  final Map<String, Completer> _deduplicationMap = {};
+  final Map<String, _DeduplicatedRequest> _deduplicationMap = {};
 
   bool cancel(String key) {
     var token = _pendingRequests[key];
@@ -40,36 +44,35 @@ class RequestManager {
     bool deduplicate = true,
     bool cancelPrevious = false,
   }) async {
-    if (deduplicate && _deduplicationMap.containsKey(key)) {
+    if (cancelPrevious) {
+      cancel(key);
+    } else if (deduplicate && _deduplicationMap.containsKey(key)) {
       return await (_deduplicationMap[key]!.future as Future<T>);
     }
 
-    if (cancelPrevious) {
-      cancel(key);
-    }
+    _deduplicationMap.remove(key);
 
     var token = CancelToken();
     _pendingRequests[key] = token;
 
-    var completer = Completer<T>();
+    var requestFuture = _executeRequest(key, token, request);
     if (deduplicate) {
-      _deduplicationMap[key] = completer;
+      _deduplicationMap[key] = _DeduplicatedRequest(requestFuture);
     }
 
+    return await requestFuture;
+  }
+
+  Future<T> _executeRequest<T>(
+    String key,
+    CancelToken token,
+    Future<T> Function(CancelToken token) request,
+  ) async {
     try {
-      var result = await request(token);
-      if (!token.isCancelled) {
-        completer.complete(result);
-      }
-      return result;
-    } catch (e) {
-      if (!token.isCancelled) {
-        completer.completeError(e);
-      }
-      rethrow;
+      return await Future<T>.microtask(() => request(token));
     } finally {
-      _pendingRequests.remove(key);
-      if (deduplicate) {
+      if (identical(_pendingRequests[key], token)) {
+        _pendingRequests.remove(key);
         _deduplicationMap.remove(key);
       }
     }

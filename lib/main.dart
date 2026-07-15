@@ -1,5 +1,6 @@
 // Flutter imports:
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
@@ -28,8 +29,9 @@ import 'widgets/app/app_splash.dart';
 
 final globalContainer = ProviderContainer();
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _configureErrorHandling();
 
   await Future.wait([
     windowManager.ensureInitialized(),
@@ -48,12 +50,15 @@ void main() async {
     () async => await windowManager.show(),
   );
 
-  runApp(UncontrolledProviderScope(
-    container: globalContainer,
-    child: const BTSplashScreen(),
-  ));
+  _runApp(const BTSplashScreen());
 
-  unawaited(_initBackgroundServices());
+  try {
+    await _initBackgroundServices();
+    _runApp(const BTApp());
+  } catch (error, stackTrace) {
+    _reportUnhandledError(error, stackTrace);
+    _runApp(BTSplashScreen(errorMessage: error.toString()));
+  }
 }
 
 Future<void> _initBackgroundServices() async {
@@ -62,27 +67,63 @@ Future<void> _initBackgroundServices() async {
   await BTSqlite.init();
   BtrBangumiApi.setBaseUrl(await BtsAppConfig().readBangumiUrl());
 
+  await BTHiveTool.init();
+
   await Future.wait([
-    BTDownloadTool.init(),
-    BTNotifierTool.init(),
-    BTHiveTool.init(),
+    _runOptionalService('下载服务', BTDownloadTool.init),
+    _runOptionalService('通知服务', BTNotifierTool.init),
   ]);
 
   await Future.wait([
-    BTCacheManager.instance.init(),
-    LRUCacheManager.instance.init(),
+    _runOptionalService('应用缓存', BTCacheManager.instance.init),
+    _runOptionalService('LRU 缓存', LRUCacheManager.instance.init),
   ]);
 
-  MemoryManager.instance.startMonitoring(
-    interval: const Duration(seconds: 60),
+  MemoryManager.instance.startMonitoring(interval: const Duration(seconds: 60));
+
+  await _runOptionalService(
+    '窗口特效',
+    () => Window.setEffect(effect: WindowEffect.acrylic),
   );
 
-  await Window.setEffect(effect: WindowEffect.acrylic);
+  unawaited(_runOptionalService('BMF RSS 服务', BmfRssService.instance.start));
+}
 
-  unawaited(BmfRssService.instance.start());
+void _runApp(Widget child) {
+  runApp(UncontrolledProviderScope(container: globalContainer, child: child));
+}
 
-  runApp(UncontrolledProviderScope(
-    container: globalContainer,
-    child: const BTApp(),
-  ));
+Future<void> _runOptionalService(
+  String name,
+  Future<void> Function() initialize,
+) async {
+  try {
+    await initialize();
+  } catch (error, stackTrace) {
+    BTLogTool.error(['$name 初始化失败', error.toString(), stackTrace.toString()]);
+  }
+}
+
+void _configureErrorHandling() {
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    _reportUnhandledError(
+      details.exception,
+      details.stack ?? StackTrace.current,
+    );
+  };
+
+  PlatformDispatcher.instance.onError = (error, stackTrace) {
+    _reportUnhandledError(error, stackTrace);
+    return true;
+  };
+}
+
+void _reportUnhandledError(Object error, StackTrace stackTrace) {
+  if (BTLogTool.isInitialized) {
+    BTLogTool.error(['未处理异常', error.toString(), stackTrace.toString()]);
+    return;
+  }
+
+  debugPrint('未处理异常: $error\n$stackTrace');
 }

@@ -59,6 +59,8 @@ class LRUCacheManager {
 
   Box<dynamic>? _box;
 
+  Future<void>? _initialization;
+
   final Map<String, LRUCacheEntry> _memoryCache = {};
 
   final int _maxMemoryCacheSize = 50;
@@ -73,9 +75,26 @@ class LRUCacheManager {
 
   Future<void> init() async {
     if (_isInitialized) return;
+    var inProgress = _initialization;
+    if (inProgress != null) return await inProgress;
+
+    var initialization = _initialize();
+    _initialization = initialization;
+    try {
+      await initialization;
+    } finally {
+      if (identical(_initialization, initialization)) {
+        _initialization = null;
+      }
+    }
+  }
+
+  Future<void> _initialize() async {
     _box = await Hive.openBox(_boxName);
-    _isInitialized = true;
+    await clearExpired();
     await _loadFromDisk();
+    await evictLeastRecentlyUsed();
+    _isInitialized = true;
   }
 
   Future<void> _loadFromDisk() async {
@@ -90,20 +109,18 @@ class LRUCacheManager {
       try {
         var jsonA = jsonDecode(entryA) as Map<String, dynamic>;
         var jsonB = jsonDecode(entryB) as Map<String, dynamic>;
-        var timeA = DateTime.parse(
-          jsonA['lastAccessed'] ?? jsonA['timestamp'],
-        );
-        var timeB = DateTime.parse(
-          jsonB['lastAccessed'] ?? jsonB['timestamp'],
-        );
+        var timeA = DateTime.parse(jsonA['lastAccessed'] ?? jsonA['timestamp']);
+        var timeB = DateTime.parse(jsonB['lastAccessed'] ?? jsonB['timestamp']);
         return timeA.compareTo(timeB);
       } catch (_) {
         return 0;
       }
     });
 
-    for (var key in keys) {
-      if (_memoryCache.length >= _maxMemoryCacheSize) break;
+    var firstKeyIndex = keys.length > _maxMemoryCacheSize
+        ? keys.length - _maxMemoryCacheSize
+        : 0;
+    for (var key in keys.skip(firstKeyIndex)) {
       var data = _box!.get(key);
       if (data != null) {
         try {
@@ -119,11 +136,20 @@ class LRUCacheManager {
     var effectiveMaxAge = maxAge ?? _defaultMaxAge;
 
     var memEntry = _memoryCache[key];
-    if (memEntry != null && !memEntry.isExpired(effectiveMaxAge)) {
-      memEntry.accessCount++;
-      memEntry.lastAccessed = DateTime.now();
-      _updateAccessOrder(key);
-      return memEntry.data as T;
+    if (memEntry != null) {
+      if (memEntry.isExpired(effectiveMaxAge)) {
+        await delete(key);
+        return null;
+      }
+      try {
+        memEntry.accessCount++;
+        memEntry.lastAccessed = DateTime.now();
+        _updateAccessOrder(key);
+        return memEntry.data as T;
+      } catch (_) {
+        await delete(key);
+        return null;
+      }
     }
 
     if (_box != null) {
@@ -133,9 +159,13 @@ class LRUCacheManager {
           var json = jsonDecode(diskData) as Map<String, dynamic>;
           var entry = LRUCacheEntry.fromJson(json);
           if (!entry.isExpired(effectiveMaxAge)) {
+            entry.accessCount++;
+            entry.lastAccessed = DateTime.now();
             _setMemoryCache(key, entry);
+            await _box!.put(key, jsonEncode(entry.toJson()));
             return entry.data as T;
           }
+          await delete(key);
         } catch (_) {
           await delete(key);
         }
@@ -166,6 +196,7 @@ class LRUCacheManager {
 
     if (saveToDisk && _box != null) {
       await _box!.put(key, jsonEncode(entry.toJson()));
+      await evictLeastRecentlyUsed();
     }
   }
 
@@ -191,6 +222,7 @@ class LRUCacheManager {
 
     if (saveToDisk && _box != null) {
       await _box!.put(key, jsonEncode(entry.toJson()));
+      await evictLeastRecentlyUsed();
     }
   }
 
@@ -202,11 +234,15 @@ class LRUCacheManager {
     var effectiveMaxAge = maxAge ?? _defaultMaxAge;
 
     var memEntry = _memoryCache[key];
-    if (memEntry != null && !memEntry.isExpired(effectiveMaxAge)) {
-      memEntry.accessCount++;
-      memEntry.lastAccessed = DateTime.now();
-      _updateAccessOrder(key);
+    if (memEntry != null) {
+      if (memEntry.isExpired(effectiveMaxAge)) {
+        await delete(key);
+        return null;
+      }
       try {
+        memEntry.accessCount++;
+        memEntry.lastAccessed = DateTime.now();
+        _updateAccessOrder(key);
         return fromJson(memEntry.data as Map<String, dynamic>);
       } catch (_) {
         await delete(key);
@@ -221,9 +257,13 @@ class LRUCacheManager {
           var json = jsonDecode(diskData) as Map<String, dynamic>;
           var entry = LRUCacheEntry.fromJson(json);
           if (!entry.isExpired(effectiveMaxAge)) {
+            entry.accessCount++;
+            entry.lastAccessed = DateTime.now();
             _setMemoryCache(key, entry);
+            await _box!.put(key, jsonEncode(entry.toJson()));
             return fromJson(entry.data as Map<String, dynamic>);
           }
+          await delete(key);
         } catch (_) {
           await delete(key);
         }
@@ -237,9 +277,7 @@ class LRUCacheManager {
     if (_memoryCache.containsKey(key)) {
       _accessOrder.remove(key);
     } else if (_memoryCache.length >= _maxMemoryCacheSize) {
-      var oldestKey = _accessOrder.isNotEmpty
-          ? _accessOrder.removeAt(0)
-          : null;
+      var oldestKey = _accessOrder.isNotEmpty ? _accessOrder.removeAt(0) : null;
       if (oldestKey != null) {
         _memoryCache.remove(oldestKey);
       }
@@ -309,9 +347,7 @@ class LRUCacheManager {
 
   Future<void> evictLeastRecentlyUsed() async {
     while (_memoryCache.length > _maxMemoryCacheSize) {
-      var oldestKey = _accessOrder.isNotEmpty
-          ? _accessOrder.removeAt(0)
-          : null;
+      var oldestKey = _accessOrder.isNotEmpty ? _accessOrder.removeAt(0) : null;
       if (oldestKey != null) {
         _memoryCache.remove(oldestKey);
       } else {
@@ -331,7 +367,11 @@ class LRUCacheManager {
                 ? DateTime.parse(json['lastAccessed'])
                 : DateTime.parse(json['timestamp']);
             allEntries.add(MapEntry(key, lastAccessed));
-          } catch (_) {}
+          } catch (_) {
+            allEntries.add(
+              MapEntry(key, DateTime.fromMillisecondsSinceEpoch(0)),
+            );
+          }
         }
       }
 
