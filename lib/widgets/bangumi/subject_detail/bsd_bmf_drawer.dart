@@ -24,12 +24,14 @@ import 'bmf_expander.dart';
 class BsdBmfDrawer extends ConsumerStatefulWidget {
   final int subjectId;
   final String title;
+  final String? airDate;
   final SubjectRssStatProvider? rssProvider;
 
   const BsdBmfDrawer({
     super.key,
     required this.subjectId,
     required this.title,
+    required this.airDate,
     this.rssProvider,
   });
 
@@ -46,6 +48,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
   late AppBmfModel bmf = AppBmfModel(
     subject: widget.subjectId,
     title: widget.title,
+    airDate: widget.airDate,
   );
 
   bool _initialized = false;
@@ -71,8 +74,12 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
       _initialized = true;
       return;
     }
+    AppBmfModel resolvedBmf = bmfGet;
+    if (resolvedBmf.airDate == null || resolvedBmf.airDate!.isEmpty) {
+      resolvedBmf = resolvedBmf.copyWith(airDate: widget.airDate);
+    }
     setState(() {
-      bmf = bmfGet;
+      bmf = resolvedBmf;
       _initialized = true;
     });
   }
@@ -205,7 +212,11 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
     await repo.delete(bmf.subject);
     if (isDelDir) await fileTool.deleteDir(bmf.download!);
     if (mounted) await BtInfobar.success(context, '成功删除 BMF 信息');
-    bmf = AppBmfModel(subject: widget.subjectId);
+    bmf = AppBmfModel(
+      subject: widget.subjectId,
+      title: widget.title,
+      airDate: widget.airDate,
+    );
     setState(() {});
   }
 

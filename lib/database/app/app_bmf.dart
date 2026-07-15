@@ -18,6 +18,9 @@ class BtsAppBmf {
   /// 是否有mk字段
   static bool hasMk = false;
 
+  /// Whether the table has the airDate column.
+  static bool hasAirDate = false;
+
   /// 获取实例
   factory BtsAppBmf() => _instance;
 
@@ -36,6 +39,7 @@ class BtsAppBmf {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           subject INTEGER NOT NULL,
           title TEXT DEFAULT '',
+          airDate TEXT DEFAULT '',
           rss TEXT,
           download TEXT,
           UNIQUE(subject)
@@ -50,6 +54,8 @@ class BtsAppBmf {
 
     /// 为了兼容旧版本，这里需要检查是否有mk字段
     if (!hasMk) await checkMkUpdate();
+
+    if (!hasAirDate) await checkAirDateUpdate();
   }
 
   /// 检查是否有title字段
@@ -78,6 +84,20 @@ class BtsAppBmf {
         ALTER TABLE $_tableName ADD COLUMN mkGroupId TEXT DEFAULT '';
       ''');
       BTLogTool.info('Update table $_tableName add mk');
+    }
+  }
+
+  Future<void> checkAirDateUpdate() async {
+    var check = await _instance.sqlite.db.rawQuery(
+      'PRAGMA table_info($_tableName)',
+    );
+    hasAirDate = check.any((element) => element['name'] == 'airDate');
+    if (!hasAirDate) {
+      await _instance.sqlite.db.execute(
+        "ALTER TABLE $_tableName ADD COLUMN airDate TEXT DEFAULT '';",
+      );
+      hasAirDate = true;
+      BTLogTool.info('Update table $_tableName add airDate');
     }
   }
 
@@ -121,13 +141,14 @@ class BtsAppBmf {
     if (result.isEmpty) {
       await _instance.sqlite.db.rawInsert(
         'INSERT INTO $_tableName '
-        '(subject, rss, download,title, mkBgmId, mkGroupId) '
-        'VALUES (?, ?, ?, ?, ?, ?)',
+        '(subject, rss, download, title, airDate, mkBgmId, mkGroupId) '
+        'VALUES (?, ?, ?, ?, ?, ?, ?)',
         [
           model.subject,
           model.rss,
           model.download,
           model.title,
+          model.airDate,
           model.mkBgmId,
           model.mkGroupId,
         ],
@@ -135,12 +156,14 @@ class BtsAppBmf {
     } else {
       await _instance.sqlite.db.rawUpdate(
         'UPDATE $_tableName SET '
-        'rss = ?, download = ?, title = ?, mkBgmId = ?, mkGroupId = ? '
+        'rss = ?, download = ?, title = ?, airDate = ?, '
+        'mkBgmId = ?, mkGroupId = ? '
         'WHERE subject = ?',
         [
           model.rss,
           model.download,
           model.title,
+          model.airDate,
           model.mkBgmId,
           model.mkGroupId,
           model.subject,
@@ -149,6 +172,17 @@ class BtsAppBmf {
     }
     BTLogTool.info('Write $_tableName subject: ${model.subject}');
     await BmfRssService.instance.onBmfWritten(model);
+  }
+
+  /// Updates only the subject air date while backfilling old records.
+  Future<void> updateAirDate(int subject, String airDate) async {
+    await _instance.preCheck();
+    await _instance.sqlite.db.update(
+      _tableName,
+      {'airDate': airDate},
+      where: 'subject = ?',
+      whereArgs: [subject],
+    );
   }
 
   /// 删除配置

@@ -26,6 +26,30 @@ class BmfFilterStats {
   static const empty = BmfFilterStats(total: 0, hasRss: 0, hasDownload: 0);
 }
 
+class BmfQuarter {
+  final int year;
+  final int quarter;
+
+  const BmfQuarter(this.year, this.quarter);
+
+  static const all = BmfQuarter(0, 0);
+
+  factory BmfQuarter.fromDate(DateTime date) {
+    return BmfQuarter(date.year, ((date.month - 1) ~/ 3) + 1);
+  }
+
+  factory BmfQuarter.current() => BmfQuarter.fromDate(DateTime.now());
+
+  String get label => '$year Q$quarter';
+
+  @override
+  bool operator ==(Object other) =>
+      other is BmfQuarter && other.year == year && other.quarter == quarter;
+
+  @override
+  int get hashCode => Object.hash(year, quarter);
+}
+
 class RbpBmfWidget extends ConsumerStatefulWidget {
   const RbpBmfWidget({super.key});
 
@@ -43,6 +67,8 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   bool showAll = true;
   bool filterHasRss = true;
   bool filterHasDownload = true;
+  BmfQuarter selectedQuarter = BmfQuarter.current();
+  List<BmfQuarter> quarterOptions = [];
 
   Timer? _debounceTimer;
   bool _preCheckDone = false;
@@ -95,9 +121,27 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   }
 
   void applyFilter(List<AppBmfModel> bmfList) {
-    _computeStats(bmfList);
+    var quarters = bmfList
+        .map((bmf) => DateTime.tryParse(bmf.airDate ?? ''))
+        .whereType<DateTime>()
+        .map(BmfQuarter.fromDate)
+        .toSet();
+    quarters.add(BmfQuarter.current());
+    quarterOptions = quarters.toList()
+      ..sort((a, b) {
+        var yearCompare = b.year.compareTo(a.year);
+        return yearCompare != 0 ? yearCompare : b.quarter.compareTo(a.quarter);
+      });
 
-    filteredList = bmfList.where((bmf) {
+    var quarterFilteredList = bmfList.where((bmf) {
+      if (selectedQuarter == BmfQuarter.all) return true;
+      var airDate = DateTime.tryParse(bmf.airDate ?? '');
+      return airDate != null && BmfQuarter.fromDate(airDate) == selectedQuarter;
+    }).toList();
+
+    _computeStats(quarterFilteredList);
+
+    filteredList = quarterFilteredList.where((bmf) {
       var matchesSearch =
           searchQuery.isEmpty ||
           (bmf.title?.toLowerCase().contains(searchQuery.toLowerCase()) ??
@@ -197,6 +241,8 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
             children: [
               Expanded(child: _buildFilterChips(context)),
               SizedBox(width: 16.w),
+              SizedBox(width: 140.w, child: _buildQuarterFilter()),
+              SizedBox(width: 12.w),
               SizedBox(
                 width: 240.w,
                 child: TextBox(
@@ -209,6 +255,29 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildQuarterFilter() {
+    return ComboBox<BmfQuarter>(
+      value: selectedQuarter,
+      placeholder: const Text('全部季度'),
+      isExpanded: true,
+      items: [
+        const ComboBoxItem<BmfQuarter>(
+          value: BmfQuarter.all,
+          child: Text('全部季度'),
+        ),
+        ...quarterOptions.map(
+          (quarter) => ComboBoxItem<BmfQuarter>(
+            value: quarter,
+            child: Text(quarter.label),
+          ),
+        ),
+      ],
+      onChanged: (value) {
+        if (value != null) setState(() => selectedQuarter = value);
+      },
     );
   }
 
@@ -363,9 +432,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
               child: Text(
                 '$count',
                 style: BTTypography.caption(context).copyWith(
-                  color: value
-                      ? accentColor
-                      : BTColors.textSecondary(context),
+                  color: value ? accentColor : BTColors.textSecondary(context),
                   fontWeight: FontWeight.w600,
                 ),
               ),

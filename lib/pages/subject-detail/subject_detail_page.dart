@@ -204,6 +204,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
                     bmf = AppBmfModel(
                       subject: data!.id,
                       title: data!.nameCn.isEmpty ? data!.name : data!.nameCn,
+                      airDate: data!.date,
                       rss: item.rss,
                     );
                   } else {
@@ -344,6 +345,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
           child: BsdBmfDrawer(
             subjectId: data!.id,
             title: data!.nameCn.isEmpty ? data!.name : data!.nameCn,
+            airDate: data!.date,
             rssProvider: rssProvider,
           ),
         ),
