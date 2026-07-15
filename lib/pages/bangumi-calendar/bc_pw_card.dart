@@ -213,10 +213,9 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
   }
 
   Widget buildCoverInfo(BuildContext context) {
-    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     var rateWidget = <Widget>[];
-    Widget viewWidget = Container();
-    
+    var statWidget = <Widget>[];
+
     if (data.rating != null) {
       var score = data.rating!.score / 2;
       var label = getBangumiRateLabel(data.rating!.score);
@@ -232,33 +231,57 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
       rateWidget.add(SizedBox(height: 4.h));
       rateWidget.add(
         Text(
-          '${data.rating?.score} $label (${data.rating?.total}人评分)',
+          '${data.rating?.score} $label',
           style: TextStyle(
-            color: isDark ? Colors.white : Colors.white,
+            color: Colors.white,
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
           ),
         ),
       );
+
+      statWidget.addAll([
+        Icon(
+          FluentIcons.favorite_star_fill,
+          size: 11.sp,
+          color: Colors.white.withValues(alpha: 0.7),
+        ),
+        SizedBox(width: 3.w),
+        Text(
+          '${data.rating!.total}',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontSize: 11.sp,
+          ),
+        ),
+      ]);
     }
     if (data.collection?.doing != null) {
-      viewWidget = Row(
-        children: [
-          Expanded(child: Container()),
-          Text(
-            '${data.collection?.doing}人在看',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 11.sp,
-            ),
+      statWidget.insertAll(0, [
+        Icon(
+          FluentIcons.play,
+          size: 11.sp,
+          color: Colors.white.withValues(alpha: 0.7),
+        ),
+        SizedBox(width: 3.w),
+        Text(
+          '${data.collection!.doing}',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontSize: 11.sp,
           ),
-        ],
-      );
+        ),
+        if (data.rating != null) SizedBox(width: 10.w),
+      ]);
     }
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [...rateWidget, viewWidget],
+      children: [
+        ...rateWidget,
+        if (statWidget.isNotEmpty)
+          Row(children: [const Spacer(), ...statWidget]),
+      ],
     );
   }
 
