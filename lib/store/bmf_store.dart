@@ -2,10 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../core/utils/async_pool.dart';
 import '../database/app/app_bmf.dart';
 import '../models/bangumi/bangumi_model.dart';
 import '../models/database/app_bmf_model.dart';
 import '../request/bangumi/bangumi_api.dart';
+import '../tools/log_tool.dart';
 
 final bmfListProvider =
     AsyncNotifierProvider<BmfListNotifier, List<AppBmfModel>>(() {
@@ -28,6 +30,8 @@ class BmfNavigationStore extends ChangeNotifier {
 }
 
 class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
+  static const int _airDateLookupConcurrency = 4;
+
   final BtsAppBmf _sqlite = BtsAppBmf();
   final BtrBangumiApi _api = BtrBangumiApi();
   final Map<int, AppBmfModel> _bmfMap = {};
@@ -49,18 +53,28 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
         .toList();
     if (missing.isEmpty) return list;
 
-    await Future.wait(
-      missing.map((item) async {
-        var response = await _api.getSubjectDetail(
-          item.subject.toString(),
-          cancelPrevious: false,
-        );
-        if (response.code != 0 || response.data is! BangumiSubject) return;
-        var airDate = (response.data as BangumiSubject).date;
-        if (airDate == null || airDate.isEmpty) return;
-        item.airDate = airDate;
-        await _sqlite.updateAirDate(item.subject, airDate);
-      }),
+    await forEachConcurrent(
+      missing,
+      maxConcurrent: _airDateLookupConcurrency,
+      action: (item) async {
+        try {
+          var response = await _api.getSubjectDetail(
+            item.subject.toString(),
+            cancelPrevious: false,
+          );
+          if (response.code != 0 || response.data is! BangumiSubject) return;
+          var airDate = (response.data as BangumiSubject).date;
+          if (airDate == null || airDate.isEmpty) return;
+          item.airDate = airDate;
+          await _sqlite.updateAirDate(item.subject, airDate);
+        } catch (error, stackTrace) {
+          BTLogTool.warn([
+            '补全 BMF 放送日期失败: subject=${item.subject}',
+            error.toString(),
+            stackTrace.toString(),
+          ]);
+        }
+      },
     );
     return list;
   }

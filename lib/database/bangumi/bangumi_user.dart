@@ -153,7 +153,7 @@ class BtsBangumiUser {
         'key': key,
         'value': value,
       });
-      BTLogTool.info('Write $key: $value');
+      BTLogTool.info('Write user credential: $key');
     } else {
       await _instance.sqlite.db.update(
         _tableNameUser,

@@ -14,6 +14,7 @@ import '../../store/bmf_store.dart';
 import '../../store/nav_store.dart';
 import '../../tools/log_tool.dart';
 import '../../tools/notifier_tool.dart';
+import '../utils/async_pool.dart';
 
 class BmfRssUpdateEvent {
   final String key;
@@ -49,6 +50,7 @@ class BmfRssService {
   BmfRssService._();
 
   static final BmfRssService instance = BmfRssService._();
+  static const int _refreshConcurrency = 4;
 
   factory BmfRssService() => instance;
 
@@ -58,6 +60,10 @@ class BmfRssService {
   final BtrMikanApi _api = BtrMikanApi();
 
   Timer? _refreshTimer;
+  final AsyncSingleFlight _startGuard = AsyncSingleFlight();
+  final AsyncSingleFlight _bulkRefreshGuard = AsyncSingleFlight();
+  final KeyedAsyncSerialExecutor<String> _singleRefreshExecutor =
+      KeyedAsyncSerialExecutor<String>();
   final Map<String, Set<String>> _knownItems = {};
   bool _isInitialized = false;
 
@@ -79,28 +85,43 @@ class BmfRssService {
       return;
     }
 
+    await _startGuard.run(() => _start(refreshInterval));
+  }
+
+  Future<void> _start(Duration refreshInterval) async {
     BTLogTool.info('BMF RSS 服务启动');
     await _loadKnownItems();
     await _refreshAllRss();
 
-    _refreshTimer = Timer.periodic(refreshInterval, (timer) async {
-      await _refreshAllRss();
+    _refreshTimer = Timer.periodic(refreshInterval, (_) {
+      unawaited(_refreshFromTimer());
     });
 
     _isInitialized = true;
     BTLogTool.info('BMF RSS 服务初始化完成');
   }
 
+  Future<void> _refreshFromTimer() async {
+    try {
+      await _refreshAllRss();
+    } catch (error, stackTrace) {
+      BTLogTool.error([
+        'BMF RSS 定时刷新失败',
+        error.toString(),
+        stackTrace.toString(),
+      ]);
+    }
+  }
+
   void stop() {
     _refreshTimer?.cancel();
     _refreshTimer = null;
     _isInitialized = false;
-    _updateController.close();
-    _statusController.close();
     BTLogTool.info('BMF RSS 服务已停止');
   }
 
   Future<void> _loadKnownItems() async {
+    _knownItems.clear();
     var rssModels = await _rssDb.readAll();
     for (var model in rssModels) {
       if (model.data.isNotEmpty) {
@@ -120,6 +141,10 @@ class BmfRssService {
   }
 
   Future<void> _refreshAllRss() async {
+    await _bulkRefreshGuard.run(_performRefreshAllRss);
+  }
+
+  Future<void> _performRefreshAllRss() async {
     var bmfList = await _bmfDb.readAll();
     if (bmfList.isEmpty) {
       BTLogTool.info('没有 BMF 订阅需要刷新');
@@ -130,21 +155,36 @@ class BmfRssService {
 
     var mikanUrl = await _configDb.readMikanUrl();
 
-    var futures = bmfList
+    var subscriptions = bmfList
         .where((bmf) => bmf.rss != null && bmf.rss!.isNotEmpty)
-        .map((bmf) => _refreshSingleRss(bmf, mikanUrl))
         .toList();
 
-    await Future.wait(futures);
+    await forEachConcurrent(
+      subscriptions,
+      maxConcurrent: _refreshConcurrency,
+      action: (bmf) => _refreshSingleRss(bmf, mikanUrl),
+    );
   }
 
   Future<_RssRefreshResult> _refreshSingleRssInternal(
     AppBmfModel bmf,
-    String? mikanUrl,
-  ) async {
+    String? mikanUrl, {
+    bool resetKnownItems = false,
+  }) async {
     var url = _getRssUrl(bmf, mikanUrl);
     var key = _keyForBmf(bmf, url);
 
+    return _singleRefreshExecutor.run(key, () async {
+      if (resetKnownItems) _knownItems.remove(key);
+      return await _performSingleRssRefresh(bmf, url, key);
+    });
+  }
+
+  Future<_RssRefreshResult> _performSingleRssRefresh(
+    AppBmfModel bmf,
+    String url,
+    String key,
+  ) async {
     try {
       var existingModel = bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty
           ? await _rssDb.readByMkId(bmf.mkBgmId!)
@@ -286,11 +326,12 @@ class BmfRssService {
     if (bmf.rss == null || bmf.rss!.isEmpty) return false;
 
     var mikanUrl = await _configDb.readMikanUrl();
-    var key = _keyForBmf(bmf, _getRssUrl(bmf, mikanUrl));
 
-    _knownItems.remove(key);
-
-    var result = await _refreshSingleRssAndGetResult(bmf, mikanUrl);
+    var result = await _refreshSingleRssAndGetResult(
+      bmf,
+      mikanUrl,
+      resetKnownItems: true,
+    );
     if (result) {
       BTLogTool.info('BMF 订阅已更新: ${bmf.title ?? bmf.subject}');
     }
@@ -299,9 +340,14 @@ class BmfRssService {
 
   Future<bool> _refreshSingleRssAndGetResult(
     AppBmfModel bmf,
-    String? mikanUrl,
-  ) async {
-    var result = await _refreshSingleRssInternal(bmf, mikanUrl);
+    String? mikanUrl, {
+    bool resetKnownItems = false,
+  }) async {
+    var result = await _refreshSingleRssInternal(
+      bmf,
+      mikanUrl,
+      resetKnownItems: resetKnownItems,
+    );
     return result.success;
   }
 

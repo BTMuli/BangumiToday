@@ -1,9 +1,11 @@
 import 'package:bangumi_today/database/bangumi/bangumi_collection.dart';
 import 'package:bangumi_today/database/bangumi/bangumi_data.dart';
 import 'package:bangumi_today/database/bangumi/bangumi_user.dart';
+import 'package:bangumi_today/database/app/app_config.dart';
 import 'package:bangumi_today/database/app/app_rss.dart';
 import 'package:bangumi_today/database/bt_sqlite.dart';
 import 'package:bangumi_today/models/database/app_rss_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -58,6 +60,29 @@ void main() {
       whereArgs: ['accessToken'],
     );
     expect(rows.single['value'], 'token');
+  });
+
+  test('credential and config logs do not contain stored values', () async {
+    const accessToken = 'access-token-that-must-not-be-logged';
+    const mikanToken = 'mikan-token-that-must-not-be-logged';
+    var messages = <String>[];
+    var originalDebugPrint = debugPrint;
+    debugPrint = (message, {wrapWidth}) {
+      if (message != null) messages.add(message);
+    };
+
+    try {
+      var user = BtsBangumiUser();
+      await user.deleteAccessToken();
+      await user.writeAccessToken(accessToken);
+      await BtsAppConfig().writeMikanToken(mikanToken);
+    } finally {
+      debugPrint = originalDebugPrint;
+    }
+
+    var output = messages.join('\n');
+    expect(output, isNot(contains(accessToken)));
+    expect(output, isNot(contains(mikanToken)));
   });
 
   test('Bangumi data initialization is idempotent', () async {

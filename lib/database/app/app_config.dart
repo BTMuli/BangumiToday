@@ -46,7 +46,7 @@ class BtsAppConfig {
     );
     if (result.isEmpty) return '';
     var value = result.first['value'];
-    BTLogTool.info('Read config: $key = $value');
+    BTLogTool.info('Read config: $key');
     return value.toString();
   }
 
@@ -63,7 +63,7 @@ class BtsAppConfig {
         'key': key,
         'value': value,
       });
-      BTLogTool.info('Write config: $key = $value');
+      BTLogTool.info('Write config: $key');
     } else {
       await _instance.sqlite.db.update(
         _tableName,
@@ -72,7 +72,7 @@ class BtsAppConfig {
         whereArgs: [key],
       );
     }
-    BTLogTool.info('Update config: $key = $value');
+    BTLogTool.info('Update config: $key');
   }
 
   /// 删除配置-通用
