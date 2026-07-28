@@ -8,6 +8,7 @@ import 'package:flutter_material_design_icons/flutter_material_design_icons.dart
 
 import '../../core/services/bmf_rss_service.dart';
 import '../../core/theme/bt_theme.dart';
+import '../../core/utils/rss_date.dart';
 import '../../database/app/app_rss.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../providers/app_providers.dart';
@@ -98,12 +99,15 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   String searchQuery = '';
   int? selectedSubject;
   final Map<int, int> _pendingCounts = {};
+  final Map<int, DateTime> _latestUpdateTimes = {};
+  final Map<String, int> _rssSubjectsByKey = {};
   String _loadedStatusSignature = '';
   int _handledNavigationRequest = 0;
   bool _showCompactDetail = false;
 
   Timer? _debounceTimer;
   StreamSubscription<BmfRssStatusEvent>? _statusSubscription;
+  StreamSubscription<BmfRssUpdateEvent>? _updateSubscription;
   bool _preCheckDone = false;
 
   @override
@@ -116,12 +120,19 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
       if (!mounted) return;
       setState(() => _pendingCounts[event.subject] = event.pendingCount);
     });
+    _updateSubscription = BmfRssService.instance.updateStream.listen((event) {
+      var subject = _rssSubjectsByKey[event.key];
+      var latestUpdate = latestRssPublishedAt(event.items);
+      if (!mounted || subject == null || latestUpdate == null) return;
+      setState(() => _latestUpdateTimes[subject] = latestUpdate);
+    });
   }
 
   @override
   void dispose() {
     _debounceTimer?.cancel();
     _statusSubscription?.cancel();
+    _updateSubscription?.cancel();
     _searchController.dispose();
     _rssPaneController.dispose();
     _filePaneController.dispose();
@@ -209,20 +220,39 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
             _BmfConfigurationFilter.incomplete => !hasRss || !hasDirectory,
           };
         }).toList()..sort((a, b) {
-          var pendingCompare = (_pendingCounts[b.subject] ?? 0).compareTo(
-            _pendingCounts[a.subject] ?? 0,
-          );
-          if (pendingCompare != 0) return pendingCompare;
-          var aDate = DateTime.tryParse(a.airDate ?? '');
-          var bDate = DateTime.tryParse(b.airDate ?? '');
-          if (aDate != null && bDate != null) return bDate.compareTo(aDate);
-          if (aDate != null) return -1;
-          if (bDate != null) return 1;
+          var aDate =
+              _latestUpdateTimes[a.subject] ??
+              DateTime.tryParse(a.airDate ?? '');
+          var bDate =
+              _latestUpdateTimes[b.subject] ??
+              DateTime.tryParse(b.airDate ?? '');
+          if (aDate != null && bDate != null) {
+            var dateCompare = bDate.compareTo(aDate);
+            if (dateCompare != 0) return dateCompare;
+          } else if (aDate != null) {
+            return -1;
+          } else if (bDate != null) {
+            return 1;
+          }
           return b.subject.compareTo(a.subject);
         });
   }
 
   void _scheduleStatusLoad(List<AppBmfModel> bmfList) {
+    _rssSubjectsByKey
+      ..clear()
+      ..addEntries(
+        bmfList
+            .where((item) => item.rss != null && item.rss!.isNotEmpty)
+            .map(
+              (item) => MapEntry(
+                item.mkBgmId != null && item.mkBgmId!.isNotEmpty
+                    ? item.mkBgmId!
+                    : item.rss!,
+                item.subject,
+              ),
+            ),
+      );
     var signature = bmfList
         .map((item) => '${item.subject}:${item.rss}:${item.mkBgmId}')
         .join('|');
@@ -240,7 +270,11 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
         var model = item.mkBgmId != null && item.mkBgmId!.isNotEmpty
             ? await rss.readByMkId(item.mkBgmId!)
             : await rss.read(item.rss!);
-        return (item.subject, model?.pendingItemKeys.length ?? 0);
+        return (
+          item.subject,
+          model?.pendingItemKeys.length ?? 0,
+          model == null ? null : latestRssPublishedAtFromXml(model.data),
+        );
       }),
     );
     if (!mounted) return;
@@ -248,6 +282,13 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
       _pendingCounts
         ..clear()
         ..addEntries(values.map((value) => MapEntry(value.$1, value.$2)));
+      _latestUpdateTimes
+        ..clear()
+        ..addEntries(
+          values
+              .where((value) => value.$3 != null)
+              .map((value) => MapEntry(value.$1, value.$3!)),
+        );
     });
   }
 

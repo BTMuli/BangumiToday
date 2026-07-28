@@ -56,6 +56,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   List<String> files = [];
   List<String> aria2Files = [];
   late Timer timerFiles;
+  int _refreshGeneration = 0;
 
   @override
   void initState() {
@@ -68,6 +69,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   void didUpdateWidget(BmfFileExpander oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.downloadDir != widget.downloadDir) {
+      _refreshGeneration++;
       files.clear();
       aria2Files.clear();
       Future.microtask(refreshFiles);
@@ -76,6 +78,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
 
   @override
   void dispose() {
+    _refreshGeneration++;
     timerFiles.cancel();
     super.dispose();
   }
@@ -88,7 +91,11 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   }
 
   Future<void> refreshFiles() async {
-    var filesGet = await fileTool.getFileNames(widget.downloadDir);
+    var generation = ++_refreshGeneration;
+    var downloadDir = widget.downloadDir;
+    var subject = widget.subject;
+    var filesGet = await fileTool.getFileNames(downloadDir);
+    if (!mounted || generation != _refreshGeneration) return;
     var aria2FilesGet = filesGet
         .where((element) => element.endsWith('.aria2'))
         .map((e) => e.replaceAll('.aria2', ''))
@@ -98,27 +105,29 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     } else {
       if (timerFiles.isActive) timerFiles.cancel();
     }
-    files = filesGet.where((element) => !element.endsWith('.aria2')).toList();
     if (aria2Files.isNotEmpty && aria2FilesGet != aria2Files) {
       var diffFiles = aria2Files
           .where((element) => !aria2FilesGet.contains(element))
           .toList();
       if (diffFiles.isNotEmpty) {
         for (var file in diffFiles) {
-          var exist = await fileTool.isFileExist(
-            path.join(widget.downloadDir, file),
-          );
+          var exist = await fileTool.isFileExist(path.join(downloadDir, file));
+          if (!mounted || generation != _refreshGeneration) return;
           if (!exist) continue;
           await notifierTool.showVideo(
-            subject: widget.subject,
-            dir: widget.downloadDir,
+            subject: subject,
+            dir: downloadDir,
             file: file,
           );
+          if (!mounted || generation != _refreshGeneration) return;
         }
       }
     }
-    aria2Files = aria2FilesGet;
-    setState(() {});
+    if (!mounted || generation != _refreshGeneration) return;
+    setState(() {
+      files = filesGet.where((element) => !element.endsWith('.aria2')).toList();
+      aria2Files = aria2FilesGet;
+    });
   }
 
   Widget buildFileItem(BuildContext context, String file) {
@@ -437,38 +446,51 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
   Set<String> pendingItemKeys = {};
   List<RssItem> rssItems = [];
   StreamSubscription<BmfRssUpdateEvent>? _updateSubscription;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     _listenToUpdate();
-    Future.microtask(() async {
-      if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) {
-        appRssModel = await sqlite.read(bmf.rss!);
-      } else {
-        appRssModel = await sqlite.readByMkId(bmf.mkBgmId!);
-      }
-      if (appRssModel == null) {
-        appRssModel = AppRssModel(
-          rss: getRss(),
-          data: '',
-          ttl: 0,
-          updated: 0,
-          mkBgmId: bmf.mkBgmId,
-          mkGroupId: bmf.mkGroupId,
-        );
-        await sqlite.write(appRssModel!);
-        setState(() {});
-        return;
-      }
-      if (appRssModel!.data.isNotEmpty) {
-        rssItems = RssFeed.parse(appRssModel!.data).items;
-        rssItemsKey = rssItems
-            .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
-            .toSet();
-      }
-      pendingItemKeys = appRssModel!.pendingItemKeys;
-      setState(() {});
+    Future.microtask(_loadData);
+  }
+
+  Future<void> _loadData() async {
+    if (!mounted || bmf.rss == null || bmf.rss!.isEmpty) return;
+    var generation = ++_loadGeneration;
+    var currentBmf = bmf;
+    var rssUrl = getRss();
+    var model = currentBmf.mkBgmId == null || currentBmf.mkBgmId!.isEmpty
+        ? await sqlite.read(currentBmf.rss!)
+        : await sqlite.readByMkId(currentBmf.mkBgmId!);
+    if (!mounted || generation != _loadGeneration) return;
+
+    if (model == null) {
+      model = AppRssModel(
+        rss: rssUrl,
+        data: '',
+        ttl: 0,
+        updated: 0,
+        mkBgmId: currentBmf.mkBgmId,
+        mkGroupId: currentBmf.mkGroupId,
+      );
+      await sqlite.write(model);
+      if (!mounted || generation != _loadGeneration) return;
+    }
+
+    var items = model.data.isEmpty
+        ? <RssItem>[]
+        : RssFeed.parse(model.data).items;
+    var itemKeys = items
+        .map((item) => '${item.title ?? ''}|${item.pubDate ?? ''}')
+        .toSet();
+    var pendingKeys = Set<String>.from(model.pendingItemKeys);
+    if (!mounted || generation != _loadGeneration) return;
+    setState(() {
+      appRssModel = model;
+      rssItems = items;
+      rssItemsKey = itemKeys;
+      pendingItemKeys = pendingKeys;
     });
   }
 
@@ -481,12 +503,17 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     _updateSubscription = BmfRssService.instance.updateStream
         .where((event) => event.key == key)
         .listen((event) {
-          rssItems = event.items;
-          rssItemsKey = rssItems
+          var currentKey = bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty
+              ? bmf.mkBgmId
+              : bmf.rss;
+          if (!mounted || currentKey != key) return;
+          _loadGeneration++;
+          var items = List<RssItem>.from(event.items);
+          var itemKeys = items
               .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
               .toSet();
-          pendingItemKeys = event.pendingItemKeys;
-          appRssModel = AppRssModel(
+          var pendingKeys = Set<String>.from(event.pendingItemKeys);
+          var model = AppRssModel(
             mkBgmId: bmf.mkBgmId,
             mkGroupId: bmf.mkGroupId,
             rss: getRss(),
@@ -494,8 +521,13 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
             ttl: 0,
             updated: event.updated.millisecondsSinceEpoch,
           );
-          appRssModel!.setPendingItemKeys(pendingItemKeys);
-          setState(() {});
+          model.setPendingItemKeys(pendingKeys);
+          setState(() {
+            rssItems = items;
+            rssItemsKey = itemKeys;
+            pendingItemKeys = pendingKeys;
+            appRssModel = model;
+          });
         });
   }
 
@@ -505,36 +537,23 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     if (oldWidget.bmf.rss != widget.bmf.rss ||
         oldWidget.bmf.mkBgmId != widget.bmf.mkBgmId ||
         oldWidget.bmf.mkGroupId != widget.bmf.mkGroupId) {
+      _loadGeneration++;
       _updateSubscription?.cancel();
       rssItems.clear();
       rssItemsKey.clear();
       pendingItemKeys.clear();
       if (widget.bmf.rss == null || widget.bmf.rss!.isEmpty) {
         appRssModel = null;
-        setState(() {});
         return;
       }
       _listenToUpdate();
-      Future.microtask(() async {
-        if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) {
-          appRssModel = await sqlite.read(bmf.rss!);
-        } else {
-          appRssModel = await sqlite.readByMkId(bmf.mkBgmId!);
-        }
-        if (appRssModel != null && appRssModel!.data.isNotEmpty) {
-          rssItems = RssFeed.parse(appRssModel!.data).items;
-          rssItemsKey = rssItems
-              .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
-              .toSet();
-          pendingItemKeys = appRssModel!.pendingItemKeys;
-        }
-        setState(() {});
-      });
+      Future.microtask(_loadData);
     }
   }
 
   @override
   void dispose() {
+    _loadGeneration++;
     _updateSubscription?.cancel();
     super.dispose();
   }

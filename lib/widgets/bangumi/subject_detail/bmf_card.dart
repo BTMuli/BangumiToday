@@ -51,6 +51,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
   String totalSize = '0 B';
   int rssNewCount = 0;
   bool isLoading = true;
+  int _loadGeneration = 0;
 
   AppBmfModel get bmf => widget.bmf;
 
@@ -73,37 +74,50 @@ class _BmfCardState extends ConsumerState<BmfCard>
   }
 
   Future<void> loadData() async {
+    if (!mounted) return;
+    var generation = ++_loadGeneration;
+    var download = bmf.download;
+    var rss = bmf.rss;
+    var mkBgmId = bmf.mkBgmId;
     setState(() => isLoading = true);
 
-    var fileStats = await _loadFileStats();
-    var rssStats = await _loadRssStats();
+    var fileStats = await _loadFileStats(download);
+    var rssStats = await _loadRssStats(rss, mkBgmId);
+    if (!mounted || generation != _loadGeneration) return;
 
-    fileCount = fileStats['count'] as int;
-    totalSize = fileStats['size'] as String;
-    rssNewCount = rssStats;
-
-    setState(() => isLoading = false);
+    setState(() {
+      fileCount = fileStats['count'] as int;
+      totalSize = fileStats['size'] as String;
+      rssNewCount = rssStats;
+      isLoading = false;
+    });
   }
 
-  Future<Map<String, dynamic>> _loadFileStats() async {
-    if (bmf.download == null || bmf.download!.isEmpty) {
+  Future<Map<String, dynamic>> _loadFileStats(String? download) async {
+    if (download == null || download.isEmpty) {
       return {'count': 0, 'size': '0 B'};
     }
-    var files = await fileTool.getFileNames(bmf.download!);
+    var files = await fileTool.getFileNames(download);
     files = files.where((f) => !f.endsWith('.aria2')).toList();
-    var totalBytes = await fileTool.getDirSize(bmf.download!);
+    var totalBytes = await fileTool.getDirSize(download);
 
     return {'count': files.length, 'size': filesize(totalBytes)};
   }
 
-  Future<int> _loadRssStats() async {
-    if (bmf.rss == null || bmf.rss!.isEmpty) return 0;
+  Future<int> _loadRssStats(String? rss, String? mkBgmId) async {
+    if (rss == null || rss.isEmpty) return 0;
 
-    var appRssModel = bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty
-        ? await sqliteRss.readByMkId(bmf.mkBgmId!)
-        : await sqliteRss.read(bmf.rss!);
+    var appRssModel = mkBgmId != null && mkBgmId.isNotEmpty
+        ? await sqliteRss.readByMkId(mkBgmId)
+        : await sqliteRss.read(rss);
     if (appRssModel == null || appRssModel.data.isEmpty) return 0;
     return appRssModel.pendingItemKeys.length;
+  }
+
+  @override
+  void dispose() {
+    _loadGeneration++;
+    super.dispose();
   }
 
   void _navigateToDetail() {
