@@ -1,23 +1,25 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
+import '../../providers/app_providers.dart';
 import 'rb_pw_anibt.dart';
 import 'rb_pw_bmf.dart';
 import 'rb_pw_comicat.dart';
 import 'rb_pw_mikan.dart';
 
 /// Rss & Bmf
-class RssBmfPage extends StatefulWidget {
+class RssBmfPage extends ConsumerStatefulWidget {
   /// 构造函数
   const RssBmfPage({super.key});
 
   @override
-  State<RssBmfPage> createState() => _RssBmfPageState();
+  ConsumerState<RssBmfPage> createState() => _RssBmfPageState();
 }
 
 /// Rss 页面状态
-class _RssBmfPageState extends State<RssBmfPage>
+class _RssBmfPageState extends ConsumerState<RssBmfPage>
     with AutomaticKeepAliveClientMixin {
   /// 保存状态
   @override
@@ -25,11 +27,18 @@ class _RssBmfPageState extends State<RssBmfPage>
 
   /// tabIndex
   int currentIndex = 0;
+  int _handledNavigationRequest = 0;
 
   /// 构建页面
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    var navigation = ref.watch(bmfNavigationProvider);
+    if (navigation.requestId != _handledNavigationRequest &&
+        navigation.targetSubject != null) {
+      _handledNavigationRequest = navigation.requestId;
+      currentIndex = 0;
+    }
     return TabView(
       currentIndex: currentIndex,
       onChanged: (index) {

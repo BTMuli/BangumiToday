@@ -13,6 +13,7 @@ AppRssModel _$AppRssModelFromJson(Map<String, dynamic> json) => AppRssModel(
   updated: (json['updated'] as num?)?.toInt() ?? 0,
   mkBgmId: json['mkBgmId'] as String?,
   mkGroupId: json['mkGroupId'] as String?,
+  pendingItems: json['pendingItems'] as String? ?? '[]',
 );
 
 Map<String, dynamic> _$AppRssModelToJson(AppRssModel instance) =>
@@ -23,4 +24,5 @@ Map<String, dynamic> _$AppRssModelToJson(AppRssModel instance) =>
       'data': instance.data,
       'ttl': instance.ttl,
       'updated': instance.updated,
+      'pendingItems': instance.pendingItems,
     };

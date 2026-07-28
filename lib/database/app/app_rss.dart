@@ -21,6 +21,9 @@ class BtsAppRss {
   /// 是否有mkBgmId
   static bool hasMkBgmId = false;
 
+  /// 是否有待处理条目标识字段
+  static bool hasPendingItems = false;
+
   /// 表名
   final String _tableName = 'AppRss';
 
@@ -35,12 +38,14 @@ class BtsAppRss {
           mkBgmId TEXT,
           mkGroupId TEXT,
           ttl INTEGER NOT NULL,
-          updated INTEGER NOT NULL
+          updated INTEGER NOT NULL,
+          pendingItems TEXT NOT NULL DEFAULT '[]'
         );
       ''');
       BTLogTool.info('Create table $_tableName');
     }
     if (!hasMkBgmId) await updateMkId();
+    if (!hasPendingItems) await updatePendingItemsColumn();
   }
 
   /// 更新mkId
@@ -55,6 +60,22 @@ class BtsAppRss {
       ALTER TABLE $_tableName ADD COLUMN mkGroupId TEXT;
     ''');
     BTLogTool.info('Update table $_tableName');
+  }
+
+  Future<void> updatePendingItemsColumn() async {
+    var columns = await instance.sqlite.db.rawQuery(
+      'PRAGMA table_info($_tableName)',
+    );
+    hasPendingItems = columns.any(
+      (element) => element['name'] == 'pendingItems',
+    );
+    if (hasPendingItems) return;
+    await instance.sqlite.db.execute(
+      "ALTER TABLE $_tableName "
+      "ADD COLUMN pendingItems TEXT NOT NULL DEFAULT '[]';",
+    );
+    hasPendingItems = true;
+    BTLogTool.info('Update $_tableName add pendingItems');
   }
 
   /// 读取所有 rss 链接
@@ -82,7 +103,7 @@ class BtsAppRss {
   Future<void> write(AppRssModel model) async {
     await instance.preCheck();
     model.updated = DateTime.now().millisecondsSinceEpoch;
-    if (model.mkBgmId != null) {
+    if (model.mkBgmId != null && model.mkBgmId!.isNotEmpty) {
       await writeByMkId(model);
       return;
     }
@@ -179,5 +200,25 @@ class BtsAppRss {
         whereArgs: [model.mkBgmId],
       );
     }
+  }
+
+  /// 只更新待处理条目标识，不改变 RSS 的抓取时间。
+  Future<void> updatePendingItems(AppRssModel model) async {
+    await instance.preCheck();
+    if (model.mkBgmId != null && model.mkBgmId!.isNotEmpty) {
+      await instance.sqlite.db.update(
+        _tableName,
+        {'pendingItems': model.pendingItems},
+        where: 'mkBgmId = ?',
+        whereArgs: [model.mkBgmId],
+      );
+      return;
+    }
+    await instance.sqlite.db.update(
+      _tableName,
+      {'pendingItems': model.pendingItems},
+      where: 'rss = ?',
+      whereArgs: [model.rss],
+    );
   }
 }

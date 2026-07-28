@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 // Package imports:
 import 'package:json_annotation/json_annotation.dart';
 
@@ -26,6 +28,9 @@ class AppRssModel {
   /// updated
   late int updated;
 
+  /// RSS 更新后尚未由用户处理的条目标识。
+  String pendingItems;
+
   /// 构造函数
   AppRssModel({
     required this.rss,
@@ -34,7 +39,22 @@ class AppRssModel {
     this.updated = 0,
     this.mkBgmId,
     this.mkGroupId,
+    this.pendingItems = '[]',
   });
+
+  Set<String> get pendingItemKeys {
+    try {
+      var value = jsonDecode(pendingItems);
+      if (value is! List) return {};
+      return value.whereType<String>().toSet();
+    } catch (_) {
+      return {};
+    }
+  }
+
+  void setPendingItemKeys(Iterable<String> keys) {
+    pendingItems = jsonEncode(keys.toSet().toList());
+  }
 
   /// JSON 序列化
   factory AppRssModel.fromJson(Map<String, dynamic> json) =>

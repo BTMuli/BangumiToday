@@ -23,8 +23,20 @@ enum BmfFilterType { all, hasRss, hasDownload, hasNew }
 class BmfCard extends ConsumerStatefulWidget {
   final AppBmfModel bmf;
   final VoidCallback? onDelete;
+  final VoidCallback? onOpen;
+  final bool selected;
+  final int? pendingCount;
+  final bool dense;
 
-  const BmfCard({super.key, required this.bmf, this.onDelete});
+  const BmfCard({
+    super.key,
+    required this.bmf,
+    this.onDelete,
+    this.onOpen,
+    this.selected = false,
+    this.pendingCount,
+    this.dense = false,
+  });
 
   @override
   ConsumerState<BmfCard> createState() => _BmfCardState();
@@ -91,7 +103,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
         ? await sqliteRss.readByMkId(bmf.mkBgmId!)
         : await sqliteRss.read(bmf.rss!);
     if (appRssModel == null || appRssModel.data.isEmpty) return 0;
-    return 0;
+    return appRssModel.pendingItemKeys.length;
   }
 
   void _navigateToDetail() {
@@ -101,7 +113,9 @@ class _BmfCardState extends ConsumerState<BmfCard>
   }
 
   Future<void> _addToNavOnly() async {
-    ref.read(navStoreProvider.notifier).addNavItemB(
+    ref
+        .read(navStoreProvider.notifier)
+        .addNavItemB(
           subject: bmf.subject,
           paneTitle: bmf.title,
           type: '动画',
@@ -124,32 +138,56 @@ class _BmfCardState extends ConsumerState<BmfCard>
     );
   }
 
+  void _openDetails() {
+    if (widget.onOpen != null) {
+      widget.onOpen!();
+      return;
+    }
+    _showDetailDialog();
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     var accentColor = FluentTheme.of(context).accentColor;
 
-    return BTAcrylic.acrylicContainer(
-      context: context,
-      blurAmount: BTAcrylic.cardBlurAmount,
-      opacity: FluentTheme.of(context).brightness == Brightness.dark
-          ? 0.6
-          : 0.8,
-      borderRadius: BTRadius.largeBR,
-      padding: EdgeInsets.all(12.w),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: _showDetailDialog,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context, accentColor),
-              SizedBox(height: 12.h),
-              _buildStats(context),
-              SizedBox(height: 12.h),
-              _buildActions(context, accentColor),
-            ],
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _openDetails,
+        child: AnimatedContainer(
+          duration: BTDurations.fadeTransition,
+          padding: EdgeInsets.all(1.w),
+          decoration: BoxDecoration(
+            borderRadius: BTRadius.largeBR,
+            border: Border.all(
+              color: widget.selected ? accentColor : Colors.transparent,
+              width: 1.w,
+            ),
+          ),
+          child: BTAcrylic.acrylicContainer(
+            context: context,
+            blurAmount: BTAcrylic.cardBlurAmount,
+            opacity: FluentTheme.of(context).brightness == Brightness.dark
+                ? 0.6
+                : 0.8,
+            borderRadius: BTRadius.largeBR,
+            padding: EdgeInsets.all(widget.dense ? 10.w : 12.w),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(context, accentColor),
+                SizedBox(height: widget.dense ? 8.h : 12.h),
+                if (widget.dense)
+                  _buildDenseFooter(context, accentColor)
+                else ...[
+                  _buildStats(context),
+                  SizedBox(height: 12.h),
+                  _buildActions(context, accentColor),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -191,7 +229,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
             ],
           ),
         ),
-        if (rssNewCount > 0)
+        if ((widget.pendingCount ?? rssNewCount) > 0)
           Container(
             padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
             decoration: BoxDecoration(
@@ -199,7 +237,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
               borderRadius: BTRadius.roundBR,
             ),
             child: Text(
-              '$rssNewCount',
+              '${widget.pendingCount ?? rssNewCount}',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 10.sp,
@@ -239,6 +277,85 @@ class _BmfCardState extends ConsumerState<BmfCard>
           label: '文件',
           value: '$fileCount 个 ($totalSize)',
           isActive: fileCount > 0,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDenseFooter(BuildContext context, Color accentColor) {
+    if (isLoading) {
+      return SizedBox(
+        height: 28.h,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            width: 14.w,
+            height: 14.w,
+            child: const ProgressRing(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    var hasRss = bmf.rss != null && bmf.rss!.isNotEmpty;
+    return Row(
+      children: [
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 82.w),
+          child: _buildDenseStat(
+            context,
+            icon: MdiIcons.rss,
+            text: hasRss ? 'RSS' : '无 RSS',
+            isActive: hasRss,
+          ),
+        ),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: _buildDenseStat(
+            context,
+            icon: FluentIcons.folder,
+            text: '$fileCount 个 · $totalSize',
+            isActive: fileCount > 0,
+          ),
+        ),
+        Tooltip(
+          message: '跳转到详情页',
+          child: IconButton(
+            icon: BtIcon(FluentIcons.open_in_new_tab, size: 13.sp),
+            onPressed: _navigateToDetail,
+            onLongPress: _addToNavOnly,
+          ),
+        ),
+        _buildMoreButton(context, accentColor),
+      ],
+    );
+  }
+
+  Widget _buildDenseStat(
+    BuildContext context, {
+    required IconData icon,
+    required String text,
+    required bool isActive,
+  }) {
+    var color = isActive
+        ? FluentTheme.of(context).accentColor
+        : BTColors.textTertiary(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12.sp, color: color),
+        SizedBox(width: 5.w),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: BTTypography.caption(context).copyWith(
+              color: isActive
+                  ? BTColors.textSecondary(context)
+                  : BTColors.textTertiary(context),
+            ),
+          ),
         ),
       ],
     );
@@ -285,7 +402,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
           message: '查看详情',
           child: IconButton(
             icon: BtIcon(FluentIcons.view, size: 14.sp),
-            onPressed: _showDetailDialog,
+            onPressed: _openDetails,
           ),
         ),
         Tooltip(
@@ -477,8 +594,9 @@ class _BmfDetailDialogState extends ConsumerState<_BmfDetailDialog> {
               isConfig: true,
               maxHeight: 200.h,
               onDelete: () async {
-                var repo =
-                    context.mounted ? ref.read(bmfRepositoryProvider) : null;
+                var repo = context.mounted
+                    ? ref.read(bmfRepositoryProvider)
+                    : null;
                 if (repo == null) return;
                 widget.bmf.rss = null;
                 await repo.write(widget.bmf);

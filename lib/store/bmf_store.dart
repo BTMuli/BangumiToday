@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import '../database/app/app_bmf.dart';
 import '../models/bangumi/bangumi_model.dart';
@@ -9,6 +11,21 @@ final bmfListProvider =
     AsyncNotifierProvider<BmfListNotifier, List<AppBmfModel>>(() {
       return BmfListNotifier();
     });
+
+final bmfNavigationProvider = ChangeNotifierProvider<BmfNavigationStore>((ref) {
+  return BmfNavigationStore();
+});
+
+class BmfNavigationStore extends ChangeNotifier {
+  int? targetSubject;
+  int requestId = 0;
+
+  void selectSubject(int subject) {
+    targetSubject = subject;
+    requestId++;
+    notifyListeners();
+  }
+}
 
 class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
   final BtsAppBmf _sqlite = BtsAppBmf();

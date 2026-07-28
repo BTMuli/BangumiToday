@@ -31,6 +31,9 @@ class BmfFileExpander extends ConsumerStatefulWidget {
   final int subject;
   final double maxHeight;
   final Future<void> Function()? onDelete;
+  final bool contentScrollable;
+  final bool expandable;
+  final ScrollController? contentScrollController;
 
   const BmfFileExpander({
     super.key,
@@ -38,6 +41,9 @@ class BmfFileExpander extends ConsumerStatefulWidget {
     required this.subject,
     required this.maxHeight,
     this.onDelete,
+    this.contentScrollable = true,
+    this.expandable = true,
+    this.contentScrollController,
   });
 
   @override
@@ -197,20 +203,22 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       );
     }
 
+    if (!widget.contentScrollable || files.length <= 6) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: files.map((f) => buildFileItem(context, f)).toList(),
+      );
+    }
+
     return SizedBox(
-      height: files.length <= 6 ? null : widget.maxHeight,
-      child: files.length <= 6
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: files.map((f) => buildFileItem(context, f)).toList(),
-            )
-          : ListView.builder(
-              shrinkWrap: true,
-              itemCount: files.length,
-              itemBuilder: (context, index) {
-                return buildFileItem(context, files[index]);
-              },
-            ),
+      height: widget.maxHeight,
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: files.length,
+        itemBuilder: (context, index) {
+          return buildFileItem(context, files[index]);
+        },
+      ),
     );
   }
 
@@ -236,76 +244,86 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   @override
   Widget build(BuildContext context) {
     var accentColor = FluentTheme.of(context).accentColor;
+    var header = Row(
+      children: [
+        Text('下载目录', style: BTTypography.subtitle(context)),
+        if (files.isNotEmpty) ...[
+          SizedBox(width: 8.w),
+          _buildCountBadge(context, files.length),
+        ],
+        SizedBox(width: 8.w),
+        Tooltip(
+          message: widget.downloadDir.isEmpty ? '未设置下载目录' : widget.downloadDir,
+          child: Icon(
+            FluentIcons.info,
+            size: 14.sp,
+            color: BTColors.textTertiary(context),
+          ),
+        ),
+        const Spacer(),
+        if (widget.onDelete != null)
+          Tooltip(
+            message: '删除目录',
+            child: IconButton(
+              icon: BtIcon(
+                FluentIcons.delete,
+                size: 14.sp,
+                color: FluentTheme.of(context).accentColor,
+              ),
+              onPressed: () async {
+                var confirm = await showConfirm(
+                  context,
+                  title: '删除下载目录',
+                  content: '确定删除该下载目录配置吗？',
+                );
+                if (!confirm) return;
+                await widget.onDelete!();
+              },
+            ),
+          ),
+        Tooltip(
+          message: '刷新文件',
+          child: IconButton(
+            icon: BtIcon(FluentIcons.refresh, size: 14.sp),
+            onPressed: () async {
+              if (widget.downloadDir.isEmpty) {
+                await BtInfobar.error(context, '请先设置下载目录');
+                return;
+              }
+              await refreshFiles();
+              if (context.mounted) await BtInfobar.success(context, '刷新文件成功');
+            },
+          ),
+        ),
+        Tooltip(
+          message: '打开目录',
+          child: IconButton(
+            icon: BtIcon(FluentIcons.folder, size: 14.sp),
+            onPressed: () async {
+              if (widget.downloadDir.isEmpty) {
+                await BtInfobar.error(context, '请先设置下载目录');
+                return;
+              }
+              await fileTool.openDir(widget.downloadDir);
+            },
+          ),
+        ),
+      ],
+    );
+
+    if (!widget.expandable) {
+      return _buildFixedResourcePanel(
+        context,
+        leading: Icon(FluentIcons.folder_open, size: 18.sp, color: accentColor),
+        header: header,
+        content: buildContent(),
+        controller: widget.contentScrollController,
+      );
+    }
+
     return Expander(
       leading: Icon(FluentIcons.folder_open, size: 18.sp, color: accentColor),
-      header: Row(
-        children: [
-          Text('下载目录', style: BTTypography.subtitle(context)),
-          if (files.isNotEmpty) ...[
-            SizedBox(width: 8.w),
-            _buildCountBadge(context, files.length),
-          ],
-          SizedBox(width: 8.w),
-          Tooltip(
-            message: widget.downloadDir.isEmpty
-                ? '未设置下载目录'
-                : widget.downloadDir,
-            child: Icon(
-              FluentIcons.info,
-              size: 14.sp,
-              color: BTColors.textTertiary(context),
-            ),
-          ),
-          const Spacer(),
-          if (widget.onDelete != null)
-            Tooltip(
-              message: '删除目录',
-              child: IconButton(
-                icon: BtIcon(
-                  FluentIcons.delete,
-                  size: 14.sp,
-                  color: FluentTheme.of(context).accentColor,
-                ),
-                onPressed: () async {
-                  var confirm = await showConfirm(
-                    context,
-                    title: '删除下载目录',
-                    content: '确定删除该下载目录配置吗？',
-                  );
-                  if (!confirm) return;
-                  await widget.onDelete!();
-                },
-              ),
-            ),
-          Tooltip(
-            message: '刷新文件',
-            child: IconButton(
-              icon: BtIcon(FluentIcons.refresh, size: 14.sp),
-              onPressed: () async {
-                if (widget.downloadDir.isEmpty) {
-                  await BtInfobar.error(context, '请先设置下载目录');
-                  return;
-                }
-                await refreshFiles();
-                if (context.mounted) await BtInfobar.success(context, '刷新文件成功');
-              },
-            ),
-          ),
-          Tooltip(
-            message: '打开目录',
-            child: IconButton(
-              icon: BtIcon(FluentIcons.folder, size: 14.sp),
-              onPressed: () async {
-                if (widget.downloadDir.isEmpty) {
-                  await BtInfobar.error(context, '请先设置下载目录');
-                  return;
-                }
-                await fileTool.openDir(widget.downloadDir);
-              },
-            ),
-          ),
-        ],
-      ),
+      header: header,
       content: buildContent(),
     );
   }
@@ -388,6 +406,10 @@ class BmfRssExpander extends ConsumerStatefulWidget {
   final bool isConfig;
   final double maxHeight;
   final Future<void> Function()? onDelete;
+  final bool initiallyExpanded;
+  final bool contentScrollable;
+  final bool expandable;
+  final ScrollController? contentScrollController;
 
   const BmfRssExpander({
     super.key,
@@ -395,6 +417,10 @@ class BmfRssExpander extends ConsumerStatefulWidget {
     required this.isConfig,
     required this.maxHeight,
     this.onDelete,
+    this.initiallyExpanded = true,
+    this.contentScrollable = true,
+    this.expandable = true,
+    this.contentScrollController,
   });
 
   @override
@@ -408,6 +434,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
   String? get mikanRss => ref.watch(appStoreProvider).mikanRss;
   AppRssModel? appRssModel;
   Set<String> rssItemsKey = {};
+  Set<String> pendingItemKeys = {};
   List<RssItem> rssItems = [];
   StreamSubscription<BmfRssUpdateEvent>? _updateSubscription;
 
@@ -440,12 +467,15 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
             .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
             .toSet();
       }
+      pendingItemKeys = appRssModel!.pendingItemKeys;
       setState(() {});
     });
   }
 
   void _listenToUpdate() {
-    var key = bmf.mkBgmId ?? bmf.rss;
+    var key = bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty
+        ? bmf.mkBgmId
+        : bmf.rss;
     if (key == null) return;
 
     _updateSubscription = BmfRssService.instance.updateStream
@@ -455,6 +485,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
           rssItemsKey = rssItems
               .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
               .toSet();
+          pendingItemKeys = event.pendingItemKeys;
           appRssModel = AppRssModel(
             mkBgmId: bmf.mkBgmId,
             mkGroupId: bmf.mkGroupId,
@@ -463,6 +494,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
             ttl: 0,
             updated: event.updated.millisecondsSinceEpoch,
           );
+          appRssModel!.setPendingItemKeys(pendingItemKeys);
           setState(() {});
         });
   }
@@ -476,6 +508,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
       _updateSubscription?.cancel();
       rssItems.clear();
       rssItemsKey.clear();
+      pendingItemKeys.clear();
       if (widget.bmf.rss == null || widget.bmf.rss!.isEmpty) {
         appRssModel = null;
         setState(() {});
@@ -493,6 +526,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
           rssItemsKey = rssItems
               .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
               .toSet();
+          pendingItemKeys = appRssModel!.pendingItemKeys;
         }
         setState(() {});
       });
@@ -512,18 +546,51 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     return url;
   }
 
+  String _itemKey(RssItem item) {
+    return '${item.title ?? ''}|${item.pubDate ?? ''}';
+  }
+
+  Future<void> _markItemHandled(RssItem item) async {
+    if (appRssModel == null) return;
+    var key = _itemKey(item);
+    if (!pendingItemKeys.remove(key)) return;
+    appRssModel!.setPendingItemKeys(pendingItemKeys);
+    await sqlite.updatePendingItems(appRssModel!);
+    BmfRssService.instance.notifyPendingStateChanged(
+      bmf,
+      pendingItemKeys.length,
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _markAllHandled() async {
+    if (appRssModel == null || pendingItemKeys.isEmpty) return;
+    pendingItemKeys.clear();
+    appRssModel!.setPendingItemKeys(pendingItemKeys);
+    await sqlite.updatePendingItems(appRssModel!);
+    BmfRssService.instance.notifyPendingStateChanged(bmf, 0);
+    if (mounted) setState(() {});
+  }
+
   Widget buildRssItem(BuildContext context, RssItem item) {
     var fileSize = item.enclosure?.length != null
         ? filesize(item.enclosure!.length)
         : null;
+    var isPending = pendingItemKeys.contains(_itemKey(item));
+    var accentColor = FluentTheme.of(context).accentColor;
 
     return Container(
       margin: EdgeInsets.only(bottom: 6.h),
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
       decoration: BoxDecoration(
-        color: BTColors.surfaceSecondary(context),
+        color: isPending
+            ? accentColor.withValues(alpha: 0.1)
+            : BTColors.surfaceSecondary(context),
         borderRadius: BTRadius.smallBR,
-        border: Border.all(color: BTColors.divider(context), width: 1),
+        border: Border.all(
+          color: isPending ? accentColor : BTColors.divider(context),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -534,9 +601,29 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
               Icon(
                 MdiIcons.download,
                 size: 16.sp,
-                color: BTColors.textSecondary(context),
+                color: isPending
+                    ? accentColor
+                    : BTColors.textSecondary(context),
               ),
               SizedBox(width: 8.w),
+              if (isPending) ...[
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BTRadius.roundBR,
+                  ),
+                  child: Text(
+                    '新',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 7.w),
+              ],
               Expanded(
                 child: Tooltip(
                   message: item.title ?? '',
@@ -571,16 +658,27 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
                 ),
                 SizedBox(width: 4.w),
                 Text(
-                  item.pubDate!.substring(0, 10),
+                  item.pubDate!.length > 10
+                      ? item.pubDate!.substring(0, 10)
+                      : item.pubDate!,
                   style: BTTypography.caption(context),
                 ),
               ],
               const Spacer(),
+              if (isPending)
+                Tooltip(
+                  message: '标记为已处理',
+                  child: IconButton(
+                    icon: BtIcon(FluentIcons.check_mark, size: 14.sp),
+                    onPressed: () => _markItemHandled(item),
+                  ),
+                ),
               _RssItemActions(
                 item: item,
                 dir: bmf.download,
                 subject: bmf.subject,
                 rssLink: bmf.rss!,
+                onHandled: () => _markItemHandled(item),
               ),
             ],
           ),
@@ -597,22 +695,22 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
       );
     }
 
+    if (!widget.contentScrollable || rssItems.length <= 6) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: rssItems.map((item) => buildRssItem(context, item)).toList(),
+      );
+    }
+
     return SizedBox(
-      height: rssItems.length <= 6 ? null : widget.maxHeight,
-      child: rssItems.length <= 6
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: rssItems
-                  .map((item) => buildRssItem(context, item))
-                  .toList(),
-            )
-          : ListView.builder(
-              shrinkWrap: true,
-              itemCount: rssItems.length,
-              itemBuilder: (context, index) {
-                return buildRssItem(context, rssItems[index]);
-              },
-            ),
+      height: widget.maxHeight,
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: rssItems.length,
+        itemBuilder: (context, index) {
+          return buildRssItem(context, rssItems[index]);
+        },
+      ),
     );
   }
 
@@ -640,72 +738,157 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     var accentColor = FluentTheme.of(context).accentColor;
     var rssLink = getRss();
 
-    return Expander(
-      leading: Icon(MdiIcons.rss, size: 18.sp, color: accentColor),
-      header: Row(
-        children: [
-          Text('RSS 订阅', style: BTTypography.subtitle(context)),
-          if (rssItems.isNotEmpty) ...[
-            SizedBox(width: 8.w),
-            _buildCountBadge(context, rssItems.length),
-          ],
+    var header = Row(
+      children: [
+        Text('RSS 订阅', style: BTTypography.subtitle(context)),
+        if (rssItems.isNotEmpty) ...[
           SizedBox(width: 8.w),
-          Tooltip(
-            message: rssLink,
-            child: Icon(
-              FluentIcons.info,
-              size: 14.sp,
-              color: BTColors.textTertiary(context),
+          _buildCountBadge(context, rssItems.length),
+        ],
+        if (pendingItemKeys.isNotEmpty) ...[
+          SizedBox(width: 8.w),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 2.h),
+            decoration: BoxDecoration(
+              color: accentColor,
+              borderRadius: BTRadius.roundBR,
             ),
-          ),
-          const Spacer(),
-          if (widget.onDelete != null)
-            Tooltip(
-              message: '删除订阅',
-              child: IconButton(
-                icon: BtIcon(
-                  FluentIcons.delete,
-                  size: 14.sp,
-                  color: FluentTheme.of(context).accentColor,
-                ),
-                onPressed: () async {
-                  var confirm = await showConfirm(
-                    context,
-                    title: '删除 RSS 订阅',
-                    content: '确定删除该 RSS 订阅配置吗？',
-                  );
-                  if (!confirm) return;
-                  await widget.onDelete!();
-                },
+            child: Text(
+              '${pendingItemKeys.length} 条更新',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 11.sp,
+                fontWeight: FontWeight.w600,
               ),
-            ),
-          Tooltip(
-            message: '刷新 RSS',
-            child: IconButton(
-              icon: BtIcon(FluentIcons.refresh, size: 14.sp),
-              onPressed: () async {
-                var result = await BmfRssService.instance.onBmfWritten(bmf);
-                if (!context.mounted) return;
-                if (result) {
-                  await BtInfobar.success(context, 'RSS 刷新成功');
-                } else {
-                  await BtInfobar.error(context, 'RSS 刷新失败');
-                }
-              },
-            ),
-          ),
-          Tooltip(
-            message: '打开 RSS',
-            child: IconButton(
-              icon: BtIcon(FluentIcons.edge_logo, size: 14.sp),
-              onPressed: () async => await launchUrlString(rssLink),
             ),
           ),
         ],
-      ),
+        SizedBox(width: 8.w),
+        Tooltip(
+          message: rssLink,
+          child: Icon(
+            FluentIcons.info,
+            size: 14.sp,
+            color: BTColors.textTertiary(context),
+          ),
+        ),
+        const Spacer(),
+        if (pendingItemKeys.isNotEmpty)
+          Tooltip(
+            message: '全部标记为已处理',
+            child: IconButton(
+              icon: BtIcon(FluentIcons.clear_selection, size: 14.sp),
+              onPressed: _markAllHandled,
+            ),
+          ),
+        if (widget.onDelete != null)
+          Tooltip(
+            message: '删除订阅',
+            child: IconButton(
+              icon: BtIcon(
+                FluentIcons.delete,
+                size: 14.sp,
+                color: FluentTheme.of(context).accentColor,
+              ),
+              onPressed: () async {
+                var confirm = await showConfirm(
+                  context,
+                  title: '删除 RSS 订阅',
+                  content: '确定删除该 RSS 订阅配置吗？',
+                );
+                if (!confirm) return;
+                await widget.onDelete!();
+              },
+            ),
+          ),
+        Tooltip(
+          message: '刷新 RSS',
+          child: IconButton(
+            icon: BtIcon(FluentIcons.refresh, size: 14.sp),
+            onPressed: () async {
+              var result = await BmfRssService.instance.refreshBmf(bmf);
+              if (!context.mounted) return;
+              if (result) {
+                await BtInfobar.success(context, 'RSS 刷新成功');
+              } else {
+                await BtInfobar.error(context, 'RSS 刷新失败');
+              }
+            },
+          ),
+        ),
+        Tooltip(
+          message: '打开 RSS',
+          child: IconButton(
+            icon: BtIcon(FluentIcons.edge_logo, size: 14.sp),
+            onPressed: () async => await launchUrlString(rssLink),
+          ),
+        ),
+      ],
+    );
+
+    if (!widget.expandable) {
+      return _buildFixedResourcePanel(
+        context,
+        leading: Icon(MdiIcons.rss, size: 18.sp, color: accentColor),
+        header: header,
+        content: buildContent(),
+        controller: widget.contentScrollController,
+      );
+    }
+
+    return Expander(
+      initiallyExpanded: widget.initiallyExpanded,
+      leading: Icon(MdiIcons.rss, size: 18.sp, color: accentColor),
+      header: header,
       content: buildContent(),
     );
   }
+}
+
+Widget _buildFixedResourcePanel(
+  BuildContext context, {
+  required Widget leading,
+  required Widget header,
+  required Widget content,
+  ScrollController? controller,
+}) {
+  return Container(
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      color: BTColors.surfacePrimary(context),
+      borderRadius: BTRadius.largeBR,
+      border: Border.all(color: BTColors.divider(context)),
+    ),
+    child: Column(
+      children: [
+        ColoredBox(
+          color: BTColors.surfaceSecondary(context),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            child: Row(
+              children: [
+                leading,
+                SizedBox(width: 10.w),
+                Expanded(child: header),
+              ],
+            ),
+          ),
+        ),
+        Container(height: 1, color: BTColors.divider(context)),
+        Expanded(
+          child: Scrollbar(
+            controller: controller,
+            thumbVisibility: controller != null,
+            child: SingleChildScrollView(
+              controller: controller,
+              padding: EdgeInsets.all(10.w),
+              child: content,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _RssItemActions extends ConsumerWidget {
@@ -713,12 +896,14 @@ class _RssItemActions extends ConsumerWidget {
   final String? dir;
   final int? subject;
   final String rssLink;
+  final Future<void> Function()? onHandled;
 
   const _RssItemActions({
     required this.item,
     required this.dir,
     required this.subject,
     required this.rssLink,
+    this.onHandled,
   });
 
   Future<String?> getSavePath(BuildContext context) async {
@@ -745,8 +930,15 @@ class _RssItemActions extends ConsumerWidget {
     }
     var savePath = await getSavePath(context);
     if (savePath == null) return;
-    await launchUrlString('mo://new-task/?type=torrent&dir=$saveDir');
-    await launchUrlString('file://$savePath');
+    var motrixOpened = await launchUrlString(
+      'mo://new-task/?type=torrent&dir=$saveDir',
+    );
+    var torrentOpened = await launchUrlString('file://$savePath');
+    if (motrixOpened || torrentOpened) {
+      await onHandled?.call();
+    } else if (context.mounted) {
+      await BtInfobar.error(context, '未能将任务交给 Motrix');
+    }
   }
 
   Future<void> downloadInner(BuildContext context, WidgetRef ref) async {
@@ -760,6 +952,7 @@ class _RssItemActions extends ConsumerWidget {
         .read(dttStoreProvider.notifier)
         .addTask(item, saveDir);
     if (check) {
+      await onHandled?.call();
       if (context.mounted) await BtInfobar.success(context, '添加下载任务成功');
     } else {
       if (context.mounted) await BtInfobar.warn(context, '已经在下载列表中');
@@ -793,7 +986,7 @@ class _RssItemActions extends ConsumerWidget {
             ),
           ),
         Tooltip(
-          message: 'Motrix 下载',
+          message: '交给 Motrix',
           child: IconButton(
             icon: Image.asset(
               'assets/images/platforms/motrix-logo.png',

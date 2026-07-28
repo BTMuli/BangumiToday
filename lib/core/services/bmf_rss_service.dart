@@ -10,6 +10,7 @@ import '../../main.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../models/database/app_rss_model.dart';
 import '../../plugins/mikan/mikan_api.dart';
+import '../../store/bmf_store.dart';
 import '../../store/nav_store.dart';
 import '../../tools/log_tool.dart';
 import '../../tools/notifier_tool.dart';
@@ -19,23 +20,29 @@ class BmfRssUpdateEvent {
   final String rssData;
   final List<RssItem> items;
   final DateTime updated;
+  final Set<String> pendingItemKeys;
 
   BmfRssUpdateEvent({
     required this.key,
     required this.rssData,
     required this.items,
     required this.updated,
+    required this.pendingItemKeys,
   });
+}
+
+class BmfRssStatusEvent {
+  final int subject;
+  final int pendingCount;
+
+  const BmfRssStatusEvent({required this.subject, required this.pendingCount});
 }
 
 class _RssRefreshResult {
   final bool success;
   final List<RssItem> newItems;
 
-  const _RssRefreshResult({
-    required this.success,
-    this.newItems = const [],
-  });
+  const _RssRefreshResult({required this.success, this.newItems = const []});
 }
 
 class BmfRssService {
@@ -56,8 +63,11 @@ class BmfRssService {
 
   final StreamController<BmfRssUpdateEvent> _updateController =
       StreamController<BmfRssUpdateEvent>.broadcast();
+  final StreamController<BmfRssStatusEvent> _statusController =
+      StreamController<BmfRssStatusEvent>.broadcast();
 
   Stream<BmfRssUpdateEvent> get updateStream => _updateController.stream;
+  Stream<BmfRssStatusEvent> get statusStream => _statusController.stream;
 
   bool get isInitialized => _isInitialized;
 
@@ -86,6 +96,7 @@ class BmfRssService {
     _refreshTimer = null;
     _isInitialized = false;
     _updateController.close();
+    _statusController.close();
     BTLogTool.info('BMF RSS 服务已停止');
   }
 
@@ -95,7 +106,9 @@ class BmfRssService {
       if (model.data.isNotEmpty) {
         try {
           var items = RssFeed.parse(model.data).items;
-          var key = model.mkBgmId ?? model.rss;
+          var key = model.mkBgmId != null && model.mkBgmId!.isNotEmpty
+              ? model.mkBgmId!
+              : model.rss;
           _knownItems[key] = items
               .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
               .toSet();
@@ -130,9 +143,12 @@ class BmfRssService {
     String? mikanUrl,
   ) async {
     var url = _getRssUrl(bmf, mikanUrl);
-    var key = bmf.mkBgmId ?? url;
+    var key = _keyForBmf(bmf, url);
 
     try {
+      var existingModel = bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty
+          ? await _rssDb.readByMkId(bmf.mkBgmId!)
+          : await _rssDb.read(url);
       var rssGet = await _api.getCustomRSS(url);
       var tryTimes = 0;
       while (rssGet.code != 0 && tryTimes < 3) {
@@ -156,6 +172,12 @@ class BmfRssService {
         var itemKey = '${item.title ?? ""}|${item.pubDate ?? ""}';
         return !knownKeys.contains(itemKey);
       }).toList();
+      var pendingItemKeys = existingModel?.pendingItemKeys ?? <String>{};
+      if (knownKeys.isNotEmpty) {
+        pendingItemKeys.addAll(
+          newItems.map((item) => '${item.title ?? ''}|${item.pubDate ?? ''}'),
+        );
+      }
 
       _knownItems[key] = currentKeys;
 
@@ -167,14 +189,19 @@ class BmfRssService {
         mkBgmId: bmf.mkBgmId,
         mkGroupId: bmf.mkGroupId,
       );
+      appRssModel.setPendingItemKeys(pendingItemKeys);
       await _rssDb.write(appRssModel);
 
-      _updateController.add(BmfRssUpdateEvent(
-        key: key,
-        rssData: rssGet.data,
-        items: currentItems,
-        updated: DateTime.now(),
-      ));
+      _updateController.add(
+        BmfRssUpdateEvent(
+          key: key,
+          rssData: rssGet.data,
+          items: currentItems,
+          updated: DateTime.now(),
+          pendingItemKeys: pendingItemKeys,
+        ),
+      );
+      notifyPendingStateChanged(bmf, pendingItemKeys.length);
 
       if (newItems.isNotEmpty && knownKeys.isNotEmpty) {
         await _notifyNewItems(bmf, newItems);
@@ -206,15 +233,19 @@ class BmfRssService {
     return url;
   }
 
+  String _keyForBmf(AppBmfModel bmf, String fallbackUrl) {
+    if (bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty) {
+      return bmf.mkBgmId!;
+    }
+    return fallbackUrl;
+  }
+
   Future<void> _notifyNewItems(AppBmfModel bmf, List<RssItem> newItems) async {
     var title = bmf.title ?? '动画 ${bmf.subject}';
 
     void onClick() {
-      globalContainer.read(navStoreProvider.notifier).addNavItemB(
-            subject: bmf.subject,
-            type: '动画',
-            paneTitle: bmf.title,
-          );
+      globalContainer.read(bmfNavigationProvider).selectSubject(bmf.subject);
+      globalContainer.read(navStoreProvider).setCurIndex(1);
     }
 
     if (newItems.length > 1) {
@@ -237,12 +268,25 @@ class BmfRssService {
     await _refreshAllRss();
   }
 
+  Future<bool> refreshBmf(AppBmfModel bmf) async {
+    if (!_isInitialized) return false;
+    if (bmf.rss == null || bmf.rss!.isEmpty) return false;
+    var mikanUrl = await _configDb.readMikanUrl();
+    return _refreshSingleRssAndGetResult(bmf, mikanUrl);
+  }
+
+  void notifyPendingStateChanged(AppBmfModel bmf, int pendingCount) {
+    _statusController.add(
+      BmfRssStatusEvent(subject: bmf.subject, pendingCount: pendingCount),
+    );
+  }
+
   Future<bool> onBmfWritten(AppBmfModel bmf) async {
     if (!_isInitialized) return false;
     if (bmf.rss == null || bmf.rss!.isEmpty) return false;
 
     var mikanUrl = await _configDb.readMikanUrl();
-    var key = bmf.mkBgmId ?? _getRssUrl(bmf, mikanUrl);
+    var key = _keyForBmf(bmf, _getRssUrl(bmf, mikanUrl));
 
     _knownItems.remove(key);
 
@@ -264,10 +308,11 @@ class BmfRssService {
   Future<void> onBmfDeleted(int subject, String? mkBgmId, String? rss) async {
     if (!_isInitialized) return;
 
-    var key = mkBgmId ?? rss;
+    var key = mkBgmId != null && mkBgmId.isNotEmpty ? mkBgmId : rss;
     if (key != null) {
       _knownItems.remove(key);
     }
+    _statusController.add(BmfRssStatusEvent(subject: subject, pendingCount: 0));
 
     BTLogTool.info('BMF 订阅已移除: subject=$subject');
   }
