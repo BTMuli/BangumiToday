@@ -34,8 +34,7 @@ class _RssBmfPageState extends ConsumerState<RssBmfPage>
   Widget build(BuildContext context) {
     super.build(context);
     var navigation = ref.watch(bmfNavigationProvider);
-    if (navigation.requestId != _handledNavigationRequest &&
-        navigation.targetSubject != null) {
+    if (navigation.requestId != _handledNavigationRequest) {
       _handledNavigationRequest = navigation.requestId;
       currentIndex = 0;
     }

@@ -46,6 +46,13 @@ class _RssRefreshResult {
   const _RssRefreshResult({required this.success, this.newItems = const []});
 }
 
+class _RssSubscriptionUpdate {
+  final AppBmfModel bmf;
+  final List<RssItem> newItems;
+
+  const _RssSubscriptionUpdate({required this.bmf, required this.newItems});
+}
+
 class BmfRssService {
   BmfRssService._();
 
@@ -159,11 +166,20 @@ class BmfRssService {
         .where((bmf) => bmf.rss != null && bmf.rss!.isNotEmpty)
         .toList();
 
+    var updates = <_RssSubscriptionUpdate>[];
     await forEachConcurrent(
       subscriptions,
       maxConcurrent: _refreshConcurrency,
-      action: (bmf) => _refreshSingleRss(bmf, mikanUrl),
+      action: (bmf) async {
+        var result = await _refreshSingleRssInternal(bmf, mikanUrl);
+        if (result.newItems.isNotEmpty) {
+          updates.add(
+            _RssSubscriptionUpdate(bmf: bmf, newItems: result.newItems),
+          );
+        }
+      },
     );
+    await _notifyUpdates(updates);
   }
 
   Future<_RssRefreshResult> _refreshSingleRssInternal(
@@ -244,21 +260,19 @@ class BmfRssService {
       notifyPendingStateChanged(bmf, pendingItemKeys.length);
 
       if (newItems.isNotEmpty && knownKeys.isNotEmpty) {
-        await _notifyNewItems(bmf, newItems);
         BTLogTool.info(
           '发现 ${newItems.length} 条新 RSS 更新: ${bmf.title ?? bmf.subject}',
         );
       }
 
-      return _RssRefreshResult(success: true, newItems: newItems);
+      return _RssRefreshResult(
+        success: true,
+        newItems: knownKeys.isEmpty ? const [] : newItems,
+      );
     } catch (e) {
       BTLogTool.error(['刷新 RSS 异常', 'Subject: ${bmf.subject}', 'Error: $e']);
       return const _RssRefreshResult(success: false);
     }
-  }
-
-  Future<void> _refreshSingleRss(AppBmfModel bmf, String? mikanUrl) async {
-    await _refreshSingleRssInternal(bmf, mikanUrl);
   }
 
   String _getRssUrl(AppBmfModel bmf, String? mikanUrl) {
@@ -280,27 +294,26 @@ class BmfRssService {
     return fallbackUrl;
   }
 
-  Future<void> _notifyNewItems(AppBmfModel bmf, List<RssItem> newItems) async {
-    var title = bmf.title ?? '动画 ${bmf.subject}';
-
+  Future<void> _notifyUpdates(List<_RssSubscriptionUpdate> updates) async {
+    if (updates.isEmpty) return;
+    var itemCount = updates.fold<int>(
+      0,
+      (total, update) => total + update.newItems.length,
+    );
     void onClick() {
-      globalContainer.read(bmfNavigationProvider).selectSubject(bmf.subject);
+      globalContainer.read(bmfNavigationProvider).openWorkspace();
       globalContainer.read(navStoreProvider).setCurIndex(1);
     }
 
-    if (newItems.length > 1) {
-      await BTNotifierTool.showMini(
-        title: 'RSS 订阅更新',
-        body: '$title 有 ${newItems.length} 条更新',
-        onClick: onClick,
-      );
-    } else if (newItems.length == 1) {
-      await BTNotifierTool.showMini(
-        title: 'RSS 订阅更新',
-        body: '${newItems[0].title}',
-        onClick: onClick,
-      );
-    }
+    var body = updates.length == 1
+        ? '${updates.single.bmf.title ?? '动画 ${updates.single.bmf.subject}'}'
+              ' 有 $itemCount 条更新'
+        : '${updates.length} 个订阅共有 $itemCount 条更新';
+    await BTNotifierTool.showMini(
+      title: 'RSS 订阅更新',
+      body: body,
+      onClick: onClick,
+    );
   }
 
   Future<void> refreshNow() async {

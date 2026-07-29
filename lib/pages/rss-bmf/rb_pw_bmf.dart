@@ -293,13 +293,10 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   }
 
   void _applyNavigationIntent(BmfNavigationStore navigation) {
-    if (navigation.targetSubject == null ||
-        navigation.requestId == _handledNavigationRequest) {
-      return;
-    }
+    if (navigation.requestId == _handledNavigationRequest) return;
     _handledNavigationRequest = navigation.requestId;
     selectedSubject = navigation.targetSubject;
-    _showCompactDetail = true;
+    _showCompactDetail = navigation.targetSubject != null;
     configurationFilter = _BmfConfigurationFilter.all;
     selectedQuarter = BmfQuarter.all;
     searchQuery = '';
@@ -315,18 +312,30 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   }
 
   AppBmfModel? _selectedModel() {
-    if (filteredList.isEmpty) return null;
-    if (selectedSubject == null) return filteredList.first;
+    if (filteredList.isEmpty || selectedSubject == null) return null;
     return filteredList
-            .where((item) => item.subject == selectedSubject)
-            .firstOrNull ??
-        filteredList.first;
+        .where((item) => item.subject == selectedSubject)
+        .firstOrNull;
   }
 
   void _navigateToDetail(AppBmfModel bmf) {
     ref
         .read(navStoreProvider.notifier)
         .addNavItemB(subject: bmf.subject, paneTitle: bmf.title, type: '动画');
+  }
+
+  Future<void> _addToNavOnly(AppBmfModel bmf) async {
+    ref
+        .read(navStoreProvider.notifier)
+        .addNavItemB(
+          subject: bmf.subject,
+          paneTitle: bmf.title,
+          type: '动画',
+          jump: false,
+        );
+    if (mounted) {
+      await BtInfobar.success(context, '${bmf.title ?? bmf.subject} 添加成功');
+    }
   }
 
   Future<void> _editConfiguration(AppBmfModel bmf) async {
@@ -825,6 +834,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
                   child: IconButton(
                     icon: BtIcon(FluentIcons.open_in_new_tab, size: 14.sp),
                     onPressed: () => _navigateToDetail(bmf),
+                    onLongPress: () => _addToNavOnly(bmf),
                   ),
                 ),
                 Tooltip(

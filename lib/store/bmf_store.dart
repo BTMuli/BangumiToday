@@ -22,6 +22,12 @@ class BmfNavigationStore extends ChangeNotifier {
   int? targetSubject;
   int requestId = 0;
 
+  void openWorkspace() {
+    targetSubject = null;
+    requestId++;
+    notifyListeners();
+  }
+
   void selectSubject(int subject) {
     targetSubject = subject;
     requestId++;

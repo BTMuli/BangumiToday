@@ -170,6 +170,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _openDetails,
+        onLongPress: _addToNavOnly,
         child: AnimatedContainer(
           duration: BTDurations.fadeTransition,
           padding: EdgeInsets.all(1.w),
@@ -417,6 +418,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
           child: IconButton(
             icon: BtIcon(FluentIcons.view, size: 14.sp),
             onPressed: _openDetails,
+            onLongPress: _addToNavOnly,
           ),
         ),
         Tooltip(
