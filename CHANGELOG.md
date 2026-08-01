@@ -2,12 +2,47 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2026-04-03
+Update: 2026-08-01
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:15`
 >
-> 更新于 `2026-04-03 17:34:51`
+> 更新于 `2026-08-01 14:59:25`
+
+## [v0.8.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.8.0) (2026-08-01)
+
+本版本重点重构了 BMF 工作台与资源状态管理，扩展 RSS 数据源和筛选能力，并提升 Bangumi API、缓存及异步任务的稳定性。
+
+### BMF 与 RSS
+
+- ✨ 重构 BMF 工作台，统一管理文件、RSS 与异步操作状态
+- ✨ 支持按季度筛选 BMF，并优化条目排序与数量展示
+- ✨ 新增 Anibt RSS 数据源
+- ✨ 支持解析 RSS 中的 torrent 扩展信息
+- ✨ 通知点击后可通过应用链接打开对应内容
+- 🚸 增加 RSS 刷新结果提示，优化长按等交互
+
+### Bangumi 与界面
+
+- ✨ 支持配置 Bangumi 镜像站，并完善镜像域名适配
+- 💄 优化首页放送卡片、评分配色和用户入口交互
+- ♻️ 重构 Bangumi 请求管理，增加认证拦截与统一异常处理
+
+### 稳定性与性能
+
+- ♻️ 统一 BMF 数据访问和状态管理，修复跨页面、抽屉及对话框中的数据同步问题
+- ⚡️ 支持并行刷新 RSS，优化缓存、列表查找和搜索防抖
+- 🐛 修复 BMF 初始化竞态、配置更新和空 RSS 数据导致的异常
+- 🐛 修复条目详情页从搜索结果设置 RSS 失败的问题
+- 🐛 优化 BMF 工作台刷新状态和更新交互
+- 🔒 对凭据日志进行脱敏，提升 RSS 刷新可靠性
+- ♻️ 使用 rss_dart 替换 dart_rss
+
+### 其他
+
+- ✅ 增加缓存、异步任务、日期解析、数据库初始化和 Bangumi API 测试
+- 📄 更新应用签名证书
+- ⬆️ 更新依赖并适配新版 API
 
 ## [v0.7.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.7.0) (2026-04-03)
 

@@ -21,7 +21,6 @@ jobs:
         with:
           fetch-depth: 0
           ref: master
-          submodules: recursive
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 初始化 Flutter 环境
