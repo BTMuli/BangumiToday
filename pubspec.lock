@@ -313,13 +313,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.1.1"
-  dart_rss:
-    dependency: "direct main"
-    description:
-      path: "repos/dart_rss"
-      relative: true
-    source: path
-    version: "3.0.3"
   dart_style:
     dependency: transitive
     description:
@@ -1156,6 +1149,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.3.2"
+  rss_dart:
+    dependency: "direct main"
+    description:
+      name: rss_dart
+      sha256: "09c0123427e9557d74562e07f9d22effe3fd493893602e8a8d24b961490f2c30"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.0.14"
   rxdart:
     dependency: transitive
     description:

@@ -1,4 +1,4 @@
-import 'package:dart_rss/domain/rss_feed.dart';
+import '../../models/rss/rss.dart';
 import 'package:dio/dio.dart';
 
 import '../../models/app/response.dart';

@@ -1,7 +1,6 @@
 import 'dart:async';
 
-import 'package:dart_rss/domain/rss_feed.dart';
-import 'package:dart_rss/domain/rss_item.dart';
+import '../../models/rss/rss.dart';
 
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_config.dart';

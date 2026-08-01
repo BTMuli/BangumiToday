@@ -1,6 +1,4 @@
-import 'package:dart_rss/domain/rss_feed.dart';
-import 'package:dart_rss/domain/rss_item.dart';
-import 'package:dart_rss/util/helpers.dart';
+import '../../models/rss/rss.dart';
 
 DateTime? latestRssPublishedAt(Iterable<RssItem> items) {
   DateTime? latest;

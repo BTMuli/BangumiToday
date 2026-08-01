@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:dart_rss/dart_rss.dart';
+import '../../models/rss/rss.dart';
 import 'package:dio/dio.dart';
 
 import '../../core/cache/lru_cache_manager.dart';

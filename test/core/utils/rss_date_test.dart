@@ -1,6 +1,5 @@
 import 'package:bangumi_today/core/utils/rss_date.dart';
-import 'package:dart_rss/domain/dublin_core/dublin_core.dart';
-import 'package:dart_rss/domain/rss_item.dart';
+import 'package:bangumi_today/models/rss/rss.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

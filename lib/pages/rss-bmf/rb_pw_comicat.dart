@@ -1,5 +1,5 @@
 // Package imports:
-import 'package:dart_rss/domain/rss_item.dart';
+import '../../models/rss/rss.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';

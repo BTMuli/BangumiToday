@@ -1,5 +1,5 @@
 // Package imports:
-import 'package:dart_rss/dart_rss.dart';
+import '../../models/rss/rss.dart';
 import 'package:dio/dio.dart';
 
 // Project imports:

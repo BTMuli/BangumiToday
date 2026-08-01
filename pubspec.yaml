@@ -33,8 +33,7 @@ dependencies:
   cached_network_image: ^3.4.1
   crypto: ^3.0.7
   cupertino_icons: ^1.0.9
-  dart_rss:
-    path: repos/dart_rss
+  rss_dart: ^1.0.14
   device_info_plus: ^13.2.0
   dio: ^5.10.0
   dtorrent_parser: ^1.0.9

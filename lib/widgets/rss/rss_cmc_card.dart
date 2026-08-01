@@ -2,7 +2,7 @@
 import 'package:flutter/foundation.dart';
 
 // Package imports:
-import 'package:dart_rss/dart_rss.dart';
+import '../../models/rss/rss.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

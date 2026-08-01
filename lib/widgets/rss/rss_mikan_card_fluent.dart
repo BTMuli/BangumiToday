@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:dart_rss/dart_rss.dart';
+import '../../models/rss/rss.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
