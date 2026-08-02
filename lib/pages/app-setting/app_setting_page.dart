@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:io';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +10,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 // Project imports:
 import 'as_pw_bangumi.dart';
 import 'as_pw_device.dart';
+import 'as_pw_download.dart';
 import 'as_pw_info.dart';
 
 /// 设置页面
@@ -80,7 +84,12 @@ class _SettingPageState extends ConsumerState<SettingPage>
 
   /// 构建配置项
   List<Widget> buildConfigList() {
-    return [AspInfoWidget(), AppConfigDeviceWidget(), AppConfigBgmWidget()];
+    return [
+      AspInfoWidget(),
+      if (Platform.isWindows) AppConfigDownloadWidget(),
+      AppConfigDeviceWidget(),
+      AppConfigBgmWidget(),
+    ];
   }
 
   /// 构建设置页面
