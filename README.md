@@ -43,9 +43,8 @@ Update: 2026-04-03
 应用的良好使用体验**基于如下前提**：
 
 1. 用户已经拥有 [Bangumi.tv](https://bangumi.tv) 账号，并且通过应用相关页面完成了登录授权。
-2. 用户本地安装了 [Motrix](https://motrix.app/) 且将 `torrent` 默认关联到 Motrix。
-3. 用户登录 Bangumi 账号后对收藏数据进行了同步。
-4. 用户在特定条目页面设置了 `SSR` 订阅地址和下载目录。
+2. 用户登录 Bangumi 账号后对收藏数据进行了同步。
+3. 用户在特定条目页面设置了 `RSS` 订阅地址和下载目录。
 
 ## 应用预览
 
@@ -71,6 +70,7 @@ Update: 2026-04-03
 
 项目使用了如下依赖以实现相关功能：
 
+- [bt_download](https://github.com/BTMuli/bt_download)：提供内置 BitTorrent 下载能力。
 - [FlChart](https://app.flchart.dev/)：用于绘制条目评分柱状图。
 - [Fluent UI](https://bdlukaa.github.io/fluent_ui/)：用于实现 Fluent Design 风格的 UI。
 - [Hive](https://github.com/isar/hive)：用于本地数据存储。

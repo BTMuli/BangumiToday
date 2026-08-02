@@ -10,10 +10,14 @@
 ### Setup BangumiToday Project
 
 1. Download and install [Flutter](https://docs.flutter.dev/get-started/install/windows/desktop).
-2. Clone the repository,or fork it.
+2. Clone the repository with its submodules, or fork it:
+   `git clone --recursive https://github.com/BTMuli/BangumiToday.git`.
 3. Create a new branch from `main`.
 4. Run `flutter pub get` to install dependencies.
 5. Run `dart run husky install` to install husky hooks to make `lint_staged` work properly.
+
+For an existing clone, initialize the download engine with
+`git submodule update --init --recursive`.
 
 ### Run BangumiToday Project
 

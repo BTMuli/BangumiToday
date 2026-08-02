@@ -3,7 +3,7 @@ name: Build Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 jobs:
   build:
@@ -15,13 +15,15 @@ jobs:
       BANGUMI_APP_ID: ${{ secrets.BANGUMI_APP_ID }}
       BANGUMI_APP_SECRET: ${{ secrets.BANGUMI_APP_SECRET }}
     steps:
-
       - name: 签出仓库
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: master
+          submodules: recursive
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 初始化 MSVC 环境
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: 初始化 Flutter 环境
         uses: subosito/flutter-action@v2
@@ -35,6 +37,22 @@ jobs:
       - name: 拉取依赖
         run: flutter pub get
 
+      - name: 构建并测试下载引擎
+        shell: pwsh
+        working-directory: repos/bt_download
+        run: |
+          if (-not $env:VCPKG_INSTALLATION_ROOT) {
+            throw 'VCPKG_INSTALLATION_ROOT is not available'
+          }
+          $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
+          cmake --preset windows-x64-release
+          cmake --build --preset windows-x64-release
+          ctest --preset windows-x64-release
+          cmake --install out/build/windows-x64-release
+
+          $runtimePath = (Resolve-Path 'out/install/windows-x64-release').Path
+          "BT_DOWNLOAD_RUNTIME_DIR=$runtimePath" >> $env:GITHUB_ENV
+
       - name: 写入 .env
         shell: pwsh
         run: |
@@ -43,12 +61,19 @@ jobs:
           Add-Content -Path .env -Value "BANGUMI_APP_SECRET=${env:BANGUMI_APP_SECRET}"
 
       - name: 打包并压缩
+        shell: pwsh
         run: |
-          flutter build windows
+          flutter build windows --release
+          ./scripts/verify_windows_bundle.ps1 `
+            -BundlePath build/windows/x64/runner/Release `
+            -EngineRuntimePath $env:BT_DOWNLOAD_RUNTIME_DIR
           Compress-Archive -Path ./build/windows/x64/runner/Release/* -DestinationPath BangumiToday.zip
 
       - name: 打包msix
-        run: dart run msix:create -p ${{ secrets.SIGN_SECRET }}
+        run: >
+          dart run msix:create
+          --build-windows false
+          -p ${{ secrets.SIGN_SECRET }}
 
       - name: 打包msix-Store
         run: >
@@ -57,6 +82,7 @@ jobs:
           -i "27581BTMuli.BangumiToday"
           -b "CN=5FE33156-C3CE-4E71-A036-81BAA99521CB"
           -n "BangumiToday_Store"
+          --build-windows false
           -p ${{ secrets.SIGN_SECRET }}
 
       - name: 上传文件
