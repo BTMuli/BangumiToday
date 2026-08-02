@@ -1,5 +1,6 @@
 // Flutter imports:
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -17,6 +18,7 @@ import 'app.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/cache/lru_cache_manager.dart';
 import 'core/memory/memory_manager.dart';
+import 'core/services/bt_engine_client.dart';
 import 'core/services/bmf_rss_service.dart';
 import 'database/app/app_config.dart';
 import 'database/bt_sqlite.dart';
@@ -32,6 +34,12 @@ final globalContainer = ProviderContainer();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   _configureErrorHandling();
+  AppLifecycleListener(
+    onExitRequested: () async {
+      await BtEngineClient.instance.shutdown();
+      return AppExitResponse.exit;
+    },
+  );
 
   await Future.wait([
     windowManager.ensureInitialized(),
@@ -72,6 +80,8 @@ Future<void> _initBackgroundServices() async {
   await Future.wait([
     _runOptionalService('下载服务', BTDownloadTool.init),
     _runOptionalService('通知服务', BTNotifierTool.init),
+    if (Platform.isWindows)
+      _runOptionalService('BT 下载引擎', BtEngineClient.instance.start),
   ]);
 
   await Future.wait([
