@@ -107,6 +107,59 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
         CONFIGURATIONS Profile;Release
         COMPONENT Runtime)
 
+# bt_download sidecar runtime. The complete engine install directory is kept in
+# its own folder so its native dependencies do not pollute the Flutter runner's
+# DLL search path. Set BT_DOWNLOAD_RUNTIME_DIR in the environment before running
+# `flutter build windows`, or pass it as a CMake cache variable.
+set(BT_DOWNLOAD_RUNTIME_DIR "" CACHE PATH
+        "Path to the installed bt_download runtime directory")
+if (DEFINED ENV{BT_DOWNLOAD_RUNTIME_DIR}
+        AND NOT "$ENV{BT_DOWNLOAD_RUNTIME_DIR}" STREQUAL "")
+    file(TO_CMAKE_PATH "$ENV{BT_DOWNLOAD_RUNTIME_DIR}"
+            BT_DOWNLOAD_RUNTIME_DIR)
+endif ()
+
+set(BT_DOWNLOAD_BUNDLE_DIR
+        "${INSTALL_BUNDLE_LIB_DIR}/bt_download")
+install(CODE "
+  file(REMOVE_RECURSE \"${BT_DOWNLOAD_BUNDLE_DIR}\")
+  " COMPONENT Runtime)
+
+if (BT_DOWNLOAD_RUNTIME_DIR)
+    get_filename_component(BT_DOWNLOAD_RUNTIME_DIR
+            "${BT_DOWNLOAD_RUNTIME_DIR}" ABSOLUTE)
+
+    set(BT_DOWNLOAD_REQUIRED_FILES
+            bt_download.exe
+            torrent-rasterbar.dll
+            libcrypto-3-x64.dll
+            libssl-3-x64.dll
+            msvcp140.dll
+            vcruntime140.dll
+            sbom.spdx.json
+            THIRD_PARTY_NOTICES.txt
+            licenses/boost.txt
+            licenses/libtorrent.txt
+            licenses/nlohmann-json.txt
+            licenses/openssl.txt)
+    foreach (REQUIRED_FILE IN LISTS BT_DOWNLOAD_REQUIRED_FILES)
+        if (NOT EXISTS "${BT_DOWNLOAD_RUNTIME_DIR}/${REQUIRED_FILE}")
+            message(FATAL_ERROR
+                    "Incomplete bt_download runtime: missing ${REQUIRED_FILE} "
+                    "from ${BT_DOWNLOAD_RUNTIME_DIR}")
+        endif ()
+    endforeach ()
+
+    install(DIRECTORY "${BT_DOWNLOAD_RUNTIME_DIR}/"
+            DESTINATION "${BT_DOWNLOAD_BUNDLE_DIR}"
+            COMPONENT Runtime)
+    message(STATUS
+            "Bundling bt_download runtime from ${BT_DOWNLOAD_RUNTIME_DIR}")
+else ()
+    message(STATUS
+            "BT_DOWNLOAD_RUNTIME_DIR is not set; bt_download will not be bundled")
+endif ()
+
 # Sqlite
 include(FetchContent)
 

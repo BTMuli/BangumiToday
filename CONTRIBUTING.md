@@ -37,6 +37,24 @@ After you have created the `.env` file, you could run the project by using the f
 flutter run
 ```
 
+### Bundle the Windows Download Engine
+
+Windows release packages can include the `bt_download` sidecar engine. Build and install the engine
+first, then expose its complete install directory while building BangumiToday:
+
+```powershell
+$env:BT_DOWNLOAD_RUNTIME_DIR = 'D:\path\to\bt_download\out\install\windows-x64-release'
+flutter build windows --release
+./scripts/verify_windows_bundle.ps1 `
+  -BundlePath build/windows/x64/runner/Release `
+  -EngineRuntimePath $env:BT_DOWNLOAD_RUNTIME_DIR
+```
+
+Do not point `BT_DOWNLOAD_RUNTIME_DIR` at the engine build directory or copy only
+`bt_download.exe`. The install directory also contains its native DLLs, MSVC runtime, licenses and
+SPDX SBOM. CMake rejects an incomplete runtime, and the verification script compares every bundled
+file with the source runtime by SHA-256 when `EngineRuntimePath` is provided.
+
 ### Development
 
 Prefer to use [Android Studio](https://developer.android.com/studio) with dart and flutter plugins.
