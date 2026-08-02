@@ -673,16 +673,53 @@ class _TaskActions extends StatelessWidget {
           '打开目录',
           () async => BTFileTool().openDir(task.savePath),
         ),
-        _button(context, FluentIcons.delete, '移除任务', () async {
-          var confirmed = await showConfirm(
-            context,
-            title: '移除下载任务？',
-            content: '任务将从列表移除，已经下载的数据会保留。',
-          );
-          if (confirmed) await onAction((store) => store.remove(task.id));
-        }, color: BTColors.errorLight(context)),
+        _button(
+          context,
+          FluentIcons.delete,
+          '移除任务 (长按直接删除)',
+          () async {
+            var confirmed = await showConfirm(
+              context,
+              title: '移除下载任务？',
+              content: '任务将从列表移除，已经下载的数据会保留。',
+            );
+            if (confirmed) await onAction((store) => store.remove(task.id));
+          },
+          onLongPress: () => _quickRemove(context),
+          color: BTColors.errorLight(context),
+        ),
       ],
     );
+  }
+
+  Future<void> _quickRemove(BuildContext context) async {
+    var downloading = task.state != 'seeding' && task.state != 'completed';
+    if (downloading) {
+      var confirmed = await showConfirm(
+        context,
+        title: '删除下载任务？',
+        content: '任务仍在下载，将停止下载与上传，已下载的数据会保留。',
+      );
+      if (!confirmed) return;
+    }
+    await onAction((store) async {
+      var active =
+          task.state == 'seeding' ||
+          {
+            'metadata',
+            'checking',
+            'queued',
+            'downloading',
+          }.contains(task.state);
+      if (active) {
+        try {
+          await store.pause(task.id);
+        } catch (_) {
+          // 暂停失败不阻塞删除
+        }
+      }
+      await store.remove(task.id);
+    });
   }
 
   Widget _button(
@@ -692,6 +729,7 @@ class _TaskActions extends StatelessWidget {
     Future<void> Function() action, {
     Color? color,
     bool emphasized = false,
+    Future<void> Function()? onLongPress,
   }) {
     var foreground = color ?? BTColors.textSecondary(context);
     return Padding(
@@ -710,6 +748,7 @@ class _TaskActions extends StatelessWidget {
           child: IconButton(
             icon: Icon(icon, size: 15.sp, color: foreground),
             onPressed: action,
+            onLongPress: onLongPress,
           ),
         ),
       ),
