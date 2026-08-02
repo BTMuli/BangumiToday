@@ -88,6 +88,29 @@ class BtDownloadStore extends ChangeNotifier {
     }
   }
 
+  Future<BtTaskSnapshot> addMagnet({
+    required String uri,
+    required String savePath,
+    String? displayName,
+  }) async {
+    _lastError = null;
+    notifyListeners();
+    try {
+      if (!_client.isReady) await _client.start();
+      var task = await _client.addMagnet(
+        uri: uri,
+        savePath: savePath,
+        displayName: displayName,
+      );
+      await _client.refreshTasks();
+      return task;
+    } catch (error) {
+      _lastError = error.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   Future<void> pause(String id) => _runTask(id, () => _client.pause(id));
   Future<void> resume(String id) => _runTask(id, () => _client.resume(id));
   Future<void> retry(String id) => _runTask(id, () => _client.retry(id));

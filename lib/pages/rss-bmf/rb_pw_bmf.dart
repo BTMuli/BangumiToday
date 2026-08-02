@@ -1118,7 +1118,7 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
             _buildLabel(context, '本地目录'),
             TextBox(
               controller: _downloadController,
-              placeholder: 'Motrix 保存文件的目标目录',
+              placeholder: '内置下载引擎保存文件的目标目录',
               suffix: Tooltip(
                 message: '选择目录',
                 child: IconButton(
@@ -1133,7 +1133,7 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
             ),
             SizedBox(height: 10.h),
             Text(
-              '应用会把 torrent 与该目录交给 Motrix；下载任务仍由 Motrix 管理。',
+              '应用会把 torrent 与该目录交给内置下载引擎；任务可在下载管理页查看。',
               style: BTTypography.caption(context),
             ),
           ],

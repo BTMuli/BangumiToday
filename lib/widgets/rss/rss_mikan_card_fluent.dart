@@ -3,26 +3,28 @@ import 'dart:ui';
 import '../../models/rss/rss.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../database/app/app_config.dart';
+import '../../store/bt_download_store.dart';
 import '../../tools/download_tool.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
 
-class RssMikanCardFluent extends StatefulWidget {
+class RssMikanCardFluent extends ConsumerStatefulWidget {
   final RssItem item;
   final String? dir;
 
   const RssMikanCardFluent({super.key, required this.item, this.dir});
 
   @override
-  State<RssMikanCardFluent> createState() => _RssMikanCardFluentState();
+  ConsumerState<RssMikanCardFluent> createState() => _RssMikanCardFluentState();
 }
 
-class _RssMikanCardFluentState extends State<RssMikanCardFluent> {
+class _RssMikanCardFluentState extends ConsumerState<RssMikanCardFluent> {
   bool _isHovered = false;
   bool _isPressed = false;
   final BtsAppConfig sqliteConfig = BtsAppConfig();
@@ -57,8 +59,22 @@ class _RssMikanCardFluentState extends State<RssMikanCardFluent> {
         context: context,
       );
       if (savePath.isNotEmpty) {
-        await launchUrlString('mo://new-task/?type=torrent&dir=$saveDir');
-        await launchUrlString('file://$savePath');
+        try {
+          await ref
+              .read(btDownloadStoreProvider)
+              .addTorrentFile(
+                torrentPath: savePath,
+                savePath: saveDir,
+                displayName: item.title,
+              );
+          if (context.mounted) {
+            await BtInfobar.success(context, '下载任务已添加');
+          }
+        } catch (error) {
+          if (context.mounted) {
+            await BtInfobar.error(context, error.toString());
+          }
+        }
       }
     }
   }

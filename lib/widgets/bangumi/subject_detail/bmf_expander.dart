@@ -2,7 +2,6 @@ import 'dart:async';
 
 import '../../../models/rss/rss.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
@@ -16,7 +15,7 @@ import '../../../database/app/app_rss.dart';
 import '../../../models/database/app_bmf_model.dart';
 import '../../../models/database/app_rss_model.dart';
 import '../../../store/app_store.dart';
-import '../../../store/dtt_store.dart';
+import '../../../store/bt_download_store.dart';
 import '../../../tools/download_tool.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/notifier_tool.dart';
@@ -939,7 +938,7 @@ class _RssItemActions extends ConsumerWidget {
     return savePath.isEmpty ? null : savePath;
   }
 
-  Future<void> downloadWithMotrix(BuildContext context) async {
+  Future<void> download(BuildContext context, WidgetRef ref) async {
     if (item.enclosure?.url == null || item.title == null) return;
     var saveDir = dir;
     if (saveDir == null || saveDir.isEmpty) {
@@ -948,32 +947,20 @@ class _RssItemActions extends ConsumerWidget {
     }
     var savePath = await getSavePath(context);
     if (savePath == null) return;
-    var motrixOpened = await launchUrlString(
-      'mo://new-task/?type=torrent&dir=$saveDir',
-    );
-    var torrentOpened = await launchUrlString('file://$savePath');
-    if (motrixOpened || torrentOpened) {
+    try {
+      await ref
+          .read(btDownloadStoreProvider)
+          .addTorrentFile(
+            torrentPath: savePath,
+            savePath: saveDir,
+            displayName: item.title,
+          );
       await onHandled?.call();
-    } else if (context.mounted) {
-      await BtInfobar.error(context, '未能将任务交给 Motrix');
-    }
-  }
-
-  Future<void> downloadInner(BuildContext context, WidgetRef ref) async {
-    if (item.enclosure?.url == null || item.title == null) return;
-    var saveDir = dir;
-    if (saveDir == null || saveDir.isEmpty) {
-      await BtInfobar.error(context, '未设置下载目录');
-      return;
-    }
-    var check = await ref
-        .read(dttStoreProvider.notifier)
-        .addTask(item, saveDir);
-    if (check) {
-      await onHandled?.call();
-      if (context.mounted) await BtInfobar.success(context, '添加下载任务成功');
-    } else {
-      if (context.mounted) await BtInfobar.warn(context, '已经在下载列表中');
+      if (context.mounted) await BtInfobar.success(context, '下载任务已添加');
+    } catch (error) {
+      if (context.mounted) {
+        await BtInfobar.error(context, error.toString());
+      }
     }
   }
 
@@ -995,23 +982,11 @@ class _RssItemActions extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (kDebugMode)
-          Tooltip(
-            message: '内置下载',
-            child: IconButton(
-              icon: BtIcon(FluentIcons.link, size: 14.sp),
-              onPressed: () async => await downloadInner(context, ref),
-            ),
-          ),
         Tooltip(
-          message: '交给 Motrix',
+          message: '内置下载',
           child: IconButton(
-            icon: Image.asset(
-              'assets/images/platforms/motrix-logo.png',
-              width: 14.sp,
-              height: 14.sp,
-            ),
-            onPressed: () async => await downloadWithMotrix(context),
+            icon: BtIcon(FluentIcons.download, size: 14.sp),
+            onPressed: () async => await download(context, ref),
           ),
         ),
         Tooltip(

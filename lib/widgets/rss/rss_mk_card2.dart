@@ -2,17 +2,19 @@
 import '../../models/rss/rss.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../database/app/app_config.dart';
+import '../../store/bt_download_store.dart';
 import '../../tools/download_tool.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
 
 /// MikanRss卡片，仅用于动画详情页面
-class RssMikanCard2 extends StatelessWidget {
+class RssMikanCard2 extends ConsumerWidget {
   /// rss item
   final RssItem item;
 
@@ -26,7 +28,7 @@ class RssMikanCard2 extends StatelessWidget {
   RssMikanCard2(this.item, {super.key, this.dir});
 
   /// 下载
-  Future<void> download(BuildContext context) async {
+  Future<void> download(BuildContext context, WidgetRef ref) async {
     assert(item.enclosure != null && item.enclosure!.url != null);
     assert(item.title != null && item.title != '');
     // 获取mikan下载链接
@@ -54,14 +56,28 @@ class RssMikanCard2 extends StatelessWidget {
         context: context,
       );
       if (savePath != '') {
-        await launchUrlString('mo://new-task/?type=torrent&dir=$saveDir');
-        await launchUrlString('file://$savePath');
+        try {
+          await ref
+              .read(btDownloadStoreProvider)
+              .addTorrentFile(
+                torrentPath: savePath,
+                savePath: saveDir,
+                displayName: item.title,
+              );
+          if (context.mounted) {
+            await BtInfobar.success(context, '下载任务已添加');
+          }
+        } catch (error) {
+          if (context.mounted) {
+            await BtInfobar.error(context, error.toString());
+          }
+        }
       }
     }
   }
 
   /// 构建操作按钮
-  Widget buildAct(BuildContext context) {
+  Widget buildAct(BuildContext context, WidgetRef ref) {
     var color = FluentTheme.of(context).accentColor;
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
@@ -70,7 +86,7 @@ class RssMikanCard2 extends StatelessWidget {
           message: '下载',
           child: IconButton(
             icon: Icon(FluentIcons.link, color: color),
-            onPressed: () async => await download(context),
+            onPressed: () async => await download(context, ref),
           ),
         ),
         Tooltip(
@@ -98,7 +114,7 @@ class RssMikanCard2 extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     var sizeStr = '', pubDate = '';
     if (item.enclosure?.length != null) {
       var size = item.enclosure!.length;
@@ -148,7 +164,7 @@ class RssMikanCard2 extends StatelessWidget {
                 ),
               ],
             ),
-            buildAct(context),
+            buildAct(context, ref),
           ],
         ),
       ),

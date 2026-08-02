@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+import '../../store/bt_download_store.dart';
 import '../../tools/download_tool.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
@@ -32,7 +33,12 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent> {
   int? get contentLength => item.torrent?.contentLength;
 
   Future<void> _download(BuildContext context) async {
-    if (item.enclosure?.url == null || item.title == null) return;
+    if (item.title == null) return;
+    if ((magnetUri == null || magnetUri!.isEmpty) &&
+        item.enclosure?.url == null) {
+      await BtInfobar.error(context, '未找到可用的种子或磁力链接');
+      return;
+    }
 
     var saveDir = await getDirectoryPath();
     if (saveDir == null || saveDir.isEmpty) {
@@ -40,14 +46,33 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent> {
       return;
     }
 
-    var savePath = await BTDownloadTool().downloadRssTorrent(
-      item.enclosure!.url!,
-      item.title!,
-    );
-
-    if (savePath.isNotEmpty) {
-      await launchUrlString('mo://new-task/?type=torrent&dir=$saveDir');
-      await launchUrlString('file://$savePath');
+    try {
+      var magnet = magnetUri;
+      if (magnet != null && magnet.isNotEmpty) {
+        await ref
+            .read(btDownloadStoreProvider)
+            .addMagnet(uri: magnet, savePath: saveDir, displayName: item.title);
+      } else {
+        var torrentPath = await BTDownloadTool().downloadRssTorrent(
+          item.enclosure!.url!,
+          item.title!,
+        );
+        if (torrentPath.isEmpty) return;
+        await ref
+            .read(btDownloadStoreProvider)
+            .addTorrentFile(
+              torrentPath: torrentPath,
+              savePath: saveDir,
+              displayName: item.title,
+            );
+      }
+      if (context.mounted) {
+        await BtInfobar.success(context, '下载任务已添加');
+      }
+    } catch (error) {
+      if (context.mounted) {
+        await BtInfobar.error(context, error.toString());
+      }
     }
   }
 
@@ -188,7 +213,7 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           Tooltip(
-                            message: '下载种子',
+                            message: magnetUri == null ? '内置下载' : '磁力下载',
                             child: IconButton(
                               icon: Icon(
                                 FluentIcons.download,

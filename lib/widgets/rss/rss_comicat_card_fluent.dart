@@ -8,7 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-import '../../store/dtt_store.dart';
+import '../../store/bt_download_store.dart';
 import '../../tools/download_tool.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
@@ -44,26 +44,23 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
     );
 
     if (savePath.isNotEmpty) {
-      await launchUrlString('mo://new-task/?type=torrent&dir=$saveDir');
-      await launchUrlString('file://$savePath');
+      try {
+        await ref
+            .read(btDownloadStoreProvider)
+            .addTorrentFile(
+              torrentPath: savePath,
+              savePath: saveDir,
+              displayName: item.title,
+            );
+        if (context.mounted) {
+          await BtInfobar.success(context, '下载任务已添加');
+        }
+      } catch (error) {
+        if (context.mounted) {
+          await BtInfobar.error(context, error.toString());
+        }
+      }
     }
-  }
-
-  Future<void> _downloadInner(BuildContext context) async {
-    var saveDir = await getDirectoryPath();
-    if (saveDir == null || saveDir.isEmpty) {
-      if (context.mounted) await BtInfobar.error(context, '未选择下载目录');
-      return;
-    }
-
-    var check = await ref
-        .read(dttStoreProvider.notifier)
-        .addTask(item, saveDir);
-    if (check && context.mounted) {
-      await BtInfobar.success(context, '添加下载任务成功');
-      return;
-    }
-    if (context.mounted) await BtInfobar.warn(context, '已经在下载列表中');
   }
 
   Future<void> _openLink() async {
@@ -276,7 +273,7 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           Tooltip(
-                            message: '下载',
+                            message: '内置下载',
                             child: IconButton(
                               icon: Icon(
                                 FluentIcons.download,
@@ -284,17 +281,6 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                                 color: accentColor,
                               ),
                               onPressed: () => _download(context),
-                            ),
-                          ),
-                          Tooltip(
-                            message: '内置下载',
-                            child: IconButton(
-                              icon: Icon(
-                                FluentIcons.save,
-                                size: 16.sp,
-                                color: accentColor,
-                              ),
-                              onPressed: () => _downloadInner(context),
                             ),
                           ),
                           Tooltip(

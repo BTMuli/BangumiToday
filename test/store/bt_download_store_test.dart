@@ -89,6 +89,19 @@ void main() {
         expect(gateway.refreshCalls, 1);
       },
     );
+
+    test('submits a magnet through the same global task store', () async {
+      var result = await store.addMagnet(
+        uri: 'magnet:?xt=urn:btih:example',
+        savePath: r'D:\Downloads',
+        displayName: 'Magnet Example',
+      );
+
+      expect(result.state, 'metadata');
+      expect(gateway.startCalls, 1);
+      expect(gateway.addedMagnetName, 'Magnet Example');
+      expect(gateway.refreshCalls, 1);
+    });
   });
 }
 
@@ -127,6 +140,7 @@ class FakeBtEngineGateway implements BtEngineGateway {
   String? removedTaskId;
   bool? removedWithData;
   String? addedDisplayName;
+  String? addedMagnetName;
 
   @override
   Stream<BtEngineEvent> get events => _events.stream;
@@ -192,6 +206,7 @@ class FakeBtEngineGateway implements BtEngineGateway {
     String? displayName,
     bool start = true,
   }) async {
+    addedMagnetName = displayName;
     return _task(state: 'metadata');
   }
 
