@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 // Project imports:
 import '../../tools/log_tool.dart';
+import 'windows_job_object.dart';
 
 const btEngineProtocolVersion = '1.0';
 const _maxProtocolFrameBytes = 1024 * 1024;
@@ -141,9 +142,18 @@ abstract interface class BtEngineProcess {
 }
 
 class IoBtEngineProcess implements BtEngineProcess {
-  IoBtEngineProcess(this._process);
+  IoBtEngineProcess(this._process, {WindowsJobObject? jobObject})
+    : _jobObject = jobObject {
+    unawaited(
+      _process.exitCode.then(
+        (_) => _releaseJobObject(),
+        onError: (Object _, StackTrace _) => _releaseJobObject(),
+      ),
+    );
+  }
 
   final Process _process;
+  WindowsJobObject? _jobObject;
 
   @override
   Stream<List<int>> get stdout => _process.stdout;
@@ -159,6 +169,11 @@ class IoBtEngineProcess implements BtEngineProcess {
 
   @override
   bool kill() => _process.kill();
+
+  void _releaseJobObject() {
+    _jobObject?.close();
+    _jobObject = null;
+  }
 }
 
 typedef BtEngineProcessStarter =
@@ -690,6 +705,22 @@ class BtEngineClient implements BtEngineGateway {
       workingDirectory: path.dirname(executable),
       mode: ProcessStartMode.normal,
     );
-    return IoBtEngineProcess(process);
+    try {
+      var jobObject = Platform.isWindows
+          ? WindowsJobObject.attach(process.pid)
+          : null;
+      return IoBtEngineProcess(process, jobObject: jobObject);
+    } catch (error) {
+      process.kill();
+      try {
+        await process.exitCode.timeout(const Duration(seconds: 2));
+      } on TimeoutException {
+        // The process has already received a termination request. Preserve the
+        // Job Object error because supervision is mandatory on Windows.
+      }
+      throw BtEngineClientException(
+        'failed to supervise download engine process: $error',
+      );
+    }
   }
 }
