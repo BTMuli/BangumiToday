@@ -67,7 +67,13 @@ class BtDownloadStore extends ChangeNotifier {
   BtEngineClientState get engineState => _engineState;
   String? get lastError => _lastError;
   bool get refreshing => _refreshing;
+  int get totalDownloadRate =>
+      _tasks.fold(0, (total, task) => total + task.downloadRate);
+  int get totalUploadRate =>
+      _tasks.fold(0, (total, task) => total + task.uploadRate);
   bool isTaskBusy(String id) => _busyTaskIds.contains(id);
+
+  Future<BtTaskDetails> taskDetails(String id) => _client.taskDetails(id);
 
   Future<void> refresh() async {
     if (_refreshing) return;

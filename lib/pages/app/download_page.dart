@@ -9,6 +9,8 @@ import '../../store/bt_download_store.dart';
 import '../../tools/file_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import '../../widgets/common/bt_drawer.dart';
+import 'download_task_details.dart';
 
 class DownloadPage extends ConsumerWidget {
   const DownloadPage({super.key});
@@ -22,6 +24,11 @@ class DownloadPage extends ConsumerWidget {
         commandBar: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            _TotalRates(
+              downloadRate: store.totalDownloadRate,
+              uploadRate: store.totalUploadRate,
+            ),
+            SizedBox(width: 16.w),
             _EngineStatus(state: store.engineState),
             SizedBox(width: 8.w),
             IconButton(
@@ -149,6 +156,29 @@ class _EngineStatus extends StatelessWidget {
   }
 }
 
+class _TotalRates extends StatelessWidget {
+  const _TotalRates({required this.downloadRate, required this.uploadRate});
+
+  final int downloadRate;
+  final int uploadRate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(FluentIcons.download, size: 14),
+        const SizedBox(width: 5),
+        Text('${BTFileTool.formatSize(downloadRate)}/s'),
+        SizedBox(width: 12.w),
+        const Icon(FluentIcons.upload, size: 14),
+        const SizedBox(width: 5),
+        Text('${BTFileTool.formatSize(uploadRate)}/s'),
+      ],
+    );
+  }
+}
+
 class _DownloadTaskCard extends StatelessWidget {
   const _DownloadTaskCard({
     required this.task,
@@ -200,7 +230,10 @@ class _DownloadTaskCard extends StatelessWidget {
               ],
             ),
             SizedBox(height: 12.h),
-            ProgressBar(value: progress),
+            SizedBox(
+              width: double.infinity,
+              child: ProgressBar(value: progress),
+            ),
             SizedBox(height: 8.h),
             Wrap(
               spacing: 16.w,
@@ -295,6 +328,16 @@ class _TaskActions extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        _button(FluentIcons.info, '任务详情', () async {
+          await showBTDrawer(
+            context: context,
+            width: 760,
+            child: BTDrawer(
+              title: '任务详情',
+              child: DownloadTaskDetails(taskId: task.id, initialTask: task),
+            ),
+          );
+        }),
         if ({
           'metadata',
           'checking',

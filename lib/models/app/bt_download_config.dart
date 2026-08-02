@@ -1,36 +1,36 @@
 class BtDownloadConfig {
   const BtDownloadConfig({
-    this.activeDownloads = 2,
+    this.activeDownloads = 4,
     this.downloadRateLimit = 0,
-    this.uploadRateLimit = 1024 * 1024,
-    this.connectionsLimit = 200,
-    this.connectionsPerTask = 80,
+    this.uploadRateLimit = 0,
+    this.connectionsLimit = 256,
+    this.connectionsPerTask = 64,
     this.metadataTimeoutSeconds = 300,
-    this.seedingEnabled = false,
+    this.seedingEnabled = true,
     this.seedRatioLimit = 2,
     this.seedTimeLimitMinutes = 60,
-    this.seedingDisclosureAccepted = false,
+    this.seedingDisclosureAccepted = true,
   });
 
   const BtDownloadConfig.freshInstall()
-    : activeDownloads = 2,
+    : activeDownloads = 4,
       downloadRateLimit = 0,
-      uploadRateLimit = 1024 * 1024,
-      connectionsLimit = 200,
-      connectionsPerTask = 80,
+      uploadRateLimit = 0,
+      connectionsLimit = 256,
+      connectionsPerTask = 64,
       metadataTimeoutSeconds = 300,
       seedingEnabled = true,
       seedRatioLimit = 2,
       seedTimeLimitMinutes = 60,
-      seedingDisclosureAccepted = false;
+      seedingDisclosureAccepted = true;
 
   factory BtDownloadConfig.fromJson(Map<String, dynamic> json) {
     var config = BtDownloadConfig(
-      activeDownloads: _readInt(json, 'activeDownloads', 2),
+      activeDownloads: _readInt(json, 'activeDownloads', 4),
       downloadRateLimit: _readInt(json, 'downloadRateLimit', 0),
-      uploadRateLimit: _readInt(json, 'uploadRateLimit', 1024 * 1024),
-      connectionsLimit: _readInt(json, 'connectionsLimit', 200),
-      connectionsPerTask: _readInt(json, 'connectionsPerTask', 80),
+      uploadRateLimit: _readInt(json, 'uploadRateLimit', 0),
+      connectionsLimit: _readInt(json, 'connectionsLimit', 256),
+      connectionsPerTask: _readInt(json, 'connectionsPerTask', 64),
       metadataTimeoutSeconds: _readInt(json, 'metadataTimeoutSeconds', 300),
       seedingEnabled: json['seedingEnabled'] as bool? ?? false,
       seedRatioLimit: _readDouble(json, 'seedRatioLimit', 2),

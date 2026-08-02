@@ -6,19 +6,19 @@ void main() {
     const config = BtDownloadConfig();
 
     expect(config.toJson(), {
-      'activeDownloads': 2,
+      'activeDownloads': 4,
       'downloadRateLimit': 0,
-      'uploadRateLimit': 1024 * 1024,
-      'connectionsLimit': 200,
-      'connectionsPerTask': 80,
+      'uploadRateLimit': 0,
+      'connectionsLimit': 256,
+      'connectionsPerTask': 64,
       'metadataTimeoutSeconds': 300,
-      'seedingEnabled': false,
+      'seedingEnabled': true,
       'seedRatioLimit': 2.0,
       'seedTimeLimitMinutes': 60,
-      'seedingDisclosureAccepted': false,
+      'seedingDisclosureAccepted': true,
     });
     expect(config.downloadRateLimitKiB, 0);
-    expect(config.uploadRateLimitKiB, 1024);
+    expect(config.uploadRateLimitKiB, 0);
   });
 
   test('round trips customized settings', () {
@@ -59,7 +59,7 @@ void main() {
     );
   });
 
-  test('keeps upgrades safe and gates fresh-install seeding on disclosure', () {
+  test('keeps upgrades safe and enables fresh-install seeding', () {
     var upgraded = BtDownloadConfig.fromJson({
       'activeDownloads': 2,
       'connectionsLimit': 200,
@@ -70,7 +70,8 @@ void main() {
 
     expect(upgraded.seedingEnabled, isFalse);
     expect(fresh.seedingEnabled, isTrue);
-    expect(fresh.toEngineJson()['seedingEnabled'], isFalse);
+    expect(fresh.seedingDisclosureAccepted, isTrue);
+    expect(fresh.toEngineJson()['seedingEnabled'], isTrue);
     expect(
       fresh
           .copyWith(seedingDisclosureAccepted: true)

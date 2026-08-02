@@ -123,6 +123,23 @@ void main() {
       );
     });
 
+    test('parses task detail sections', () async {
+      await client.start(
+        executablePath: executablePath,
+        statePath: path.join(temporaryDirectory.path, 'state'),
+      );
+
+      var details = await client.taskDetails('task');
+
+      expect(details.task.id, 'task');
+      expect(details.pieceCount, 2);
+      expect(details.completedPieces, '10');
+      expect(details.files.single.path, 'episode.mkv');
+      expect(details.files.single.progress, 0.5);
+      expect(details.peers.single.client, 'qBittorrent');
+      expect(details.peers.single.downloadRate, 1024);
+    });
+
     test(
       'reloads the full snapshot when an event sequence has a gap',
       () async {
@@ -347,6 +364,30 @@ class FakeBtEngineProcess implements BtEngineProcess {
             ? taskLists[_taskListIndex++]
             : {'tasks': <Map<String, dynamic>>[], 'sequence': 0};
         _respond(request, result: result);
+      case 'task.details':
+        _respond(
+          request,
+          result: {
+            'task': _taskJson(id: 'task', state: 'downloading'),
+            'pieceLength': 16384,
+            'pieceCount': 2,
+            'completedPieces': '10',
+            'files': [
+              {'path': 'episode.mkv', 'size': 100, 'completedBytes': 50},
+            ],
+            'filesTruncated': false,
+            'peers': [
+              {
+                'endpoint': '127.0.0.1:6881',
+                'client': 'qBittorrent',
+                'progress': 0.75,
+                'downloadRate': 1024,
+                'uploadRate': 0,
+              },
+            ],
+            'peersTruncated': false,
+          },
+        );
       case 'engine.status':
         _respond(
           request,

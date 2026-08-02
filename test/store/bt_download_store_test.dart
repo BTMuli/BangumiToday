@@ -32,6 +32,8 @@ void main() {
 
       expect(store.engineState, BtEngineClientState.ready);
       expect(store.tasks.single.state, 'downloading');
+      expect(store.totalDownloadRate, 10);
+      expect(store.totalUploadRate, 2);
     });
 
     test('starts a stopped engine and refreshes a ready engine', () async {
@@ -237,6 +239,20 @@ class FakeBtEngineGateway implements BtEngineGateway {
   Future<void> refreshTasks() async {
     refreshCalls++;
     emitTasks(currentTasks);
+  }
+
+  @override
+  Future<BtTaskDetails> taskDetails(String id) async {
+    return BtTaskDetails(
+      task: _task(state: 'downloading'),
+      pieceLength: 16,
+      pieceCount: 2,
+      completedPieces: '10',
+      files: const [],
+      filesTruncated: false,
+      peers: const [],
+      peersTruncated: false,
+    );
   }
 
   @override

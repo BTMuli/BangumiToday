@@ -118,6 +118,100 @@ class BtTaskSnapshot {
   final BtTaskError? lastError;
 }
 
+class BtTaskFileDetail {
+  const BtTaskFileDetail({
+    required this.path,
+    required this.size,
+    required this.completedBytes,
+  });
+
+  factory BtTaskFileDetail.fromJson(Map<String, dynamic> json) {
+    return BtTaskFileDetail(
+      path: json['path'] as String? ?? '',
+      size: (json['size'] as num?)?.toInt() ?? 0,
+      completedBytes: (json['completedBytes'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  final String path;
+  final int size;
+  final int completedBytes;
+
+  double get progress => size <= 0 ? 0 : (completedBytes / size).clamp(0, 1);
+}
+
+class BtTaskPeerDetail {
+  const BtTaskPeerDetail({
+    required this.endpoint,
+    required this.client,
+    required this.progress,
+    required this.downloadRate,
+    required this.uploadRate,
+  });
+
+  factory BtTaskPeerDetail.fromJson(Map<String, dynamic> json) {
+    return BtTaskPeerDetail(
+      endpoint: json['endpoint'] as String? ?? '',
+      client: json['client'] as String? ?? 'unknown',
+      progress: ((json['progress'] as num?)?.toDouble() ?? 0).clamp(0, 1),
+      downloadRate: (json['downloadRate'] as num?)?.toInt() ?? 0,
+      uploadRate: (json['uploadRate'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  final String endpoint;
+  final String client;
+  final double progress;
+  final int downloadRate;
+  final int uploadRate;
+}
+
+class BtTaskDetails {
+  const BtTaskDetails({
+    required this.task,
+    required this.pieceLength,
+    required this.pieceCount,
+    required this.completedPieces,
+    required this.files,
+    required this.filesTruncated,
+    required this.peers,
+    required this.peersTruncated,
+  });
+
+  factory BtTaskDetails.fromJson(Map<String, dynamic> json) {
+    List<T> parseList<T>(String key, T Function(Map<String, dynamic>) parse) {
+      var values = json[key];
+      if (values is! List) return const [];
+      return values
+          .whereType<Map>()
+          .map((value) => parse(Map<String, dynamic>.from(value)))
+          .toList(growable: false);
+    }
+
+    return BtTaskDetails(
+      task: BtTaskSnapshot.fromJson(
+        Map<String, dynamic>.from(json['task'] as Map),
+      ),
+      pieceLength: (json['pieceLength'] as num?)?.toInt() ?? 0,
+      pieceCount: (json['pieceCount'] as num?)?.toInt() ?? 0,
+      completedPieces: json['completedPieces'] as String? ?? '',
+      files: parseList('files', BtTaskFileDetail.fromJson),
+      filesTruncated: json['filesTruncated'] as bool? ?? false,
+      peers: parseList('peers', BtTaskPeerDetail.fromJson),
+      peersTruncated: json['peersTruncated'] as bool? ?? false,
+    );
+  }
+
+  final BtTaskSnapshot task;
+  final int pieceLength;
+  final int pieceCount;
+  final String completedPieces;
+  final List<BtTaskFileDetail> files;
+  final bool filesTruncated;
+  final List<BtTaskPeerDetail> peers;
+  final bool peersTruncated;
+}
+
 class BtEngineEvent {
   const BtEngineEvent({required this.method, required this.params});
 
@@ -215,6 +309,7 @@ abstract interface class BtEngineGateway {
   });
 
   Future<void> refreshTasks();
+  Future<BtTaskDetails> taskDetails(String id);
   Future<Map<String, dynamic>> status();
   Future<Map<String, dynamic>> configure(Map<String, dynamic> config);
   Future<BtTaskSnapshot> addTorrentFile({
@@ -391,6 +486,12 @@ class BtEngineClient implements BtEngineGateway {
 
   @override
   Future<void> refreshTasks() => _loadTasks();
+
+  @override
+  Future<BtTaskDetails> taskDetails(String id) async {
+    var result = await request('task.details', {'id': id});
+    return BtTaskDetails.fromJson(result);
+  }
 
   @override
   Future<Map<String, dynamic>> configure(Map<String, dynamic> config) {

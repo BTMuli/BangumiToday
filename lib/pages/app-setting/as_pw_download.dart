@@ -216,7 +216,7 @@ class _AppConfigDownloadWidgetState
                 ),
                 _numberSetting(
                   title: '上传限速（KiB/s）',
-                  description: '设为 0 表示不限速；默认限制为 1024 KiB/s',
+                  description: '设为 0 表示不限速',
                   value: _config.uploadRateLimitKiB,
                   min: 0,
                   max: _maxRateLimitKiB,

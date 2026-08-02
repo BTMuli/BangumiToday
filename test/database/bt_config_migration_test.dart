@@ -11,16 +11,17 @@ void main() {
 
   tearDownAll(() => BTSqlite().db.close());
 
-  test(
-    'prefills fresh installs without enabling seeding before consent',
-    () async {
-      var config = await BtsAppConfig().readBtDownloadConfig();
+  test('prefills fresh installs with product download defaults', () async {
+    var config = await BtsAppConfig().readBtDownloadConfig();
 
-      expect(config.seedingEnabled, isTrue);
-      expect(config.seedingDisclosureAccepted, isFalse);
-      expect(config.toEngineJson()['seedingEnabled'], isFalse);
-    },
-  );
+    expect(config.seedingEnabled, isTrue);
+    expect(config.seedingDisclosureAccepted, isTrue);
+    expect(config.toEngineJson()['seedingEnabled'], isTrue);
+    expect(config.activeDownloads, 4);
+    expect(config.uploadRateLimit, 0);
+    expect(config.connectionsLimit, 256);
+    expect(config.connectionsPerTask, 64);
+  });
 
   test('migrates an existing 1.0 config to completion-immediately', () async {
     await BtsAppConfig().write('btDownloadConfig', '''{
