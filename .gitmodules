@@ -1,3 +1,3 @@
 [submodule "repos/bt_download"]
 	path = repos/bt_download
-	url = https://github.com/BTMuli/bt_download.git
+	url = git@github.com:BTMuli/bt_download.git
