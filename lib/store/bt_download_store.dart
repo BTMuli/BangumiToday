@@ -9,17 +9,27 @@ import 'package:flutter_riverpod/legacy.dart';
 
 // Project imports:
 import '../core/services/bt_engine_client.dart';
+import '../tools/file_tool.dart';
+import '../tools/log_tool.dart';
+import '../tools/notifier_tool.dart';
+
+typedef BtTaskCompletionNotifier = Future<void> Function(BtTaskSnapshot task);
 
 final btDownloadStoreProvider = ChangeNotifierProvider<BtDownloadStore>((ref) {
   return BtDownloadStore();
 });
 
 class BtDownloadStore extends ChangeNotifier {
-  BtDownloadStore({BtEngineGateway? client})
-    : _client = client ?? BtEngineClient.instance,
-      _engineState = (client ?? BtEngineClient.instance).state,
-      _tasks = List.of((client ?? BtEngineClient.instance).tasks) {
+  BtDownloadStore({
+    BtEngineGateway? client,
+    BtTaskCompletionNotifier? completionNotifier,
+  }) : _client = client ?? BtEngineClient.instance,
+       _completionNotifier = completionNotifier ?? _showCompletionNotification,
+       _engineState = (client ?? BtEngineClient.instance).state,
+       _tasks = List.of((client ?? BtEngineClient.instance).tasks) {
+    _taskStates.addEntries(_tasks.map((task) => MapEntry(task.id, task.state)));
     _taskSubscription = _client.taskSnapshots.listen((tasks) {
+      _notifyNewCompletions(tasks);
       _tasks = List.of(tasks);
       notifyListeners();
     });
@@ -31,9 +41,11 @@ class BtDownloadStore extends ChangeNotifier {
   }
 
   final BtEngineGateway _client;
+  final BtTaskCompletionNotifier _completionNotifier;
   late final StreamSubscription<List<BtTaskSnapshot>> _taskSubscription;
   late final StreamSubscription<BtEngineClientState> _stateSubscription;
   final Set<String> _busyTaskIds = {};
+  final Map<String, String> _taskStates = {};
   List<BtTaskSnapshot> _tasks;
   BtEngineClientState _engineState;
   String? _lastError;
@@ -119,6 +131,18 @@ class BtDownloadStore extends ChangeNotifier {
     return _runTask(id, () => _client.remove(id, deleteData: false));
   }
 
+  Future<void> configure(Map<String, dynamic> config) async {
+    _lastError = null;
+    notifyListeners();
+    try {
+      if (_client.isReady) await _client.configure(config);
+    } catch (error) {
+      _lastError = error.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   void clearError() {
     if (_lastError == null) return;
     _lastError = null;
@@ -139,6 +163,37 @@ class BtDownloadStore extends ChangeNotifier {
       _busyTaskIds.remove(id);
       notifyListeners();
     }
+  }
+
+  void _notifyNewCompletions(List<BtTaskSnapshot> tasks) {
+    var nextStates = <String, String>{};
+    for (var task in tasks) {
+      var previousState = _taskStates[task.id];
+      if (previousState != null &&
+          previousState != 'completed' &&
+          task.state == 'completed') {
+        unawaited(
+          _completionNotifier(task).catchError((Object error) {
+            BTLogTool.error('显示 BT 下载完成通知失败：$error');
+          }),
+        );
+      }
+      nextStates[task.id] = task.state;
+    }
+    _taskStates
+      ..clear()
+      ..addAll(nextStates);
+  }
+
+  static Future<void> _showCompletionNotification(BtTaskSnapshot task) {
+    var title = task.displayName.isEmpty
+        ? task.infoHash ?? task.id
+        : task.displayName;
+    return BTNotifierTool.showMini(
+      title: '下载完成',
+      body: title,
+      onClick: () => unawaited(BTFileTool().openDir(task.savePath)),
+    );
   }
 
   @override

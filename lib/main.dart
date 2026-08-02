@@ -73,7 +73,9 @@ Future<void> _initBackgroundServices() async {
   await BTLogTool.init();
 
   await BTSqlite.init();
-  BtrBangumiApi.setBaseUrl(await BtsAppConfig().readBangumiUrl());
+  var appConfig = BtsAppConfig();
+  BtrBangumiApi.setBaseUrl(await appConfig.readBangumiUrl());
+  var btDownloadConfig = await appConfig.readBtDownloadConfig();
 
   await BTHiveTool.init();
 
@@ -81,7 +83,10 @@ Future<void> _initBackgroundServices() async {
     _runOptionalService('下载服务', BTDownloadTool.init),
     _runOptionalService('通知服务', BTNotifierTool.init),
     if (Platform.isWindows)
-      _runOptionalService('BT 下载引擎', BtEngineClient.instance.start),
+      _runOptionalService(
+        'BT 下载引擎',
+        () => BtEngineClient.instance.start(config: btDownloadConfig.toJson()),
+      ),
   ]);
 
   await Future.wait([

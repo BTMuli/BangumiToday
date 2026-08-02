@@ -75,6 +75,12 @@ void main() {
         'statePath': path.absolute(statePath),
         'config': {'activeDownloads': 1},
       });
+      expect(
+        process.requests.any(
+          (request) => request['method'] == 'engine.configure',
+        ),
+        isTrue,
+      );
 
       process.emitStderr('diagnostic');
       await Future<void>.delayed(Duration.zero);

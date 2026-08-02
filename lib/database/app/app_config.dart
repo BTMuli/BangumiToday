@@ -1,8 +1,12 @@
+// Dart imports:
+import 'dart:convert';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 
 // Project imports:
 import '../../core/constants/app_constants.dart';
+import '../../models/app/bt_download_config.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
 
@@ -198,5 +202,31 @@ class BtsAppConfig {
   /// 写入/更新 Bangumi API 镜像地址
   Future<void> writeBangumiUrl(String url) async {
     await _instance.write('bangumiUrl', url);
+  }
+
+  Future<BtDownloadConfig> readBtDownloadConfig() async {
+    var value = await _instance.read('btDownloadConfig');
+    if (value == null || value.isEmpty) {
+      const config = BtDownloadConfig();
+      await writeBtDownloadConfig(config);
+      return config;
+    }
+    try {
+      var decoded = jsonDecode(value);
+      if (decoded is! Map) {
+        throw const FormatException('config is not an object');
+      }
+      return BtDownloadConfig.fromJson(Map<String, dynamic>.from(decoded));
+    } catch (error) {
+      BTLogTool.warn('Invalid BT download config: $error');
+      const config = BtDownloadConfig();
+      await writeBtDownloadConfig(config);
+      return config;
+    }
+  }
+
+  Future<void> writeBtDownloadConfig(BtDownloadConfig config) async {
+    config.validate();
+    await _instance.write('btDownloadConfig', jsonEncode(config.toJson()));
   }
 }

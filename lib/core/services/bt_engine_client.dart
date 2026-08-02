@@ -301,6 +301,7 @@ class BtEngineClient implements BtEngineGateway {
         if (config.isNotEmpty) 'config': config,
       });
       await _loadTasks();
+      if (config.isNotEmpty) await request('engine.configure', config);
       _setState(BtEngineClientState.ready);
     } catch (_) {
       _setState(BtEngineClientState.failed);

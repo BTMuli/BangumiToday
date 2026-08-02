@@ -8,10 +8,15 @@ void main() {
   group('BtDownloadStore', () {
     late FakeBtEngineGateway gateway;
     late BtDownloadStore store;
+    late List<BtTaskSnapshot> completedTasks;
 
     setUp(() {
       gateway = FakeBtEngineGateway();
-      store = BtDownloadStore(client: gateway);
+      completedTasks = [];
+      store = BtDownloadStore(
+        client: gateway,
+        completionNotifier: (task) async => completedTasks.add(task),
+      );
     });
 
     tearDown(() async {
@@ -102,6 +107,25 @@ void main() {
       expect(gateway.addedMagnetName, 'Magnet Example');
       expect(gateway.refreshCalls, 1);
     });
+
+    test('notifies only when a known task enters completed state', () async {
+      gateway.emitTasks([_task(state: 'downloading')]);
+      gateway.emitTasks([_task(state: 'completed')]);
+      gateway.emitTasks([_task(state: 'completed')]);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(completedTasks, hasLength(1));
+      expect(completedTasks.single.id, 'task');
+    });
+
+    test('applies settings immediately when the engine is ready', () async {
+      gateway.emitState(BtEngineClientState.ready);
+      await Future<void>.delayed(Duration.zero);
+
+      await store.configure({'activeDownloads': 3});
+
+      expect(gateway.configured, {'activeDownloads': 3});
+    });
   });
 }
 
@@ -141,6 +165,7 @@ class FakeBtEngineGateway implements BtEngineGateway {
   bool? removedWithData;
   String? addedDisplayName;
   String? addedMagnetName;
+  Map<String, dynamic>? configured;
 
   @override
   Stream<BtEngineEvent> get events => _events.stream;
@@ -212,6 +237,7 @@ class FakeBtEngineGateway implements BtEngineGateway {
 
   @override
   Future<Map<String, dynamic>> configure(Map<String, dynamic> config) async {
+    configured = config;
     return {'config': config};
   }
 
