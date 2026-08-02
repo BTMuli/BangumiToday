@@ -116,6 +116,23 @@ class BtTaskSnapshot {
   final int seeds;
   final bool isPrivate;
   final BtTaskError? lastError;
+
+  /// Info hash in a clean, display-friendly form.
+  ///
+  /// The engine may report libtorrent's [v1,v2] hybrid representation;
+  /// strips the wrapper and prefers the v1 hash when present, falling back
+  /// to the v2 hash for v2-only torrents.
+  String? get displayInfoHash {
+    var value = infoHash;
+    if (value == null || !value.startsWith('[') || !value.endsWith(']')) {
+      return value;
+    }
+    var parts = value.substring(1, value.length - 1).split(',');
+    if (parts.length != 2) return value;
+    if (RegExp(r'[^0]').hasMatch(parts[0])) return parts[0];
+    if (RegExp(r'[^0]').hasMatch(parts[1])) return parts[1];
+    return value;
+  }
 }
 
 class BtTaskFileDetail {

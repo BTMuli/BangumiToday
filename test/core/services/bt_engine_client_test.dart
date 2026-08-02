@@ -22,6 +22,50 @@ void main() {
     );
   });
 
+  group('BtTaskSnapshot.displayInfoHash', () {
+    BtTaskSnapshot snapshotWithHash(String? hash) {
+      return BtTaskSnapshot.fromJson({
+        ..._taskJson(id: 'task', state: 'downloading'),
+        'infoHash': hash,
+      });
+    }
+
+    test('strips the v2 placeholder from a v1 torrent', () {
+      var hash =
+          '[d6a69b11d7ab0c62d4eaacb626314e982408e8b0,'
+          '0000000000000000000000000000000000000000000000000000000000000000]';
+      expect(
+        snapshotWithHash(hash).displayInfoHash,
+        'd6a69b11d7ab0c62d4eaacb626314e982408e8b0',
+      );
+    });
+
+    test('falls back to the v2 hash for a v2-only torrent', () {
+      var hash =
+          '[0000000000000000000000000000000000000000000000000000000000000000,'
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]';
+      expect(
+        snapshotWithHash(hash).displayInfoHash,
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      );
+    });
+
+    test('prefers the v1 hash for hybrid torrents', () {
+      var hash =
+          '[d6a69b11d7ab0c62d4eaacb626314e982408e8b0,'
+          'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb]';
+      expect(
+        snapshotWithHash(hash).displayInfoHash,
+        'd6a69b11d7ab0c62d4eaacb626314e982408e8b0',
+      );
+    });
+
+    test('leaves plain hashes and null unchanged', () {
+      expect(snapshotWithHash(null).displayInfoHash, isNull);
+      expect(snapshotWithHash('abc123').displayInfoHash, 'abc123');
+    });
+  });
+
   group('BtEngineClient', () {
     late Directory temporaryDirectory;
     late String executablePath;

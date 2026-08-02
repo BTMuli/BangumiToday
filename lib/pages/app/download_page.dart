@@ -332,7 +332,7 @@ class _DownloadTaskCard extends StatelessWidget {
     var progress = (task.progress * 100).clamp(0, 100).toDouble();
     var title = task.displayName.isNotEmpty
         ? task.displayName
-        : task.infoHash ?? task.id;
+        : task.displayInfoHash ?? task.id;
     var stateColor = _taskStateColor(context, task.state);
     return BTCard(
       padding: EdgeInsets.zero,

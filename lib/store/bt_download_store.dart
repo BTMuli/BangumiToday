@@ -214,7 +214,7 @@ class BtDownloadStore extends ChangeNotifier {
 
   static Future<void> _showCompletionNotification(BtTaskSnapshot task) {
     var title = task.displayName.isEmpty
-        ? task.infoHash ?? task.id
+        ? task.displayInfoHash ?? task.id
         : task.displayName;
     return BTNotifierTool.showMini(
       title: '下载完成',

@@ -136,7 +136,7 @@ class _DetailsHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var title = task.displayName.isEmpty
-        ? task.infoHash ?? task.id
+        ? task.displayInfoHash ?? task.id
         : task.displayName;
     var color = _taskStateColor(context, task.state);
     var progress = (task.progress * 100).clamp(0, 100).toDouble();
@@ -401,7 +401,10 @@ class _OverviewTab extends StatelessWidget {
             children: [
               _DetailRow(label: '任务状态', value: _stateLabel(task.state)),
               _DetailRow(label: '存储路径', value: task.savePath),
-              _DetailRow(label: 'Info Hash', value: task.infoHash ?? '等待元数据'),
+              _DetailRow(
+                label: 'Info Hash',
+                value: task.displayInfoHash ?? '等待元数据',
+              ),
               _DetailRow(
                 label: '资源大小',
                 value: BTFileTool.formatSize(task.totalBytes),
@@ -514,14 +517,17 @@ class _ProgressTab extends StatelessWidget {
                 ],
               ),
               SizedBox(height: 9.h),
-              ClipRRect(
-                borderRadius: BTRadius.roundBR,
-                child: ProgressBar(
-                  value: percent,
-                  strokeWidth: 8.h,
-                  backgroundColor: FluentTheme.of(
-                    context,
-                  ).accentColor.withValues(alpha: 0.1),
+              SizedBox(
+                width: double.infinity,
+                child: ClipRRect(
+                  borderRadius: BTRadius.roundBR,
+                  child: ProgressBar(
+                    value: percent,
+                    strokeWidth: 8.h,
+                    backgroundColor: FluentTheme.of(
+                      context,
+                    ).accentColor.withValues(alpha: 0.1),
+                  ),
                 ),
               ),
               SizedBox(height: 14.h),
