@@ -41,6 +41,11 @@ After you have created the `.env` file, you could run the project by using the f
 flutter run
 ```
 
+On Windows, the CMake build automatically configures and installs the `bt_download` submodule's
+Release runtime before launching a local Debug/Profile runner. The sidecar is copied to
+`build/windows/x64/runner/<Configuration>/bt_download`. Set `VCPKG_ROOT` only when CMake cannot
+discover the vcpkg installation bundled with Visual Studio.
+
 ### Bundle the Windows Download Engine
 
 Windows release packages can include the `bt_download` sidecar engine. Build and install the engine

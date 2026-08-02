@@ -109,14 +109,115 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
 
 # bt_download sidecar runtime. The complete engine install directory is kept in
 # its own folder so its native dependencies do not pollute the Flutter runner's
-# DLL search path. Set BT_DOWNLOAD_RUNTIME_DIR in the environment before running
-# `flutter build windows`, or pass it as a CMake cache variable.
+# DLL search path. An explicitly supplied runtime is used for release packaging.
+# For local Flutter development, the engine submodule is built automatically and
+# its Release runtime is also bundled with Debug/Profile runners. The sidecar is
+# a separate process, so it does not need to use the runner's build configuration.
 set(BT_DOWNLOAD_RUNTIME_DIR "" CACHE PATH
         "Path to the installed bt_download runtime directory")
 if (DEFINED ENV{BT_DOWNLOAD_RUNTIME_DIR}
         AND NOT "$ENV{BT_DOWNLOAD_RUNTIME_DIR}" STREQUAL "")
     file(TO_CMAKE_PATH "$ENV{BT_DOWNLOAD_RUNTIME_DIR}"
             BT_DOWNLOAD_RUNTIME_DIR)
+endif ()
+
+set(BT_DOWNLOAD_RUNTIME_IS_MANAGED FALSE)
+if (NOT BT_DOWNLOAD_RUNTIME_DIR)
+    get_filename_component(BT_DOWNLOAD_SOURCE_DIR
+            "${CMAKE_CURRENT_SOURCE_DIR}/../repos/bt_download" ABSOLUTE)
+    if (NOT EXISTS "${BT_DOWNLOAD_SOURCE_DIR}/CMakeLists.txt")
+        message(FATAL_ERROR
+                "bt_download submodule is missing. Run: "
+                "git submodule update --init --recursive")
+    endif ()
+
+    set(BT_DOWNLOAD_VCPKG_ROOT "")
+    if (DEFINED ENV{VCPKG_ROOT} AND NOT "$ENV{VCPKG_ROOT}" STREQUAL "")
+        file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT}" BT_DOWNLOAD_VCPKG_ROOT)
+    elseif (DEFINED ENV{VCPKG_INSTALLATION_ROOT}
+            AND NOT "$ENV{VCPKG_INSTALLATION_ROOT}" STREQUAL "")
+        file(TO_CMAKE_PATH "$ENV{VCPKG_INSTALLATION_ROOT}"
+                BT_DOWNLOAD_VCPKG_ROOT)
+    elseif (CMAKE_GENERATOR_INSTANCE
+            AND EXISTS "${CMAKE_GENERATOR_INSTANCE}/VC/vcpkg/scripts/buildsystems/vcpkg.cmake")
+        set(BT_DOWNLOAD_VCPKG_ROOT "${CMAKE_GENERATOR_INSTANCE}/VC/vcpkg")
+    elseif (DEFINED ENV{VSINSTALLDIR}
+            AND EXISTS "$ENV{VSINSTALLDIR}/VC/vcpkg/scripts/buildsystems/vcpkg.cmake")
+        file(TO_CMAKE_PATH "$ENV{VSINSTALLDIR}/VC/vcpkg"
+                BT_DOWNLOAD_VCPKG_ROOT)
+    endif ()
+    if (NOT EXISTS
+            "${BT_DOWNLOAD_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+        message(FATAL_ERROR
+                "vcpkg was not found for the local bt_download build. "
+                "Set VCPKG_ROOT to a complete vcpkg installation.")
+    endif ()
+
+    set(BT_DOWNLOAD_RUNTIME_DIR
+            "${BT_DOWNLOAD_SOURCE_DIR}/out/install/windows-x64-release")
+    set(BT_DOWNLOAD_RUNTIME_IS_MANAGED TRUE)
+
+    file(GLOB_RECURSE BT_DOWNLOAD_BUILD_INPUTS CONFIGURE_DEPENDS
+            "${BT_DOWNLOAD_SOURCE_DIR}/src/*"
+            "${BT_DOWNLOAD_SOURCE_DIR}/include/*"
+            "${BT_DOWNLOAD_SOURCE_DIR}/cmake/*")
+    list(APPEND BT_DOWNLOAD_BUILD_INPUTS
+            "${BT_DOWNLOAD_SOURCE_DIR}/CMakeLists.txt"
+            "${BT_DOWNLOAD_SOURCE_DIR}/CMakePresets.json"
+            "${BT_DOWNLOAD_SOURCE_DIR}/vcpkg.json")
+endif ()
+
+set(BT_DOWNLOAD_REQUIRED_FILES
+        bt_download.exe
+        torrent-rasterbar.dll
+        libcrypto-3-x64.dll
+        libssl-3-x64.dll
+        msvcp140.dll
+        vcruntime140.dll
+        sbom.spdx.json
+        THIRD_PARTY_NOTICES.txt
+        licenses/boost.txt
+        licenses/libtorrent.txt
+        licenses/nlohmann-json.txt
+        licenses/openssl.txt)
+
+if (BT_DOWNLOAD_RUNTIME_IS_MANAGED)
+    set(BT_DOWNLOAD_RUNTIME_OUTPUTS "")
+    foreach (REQUIRED_FILE IN LISTS BT_DOWNLOAD_REQUIRED_FILES)
+        list(APPEND BT_DOWNLOAD_RUNTIME_OUTPUTS
+                "${BT_DOWNLOAD_RUNTIME_DIR}/${REQUIRED_FILE}")
+    endforeach ()
+
+    set(BT_DOWNLOAD_RUNTIME_STAMP
+            "${BT_DOWNLOAD_SOURCE_DIR}/out/build/windows-x64-release/bangumi_today_runtime.stamp")
+    foreach (RUNTIME_OUTPUT IN LISTS BT_DOWNLOAD_RUNTIME_OUTPUTS)
+        if (NOT EXISTS "${RUNTIME_OUTPUT}")
+            file(REMOVE "${BT_DOWNLOAD_RUNTIME_STAMP}")
+        endif ()
+    endforeach ()
+
+    add_custom_command(
+            OUTPUT "${BT_DOWNLOAD_RUNTIME_STAMP}"
+            BYPRODUCTS ${BT_DOWNLOAD_RUNTIME_OUTPUTS}
+            COMMAND "${CMAKE_COMMAND}" -E env
+                    "VCPKG_ROOT=${BT_DOWNLOAD_VCPKG_ROOT}"
+                    "${CMAKE_COMMAND}" --preset windows-x64-release
+            COMMAND "${CMAKE_COMMAND}" --build
+                    --preset windows-x64-release --target bt_download
+            COMMAND "${CMAKE_COMMAND}" --install
+                    out/build/windows-x64-release
+            COMMAND "${CMAKE_COMMAND}" -E touch
+                    "${BT_DOWNLOAD_RUNTIME_STAMP}"
+            DEPENDS ${BT_DOWNLOAD_BUILD_INPUTS}
+            WORKING_DIRECTORY "${BT_DOWNLOAD_SOURCE_DIR}"
+            COMMENT "Building the local bt_download runtime"
+            VERBATIM
+            USES_TERMINAL)
+    add_custom_target(bt_download_runtime
+            DEPENDS "${BT_DOWNLOAD_RUNTIME_STAMP}")
+    add_dependencies(${BINARY_NAME} bt_download_runtime)
+    message(STATUS
+            "Using the managed local bt_download runtime at ${BT_DOWNLOAD_RUNTIME_DIR}")
 endif ()
 
 set(BT_DOWNLOAD_BUNDLE_DIR
@@ -129,25 +230,23 @@ if (BT_DOWNLOAD_RUNTIME_DIR)
     get_filename_component(BT_DOWNLOAD_RUNTIME_DIR
             "${BT_DOWNLOAD_RUNTIME_DIR}" ABSOLUTE)
 
-    set(BT_DOWNLOAD_REQUIRED_FILES
-            bt_download.exe
-            torrent-rasterbar.dll
-            libcrypto-3-x64.dll
-            libssl-3-x64.dll
-            msvcp140.dll
-            vcruntime140.dll
-            sbom.spdx.json
-            THIRD_PARTY_NOTICES.txt
-            licenses/boost.txt
-            licenses/libtorrent.txt
-            licenses/nlohmann-json.txt
-            licenses/openssl.txt)
+    if (NOT BT_DOWNLOAD_RUNTIME_IS_MANAGED)
+        foreach (REQUIRED_FILE IN LISTS BT_DOWNLOAD_REQUIRED_FILES)
+            if (NOT EXISTS "${BT_DOWNLOAD_RUNTIME_DIR}/${REQUIRED_FILE}")
+                message(FATAL_ERROR
+                        "Incomplete bt_download runtime: missing ${REQUIRED_FILE} "
+                        "from ${BT_DOWNLOAD_RUNTIME_DIR}")
+            endif ()
+        endforeach ()
+    endif ()
+
     foreach (REQUIRED_FILE IN LISTS BT_DOWNLOAD_REQUIRED_FILES)
-        if (NOT EXISTS "${BT_DOWNLOAD_RUNTIME_DIR}/${REQUIRED_FILE}")
+        install(CODE "
+          if (NOT EXISTS \"${BT_DOWNLOAD_RUNTIME_DIR}/${REQUIRED_FILE}\")
             message(FATAL_ERROR
-                    "Incomplete bt_download runtime: missing ${REQUIRED_FILE} "
-                    "from ${BT_DOWNLOAD_RUNTIME_DIR}")
-        endif ()
+                    \"Incomplete bt_download runtime: missing ${REQUIRED_FILE} from ${BT_DOWNLOAD_RUNTIME_DIR}\")
+          endif ()
+          " COMPONENT Runtime)
     endforeach ()
 
     install(DIRECTORY "${BT_DOWNLOAD_RUNTIME_DIR}/"
