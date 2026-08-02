@@ -6,6 +6,8 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
+import '../../core/services/bt_engine_client.dart';
+import '../../core/services/windows_firewall_rule.dart';
 import '../../database/app/app_config.dart';
 import '../../models/app/bt_download_config.dart';
 import '../../models/app/bt_tracker_config.dart';
@@ -34,7 +36,9 @@ class _AppConfigDownloadWidgetState
   bool _loading = true;
   bool _saving = false;
   bool _refreshingTrackers = false;
+  bool _firewallBusy = false;
   String? _loadError;
+  EngineFirewallRuleStatus? _firewallStatus;
 
   @override
   void initState() {
@@ -54,6 +58,7 @@ class _AppConfigDownloadWidgetState
         _manualTrackerController.text = trackerConfig.manualTrackers.join('\n');
         _loading = false;
       });
+      await _refreshFirewallStatus();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -138,6 +143,70 @@ class _AppConfigDownloadWidgetState
       if (mounted) await BtInfobar.error(context, '更新 Tracker 失败：$error');
     } finally {
       if (mounted) setState(() => _refreshingTrackers = false);
+    }
+  }
+
+  Future<void> _refreshFirewallStatus() async {
+    EngineFirewallRuleStatus status;
+    try {
+      status = await WindowsFirewallRuleService.instance.status(
+        BtEngineClient.bundledExecutablePath(),
+      );
+    } catch (_) {
+      status = EngineFirewallRuleStatus.unsupported;
+    }
+    if (!mounted) return;
+    setState(() => _firewallStatus = status);
+  }
+
+  Future<void> _registerFirewallRule() async {
+    setState(() => _firewallBusy = true);
+    try {
+      await WindowsFirewallRuleService.instance.register(
+        BtEngineClient.bundledExecutablePath(),
+      );
+      await _refreshFirewallStatus();
+      if (mounted) await BtInfobar.success(context, '防火墙规则已注册');
+    } catch (error) {
+      if (mounted) await BtInfobar.warn(context, '注册防火墙规则失败：$error');
+    } finally {
+      if (mounted) setState(() => _firewallBusy = false);
+    }
+  }
+
+  Future<void> _unregisterFirewallRule() async {
+    var confirmed = await showConfirm(
+      context,
+      title: '移除防火墙规则？',
+      content: '移除后，下载引擎首次运行时会再次出现 Windows 防火墙提示。',
+    );
+    if (!confirmed) return;
+    setState(() => _firewallBusy = true);
+    try {
+      await WindowsFirewallRuleService.instance.unregister(
+        BtEngineClient.bundledExecutablePath(),
+      );
+      await _refreshFirewallStatus();
+      if (mounted) await BtInfobar.success(context, '防火墙规则已移除');
+    } catch (error) {
+      if (mounted) await BtInfobar.warn(context, '移除防火墙规则失败：$error');
+    } finally {
+      if (mounted) setState(() => _firewallBusy = false);
+    }
+  }
+
+  String _firewallStatusText() {
+    switch (_firewallStatus) {
+      case EngineFirewallRuleStatus.registered:
+        return '已注册：首次运行不再弹出防火墙提示';
+      case EngineFirewallRuleStatus.pathMismatch:
+        return '已注册但指向旧路径，请重新注册';
+      case EngineFirewallRuleStatus.notRegistered:
+        return '未注册：首次运行会弹出系统防火墙提示';
+      case EngineFirewallRuleStatus.unsupported:
+        return '无法检测防火墙规则状态';
+      case null:
+        return '正在检测防火墙规则…';
     }
   }
 
@@ -323,6 +392,52 @@ class _AppConfigDownloadWidgetState
                     () =>
                         _config = _config.copyWith(seedTimeLimitMinutes: value),
                   ),
+                ),
+                const Divider(),
+                Text(
+                  'Windows 防火墙规则',
+                  style: FluentTheme.of(context).typography.bodyStrong,
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  '下载引擎会监听网络端口，首次运行会触发 Windows 防火墙提示。'
+                  '注册入站允许规则后不再弹窗；引擎更新后若规则指向旧路径，需要重新注册，'
+                  '也可以直接在新弹窗中点击“允许访问”。注册与移除都需要管理员授权。',
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _firewallStatusText(),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (_firewallStatus ==
+                            EngineFirewallRuleStatus.registered ||
+                        _firewallStatus ==
+                            EngineFirewallRuleStatus.pathMismatch)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Button(
+                          onPressed: _firewallBusy
+                              ? null
+                              : _unregisterFirewallRule,
+                          child: const Text('移除规则'),
+                        ),
+                      ),
+                    FilledButton(
+                      onPressed: _firewallBusy ? null : _registerFirewallRule,
+                      child: _firewallBusy
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: ProgressRing(strokeWidth: 2),
+                            )
+                          : const Text('注册规则'),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 Text(
