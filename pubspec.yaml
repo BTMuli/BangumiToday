@@ -36,8 +36,6 @@ dependencies:
   rss_dart: ^1.0.14
   device_info_plus: ^13.2.0
   dio: ^5.10.0
-  dtorrent_parser: ^1.0.9
-  dtorrent_task: ^0.4.1
   events_emitter2: ^1.0.4
   file_selector: ^1.1.0
   fl_chart: ^1.2.0

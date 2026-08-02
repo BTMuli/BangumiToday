@@ -7,7 +7,6 @@ import '../domain/repositories/bangumi_repository.dart';
 import '../request/bangumi/bangumi_api.dart';
 import '../store/app_store.dart';
 import '../store/bgm_user_hive.dart';
-import '../store/dtt_store.dart';
 import '../store/tracker_hive.dart';
 
 export '../domain/repositories/bmf_repository.dart';
@@ -20,10 +19,6 @@ final appStoreProvider = ChangeNotifierProvider<BTAppStore>((ref) {
 
 final bgmUserHiveProvider = ChangeNotifierProvider<BgmUserHive>((ref) {
   return BgmUserHive();
-});
-
-final dttStoreProvider = ChangeNotifierProvider<DttHive>((ref) {
-  return DttHive();
 });
 
 final trackerHiveProvider = ChangeNotifierProvider<TrackerHive>((ref) {
