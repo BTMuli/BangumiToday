@@ -6,13 +6,19 @@ import 'package:flutter/foundation.dart';
 
 // Package imports:
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../core/services/bt_engine_client.dart';
 import '../database/app/app_config.dart';
+import '../database/app/app_bmf.dart';
+import '../main.dart';
+import '../models/database/app_bmf_model.dart';
 import '../tools/file_tool.dart';
 import '../tools/log_tool.dart';
 import '../tools/notifier_tool.dart';
+import 'bmf_store.dart';
+import 'nav_store.dart';
 import 'tracker_hive.dart';
 
 typedef BtTaskCompletionNotifier = Future<void> Function(BtTaskSnapshot task);
@@ -219,8 +225,34 @@ class BtDownloadStore extends ChangeNotifier {
     return BTNotifierTool.showMini(
       title: '下载完成',
       body: title,
-      onClick: () => unawaited(BTFileTool().openDir(task.savePath)),
+      onClick: () => unawaited(_handleCompletionClick(task)),
     );
+  }
+
+  static Future<void> _handleCompletionClick(BtTaskSnapshot task) async {
+    var bmf = await _findMatchingBmf(task.savePath);
+    if (bmf != null) {
+      globalContainer.read(bmfNavigationProvider).selectSubject(bmf.subject);
+      globalContainer.read(navStoreProvider).setCurIndex(1);
+      return;
+    }
+    await BTFileTool().openDir(task.savePath);
+  }
+
+  static Future<AppBmfModel?> _findMatchingBmf(String savePath) async {
+    if (savePath.isEmpty) return null;
+    try {
+      var bmfList = await BtsAppBmf().readAll();
+      var target = path.normalize(savePath).toLowerCase();
+      for (var bmf in bmfList) {
+        var downloadDir = bmf.download;
+        if (downloadDir == null || downloadDir.isEmpty) continue;
+        if (path.normalize(downloadDir).toLowerCase() == target) return bmf;
+      }
+    } catch (error) {
+      BTLogTool.warn('匹配 BMF 下载目录失败：$error');
+    }
+    return null;
   }
 
   Future<void> _startEngine() async {
