@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -62,12 +60,7 @@ class BTDrawerRoute<T> extends PopupRoute<T> {
               ),
             ],
           ),
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: child,
-            ),
-          ),
+          child: child,
         ),
       ),
     );
