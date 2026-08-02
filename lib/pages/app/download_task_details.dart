@@ -81,6 +81,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
   Widget build(BuildContext context) {
     var store = ref.watch(btDownloadStoreProvider);
     var task = _currentTask(store);
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     if (_loading && _details == null) {
       return const Center(child: ProgressRing());
     }
@@ -92,32 +93,61 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
       child: Column(
         children: [
           _DetailsHero(task: task),
+          _DetailTabBar(
+            tabs: [
+              const _DetailTab(icon: FluentIcons.info, label: '信息'),
+              const _DetailTab(icon: FluentIcons.processing, label: '进度'),
+              _DetailTab(
+                icon: FluentIcons.people,
+                label: 'Peer ${_details!.peers.length}',
+              ),
+              _DetailTab(
+                icon: FluentIcons.folder,
+                label: '文件 ${_details!.files.length}',
+              ),
+            ],
+            index: _tabIndex,
+            onChanged: (index) => setState(() => _tabIndex = index),
+          ),
           Expanded(
-            child: TabView(
-              currentIndex: _tabIndex,
-              onChanged: (index) => setState(() => _tabIndex = index),
-              closeButtonVisibility: CloseButtonVisibilityMode.never,
-              tabWidthBehavior: TabWidthBehavior.equal,
-              tabs: [
-                Tab(
-                  icon: const Icon(FluentIcons.info, size: 15),
-                  text: const Text('信息'),
-                  body: _OverviewTab(task: task, details: _details!),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: IndexedStack(
+                    index: _tabIndex,
+                    children: [
+                      _OverviewTab(task: task, details: _details!),
+                      _ProgressTab(task: task, details: _details!),
+                      _PeersTab(details: _details!),
+                      _FilesTab(details: _details!),
+                    ],
+                  ),
                 ),
-                Tab(
-                  icon: const Icon(FluentIcons.processing, size: 15),
-                  text: const Text('进度'),
-                  body: _ProgressTab(task: task, details: _details!),
-                ),
-                Tab(
-                  icon: const Icon(FluentIcons.people, size: 15),
-                  text: Text('Peer ${_details!.peers.length}'),
-                  body: _PeersTab(details: _details!),
-                ),
-                Tab(
-                  icon: const Icon(FluentIcons.folder, size: 15),
-                  text: Text('文件 ${_details!.files.length}'),
-                  body: _FilesTab(details: _details!),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  height: 14.h,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: const [0, 0.5, 1],
+                          colors: [
+                            Colors.black.withValues(
+                              alpha: isDark ? 0.30 : 0.12,
+                            ),
+                            Colors.black.withValues(
+                              alpha: isDark ? 0.18 : 0.07,
+                            ),
+                            Colors.black.withValues(alpha: 0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -383,6 +413,117 @@ class _DetailError extends StatelessWidget {
   }
 }
 
+class _DetailTabBar extends StatelessWidget {
+  const _DetailTabBar({
+    required this.tabs,
+    required this.index,
+    required this.onChanged,
+  });
+
+  final List<_DetailTab> tabs;
+  final int index;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: BTColors.surfacePrimary(context),
+        border: Border(bottom: BorderSide(color: BTColors.divider(context))),
+      ),
+      padding: EdgeInsets.fromLTRB(12.w, 7.h, 12.w, 0),
+      child: Row(
+        children: [
+          for (var i = 0; i < tabs.length; i++)
+            Expanded(
+              child: _DetailTabItem(
+                tab: tabs[i],
+                selected: i == index,
+                onTap: () => onChanged(i),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailTab {
+  const _DetailTab({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+}
+
+class _DetailTabItem extends StatefulWidget {
+  const _DetailTabItem({
+    required this.tab,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _DetailTab tab;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_DetailTabItem> createState() => _DetailTabItemState();
+}
+
+class _DetailTabItemState extends State<_DetailTabItem> {
+  var _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    var accent = FluentTheme.of(context).accentColor;
+    var foreground = widget.selected ? accent : BTColors.textSecondary(context);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: BTTheme.animationDurationFast,
+          margin: EdgeInsets.fromLTRB(2.w, 0, 2.w, 7.h),
+          padding: EdgeInsets.symmetric(vertical: 8.h),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: widget.selected
+                ? accent.withValues(alpha: 0.14)
+                : _hovered
+                ? accent.withValues(alpha: 0.07)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(9.r),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.tab.icon, size: 15.sp, color: foreground),
+              SizedBox(width: 6.w),
+              Flexible(
+                child: Text(
+                  widget.tab.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    fontWeight: widget.selected
+                        ? FontWeight.w600
+                        : FontWeight.w400,
+                    color: foreground,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _OverviewTab extends StatelessWidget {
   const _OverviewTab({required this.task, required this.details});
 
@@ -466,7 +607,6 @@ class _ProgressTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var percent = (task.progress * 100).clamp(0, 100).toDouble();
     return ListView(
       padding: EdgeInsets.all(18.w),
       children: [
@@ -474,7 +614,7 @@ class _ProgressTab extends StatelessWidget {
           icon: FluentIcons.grid_view_small,
           title: '分片完成情况',
           trailing: Text(
-            '${details.completedPieces.codeUnits.where((value) => value == 49).length} / ${details.pieceCount}',
+            _pieceSummary(details),
             style: BTTypography.caption(context),
           ),
           child: Column(
@@ -502,96 +642,62 @@ class _ProgressTab extends StatelessWidget {
         _SectionCard(
           icon: FluentIcons.processing,
           title: '传输统计',
-          child: Column(
-            children: [
-              Row(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              var width = (constraints.maxWidth - 10.w) / 2;
+              return Wrap(
+                spacing: 10.w,
+                runSpacing: 10.h,
                 children: [
-                  Text('总体进度', style: BTTypography.body(context)),
-                  const Spacer(),
-                  Text(
-                    '${percent.toStringAsFixed(1)}%',
-                    style: BTTypography.subtitle(
-                      context,
-                    ).copyWith(color: FluentTheme.of(context).accentColor),
+                  _TransferMetric(
+                    width: width,
+                    label: '已下载',
+                    value:
+                        '${BTFileTool.formatSize(task.downloadedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
+                    icon: FluentIcons.download,
+                    color: FluentTheme.of(context).accentColor,
+                  ),
+                  _TransferMetric(
+                    width: width,
+                    label: '已上传',
+                    value: BTFileTool.formatSize(task.uploadedBytes),
+                    icon: FluentIcons.upload,
+                    color: BTColors.successLight(context),
+                  ),
+                  _TransferMetric(
+                    width: width,
+                    label: '已校验',
+                    value:
+                        '${BTFileTool.formatSize(task.verifiedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
+                    icon: FluentIcons.check_mark,
+                    color: BTColors.info,
+                  ),
+                  _TransferMetric(
+                    width: width,
+                    label: '分享率 / 做种',
+                    value:
+                        '${task.shareRatio.toStringAsFixed(2)} / ${_durationLabel(task.seedingSeconds)}',
+                    icon: FluentIcons.upload,
+                    color: BTColors.warningLight(context),
                   ),
                 ],
-              ),
-              SizedBox(height: 9.h),
-              SizedBox(
-                width: double.infinity,
-                child: ClipRRect(
-                  borderRadius: BTRadius.roundBR,
-                  child: ProgressBar(
-                    value: percent,
-                    strokeWidth: 8.h,
-                    backgroundColor: FluentTheme.of(
-                      context,
-                    ).accentColor.withValues(alpha: 0.1),
-                  ),
-                ),
-              ),
-              SizedBox(height: 14.h),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  var width = (constraints.maxWidth - 10.w) / 2;
-                  return Wrap(
-                    spacing: 10.w,
-                    runSpacing: 10.h,
-                    children: [
-                      _TransferMetric(
-                        width: width,
-                        label: '已下载',
-                        value:
-                            '${BTFileTool.formatSize(task.downloadedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
-                        icon: FluentIcons.download,
-                        color: FluentTheme.of(context).accentColor,
-                      ),
-                      _TransferMetric(
-                        width: width,
-                        label: '已上传',
-                        value: BTFileTool.formatSize(task.uploadedBytes),
-                        icon: FluentIcons.upload,
-                        color: BTColors.successLight(context),
-                      ),
-                      _TransferMetric(
-                        width: width,
-                        label: '下载速度',
-                        value: '${BTFileTool.formatSize(task.downloadRate)}/s',
-                        icon: FluentIcons.download,
-                        color: FluentTheme.of(context).accentColor,
-                      ),
-                      _TransferMetric(
-                        width: width,
-                        label: '上传速度',
-                        value: '${BTFileTool.formatSize(task.uploadRate)}/s',
-                        icon: FluentIcons.upload,
-                        color: BTColors.successLight(context),
-                      ),
-                      _TransferMetric(
-                        width: width,
-                        label: '连接 / 种子',
-                        value: '${task.peers} / ${task.seeds}',
-                        icon: FluentIcons.people,
-                        color: BTColors.info,
-                      ),
-                      _TransferMetric(
-                        width: width,
-                        label: '分享率 / 做种',
-                        value:
-                            '${task.shareRatio.toStringAsFixed(2)} / ${_durationLabel(task.seedingSeconds)}',
-                        icon: FluentIcons.upload,
-                        color: BTColors.warningLight(context),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
+              );
+            },
           ),
         ),
       ],
     );
   }
+}
+
+String _pieceSummary(BtTaskDetails details) {
+  var completed = details.completedPieces.codeUnits
+      .where((value) => value == 49)
+      .length;
+  var size = details.pieceLength > 0
+      ? ' · ${BTFileTool.formatSize(details.pieceLength)}/片'
+      : '';
+  return '$completed / ${details.pieceCount}$size';
 }
 
 class _SectionCard extends StatelessWidget {
@@ -802,29 +908,136 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
-class _PeersTab extends StatelessWidget {
+class _PeersTab extends StatefulWidget {
   const _PeersTab({required this.details});
 
   final BtTaskDetails details;
 
   @override
+  State<_PeersTab> createState() => _PeersTabState();
+}
+
+class _PeersTabState extends State<_PeersTab> {
+  final FlyoutController _filterController = FlyoutController();
+  var _sortIndex = -1;
+  var _ascending = true;
+  String? _clientFilter;
+
+  @override
+  void dispose() {
+    _filterController.dispose();
+    super.dispose();
+  }
+
+  void _toggleSort(int index) {
+    setState(() {
+      if (_sortIndex == index) {
+        _ascending = !_ascending;
+      } else {
+        _sortIndex = index;
+        _ascending = true;
+      }
+    });
+  }
+
+  void _openClientFilter() {
+    var clients =
+        widget.details.peers.map((peer) => peer.client).toSet().toList()
+          ..sort();
+    _filterController.showFlyout(
+      barrierDismissible: true,
+      dismissOnPointerMoveAway: false,
+      dismissWithEsc: true,
+      builder: (context) => MenuFlyout(
+        items: [
+          MenuFlyoutItem(
+            leading: _filterLeading(_clientFilter == null),
+            text: const Text('全部客户端'),
+            onPressed: () {
+              if (!mounted) return;
+              setState(() => _clientFilter = null);
+            },
+          ),
+          if (clients.isNotEmpty) const MenuFlyoutSeparator(),
+          for (var client in clients)
+            MenuFlyoutItem(
+              leading: _filterLeading(_clientFilter == client),
+              text: Text(client, maxLines: 1, overflow: TextOverflow.ellipsis),
+              onPressed: () {
+                if (!mounted) return;
+                setState(() => _clientFilter = client);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterLeading(bool active) {
+    return SizedBox(
+      width: 18,
+      child: active
+          ? Icon(
+              FluentIcons.check_mark,
+              size: 13.sp,
+              color: FluentTheme.of(context).accentColor,
+            )
+          : null,
+    );
+  }
+
+  List<BtTaskPeerDetail> _sortedPeers() {
+    var peers = widget.details.peers;
+    var clientFilter = _clientFilter;
+    if (clientFilter != null) {
+      peers = peers.where((peer) => peer.client == clientFilter).toList();
+    }
+    if (_sortIndex == -1) return peers;
+    var sorted = List<BtTaskPeerDetail>.of(peers);
+    sorted.sort((a, b) {
+      var result = switch (_sortIndex) {
+        0 => a.endpoint.toLowerCase().compareTo(b.endpoint.toLowerCase()),
+        1 => a.client.toLowerCase().compareTo(b.client.toLowerCase()),
+        2 => a.progress.compareTo(b.progress),
+        3 => a.downloadRate.compareTo(b.downloadRate),
+        _ => a.uploadRate.compareTo(b.uploadRate),
+      };
+      return _ascending ? result : -result;
+    });
+    return sorted;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (details.peers.isEmpty) {
+    if (widget.details.peers.isEmpty) {
       return const _DetailEmptyState(
         icon: FluentIcons.people,
         title: '暂无已连接 Peer',
         description: '建立连接后会在这里显示客户端与传输状态',
       );
     }
+    var peers = _sortedPeers();
+    var footerParts = <String>[
+      if (widget.details.peersTruncated) 'Peer 较多，仅显示前 500 个',
+      if (_clientFilter != null)
+        '已按客户端「$_clientFilter」筛选 · 显示 ${peers.length} / ${widget.details.peers.length} 个',
+    ];
     return _TableShell(
-      footer: details.peersTruncated ? 'Peer 较多，仅显示前 500 个' : null,
-      header: const _TableHeader(
-        columns: ['地址', '客户端', '进度', '下载', '上传'],
-        flexes: [3, 3, 2, 2, 2],
+      footer: footerParts.isEmpty ? null : footerParts.join(' · '),
+      header: _TableHeader(
+        columns: const ['地址', '客户端', '进度', '下载', '上传'],
+        flexes: const [3, 3, 2, 2, 2],
+        sortIndex: _sortIndex,
+        ascending: _ascending,
+        onSort: _toggleSort,
+        filterIndex: 1,
+        filterActive: _clientFilter != null,
+        onFilter: (_) => _openClientFilter(),
+        filterController: _filterController,
       ),
-      itemCount: details.peers.length,
+      itemCount: peers.length,
       itemBuilder: (context, index) {
-        var peer = details.peers[index];
+        var peer = peers[index];
         var progress = (peer.progress * 100).clamp(0, 100).toDouble();
         return _TableRow(
           flexes: const [3, 3, 2, 2, 2],
@@ -1060,10 +1273,41 @@ class _TableShell extends StatelessWidget {
 }
 
 class _TableHeader extends StatelessWidget {
-  const _TableHeader({required this.columns, required this.flexes});
+  const _TableHeader({
+    required this.columns,
+    required this.flexes,
+    this.sortIndex = -1,
+    this.ascending = true,
+    this.onSort,
+    this.filterIndex = -1,
+    this.filterActive = false,
+    this.onFilter,
+    this.filterController,
+  });
 
   final List<String> columns;
   final List<int> flexes;
+
+  /// 当前排序的列索引，-1 表示未排序
+  final int sortIndex;
+
+  /// 是否升序
+  final bool ascending;
+
+  /// 排序列点击回调
+  final ValueChanged<int>? onSort;
+
+  /// 支持筛选的列索引，-1 表示无
+  final int filterIndex;
+
+  /// 是否启用了筛选
+  final bool filterActive;
+
+  /// 筛选列点击回调
+  final ValueChanged<int>? onFilter;
+
+  /// 筛选列 Flyout 锚点控制器
+  final FlyoutController? filterController;
 
   @override
   Widget build(BuildContext context) {
@@ -1071,16 +1315,83 @@ class _TableHeader extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 13.w, vertical: 11.h),
       color: BTColors.surfaceSecondary(context),
       child: Row(
-        children: List.generate(
-          columns.length,
-          (index) => Expanded(
-            flex: flexes[index],
-            child: Text(
-              columns[index],
-              style: BTTypography.caption(
-                context,
-              ).copyWith(fontWeight: FontWeight.w600),
-            ),
+        children: List.generate(columns.length, (index) {
+          return Expanded(flex: flexes[index], child: _cell(context, index));
+        }),
+      ),
+    );
+  }
+
+  Widget _cell(BuildContext context, int index) {
+    var isFilterColumn = index == filterIndex && onFilter != null;
+    if (isFilterColumn) {
+      var cell = _clickable(
+        context,
+        index,
+        active: filterActive,
+        activeIcon: FluentIcons.filter,
+        onTap: () => onFilter!(index),
+      );
+      var controller = filterController;
+      if (controller != null) {
+        return FlyoutTarget(controller: controller, child: cell);
+      }
+      return cell;
+    }
+    if (onSort == null) {
+      return _plain(context, index);
+    }
+    return _clickable(
+      context,
+      index,
+      active: index == sortIndex,
+      activeIcon: ascending ? FluentIcons.chevron_up : FluentIcons.chevron_down,
+      onTap: () => onSort!(index),
+    );
+  }
+
+  Widget _plain(BuildContext context, int index) {
+    return Text(
+      columns[index],
+      style: BTTypography.caption(
+        context,
+      ).copyWith(fontWeight: FontWeight.w600),
+    );
+  }
+
+  Widget _clickable(
+    BuildContext context,
+    int index, {
+    required bool active,
+    required IconData activeIcon,
+    required VoidCallback onTap,
+  }) {
+    var accent = FluentTheme.of(context).accentColor;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          width: double.infinity,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  columns[index],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: BTTypography.caption(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (active) ...[
+                SizedBox(width: 4.w),
+                Icon(activeIcon, size: 12.sp, color: accent),
+              ],
+            ],
           ),
         ),
       ),
