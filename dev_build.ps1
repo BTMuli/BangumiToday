@@ -239,11 +239,21 @@ if (-not (Test-Path -LiteralPath $envPath -PathType Leaf)) {
 $signPassword = Get-DotEnvValue -Path $envPath -Name 'SIGN_SECRET'
 $version = ConvertTo-MsixVersion (Get-DotEnvValue `
     -Path $envPath -Name 'MSIX_VERSION')
+
 $package = Get-AppxPackage -Name 'BangumiToday'
 $installedVersion = if ($package) {
     [version]$package.Version
 } else {
     [version]'0.0.0.0'
+}
+
+# First check: MSIX_VERSION in .env must not be lower than the installed version
+if ($version -lt $installedVersion) {
+    Write-Output (
+        "MSIX_VERSION $version is lower than the installed version $installedVersion. " +
+        'Update MSIX_VERSION in .env before building.'
+    )
+    exit 1
 }
 
 if ($version -eq $installedVersion) {
