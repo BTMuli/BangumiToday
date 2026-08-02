@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'dart:io';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -24,7 +24,7 @@ final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
 });
 
 class BTNavStore extends ChangeNotifier {
-  final int topNavCount = kDebugMode ? 4 : 3;
+  final int topNavCount = Platform.isWindows ? 4 : 3;
 
   int curIndex = 0;
 

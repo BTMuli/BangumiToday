@@ -164,7 +164,46 @@ class IoBtEngineProcess implements BtEngineProcess {
 typedef BtEngineProcessStarter =
     Future<BtEngineProcess> Function(String executable, List<String> arguments);
 
-class BtEngineClient {
+abstract interface class BtEngineGateway {
+  BtEngineClientState get state;
+  bool get isReady;
+  List<BtTaskSnapshot> get tasks;
+  Stream<BtEngineEvent> get events;
+  Stream<List<BtTaskSnapshot>> get taskSnapshots;
+  Stream<BtEngineClientState> get states;
+
+  Future<void> start({
+    String? executablePath,
+    List<String> arguments = const [],
+    String? statePath,
+    Map<String, dynamic> config = const {},
+    Duration readyTimeout = const Duration(seconds: 5),
+  });
+
+  Future<void> refreshTasks();
+  Future<Map<String, dynamic>> status();
+  Future<Map<String, dynamic>> configure(Map<String, dynamic> config);
+  Future<BtTaskSnapshot> addTorrentFile({
+    required String torrentPath,
+    required String savePath,
+    String? displayName,
+    bool start = true,
+  });
+  Future<BtTaskSnapshot> addMagnet({
+    required String uri,
+    required String savePath,
+    String? displayName,
+    bool start = true,
+  });
+  Future<BtTaskSnapshot> pause(String id);
+  Future<BtTaskSnapshot> resume(String id);
+  Future<BtTaskSnapshot> retry(String id);
+  Future<BtTaskSnapshot> recheck(String id);
+  Future<void> remove(String id, {bool deleteData = false});
+  Future<void> shutdown();
+}
+
+class BtEngineClient implements BtEngineGateway {
   BtEngineClient({
     BtEngineProcessStarter? processStarter,
     void Function(String message)? diagnosticSink,
@@ -196,11 +235,17 @@ class BtEngineClient {
   int? _sequence;
   BtEngineClientState _state = BtEngineClientState.stopped;
 
+  @override
   BtEngineClientState get state => _state;
+  @override
   bool get isReady => _state == BtEngineClientState.ready;
+  @override
   List<BtTaskSnapshot> get tasks => List.unmodifiable(_tasks.values);
+  @override
   Stream<BtEngineEvent> get events => _eventController.stream;
+  @override
   Stream<List<BtTaskSnapshot>> get taskSnapshots => _taskController.stream;
+  @override
   Stream<BtEngineClientState> get states => _stateController.stream;
 
   static String bundledExecutablePath({String? hostExecutablePath}) {
@@ -208,6 +253,7 @@ class BtEngineClient {
     return path.join(path.dirname(hostPath), 'bt_download', 'bt_download.exe');
   }
 
+  @override
   Future<void> start({
     String? executablePath,
     List<String> arguments = const [],
@@ -305,12 +351,18 @@ class BtEngineClient {
     }
   }
 
+  @override
   Future<Map<String, dynamic>> status() => request('engine.status');
 
+  @override
+  Future<void> refreshTasks() => _loadTasks();
+
+  @override
   Future<Map<String, dynamic>> configure(Map<String, dynamic> config) {
     return request('engine.configure', config);
   }
 
+  @override
   Future<BtTaskSnapshot> addTorrentFile({
     required String torrentPath,
     required String savePath,
@@ -325,6 +377,7 @@ class BtEngineClient {
     );
   }
 
+  @override
   Future<BtTaskSnapshot> addMagnet({
     required String uri,
     required String savePath,
@@ -339,15 +392,21 @@ class BtEngineClient {
     );
   }
 
+  @override
   Future<BtTaskSnapshot> pause(String id) => _taskCommand('task.pause', id);
+  @override
   Future<BtTaskSnapshot> resume(String id) => _taskCommand('task.resume', id);
+  @override
   Future<BtTaskSnapshot> retry(String id) => _taskCommand('task.retry', id);
+  @override
   Future<BtTaskSnapshot> recheck(String id) => _taskCommand('task.recheck', id);
 
+  @override
   Future<void> remove(String id, {bool deleteData = false}) async {
     await request('task.remove', {'id': id, 'deleteData': deleteData});
   }
 
+  @override
   Future<void> shutdown() async {
     var process = _process;
     if (process == null) return;

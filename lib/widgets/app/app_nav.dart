@@ -1,5 +1,5 @@
-// Flutter imports:
-import 'package:flutter/foundation.dart';
+// Dart imports:
+import 'dart:io';
 
 // Package imports:
 import 'package:app_links/app_links.dart';
@@ -96,8 +96,9 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
 
   void _handleAppLink(Uri uri) {
     if (uri.host == BTAppConstants.subjectPath) {
-      var subjectId =
-          uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
+      var subjectId = uri.pathSegments.isNotEmpty
+          ? uri.pathSegments.first
+          : null;
       if (subjectId != null) {
         var id = int.tryParse(subjectId);
         if (id != null) {
@@ -285,7 +286,7 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
               title: Text(hive.user!.nickname),
               body: const UserCollectionPage(),
             ),
-      if (kDebugMode)
+      if (Platform.isWindows)
         PaneItem(
           icon: const Icon(FluentIcons.cloud_download),
           title: const Text('下载管理'),
