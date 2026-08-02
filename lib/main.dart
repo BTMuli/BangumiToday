@@ -23,6 +23,7 @@ import 'core/services/bmf_rss_service.dart';
 import 'database/app/app_config.dart';
 import 'database/bt_sqlite.dart';
 import 'request/bangumi/bangumi_api.dart';
+import 'store/tracker_hive.dart';
 import 'tools/download_tool.dart';
 import 'tools/hive_tool.dart';
 import 'tools/log_tool.dart';
@@ -75,9 +76,9 @@ Future<void> _initBackgroundServices() async {
   await BTSqlite.init();
   var appConfig = BtsAppConfig();
   BtrBangumiApi.setBaseUrl(await appConfig.readBangumiUrl());
-  var btDownloadConfig = await appConfig.readBtDownloadConfig();
-
   await BTHiveTool.init();
+  var btDownloadConfig = await appConfig.readBtDownloadConfig();
+  var trackerStore = TrackerHive();
 
   await Future.wait([
     _runOptionalService('下载服务', BTDownloadTool.init),
@@ -85,9 +86,17 @@ Future<void> _initBackgroundServices() async {
     if (Platform.isWindows)
       _runOptionalService(
         'BT 下载引擎',
-        () => BtEngineClient.instance.start(config: btDownloadConfig.toJson()),
+        () => BtEngineClient.instance.start(
+          config: btDownloadConfig.toEngineJson(
+            additionalTrackers: trackerStore.effectiveTrackers,
+          ),
+        ),
       ),
   ]);
+
+  if (Platform.isWindows) {
+    unawaited(_runOptionalService('Tracker 自动更新', trackerStore.checkUpdate));
+  }
 
   await Future.wait([
     _runOptionalService('应用缓存', BTCacheManager.instance.init),

@@ -11,7 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../tools/log_tool.dart';
 import 'windows_job_object.dart';
 
-const btEngineProtocolVersion = '1.0';
+const btEngineProtocolVersion = '1.1';
 const _maxProtocolFrameBytes = 1024 * 1024;
 
 enum BtEngineClientState { stopped, starting, ready, stopping, failed }
@@ -47,6 +47,12 @@ class BtTaskSnapshot {
     required this.totalBytes,
     required this.downloadedBytes,
     required this.verifiedBytes,
+    required this.uploadedBytes,
+    required this.shareRatio,
+    required this.seedingSeconds,
+    required this.seedRatioLimit,
+    required this.seedTimeLimitMinutes,
+    required this.seedStopReason,
     required this.progress,
     required this.downloadRate,
     required this.uploadRate,
@@ -67,6 +73,13 @@ class BtTaskSnapshot {
       totalBytes: (json['totalBytes'] as num?)?.toInt() ?? 0,
       downloadedBytes: (json['downloadedBytes'] as num?)?.toInt() ?? 0,
       verifiedBytes: (json['verifiedBytes'] as num?)?.toInt() ?? 0,
+      uploadedBytes: (json['uploadedBytes'] as num?)?.toInt() ?? 0,
+      shareRatio: (json['shareRatio'] as num?)?.toDouble() ?? 0,
+      seedingSeconds: (json['seedingSeconds'] as num?)?.toInt() ?? 0,
+      seedRatioLimit: (json['seedRatioLimit'] as num?)?.toDouble() ?? 2,
+      seedTimeLimitMinutes:
+          (json['seedTimeLimitMinutes'] as num?)?.toInt() ?? 60,
+      seedStopReason: json['seedStopReason'] as String?,
       progress: (json['progress'] as num?)?.toDouble() ?? 0,
       downloadRate: (json['downloadRate'] as num?)?.toInt() ?? 0,
       uploadRate: (json['uploadRate'] as num?)?.toInt() ?? 0,
@@ -90,6 +103,12 @@ class BtTaskSnapshot {
   final int totalBytes;
   final int downloadedBytes;
   final int verifiedBytes;
+  final int uploadedBytes;
+  final double shareRatio;
+  final int seedingSeconds;
+  final double seedRatioLimit;
+  final int seedTimeLimitMinutes;
+  final String? seedStopReason;
   final double progress;
   final int downloadRate;
   final int uploadRate;

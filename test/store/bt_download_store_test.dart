@@ -118,6 +118,16 @@ void main() {
       expect(completedTasks.single.id, 'task');
     });
 
+    test('notifies on file availability but not again after seeding', () async {
+      gateway.emitTasks([_task(state: 'downloading')]);
+      gateway.emitTasks([_task(state: 'seeding')]);
+      gateway.emitTasks([_task(state: 'completed')]);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(completedTasks, hasLength(1));
+      expect(completedTasks.single.state, 'seeding');
+    });
+
     test('applies settings immediately when the engine is ready', () async {
       gateway.emitState(BtEngineClientState.ready);
       await Future<void>.delayed(Duration.zero);
@@ -125,6 +135,16 @@ void main() {
       await store.configure({'activeDownloads': 3});
 
       expect(gateway.configured, {'activeDownloads': 3});
+    });
+
+    test('reports when settings must wait for the next engine start', () async {
+      await expectLater(
+        store.configure({'activeDownloads': 3}),
+        throwsA(isA<BtEngineClientException>()),
+      );
+
+      expect(store.lastError, contains('not ready'));
+      expect(gateway.configured, isNull);
     });
   });
 }
@@ -140,6 +160,12 @@ BtTaskSnapshot _task({required String state}) {
     totalBytes: 100,
     downloadedBytes: 50,
     verifiedBytes: 40,
+    uploadedBytes: state == 'seeding' ? 25 : 0,
+    shareRatio: state == 'seeding' ? 0.25 : 0,
+    seedingSeconds: state == 'seeding' ? 30 : 0,
+    seedRatioLimit: 2,
+    seedTimeLimitMinutes: 60,
+    seedStopReason: state == 'completed' ? 'ratio' : null,
     progress: 0.5,
     downloadRate: 10,
     uploadRate: 2,

@@ -12,6 +12,10 @@ void main() {
       'connectionsLimit': 200,
       'connectionsPerTask': 80,
       'metadataTimeoutSeconds': 300,
+      'seedingEnabled': false,
+      'seedRatioLimit': 2.0,
+      'seedTimeLimitMinutes': 60,
+      'seedingDisclosureAccepted': false,
     });
     expect(config.downloadRateLimitKiB, 0);
     expect(config.uploadRateLimitKiB, 1024);
@@ -25,6 +29,10 @@ void main() {
       connectionsLimit: 500,
       connectionsPerTask: 100,
       metadataTimeoutSeconds: 600,
+      seedingEnabled: true,
+      seedRatioLimit: 1.5,
+      seedTimeLimitMinutes: 90,
+      seedingDisclosureAccepted: true,
     );
 
     var restored = BtDownloadConfig.fromJson(original.toJson());
@@ -46,6 +54,39 @@ void main() {
       () => const BtDownloadConfig(
         connectionsLimit: 20,
         connectionsPerTask: 21,
+      ).validate(),
+      throwsFormatException,
+    );
+  });
+
+  test('keeps upgrades safe and gates fresh-install seeding on disclosure', () {
+    var upgraded = BtDownloadConfig.fromJson({
+      'activeDownloads': 2,
+      'connectionsLimit': 200,
+      'connectionsPerTask': 80,
+      'metadataTimeoutSeconds': 300,
+    });
+    const fresh = BtDownloadConfig.freshInstall();
+
+    expect(upgraded.seedingEnabled, isFalse);
+    expect(fresh.seedingEnabled, isTrue);
+    expect(fresh.toEngineJson()['seedingEnabled'], isFalse);
+    expect(
+      fresh
+          .copyWith(seedingDisclosureAccepted: true)
+          .toEngineJson(
+            additionalTrackers: ['udp://tracker.test:80/'],
+          )['seedingEnabled'],
+      isTrue,
+    );
+  });
+
+  test('rejects unbounded enabled seeding', () {
+    expect(
+      () => const BtDownloadConfig(
+        seedingEnabled: true,
+        seedRatioLimit: 0,
+        seedTimeLimitMinutes: 0,
       ).validate(),
       throwsFormatException,
     );

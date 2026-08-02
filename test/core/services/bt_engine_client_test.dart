@@ -187,11 +187,20 @@ void main() {
         await client.start(
           executablePath: integrationEngine,
           statePath: stateDirectory.path,
+          config: {
+            'additionalTrackers': ['udp://127.0.0.1:6969/announce'],
+            'seedingEnabled': false,
+            'seedRatioLimit': 2.0,
+            'seedTimeLimitMinutes': 60,
+          },
         );
         var status = await client.status();
 
         expect(status['initialized'], isTrue);
         expect(status['protocolVersion'], btEngineProtocolVersion);
+        expect((status['config'] as Map)['additionalTrackers'], [
+          'udp://127.0.0.1:6969/announce',
+        ]);
         expect(client.state, BtEngineClientState.ready);
       } finally {
         await client.shutdown();
@@ -215,6 +224,12 @@ Map<String, dynamic> _taskJson({required String id, required String state}) {
     'totalBytes': 100,
     'downloadedBytes': state == 'completed' ? 100 : 50,
     'verifiedBytes': state == 'completed' ? 100 : 40,
+    'uploadedBytes': state == 'seeding' ? 20 : 0,
+    'shareRatio': state == 'seeding' ? 0.2 : 0,
+    'seedingSeconds': state == 'seeding' ? 15 : 0,
+    'seedRatioLimit': 2.0,
+    'seedTimeLimitMinutes': 60,
+    'seedStopReason': state == 'completed' ? 'ratio' : null,
     'progress': state == 'completed' ? 1.0 : 0.5,
     'downloadRate': 10,
     'uploadRate': 2,

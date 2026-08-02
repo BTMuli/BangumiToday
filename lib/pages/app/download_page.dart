@@ -217,6 +217,13 @@ class _DownloadTaskCard extends StatelessWidget {
                 Text('↓ ${BTFileTool.formatSize(task.downloadRate)}/s'),
                 Text('↑ ${BTFileTool.formatSize(task.uploadRate)}/s'),
                 Text('Peer ${task.peers} · Seed ${task.seeds}'),
+                if (task.state == 'seeding' || task.uploadedBytes > 0)
+                  Text(
+                    '分享率 ${task.shareRatio.toStringAsFixed(2)} · '
+                    '已做种 ${_formatDuration(task.seedingSeconds)}',
+                  ),
+                if (task.seedStopReason != null)
+                  Text('停止原因：${_seedStopReasonLabel(task.seedStopReason!)}'),
               ],
             ),
             if (task.lastError != null) ...[
@@ -238,10 +245,27 @@ class _DownloadTaskCard extends StatelessWidget {
       'checking' => '校验中',
       'queued' => '排队中',
       'downloading' => '下载中',
+      'seeding' => '做种中',
       'paused' => '已暂停',
       'completed' => '已完成',
       'error' => '发生错误',
       _ => state,
+    };
+  }
+
+  String _formatDuration(int seconds) {
+    var duration = Duration(seconds: seconds);
+    var hours = duration.inHours;
+    var minutes = duration.inMinutes.remainder(60);
+    return hours > 0 ? '$hours 小时 $minutes 分钟' : '$minutes 分钟';
+  }
+
+  String _seedStopReasonLabel(String reason) {
+    return switch (reason) {
+      'disabled' => '未启用做种',
+      'ratio' => '达到分享率',
+      'time' => '达到时间限制',
+      _ => reason,
     };
   }
 }
@@ -276,6 +300,7 @@ class _TaskActions extends StatelessWidget {
           'checking',
           'queued',
           'downloading',
+          'seeding',
         }.contains(task.state))
           _button(
             FluentIcons.pause,

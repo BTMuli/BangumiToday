@@ -6,7 +6,23 @@ class BtDownloadConfig {
     this.connectionsLimit = 200,
     this.connectionsPerTask = 80,
     this.metadataTimeoutSeconds = 300,
+    this.seedingEnabled = false,
+    this.seedRatioLimit = 2,
+    this.seedTimeLimitMinutes = 60,
+    this.seedingDisclosureAccepted = false,
   });
+
+  const BtDownloadConfig.freshInstall()
+    : activeDownloads = 2,
+      downloadRateLimit = 0,
+      uploadRateLimit = 1024 * 1024,
+      connectionsLimit = 200,
+      connectionsPerTask = 80,
+      metadataTimeoutSeconds = 300,
+      seedingEnabled = true,
+      seedRatioLimit = 2,
+      seedTimeLimitMinutes = 60,
+      seedingDisclosureAccepted = false;
 
   factory BtDownloadConfig.fromJson(Map<String, dynamic> json) {
     var config = BtDownloadConfig(
@@ -16,6 +32,11 @@ class BtDownloadConfig {
       connectionsLimit: _readInt(json, 'connectionsLimit', 200),
       connectionsPerTask: _readInt(json, 'connectionsPerTask', 80),
       metadataTimeoutSeconds: _readInt(json, 'metadataTimeoutSeconds', 300),
+      seedingEnabled: json['seedingEnabled'] as bool? ?? false,
+      seedRatioLimit: _readDouble(json, 'seedRatioLimit', 2),
+      seedTimeLimitMinutes: _readInt(json, 'seedTimeLimitMinutes', 60),
+      seedingDisclosureAccepted:
+          json['seedingDisclosureAccepted'] as bool? ?? false,
     );
     config.validate();
     return config;
@@ -27,6 +48,10 @@ class BtDownloadConfig {
   final int connectionsLimit;
   final int connectionsPerTask;
   final int metadataTimeoutSeconds;
+  final bool seedingEnabled;
+  final double seedRatioLimit;
+  final int seedTimeLimitMinutes;
+  final bool seedingDisclosureAccepted;
 
   int get downloadRateLimitKiB => downloadRateLimit ~/ 1024;
   int get uploadRateLimitKiB => uploadRateLimit ~/ 1024;
@@ -39,7 +64,21 @@ class BtDownloadConfig {
       'connectionsLimit': connectionsLimit,
       'connectionsPerTask': connectionsPerTask,
       'metadataTimeoutSeconds': metadataTimeoutSeconds,
+      'seedingEnabled': seedingEnabled,
+      'seedRatioLimit': seedRatioLimit,
+      'seedTimeLimitMinutes': seedTimeLimitMinutes,
+      'seedingDisclosureAccepted': seedingDisclosureAccepted,
     };
+  }
+
+  Map<String, dynamic> toEngineJson({
+    List<String> additionalTrackers = const [],
+  }) {
+    var json = toJson()
+      ..remove('seedingDisclosureAccepted')
+      ..['seedingEnabled'] = seedingEnabled && seedingDisclosureAccepted
+      ..['additionalTrackers'] = List<String>.of(additionalTrackers);
+    return json;
   }
 
   BtDownloadConfig copyWith({
@@ -49,6 +88,10 @@ class BtDownloadConfig {
     int? connectionsLimit,
     int? connectionsPerTask,
     int? metadataTimeoutSeconds,
+    bool? seedingEnabled,
+    double? seedRatioLimit,
+    int? seedTimeLimitMinutes,
+    bool? seedingDisclosureAccepted,
   }) {
     return BtDownloadConfig(
       activeDownloads: activeDownloads ?? this.activeDownloads,
@@ -58,6 +101,11 @@ class BtDownloadConfig {
       connectionsPerTask: connectionsPerTask ?? this.connectionsPerTask,
       metadataTimeoutSeconds:
           metadataTimeoutSeconds ?? this.metadataTimeoutSeconds,
+      seedingEnabled: seedingEnabled ?? this.seedingEnabled,
+      seedRatioLimit: seedRatioLimit ?? this.seedRatioLimit,
+      seedTimeLimitMinutes: seedTimeLimitMinutes ?? this.seedTimeLimitMinutes,
+      seedingDisclosureAccepted:
+          seedingDisclosureAccepted ?? this.seedingDisclosureAccepted,
     );
   }
 
@@ -87,9 +135,34 @@ class BtDownloadConfig {
         'metadataTimeoutSeconds must be between 1 and 86400',
       );
     }
+    if (!seedRatioLimit.isFinite ||
+        (seedRatioLimit != 0 &&
+            (seedRatioLimit < 0.1 || seedRatioLimit > 100))) {
+      throw const FormatException(
+        'seedRatioLimit must be 0 or between 0.1 and 100',
+      );
+    }
+    if (seedTimeLimitMinutes < 0 || seedTimeLimitMinutes > 525600) {
+      throw const FormatException(
+        'seedTimeLimitMinutes must be between 0 and 525600',
+      );
+    }
+    if (seedingEnabled && seedRatioLimit == 0 && seedTimeLimitMinutes == 0) {
+      throw const FormatException(
+        'enabled seeding requires at least one stop condition',
+      );
+    }
   }
 
   static int _readInt(Map<String, dynamic> json, String key, int fallback) {
     return (json[key] as num?)?.toInt() ?? fallback;
+  }
+
+  static double _readDouble(
+    Map<String, dynamic> json,
+    String key,
+    double fallback,
+  ) {
+    return (json[key] as num?)?.toDouble() ?? fallback;
   }
 }

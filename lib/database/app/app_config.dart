@@ -7,6 +7,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 // Project imports:
 import '../../core/constants/app_constants.dart';
 import '../../models/app/bt_download_config.dart';
+import '../../models/app/bt_tracker_config.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
 
@@ -207,7 +208,7 @@ class BtsAppConfig {
   Future<BtDownloadConfig> readBtDownloadConfig() async {
     var value = await _instance.read('btDownloadConfig');
     if (value == null || value.isEmpty) {
-      const config = BtDownloadConfig();
+      const config = BtDownloadConfig.freshInstall();
       await writeBtDownloadConfig(config);
       return config;
     }
@@ -228,5 +229,31 @@ class BtsAppConfig {
   Future<void> writeBtDownloadConfig(BtDownloadConfig config) async {
     config.validate();
     await _instance.write('btDownloadConfig', jsonEncode(config.toJson()));
+  }
+
+  Future<BtTrackerConfig> readBtTrackerConfig() async {
+    var value = await _instance.read('btTrackerConfig');
+    if (value == null || value.isEmpty) {
+      const config = BtTrackerConfig();
+      await writeBtTrackerConfig(config);
+      return config;
+    }
+    try {
+      var decoded = jsonDecode(value);
+      if (decoded is! Map) {
+        throw const FormatException('config is not an object');
+      }
+      return BtTrackerConfig.fromJson(Map<String, dynamic>.from(decoded));
+    } catch (error) {
+      BTLogTool.warn('Invalid BT Tracker config: $error');
+      const config = BtTrackerConfig();
+      await writeBtTrackerConfig(config);
+      return config;
+    }
+  }
+
+  Future<void> writeBtTrackerConfig(BtTrackerConfig config) async {
+    config.validate();
+    await _instance.write('btTrackerConfig', jsonEncode(config.toJson()));
   }
 }
