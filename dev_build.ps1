@@ -4,7 +4,9 @@ param(
 
     [switch]$SkipEngineTests,
 
-    [switch]$SkipInstall
+    [switch]$SkipInstall,
+
+    [switch]$SkipFirewallRule
 )
 
 $ErrorActionPreference = 'Stop'
@@ -224,6 +226,84 @@ function Build-DownloadEngine {
         'out\install\windows-x64-release')).Path
 }
 
+function Register-FirewallRule {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$EngineExecutablePath
+    )
+
+    $ruleName = 'BangumiToday bt_download engine'
+    if (-not (Test-Path -LiteralPath $EngineExecutablePath -PathType Leaf)) {
+        throw "Engine executable was not found: $EngineExecutablePath"
+    }
+
+    $quotedPath = "'" + $EngineExecutablePath.Replace("'", "''") + "'"
+    $rule = Get-NetFirewallRule -DisplayName $ruleName `
+        -ErrorAction SilentlyContinue
+    if ($null -ne $rule) {
+        $program = (Get-NetFirewallApplicationFilter `
+            -AssociatedNetFirewallRule $rule |
+            Select-Object -First 1).Program
+        if ($program -eq $EngineExecutablePath) {
+            Write-Output "Firewall rule '$ruleName' already matches '$EngineExecutablePath'."
+            return
+        }
+        Write-Output "Firewall rule '$ruleName' points to '$program'; re-registering for '$EngineExecutablePath'."
+    }
+    else {
+        Write-Output "Registering firewall rule '$ruleName' for '$EngineExecutablePath'..."
+    }
+
+    $script = @"
+`$ErrorActionPreference = 'Stop'
+Get-NetFirewallRule -DisplayName '$ruleName' -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
+New-NetFirewallRule -DisplayName '$ruleName' -Direction Inbound -Action Allow -Program $quotedPath -Profile Any | Out-Null
+Write-Output 'OK'
+"@
+
+    $isElevated = ([Security.Principal.WindowsPrincipal] `
+        [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator)
+
+    if ($isElevated) {
+        try {
+            & ([scriptblock]::Create($script))
+        }
+        catch {
+            Write-Warning "Firewall rule registration failed: $_"
+            return
+        }
+    }
+    else {
+        $encoded = [Convert]::ToBase64String(
+            [Text.Encoding]::Unicode.GetBytes($script))
+        try {
+            Start-Process -FilePath 'powershell.exe' -Verb RunAs `
+                -WindowStyle Hidden -Wait `
+                -ArgumentList @('-NoProfile', '-NonInteractive', `
+                    '-EncodedCommand', $encoded)
+        }
+        catch {
+            Write-Warning "Firewall rule registration was cancelled or failed: $_"
+            return
+        }
+    }
+
+    $registeredRule = Get-NetFirewallRule -DisplayName $ruleName `
+        -ErrorAction SilentlyContinue
+    $registeredProgram = if ($null -ne $registeredRule) {
+        (Get-NetFirewallApplicationFilter `
+            -AssociatedNetFirewallRule $registeredRule |
+            Select-Object -First 1).Program
+    }
+    if ($registeredProgram -eq $EngineExecutablePath) {
+        Write-Output "Verified firewall rule '$ruleName' for '$EngineExecutablePath'."
+    }
+    else {
+        Write-Warning "Firewall rule '$ruleName' could not be verified for '$EngineExecutablePath'."
+    }
+}
+
 $projectRoot = $PSScriptRoot
 $envPath = Join-Path $projectRoot '.env'
 $engineSourcePath = Join-Path $projectRoot 'repos\bt_download'
@@ -313,6 +393,11 @@ try {
 
     & $verifyScriptPath -BundlePath $bundlePath `
         -EngineRuntimePath $resolvedEngineRuntimePath
+
+    if (-not $SkipFirewallRule) {
+        Register-FirewallRule -EngineExecutablePath (Join-Path `
+            $bundlePath 'bt_download\bt_download.exe')
+    }
 
     $dartPath = (Get-Command dart -ErrorAction Stop).Source
     Invoke-NativeCommand -FilePath $dartPath `
