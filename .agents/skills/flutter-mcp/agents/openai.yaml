@@ -1,0 +1,4 @@
+interface:
+  display_name: "Flutter MCP"
+  short_description: "Use Flutter MCP tools and drive the running BangumiToday app"
+  default_prompt: "Use $flutter-mcp to analyze, test, and interact with the running BangumiToday app."

@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_driver/driver_extension.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:window_manager/window_manager.dart';
@@ -33,6 +34,10 @@ import 'widgets/app/app_splash.dart';
 final globalContainer = ProviderContainer();
 
 Future<void> main() async {
+  if (const bool.fromEnvironment('ENABLE_FLUTTER_DRIVER')) {
+    enableFlutterDriverExtension();
+  }
+
   WidgetsFlutterBinding.ensureInitialized();
   _configureErrorHandling();
   AppLifecycleListener(

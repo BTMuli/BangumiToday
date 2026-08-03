@@ -47,6 +47,8 @@ dependencies:
   flutter_acrylic: ^1.1.4
   flutter_cache_manager: ^3.4.1
   flutter_dotenv: ^6.0.1
+  flutter_driver:
+    sdk: flutter
   flutter_rating_bar: ^4.0.1
   flutter_riverpod: ^3.3.2
   flutter_screenutil: ^5.9.3
