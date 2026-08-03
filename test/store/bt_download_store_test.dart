@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:bangumi_today/core/services/bt_engine_client.dart';
+import 'package:bangumi_today/models/app/bt_download_config.dart';
 import 'package:bangumi_today/store/bt_download_store.dart';
 
 void main() {
@@ -150,6 +151,118 @@ void main() {
       expect(gateway.configured, isNull);
     });
 
+    test('enableEngine starts the engine, persists the flag and registers the '
+        'firewall rule', () async {
+      var written = <BtDownloadConfig?>[];
+      var firewallCalls = 0;
+      var switchStore = BtDownloadStore(
+        client: gateway,
+        completionNotifier: (task) async {},
+        readConfig: () async => const BtDownloadConfig(engineEnabled: false),
+        writeConfig: (config) async => written.add(config),
+        registerFirewallRule: () async => firewallCalls++,
+      );
+      addTearDown(switchStore.dispose);
+
+      var warning = await switchStore.enableEngine();
+
+      expect(warning, isNull);
+      expect(gateway.startCalls, 1);
+      expect(written.single?.engineEnabled, isTrue);
+      expect(firewallCalls, 1);
+    });
+
+    test('enableEngine does not restart an already running engine', () async {
+      var firewallCalls = 0;
+      gateway.emitState(BtEngineClientState.ready);
+      await Future<void>.delayed(Duration.zero);
+      var switchStore = BtDownloadStore(
+        client: gateway,
+        completionNotifier: (task) async {},
+        writeConfig: (config) async {},
+        registerFirewallRule: () async => firewallCalls++,
+      );
+      addTearDown(switchStore.dispose);
+
+      var warning = await switchStore.enableEngine();
+
+      expect(warning, isNull);
+      expect(gateway.startCalls, 0);
+      expect(firewallCalls, 1);
+    });
+
+    test('enableEngine reports firewall registration failure as a warning',
+        () async {
+      var switchStore = BtDownloadStore(
+        client: gateway,
+        completionNotifier: (task) async {},
+        writeConfig: (config) async {},
+        registerFirewallRule: () async => throw Exception('elevation canceled'),
+      );
+      addTearDown(switchStore.dispose);
+
+      var warning = await switchStore.enableEngine();
+
+      expect(warning, contains('防火墙规则注册失败'));
+      expect(gateway.startCalls, 1);
+    });
+
+    test('disableEngine persists the disabled flag and shuts the engine down',
+        () async {
+      var written = <BtDownloadConfig?>[];
+      gateway.emitState(BtEngineClientState.ready);
+      await Future<void>.delayed(Duration.zero);
+      var switchStore = BtDownloadStore(
+        client: gateway,
+        completionNotifier: (task) async {},
+        writeConfig: (config) async => written.add(config),
+      );
+      addTearDown(switchStore.dispose);
+
+      await switchStore.disableEngine();
+
+      expect(written.single?.engineEnabled, isFalse);
+      expect(gateway.shutdownCalls, 1);
+    });
+
+    test('refresh refuses to auto-start a disabled engine', () async {
+      var switchStore = BtDownloadStore(
+        client: gateway,
+        completionNotifier: (task) async {},
+        readConfig: () async => const BtDownloadConfig(engineEnabled: false),
+        writeConfig: (config) async {},
+        registerFirewallRule: () async {},
+      );
+      addTearDown(switchStore.dispose);
+
+      await expectLater(
+        switchStore.refresh(),
+        throwsA(isA<BtEngineClientException>()),
+      );
+      expect(gateway.startCalls, 0);
+      expect(switchStore.lastError, contains('未开启'));
+    });
+
+    test('adding a task refuses to auto-start a disabled engine', () async {
+      var switchStore = BtDownloadStore(
+        client: gateway,
+        completionNotifier: (task) async {},
+        readConfig: () async => const BtDownloadConfig(engineEnabled: false),
+        writeConfig: (config) async {},
+        registerFirewallRule: () async {},
+      );
+      addTearDown(switchStore.dispose);
+
+      await expectLater(
+        switchStore.addMagnet(
+          uri: 'magnet:?xt=urn:btih:example',
+          savePath: r'D:\Downloads',
+        ),
+        throwsA(isA<BtEngineClientException>()),
+      );
+      expect(gateway.startCalls, 0);
+    });
+
     test(
       'sorts active tasks by downloading > queued > seeding > error',
       () async {
@@ -271,6 +384,7 @@ class FakeBtEngineGateway implements BtEngineGateway {
   String? addedDisplayName;
   String? addedMagnetName;
   Map<String, dynamic>? configured;
+  var shutdownCalls = 0;
 
   @override
   Stream<BtEngineEvent> get events => _events.stream;
@@ -398,6 +512,7 @@ class FakeBtEngineGateway implements BtEngineGateway {
 
   @override
   Future<void> shutdown() async {
+    shutdownCalls++;
     emitState(BtEngineClientState.stopped);
   }
 

@@ -6,6 +6,7 @@ void main() {
     const config = BtDownloadConfig();
 
     expect(config.toJson(), {
+      'engineEnabled': false,
       'activeDownloads': 4,
       'downloadRateLimit': 0,
       'uploadRateLimit': 0,
@@ -23,6 +24,7 @@ void main() {
 
   test('round trips customized settings', () {
     var original = const BtDownloadConfig().copyWith(
+      engineEnabled: true,
       activeDownloads: 4,
       downloadRateLimit: 2048 * 1024,
       uploadRateLimit: 512 * 1024,
@@ -69,8 +71,11 @@ void main() {
     const fresh = BtDownloadConfig.freshInstall();
 
     expect(upgraded.seedingEnabled, isFalse);
+    expect(upgraded.engineEnabled, isFalse);
     expect(fresh.seedingEnabled, isTrue);
     expect(fresh.seedingDisclosureAccepted, isTrue);
+    expect(fresh.engineEnabled, isFalse);
+    expect(fresh.toEngineJson(), isNot(contains('engineEnabled')));
     expect(fresh.toEngineJson()['seedingEnabled'], isTrue);
     expect(
       fresh

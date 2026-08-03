@@ -16,6 +16,7 @@ void main() {
 
     expect(config.seedingEnabled, isTrue);
     expect(config.seedingDisclosureAccepted, isTrue);
+    expect(config.engineEnabled, isFalse);
     expect(config.toEngineJson()['seedingEnabled'], isTrue);
     expect(config.activeDownloads, 4);
     expect(config.uploadRateLimit, 0);
@@ -36,6 +37,7 @@ void main() {
     var migrated = await BtsAppConfig().readBtDownloadConfig();
 
     expect(migrated.seedingEnabled, isFalse);
+    expect(migrated.engineEnabled, isFalse);
     expect(migrated.seedRatioLimit, 2);
     expect(migrated.seedTimeLimitMinutes, 60);
   });

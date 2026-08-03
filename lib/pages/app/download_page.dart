@@ -93,7 +93,10 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
               ],
               onChanged: (index) => setState(() => _tabIndex = index),
             ),
-            _EngineStatus(state: store.engineState),
+            _EngineStatus(
+              state: store.engineState,
+              onEnable: () => _enableEngine(context),
+            ),
             Tooltip(
               message: '刷新任务',
               child: IconButton(
@@ -138,6 +141,22 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
       }
     } catch (error) {
       if (context.mounted) await BtInfobar.error(context, error.toString());
+    }
+  }
+
+  Future<void> _enableEngine(BuildContext context) async {
+    try {
+      var warning = await ref.read(btDownloadStoreProvider).enableEngine();
+      if (!context.mounted) return;
+      if (warning == null) {
+        await BtInfobar.success(context, '下载引擎已开启');
+      } else {
+        await BtInfobar.warn(context, warning);
+      }
+    } catch (error) {
+      if (context.mounted) {
+        await BtInfobar.error(context, '开启下载引擎失败：$error');
+      }
     }
   }
 
@@ -259,9 +278,10 @@ class _PageTitle extends StatelessWidget {
 }
 
 class _EngineStatus extends StatelessWidget {
-  const _EngineStatus({required this.state});
+  const _EngineStatus({required this.state, this.onEnable});
 
   final BtEngineClientState state;
+  final VoidCallback? onEnable;
 
   @override
   Widget build(BuildContext context) {
@@ -270,9 +290,12 @@ class _EngineStatus extends StatelessWidget {
       BtEngineClientState.starting => ('引擎启动中', BTColors.warningLight(context)),
       BtEngineClientState.stopping => ('引擎关闭中', BTColors.warningLight(context)),
       BtEngineClientState.failed => ('引擎异常', BTColors.errorLight(context)),
-      BtEngineClientState.stopped => ('引擎未启动', BTColors.textTertiary(context)),
+      BtEngineClientState.stopped => ('引擎未开启', BTColors.textTertiary(context)),
     };
-    return Container(
+    var tappable =
+        state == BtEngineClientState.stopped ||
+        state == BtEngineClientState.failed;
+    var chip = Container(
       padding: EdgeInsets.symmetric(horizontal: 11.w, vertical: 7.h),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
@@ -282,23 +305,43 @@ class _EngineStatus extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 7.r,
-            height: 7.r,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 5),
-              ],
+          if (state == BtEngineClientState.starting ||
+              state == BtEngineClientState.stopping)
+            SizedBox.square(
+              dimension: 7.r,
+              child: ProgressRing(strokeWidth: 2),
+            )
+          else
+            Container(
+              width: 7.r,
+              height: 7.r,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.35),
+                    blurRadius: 5,
+                  ),
+                ],
+              ),
             ),
-          ),
           SizedBox(width: 7.w),
           Text(
-            label,
+            tappable ? '$label · 点击开启' : label,
             style: BTTypography.caption(context).copyWith(color: color),
           ),
         ],
+      ),
+    );
+    if (!tappable) return chip;
+    return Tooltip(
+      message: state == BtEngineClientState.failed
+          ? '点击重新开启下载引擎'
+          : '点击开启下载引擎',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(onTap: onEnable, child: chip),
       ),
     );
   }
@@ -411,7 +454,11 @@ class _EmptyDownloads extends StatelessWidget {
             ),
             SizedBox(height: 6.h),
             Text(
-              failed ? '请检查引擎状态后重试' : '从 RSS 条目添加任务后会显示在这里',
+              failed
+                  ? '请检查引擎状态后重试'
+                  : store.engineState == BtEngineClientState.stopped
+                  ? '下载引擎未开启，点击右上角引擎状态开启'
+                  : '从 RSS 条目添加任务后会显示在这里',
               style: BTTypography.body(
                 context,
               ).copyWith(color: BTColors.textSecondary(context)),

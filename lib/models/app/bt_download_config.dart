@@ -1,5 +1,6 @@
 class BtDownloadConfig {
   const BtDownloadConfig({
+    this.engineEnabled = false,
     this.activeDownloads = 4,
     this.downloadRateLimit = 0,
     this.uploadRateLimit = 0,
@@ -13,7 +14,8 @@ class BtDownloadConfig {
   });
 
   const BtDownloadConfig.freshInstall()
-    : activeDownloads = 4,
+    : engineEnabled = false,
+      activeDownloads = 4,
       downloadRateLimit = 0,
       uploadRateLimit = 0,
       connectionsLimit = 256,
@@ -26,6 +28,7 @@ class BtDownloadConfig {
 
   factory BtDownloadConfig.fromJson(Map<String, dynamic> json) {
     var config = BtDownloadConfig(
+      engineEnabled: json['engineEnabled'] as bool? ?? false,
       activeDownloads: _readInt(json, 'activeDownloads', 4),
       downloadRateLimit: _readInt(json, 'downloadRateLimit', 0),
       uploadRateLimit: _readInt(json, 'uploadRateLimit', 0),
@@ -42,6 +45,9 @@ class BtDownloadConfig {
     return config;
   }
 
+  /// 下载引擎是否已手动开启。默认关闭；开启后应用启动时会自动运行
+  /// bt_download，并自动注册防火墙规则。
+  final bool engineEnabled;
   final int activeDownloads;
   final int downloadRateLimit;
   final int uploadRateLimit;
@@ -58,6 +64,7 @@ class BtDownloadConfig {
 
   Map<String, dynamic> toJson() {
     return {
+      'engineEnabled': engineEnabled,
       'activeDownloads': activeDownloads,
       'downloadRateLimit': downloadRateLimit,
       'uploadRateLimit': uploadRateLimit,
@@ -75,6 +82,7 @@ class BtDownloadConfig {
     List<String> additionalTrackers = const [],
   }) {
     var json = toJson()
+      ..remove('engineEnabled')
       ..remove('seedingDisclosureAccepted')
       ..['seedingEnabled'] = seedingEnabled && seedingDisclosureAccepted
       ..['additionalTrackers'] = List<String>.of(additionalTrackers);
@@ -82,6 +90,7 @@ class BtDownloadConfig {
   }
 
   BtDownloadConfig copyWith({
+    bool? engineEnabled,
     int? activeDownloads,
     int? downloadRateLimit,
     int? uploadRateLimit,
@@ -94,6 +103,7 @@ class BtDownloadConfig {
     bool? seedingDisclosureAccepted,
   }) {
     return BtDownloadConfig(
+      engineEnabled: engineEnabled ?? this.engineEnabled,
       activeDownloads: activeDownloads ?? this.activeDownloads,
       downloadRateLimit: downloadRateLimit ?? this.downloadRateLimit,
       uploadRateLimit: uploadRateLimit ?? this.uploadRateLimit,

@@ -83,7 +83,7 @@ Future<void> _initBackgroundServices() async {
   await Future.wait([
     _runOptionalService('下载服务', BTDownloadTool.init),
     _runOptionalService('通知服务', BTNotifierTool.init),
-    if (Platform.isWindows)
+    if (Platform.isWindows && btDownloadConfig.engineEnabled)
       _runOptionalService(
         'BT 下载引擎',
         () => BtEngineClient.instance.start(

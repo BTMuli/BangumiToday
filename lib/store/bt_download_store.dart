@@ -1,5 +1,6 @@
 // Dart imports:
 import 'dart:async';
+import 'dart:io';
 
 // Flutter imports:
 import 'package:flutter/foundation.dart';
@@ -10,9 +11,11 @@ import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../core/services/bt_engine_client.dart';
+import '../core/services/windows_firewall_rule.dart';
 import '../database/app/app_bmf.dart';
 import '../database/app/app_config.dart';
 import '../main.dart';
+import '../models/app/bt_download_config.dart';
 import '../models/database/app_bmf_model.dart';
 import '../tools/file_tool.dart';
 import '../tools/log_tool.dart';
@@ -23,6 +26,9 @@ import 'tracker_hive.dart';
 
 typedef BtTaskCompletionNotifier = Future<void> Function(BtTaskSnapshot task);
 typedef BtEngineStartConfigProvider = Future<Map<String, dynamic>> Function();
+typedef BtEngineConfigReader = Future<BtDownloadConfig> Function();
+typedef BtEngineConfigWriter = Future<void> Function(BtDownloadConfig config);
+typedef BtFirewallRuleRegistrar = Future<void> Function();
 
 final btDownloadStoreProvider = ChangeNotifierProvider<BtDownloadStore>((ref) {
   return BtDownloadStore();
@@ -33,11 +39,19 @@ class BtDownloadStore extends ChangeNotifier {
     BtEngineGateway? client,
     BtTaskCompletionNotifier? completionNotifier,
     BtEngineStartConfigProvider? startConfigProvider,
+    BtEngineConfigReader? readConfig,
+    BtEngineConfigWriter? writeConfig,
+    BtFirewallRuleRegistrar? registerFirewallRule,
   }) : _client = client ?? BtEngineClient.instance,
        _completionNotifier = completionNotifier ?? _showCompletionNotification,
        _startConfigProvider =
            startConfigProvider ??
            (client == null ? _loadStartConfig : _emptyStartConfig),
+       _readConfig =
+           readConfig ?? (client == null ? _loadConfig : _enabledConfig),
+       _writeConfig =
+           writeConfig ?? (client == null ? _saveConfig : _noopConfigWrite),
+       _firewallRegistrar = registerFirewallRule ?? _registerFirewallRule,
        _engineState = (client ?? BtEngineClient.instance).state,
        _tasks = List.of((client ?? BtEngineClient.instance).tasks) {
     _taskStates.addEntries(_tasks.map((task) => MapEntry(task.id, task.state)));
@@ -59,6 +73,9 @@ class BtDownloadStore extends ChangeNotifier {
   final BtEngineGateway _client;
   final BtTaskCompletionNotifier _completionNotifier;
   final BtEngineStartConfigProvider _startConfigProvider;
+  final BtEngineConfigReader _readConfig;
+  final BtEngineConfigWriter _writeConfig;
+  final BtFirewallRuleRegistrar _firewallRegistrar;
   late final StreamSubscription<List<BtTaskSnapshot>> _taskSubscription;
   late final StreamSubscription<BtEngineClientState> _stateSubscription;
   final Set<String> _busyTaskIds = {};
@@ -220,6 +237,57 @@ class BtDownloadStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 手动开启下载引擎：启动引擎、持久化开启状态，并自动注册防火墙规则。
+  ///
+  /// 引擎已开启时重复调用不会重复启动。返回非空字符串表示引擎已运行但
+  /// 防火墙规则注册失败（例如用户取消了管理员授权），调用方可作为警告展示。
+  Future<String?> enableEngine() async {
+    _lastError = null;
+    notifyListeners();
+    var config = await _readConfig();
+    try {
+      if (!_client.isReady) {
+        await _client.start(config: await _startConfigProvider());
+      }
+      if (!config.engineEnabled) {
+        await _writeConfig(config.copyWith(engineEnabled: true));
+      }
+    } catch (error) {
+      _lastError = error.toString();
+      notifyListeners();
+      rethrow;
+    }
+
+    String? warning;
+    try {
+      await _firewallRegistrar();
+    } catch (error) {
+      warning = '下载引擎已开启，但防火墙规则注册失败：$error';
+    }
+    notifyListeners();
+    return warning;
+  }
+
+  /// 手动关闭下载引擎：停止引擎进程并持久化关闭状态。
+  Future<void> disableEngine() async {
+    _lastError = null;
+    notifyListeners();
+    var config = await _readConfig();
+    try {
+      if (config.engineEnabled) {
+        await _writeConfig(config.copyWith(engineEnabled: false));
+      }
+      if (_client.isReady) {
+        await _client.shutdown();
+      }
+    } catch (error) {
+      _lastError = error.toString();
+      notifyListeners();
+      rethrow;
+    }
+    notifyListeners();
+  }
+
   BtTaskSnapshot? _taskById(String id) {
     for (var task in _tasks) {
       if (task.id == id) return task;
@@ -338,6 +406,12 @@ class BtDownloadStore extends ChangeNotifier {
   }
 
   Future<void> _startEngine() async {
+    var config = await _readConfig();
+    if (!config.engineEnabled) {
+      throw const BtEngineClientException(
+        '下载引擎未开启，请先手动开启下载引擎',
+      );
+    }
     await _client.start(config: await _startConfigProvider());
   }
 
@@ -349,6 +423,27 @@ class BtDownloadStore extends ChangeNotifier {
   }
 
   static Future<Map<String, dynamic>> _emptyStartConfig() async => const {};
+
+  static Future<BtDownloadConfig> _loadConfig() =>
+      BtsAppConfig().readBtDownloadConfig();
+
+  static Future<void> _saveConfig(BtDownloadConfig config) =>
+      BtsAppConfig().writeBtDownloadConfig(config);
+
+  /// 测试注入引擎时默认视为已开启，保持既有自动启动行为可测。
+  static Future<BtDownloadConfig> _enabledConfig() async =>
+      const BtDownloadConfig(engineEnabled: true);
+
+  static Future<void> _noopConfigWrite(BtDownloadConfig config) async {}
+
+  static Future<void> _registerFirewallRule() async {
+    if (!Platform.isWindows) return;
+    var service = WindowsFirewallRuleService.instance;
+    var enginePath = BtEngineClient.bundledExecutablePath();
+    var status = await service.status(enginePath);
+    if (status == EngineFirewallRuleStatus.registered) return;
+    await service.register(enginePath);
+  }
 
   @override
   void dispose() {

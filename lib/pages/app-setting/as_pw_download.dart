@@ -126,6 +126,48 @@ class _AppConfigDownloadWidgetState
     _trackerConfig = TrackerHive().config;
   }
 
+  Future<void> _toggleEngine(bool enabled) async {
+    if (enabled) {
+      try {
+        var warning = await ref.read(btDownloadStoreProvider).enableEngine();
+        await _reloadConfig();
+        await _refreshFirewallStatus();
+        if (!mounted) return;
+        if (warning == null) {
+          await BtInfobar.success(context, '下载引擎已开启');
+        } else {
+          await BtInfobar.warn(context, warning);
+        }
+      } catch (error) {
+        if (mounted) {
+          await BtInfobar.error(context, '开启下载引擎失败：$error');
+        }
+      }
+      return;
+    }
+
+    var confirmed = await showConfirm(
+      context,
+      title: '关闭下载引擎？',
+      content: '关闭后引擎进程将停止，正在进行的下载任务会暂停，可随时重新开启。',
+    );
+    if (!confirmed) return;
+    try {
+      await ref.read(btDownloadStoreProvider).disableEngine();
+      await _reloadConfig();
+      if (!mounted) return;
+      await BtInfobar.success(context, '下载引擎已关闭');
+    } catch (error) {
+      if (mounted) await BtInfobar.error(context, '关闭下载引擎失败：$error');
+    }
+  }
+
+  Future<void> _reloadConfig() async {
+    var config = await BtsAppConfig().readBtDownloadConfig();
+    if (!mounted) return;
+    setState(() => _config = config);
+  }
+
   Future<void> _refreshTrackerList() async {
     setState(() => _refreshingTrackers = true);
     try {
@@ -261,6 +303,18 @@ class _AppConfigDownloadWidgetState
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                ListTile(
+                  title: const Text('启用下载引擎'),
+                  subtitle: const Text(
+                    '默认关闭，需手动开启；开启后应用启动时会自动运行下载引擎，'
+                    '并自动注册防火墙规则',
+                  ),
+                  trailing: ToggleSwitch(
+                    checked: _config.engineEnabled,
+                    onChanged: _saving ? null : _toggleEngine,
+                  ),
+                ),
+                const Divider(),
                 _numberSetting(
                   title: '同时下载任务数',
                   description: '允许并行下载的最大任务数量',
@@ -402,7 +456,8 @@ class _AppConfigDownloadWidgetState
                 const Text(
                   '下载引擎会监听网络端口，首次运行会触发 Windows 防火墙提示。'
                   '注册入站允许规则后不再弹窗；引擎更新后若规则指向旧路径，需要重新注册，'
-                  '也可以直接在新弹窗中点击“允许访问”。注册与移除都需要管理员授权。',
+                  '也可以直接在新弹窗中点击“允许访问”。开启下载引擎时会自动注册该规则，'
+                  '注册与移除都需要管理员授权。',
                 ),
                 const SizedBox(height: 8),
                 Row(
