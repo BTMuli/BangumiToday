@@ -1,0 +1,4 @@
+interface:
+  display_name: "Flutter Agent Lens"
+  short_description: "Profile, debug, and optimize the running BangumiToday app"
+  default_prompt: "Use $flutter-agent-lens to connect to the running BangumiToday app and profile or debug it."
