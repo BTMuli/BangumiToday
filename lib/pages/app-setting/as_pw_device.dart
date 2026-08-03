@@ -67,7 +67,7 @@ class _AppConfigDeviceWidgetState extends State<AppConfigDeviceWidget> {
         useAcrylic: true,
         backgroundColor: isDark
             ? const Color(0xFF3C3C3C).withValues(alpha: 0.8)
-            : null,
+            : Colors.white.withValues(alpha: 0.95),
         useShadow: true,
         shadowLevel: BTShadowLevel.subtle,
         borderRadius: BTRadius.large,

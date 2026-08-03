@@ -56,10 +56,11 @@ class _BTSettingSectionState extends State<BTSettingSection> {
 
     return BTCard(
       useAcrylic: true,
-      // 深色模式下用略亮的深灰半透明底，避免卡片背景纯黑且与页面保持区分
+      // 深色模式用略亮深灰、浅色模式用近白半透明底，确保与页面背景保持区分
       backgroundColor: isDark
           ? const Color(0xFF3C3C3C).withValues(alpha: 0.8)
-          : null,
+          : Colors.white.withValues(alpha: 0.95),
+      borderColor: isDark ? null : Colors.black.withValues(alpha: 0.12),
       useShadow: true,
       shadowLevel: BTShadowLevel.subtle,
       padding: EdgeInsets.zero,
