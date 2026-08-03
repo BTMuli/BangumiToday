@@ -627,19 +627,7 @@ class _ProgressTab extends StatelessWidget {
             children: [
               _PieceMap(completedPieces: details.completedPieces),
               SizedBox(height: 12.h),
-              Row(
-                children: [
-                  _LegendDot(
-                    color: FluentTheme.of(context).accentColor,
-                    label: '已完成',
-                  ),
-                  SizedBox(width: 16.w),
-                  _LegendDot(
-                    color: BTColors.surfaceTertiary(context),
-                    label: '未完成',
-                  ),
-                ],
-              ),
+              _PieceLegend(pieceCount: details.completedPieces.length),
             ],
           ),
         ),
@@ -918,6 +906,64 @@ class _LegendDot extends StatelessWidget {
         SizedBox(width: 6.w),
         Text(label, style: BTTypography.caption(context)),
       ],
+    );
+  }
+}
+
+/// 分片网格图例：左侧未完成、右侧已完成，中央按未完成到已完成的
+/// 离散状态渲染色块（每格一档，格数 = 每格片数 + 1，最多 6 格）。
+class _PieceLegend extends StatelessWidget {
+  const _PieceLegend({required this.pieceCount});
+
+  final int pieceCount;
+
+  @override
+  Widget build(BuildContext context) {
+    var (groupSize, _) = _pieceGridInfo(pieceCount);
+    var steps = min(groupSize + 1, 6);
+    var accent = FluentTheme.of(context).accentColor;
+    var inactive = BTColors.surfaceTertiary(context);
+    return Row(
+      children: [
+        _LegendDot(color: inactive, label: '未完成'),
+        SizedBox(width: 8.w),
+        _LegendCells(count: steps, from: inactive, to: accent),
+        SizedBox(width: 8.w),
+        _LegendDot(color: accent, label: '已完成'),
+      ],
+    );
+  }
+}
+
+class _LegendCells extends StatelessWidget {
+  const _LegendCells({
+    required this.count,
+    required this.from,
+    required this.to,
+  });
+
+  final int count;
+  final Color from;
+  final Color to;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(count, (index) {
+        var t = count <= 1 ? 0.0 : index / (count - 1);
+        return Padding(
+          padding: EdgeInsets.only(left: 3.w),
+          child: Container(
+            width: 10.r,
+            height: 10.r,
+            decoration: BoxDecoration(
+              color: Color.lerp(from, to, t),
+              borderRadius: BorderRadius.circular(2.5.r),
+            ),
+          ),
+        );
+      }),
     );
   }
 }
