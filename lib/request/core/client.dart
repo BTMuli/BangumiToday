@@ -28,9 +28,7 @@ LogInterceptor getInterceptor() {
 /// 获取 UA
 Future<String> getClientUA() async {
   var packageInfo = await PackageInfo.fromPlatform();
-  var version = '${packageInfo.version}.${packageInfo.buildNumber}';
-  var link = 'https://github.com/BTMuli/BangumiToday';
-  return 'BTMuli/BangumiToday $version ($link)';
+  return 'BangumiToday/${packageInfo.version}';
 }
 
 /// 请求客户端

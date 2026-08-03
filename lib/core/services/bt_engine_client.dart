@@ -8,6 +8,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 // Project imports:
+import '../../request/core/client.dart';
 import '../../tools/log_tool.dart';
 import 'windows_job_object.dart';
 
@@ -450,6 +451,7 @@ class BtEngineClient implements BtEngineGateway {
       await request('engine.initialize', {
         'protocolVersion': btEngineProtocolVersion,
         'statePath': engineStatePath,
+        'userAgent': await getClientUA(),
         if (config.isNotEmpty) 'config': config,
       });
       await _loadTasks();

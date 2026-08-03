@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:bangumi_today/core/services/bt_engine_client.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as path;
 
 void main() {
@@ -74,6 +75,13 @@ void main() {
     late List<String> diagnostics;
 
     setUp(() async {
+      PackageInfo.setMockInitialValues(
+        appName: 'BangumiToday',
+        packageName: 'BangumiToday',
+        version: '0.8.0',
+        buildNumber: '22',
+        buildSignature: '',
+      );
       temporaryDirectory = await Directory.systemTemp.createTemp(
         'bangumi_today_bt_client_',
       );
@@ -117,6 +125,7 @@ void main() {
       expect(initialize['params'], {
         'protocolVersion': btEngineProtocolVersion,
         'statePath': path.absolute(statePath),
+        'userAgent': 'BangumiToday/0.8.0',
         'config': {'activeDownloads': 1},
       });
       expect(
@@ -189,28 +198,26 @@ void main() {
     test(
       'sends partial file priorities and parses the applied vector',
       () async {
-      await client.start(
-        executablePath: executablePath,
-        statePath: path.join(temporaryDirectory.path, 'state'),
-      );
+        await client.start(
+          executablePath: executablePath,
+          statePath: path.join(temporaryDirectory.path, 'state'),
+        );
 
-      var applied = await client.setFilePriorities(
-        'task',
-        {1: 0, 3: 7},
-      );
+        var applied = await client.setFilePriorities('task', {1: 0, 3: 7});
 
-      expect(applied, [4, 0, 4, 7]);
-      var request = process.requests.singleWhere(
-        (request) => request['method'] == 'task.setFilePriorities',
-      );
-      expect(
-        request['params'],
-        equals({
-          'id': 'task',
-          'priorities': {'1': 0, '3': 7},
-        }),
-      );
-    });
+        expect(applied, [4, 0, 4, 7]);
+        var request = process.requests.singleWhere(
+          (request) => request['method'] == 'task.setFilePriorities',
+        );
+        expect(
+          request['params'],
+          equals({
+            'id': 'task',
+            'priorities': {'1': 0, '3': 7},
+          }),
+        );
+      },
+    );
 
     test(
       'reloads the full snapshot when an event sequence has a gap',
@@ -468,7 +475,9 @@ class FakeBtEngineProcess implements BtEngineProcess {
       case 'task.setFilePriorities':
         _respond(
           request,
-          result: {'priorities': [4, 0, 4, 7]},
+          result: {
+            'priorities': [4, 0, 4, 7],
+          },
         );
       case 'engine.status':
         _respond(
