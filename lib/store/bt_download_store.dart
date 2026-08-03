@@ -94,6 +94,8 @@ class BtDownloadStore extends ChangeNotifier {
   bool isTaskBusy(String id) => _busyTaskIds.contains(id);
 
   Future<BtTaskDetails> taskDetails(String id) => _client.taskDetails(id);
+  Future<List<int>> setFilePriorities(String id, Map<int, int> priorities) =>
+      _client.setFilePriorities(id, priorities);
 
   Future<void> refresh() async {
     if (_refreshing) return;

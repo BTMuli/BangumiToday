@@ -180,8 +180,36 @@ void main() {
       expect(details.completedPieces, '10');
       expect(details.files.single.path, 'episode.mkv');
       expect(details.files.single.progress, 0.5);
+      expect(details.files.single.priority, 0);
+      expect(details.files.single.isSkipped, isTrue);
       expect(details.peers.single.client, 'qBittorrent');
       expect(details.peers.single.downloadRate, 1024);
+    });
+
+    test(
+      'sends partial file priorities and parses the applied vector',
+      () async {
+      await client.start(
+        executablePath: executablePath,
+        statePath: path.join(temporaryDirectory.path, 'state'),
+      );
+
+      var applied = await client.setFilePriorities(
+        'task',
+        {1: 0, 3: 7},
+      );
+
+      expect(applied, [4, 0, 4, 7]);
+      var request = process.requests.singleWhere(
+        (request) => request['method'] == 'task.setFilePriorities',
+      );
+      expect(
+        request['params'],
+        equals({
+          'id': 'task',
+          'priorities': {'1': 0, '3': 7},
+        }),
+      );
     });
 
     test(
@@ -417,7 +445,12 @@ class FakeBtEngineProcess implements BtEngineProcess {
             'pieceCount': 2,
             'completedPieces': '10',
             'files': [
-              {'path': 'episode.mkv', 'size': 100, 'completedBytes': 50},
+              {
+                'path': 'episode.mkv',
+                'size': 100,
+                'completedBytes': 50,
+                'priority': 0,
+              },
             ],
             'filesTruncated': false,
             'peers': [
@@ -431,6 +464,11 @@ class FakeBtEngineProcess implements BtEngineProcess {
             ],
             'peersTruncated': false,
           },
+        );
+      case 'task.setFilePriorities':
+        _respond(
+          request,
+          result: {'priorities': [4, 0, 4, 7]},
         );
       case 'engine.status':
         _respond(

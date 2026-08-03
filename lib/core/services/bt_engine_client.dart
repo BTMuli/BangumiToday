@@ -140,6 +140,7 @@ class BtTaskFileDetail {
     required this.path,
     required this.size,
     required this.completedBytes,
+    this.priority = 4,
   });
 
   factory BtTaskFileDetail.fromJson(Map<String, dynamic> json) {
@@ -147,14 +148,18 @@ class BtTaskFileDetail {
       path: json['path'] as String? ?? '',
       size: (json['size'] as num?)?.toInt() ?? 0,
       completedBytes: (json['completedBytes'] as num?)?.toInt() ?? 0,
+      priority: (json['priority'] as num?)?.toInt() ?? 4,
     );
   }
 
   final String path;
   final int size;
   final int completedBytes;
+  final int priority;
 
   double get progress => size <= 0 ? 0 : (completedBytes / size).clamp(0, 1);
+
+  bool get isSkipped => priority <= 0;
 }
 
 class BtTaskPeerDetail {
@@ -327,6 +332,7 @@ abstract interface class BtEngineGateway {
 
   Future<void> refreshTasks();
   Future<BtTaskDetails> taskDetails(String id);
+  Future<List<int>> setFilePriorities(String id, Map<int, int> priorities);
   Future<Map<String, dynamic>> status();
   Future<Map<String, dynamic>> configure(Map<String, dynamic> config);
   Future<BtTaskSnapshot> addTorrentFile({
@@ -508,6 +514,25 @@ class BtEngineClient implements BtEngineGateway {
   Future<BtTaskDetails> taskDetails(String id) async {
     var result = await request('task.details', {'id': id});
     return BtTaskDetails.fromJson(result);
+  }
+
+  @override
+  Future<List<int>> setFilePriorities(
+    String id,
+    Map<int, int> priorities,
+  ) async {
+    var result = await request('task.setFilePriorities', {
+      'id': id,
+      'priorities': priorities.map(
+        (index, priority) => MapEntry('$index', priority),
+      ),
+    });
+    var values = result['priorities'];
+    if (values is! List) return const [];
+    return values
+        .whereType<num>()
+        .map((value) => value.toInt())
+        .toList(growable: false);
   }
 
   @override

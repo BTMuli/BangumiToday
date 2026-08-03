@@ -333,6 +333,14 @@ class FakeBtEngineGateway implements BtEngineGateway {
   }
 
   @override
+  Future<List<int>> setFilePriorities(
+    String id,
+    Map<int, int> priorities,
+  ) async {
+    return const [];
+  }
+
+  @override
   Future<BtTaskSnapshot> addTorrentFile({
     required String torrentPath,
     required String savePath,
