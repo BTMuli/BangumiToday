@@ -118,13 +118,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
                     index: _tabIndex,
                     children: [
                       _OverviewTab(task: task, details: _details!),
-                      _ProgressTab(
-                        task: task,
-                        details: _details!,
-                        elapsedSeconds: store.downloadElapsedSeconds(
-                          widget.taskId,
-                        ),
-                      ),
+                      _ProgressTab(task: task, details: _details!),
                       _PeersTab(details: _details!),
                       _FilesTab(details: _details!),
                     ],
@@ -608,15 +602,10 @@ class _OverviewTab extends StatelessWidget {
 }
 
 class _ProgressTab extends StatelessWidget {
-  const _ProgressTab({
-    required this.task,
-    required this.details,
-    required this.elapsedSeconds,
-  });
+  const _ProgressTab({required this.task, required this.details});
 
   final BtTaskSnapshot task;
   final BtTaskDetails details;
-  final int elapsedSeconds;
 
   @override
   Widget build(BuildContext context) {
@@ -627,7 +616,10 @@ class _ProgressTab extends StatelessWidget {
           icon: FluentIcons.grid_view_small,
           title: '分片完成情况',
           trailing: Text(
-            _pieceSummary(details),
+            _pieceSummary(details) +
+                _pieceGridNote(details.completedPieces.length),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: BTTypography.caption(context),
           ),
           child: Column(
@@ -692,22 +684,6 @@ class _ProgressTab extends StatelessWidget {
                     icon: FluentIcons.people,
                     color: BTColors.info,
                   ),
-                  _TransferMetric(
-                    width: width,
-                    label: '预计下载耗时',
-                    value: _etaLabel(task),
-                    icon: FluentIcons.timer,
-                    color: BTColors.warningLight(context),
-                  ),
-                  _TransferMetric(
-                    width: width,
-                    label: '总下载耗时',
-                    value: elapsedSeconds > 0
-                        ? _durationLabel(elapsedSeconds)
-                        : '—',
-                    icon: FluentIcons.history,
-                    color: BTColors.info,
-                  ),
                 ],
               );
             },
@@ -726,6 +702,18 @@ String _pieceSummary(BtTaskDetails details) {
       ? ' · ${BTFileTool.formatSize(details.pieceLength)}/片'
       : '';
   return '$completed / ${details.pieceCount}$size';
+}
+
+(int groupSize, int cellCount) _pieceGridInfo(int pieceCount) {
+  const maxCells = 1200;
+  var groupSize = max(1, (pieceCount / maxCells).ceil());
+  var cellCount = (pieceCount / groupSize).ceil();
+  return (groupSize, cellCount);
+}
+
+String _pieceGridNote(int pieceCount) {
+  var (groupSize, cellCount) = _pieceGridInfo(pieceCount);
+  return groupSize > 1 ? ' · 每格 $groupSize 片 · 共 $cellCount 格' : '';
 }
 
 class _SectionCard extends StatelessWidget {
@@ -868,9 +856,7 @@ class _PieceMap extends StatelessWidget {
         ),
       );
     }
-    const maxCells = 1200;
-    var groupSize = max(1, (completedPieces.length / maxCells).ceil());
-    var cellCount = (completedPieces.length / groupSize).ceil();
+    var (groupSize, cellCount) = _pieceGridInfo(completedPieces.length);
     var accent = FluentTheme.of(context).accentColor;
     var inactive = BTColors.surfaceTertiary(context);
     return Container(
@@ -1676,15 +1662,6 @@ String _sourceKindLabel(String sourceKind) {
     'magnet' => 'Magnet 磁力链接',
     _ => sourceKind,
   };
-}
-
-String _etaLabel(BtTaskSnapshot task) {
-  if (task.downloadRate <= 0 || task.totalBytes <= task.downloadedBytes) {
-    return '—';
-  }
-  var seconds = ((task.totalBytes - task.downloadedBytes) / task.downloadRate)
-      .ceil();
-  return _durationLabel(seconds);
 }
 
 String _durationLabel(int seconds) {
