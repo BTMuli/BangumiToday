@@ -394,11 +394,6 @@ try {
     & $verifyScriptPath -BundlePath $bundlePath `
         -EngineRuntimePath $resolvedEngineRuntimePath
 
-    if (-not $SkipFirewallRule) {
-        Register-FirewallRule -EngineExecutablePath (Join-Path `
-            $bundlePath 'bt_download\bt_download.exe')
-    }
-
     $dartPath = (Get-Command dart -ErrorAction Stop).Source
     Invoke-NativeCommand -FilePath $dartPath `
         -Arguments @(
@@ -416,12 +411,30 @@ try {
         throw "MSIX output was not created: $msixPath"
     }
 
+    $installedThisRun = $false
     if (-not $SkipInstall) {
         $install = Read-Host 'Install the new package? (y/n)'
         if ($install -eq 'y') {
             Write-Output "Installing BangumiToday $version..."
             Add-AppxPackage -Path $msixPath
             Write-Output "Installed BangumiToday $version."
+            $installedThisRun = $true
+        }
+    }
+
+    if (-not $SkipFirewallRule) {
+        $installedPackage = Get-AppxPackage -Name 'BangumiToday'
+        if ($null -eq $installedPackage) {
+            Write-Warning `
+                'BangumiToday is not installed; skipping firewall rule registration.'
+        }
+        elseif (-not $installedThisRun) {
+            Write-Output 'The package was not installed by this build; skipping firewall rule registration.'
+        }
+        else {
+            $installedEnginePath = Join-Path `
+                $installedPackage.InstallLocation 'bt_download\bt_download.exe'
+            Register-FirewallRule -EngineExecutablePath $installedEnginePath
         }
     }
 }
