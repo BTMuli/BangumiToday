@@ -20,7 +20,6 @@ import '../models/database/app_bmf_model.dart';
 import '../tools/file_tool.dart';
 import '../tools/log_tool.dart';
 import '../tools/notifier_tool.dart';
-import 'bmf_store.dart';
 import 'nav_store.dart';
 import 'tracker_hive.dart';
 
@@ -382,8 +381,9 @@ class BtDownloadStore extends ChangeNotifier {
   static Future<void> _handleCompletionClick(BtTaskSnapshot task) async {
     var bmf = await _findMatchingBmf(task.savePath);
     if (bmf != null) {
-      globalContainer.read(bmfNavigationProvider).selectSubject(bmf.subject);
-      globalContainer.read(navStoreProvider).setCurIndex(1);
+      globalContainer
+          .read(navStoreProvider)
+          .addNavItemB(subject: bmf.subject, paneTitle: bmf.title, type: '动画');
       return;
     }
     await BTFileTool().openDir(task.savePath);
