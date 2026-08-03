@@ -205,6 +205,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
         return _DownloadTaskCard(
           task: task,
           busy: store.isTaskBusy(task.id),
+          elapsedSeconds: store.downloadElapsedSeconds(task.id),
           selectionMode: _selecting,
           selected: _selectedIds.contains(task.id),
           onSelect: () => _toggleSelect(task.id),
@@ -604,6 +605,7 @@ class _DownloadTaskCard extends StatelessWidget {
   const _DownloadTaskCard({
     required this.task,
     required this.busy,
+    required this.elapsedSeconds,
     required this.onAction,
     this.selectionMode = false,
     this.selected = false,
@@ -612,6 +614,7 @@ class _DownloadTaskCard extends StatelessWidget {
 
   final BtTaskSnapshot task;
   final bool busy;
+  final int elapsedSeconds;
   final bool selectionMode;
   final bool selected;
   final VoidCallback? onSelect;
@@ -752,7 +755,7 @@ class _DownloadTaskCard extends StatelessWidget {
                     runSpacing: 8.h,
                     children: [
                       _TaskMetric(
-                        icon: FluentIcons.download,
+                        icon: FluentIcons.database,
                         label: '已下载',
                         value:
                             '${BTFileTool.formatSize(task.downloadedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
@@ -776,9 +779,25 @@ class _DownloadTaskCard extends StatelessWidget {
                         value: '${task.peers} Peer · ${task.seeds} Seed',
                         color: BTColors.info,
                       ),
+                      if (task.state == 'downloading' &&
+                          task.downloadRate > 0 &&
+                          task.totalBytes > task.downloadedBytes)
+                        _TaskMetric(
+                          icon: FluentIcons.timer,
+                          label: '预计耗时',
+                          value: _etaLabel(task),
+                          color: BTColors.warningLight(context),
+                        ),
+                      if (elapsedSeconds > 0)
+                        _TaskMetric(
+                          icon: FluentIcons.history,
+                          label: '总耗时',
+                          value: _formatDuration(elapsedSeconds),
+                          color: BTColors.info,
+                        ),
                       if (task.state == 'seeding' || task.uploadedBytes > 0)
                         _TaskMetric(
-                          icon: FluentIcons.upload,
+                          icon: FluentIcons.share,
                           label: '做种',
                           value:
                               '分享率 ${task.shareRatio.toStringAsFixed(2)} · '
@@ -871,7 +890,7 @@ class _TaskMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    var chip = Container(
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context).withValues(alpha: 0.7),
@@ -883,7 +902,6 @@ class _TaskMetric extends StatelessWidget {
         children: [
           Icon(icon, size: 12.sp, color: color),
           SizedBox(width: 6.w),
-          Text('$label ', style: BTTypography.caption(context)),
           Text(
             value,
             style: BTTypography.caption(context).copyWith(
@@ -894,6 +912,8 @@ class _TaskMetric extends StatelessWidget {
         ],
       ),
     );
+    if (label.isEmpty) return chip;
+    return Tooltip(message: label, child: chip);
   }
 }
 
@@ -1106,7 +1126,19 @@ String _formatDuration(int seconds) {
   var duration = Duration(seconds: seconds);
   var hours = duration.inHours;
   var minutes = duration.inMinutes.remainder(60);
-  return hours > 0 ? '$hours 小时 $minutes 分钟' : '$minutes 分钟';
+  var secs = duration.inSeconds.remainder(60);
+  if (hours > 0) return '$hours 小时 $minutes 分钟';
+  if (minutes > 0) return '$minutes 分钟 $secs 秒';
+  return '$secs 秒';
+}
+
+String _etaLabel(BtTaskSnapshot task) {
+  if (task.downloadRate <= 0 || task.totalBytes <= task.downloadedBytes) {
+    return '—';
+  }
+  var seconds =
+      ((task.totalBytes - task.downloadedBytes) / task.downloadRate).ceil();
+  return _formatDuration(seconds);
 }
 
 String _seedStopReasonLabel(String reason) {
