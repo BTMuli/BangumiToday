@@ -4,6 +4,7 @@ import 'dart:math';
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../core/services/bt_engine_client.dart';
@@ -16,6 +17,7 @@ import '../../store/tracker_hive.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_engine_switch.dart';
 import '../../ui/bt_infobar.dart';
+import '../../widgets/common/bt_setting_section.dart';
 
 class AppConfigDownloadWidget extends ConsumerStatefulWidget {
   const AppConfigDownloadWidget({super.key});
@@ -278,286 +280,264 @@ class _AppConfigDownloadWidgetState
 
   @override
   Widget build(BuildContext context) {
-    return Expander(
-      leading: const Icon(FluentIcons.download),
-      header: const Text('下载引擎'),
-      content: _loading
-          ? const Center(child: ProgressRing())
-          : _loadError != null
-          ? InfoBar(
-              title: const Text('无法读取下载设置'),
-              content: Text(_loadError!),
-              severity: InfoBarSeverity.error,
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ListTile(
-                  title: const Text('启用下载引擎'),
-                  subtitle: const Text(
-                    '默认关闭，需手动开启；开启后应用启动时会自动运行下载引擎',
-                  ),
-                  trailing: ToggleSwitch(
-                    checked: _config.engineEnabled,
-                    onChanged: _saving ? null : _toggleEngine,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Windows 防火墙规则',
-                  style: FluentTheme.of(context).typography.bodyStrong,
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  '下载引擎监听网络端口，需入站放行才能接收 Peer 连接。'
-                  '开启下载引擎时会自动注册入站允许规则；规则未注册或指向旧路径'
-                  '（如引擎更新后）时可手动重新注册，也可以直接在新弹窗中点击“允许访问”。'
-                  '注册与移除都需要管理员授权。',
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _firewallStatusText(),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (_firewallStatus ==
-                            EngineFirewallRuleStatus.registered ||
-                        _firewallStatus ==
-                            EngineFirewallRuleStatus.pathMismatch)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Button(
-                          onPressed: _firewallBusy
-                              ? null
-                              : _unregisterFirewallRule,
-                          child: const Text('移除规则'),
-                        ),
-                      ),
-                    FilledButton(
-                      onPressed: _firewallBusy ? null : _registerFirewallRule,
-                      child: _firewallBusy
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: ProgressRing(strokeWidth: 2),
-                            )
-                          : const Text('注册规则'),
-                    ),
-                  ],
-                ),
-                const Divider(),
-                _numberSetting(
-                  title: '同时下载任务数',
-                  description: '允许并行下载的最大任务数量',
-                  value: _config.activeDownloads,
-                  min: 1,
-                  max: 64,
-                  onChanged: (value) => setState(
-                    () => _config = _config.copyWith(activeDownloads: value),
-                  ),
-                ),
-                _numberSetting(
-                  title: '下载限速（KiB/s）',
-                  description: '设为 0 表示不限速',
-                  value: _config.downloadRateLimitKiB,
-                  min: 0,
-                  max: _maxRateLimitKiB,
-                  onChanged: (value) => setState(
-                    () => _config = _config.copyWith(
-                      downloadRateLimit: value * 1024,
-                    ),
-                  ),
-                ),
-                _numberSetting(
-                  title: '上传限速（KiB/s）',
-                  description: '设为 0 表示不限速',
-                  value: _config.uploadRateLimitKiB,
-                  min: 0,
-                  max: _maxRateLimitKiB,
-                  onChanged: (value) => setState(
-                    () => _config = _config.copyWith(
-                      uploadRateLimit: value * 1024,
-                    ),
-                  ),
-                ),
-                _numberSetting(
-                  title: '全局连接数',
-                  description: '下载引擎允许建立的最大连接数量',
-                  value: _config.connectionsLimit,
-                  min: 1,
-                  max: 10000,
-                  onChanged: (value) => setState(() {
-                    _config = _config.copyWith(
-                      connectionsLimit: value,
-                      connectionsPerTask: min(
-                        _config.connectionsPerTask,
-                        value,
-                      ),
-                    );
-                  }),
-                ),
-                _numberSetting(
-                  title: '单任务连接数',
-                  description: '每个下载任务允许建立的最大连接数量',
-                  value: _config.connectionsPerTask,
-                  min: 1,
-                  max: _config.connectionsLimit,
-                  onChanged: (value) => setState(
-                    () => _config = _config.copyWith(connectionsPerTask: value),
-                  ),
-                ),
-                _numberSetting(
-                  title: '磁力元数据超时（秒）',
-                  description: '超过该时间仍未获取到元数据时将任务标记为失败',
-                  value: _config.metadataTimeoutSeconds,
-                  min: 1,
-                  max: 86400,
-                  onChanged: (value) => setState(
-                    () => _config = _config.copyWith(
-                      metadataTimeoutSeconds: value,
-                    ),
-                  ),
-                ),
-                const Divider(),
-                const InfoBar(
-                  title: Text('Tracker 与做种隐私提示'),
-                  content: Text(
-                    '补充 Tracker 和 BT Peer 会获知任务 info-hash 与你的 IP。'
-                    '公共补充 Tracker 不会应用到私有种子。',
-                  ),
-                  severity: InfoBarSeverity.warning,
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  title: const Text('下载完成后继续做种'),
-                  subtitle: const Text('分享率或时间限制任一先达到即停止'),
-                  trailing: ToggleSwitch(
-                    checked: _config.seedingEnabled,
-                    onChanged: _saving
-                        ? null
-                        : (value) => setState(
-                            () => _config = _config.copyWith(
-                              seedingEnabled: value,
-                            ),
-                          ),
-                  ),
-                ),
-                ListTile(
-                  title: const Text('做种分享率'),
-                  subtitle: const Text('设为 0 表示不使用分享率停止条件'),
-                  trailing: SizedBox(
-                    width: 180,
-                    child: NumberBox<double>(
-                      value: _config.seedRatioLimit,
-                      min: 0,
-                      max: 100,
-                      smallChange: 0.1,
-                      mode: SpinButtonPlacementMode.inline,
-                      onChanged: _saving
-                          ? null
-                          : (value) {
-                              if (value != null) {
-                                setState(
-                                  () => _config = _config.copyWith(
-                                    seedRatioLimit: value,
-                                  ),
-                                );
-                              }
-                            },
-                    ),
-                  ),
-                ),
-                _numberSetting(
-                  title: '做种时间（分钟）',
-                  description: '设为 0 表示不使用时间停止条件',
-                  value: _config.seedTimeLimitMinutes,
-                  min: 0,
-                  max: 525600,
-                  onChanged: (value) => setState(
-                    () =>
-                        _config = _config.copyWith(seedTimeLimitMinutes: value),
-                  ),
-                ),
-                const Divider(),
-                Text(
-                  'Tracker 列表来源（每行一个 HTTP/HTTPS URL，最多 8 个）',
-                  style: FluentTheme.of(context).typography.bodyStrong,
-                ),
-                const SizedBox(height: 6),
-                TextBox(
-                  controller: _sourceController,
-                  minLines: 2,
-                  maxLines: 4,
-                  enabled: !_saving && !_refreshingTrackers,
-                  placeholder: 'https://example.com/trackers.txt',
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '手工 Tracker（换行或逗号分隔）',
-                  style: FluentTheme.of(context).typography.bodyStrong,
-                ),
-                const SizedBox(height: 6),
-                TextBox(
-                  controller: _manualTrackerController,
-                  minLines: 3,
-                  maxLines: 6,
-                  enabled: !_saving && !_refreshingTrackers,
-                  placeholder: 'udp://tracker.example:6969/announce',
-                ),
-                const SizedBox(height: 8),
-                Checkbox(
-                  checked: _trackerConfig.autoUpdate,
-                  onChanged: _saving || _refreshingTrackers
-                      ? null
-                      : (value) => setState(
-                          () => _trackerConfig = _trackerConfig.copyWith(
-                            autoUpdate: value ?? false,
-                          ),
-                        ),
-                  content: const Text('距上次成功更新满 24 小时后自动刷新'),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _trackerStatusText(),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Button(
-                      onPressed: _saving || _refreshingTrackers
-                          ? null
-                          : _refreshTrackerList,
-                      child: _refreshingTrackers
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: ProgressRing(strokeWidth: 2),
-                            )
-                          : const Text('立即刷新'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton(
-                    onPressed: _saving ? null : _save,
-                    child: _saving
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: ProgressRing(strokeWidth: 2),
-                          )
-                        : const Text('保存设置'),
-                  ),
-                ),
-              ],
+    return BTSettingSection(
+      icon: FluentIcons.download,
+      title: '下载引擎',
+      subtitle: '引擎开关、限速与 Tracker 设置',
+      initiallyExpanded: true,
+      children: [
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: ProgressRing()),
+          )
+        else if (_loadError != null)
+          InfoBar(
+            title: const Text('无法读取下载设置'),
+            content: Text(_loadError!),
+            severity: InfoBarSeverity.error,
+          )
+        else ...[
+          ListTile(
+            title: const Text('启用下载引擎'),
+            subtitle: const Text('默认关闭，需手动开启；开启后应用启动时会自动运行下载引擎'),
+            trailing: ToggleSwitch(
+              checked: _config.engineEnabled,
+              onChanged: _saving ? null : _toggleEngine,
             ),
+          ),
+          const BTSettingDivider(),
+          const BTSettingGroupTitle('Windows 防火墙规则'),
+          const BTSettingHint(
+            icon: FluentIcons.shield,
+            message:
+                '下载引擎监听网络端口，需入站放行才能接收 Peer 连接。'
+                '开启下载引擎时会自动注册入站允许规则；规则未注册或指向旧路径'
+                '（如引擎更新后）时可手动重新注册，也可以直接在新弹窗中点击“允许访问”。'
+                '注册与移除都需要管理员授权。',
+          ),
+          SizedBox(height: 8.h),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _firewallStatusText(),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(width: 8.w),
+              if (_firewallStatus == EngineFirewallRuleStatus.registered ||
+                  _firewallStatus == EngineFirewallRuleStatus.pathMismatch)
+                Padding(
+                  padding: EdgeInsets.only(right: 8.w),
+                  child: Button(
+                    onPressed: _firewallBusy ? null : _unregisterFirewallRule,
+                    child: const Text('移除规则'),
+                  ),
+                ),
+              FilledButton(
+                onPressed: _firewallBusy ? null : _registerFirewallRule,
+                child: _firewallBusy
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: ProgressRing(strokeWidth: 2),
+                      )
+                    : const Text('注册规则'),
+              ),
+            ],
+          ),
+          const BTSettingDivider(),
+          const BTSettingGroupTitle('下载限制'),
+          _numberSetting(
+            title: '同时下载任务数',
+            description: '允许并行下载的最大任务数量',
+            value: _config.activeDownloads,
+            min: 1,
+            max: 64,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(activeDownloads: value),
+            ),
+          ),
+          _numberSetting(
+            title: '下载限速（KiB/s）',
+            description: '设为 0 表示不限速',
+            value: _config.downloadRateLimitKiB,
+            min: 0,
+            max: _maxRateLimitKiB,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(downloadRateLimit: value * 1024),
+            ),
+          ),
+          _numberSetting(
+            title: '上传限速（KiB/s）',
+            description: '设为 0 表示不限速',
+            value: _config.uploadRateLimitKiB,
+            min: 0,
+            max: _maxRateLimitKiB,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(uploadRateLimit: value * 1024),
+            ),
+          ),
+          _numberSetting(
+            title: '全局连接数',
+            description: '下载引擎允许建立的最大连接数量',
+            value: _config.connectionsLimit,
+            min: 1,
+            max: 10000,
+            onChanged: (value) => setState(() {
+              _config = _config.copyWith(
+                connectionsLimit: value,
+                connectionsPerTask: min(_config.connectionsPerTask, value),
+              );
+            }),
+          ),
+          _numberSetting(
+            title: '单任务连接数',
+            description: '每个下载任务允许建立的最大连接数量',
+            value: _config.connectionsPerTask,
+            min: 1,
+            max: _config.connectionsLimit,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(connectionsPerTask: value),
+            ),
+          ),
+          _numberSetting(
+            title: '磁力元数据超时（秒）',
+            description: '超过该时间仍未获取到元数据时将任务标记为失败',
+            value: _config.metadataTimeoutSeconds,
+            min: 1,
+            max: 86400,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(metadataTimeoutSeconds: value),
+            ),
+          ),
+          const BTSettingDivider(),
+          const BTSettingGroupTitle('做种设置'),
+          const InfoBar(
+            title: Text('Tracker 与做种隐私提示'),
+            content: Text(
+              '补充 Tracker 和 BT Peer 会获知任务 info-hash 与你的 IP。'
+              '公共补充 Tracker 不会应用到私有种子。',
+            ),
+            severity: InfoBarSeverity.warning,
+          ),
+          SizedBox(height: 12.h),
+          ListTile(
+            title: const Text('下载完成后继续做种'),
+            subtitle: const Text('分享率或时间限制任一先达到即停止'),
+            trailing: ToggleSwitch(
+              checked: _config.seedingEnabled,
+              onChanged: _saving
+                  ? null
+                  : (value) => setState(
+                      () => _config = _config.copyWith(seedingEnabled: value),
+                    ),
+            ),
+          ),
+          ListTile(
+            title: const Text('做种分享率'),
+            subtitle: const Text('设为 0 表示不使用分享率停止条件'),
+            trailing: SizedBox(
+              width: 180,
+              child: NumberBox<double>(
+                value: _config.seedRatioLimit,
+                min: 0,
+                max: 100,
+                smallChange: 0.1,
+                mode: SpinButtonPlacementMode.inline,
+                onChanged: _saving
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          setState(
+                            () => _config = _config.copyWith(
+                              seedRatioLimit: value,
+                            ),
+                          );
+                        }
+                      },
+              ),
+            ),
+          ),
+          _numberSetting(
+            title: '做种时间（分钟）',
+            description: '设为 0 表示不使用时间停止条件',
+            value: _config.seedTimeLimitMinutes,
+            min: 0,
+            max: 525600,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(seedTimeLimitMinutes: value),
+            ),
+          ),
+          const BTSettingDivider(),
+          const BTSettingGroupTitle('Tracker 列表来源（每行一个 HTTP/HTTPS URL，最多 8 个）'),
+          TextBox(
+            controller: _sourceController,
+            minLines: 2,
+            maxLines: 4,
+            enabled: !_saving && !_refreshingTrackers,
+            placeholder: 'https://example.com/trackers.txt',
+          ),
+          SizedBox(height: 12.h),
+          const BTSettingGroupTitle('手工 Tracker（换行或逗号分隔）'),
+          TextBox(
+            controller: _manualTrackerController,
+            minLines: 3,
+            maxLines: 6,
+            enabled: !_saving && !_refreshingTrackers,
+            placeholder: 'udp://tracker.example:6969/announce',
+          ),
+          SizedBox(height: 8.h),
+          Checkbox(
+            checked: _trackerConfig.autoUpdate,
+            onChanged: _saving || _refreshingTrackers
+                ? null
+                : (value) => setState(
+                    () => _trackerConfig = _trackerConfig.copyWith(
+                      autoUpdate: value ?? false,
+                    ),
+                  ),
+            content: const Text('距上次成功更新满 24 小时后自动刷新'),
+          ),
+          SizedBox(height: 8.h),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _trackerStatusText(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Button(
+                onPressed: _saving || _refreshingTrackers
+                    ? null
+                    : _refreshTrackerList,
+                child: _refreshingTrackers
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: ProgressRing(strokeWidth: 2),
+                      )
+                    : const Text('立即刷新'),
+              ),
+            ],
+          ),
+          SizedBox(height: 12.h),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: ProgressRing(strokeWidth: 2),
+                    )
+                  : const Text('保存设置'),
+            ),
+          ),
+        ],
+      ],
     );
   }
 

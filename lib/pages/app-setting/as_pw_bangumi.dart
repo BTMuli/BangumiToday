@@ -20,6 +20,8 @@ import '../../../store/app_store.dart' as app_store;
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_icon.dart';
 import '../../../ui/bt_infobar.dart';
+import '../../../widgets/common/bt_buttons.dart';
+import '../../../widgets/common/bt_setting_section.dart';
 
 /// 设置页BangumiUserInfo
 class AppConfigBgmWidget extends ConsumerStatefulWidget {
@@ -32,8 +34,7 @@ class AppConfigBgmWidget extends ConsumerStatefulWidget {
 
 class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
   /// 当前 Bangumi API 镜像地址
-  String get bangumiUrl =>
-      ref.watch(app_store.appStoreProvider).bangumiUrl;
+  String get bangumiUrl => ref.watch(app_store.appStoreProvider).bangumiUrl;
 
   /// 用户 hive
   final BgmUserHive hive = BgmUserHive();
@@ -278,38 +279,47 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
   Widget buildUser() {
     if (hive.user == null) {
       return ListTile(
-        leading: const Icon(FluentIcons.user_sync),
+        leading: const BtIcon(FluentIcons.user_sync),
         title: const Text('用户信息'),
         subtitle: const Text('未找到用户信息'),
         trailing: FilledButton(onPressed: oauthUser, child: const Text('前往授权')),
       );
     }
     return ListTile(
-      leading: CachedNetworkImage(
-        imageUrl: BtrBangumiApi.rewriteUrl(hive.user!.avatar.small),
-        width: 20,
-        height: 20,
-        placeholder: (_, _) => const ProgressRing(),
-        errorWidget: (_, _, _) => const Icon(FluentIcons.error),
+      leading: Container(
+        width: 32.w,
+        height: 32.w,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: FluentTheme.of(context).accentColor.withValues(alpha: 0.4),
+            width: 1.5,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: CachedNetworkImage(
+          imageUrl: BtrBangumiApi.rewriteUrl(hive.user!.avatar.small),
+          width: 32.w,
+          height: 32.w,
+          fit: BoxFit.cover,
+          placeholder: (_, _) => const ProgressRing(),
+          errorWidget: (_, _, _) => const Icon(FluentIcons.error),
+        ),
       ),
       title: Text(hive.user!.nickname),
       subtitle: Text('ID: ${hive.user!.id}(${hive.user!.userGroup.label})'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Tooltip(
-            message: '刷新用户信息',
-            child: IconButton(
-              icon: BtIcon(FluentIcons.refresh),
-              onPressed: tryRefreshUserInfo,
-            ),
+          BTIconButton(
+            icon: FluentIcons.refresh,
+            tooltip: '刷新用户信息',
+            onPressed: tryRefreshUserInfo,
           ),
-          Tooltip(
-            message: '删除用户',
-            child: IconButton(
-              icon: BtIcon(FluentIcons.delete),
-              onPressed: tryDeleteUserInfo,
-            ),
+          BTIconButton(
+            icon: FluentIcons.delete,
+            tooltip: '删除用户',
+            onPressed: tryDeleteUserInfo,
           ),
         ],
       ),
@@ -319,7 +329,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
   /// 构建授权信息
   Widget buildOauth() {
     return ListTile(
-      leading: const Icon(FluentIcons.authenticator_app),
+      leading: const BtIcon(FluentIcons.authenticator_app),
       title: const Text('授权信息'),
       subtitle: hive.expireTime == DateTime.now()
           ? const Text('未找到授权信息')
@@ -346,7 +356,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
   /// 构建收藏
   Widget buildCollection() {
     return ListTile(
-      leading: const Icon(FluentIcons.favorite_star),
+      leading: const BtIcon(FluentIcons.favorite_star),
       title: const Text('收藏信息'),
       subtitle: Text('收藏数：$collectionCount'),
       trailing: Row(
@@ -362,7 +372,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
   /// 构建 Bangumi API 镜像站配置
   Widget buildMirror() {
     return ListTile(
-      leading: const Icon(FluentIcons.globe),
+      leading: const BtIcon(FluentIcons.globe),
       title: const Text('Bangumi 镜像站'),
       subtitle: Text(
         '站点：${BtrBangumiApi.siteBaseUrl}\n'
@@ -398,12 +408,19 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Expander(
-      leading: Icon(FluentIcons.user_window),
-      header: const Text('Bangumi 配置'),
-      content: Column(
-        children: [buildMirror(), buildUser(), buildOauth(), buildCollection()],
-      ),
+    return BTSettingSection(
+      icon: FluentIcons.user_window,
+      title: 'Bangumi 配置',
+      subtitle: '账号授权、收藏与镜像站设置',
+      initiallyExpanded: true,
+      children: [
+        buildMirror(),
+        const BTSettingDivider(),
+        buildUser(),
+        buildOauth(),
+        const BTSettingDivider(),
+        buildCollection(),
+      ],
     );
   }
 }

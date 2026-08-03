@@ -96,8 +96,7 @@ class BTButton extends StatefulWidget {
 }
 
 class _BTButtonState extends State<BTButton>
-    with ButtonInteractionMixin<BTButton> {
-
+    with ButtonInteractionMixin<BTButton>, SingleTickerProviderStateMixin {
   @override
   double get pressedScale => 0.97;
 
@@ -258,8 +257,7 @@ class BTIconButton extends StatefulWidget {
 }
 
 class _BTIconButtonState extends State<BTIconButton>
-    with ButtonInteractionMixin<BTIconButton> {
-
+    with ButtonInteractionMixin<BTIconButton>, SingleTickerProviderStateMixin {
   @override
   double get pressedScale => 0.92;
 
@@ -484,8 +482,9 @@ class BTFloatingActionButton extends StatefulWidget {
 }
 
 class _BTFloatingActionButtonState extends State<BTFloatingActionButton>
-    with ButtonInteractionMixin<BTFloatingActionButton> {
-
+    with
+        ButtonInteractionMixin<BTFloatingActionButton>,
+        SingleTickerProviderStateMixin {
   @override
   double get pressedScale => 0.95;
 

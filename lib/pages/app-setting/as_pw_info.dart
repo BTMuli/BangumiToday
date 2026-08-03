@@ -22,6 +22,8 @@ import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/get_theme_label.dart';
+import '../../widgets/common/bt_buttons.dart';
+import '../../widgets/common/bt_setting_section.dart';
 
 class AspInfoWidget extends ConsumerStatefulWidget {
   const AspInfoWidget({super.key});
@@ -127,8 +129,9 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
       leading: Image.asset("assets/images/logo.png", width: 24, height: 24),
       title: Text('BangumiToday'),
       subtitle: Text('版本：${packageInfo?.version}+${packageInfo?.buildNumber}'),
-      trailing: IconButton(
-        icon: BtIcon(FluentIcons.link),
+      trailing: BTIconButton(
+        icon: FluentIcons.link,
+        tooltip: 'GitHub 仓库',
         onPressed: () async {
           await launchUrlString('https://github.com/BTMuli/BangumiToday');
         },
@@ -160,7 +163,7 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
     var themes = getThemeModeConfigList();
     var curTheme = getThemeModeConfig(curThemeMode);
     return ListTile(
-      leading: Icon(curTheme.icon),
+      leading: BtIcon(curTheme.icon),
       title: const Text('主题模式'),
       subtitle: Text(curTheme.label),
       trailing: DropDownButton(
@@ -190,10 +193,10 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
   /// 构建主题色切换
   Widget buildColorSwitch() {
     return ListTile(
-      leading: const Icon(FluentIcons.color),
+      leading: const BtIcon(FluentIcons.color),
       title: const Text('主题色'),
       subtitle: Text(
-        curAccentColor.colorValue.toRadixString(16),
+        '#${curAccentColor.colorValue.toRadixString(16).toUpperCase()}',
         style: TextStyle(color: curAccentColor),
       ),
       trailing: SplitButton(
@@ -219,11 +222,12 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
   /// 构建日志信息
   Widget buildLogInfo() {
     return ListTile(
-      leading: const Icon(FluentIcons.folder_search),
+      leading: const BtIcon(FluentIcons.folder_search),
       title: const Text('日志信息'),
       subtitle: Text(BTLogTool.logDir),
-      trailing: IconButton(
-        icon: BtIcon(MdiIcons.folderOpen),
+      trailing: BTIconButton(
+        icon: MdiIcons.folderOpen,
+        tooltip: '打开日志目录',
         onPressed: logTool.openLogDir,
       ),
     );
@@ -232,13 +236,14 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
   /// 构建bt下载目录
   Widget buildDownloadInfo() {
     return ListTile(
-      leading: const Icon(FluentIcons.download),
+      leading: const BtIcon(FluentIcons.download),
       title: const Text('下载目录'),
       subtitle: Text(BTDownloadTool.downloadDir),
       trailing: Row(
         children: [
-          IconButton(
-            icon: BtIcon(FluentIcons.delete),
+          BTIconButton(
+            icon: FluentIcons.delete,
+            tooltip: '清理下载目录',
             onPressed: () async {
               var files = await fileTool.getFileNames(
                 BTDownloadTool.downloadDir,
@@ -259,8 +264,9 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
               }
             },
           ),
-          IconButton(
-            icon: BtIcon(MdiIcons.folderOpen),
+          BTIconButton(
+            icon: MdiIcons.folderOpen,
+            tooltip: '打开下载目录',
             onPressed: BTDownloadTool.openDownloadDir,
           ),
         ],
@@ -271,7 +277,7 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
   /// 构建缓存信息
   Widget buildCacheInfo() {
     return ListTile(
-      leading: const Icon(FluentIcons.broom),
+      leading: const BtIcon(FluentIcons.broom),
       title: const Text('缓存管理'),
       subtitle: Text(
         _calculatingCache
@@ -281,12 +287,14 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: BtIcon(FluentIcons.refresh),
+          BTIconButton(
+            icon: FluentIcons.refresh,
+            tooltip: '重新计算缓存大小',
             onPressed: _calculatingCache ? null : _calculateCacheSize,
           ),
-          IconButton(
-            icon: BtIcon(FluentIcons.delete),
+          BTIconButton(
+            icon: FluentIcons.delete,
+            tooltip: '清除缓存',
             onPressed: _cacheSize == 0 ? null : _clearCache,
           ),
         ],
@@ -337,23 +345,22 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Expander(
-      leading: const Icon(FluentIcons.settings),
+    return BTSettingSection(
+      icon: FluentIcons.settings,
+      title: '应用配置',
+      subtitle: '主题、缓存、日志与路径设置',
       initiallyExpanded: true,
-      header: const Text('应用配置'),
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          buildAppInfo(),
-          buildThemeSwitch(),
-          buildColorSwitch(),
-          buildCacheInfo(),
-          buildLogInfo(),
-          buildDownloadInfo(),
-        ],
-      ),
+      children: [
+        buildAppInfo(),
+        const BTSettingDivider(),
+        buildThemeSwitch(),
+        buildColorSwitch(),
+        const BTSettingDivider(),
+        buildCacheInfo(),
+        buildLogInfo(),
+        const BTSettingDivider(),
+        buildDownloadInfo(),
+      ],
     );
   }
 }
