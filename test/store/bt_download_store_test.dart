@@ -1,8 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter_test/flutter_test.dart';
+
 import 'package:bangumi_today/core/services/bt_engine_client.dart';
 import 'package:bangumi_today/store/bt_download_store.dart';
-import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('BtDownloadStore', () {
@@ -62,7 +63,7 @@ void main() {
         expect(store.isTaskBusy('task'), isFalse);
 
         await store.remove('task');
-        expect(gateway.removedTaskId, 'task');
+        expect(gateway.removedTaskIds, ['task']);
         expect(gateway.removedWithData, isFalse);
       },
     );
@@ -148,12 +149,86 @@ void main() {
       expect(store.lastError, contains('not ready'));
       expect(gateway.configured, isNull);
     });
+
+    test(
+      'sorts active tasks by downloading > queued > seeding > error',
+      () async {
+        gateway.emitTasks([
+          _task(id: 'h', state: 'completed'),
+          _task(id: 'f', state: 'error'),
+          _task(id: 'e', state: 'metadata'),
+          _task(id: 'b', state: 'seeding'),
+          _task(id: 'g', state: 'paused'),
+          _task(id: 'c', state: 'queued'),
+          _task(id: 'd', state: 'checking'),
+          _task(id: 'a', state: 'downloading'),
+        ]);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(store.activeTasks.map((task) => task.id).toList(), [
+          'e',
+          'd',
+          'a',
+          'c',
+          'b',
+          'f',
+        ]);
+        expect(store.stoppedTasks.map((task) => task.id).toList(), ['h', 'g']);
+      },
+    );
+
+    test('keeps engine order inside the same group', () async {
+      gateway.emitTasks([
+        _task(id: 'd1', state: 'downloading'),
+        _task(id: 'd2', state: 'downloading'),
+        _task(id: 'q1', state: 'queued'),
+        _task(id: 'q2', state: 'queued'),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(store.activeTasks.map((task) => task.id).toList(), [
+        'd1',
+        'd2',
+        'q1',
+        'q2',
+      ]);
+    });
+
+    test('batch remove pauses active tasks and preserves data', () async {
+      gateway.emitTasks([
+        _task(id: 'down', state: 'downloading'),
+        _task(id: 'seed', state: 'seeding'),
+        _task(id: 'done', state: 'completed'),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+
+      await store.removeAll(['down', 'seed', 'done']);
+
+      expect(gateway.pausedIds, containsAll(['down', 'seed']));
+      expect(gateway.pausedIds, isNot(contains('done')));
+      expect(gateway.removedTaskIds, ['down', 'seed', 'done']);
+      expect(gateway.removedWithData, isFalse);
+      expect(store.isTaskBusy('down'), isFalse);
+    });
+
+    test('batch remove reports busy state while running', () async {
+      var removeCompleter = Completer<void>();
+      gateway.removeResult = removeCompleter;
+      gateway.emitTasks([_task(id: 'task', state: 'downloading')]);
+      await Future<void>.delayed(Duration.zero);
+
+      var removal = store.removeAll(['task']);
+      expect(store.isTaskBusy('task'), isTrue);
+      removeCompleter.complete();
+      await removal;
+      expect(store.isTaskBusy('task'), isFalse);
+    });
   });
 }
 
-BtTaskSnapshot _task({required String state}) {
+BtTaskSnapshot _task({String? id, required String state}) {
   return BtTaskSnapshot(
-    id: 'task',
+    id: id ?? 'task',
     state: state,
     sourceKind: 'torrentFile',
     savePath: r'D:\Downloads',
@@ -189,7 +264,9 @@ class FakeBtEngineGateway implements BtEngineGateway {
   Future<BtTaskSnapshot>? pauseResult;
   var startCalls = 0;
   var refreshCalls = 0;
-  String? removedTaskId;
+  final List<String> removedTaskIds = [];
+  final List<String> pausedIds = [];
+  Completer<void>? removeResult;
   bool? removedWithData;
   String? addedDisplayName;
   String? addedMagnetName;
@@ -285,6 +362,7 @@ class FakeBtEngineGateway implements BtEngineGateway {
 
   @override
   Future<BtTaskSnapshot> pause(String id) {
+    pausedIds.add(id);
     return pauseResult ?? Future.value(_task(state: 'paused'));
   }
 
@@ -295,8 +373,9 @@ class FakeBtEngineGateway implements BtEngineGateway {
 
   @override
   Future<void> remove(String id, {bool deleteData = false}) async {
-    removedTaskId = id;
+    removedTaskIds.add(id);
     removedWithData = deleteData;
+    if (removeResult != null) await removeResult!.future;
   }
 
   @override

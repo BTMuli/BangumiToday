@@ -10,8 +10,8 @@ import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../core/services/bt_engine_client.dart';
-import '../database/app/app_config.dart';
 import '../database/app/app_bmf.dart';
+import '../database/app/app_config.dart';
 import '../main.dart';
 import '../models/database/app_bmf_model.dart';
 import '../tools/file_tool.dart';
@@ -70,6 +70,20 @@ class BtDownloadStore extends ChangeNotifier {
   var _refreshing = false;
 
   List<BtTaskSnapshot> get tasks => List.unmodifiable(_tasks);
+
+  /// 进行中任务，按 正在下载 > 未下载 > 正在做种 > 错误 排序。
+  List<BtTaskSnapshot> get activeTasks =>
+      _sortTasks(_tasks.where((task) => !isStoppedTask(task)));
+
+  /// 已停止任务（已暂停 / 已完成做种）。
+  List<BtTaskSnapshot> get stoppedTasks =>
+      _sortTasks(_tasks.where(isStoppedTask));
+
+  /// 任务是否已停止：不参与下载与做种。
+  static bool isStoppedTask(BtTaskSnapshot task) {
+    return task.state == 'paused' || task.state == 'completed';
+  }
+
   BtEngineClientState get engineState => _engineState;
   String? get lastError => _lastError;
   bool get refreshing => _refreshing;
@@ -155,6 +169,34 @@ class BtDownloadStore extends ChangeNotifier {
     return _runTask(id, () => _client.remove(id, deleteData: false));
   }
 
+  /// 批量移除任务（保留数据）；活跃任务会先暂停再移除。
+  Future<void> removeAll(Iterable<String> ids) async {
+    var targets = ids.toList();
+    if (targets.isEmpty) return;
+    _lastError = null;
+    _busyTaskIds.addAll(targets);
+    notifyListeners();
+    try {
+      for (var id in targets) {
+        var task = _taskById(id);
+        if (task != null && _shouldPauseBeforeRemove(task.state)) {
+          try {
+            await _client.pause(id);
+          } catch (_) {
+            // 暂停失败不阻塞删除
+          }
+        }
+        await _client.remove(id, deleteData: false);
+      }
+    } catch (error) {
+      _lastError = error.toString();
+      rethrow;
+    } finally {
+      _busyTaskIds.removeAll(targets);
+      notifyListeners();
+    }
+  }
+
   Future<void> configure(Map<String, dynamic> config) async {
     _lastError = null;
     notifyListeners();
@@ -174,6 +216,44 @@ class BtDownloadStore extends ChangeNotifier {
     if (_lastError == null) return;
     _lastError = null;
     notifyListeners();
+  }
+
+  BtTaskSnapshot? _taskById(String id) {
+    for (var task in _tasks) {
+      if (task.id == id) return task;
+    }
+    return null;
+  }
+
+  /// 分组排序：正在下载 > 未下载 > 正在做种 > 错误 > 已停止，
+  /// 同组内保持引擎返回顺序（稳定排序）。
+  static List<BtTaskSnapshot> _sortTasks(Iterable<BtTaskSnapshot> tasks) {
+    var snapshots = tasks.toList();
+    var order = List.generate(snapshots.length, (index) => index);
+    order.sort((a, b) {
+      var rank = _stateRank(
+        snapshots[a].state,
+      ).compareTo(_stateRank(snapshots[b].state));
+      if (rank != 0) return rank;
+      return a.compareTo(b);
+    });
+    return List.unmodifiable(order.map((index) => snapshots[index]));
+  }
+
+  static int _stateRank(String state) {
+    return switch (state) {
+      'downloading' || 'metadata' || 'checking' => 0,
+      'queued' => 1,
+      'seeding' => 2,
+      'error' => 3,
+      'paused' || 'completed' => 4,
+      _ => 5,
+    };
+  }
+
+  static bool _shouldPauseBeforeRemove(String state) {
+    return state == 'seeding' ||
+        {'metadata', 'checking', 'queued', 'downloading'}.contains(state);
   }
 
   Future<void> _runTask(String id, Future<Object?> Function() action) async {

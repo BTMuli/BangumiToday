@@ -10,29 +10,90 @@ import '../../store/bt_download_store.dart';
 import '../../tools/file_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import '../../widgets/common/bt_buttons.dart';
 import '../../widgets/common/bt_card.dart';
 import '../../widgets/common/bt_drawer.dart';
 import 'download_task_details.dart';
 
-class DownloadPage extends ConsumerWidget {
+class DownloadPage extends ConsumerStatefulWidget {
   const DownloadPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DownloadPage> createState() => _DownloadPageState();
+}
+
+class _DownloadPageState extends ConsumerState<DownloadPage> {
+  var _tabIndex = 0;
+  var _selecting = false;
+  final Set<String> _selectedIds = {};
+
+  @override
+  Widget build(BuildContext context) {
     var store = ref.watch(btDownloadStoreProvider);
+    _pruneSelection(store);
+    var activeTasks = store.activeTasks;
+    var stoppedTasks = store.stoppedTasks;
+    var tasks = _tabIndex == 0 ? activeTasks : stoppedTasks;
     return ScaffoldPage(
       header: PageHeader(
-        title: _PageTitle(taskCount: store.tasks.length),
-        commandBar: Row(
+        title: Row(
           mainAxisSize: MainAxisSize.min,
+          children: [
+            _PageTitle(
+              activeCount: activeTasks.length,
+              stoppedCount: stoppedTasks.length,
+            ),
+            SizedBox(width: 12.w),
+            if (_selecting)
+              _SelectionBar(
+                count: _selectedIds.length,
+                onSelectAll: tasks.isEmpty
+                    ? null
+                    : () => setState(() {
+                        _selectedIds
+                          ..clear()
+                          ..addAll(tasks.map((task) => task.id));
+                      }),
+                onClear: _selectedIds.isEmpty
+                    ? null
+                    : () => setState(_selectedIds.clear),
+                onDelete: _selectedIds.isEmpty ? null : _confirmBatchDelete,
+                onCancel: _exitSelection,
+              )
+            else
+              Tooltip(
+                message: '批量选择',
+                child: IconButton(
+                  icon: const Icon(FluentIcons.check_list, size: 16),
+                  onPressed: tasks.isEmpty
+                      ? null
+                      : () => setState(() {
+                          _selecting = true;
+                          _selectedIds.clear();
+                        }),
+                ),
+              ),
+          ],
+        ),
+        commandBar: Wrap(
+          spacing: 6.w,
+          runSpacing: 6.h,
+          alignment: WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             _TotalRates(
               downloadRate: store.totalDownloadRate,
               uploadRate: store.totalUploadRate,
             ),
-            SizedBox(width: 12.w),
+            BTSegmentedControl(
+              selectedIndex: _tabIndex,
+              options: [
+                '进行中 ${activeTasks.length}',
+                '已停止 ${stoppedTasks.length}',
+              ],
+              onChanged: (index) => setState(() => _tabIndex = index),
+            ),
             _EngineStatus(state: store.engineState),
-            SizedBox(width: 6.w),
             Tooltip(
               message: '刷新任务',
               child: IconButton(
@@ -42,9 +103,7 @@ class DownloadPage extends ConsumerWidget {
                         child: ProgressRing(strokeWidth: 2),
                       )
                     : const Icon(FluentIcons.refresh, size: 16),
-                onPressed: store.refreshing
-                    ? null
-                    : () => _refresh(context, ref),
+                onPressed: store.refreshing ? null : () => _refresh(context),
               ),
             ),
           ],
@@ -52,12 +111,26 @@ class DownloadPage extends ConsumerWidget {
       ),
       content: Container(
         color: BTColors.surfaceSecondary(context).withValues(alpha: 0.34),
-        child: _buildContent(context, ref, store),
+        child: _buildContent(context, store, tasks),
       ),
     );
   }
 
-  Future<void> _refresh(BuildContext context, WidgetRef ref) async {
+  void _pruneSelection(BtDownloadStore store) {
+    if (_selectedIds.isEmpty) return;
+    var knownIds = store.tasks.map((task) => task.id).toSet();
+    var stale = _selectedIds.difference(knownIds);
+    if (stale.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _selectedIds.removeAll(stale);
+        if (_selectedIds.isEmpty) _selecting = false;
+      });
+    });
+  }
+
+  Future<void> _refresh(BuildContext context) async {
     try {
       await ref.read(btDownloadStoreProvider).refresh();
       if (context.mounted) {
@@ -68,21 +141,65 @@ class DownloadPage extends ConsumerWidget {
     }
   }
 
+  void _exitSelection() {
+    setState(() {
+      _selecting = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _toggleSelect(String id) {
+    setState(() {
+      if (!_selectedIds.remove(id)) _selectedIds.add(id);
+    });
+  }
+
+  Future<void> _confirmBatchDelete() async {
+    var knownIds = ref
+        .read(btDownloadStoreProvider)
+        .tasks
+        .map((task) => task.id)
+        .toSet();
+    var targets = _selectedIds.intersection(knownIds);
+    if (targets.isEmpty) return;
+    var confirmed = await showConfirm(
+      context,
+      title: '批量删除所选任务？',
+      content: '将删除已选择的 ${targets.length} 个任务，已下载的数据会保留。',
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await ref.read(btDownloadStoreProvider).removeAll(targets);
+      if (!mounted) return;
+      _exitSelection();
+      await BtInfobar.success(context, '已删除 ${targets.length} 个任务');
+    } catch (error) {
+      if (mounted) await BtInfobar.error(context, error.toString());
+    }
+  }
+
   Widget _buildContent(
     BuildContext context,
-    WidgetRef ref,
     BtDownloadStore store,
+    List<BtTaskSnapshot> tasks,
   ) {
-    if (store.tasks.isEmpty) return _EmptyDownloads(store: store);
+    if (tasks.isEmpty) {
+      return _tabIndex == 0
+          ? _EmptyDownloads(store: store)
+          : const _EmptyStopped();
+    }
     return ListView.separated(
       padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 24.h),
-      itemCount: store.tasks.length,
+      itemCount: tasks.length,
       separatorBuilder: (_, _) => SizedBox(height: 14.h),
       itemBuilder: (context, index) {
-        var task = store.tasks[index];
+        var task = tasks[index];
         return _DownloadTaskCard(
           task: task,
           busy: store.isTaskBusy(task.id),
+          selectionMode: _selecting,
+          selected: _selectedIds.contains(task.id),
+          onSelect: () => _toggleSelect(task.id),
           onAction: (action) async {
             try {
               await action(ref.read(btDownloadStoreProvider));
@@ -99,12 +216,14 @@ class DownloadPage extends ConsumerWidget {
 }
 
 class _PageTitle extends StatelessWidget {
-  const _PageTitle({required this.taskCount});
+  const _PageTitle({required this.activeCount, required this.stoppedCount});
 
-  final int taskCount;
+  final int activeCount;
+  final int stoppedCount;
 
   @override
   Widget build(BuildContext context) {
+    var total = activeCount + stoppedCount;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -127,7 +246,9 @@ class _PageTitle extends StatelessWidget {
           children: [
             Text('下载管理', style: BTTypography.titleLarge(context)),
             Text(
-              taskCount == 0 ? '管理 BT 下载任务' : '$taskCount 个任务',
+              total == 0
+                  ? '管理 BT 下载任务'
+                  : '进行中 $activeCount · 已停止 $stoppedCount',
               style: BTTypography.caption(context),
             ),
           ],
@@ -313,15 +434,151 @@ class _EmptyDownloads extends StatelessWidget {
   }
 }
 
+class _EmptyStopped extends StatelessWidget {
+  const _EmptyStopped();
+
+  @override
+  Widget build(BuildContext context) {
+    var color = BTColors.textTertiary(context);
+    return Center(
+      child: BTCard(
+        useAcrylic: false,
+        useReveal: false,
+        shadowLevel: BTShadowLevel.subtle,
+        padding: EdgeInsets.symmetric(horizontal: 52.w, vertical: 42.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72.r,
+              height: 72.r,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(FluentIcons.pause, size: 32.sp, color: color),
+            ),
+            SizedBox(height: 18.h),
+            Text('暂无已停止任务', style: BTTypography.subtitle(context)),
+            SizedBox(height: 6.h),
+            Text(
+              '已暂停或完成做种的任务会显示在这里',
+              style: BTTypography.body(
+                context,
+              ).copyWith(color: BTColors.textSecondary(context)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectionBar extends StatelessWidget {
+  const _SelectionBar({
+    required this.count,
+    required this.onSelectAll,
+    required this.onClear,
+    required this.onDelete,
+    required this.onCancel,
+  });
+
+  final int count;
+  final VoidCallback? onSelectAll;
+  final VoidCallback? onClear;
+  final Future<void> Function()? onDelete;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    var accent = FluentTheme.of(context).accentColor;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 4.h),
+      decoration: BoxDecoration(
+        color: BTColors.surfaceSecondary(context),
+        borderRadius: BTRadius.mediumBR,
+        border: Border.all(color: BTColors.divider(context)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8.w),
+            child: Text(
+              '$count',
+              style: BTTypography.caption(context).copyWith(
+                color: count == 0 ? BTColors.textSecondary(context) : accent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Tooltip(
+            message: '全选',
+            child: IconButton(
+              icon: Icon(
+                FluentIcons.select_all,
+                size: 16,
+                color: onSelectAll == null
+                    ? BTColors.textTertiary(context)
+                    : null,
+              ),
+              onPressed: onSelectAll,
+            ),
+          ),
+          Tooltip(
+            message: '清除选择',
+            child: IconButton(
+              icon: Icon(
+                FluentIcons.clear_selection,
+                size: 16,
+                color: onClear == null
+                    ? BTColors.textTertiary(context)
+                    : null,
+              ),
+              onPressed: onClear,
+            ),
+          ),
+          Tooltip(
+            message: '删除所选',
+            child: IconButton(
+              icon: Icon(
+                FluentIcons.delete,
+                size: 16,
+                color: onDelete == null
+                    ? BTColors.textTertiary(context)
+                    : BTColors.errorLight(context),
+              ),
+              onPressed: onDelete,
+            ),
+          ),
+          Tooltip(
+            message: '退出选择',
+            child: IconButton(
+              icon: const Icon(FluentIcons.cancel, size: 16),
+              onPressed: onCancel,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DownloadTaskCard extends StatelessWidget {
   const _DownloadTaskCard({
     required this.task,
     required this.busy,
     required this.onAction,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onSelect,
   });
 
   final BtTaskSnapshot task;
   final bool busy;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onSelect;
   final Future<void> Function(
     Future<void> Function(BtDownloadStore store) action,
   )
@@ -334,12 +591,15 @@ class _DownloadTaskCard extends StatelessWidget {
         ? task.displayName
         : task.displayInfoHash ?? task.id;
     var stateColor = _taskStateColor(context, task.state);
+    var accentColor = FluentTheme.of(context).accentColor;
     return BTCard(
       padding: EdgeInsets.zero,
       useAcrylic: false,
       useReveal: true,
       shadowLevel: BTShadowLevel.subtle,
-      borderColor: stateColor.withValues(alpha: 0.18),
+      borderColor: selected ? accentColor : stateColor.withValues(alpha: 0.18),
+      backgroundColor: selected ? accentColor.withValues(alpha: 0.06) : null,
+      onTap: selectionMode ? onSelect : null,
       child: ClipRRect(
         borderRadius: BTRadius.largeBR,
         child: Stack(
@@ -358,6 +618,13 @@ class _DownloadTaskCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
+                      if (selectionMode) ...[
+                        Checkbox(
+                          checked: selected,
+                          onChanged: (_) => onSelect?.call(),
+                        ),
+                        SizedBox(width: 4.w),
+                      ],
                       Container(
                         width: 36.r,
                         height: 36.r,
@@ -406,8 +673,14 @@ class _DownloadTaskCard extends StatelessWidget {
                       ),
                       SizedBox(width: 12.w),
                       _TaskStateBadge(state: task.state, color: stateColor),
-                      SizedBox(width: 8.w),
-                      _TaskActions(task: task, busy: busy, onAction: onAction),
+                      if (!selectionMode) ...[
+                        SizedBox(width: 8.w),
+                        _TaskActions(
+                          task: task,
+                          busy: busy,
+                          onAction: onAction,
+                        ),
+                      ],
                     ],
                   ),
                   SizedBox(height: 14.h),

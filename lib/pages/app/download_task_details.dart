@@ -275,10 +275,11 @@ class _DetailsHero extends StatelessWidget {
               SizedBox(width: 8.w),
               Expanded(
                 child: _HeroMetric(
-                  icon: FluentIcons.people,
-                  label: '连接',
-                  value: '${task.peers} Peer · ${task.seeds} Seed',
-                  color: BTColors.info,
+                  icon: FluentIcons.upload,
+                  label: '分享率 / 做种',
+                  value:
+                      '${task.shareRatio.toStringAsFixed(2)} / ${_durationLabel(task.seedingSeconds)}',
+                  color: BTColors.warningLight(context),
                 ),
               ),
             ],
@@ -674,11 +675,10 @@ class _ProgressTab extends StatelessWidget {
                   ),
                   _TransferMetric(
                     width: width,
-                    label: '分享率 / 做种',
-                    value:
-                        '${task.shareRatio.toStringAsFixed(2)} / ${_durationLabel(task.seedingSeconds)}',
-                    icon: FluentIcons.upload,
-                    color: BTColors.warningLight(context),
+                    label: '连接',
+                    value: '${task.peers} Peer · ${task.seeds} Seed',
+                    icon: FluentIcons.people,
+                    color: BTColors.info,
                   ),
                 ],
               );
