@@ -493,13 +493,13 @@ class _EmptyStopped extends StatelessWidget {
                 color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(FluentIcons.pause, size: 32.sp, color: color),
+              child: Icon(FluentIcons.check_mark, size: 32.sp, color: color),
             ),
             SizedBox(height: 18.h),
             Text('暂无已停止任务', style: BTTypography.subtitle(context)),
             SizedBox(height: 6.h),
             Text(
-              '已暂停或完成做种的任务会显示在这里',
+              '下载出错或完成做种的任务会显示在这里',
               style: BTTypography.body(
                 context,
               ).copyWith(color: BTColors.textSecondary(context)),

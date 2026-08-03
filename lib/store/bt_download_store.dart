@@ -61,6 +61,7 @@ class BtDownloadStore extends ChangeNotifier {
       _tasks.where(_isFileAvailable).map((task) => task.id),
     );
     _taskSubscription = _client.taskSnapshots.listen((tasks) {
+      _updateTaskBaseStates(tasks);
       _notifyNewCompletions(tasks);
       _restoreNewElapsed(tasks);
       _trackDownloadElapsed(tasks);
@@ -72,7 +73,9 @@ class BtDownloadStore extends ChangeNotifier {
       if (state == BtEngineClientState.ready) _lastError = null;
       notifyListeners();
     });
+    _updateTaskBaseStates(_tasks);
     _restoreNewElapsed(_tasks);
+    _trackDownloadElapsed(_tasks);
   }
 
   final BtEngineGateway _client;
@@ -86,11 +89,13 @@ class BtDownloadStore extends ChangeNotifier {
   late final StreamSubscription<BtEngineClientState> _stateSubscription;
   final Set<String> _busyTaskIds = {};
   final Map<String, String> _taskStates = {};
+  final Map<String, String> _taskBaseStates = {};
   final Map<String, DateTime> _activeSince = {};
   final Map<String, int> _elapsedSeconds = {};
   final Map<String, DateTime> _lastElapsedPersistAt = {};
   final Set<String> _restoredElapsedTaskIds = {};
   final Set<String> _availableTaskIds = {};
+  Timer? _elapsedTimer;
   List<BtTaskSnapshot> _tasks;
   BtEngineClientState _engineState;
   String? _lastError;
@@ -98,17 +103,21 @@ class BtDownloadStore extends ChangeNotifier {
 
   List<BtTaskSnapshot> get tasks => List.unmodifiable(_tasks);
 
-  /// 进行中任务，按 正在下载 > 未下载 > 正在做种 > 错误 排序。
+  /// 进行中任务，按 正在下载 > 未下载 > 正在做种 > 已暂停 排序。
   List<BtTaskSnapshot> get activeTasks =>
       _sortTasks(_tasks.where((task) => !isStoppedTask(task)));
 
-  /// 已停止任务（已暂停 / 已完成做种）。
+  /// 已停止任务（下载出错 / 已完成做种）。
   List<BtTaskSnapshot> get stoppedTasks =>
       _sortTasks(_tasks.where(isStoppedTask));
 
-  /// 任务是否已停止：不参与下载与做种。
-  static bool isStoppedTask(BtTaskSnapshot task) {
-    return task.state == 'paused' || task.state == 'completed';
+  /// 任务是否已停止：下载出错或已完成做种，不再参与下载与上传。
+  ///
+  /// 校验中（`checking`）沿用进入校验前的分类，避免“重新校验”让任务在
+  /// 进行中/已停止两个标签页之间跳转。
+  bool isStoppedTask(BtTaskSnapshot task) {
+    var base = _taskBaseStates[task.id] ?? task.state;
+    return base == 'completed' || base == 'error';
   }
 
   BtEngineClientState get engineState => _engineState;
@@ -120,39 +129,101 @@ class BtDownloadStore extends ChangeNotifier {
       _tasks.fold(0, (total, task) => total + task.uploadRate);
   bool isTaskBusy(String id) => _busyTaskIds.contains(id);
 
-  /// 任务处于下载状态（含拉取元数据）的累计秒数，跨 App 重启保留。
+  /// 任务处于下载状态（含拉取元数据、数据校验）的累计秒数，跨 App 重启保留。
   int downloadElapsedSeconds(String id) => _elapsedSeconds[id] ?? 0;
+
+  static bool _isElapsedActive(String state) {
+    return state == 'downloading' ||
+        state == 'metadata' ||
+        state == 'checking';
+  }
 
   void _trackDownloadElapsed(List<BtTaskSnapshot> tasks) {
     var now = DateTime.now();
     var activeIds = <String>{};
     for (var task in tasks) {
-      if (task.state == 'downloading' || task.state == 'metadata') {
+      if (_isElapsedActive(task.state)) {
         activeIds.add(task.id);
-        var since = _activeSince[task.id] ?? now;
-        _elapsedSeconds[task.id] =
-            (_elapsedSeconds[task.id] ?? 0) + now.difference(since).inSeconds;
-        _activeSince[task.id] = now;
-        if (_restoredElapsedTaskIds.contains(task.id)) {
-          var persistedAt = _lastElapsedPersistAt[task.id];
-          if (persistedAt == null ||
-              now.difference(persistedAt).inSeconds >= 10) {
-            _lastElapsedPersistAt[task.id] = now;
-            unawaited(_persistElapsed(task.id));
-          }
-        }
+        _advanceElapsed(task.id, now);
+        _maybePersistElapsed(task.id, now);
       }
     }
     _activeSince.removeWhere((id, since) {
       if (activeIds.contains(id)) return false;
-      _elapsedSeconds[id] =
-          (_elapsedSeconds[id] ?? 0) + now.difference(since).inSeconds;
+      _advanceElapsed(id, now);
       _lastElapsedPersistAt.remove(id);
       if (_restoredElapsedTaskIds.contains(id)) {
         unawaited(_persistElapsed(id));
       }
       return true;
     });
+    _syncElapsedTimer(tasks);
+  }
+
+  void _advanceElapsed(String id, DateTime now) {
+    var since = _activeSince[id] ?? now;
+    _elapsedSeconds[id] =
+        (_elapsedSeconds[id] ?? 0) + now.difference(since).inSeconds;
+    _activeSince[id] = now;
+  }
+
+  void _maybePersistElapsed(String id, DateTime now) {
+    if (!_restoredElapsedTaskIds.contains(id)) return;
+    var persistedAt = _lastElapsedPersistAt[id];
+    if (persistedAt != null &&
+        now.difference(persistedAt).inSeconds < 10) {
+      return;
+    }
+    _lastElapsedPersistAt[id] = now;
+    unawaited(_persistElapsed(id));
+  }
+
+  /// 引擎事件驱动快照可能长时间不来（例如任务卡在 0 速度、无 Peer），
+  /// 用 1 秒定时器保证下载中的耗时显示持续走动，避免“卡住”。
+  void _syncElapsedTimer(List<BtTaskSnapshot> tasks) {
+    var hasActive = tasks.any((task) => _isElapsedActive(task.state));
+    if (hasActive && _elapsedTimer == null) {
+      _elapsedTimer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => _tickElapsed(),
+      );
+    } else if (!hasActive && _elapsedTimer != null) {
+      _elapsedTimer!.cancel();
+      _elapsedTimer = null;
+    }
+  }
+
+  void _tickElapsed() {
+    var now = DateTime.now();
+    var changed = false;
+    for (var id in _activeSince.keys.toList()) {
+      var since = _activeSince[id];
+      if (since == null) continue;
+      var delta = now.difference(since).inSeconds;
+      if (delta <= 0) continue;
+      _elapsedSeconds[id] = (_elapsedSeconds[id] ?? 0) + delta;
+      _activeSince[id] = now;
+      changed = true;
+    }
+    if (!changed) return;
+    notifyListeners();
+    for (var id in _activeSince.keys) {
+      _maybePersistElapsed(id, now);
+    }
+  }
+
+  /// 记录每个任务进入“校验中”之前的稳定状态，用于分类与排序。
+  void _updateTaskBaseStates(List<BtTaskSnapshot> tasks) {
+    var ids = <String>{};
+    for (var task in tasks) {
+      ids.add(task.id);
+      if (task.state == 'checking') {
+        _taskBaseStates.putIfAbsent(task.id, () => task.state);
+      } else {
+        _taskBaseStates[task.id] = task.state;
+      }
+    }
+    _taskBaseStates.removeWhere((id, _) => !ids.contains(id));
   }
 
   void _restoreNewElapsed(List<BtTaskSnapshot> tasks) {
@@ -390,19 +461,25 @@ class BtDownloadStore extends ChangeNotifier {
     return null;
   }
 
-  /// 分组排序：正在下载 > 未下载 > 正在做种 > 错误 > 已停止，
+  /// 分组排序：进行中为 正在下载 > 未下载 > 正在做种 > 已暂停，
+  /// 已停止为 错误 > 已完成做种，
   /// 同组内保持引擎返回顺序（稳定排序）。
-  static List<BtTaskSnapshot> _sortTasks(Iterable<BtTaskSnapshot> tasks) {
+  List<BtTaskSnapshot> _sortTasks(Iterable<BtTaskSnapshot> tasks) {
     var snapshots = tasks.toList();
     var order = List.generate(snapshots.length, (index) => index);
     order.sort((a, b) {
-      var rank = _stateRank(
-        snapshots[a].state,
-      ).compareTo(_stateRank(snapshots[b].state));
+      var rank = _stateRankFor(
+        snapshots[a],
+      ).compareTo(_stateRankFor(snapshots[b]));
       if (rank != 0) return rank;
       return a.compareTo(b);
     });
     return List.unmodifiable(order.map((index) => snapshots[index]));
+  }
+
+  int _stateRankFor(BtTaskSnapshot task) {
+    var state = _taskBaseStates[task.id] ?? task.state;
+    return _stateRank(state);
   }
 
   static int _stateRank(String state) {
@@ -543,6 +620,8 @@ class BtDownloadStore extends ChangeNotifier {
 
   @override
   void dispose() {
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
     unawaited(_taskSubscription.cancel());
     unawaited(_stateSubscription.cancel());
     super.dispose();

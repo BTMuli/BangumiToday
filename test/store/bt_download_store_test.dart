@@ -272,7 +272,7 @@ void main() {
     });
 
     test(
-      'sorts active tasks by downloading > queued > seeding > error',
+      'sorts active tasks by downloading > queued > seeding > paused',
       () async {
         gateway.emitTasks([
           _task(id: 'h', state: 'completed'),
@@ -292,11 +292,71 @@ void main() {
           'a',
           'c',
           'b',
-          'f',
+          'g',
         ]);
-        expect(store.stoppedTasks.map((task) => task.id).toList(), ['h', 'g']);
+        expect(store.stoppedTasks.map((task) => task.id).toList(), [
+          'f',
+          'h',
+        ]);
       },
     );
+
+    test('keeps error tasks in the stopped tab', () async {
+      gateway.emitTasks([_task(state: 'error')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.activeTasks, isEmpty);
+      expect(store.stoppedTasks, hasLength(1));
+
+      gateway.emitTasks([_task(state: 'checking')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.activeTasks, isEmpty);
+      expect(store.stoppedTasks, hasLength(1));
+    });
+
+    test('keeps paused tasks in the active tab', () async {
+      gateway.emitTasks([
+        _task(id: 'paused', state: 'paused'),
+        _task(id: 'completed', state: 'completed'),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(store.activeTasks.map((task) => task.id).toList(), ['paused']);
+      expect(
+        store.stoppedTasks.map((task) => task.id).toList(),
+        ['completed'],
+      );
+    });
+
+    test('recheck keeps a completed task in the stopped tab', () async {
+      gateway.emitTasks([_task(state: 'completed')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.stoppedTasks, hasLength(1));
+
+      gateway.emitTasks([_task(state: 'checking')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.activeTasks, isEmpty);
+      expect(store.stoppedTasks, hasLength(1));
+
+      gateway.emitTasks([_task(state: 'completed')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.stoppedTasks, hasLength(1));
+    });
+
+    test('recheck keeps a paused task in the active tab', () async {
+      gateway.emitTasks([_task(state: 'paused')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.activeTasks, hasLength(1));
+
+      gateway.emitTasks([_task(state: 'checking')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.activeTasks, hasLength(1));
+      expect(store.stoppedTasks, isEmpty);
+
+      gateway.emitTasks([_task(state: 'paused')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.activeTasks, hasLength(1));
+      expect(store.stoppedTasks, isEmpty);
+    });
 
     test('keeps engine order inside the same group', () async {
       gateway.emitTasks([
@@ -387,6 +447,45 @@ void main() {
         expect(await elapsed.readSeconds('task'), greaterThanOrEqualTo(1));
       },
     );
+
+    test(
+      'keeps counting download elapsed time while checking after restart',
+      () async {
+        var elapsed = _MemoryElapsedStore();
+        await elapsed.writeSeconds('task', 120);
+
+        var restored = BtDownloadStore(
+          client: gateway,
+          completionNotifier: (task) async {},
+          elapsedStore: elapsed,
+        );
+        addTearDown(restored.dispose);
+
+        gateway.emitTasks([_task(state: 'checking')]);
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          restored.downloadElapsedSeconds('task'),
+          greaterThanOrEqualTo(120),
+        );
+
+        await Future<void>.delayed(const Duration(milliseconds: 1500));
+        gateway.emitTasks([_task(state: 'checking')]);
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          restored.downloadElapsedSeconds('task'),
+          greaterThanOrEqualTo(121),
+        );
+      },
+    );
+
+    test('advances download elapsed time without engine snapshots', () async {
+      gateway.emitTasks([_task(state: 'downloading')]);
+      await Future<void>.delayed(Duration.zero);
+      var initial = store.downloadElapsedSeconds('task');
+
+      await Future<void>.delayed(const Duration(milliseconds: 3200));
+      expect(store.downloadElapsedSeconds('task'), greaterThan(initial));
+    });
   });
 }
 
