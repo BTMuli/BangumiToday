@@ -9,6 +9,7 @@ import '../../core/theme/bt_theme.dart';
 import '../../store/bt_download_store.dart';
 import '../../tools/file_tool.dart';
 import '../../ui/bt_dialog.dart';
+import '../../ui/bt_engine_switch.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_buttons.dart';
 import '../../widgets/common/bt_card.dart';
@@ -145,19 +146,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
   }
 
   Future<void> _enableEngine(BuildContext context) async {
-    try {
-      var warning = await ref.read(btDownloadStoreProvider).enableEngine();
-      if (!context.mounted) return;
-      if (warning == null) {
-        await BtInfobar.success(context, '下载引擎已开启');
-      } else {
-        await BtInfobar.warn(context, warning);
-      }
-    } catch (error) {
-      if (context.mounted) {
-        await BtInfobar.error(context, '开启下载引擎失败：$error');
-      }
-    }
+    await enableDownloadEngine(ref, context);
   }
 
   void _exitSelection() {

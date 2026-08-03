@@ -14,6 +14,7 @@ import '../../models/app/bt_tracker_config.dart';
 import '../../store/bt_download_store.dart';
 import '../../store/tracker_hive.dart';
 import '../../ui/bt_dialog.dart';
+import '../../ui/bt_engine_switch.dart';
 import '../../ui/bt_infobar.dart';
 
 class AppConfigDownloadWidget extends ConsumerStatefulWidget {
@@ -128,21 +129,9 @@ class _AppConfigDownloadWidgetState
 
   Future<void> _toggleEngine(bool enabled) async {
     if (enabled) {
-      try {
-        var warning = await ref.read(btDownloadStoreProvider).enableEngine();
-        await _reloadConfig();
-        await _refreshFirewallStatus();
-        if (!mounted) return;
-        if (warning == null) {
-          await BtInfobar.success(context, '下载引擎已开启');
-        } else {
-          await BtInfobar.warn(context, warning);
-        }
-      } catch (error) {
-        if (mounted) {
-          await BtInfobar.error(context, '开启下载引擎失败：$error');
-        }
-      }
+      await enableDownloadEngine(ref, context);
+      await _reloadConfig();
+      await _refreshFirewallStatus();
       return;
     }
 
@@ -306,13 +295,59 @@ class _AppConfigDownloadWidgetState
                 ListTile(
                   title: const Text('启用下载引擎'),
                   subtitle: const Text(
-                    '默认关闭，需手动开启；开启后应用启动时会自动运行下载引擎，'
-                    '并自动注册防火墙规则',
+                    '默认关闭，需手动开启；开启后应用启动时会自动运行下载引擎',
                   ),
                   trailing: ToggleSwitch(
                     checked: _config.engineEnabled,
                     onChanged: _saving ? null : _toggleEngine,
                   ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Windows 防火墙规则',
+                  style: FluentTheme.of(context).typography.bodyStrong,
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  '下载引擎监听网络端口，需入站放行才能接收 Peer 连接。'
+                  '开启下载引擎时会自动注册入站允许规则；规则未注册或指向旧路径'
+                  '（如引擎更新后）时可手动重新注册，也可以直接在新弹窗中点击“允许访问”。'
+                  '注册与移除都需要管理员授权。',
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _firewallStatusText(),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (_firewallStatus ==
+                            EngineFirewallRuleStatus.registered ||
+                        _firewallStatus ==
+                            EngineFirewallRuleStatus.pathMismatch)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Button(
+                          onPressed: _firewallBusy
+                              ? null
+                              : _unregisterFirewallRule,
+                          child: const Text('移除规则'),
+                        ),
+                      ),
+                    FilledButton(
+                      onPressed: _firewallBusy ? null : _registerFirewallRule,
+                      child: _firewallBusy
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: ProgressRing(strokeWidth: 2),
+                            )
+                          : const Text('注册规则'),
+                    ),
+                  ],
                 ),
                 const Divider(),
                 _numberSetting(
@@ -448,53 +483,6 @@ class _AppConfigDownloadWidgetState
                   ),
                 ),
                 const Divider(),
-                Text(
-                  'Windows 防火墙规则',
-                  style: FluentTheme.of(context).typography.bodyStrong,
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  '下载引擎会监听网络端口，首次运行会触发 Windows 防火墙提示。'
-                  '注册入站允许规则后不再弹窗；引擎更新后若规则指向旧路径，需要重新注册，'
-                  '也可以直接在新弹窗中点击“允许访问”。开启下载引擎时会自动注册该规则，'
-                  '注册与移除都需要管理员授权。',
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _firewallStatusText(),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (_firewallStatus ==
-                            EngineFirewallRuleStatus.registered ||
-                        _firewallStatus ==
-                            EngineFirewallRuleStatus.pathMismatch)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Button(
-                          onPressed: _firewallBusy
-                              ? null
-                              : _unregisterFirewallRule,
-                          child: const Text('移除规则'),
-                        ),
-                      ),
-                    FilledButton(
-                      onPressed: _firewallBusy ? null : _registerFirewallRule,
-                      child: _firewallBusy
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: ProgressRing(strokeWidth: 2),
-                            )
-                          : const Text('注册规则'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
                 Text(
                   'Tracker 列表来源（每行一个 HTTP/HTTPS URL，最多 8 个）',
                   style: FluentTheme.of(context).typography.bodyStrong,

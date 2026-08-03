@@ -100,6 +100,22 @@ Future<bool> showConfirm(
   BuildContext context, {
   required String title,
   required String content,
+}) {
+  return showConfirmAction(
+    context,
+    title: title,
+    content: content,
+    confirmText: '确定',
+  );
+}
+
+/// 带自定义按钮文案的确认对话框，返回用户是否点击了确认操作。
+Future<bool> showConfirmAction(
+  BuildContext context, {
+  required String title,
+  required String content,
+  required String confirmText,
+  String cancelText = '取消',
 }) async {
   var confirm = await showDialog(
     barrierDismissible: true,
@@ -109,12 +125,12 @@ Future<bool> showConfirm(
       content: Text(content, style: BTTypography.body(context)),
       actions: [
         _BTDialogAction(
-          text: '取消',
+          text: cancelText,
           onPressed: () => Navigator.of(context).pop(false),
           isPrimary: false,
         ),
         _BTDialogAction(
-          text: '确定',
+          text: confirmText,
           onPressed: () => Navigator.of(context).pop(true),
           isPrimary: true,
         ),
