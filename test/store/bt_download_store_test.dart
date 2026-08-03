@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:bangumi_today/core/services/bt_engine_client.dart';
 import 'package:bangumi_today/models/app/bt_download_config.dart';
 import 'package:bangumi_today/store/bt_download_store.dart';
+import 'package:bangumi_today/store/bt_task_elapsed_store.dart';
 
 void main() {
   group('BtDownloadStore', () {
@@ -18,6 +19,7 @@ void main() {
       store = BtDownloadStore(
         client: gateway,
         completionNotifier: (task) async => completedTasks.add(task),
+        elapsedStore: _MemoryElapsedStore(),
       );
     });
 
@@ -158,6 +160,7 @@ void main() {
       var switchStore = BtDownloadStore(
         client: gateway,
         completionNotifier: (task) async {},
+        elapsedStore: _MemoryElapsedStore(),
         readConfig: () async => const BtDownloadConfig(engineEnabled: false),
         writeConfig: (config) async => written.add(config),
         registerFirewallRule: () async => firewallCalls++,
@@ -179,6 +182,7 @@ void main() {
       var switchStore = BtDownloadStore(
         client: gateway,
         completionNotifier: (task) async {},
+        elapsedStore: _MemoryElapsedStore(),
         writeConfig: (config) async {},
         registerFirewallRule: () async => firewallCalls++,
       );
@@ -196,6 +200,7 @@ void main() {
       var switchStore = BtDownloadStore(
         client: gateway,
         completionNotifier: (task) async {},
+        elapsedStore: _MemoryElapsedStore(),
         writeConfig: (config) async {},
         registerFirewallRule: () async => throw Exception('elevation canceled'),
       );
@@ -215,6 +220,7 @@ void main() {
       var switchStore = BtDownloadStore(
         client: gateway,
         completionNotifier: (task) async {},
+        elapsedStore: _MemoryElapsedStore(),
         writeConfig: (config) async => written.add(config),
       );
       addTearDown(switchStore.dispose);
@@ -229,6 +235,7 @@ void main() {
       var switchStore = BtDownloadStore(
         client: gateway,
         completionNotifier: (task) async {},
+        elapsedStore: _MemoryElapsedStore(),
         readConfig: () async => const BtDownloadConfig(engineEnabled: false),
         writeConfig: (config) async {},
         registerFirewallRule: () async {},
@@ -247,6 +254,7 @@ void main() {
       var switchStore = BtDownloadStore(
         client: gateway,
         completionNotifier: (task) async {},
+        elapsedStore: _MemoryElapsedStore(),
         readConfig: () async => const BtDownloadConfig(engineEnabled: false),
         writeConfig: (config) async {},
         registerFirewallRule: () async {},
@@ -336,6 +344,49 @@ void main() {
       await removal;
       expect(store.isTaskBusy('task'), isFalse);
     });
+
+    test(
+      'restores persisted download elapsed time across store restarts',
+      () async {
+        var elapsed = _MemoryElapsedStore();
+        await elapsed.writeSeconds('task', 120);
+
+        var restored = BtDownloadStore(
+          client: gateway,
+          completionNotifier: (task) async {},
+          elapsedStore: elapsed,
+        );
+        addTearDown(restored.dispose);
+
+        gateway.emitTasks([_task(state: 'downloading')]);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(
+          restored.downloadElapsedSeconds('task'),
+          greaterThanOrEqualTo(120),
+        );
+      },
+    );
+
+    test(
+      'persists accumulated download elapsed time when leaving download',
+      () async {
+        var elapsed = _MemoryElapsedStore();
+        var elapsedStore = BtDownloadStore(
+          client: gateway,
+          completionNotifier: (task) async {},
+          elapsedStore: elapsed,
+        );
+        addTearDown(elapsedStore.dispose);
+
+        gateway.emitTasks([_task(state: 'downloading')]);
+        await Future<void>.delayed(const Duration(milliseconds: 1100));
+        gateway.emitTasks([_task(state: 'paused')]);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(await elapsed.readSeconds('task'), greaterThanOrEqualTo(1));
+      },
+    );
   });
 }
 
@@ -364,6 +415,23 @@ BtTaskSnapshot _task({String? id, required String state}) {
     isPrivate: false,
     lastError: null,
   );
+}
+
+class _MemoryElapsedStore implements BtTaskElapsedStore {
+  final Map<String, int> values = {};
+
+  @override
+  Future<int?> readSeconds(String taskId) async => values[taskId];
+
+  @override
+  Future<void> writeSeconds(String taskId, int seconds) async {
+    values[taskId] = seconds;
+  }
+
+  @override
+  Future<void> delete(String taskId) async {
+    values.remove(taskId);
+  }
 }
 
 class FakeBtEngineGateway implements BtEngineGateway {

@@ -118,7 +118,13 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
                     index: _tabIndex,
                     children: [
                       _OverviewTab(task: task, details: _details!),
-                      _ProgressTab(task: task, details: _details!),
+                      _ProgressTab(
+                        task: task,
+                        details: _details!,
+                        elapsedSeconds: store.downloadElapsedSeconds(
+                          widget.taskId,
+                        ),
+                      ),
                       _PeersTab(details: _details!),
                       _FilesTab(details: _details!),
                     ],
@@ -602,10 +608,15 @@ class _OverviewTab extends StatelessWidget {
 }
 
 class _ProgressTab extends StatelessWidget {
-  const _ProgressTab({required this.task, required this.details});
+  const _ProgressTab({
+    required this.task,
+    required this.details,
+    required this.elapsedSeconds,
+  });
 
   final BtTaskSnapshot task;
   final BtTaskDetails details;
+  final int elapsedSeconds;
 
   @override
   Widget build(BuildContext context) {
@@ -679,6 +690,22 @@ class _ProgressTab extends StatelessWidget {
                     label: '连接',
                     value: '${task.peers} Peer · ${task.seeds} Seed',
                     icon: FluentIcons.people,
+                    color: BTColors.info,
+                  ),
+                  _TransferMetric(
+                    width: width,
+                    label: '预计下载耗时',
+                    value: _etaLabel(task),
+                    icon: FluentIcons.timer,
+                    color: BTColors.warningLight(context),
+                  ),
+                  _TransferMetric(
+                    width: width,
+                    label: '总下载耗时',
+                    value: elapsedSeconds > 0
+                        ? _durationLabel(elapsedSeconds)
+                        : '—',
+                    icon: FluentIcons.history,
                     color: BTColors.info,
                   ),
                 ],
@@ -841,7 +868,7 @@ class _PieceMap extends StatelessWidget {
         ),
       );
     }
-    const maxCells = 480;
+    const maxCells = 1200;
     var groupSize = max(1, (completedPieces.length / maxCells).ceil());
     var cellCount = (completedPieces.length / groupSize).ceil();
     var accent = FluentTheme.of(context).accentColor;
@@ -1649,6 +1676,15 @@ String _sourceKindLabel(String sourceKind) {
     'magnet' => 'Magnet 磁力链接',
     _ => sourceKind,
   };
+}
+
+String _etaLabel(BtTaskSnapshot task) {
+  if (task.downloadRate <= 0 || task.totalBytes <= task.downloadedBytes) {
+    return '—';
+  }
+  var seconds = ((task.totalBytes - task.downloadedBytes) / task.downloadRate)
+      .ceil();
+  return _durationLabel(seconds);
 }
 
 String _durationLabel(int seconds) {

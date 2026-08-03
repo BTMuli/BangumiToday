@@ -20,6 +20,7 @@ import '../models/database/app_bmf_model.dart';
 import '../tools/file_tool.dart';
 import '../tools/log_tool.dart';
 import '../tools/notifier_tool.dart';
+import 'bt_task_elapsed_store.dart';
 import 'nav_store.dart';
 import 'tracker_hive.dart';
 
@@ -41,6 +42,7 @@ class BtDownloadStore extends ChangeNotifier {
     BtEngineConfigReader? readConfig,
     BtEngineConfigWriter? writeConfig,
     BtFirewallRuleRegistrar? registerFirewallRule,
+    BtTaskElapsedStore? elapsedStore,
   }) : _client = client ?? BtEngineClient.instance,
        _completionNotifier = completionNotifier ?? _showCompletionNotification,
        _startConfigProvider =
@@ -51,6 +53,7 @@ class BtDownloadStore extends ChangeNotifier {
        _writeConfig =
            writeConfig ?? (client == null ? _saveConfig : _noopConfigWrite),
        _firewallRegistrar = registerFirewallRule ?? _registerFirewallRule,
+       _elapsedStore = elapsedStore ?? const BtSqliteTaskElapsedStore(),
        _engineState = (client ?? BtEngineClient.instance).state,
        _tasks = List.of((client ?? BtEngineClient.instance).tasks) {
     _taskStates.addEntries(_tasks.map((task) => MapEntry(task.id, task.state)));
@@ -59,6 +62,8 @@ class BtDownloadStore extends ChangeNotifier {
     );
     _taskSubscription = _client.taskSnapshots.listen((tasks) {
       _notifyNewCompletions(tasks);
+      _restoreNewElapsed(tasks);
+      _trackDownloadElapsed(tasks);
       _tasks = List.of(tasks);
       notifyListeners();
     });
@@ -67,6 +72,7 @@ class BtDownloadStore extends ChangeNotifier {
       if (state == BtEngineClientState.ready) _lastError = null;
       notifyListeners();
     });
+    _restoreNewElapsed(_tasks);
   }
 
   final BtEngineGateway _client;
@@ -75,10 +81,15 @@ class BtDownloadStore extends ChangeNotifier {
   final BtEngineConfigReader _readConfig;
   final BtEngineConfigWriter _writeConfig;
   final BtFirewallRuleRegistrar _firewallRegistrar;
+  final BtTaskElapsedStore _elapsedStore;
   late final StreamSubscription<List<BtTaskSnapshot>> _taskSubscription;
   late final StreamSubscription<BtEngineClientState> _stateSubscription;
   final Set<String> _busyTaskIds = {};
   final Map<String, String> _taskStates = {};
+  final Map<String, DateTime> _activeSince = {};
+  final Map<String, int> _elapsedSeconds = {};
+  final Map<String, DateTime> _lastElapsedPersistAt = {};
+  final Set<String> _restoredElapsedTaskIds = {};
   final Set<String> _availableTaskIds = {};
   List<BtTaskSnapshot> _tasks;
   BtEngineClientState _engineState;
@@ -108,6 +119,79 @@ class BtDownloadStore extends ChangeNotifier {
   int get totalUploadRate =>
       _tasks.fold(0, (total, task) => total + task.uploadRate);
   bool isTaskBusy(String id) => _busyTaskIds.contains(id);
+
+  /// 任务处于下载状态（含拉取元数据）的累计秒数，跨 App 重启保留。
+  int downloadElapsedSeconds(String id) => _elapsedSeconds[id] ?? 0;
+
+  void _trackDownloadElapsed(List<BtTaskSnapshot> tasks) {
+    var now = DateTime.now();
+    var activeIds = <String>{};
+    for (var task in tasks) {
+      if (task.state == 'downloading' || task.state == 'metadata') {
+        activeIds.add(task.id);
+        var since = _activeSince[task.id] ?? now;
+        _elapsedSeconds[task.id] =
+            (_elapsedSeconds[task.id] ?? 0) + now.difference(since).inSeconds;
+        _activeSince[task.id] = now;
+        if (_restoredElapsedTaskIds.contains(task.id)) {
+          var persistedAt = _lastElapsedPersistAt[task.id];
+          if (persistedAt == null ||
+              now.difference(persistedAt).inSeconds >= 10) {
+            _lastElapsedPersistAt[task.id] = now;
+            unawaited(_persistElapsed(task.id));
+          }
+        }
+      }
+    }
+    _activeSince.removeWhere((id, since) {
+      if (activeIds.contains(id)) return false;
+      _elapsedSeconds[id] =
+          (_elapsedSeconds[id] ?? 0) + now.difference(since).inSeconds;
+      _lastElapsedPersistAt.remove(id);
+      if (_restoredElapsedTaskIds.contains(id)) {
+        unawaited(_persistElapsed(id));
+      }
+      return true;
+    });
+  }
+
+  void _restoreNewElapsed(List<BtTaskSnapshot> tasks) {
+    for (var task in tasks) {
+      if (!_restoredElapsedTaskIds.contains(task.id)) {
+        unawaited(_restoreElapsedFor(task.id));
+      }
+    }
+  }
+
+  Future<void> _restoreElapsedFor(String id) async {
+    try {
+      var base = await _elapsedStore.readSeconds(id);
+      if (base != null && base > 0) {
+        _elapsedSeconds[id] = base + (_elapsedSeconds[id] ?? 0);
+        notifyListeners();
+      }
+    } catch (error) {
+      BTLogTool.error('Failed to restore download elapsed time: $error');
+    } finally {
+      _restoredElapsedTaskIds.add(id);
+    }
+  }
+
+  Future<void> _persistElapsed(String id) async {
+    try {
+      await _elapsedStore.writeSeconds(id, _elapsedSeconds[id] ?? 0);
+    } catch (error) {
+      BTLogTool.error('Failed to persist download elapsed time: $error');
+    }
+  }
+
+  Future<void> _deleteElapsed(String id) async {
+    try {
+      await _elapsedStore.delete(id);
+    } catch (error) {
+      BTLogTool.error('Failed to delete download elapsed time: $error');
+    }
+  }
 
   Future<BtTaskDetails> taskDetails(String id) => _client.taskDetails(id);
   Future<List<int>> setFilePriorities(String id, Map<int, int> priorities) =>
@@ -183,8 +267,13 @@ class BtDownloadStore extends ChangeNotifier {
   Future<void> resume(String id) => _runTask(id, () => _client.resume(id));
   Future<void> retry(String id) => _runTask(id, () => _client.retry(id));
   Future<void> recheck(String id) => _runTask(id, () => _client.recheck(id));
-  Future<void> remove(String id) {
-    return _runTask(id, () => _client.remove(id, deleteData: false));
+  Future<void> remove(String id) async {
+    await _runTask(id, () => _client.remove(id, deleteData: false));
+    _activeSince.remove(id);
+    _elapsedSeconds.remove(id);
+    _lastElapsedPersistAt.remove(id);
+    _restoredElapsedTaskIds.remove(id);
+    unawaited(_deleteElapsed(id));
   }
 
   /// 批量移除任务（保留数据）；活跃任务会先暂停再移除。
@@ -205,6 +294,13 @@ class BtDownloadStore extends ChangeNotifier {
           }
         }
         await _client.remove(id, deleteData: false);
+      }
+      for (var id in targets) {
+        _activeSince.remove(id);
+        _elapsedSeconds.remove(id);
+        _lastElapsedPersistAt.remove(id);
+        _restoredElapsedTaskIds.remove(id);
+        unawaited(_deleteElapsed(id));
       }
     } catch (error) {
       _lastError = error.toString();
