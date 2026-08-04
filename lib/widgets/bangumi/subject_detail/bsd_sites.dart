@@ -1,6 +1,5 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
@@ -102,13 +101,7 @@ class _BsdSitesState extends State<BsdSites>
       icon = FluentIcons.link;
     }
     return Button(
-      child: Row(
-        children: [
-          Icon(icon),
-          SizedBox(width: 8.w),
-          Text(item.name),
-        ],
-      ),
+      child: Row(children: [Icon(icon), SizedBox(width: 8), Text(item.name)]),
       onPressed: () async {
         await launchUrlString(item.url);
       },
@@ -121,17 +114,17 @@ class _BsdSitesState extends State<BsdSites>
     super.build(context);
     if (siteItems.isEmpty) return const SizedBox.shrink();
     return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: 300.h),
+      constraints: BoxConstraints(maxHeight: 300),
       child: SingleChildScrollView(
-        padding: EdgeInsets.only(right: 12.w),
+        padding: EdgeInsets.only(right: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('相关站点', style: FluentTheme.of(context).typography.subtitle),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8),
             for (var item in siteItems) ...[
               buildSiteItem(item),
-              SizedBox(height: 8.h),
+              SizedBox(height: 8),
             ],
           ],
         ),

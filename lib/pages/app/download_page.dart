@@ -1,7 +1,6 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../core/services/bt_engine_client.dart';
@@ -44,7 +43,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
               activeCount: activeTasks.length,
               stoppedCount: stoppedTasks.length,
             ),
-            SizedBox(width: 12.w),
+            SizedBox(width: 12),
             if (_selecting)
               _SelectionBar(
                 count: _selectedIds.length,
@@ -77,8 +76,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
           ],
         ),
         commandBar: Wrap(
-          spacing: 6.w,
-          runSpacing: 6.h,
+          spacing: 6,
+          runSpacing: 6,
           alignment: WrapAlignment.end,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
@@ -197,9 +196,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
           : const _EmptyStopped();
     }
     return ListView.separated(
-      padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 24.h),
+      padding: EdgeInsets.fromLTRB(20, 14, 20, 24),
       itemCount: tasks.length,
-      separatorBuilder: (_, _) => SizedBox(height: 14.h),
+      separatorBuilder: (_, _) => SizedBox(height: 14),
       itemBuilder: (context, index) {
         var task = tasks[index];
         return _DownloadTaskCard(
@@ -237,19 +236,19 @@ class _PageTitle extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 38.r,
-          height: 38.r,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
             color: FluentTheme.of(context).accentColor.withValues(alpha: 0.14),
             borderRadius: BTRadius.mediumBR,
           ),
           child: Icon(
             FluentIcons.cloud_download,
-            size: 19.sp,
+            size: 19,
             color: FluentTheme.of(context).accentColor,
           ),
         ),
-        SizedBox(width: 12.w),
+        SizedBox(width: 12),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -286,7 +285,7 @@ class _EngineStatus extends StatelessWidget {
         state == BtEngineClientState.stopped ||
         state == BtEngineClientState.failed;
     var chip = Container(
-      padding: EdgeInsets.symmetric(horizontal: 11.w, vertical: 7.h),
+      padding: EdgeInsets.symmetric(horizontal: 11, vertical: 7),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BTRadius.roundBR,
@@ -297,14 +296,11 @@ class _EngineStatus extends StatelessWidget {
         children: [
           if (state == BtEngineClientState.starting ||
               state == BtEngineClientState.stopping)
-            SizedBox.square(
-              dimension: 7.r,
-              child: ProgressRing(strokeWidth: 2),
-            )
+            SizedBox.square(dimension: 7, child: ProgressRing(strokeWidth: 2))
           else
             Container(
-              width: 7.r,
-              height: 7.r,
+              width: 7,
+              height: 7,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
@@ -316,7 +312,7 @@ class _EngineStatus extends StatelessWidget {
                 ],
               ),
             ),
-          SizedBox(width: 7.w),
+          SizedBox(width: 7),
           Text(
             tappable ? '$label · 点击开启' : label,
             style: BTTypography.caption(context).copyWith(color: color),
@@ -326,9 +322,7 @@ class _EngineStatus extends StatelessWidget {
     );
     if (!tappable) return chip;
     return Tooltip(
-      message: state == BtEngineClientState.failed
-          ? '点击重新开启下载引擎'
-          : '点击开启下载引擎',
+      message: state == BtEngineClientState.failed ? '点击重新开启下载引擎' : '点击开启下载引擎',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(onTap: onEnable, child: chip),
@@ -346,7 +340,7 @@ class _TotalRates extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 4.h),
+      padding: EdgeInsets.symmetric(horizontal: 5, vertical: 4),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context),
         borderRadius: BTRadius.mediumBR,
@@ -360,7 +354,7 @@ class _TotalRates extends StatelessWidget {
             color: FluentTheme.of(context).accentColor,
             value: '${BTFileTool.formatSize(downloadRate)}/s',
           ),
-          Container(width: 1, height: 20.h, color: BTColors.divider(context)),
+          Container(width: 1, height: 20, color: BTColors.divider(context)),
           _RateItem(
             icon: FluentIcons.upload,
             color: BTColors.successLight(context),
@@ -386,12 +380,12 @@ class _RateItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13.sp, color: color),
-          SizedBox(width: 6.w),
+          Icon(icon, size: 13, color: color),
+          SizedBox(width: 6),
           Text(
             value,
             style: BTTypography.caption(
@@ -420,29 +414,29 @@ class _EmptyDownloads extends StatelessWidget {
         useAcrylic: false,
         useReveal: false,
         shadowLevel: BTShadowLevel.subtle,
-        padding: EdgeInsets.symmetric(horizontal: 52.w, vertical: 42.h),
+        padding: EdgeInsets.symmetric(horizontal: 52, vertical: 42),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 72.r,
-              height: 72.r,
+              width: 72,
+              height: 72,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 failed ? FluentIcons.error : FluentIcons.cloud_download,
-                size: 32.sp,
+                size: 32,
                 color: color,
               ),
             ),
-            SizedBox(height: 18.h),
+            SizedBox(height: 18),
             Text(
               failed ? '下载引擎暂不可用' : '暂无下载任务',
               style: BTTypography.subtitle(context),
             ),
-            SizedBox(height: 6.h),
+            SizedBox(height: 6),
             Text(
               failed
                   ? '请检查引擎状态后重试'
@@ -454,7 +448,7 @@ class _EmptyDownloads extends StatelessWidget {
               ).copyWith(color: BTColors.textSecondary(context)),
             ),
             if (store.lastError != null) ...[
-              SizedBox(height: 12.h),
+              SizedBox(height: 12),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: Text(
@@ -482,22 +476,22 @@ class _EmptyStopped extends StatelessWidget {
         useAcrylic: false,
         useReveal: false,
         shadowLevel: BTShadowLevel.subtle,
-        padding: EdgeInsets.symmetric(horizontal: 52.w, vertical: 42.h),
+        padding: EdgeInsets.symmetric(horizontal: 52, vertical: 42),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 72.r,
-              height: 72.r,
+              width: 72,
+              height: 72,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(FluentIcons.check_mark, size: 32.sp, color: color),
+              child: Icon(FluentIcons.check_mark, size: 32, color: color),
             ),
-            SizedBox(height: 18.h),
+            SizedBox(height: 18),
             Text('暂无已停止任务', style: BTTypography.subtitle(context)),
-            SizedBox(height: 6.h),
+            SizedBox(height: 6),
             Text(
               '下载出错或完成做种的任务会显示在这里',
               style: BTTypography.body(
@@ -530,7 +524,7 @@ class _SelectionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     var accent = FluentTheme.of(context).accentColor;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 4.h),
+      padding: EdgeInsets.symmetric(horizontal: 5, vertical: 4),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context),
         borderRadius: BTRadius.mediumBR,
@@ -540,7 +534,7 @@ class _SelectionBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8.w),
+            padding: EdgeInsets.symmetric(horizontal: 8),
             child: Text(
               '$count',
               style: BTTypography.caption(context).copyWith(
@@ -568,9 +562,7 @@ class _SelectionBar extends StatelessWidget {
               icon: Icon(
                 FluentIcons.clear_selection,
                 size: 16,
-                color: onClear == null
-                    ? BTColors.textTertiary(context)
-                    : null,
+                color: onClear == null ? BTColors.textTertiary(context) : null,
               ),
               onPressed: onClear,
             ),
@@ -647,11 +639,11 @@ class _DownloadTaskCard extends StatelessWidget {
               left: 0,
               top: 0,
               bottom: 0,
-              width: 4.w,
+              width: 4,
               child: ColoredBox(color: stateColor),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(20.w, 15.h, 14.w, 14.h),
+              padding: EdgeInsets.fromLTRB(20, 15, 14, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -662,22 +654,22 @@ class _DownloadTaskCard extends StatelessWidget {
                           checked: selected,
                           onChanged: (_) => onSelect?.call(),
                         ),
-                        SizedBox(width: 4.w),
+                        SizedBox(width: 4),
                       ],
                       Container(
-                        width: 36.r,
-                        height: 36.r,
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
                           color: stateColor.withValues(alpha: 0.11),
                           borderRadius: BTRadius.mediumBR,
                         ),
                         child: Icon(
                           _taskStateIcon(task.state),
-                          size: 17.sp,
+                          size: 17,
                           color: stateColor,
                         ),
                       ),
-                      SizedBox(width: 11.w),
+                      SizedBox(width: 11),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,15 +680,15 @@ class _DownloadTaskCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: BTTypography.bodyStrong(context),
                             ),
-                            SizedBox(height: 4.h),
+                            SizedBox(height: 4),
                             Row(
                               children: [
                                 Icon(
                                   FluentIcons.folder_open,
-                                  size: 12.sp,
+                                  size: 12,
                                   color: BTColors.textTertiary(context),
                                 ),
-                                SizedBox(width: 5.w),
+                                SizedBox(width: 5),
                                 Expanded(
                                   child: Text(
                                     task.savePath,
@@ -710,10 +702,10 @@ class _DownloadTaskCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      SizedBox(width: 12.w),
+                      SizedBox(width: 12),
                       _TaskStateBadge(state: task.state, color: stateColor),
                       if (!selectionMode) ...[
-                        SizedBox(width: 8.w),
+                        SizedBox(width: 8),
                         _TaskActions(
                           task: task,
                           busy: busy,
@@ -722,7 +714,7 @@ class _DownloadTaskCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  SizedBox(height: 14.h),
+                  SizedBox(height: 14),
                   Row(
                     children: [
                       Expanded(
@@ -730,15 +722,15 @@ class _DownloadTaskCard extends StatelessWidget {
                           borderRadius: BTRadius.roundBR,
                           child: ProgressBar(
                             value: progress,
-                            strokeWidth: 6.h,
+                            strokeWidth: 6,
                             activeColor: stateColor,
                             backgroundColor: stateColor.withValues(alpha: 0.1),
                           ),
                         ),
                       ),
-                      SizedBox(width: 12.w),
+                      SizedBox(width: 12),
                       SizedBox(
-                        width: 50.w,
+                        width: 50,
                         child: Text(
                           '${progress.toStringAsFixed(1)}%',
                           textAlign: TextAlign.right,
@@ -749,10 +741,10 @@ class _DownloadTaskCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  SizedBox(height: 13.h),
+                  SizedBox(height: 13),
                   Wrap(
-                    spacing: 8.w,
-                    runSpacing: 8.h,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       _TaskMetric(
                         icon: FluentIcons.database,
@@ -814,12 +806,12 @@ class _DownloadTaskCard extends StatelessWidget {
                     ],
                   ),
                   if (task.lastError != null) ...[
-                    SizedBox(height: 12.h),
+                    SizedBox(height: 12),
                     Container(
                       width: double.infinity,
                       padding: EdgeInsets.symmetric(
-                        horizontal: 11.w,
-                        vertical: 9.h,
+                        horizontal: 11,
+                        vertical: 9,
                       ),
                       decoration: BoxDecoration(
                         color: BTColors.errorLight(
@@ -859,7 +851,7 @@ class _TaskStateBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 5.h),
+      padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BTRadius.roundBR,
@@ -891,7 +883,7 @@ class _TaskMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var chip = Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context).withValues(alpha: 0.7),
         borderRadius: BTRadius.smallBR,
@@ -900,8 +892,8 @@ class _TaskMetric extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12.sp, color: color),
-          SizedBox(width: 6.w),
+          Icon(icon, size: 12, color: color),
+          SizedBox(width: 6),
           Text(
             value,
             style: BTTypography.caption(context).copyWith(
@@ -1062,12 +1054,12 @@ class _TaskActions extends StatelessWidget {
   }) {
     var foreground = color ?? BTColors.textSecondary(context);
     return Padding(
-      padding: EdgeInsets.only(left: 3.w),
+      padding: EdgeInsets.only(left: 3),
       child: Tooltip(
         message: message,
         child: Container(
-          width: 30.r,
-          height: 30.r,
+          width: 30,
+          height: 30,
           decoration: BoxDecoration(
             color: emphasized
                 ? foreground.withValues(alpha: 0.12)
@@ -1075,7 +1067,7 @@ class _TaskActions extends StatelessWidget {
             borderRadius: BTRadius.smallBR,
           ),
           child: IconButton(
-            icon: Icon(icon, size: 15.sp, color: foreground),
+            icon: Icon(icon, size: 15, color: foreground),
             onPressed: action,
             onLongPress: onLongPress,
           ),
@@ -1136,8 +1128,8 @@ String _etaLabel(BtTaskSnapshot task) {
   if (task.downloadRate <= 0 || task.totalBytes <= task.downloadedBytes) {
     return '—';
   }
-  var seconds =
-      ((task.totalBytes - task.downloadedBytes) / task.downloadRate).ceil();
+  var seconds = ((task.totalBytes - task.downloadedBytes) / task.downloadRate)
+      .ceil();
   return _formatDuration(seconds);
 }
 

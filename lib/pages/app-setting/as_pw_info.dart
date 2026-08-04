@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -183,8 +182,8 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
         if (mounted) Navigator.of(context).pop();
       },
       child: SizedBox(
-        width: 32.spMax,
-        height: 32.spMax,
+        width: 32,
+        height: 32,
         child: ColoredBox(color: color),
       ),
     );
@@ -201,18 +200,18 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
       ),
       trailing: SplitButton(
         flyout: FlyoutContent(
-          constraints: BoxConstraints(maxWidth: 200.w),
+          constraints: BoxConstraints(maxWidth: 200),
           child: curThemeMode == ThemeMode.system
               ? const Text('跟随系统设置\r\n无法更改')
               : Wrap(
-                  runSpacing: 8.h,
-                  spacing: 8.w,
+                  runSpacing: 8,
+                  spacing: 8,
                   children: Colors.accentColors.map(buildColorFlyout).toList(),
                 ),
         ),
         child: SizedBox(
-          width: 32.spMax,
-          height: 32.spMax,
+          width: 32,
+          height: 32,
           child: ColoredBox(color: curAccentColor),
         ),
       ),

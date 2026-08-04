@@ -1,5 +1,4 @@
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/theme/bt_theme.dart';
 
@@ -48,7 +47,7 @@ class BTDrawerRoute<T> extends PopupRoute<T> {
         axis: Axis.horizontal,
         alignment: AlignmentDirectional(isRight ? 1.0 : -1.0, -1.0),
         child: Container(
-          width: width.w,
+          width: width,
           height: double.infinity,
           decoration: BoxDecoration(
             color: backgroundColor ?? BTColors.surfacePrimary(context),
@@ -112,7 +111,7 @@ class BTDrawer extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
@@ -133,13 +132,13 @@ class BTDrawer extends StatelessWidget {
                 ),
               ),
               ...?actions,
-              SizedBox(width: 8.w),
+              SizedBox(width: 8),
               Tooltip(
                 message: '关闭',
                 child: IconButton(
                   icon: Icon(
                     FluentIcons.cancel,
-                    size: 16.sp,
+                    size: 16,
                     color: BTColors.textSecondary(context),
                   ),
                   onPressed: onClose ?? () => Navigator.of(context).pop(),
@@ -194,7 +193,7 @@ class _BTDrawerButtonState extends State<BTDrawerButton> {
         ),
         child: AnimatedContainer(
           duration: BTTheme.animationDurationFast,
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: _isHovered
                 ? accentColor.withValues(alpha: 0.1)
@@ -205,8 +204,8 @@ class _BTDrawerButtonState extends State<BTDrawerButton> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (widget.icon != null) ...[
-                Icon(widget.icon, size: 16.sp, color: accentColor),
-                SizedBox(width: 8.w),
+                Icon(widget.icon, size: 16, color: accentColor),
+                SizedBox(width: 8),
               ],
               Text(
                 widget.title,

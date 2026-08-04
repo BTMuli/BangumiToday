@@ -2,7 +2,6 @@ import 'dart:ui';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../core/theme/bt_theme.dart';
 import '../models/app/response.dart';
@@ -74,7 +73,7 @@ Future<String?> showInput(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(content, style: BTTypography.body(context)),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16),
             TextBox(
               controller: controller,
               autofocus: true,
@@ -231,8 +230,8 @@ class _BTContentDialogState extends State<_BTContentDialog>
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Center(
           child: Container(
-            constraints: BoxConstraints(maxWidth: 450.w, minWidth: 300.w),
-            margin: EdgeInsets.symmetric(horizontal: 24.w),
+            constraints: BoxConstraints(maxWidth: 450, minWidth: 300),
+            margin: EdgeInsets.symmetric(horizontal: 24),
             decoration: BoxDecoration(
               color: BTColors.surfacePrimary(context).withValues(alpha: 0.95),
               borderRadius: BTRadius.largeBR,
@@ -248,12 +247,12 @@ class _BTContentDialogState extends State<_BTContentDialog>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding: EdgeInsets.fromLTRB(20.w, 20.w, 20.w, 0),
+                  padding: EdgeInsets.fromLTRB(20, 20, 20, 0),
                   child: Row(
                     children: [
                       if (widget.icon != null) ...[
                         Container(
-                          padding: EdgeInsets.all(8.w),
+                          padding: EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color:
                                 (widget.iconColor ??
@@ -263,13 +262,13 @@ class _BTContentDialogState extends State<_BTContentDialog>
                           ),
                           child: Icon(
                             widget.icon,
-                            size: 20.sp,
+                            size: 20,
                             color:
                                 widget.iconColor ??
                                 FluentTheme.of(context).accentColor,
                           ),
                         ),
-                        SizedBox(width: 12.w),
+                        SizedBox(width: 12),
                       ],
                       Expanded(
                         child: Text(
@@ -282,9 +281,9 @@ class _BTContentDialogState extends State<_BTContentDialog>
                     ],
                   ),
                 ),
-                Padding(padding: EdgeInsets.all(20.w), child: widget.content),
+                Padding(padding: EdgeInsets.all(20), child: widget.content),
                 Container(
-                  padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 20.w),
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: widget.actions
@@ -293,7 +292,7 @@ class _BTContentDialogState extends State<_BTContentDialog>
                         .map(
                           (entry) => Padding(
                             padding: EdgeInsets.only(
-                              left: entry.key > 0 ? 8.w : 0,
+                              left: entry.key > 0 ? 8 : 0,
                             ),
                             child: entry.value,
                           ),
@@ -382,7 +381,7 @@ class _BTDialogActionState extends State<_BTDialogAction>
           },
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: widget.isPrimary
                   ? (_isHovered
@@ -411,7 +410,7 @@ class _BTDialogActionState extends State<_BTDialogAction>
                 color: widget.isPrimary
                     ? Colors.white
                     : BTColors.textPrimary(context),
-                fontSize: 14.sp,
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -458,9 +457,9 @@ class _BTProgressDialogContent extends StatelessWidget {
 
     return Center(
       child: Container(
-        constraints: BoxConstraints(maxWidth: 320.w),
-        margin: EdgeInsets.symmetric(horizontal: 24.w),
-        padding: EdgeInsets.all(20.w),
+        constraints: BoxConstraints(maxWidth: 320),
+        margin: EdgeInsets.symmetric(horizontal: 24),
+        padding: EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: BTColors.surfacePrimary(context).withValues(alpha: 0.95),
           borderRadius: BTRadius.largeBR,
@@ -477,18 +476,18 @@ class _BTProgressDialogContent extends StatelessWidget {
             Row(
               children: [
                 SizedBox(
-                  width: 24.w,
-                  height: 24.w,
+                  width: 24,
+                  height: 24,
                   child: ProgressRing(value: progress, strokeWidth: 2),
                 ),
-                SizedBox(width: 16.w),
+                SizedBox(width: 16),
                 Expanded(
                   child: Text(title, style: BTTypography.subtitle(context)),
                 ),
               ],
             ),
             if (message != null) ...[
-              SizedBox(height: 12.h),
+              SizedBox(height: 12),
               Text(message!, style: BTTypography.caption(context)),
             ],
           ],

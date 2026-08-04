@@ -4,7 +4,6 @@ import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 
 import '../../../controller/app/progress_controller.dart';
@@ -276,8 +275,8 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
   @override
   Widget build(BuildContext context) {
     var screenHeight = MediaQuery.of(context).size.height;
-    var titleBarHeight = 48.h;
-    var paddingHeight = 24.h;
+    var titleBarHeight = 48;
+    var paddingHeight = 24;
     var maxExpanderHeight =
         (screenHeight - titleBarHeight - paddingHeight) * 0.35;
 
@@ -286,7 +285,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
         _buildTitleBar(context),
         Expanded(
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(12.w),
+            padding: EdgeInsets.all(12),
             child: Column(
               children: [
                 if (bmf.download != null && bmf.download!.isNotEmpty)
@@ -297,7 +296,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
                     onDelete: deleteFolder,
                   ),
                 if (bmf.download != null && bmf.download!.isNotEmpty)
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 8),
                 if (bmf.rss != null && bmf.rss!.isNotEmpty)
                   BmfRssExpander(
                     bmf: bmf,
@@ -307,22 +306,22 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
                   ),
                 if (bmf.id == -1)
                   Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24.h),
+                    padding: EdgeInsets.symmetric(vertical: 24),
                     child: Column(
                       children: [
                         Icon(
                           FluentIcons.info,
-                          size: 32.sp,
+                          size: 32,
                           color: BTColors.textTertiary(context),
                         ),
-                        SizedBox(height: 12.h),
+                        SizedBox(height: 12),
                         Text(
                           '暂无 BMF 配置',
                           style: BTTypography.body(
                             context,
                           ).copyWith(color: BTColors.textSecondary(context)),
                         ),
-                        SizedBox(height: 8.h),
+                        SizedBox(height: 8),
                         Text(
                           '请设置 RSS 或下载目录',
                           style: BTTypography.caption(context),
@@ -340,7 +339,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
 
   Widget _buildTitleBar(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
@@ -415,10 +414,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
   }) {
     return Tooltip(
       message: tooltip,
-      child: IconButton(
-        icon: BtIcon(icon, size: 16.sp),
-        onPressed: onPressed,
-      ),
+      child: IconButton(icon: BtIcon(icon, size: 16), onPressed: onPressed),
     );
   }
 }

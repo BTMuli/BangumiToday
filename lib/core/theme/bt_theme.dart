@@ -1,7 +1,6 @@
 import 'dart:ui';
 
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class BTTheme {
   BTTheme._();
@@ -108,14 +107,14 @@ class BTAcrylic {
     var bgColor = backgroundColor(context, opacity: opacity);
 
     Widget content = ClipRRect(
-      borderRadius: borderRadius ?? BorderRadius.circular(8.r),
+      borderRadius: borderRadius ?? BorderRadius.circular(8),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: blurAmount, sigmaY: blurAmount),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: borderRadius ?? BorderRadius.circular(8.r),
+            borderRadius: borderRadius ?? BorderRadius.circular(8),
             border: Border.all(
               color: isDark
                   ? Colors.white.withValues(alpha: 0.08)
@@ -215,17 +214,17 @@ class BTRadius {
 
   static double get none => 0;
 
-  static double get small => 4.r;
+  static double get small => 4;
 
-  static double get medium => 8.r;
+  static double get medium => 8;
 
-  static double get large => 12.r;
+  static double get large => 12;
 
-  static double get xlarge => 16.r;
+  static double get xlarge => 16;
 
-  static double get xxlarge => 24.r;
+  static double get xxlarge => 24;
 
-  static double get round => 999.r;
+  static double get round => 999;
 
   static BorderRadius get smallBR => BorderRadius.circular(small);
 
@@ -245,7 +244,7 @@ class BTTypography {
 
   static TextStyle caption(BuildContext context) {
     return TextStyle(
-      fontSize: 12.sp,
+      fontSize: 12,
       fontWeight: FontWeight.w400,
       color: BTColors.textSecondary(context),
     );
@@ -253,7 +252,7 @@ class BTTypography {
 
   static TextStyle body(BuildContext context) {
     return TextStyle(
-      fontSize: 14.sp,
+      fontSize: 14,
       fontWeight: FontWeight.w400,
       color: BTColors.textPrimary(context),
     );
@@ -261,7 +260,7 @@ class BTTypography {
 
   static TextStyle bodyStrong(BuildContext context) {
     return TextStyle(
-      fontSize: 14.sp,
+      fontSize: 14,
       fontWeight: FontWeight.w600,
       color: BTColors.textPrimary(context),
     );
@@ -269,7 +268,7 @@ class BTTypography {
 
   static TextStyle subtitle(BuildContext context) {
     return TextStyle(
-      fontSize: 16.sp,
+      fontSize: 16,
       fontWeight: FontWeight.w600,
       color: BTColors.textPrimary(context),
     );
@@ -277,7 +276,7 @@ class BTTypography {
 
   static TextStyle title(BuildContext context) {
     return TextStyle(
-      fontSize: 20.sp,
+      fontSize: 20,
       fontWeight: FontWeight.w600,
       color: BTColors.textPrimary(context),
     );
@@ -285,7 +284,7 @@ class BTTypography {
 
   static TextStyle titleLarge(BuildContext context) {
     return TextStyle(
-      fontSize: 24.sp,
+      fontSize: 24,
       fontWeight: FontWeight.w700,
       color: BTColors.textPrimary(context),
     );
@@ -293,7 +292,7 @@ class BTTypography {
 
   static TextStyle display(BuildContext context) {
     return TextStyle(
-      fontSize: 32.sp,
+      fontSize: 32,
       fontWeight: FontWeight.w700,
       color: BTColors.textPrimary(context),
     );

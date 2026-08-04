@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 
 import '../../core/services/bmf_rss_service.dart';
@@ -477,13 +476,13 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
 
   Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(18.w, 12.h, 18.w, 8.h),
+      padding: EdgeInsets.fromLTRB(18, 12, 18, 8),
       child: Row(
         children: [
           Container(
-            width: 36.w,
-            height: 36.w,
-            padding: EdgeInsets.all(7.w),
+            width: 36,
+            height: 36,
+            padding: EdgeInsets.all(7),
             decoration: BoxDecoration(
               color: FluentTheme.of(
                 context,
@@ -492,7 +491,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
             ),
             child: Image.asset('assets/images/logo.png'),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -509,11 +508,11 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
             '${filterStats.total} 个关联',
             style: BTTypography.caption(context),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8),
           Tooltip(
             message: '刷新 BMF 配置',
             child: IconButton(
-              icon: BtIcon(FluentIcons.refresh, size: 15.sp),
+              icon: BtIcon(FluentIcons.refresh, size: 15),
               onPressed: () async {
                 await ref.read(bmfListProvider.notifier).refresh();
                 if (context.mounted) {
@@ -529,12 +528,12 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
 
   Widget _buildToolbar(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(18.w, 4.h, 18.w, 10.h),
+      padding: EdgeInsets.fromLTRB(18, 4, 18, 10),
       child: LayoutBuilder(
         builder: (context, constraints) {
           var filters = Wrap(
-            spacing: 8.w,
-            runSpacing: 8.h,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               _buildFilterChip(
                 context,
@@ -564,17 +563,17 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
           );
           var controls = Row(
             children: [
-              SizedBox(width: 140.w, child: _buildQuarterFilter()),
-              SizedBox(width: 8.w),
+              SizedBox(width: 140, child: _buildQuarterFilter()),
+              SizedBox(width: 8),
               Expanded(
                 child: TextBox(
                   controller: _searchController,
                   placeholder: '搜索番剧标题或 ID…',
-                  prefix: BtIcon(FluentIcons.search, size: 14.sp),
+                  prefix: BtIcon(FluentIcons.search, size: 14),
                   suffix: searchQuery.isEmpty
                       ? null
                       : IconButton(
-                          icon: BtIcon(FluentIcons.clear, size: 12.sp),
+                          icon: BtIcon(FluentIcons.clear, size: 12),
                           onPressed: () {
                             _searchController.clear();
                             setState(() => searchQuery = '');
@@ -589,18 +588,14 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
           if (constraints.maxWidth < 860) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                filters,
-                SizedBox(height: 8.h),
-                controls,
-              ],
+              children: [filters, SizedBox(height: 8), controls],
             );
           }
           return Row(
             children: [
               Expanded(child: filters),
-              SizedBox(width: 12.w),
-              SizedBox(width: 430.w, child: controls),
+              SizedBox(width: 12),
+              SizedBox(width: 430, child: controls),
             ],
           );
         },
@@ -635,7 +630,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
               fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
-          SizedBox(width: 6.w),
+          SizedBox(width: 6),
           Text(
             '$count',
             style: BTTypography.caption(context).copyWith(
@@ -707,9 +702,9 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     return ColoredBox(
       color: BTColors.surfaceSecondary(context),
       child: ListView.separated(
-        padding: EdgeInsets.all(10.w),
+        padding: EdgeInsets.all(10),
         itemCount: filteredList.length,
-        separatorBuilder: (_, _) => SizedBox(height: 8.h),
+        separatorBuilder: (_, _) => SizedBox(height: 8),
         itemBuilder: (context, index) {
           var bmf = filteredList[index];
           return BmfCard(
@@ -743,20 +738,20 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(18.w, 16.h, 14.w, 14.h),
+            padding: EdgeInsets.fromLTRB(18, 16, 14, 14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (showBackButton) ...[
                   IconButton(
-                    icon: BtIcon(FluentIcons.back, size: 15.sp),
+                    icon: BtIcon(FluentIcons.back, size: 15),
                     onPressed: () => setState(() => _showCompactDetail = false),
                   ),
-                  SizedBox(width: 6.w),
+                  SizedBox(width: 6),
                 ],
                 Container(
-                  width: 40.w,
-                  height: 40.w,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: FluentTheme.of(
                       context,
@@ -765,11 +760,11 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
                   ),
                   child: Icon(
                     FluentIcons.media,
-                    size: 18.sp,
+                    size: 18,
                     color: FluentTheme.of(context).accentColor,
                   ),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -780,10 +775,10 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
                         overflow: TextOverflow.ellipsis,
                         style: BTTypography.title(context),
                       ),
-                      SizedBox(height: 5.h),
+                      SizedBox(height: 5),
                       Wrap(
-                        spacing: 8.w,
-                        runSpacing: 6.h,
+                        spacing: 8,
+                        runSpacing: 6,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
@@ -816,23 +811,23 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
                     ],
                   ),
                 ),
-                SizedBox(width: 10.w),
+                SizedBox(width: 10),
                 FilledButton(
                   onPressed: () => _editConfiguration(bmf),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(FluentIcons.edit, size: 13.sp),
-                      SizedBox(width: 6.w),
+                      Icon(FluentIcons.edit, size: 13),
+                      SizedBox(width: 6),
                       const Text('编辑关联'),
                     ],
                   ),
                 ),
-                SizedBox(width: 6.w),
+                SizedBox(width: 6),
                 Tooltip(
                   message: '打开番剧详情',
                   child: IconButton(
-                    icon: BtIcon(FluentIcons.open_in_new_tab, size: 14.sp),
+                    icon: BtIcon(FluentIcons.open_in_new_tab, size: 14),
                     onPressed: () => _navigateToDetail(bmf),
                     onLongPress: () => _addToNavOnly(bmf),
                   ),
@@ -842,7 +837,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
                   child: IconButton(
                     icon: Icon(
                       FluentIcons.delete,
-                      size: 14.sp,
+                      size: 14,
                       color: BTColors.errorLight(context),
                     ),
                     onPressed: () => _deleteBmf(bmf),
@@ -875,7 +870,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   }) {
     if (!hasRss && !hasDirectory) {
       return SingleChildScrollView(
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.all(16),
         child: _buildUnconfiguredCard(context, bmf),
       );
     }
@@ -885,7 +880,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
         key: ValueKey(_rssViewKey(bmf, pendingCount)),
         bmf: bmf,
         isConfig: true,
-        maxHeight: 320.h,
+        maxHeight: 320,
         contentScrollable: false,
         expandable: false,
         contentScrollController: _rssPaneController,
@@ -897,7 +892,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
         key: ValueKey('file-${bmf.subject}-${bmf.download}'),
         downloadDir: bmf.download!,
         subject: bmf.subject,
-        maxHeight: 320.h,
+        maxHeight: 320,
         contentScrollable: false,
         expandable: false,
         contentScrollController: _filePaneController,
@@ -932,7 +927,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   }
 
   Widget _buildScrollableResourcePane({required Widget child}) {
-    return Padding(padding: EdgeInsets.all(12.w), child: child);
+    return Padding(padding: EdgeInsets.all(12), child: child);
   }
 
   Widget _buildStatusBadge(
@@ -944,7 +939,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
         ? FluentTheme.of(context).accentColor
         : BTColors.warningLight(context);
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
+      padding: EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BTRadius.roundBR,
@@ -960,7 +955,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
 
   Widget _buildUnconfiguredCard(BuildContext context, AppBmfModel bmf) {
     return Container(
-      padding: EdgeInsets.all(18.w),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context),
         borderRadius: BTRadius.largeBR,
@@ -970,18 +965,18 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
         children: [
           Icon(
             FluentIcons.link,
-            size: 36.sp,
+            size: 36,
             color: BTColors.textTertiary(context),
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10),
           Text('尚未建立资源关联', style: BTTypography.subtitle(context)),
-          SizedBox(height: 5.h),
+          SizedBox(height: 5),
           Text(
             '添加 RSS 用于接收发布更新，添加本地目录用于查看已落地文件。',
             textAlign: TextAlign.center,
             style: BTTypography.caption(context),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12),
           Button(
             onPressed: () => _editConfiguration(bmf),
             child: const Text('开始配置'),
@@ -998,10 +993,10 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
         children: [
           Icon(
             FluentIcons.bulleted_list,
-            size: 42.sp,
+            size: 42,
             color: BTColors.textTertiary(context),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12),
           Text('选择一个番剧关联', style: BTTypography.subtitle(context)),
         ],
       ),
@@ -1017,10 +1012,10 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
             configurationFilter == _BmfConfigurationFilter.incomplete
                 ? FluentIcons.completed
                 : MdiIcons.linkOff,
-            size: 46.sp,
+            size: 46,
             color: BTColors.textTertiary(context),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12),
           Text(
             searchQuery.isNotEmpty
                 ? '没有找到匹配的番剧'
@@ -1031,7 +1026,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
                 : '暂无 BMF 关联',
             style: BTTypography.subtitle(context),
           ),
-          SizedBox(height: 5.h),
+          SizedBox(height: 5),
           Text(
             searchQuery.isNotEmpty ? '尝试其他标题或 Bangumi ID' : '可以在番剧详情页创建 BMF 关联',
             style: BTTypography.caption(context),
@@ -1087,11 +1082,11 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
   @override
   Widget build(BuildContext context) {
     return ContentDialog(
-      constraints: BoxConstraints(maxWidth: 620.w),
+      constraints: BoxConstraints(maxWidth: 620),
       title: Row(
         children: [
-          Icon(FluentIcons.link, size: 18.sp),
-          SizedBox(width: 8.w),
+          Icon(FluentIcons.link, size: 18),
+          SizedBox(width: 8),
           Expanded(
             child: Text(
               '编辑 ${widget.bmf.title ?? widget.bmf.subject}',
@@ -1108,13 +1103,13 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
           children: [
             _buildLabel(context, '显示标题'),
             TextBox(controller: _titleController, placeholder: '番剧标题'),
-            SizedBox(height: 14.h),
+            SizedBox(height: 14),
             _buildLabel(context, 'RSS 订阅'),
             TextBox(
               controller: _rssController,
               placeholder: 'Mikan RSS 或其他兼容订阅地址',
             ),
-            SizedBox(height: 14.h),
+            SizedBox(height: 14),
             _buildLabel(context, '本地目录'),
             TextBox(
               controller: _downloadController,
@@ -1122,7 +1117,7 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
               suffix: Tooltip(
                 message: '选择目录',
                 child: IconButton(
-                  icon: BtIcon(FluentIcons.folder_open, size: 14.sp),
+                  icon: BtIcon(FluentIcons.folder_open, size: 14),
                   onPressed: () async {
                     var directory = await getDirectoryPath();
                     if (directory == null || !mounted) return;
@@ -1131,7 +1126,7 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
                 ),
               ),
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10),
             Text(
               '应用会把 torrent 与该目录交给内置下载引擎；任务可在下载管理页查看。',
               style: BTTypography.caption(context),
@@ -1151,7 +1146,7 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
 
   Widget _buildLabel(BuildContext context, String label) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 6.h),
+      padding: EdgeInsets.only(bottom: 6),
       child: Text(label, style: BTTypography.bodyStrong(context)),
     );
   }

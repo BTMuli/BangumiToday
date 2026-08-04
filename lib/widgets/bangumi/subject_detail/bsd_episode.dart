@@ -1,6 +1,5 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
@@ -219,14 +218,14 @@ class _BsdEpisodeState extends State<BsdEpisode> {
         Text('时长: ${episode.duration}'),
         Text('收藏状态: ${userEpisode?.type.label ?? '未知'}'),
         const Text('简介：'),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8),
         if (episode.desc.isNotEmpty)
           ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: 200.h),
+            constraints: BoxConstraints(maxHeight: 200),
             child: SingleChildScrollView(
               scrollDirection: Axis.vertical,
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.black.withAlpha(60),
                   borderRadius: BorderRadius.circular(8),
@@ -242,7 +241,7 @@ class _BsdEpisodeState extends State<BsdEpisode> {
                 FluentIcons.error,
                 color: FluentTheme.of(context).accentColor,
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8),
               const Text('暂无简介'),
             ],
           ),

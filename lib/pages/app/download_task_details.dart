@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path/path.dart' as path;
 
 import '../../core/services/bt_engine_client.dart';
@@ -128,7 +127,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
                   left: 0,
                   right: 0,
                   top: 0,
-                  height: 14.h,
+                  height: 14,
                   child: IgnorePointer(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
@@ -172,7 +171,7 @@ class _DetailsHero extends StatelessWidget {
     var color = _taskStateColor(context, task.state);
     var progress = (task.progress * 100).clamp(0, 100).toDouble();
     return Container(
-      padding: EdgeInsets.fromLTRB(22.w, 18.h, 22.w, 16.h),
+      padding: EdgeInsets.fromLTRB(22, 18, 22, 16),
       decoration: BoxDecoration(
         color: BTColors.surfacePrimary(context),
         border: Border(bottom: BorderSide(color: BTColors.divider(context))),
@@ -183,19 +182,15 @@ class _DetailsHero extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 44.r,
-                height: 44.r,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
                   borderRadius: BTRadius.largeBR,
                 ),
-                child: Icon(
-                  _taskStateIcon(task.state),
-                  size: 21.sp,
-                  color: color,
-                ),
+                child: Icon(_taskStateIcon(task.state), size: 21, color: color),
               ),
-              SizedBox(width: 13.w),
+              SizedBox(width: 13),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,15 +201,15 @@ class _DetailsHero extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: BTTypography.subtitle(context),
                     ),
-                    SizedBox(height: 5.h),
+                    SizedBox(height: 5),
                     Row(
                       children: [
                         Icon(
                           FluentIcons.folder_open,
-                          size: 12.sp,
+                          size: 12,
                           color: BTColors.textTertiary(context),
                         ),
-                        SizedBox(width: 5.w),
+                        SizedBox(width: 5),
                         Expanded(
                           child: Text(
                             task.savePath,
@@ -228,11 +223,11 @@ class _DetailsHero extends StatelessWidget {
                   ],
                 ),
               ),
-              SizedBox(width: 10.w),
+              SizedBox(width: 10),
               _StateBadge(state: task.state, color: color),
             ],
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -240,20 +235,20 @@ class _DetailsHero extends StatelessWidget {
                   borderRadius: BTRadius.roundBR,
                   child: ProgressBar(
                     value: progress,
-                    strokeWidth: 7.h,
+                    strokeWidth: 7,
                     activeColor: color,
                     backgroundColor: color.withValues(alpha: 0.1),
                   ),
                 ),
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12),
               Text(
                 '${progress.toStringAsFixed(1)}%',
                 style: BTTypography.bodyStrong(context).copyWith(color: color),
               ),
             ],
           ),
-          SizedBox(height: 14.h),
+          SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -264,7 +259,7 @@ class _DetailsHero extends StatelessWidget {
                   color: FluentTheme.of(context).accentColor,
                 ),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8),
               Expanded(
                 child: _HeroMetric(
                   icon: FluentIcons.upload,
@@ -273,7 +268,7 @@ class _DetailsHero extends StatelessWidget {
                   color: BTColors.successLight(context),
                 ),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8),
               Expanded(
                 child: _HeroMetric(
                   icon: FluentIcons.upload,
@@ -307,7 +302,7 @@ class _HeroMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 9.h),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context).withValues(alpha: 0.72),
         borderRadius: BTRadius.mediumBR,
@@ -316,21 +311,21 @@ class _HeroMetric extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 27.r,
-            height: 27.r,
+            width: 27,
+            height: 27,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               borderRadius: BTRadius.smallBR,
             ),
-            child: Icon(icon, size: 13.sp, color: color),
+            child: Icon(icon, size: 13, color: color),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: BTTypography.caption(context)),
-                SizedBox(height: 2.h),
+                SizedBox(height: 2),
                 Text(
                   value,
                   maxLines: 1,
@@ -358,7 +353,7 @@ class _StateBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BTRadius.roundBR,
@@ -387,27 +382,27 @@ class _DetailError extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 64.r,
-            height: 64.r,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
               color: BTColors.errorLight(context).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               FluentIcons.error,
-              size: 28.sp,
+              size: 28,
               color: BTColors.errorLight(context),
             ),
           ),
-          SizedBox(height: 14.h),
+          SizedBox(height: 14),
           Text('无法读取任务详情', style: BTTypography.subtitle(context)),
-          SizedBox(height: 5.h),
+          SizedBox(height: 5),
           Text(
             error?.toString() ?? '未知错误',
             textAlign: TextAlign.center,
             style: BTTypography.caption(context),
           ),
-          SizedBox(height: 14.h),
+          SizedBox(height: 14),
           Button(onPressed: onRetry, child: const Text('重新加载')),
         ],
       ),
@@ -433,7 +428,7 @@ class _DetailTabBar extends StatelessWidget {
         color: BTColors.surfacePrimary(context),
         border: Border(bottom: BorderSide(color: BTColors.divider(context))),
       ),
-      padding: EdgeInsets.fromLTRB(12.w, 7.h, 12.w, 0),
+      padding: EdgeInsets.fromLTRB(12, 7, 12, 0),
       child: Row(
         children: [
           for (var i = 0; i < tabs.length; i++)
@@ -488,8 +483,8 @@ class _DetailTabItemState extends State<_DetailTabItem> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: BTTheme.animationDurationFast,
-          margin: EdgeInsets.fromLTRB(2.w, 0, 2.w, 7.h),
-          padding: EdgeInsets.symmetric(vertical: 8.h),
+          margin: EdgeInsets.fromLTRB(2, 0, 2, 7),
+          padding: EdgeInsets.symmetric(vertical: 8),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: widget.selected
@@ -497,20 +492,20 @@ class _DetailTabItemState extends State<_DetailTabItem> {
                 : _hovered
                 ? accent.withValues(alpha: 0.07)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(9.r),
+            borderRadius: BorderRadius.circular(9),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(widget.tab.icon, size: 15.sp, color: foreground),
-              SizedBox(width: 6.w),
+              Icon(widget.tab.icon, size: 15, color: foreground),
+              SizedBox(width: 6),
               Flexible(
                 child: Text(
                   widget.tab.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 14.sp,
+                    fontSize: 14,
                     fontWeight: widget.selected
                         ? FontWeight.w600
                         : FontWeight.w400,
@@ -535,7 +530,7 @@ class _OverviewTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: EdgeInsets.all(18.w),
+      padding: EdgeInsets.all(18),
       children: [
         _SectionCard(
           icon: FluentIcons.info,
@@ -564,7 +559,7 @@ class _OverviewTab extends StatelessWidget {
             ],
           ),
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12),
         _SectionCard(
           icon: FluentIcons.processing,
           title: '种子信息',
@@ -589,7 +584,7 @@ class _OverviewTab extends StatelessWidget {
           ),
         ),
         if (task.lastError != null) ...[
-          SizedBox(height: 12.h),
+          SizedBox(height: 12),
           InfoBar(
             title: Text(task.lastError!.code),
             content: Text(task.lastError!.message),
@@ -610,7 +605,7 @@ class _ProgressTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: EdgeInsets.all(18.w),
+      padding: EdgeInsets.all(18),
       children: [
         _SectionCard(
           icon: FluentIcons.grid_view_small,
@@ -626,21 +621,21 @@ class _ProgressTab extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _PieceMap(completedPieces: details.completedPieces),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12),
               _PieceLegend(pieceCount: details.completedPieces.length),
             ],
           ),
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12),
         _SectionCard(
           icon: FluentIcons.processing,
           title: '传输统计',
           child: LayoutBuilder(
             builder: (context, constraints) {
-              var width = (constraints.maxWidth - 10.w) / 2;
+              var width = (constraints.maxWidth - 10) / 2;
               return Wrap(
-                spacing: 10.w,
-                runSpacing: 10.h,
+                spacing: 10,
+                runSpacing: 10,
                 children: [
                   _TransferMetric(
                     width: width,
@@ -731,19 +726,19 @@ class _SectionCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 12.h),
+            padding: EdgeInsets.symmetric(horizontal: 15, vertical: 12),
             child: Row(
               children: [
                 Container(
-                  width: 29.r,
-                  height: 29.r,
+                  width: 29,
+                  height: 29,
                   decoration: BoxDecoration(
                     color: accent.withValues(alpha: 0.1),
                     borderRadius: BTRadius.smallBR,
                   ),
-                  child: Icon(icon, size: 14.sp, color: accent),
+                  child: Icon(icon, size: 14, color: accent),
                 ),
-                SizedBox(width: 9.w),
+                SizedBox(width: 9),
                 Expanded(
                   child: Text(title, style: BTTypography.bodyStrong(context)),
                 ),
@@ -757,7 +752,7 @@ class _SectionCard extends StatelessWidget {
               decoration: BoxDecoration(color: BTColors.divider(context)),
             ),
           ),
-          Padding(padding: EdgeInsets.all(15.w), child: child),
+          Padding(padding: EdgeInsets.all(15), child: child),
         ],
       ),
     );
@@ -783,7 +778,7 @@ class _TransferMetric extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      padding: EdgeInsets.all(11.w),
+      padding: EdgeInsets.all(11),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context).withValues(alpha: 0.62),
         borderRadius: BTRadius.mediumBR,
@@ -792,21 +787,21 @@ class _TransferMetric extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 31.r,
-            height: 31.r,
+            width: 31,
+            height: 31,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               borderRadius: BTRadius.smallBR,
             ),
-            child: Icon(icon, size: 14.sp, color: color),
+            child: Icon(icon, size: 14, color: color),
           ),
-          SizedBox(width: 9.w),
+          SizedBox(width: 9),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: BTTypography.caption(context)),
-                SizedBox(height: 3.h),
+                SizedBox(height: 3),
                 Text(
                   value,
                   maxLines: 1,
@@ -834,7 +829,7 @@ class _PieceMap extends StatelessWidget {
   Widget build(BuildContext context) {
     if (completedPieces.isEmpty) {
       return Container(
-        height: 110.h,
+        height: 110,
         decoration: BoxDecoration(
           color: BTColors.surfaceSecondary(context),
           borderRadius: BTRadius.mediumBR,
@@ -848,7 +843,7 @@ class _PieceMap extends StatelessWidget {
     var accent = FluentTheme.of(context).accentColor;
     var inactive = BTColors.surfaceTertiary(context);
     return Container(
-      padding: EdgeInsets.all(10.w),
+      padding: EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context).withValues(alpha: 0.62),
         borderRadius: BTRadius.mediumBR,
@@ -876,7 +871,7 @@ class _PieceMap extends StatelessWidget {
                 height: size,
                 decoration: BoxDecoration(
                   color: Color.lerp(inactive, accent, ratio),
-                  borderRadius: BorderRadius.circular(2.5.r),
+                  borderRadius: BorderRadius.circular(2.5),
                 ),
               );
             }),
@@ -900,9 +895,9 @@ class _PieceLegend extends StatelessWidget {
     return Row(
       children: [
         Text('未完成', style: BTTypography.caption(context)),
-        SizedBox(width: 4.w),
+        SizedBox(width: 4),
         _LegendCells(count: 6, from: inactive, to: accent),
-        SizedBox(width: 4.w),
+        SizedBox(width: 4),
         Text('已完成', style: BTTypography.caption(context)),
       ],
     );
@@ -927,13 +922,13 @@ class _LegendCells extends StatelessWidget {
       children: List.generate(count, (index) {
         var t = count <= 1 ? 0.0 : index / (count - 1);
         return Padding(
-          padding: EdgeInsets.only(left: 3.w),
+          padding: EdgeInsets.only(left: 3),
           child: Container(
-            width: 10.r,
-            height: 10.r,
+            width: 10,
+            height: 10,
             decoration: BoxDecoration(
               color: Color.lerp(from, to, t),
-              borderRadius: BorderRadius.circular(2.5.r),
+              borderRadius: BorderRadius.circular(2.5),
             ),
           ),
         );
@@ -1013,7 +1008,7 @@ class _PeersTabState extends State<_PeersTab> {
       child: active
           ? Icon(
               FluentIcons.check_mark,
-              size: 13.sp,
+              size: 13,
               color: FluentTheme.of(context).accentColor,
             )
           : null,
@@ -1079,7 +1074,7 @@ class _PeersTabState extends State<_PeersTab> {
             Text(peer.endpoint, maxLines: 1, overflow: TextOverflow.ellipsis),
             Text(peer.client, maxLines: 1, overflow: TextOverflow.ellipsis),
             Padding(
-              padding: EdgeInsets.only(right: 12.w),
+              padding: EdgeInsets.only(right: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1087,8 +1082,8 @@ class _PeersTabState extends State<_PeersTab> {
                     '${progress.toStringAsFixed(0)}%',
                     style: BTTypography.caption(context),
                   ),
-                  SizedBox(height: 4.h),
-                  ProgressBar(value: progress, strokeWidth: 4.h),
+                  SizedBox(height: 4),
+                  ProgressBar(value: progress, strokeWidth: 4),
                 ],
               ),
             ),
@@ -1198,9 +1193,11 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
 
   void _applyAll(bool include) {
     if (widget.details.filesTruncated || _files.isEmpty) return;
-    unawaited(_applyPriorities({
-      for (var i = 0; i < _files.length; i++) i: include ? 4 : 0,
-    }));
+    unawaited(
+      _applyPriorities({
+        for (var i = 0; i < _files.length; i++) i: include ? 4 : 0,
+      }),
+    );
   }
 
   @override
@@ -1220,7 +1217,7 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
       children: [
         if (_canEdit)
           Padding(
-            padding: EdgeInsets.fromLTRB(18.w, 14.h, 18.w, 0),
+            padding: EdgeInsets.fromLTRB(18, 14, 18, 0),
             child: Row(
               children: [
                 Expanded(
@@ -1235,7 +1232,7 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                       : () => _applyAll(true),
                   child: const Text('全部下载'),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8),
                 Button(
                   onPressed: widget.details.filesTruncated
                       ? null
@@ -1264,22 +1261,21 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                     children: [
                       if (_canEdit)
                         Padding(
-                          padding: EdgeInsets.only(right: 4.w),
+                          padding: EdgeInsets.only(right: 4),
                           child: Checkbox(
                             checked: !file.isSkipped,
                             onChanged: _busyIndices.contains(index)
                                 ? null
-                                : (value) =>
-                                      _toggleFile(index, value ?? true),
+                                : (value) => _toggleFile(index, value ?? true),
                             semanticLabel: '下载 ${file.path}',
                           ),
                         ),
                       Icon(
                         FluentIcons.document,
-                        size: 14.sp,
+                        size: 14,
                         color: FluentTheme.of(context).accentColor,
                       ),
-                      SizedBox(width: 8.w),
+                      SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           file.path,
@@ -1295,7 +1291,7 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                         : extension.substring(1).toUpperCase(),
                   ),
                   Padding(
-                    padding: EdgeInsets.only(right: 12.w),
+                    padding: EdgeInsets.only(right: 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1303,8 +1299,8 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                           '${progress.toStringAsFixed(1)}%',
                           style: BTTypography.caption(context),
                         ),
-                        SizedBox(height: 4.h),
-                        ProgressBar(value: progress, strokeWidth: 4.h),
+                        SizedBox(height: 4),
+                        ProgressBar(value: progress, strokeWidth: 4),
                       ],
                     ),
                   ),
@@ -1339,17 +1335,17 @@ class _DetailEmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 62.r,
-            height: 62.r,
+            width: 62,
+            height: 62,
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.09),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 27.sp, color: accent),
+            child: Icon(icon, size: 27, color: accent),
           ),
-          SizedBox(height: 14.h),
+          SizedBox(height: 14),
           Text(title, style: BTTypography.subtitle(context)),
-          SizedBox(height: 5.h),
+          SizedBox(height: 5),
           Text(description, style: BTTypography.caption(context)),
         ],
       ),
@@ -1371,7 +1367,7 @@ class _DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 10.h),
+      padding: EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
         border: isLast
             ? null
@@ -1381,13 +1377,13 @@ class _DetailRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 110.w,
+            width: 110,
             child: Text(label, style: BTTypography.caption(context)),
           ),
           Expanded(
             child: SelectableText(
               value,
-              style: BTTypography.body(context).copyWith(fontSize: 13.sp),
+              style: BTTypography.body(context).copyWith(fontSize: 13),
             ),
           ),
         ],
@@ -1412,7 +1408,7 @@ class _TableShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.all(18.w),
+      padding: EdgeInsets.all(18),
       child: Container(
         decoration: BoxDecoration(
           color: BTColors.surfacePrimary(context),
@@ -1433,7 +1429,7 @@ class _TableShell extends StatelessWidget {
             if (footer != null)
               Container(
                 width: double.infinity,
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 color: BTColors.surfaceSecondary(context),
                 child: Text(
                   footer!,
@@ -1488,7 +1484,7 @@ class _TableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 13.w, vertical: 11.h),
+      padding: EdgeInsets.symmetric(horizontal: 13, vertical: 11),
       color: BTColors.surfaceSecondary(context),
       child: Row(
         children: List.generate(columns.length, (index) {
@@ -1564,8 +1560,8 @@ class _TableHeader extends StatelessWidget {
                 ),
               ),
               if (active) ...[
-                SizedBox(width: 4.w),
-                Icon(activeIcon, size: 12.sp, color: accent),
+                SizedBox(width: 4),
+                Icon(activeIcon, size: 12, color: accent),
               ],
             ],
           ),
@@ -1595,7 +1591,7 @@ class _TableRowState extends State<_TableRow> {
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedContainer(
         duration: BTTheme.animationDurationFast,
-        padding: EdgeInsets.symmetric(horizontal: 13.w, vertical: 11.h),
+        padding: EdgeInsets.symmetric(horizontal: 13, vertical: 11),
         decoration: BoxDecoration(
           color: _hovered
               ? FluentTheme.of(context).accentColor.withValues(alpha: 0.045)

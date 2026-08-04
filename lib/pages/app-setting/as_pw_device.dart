@@ -2,7 +2,6 @@
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/theme/bt_theme.dart';
 import '../../ui/bt_icon.dart';
@@ -71,12 +70,12 @@ class _AppConfigDeviceWidgetState extends State<AppConfigDeviceWidget> {
         useShadow: true,
         shadowLevel: BTShadowLevel.subtle,
         borderRadius: BTRadius.large,
-        padding: EdgeInsets.symmetric(vertical: 32.h),
+        padding: EdgeInsets.symmetric(vertical: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const ProgressRing(),
-            SizedBox(height: 12.h),
+            SizedBox(height: 12),
             Text('正在读取设备信息…', style: BTTypography.caption(context)),
           ],
         ),

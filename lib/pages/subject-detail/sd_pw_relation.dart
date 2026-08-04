@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../core/theme/bt_theme.dart';
@@ -51,7 +50,7 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
 
   Widget buildCardInfo(BangumiSubjectRelation data) {
     return Padding(
-      padding: EdgeInsets.all(8.w),
+      padding: EdgeInsets.all(8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,33 +67,35 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
           ),
           const Spacer(),
           Text('类型：${data.type.label}', style: BTTypography.caption(context)),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4),
           Row(
             children: [
               Text('ID: ${data.id}', style: BTTypography.caption(context)),
-              SizedBox(width: 4.w),
+              SizedBox(width: 4),
               Tooltip(
                 message: '查看详情',
                 child: IconButton(
                   icon: Icon(
                     FluentIcons.info,
-                    size: 14.sp,
+                    size: 14,
                     color: FluentTheme.of(context).accentColor,
                   ),
-                  onPressed: () => ref.read(navStoreProvider).addNavItemB(
-                    type: data.type.label,
-                    subject: data.id,
-                    paneTitle: data.nameCn == '' ? data.name : data.nameCn,
-                  ),
+                  onPressed: () => ref
+                      .read(navStoreProvider)
+                      .addNavItemB(
+                        type: data.type.label,
+                        subject: data.id,
+                        paneTitle: data.nameCn == '' ? data.name : data.nameCn,
+                      ),
                 ),
               ),
-              SizedBox(width: 4.w),
+              SizedBox(width: 4),
               Tooltip(
                 message: '打开链接',
                 child: IconButton(
                   icon: Icon(
                     FluentIcons.link,
-                    size: 14.sp,
+                    size: 14,
                     color: FluentTheme.of(context).accentColor,
                   ),
                   onPressed: () {
@@ -119,16 +120,16 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
       child: CachedNetworkImage(
         imageUrl: link,
         fit: BoxFit.cover,
-        width: 80.w,
-        height: 120.h,
+        width: 80,
+        height: 120,
         progressIndicatorBuilder: (context, url, dp) => Container(
-          width: 80.w,
-          height: 120.h,
+          width: 80,
+          height: 120,
           color: BTColors.surfaceSecondary(context),
           child: Center(
             child: SizedBox(
-              width: 16.w,
-              height: 16.w,
+              width: 16,
+              height: 16,
               child: ProgressRing(
                 value: dp.progress == null ? 0 : dp.progress! * 100,
                 strokeWidth: 2,
@@ -137,12 +138,12 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
           ),
         ),
         errorWidget: (context, url, error) => Container(
-          width: 80.w,
-          height: 120.h,
+          width: 80,
+          height: 120,
           color: BTColors.surfaceSecondary(context),
           child: Icon(
             FluentIcons.photo_error,
-            size: 20.sp,
+            size: 20,
             color: BTColors.textTertiary(context),
           ),
         ),
@@ -155,9 +156,9 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
     var hasImage = data.images.large.isNotEmpty;
 
     return Container(
-      width: 260.w,
-      height: 120.h,
-      margin: EdgeInsets.only(bottom: 8.h),
+      width: 260,
+      height: 120,
+      margin: EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context),
         borderRadius: BTRadius.mediumBR,
@@ -169,7 +170,7 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
       ),
       child: Row(
         children: [
-          if (hasImage) ...[buildCover(data.images), SizedBox(width: 8.w)],
+          if (hasImage) ...[buildCover(data.images), SizedBox(width: 8)],
           Expanded(child: buildCardInfo(data)),
         ],
       ),
@@ -184,16 +185,16 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
         children: [
           Icon(
             FluentIcons.link,
-            size: 16.sp,
+            size: 16,
             color: BTColors.textTertiary(context),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8),
           Text('暂无关联条目', style: BTTypography.body(context)),
           const Spacer(),
           Tooltip(
             message: '刷新',
             child: IconButton(
-              icon: Icon(FluentIcons.refresh, size: 14.sp),
+              icon: Icon(FluentIcons.refresh, size: 14),
               onPressed: load,
             ),
           ),
@@ -213,19 +214,19 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
             Tooltip(
               message: '刷新',
               child: IconButton(
-                icon: Icon(FluentIcons.refresh, size: 14.sp),
+                icon: Icon(FluentIcons.refresh, size: 14),
                 onPressed: load,
               ),
             ),
           ],
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8),
         ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: 400.h),
+          constraints: BoxConstraints(maxHeight: 400),
           child: SingleChildScrollView(
             padding: EdgeInsets.zero,
             child: Wrap(
-              spacing: 8.w,
+              spacing: 8,
               runSpacing: 0,
               children: relations.map(buildRelationCard).toList(),
             ),

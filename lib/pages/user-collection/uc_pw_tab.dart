@@ -5,7 +5,6 @@ import 'dart:math';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../controller/app/page_controller.dart';
@@ -191,7 +190,7 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
       value: item,
       label: label,
       child: SizedBox(
-        width: 400.w,
+        width: 400,
         child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
     );
@@ -246,30 +245,26 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
   Widget buildTop(BuildContext context) {
     var titleStyle = FluentTheme.of(context).typography.subtitle;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: FluentTheme.of(context).micaBackgroundColor,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          Icon(
-            type.icon,
-            size: 20.sp,
-            color: FluentTheme.of(context).accentColor,
-          ),
-          SizedBox(width: 8.w),
+          Icon(type.icon, size: 20, color: FluentTheme.of(context).accentColor),
+          SizedBox(width: 8),
           Text('共 ${data.length} 部', style: titleStyle),
-          SizedBox(width: 12.w),
+          SizedBox(width: 12),
           buildRefresh(context),
-          SizedBox(width: 12.w),
+          SizedBox(width: 12),
           Expanded(
             child: Container(
-              constraints: BoxConstraints(maxWidth: 450.w),
+              constraints: BoxConstraints(maxWidth: 450),
               child: buildJump(context),
             ),
           ),
-          SizedBox(width: 12.w),
+          SizedBox(width: 12),
           PageWidget(pageController),
         ],
       ),
@@ -289,15 +284,15 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
       builder: (context, constraints) {
         var columns = BTBreakpoints.getGridColumns(constraints.maxWidth);
         return Container(
-          margin: EdgeInsets.all(8.w),
+          margin: EdgeInsets.all(8),
           child: GridView.builder(
             controller: ScrollController(),
-            padding: EdgeInsets.all(8.w),
+            padding: EdgeInsets.all(8),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
               childAspectRatio: 10 / 7,
-              mainAxisSpacing: 12.w,
-              crossAxisSpacing: 12.w,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
             ),
             itemCount: showData.length,
             scrollCacheExtent: const ScrollCacheExtent.pixels(500),
@@ -319,12 +314,12 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
       color: FluentTheme.of(context).scaffoldBackgroundColor,
       child: Column(
         children: [
-          SizedBox(height: 12.h),
+          SizedBox(height: 12),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            padding: EdgeInsets.symmetric(horizontal: 12),
             child: buildTop(context),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12),
           Expanded(child: buildList(context)),
         ],
       ),

@@ -4,7 +4,6 @@ import 'dart:io';
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -50,8 +49,8 @@ class _SettingPageState extends ConsumerState<SettingPage>
     return Row(
       children: [
         Container(
-          width: 44.w,
-          height: 44.w,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -73,15 +72,15 @@ class _SettingPageState extends ConsumerState<SettingPage>
             size: 22,
           ),
         ),
-        SizedBox(width: 14.w),
+        SizedBox(width: 14),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               '应用设置',
-              style: BTTypography.title(context).copyWith(fontSize: 20.sp),
+              style: BTTypography.title(context).copyWith(fontSize: 20),
             ),
-            SizedBox(height: 2.h),
+            SizedBox(height: 2),
             Text('配置应用、下载引擎与 Bangumi 账号', style: BTTypography.caption(context)),
           ],
         ),
@@ -93,9 +92,9 @@ class _SettingPageState extends ConsumerState<SettingPage>
   Widget buildAppBadge(BuildContext context) {
     var accent = FluentTheme.of(context).accentColor;
     return SizedBox(
-      width: 280.w,
+      width: 280,
       child: Container(
-        padding: EdgeInsets.all(20.w),
+        padding: EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -112,16 +111,16 @@ class _SettingPageState extends ConsumerState<SettingPage>
             Row(
               children: [
                 Container(
-                  width: 56.w,
-                  height: 56.w,
-                  padding: EdgeInsets.all(8.w),
+                  width: 56,
+                  height: 56,
+                  padding: EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BTRadius.mediumBR,
                   ),
                   child: Image.asset('assets/images/logo.png'),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,17 +129,17 @@ class _SettingPageState extends ConsumerState<SettingPage>
                         'BangumiToday',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 18.sp,
+                          fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      SizedBox(height: 2.h),
+                      SizedBox(height: 2),
                       Text(
                         'v${packageInfo?.version ?? '0.0.0'}'
                         '+${packageInfo?.buildNumber ?? ''}',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.85),
-                          fontSize: 12.sp,
+                          fontSize: 12,
                         ),
                       ),
                     ],
@@ -148,15 +147,15 @@ class _SettingPageState extends ConsumerState<SettingPage>
                 ),
               ],
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16),
             Text(
               '番剧时间表、RSS 订阅与下载管理',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.9),
-                fontSize: 13.sp,
+                fontSize: 13,
               ),
             ),
-            SizedBox(height: 14.h),
+            SizedBox(height: 14),
             Button(
               style: ButtonStyle(
                 backgroundColor: WidgetStatePropertyAll(
@@ -177,17 +176,17 @@ class _SettingPageState extends ConsumerState<SettingPage>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(FluentIcons.link, size: 14),
-                  SizedBox(width: 6.w),
+                  SizedBox(width: 6),
                   const Text('GitHub 仓库'),
                 ],
               ),
             ),
-            SizedBox(height: 12.h),
+            SizedBox(height: 12),
             Text(
               '©2024 BTMuli <bt-muli@outlook.com>',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 11.sp,
+                fontSize: 11,
               ),
             ),
           ],
@@ -212,18 +211,18 @@ class _SettingPageState extends ConsumerState<SettingPage>
     super.build(context);
     var configList = buildConfigList();
     return ScaffoldPage.withPadding(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(16),
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           buildPageHeader(context),
-          SizedBox(height: 16.h),
+          SizedBox(height: 16),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
                 var list = ListView.separated(
                   itemBuilder: (_, int idx) => configList[idx],
-                  separatorBuilder: (_, _) => SizedBox(height: 12.h),
+                  separatorBuilder: (_, _) => SizedBox(height: 12),
                   itemCount: configList.length,
                 );
                 // 窗口较窄时隐藏右侧应用徽章，避免挤压设置列表
@@ -232,7 +231,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: list),
-                    SizedBox(width: 16.w),
+                    SizedBox(width: 16),
                     buildAppBadge(context),
                   ],
                 );

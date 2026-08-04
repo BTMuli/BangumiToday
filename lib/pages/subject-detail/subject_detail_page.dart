@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../controller/app/progress_controller.dart';
@@ -324,7 +323,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(FluentIcons.error),
-            SizedBox(height: 12.h),
+            SizedBox(height: 12),
             const Text('Error: 加载失败'),
           ],
         ),
@@ -335,7 +334,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const ProgressRing(),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12),
           const Text('Loading...'),
         ],
       ),
@@ -348,11 +347,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
       message: '打开 BMF 配置',
       excludeFromSemantics: true,
       child: IconButton(
-        icon: Icon(
-          FluentIcons.app_icon_default,
-          size: 18.sp,
-          color: accentColor,
-        ),
+        icon: Icon(FluentIcons.app_icon_default, size: 18, color: accentColor),
         onPressed: () => showBTDrawer(
           context: context,
           width: 420,
@@ -444,22 +439,22 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   Widget buildSummary(String summary) {
     if (summary == '') {
       return Padding(
-        padding: EdgeInsets.symmetric(vertical: 8.h),
+        padding: EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
             Icon(
               FluentIcons.error_badge,
-              size: 16.sp,
+              size: 16,
               color: BTColors.textTertiary(context),
             ),
-            SizedBox(width: 8.w),
+            SizedBox(width: 8),
             Text('暂无简介', style: BTTypography.body(context)),
           ],
         ),
       );
     }
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4.h),
+      padding: EdgeInsets.symmetric(vertical: 4),
       child: SelectableText(
         summary,
         style: BTTypography.body(context),
@@ -471,15 +466,15 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   Widget buildOtherInfo(List<BangumiInfoBoxItem> infobox) {
     if (infobox.isEmpty) {
       return Padding(
-        padding: EdgeInsets.symmetric(vertical: 8.h),
+        padding: EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
             Icon(
               FluentIcons.info,
-              size: 16.sp,
+              size: 16,
               color: BTColors.textTertiary(context),
             ),
-            SizedBox(width: 8.w),
+            SizedBox(width: 8),
             Text('暂无其他信息', style: BTTypography.body(context)),
           ],
         ),
@@ -497,12 +492,12 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
             .join('\n');
         res.add(
           Padding(
-            padding: EdgeInsets.symmetric(vertical: 4.h),
+            padding: EdgeInsets.symmetric(vertical: 4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(item.key, style: BTTypography.bodyStrong(context)),
-                SizedBox(height: 2.h),
+                SizedBox(height: 2),
                 SelectableText(
                   value,
                   style: BTTypography.body(context),
@@ -516,18 +511,18 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
         value = replaceEscape(item.value as String);
         res.add(
           Padding(
-            padding: EdgeInsets.symmetric(vertical: 4.h),
+            padding: EdgeInsets.symmetric(vertical: 4),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
-                  width: 80.w,
+                  width: 80,
                   child: Text(
                     item.key,
                     style: BTTypography.bodyStrong(context),
                   ),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8),
                 Expanded(
                   child: SelectableText(
                     value,
@@ -554,14 +549,14 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           BTFadeSlideIn(
             duration: const Duration(milliseconds: 300),
             child: Container(
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: isDark
                     ? BTColors.surfaceSecondary(context)
@@ -577,14 +572,14 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
               child: SdpOverviewWidget(data!),
             ),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12),
 
           if (hiveUser.user != null)
             BTFadeSlideIn(
               duration: const Duration(milliseconds: 350),
               delay: const Duration(milliseconds: 50),
               child: Container(
-                padding: EdgeInsets.all(12.w),
+                padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: BTColors.surfaceSecondary(context),
                   borderRadius: BTRadius.mediumBR,
@@ -598,7 +593,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
                         collectProvider,
                       ),
                     ),
-                    SizedBox(width: 12.w),
+                    SizedBox(width: 12),
                     _buildBmfDrawerButton(context),
                   ],
                 ),
@@ -612,7 +607,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
               initiallyExpanded: true,
               leading: Icon(
                 FluentIcons.video,
-                size: 18.sp,
+                size: 18,
                 color: FluentTheme.of(context).accentColor,
               ),
               header: Text('剧集列表', style: BTTypography.subtitle(context)),
@@ -626,7 +621,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
             child: Expander(
               leading: Icon(
                 FluentIcons.link,
-                size: 18.sp,
+                size: 18,
                 color: FluentTheme.of(context).accentColor,
               ),
               header: Text('关联条目', style: BTTypography.subtitle(context)),
@@ -641,7 +636,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
               initiallyExpanded: true,
               leading: Icon(
                 FluentIcons.info,
-                size: 18.sp,
+                size: 18,
                 color: FluentTheme.of(context).accentColor,
               ),
               header: Text('简介', style: BTTypography.subtitle(context)),
@@ -655,7 +650,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
             child: Expander(
               leading: Icon(
                 FluentIcons.settings,
-                size: 18.sp,
+                size: 18,
                 color: FluentTheme.of(context).accentColor,
               ),
               header: Text('详细信息', style: BTTypography.subtitle(context)),

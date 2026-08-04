@@ -4,7 +4,6 @@ import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 
 import '../../../core/theme/bt_theme.dart';
@@ -173,12 +172,12 @@ class _BmfCardState extends ConsumerState<BmfCard>
         onLongPress: _addToNavOnly,
         child: AnimatedContainer(
           duration: BTDurations.fadeTransition,
-          padding: EdgeInsets.all(1.w),
+          padding: EdgeInsets.all(1),
           decoration: BoxDecoration(
             borderRadius: BTRadius.largeBR,
             border: Border.all(
               color: widget.selected ? accentColor : Colors.transparent,
-              width: 1.w,
+              width: 1,
             ),
           ),
           child: BTAcrylic.acrylicContainer(
@@ -188,17 +187,17 @@ class _BmfCardState extends ConsumerState<BmfCard>
                 ? 0.6
                 : 0.8,
             borderRadius: BTRadius.largeBR,
-            padding: EdgeInsets.all(widget.dense ? 10.w : 12.w),
+            padding: EdgeInsets.all(widget.dense ? 10 : 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(context, accentColor),
-                SizedBox(height: widget.dense ? 8.h : 12.h),
+                SizedBox(height: widget.dense ? 8 : 12),
                 if (widget.dense)
                   _buildDenseFooter(context, accentColor)
                 else ...[
                   _buildStats(context),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 12),
                   _buildActions(context, accentColor),
                 ],
               ],
@@ -213,14 +212,14 @@ class _BmfCardState extends ConsumerState<BmfCard>
     return Row(
       children: [
         Container(
-          padding: EdgeInsets.all(6.w),
+          padding: EdgeInsets.all(6),
           decoration: BoxDecoration(
             color: accentColor.withValues(alpha: 0.15),
             borderRadius: BTRadius.smallBR,
           ),
-          child: Icon(FluentIcons.media, size: 16.sp, color: accentColor),
+          child: Icon(FluentIcons.media, size: 16, color: accentColor),
         ),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,7 +233,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              SizedBox(height: 2.h),
+              SizedBox(height: 2),
               Text(
                 'ID: ${bmf.subject}',
                 style: BTTypography.caption(
@@ -246,7 +245,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
         ),
         if ((widget.pendingCount ?? rssNewCount) > 0)
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: Colors.red,
               borderRadius: BTRadius.roundBR,
@@ -255,7 +254,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
               '${widget.pendingCount ?? rssNewCount}',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 10.sp,
+                fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -268,8 +267,8 @@ class _BmfCardState extends ConsumerState<BmfCard>
     if (isLoading) {
       return Center(
         child: SizedBox(
-          width: 16.w,
-          height: 16.w,
+          width: 16,
+          height: 16,
           child: ProgressRing(strokeWidth: 2),
         ),
       );
@@ -285,7 +284,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
           value: bmf.rss != null && bmf.rss!.isNotEmpty ? '已配置' : '未配置',
           isActive: bmf.rss != null && bmf.rss!.isNotEmpty,
         ),
-        SizedBox(height: 6.h),
+        SizedBox(height: 6),
         _buildStatRow(
           context,
           icon: FluentIcons.folder,
@@ -300,12 +299,12 @@ class _BmfCardState extends ConsumerState<BmfCard>
   Widget _buildDenseFooter(BuildContext context, Color accentColor) {
     if (isLoading) {
       return SizedBox(
-        height: 28.h,
+        height: 28,
         child: Align(
           alignment: Alignment.centerLeft,
           child: SizedBox(
-            width: 14.w,
-            height: 14.w,
+            width: 14,
+            height: 14,
             child: const ProgressRing(strokeWidth: 2),
           ),
         ),
@@ -316,7 +315,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
     return Row(
       children: [
         ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: 82.w),
+          constraints: BoxConstraints(maxWidth: 82),
           child: _buildDenseStat(
             context,
             icon: MdiIcons.rss,
@@ -324,7 +323,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
             isActive: hasRss,
           ),
         ),
-        SizedBox(width: 12.w),
+        SizedBox(width: 12),
         Expanded(
           child: _buildDenseStat(
             context,
@@ -336,7 +335,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
         Tooltip(
           message: '跳转到详情页',
           child: IconButton(
-            icon: BtIcon(FluentIcons.open_in_new_tab, size: 13.sp),
+            icon: BtIcon(FluentIcons.open_in_new_tab, size: 13),
             onPressed: _navigateToDetail,
             onLongPress: _addToNavOnly,
           ),
@@ -358,8 +357,8 @@ class _BmfCardState extends ConsumerState<BmfCard>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12.sp, color: color),
-        SizedBox(width: 5.w),
+        Icon(icon, size: 12, color: color),
+        SizedBox(width: 5),
         Flexible(
           child: Text(
             text,
@@ -387,12 +386,12 @@ class _BmfCardState extends ConsumerState<BmfCard>
       children: [
         Icon(
           icon,
-          size: 12.sp,
+          size: 12,
           color: isActive
               ? FluentTheme.of(context).accentColor
               : BTColors.textTertiary(context),
         ),
-        SizedBox(width: 6.w),
+        SizedBox(width: 6),
         Text('$label: ', style: BTTypography.caption(context)),
         Expanded(
           child: Text(
@@ -416,7 +415,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
         Tooltip(
           message: '查看详情',
           child: IconButton(
-            icon: BtIcon(FluentIcons.view, size: 14.sp),
+            icon: BtIcon(FluentIcons.view, size: 14),
             onPressed: _openDetails,
             onLongPress: _addToNavOnly,
           ),
@@ -424,7 +423,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
         Tooltip(
           message: '跳转到详情页',
           child: IconButton(
-            icon: BtIcon(FluentIcons.open_in_new_tab, size: 14.sp),
+            icon: BtIcon(FluentIcons.open_in_new_tab, size: 14),
             onPressed: _navigateToDetail,
             onLongPress: _addToNavOnly,
           ),
@@ -443,7 +442,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
       child: Tooltip(
         message: '更多操作',
         child: IconButton(
-          icon: BtIcon(FluentIcons.more, size: 14.sp),
+          icon: BtIcon(FluentIcons.more, size: 14),
           onPressed: () {
             flyoutController.showFlyout(
               barrierDismissible: true,
@@ -461,23 +460,23 @@ class _BmfCardState extends ConsumerState<BmfCard>
     return MenuFlyout(
       items: [
         MenuFlyoutItem(
-          leading: BtIcon(MdiIcons.bookEdit, size: 14.sp),
+          leading: BtIcon(MdiIcons.bookEdit, size: 14),
           text: const Text('设置标题'),
           onPressed: () => _handleSetTitle(context),
         ),
         MenuFlyoutItem(
-          leading: BtIcon(MdiIcons.rss, size: 14.sp),
+          leading: BtIcon(MdiIcons.rss, size: 14),
           text: const Text('设置 RSS'),
           onPressed: () => _handleSetRss(context),
         ),
         MenuFlyoutItem(
-          leading: BtIcon(MdiIcons.folder, size: 14.sp),
+          leading: BtIcon(MdiIcons.folder, size: 14),
           text: const Text('设置下载目录'),
           onPressed: () => _handleSetDownloadDir(context),
         ),
         const MenuFlyoutSeparator(),
         MenuFlyoutItem(
-          leading: Icon(FluentIcons.delete, size: 14.sp, color: accentColor),
+          leading: Icon(FluentIcons.delete, size: 14, color: accentColor),
           text: Text('删除', style: TextStyle(color: accentColor)),
           onPressed: () => _handleDelete(context),
         ),
@@ -577,8 +576,8 @@ class _BmfDetailDialogState extends ConsumerState<_BmfDetailDialog> {
           },
           child: Row(
             children: [
-              Icon(FluentIcons.settings, size: 18.sp),
-              SizedBox(width: 8.w),
+              Icon(FluentIcons.settings, size: 18),
+              SizedBox(width: 8),
               Expanded(
                 child: Text(
                   widget.bmf.title ?? 'BMF 配置',
@@ -591,7 +590,7 @@ class _BmfDetailDialogState extends ConsumerState<_BmfDetailDialog> {
           ),
         ),
       ),
-      constraints: BoxConstraints(maxWidth: 960.w),
+      constraints: BoxConstraints(maxWidth: 960),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -600,15 +599,15 @@ class _BmfDetailDialogState extends ConsumerState<_BmfDetailDialog> {
             BmfFileExpander(
               downloadDir: widget.bmf.download!,
               subject: widget.bmf.subject,
-              maxHeight: 200.h,
+              maxHeight: 200,
             ),
           if (widget.bmf.download != null && widget.bmf.download!.isNotEmpty)
-            SizedBox(height: 4.h),
+            SizedBox(height: 4),
           if (widget.bmf.rss != null && widget.bmf.rss!.isNotEmpty)
             BmfRssExpander(
               bmf: widget.bmf,
               isConfig: true,
-              maxHeight: 200.h,
+              maxHeight: 200,
               onDelete: () async {
                 var repo = context.mounted
                     ? ref.read(bmfRepositoryProvider)

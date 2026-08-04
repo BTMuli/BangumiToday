@@ -2,7 +2,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../../core/theme/bt_theme.dart';
@@ -37,13 +36,13 @@ class _BscSearchState extends ConsumerState<BscSearch> {
   /// 构建无封面的卡片
   Widget buildCoverEmpty({String? err}) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            BtIcon(FluentIcons.photo_error, size: 28.sp),
+            BtIcon(FluentIcons.photo_error, size: 28),
             Text(
               err ?? '无封面',
               style: TextStyle(
@@ -81,7 +80,7 @@ class _BscSearchState extends ConsumerState<BscSearch> {
     return Tooltip(
       message: '$name ($count)',
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: FluentTheme.of(context).accentColor.withValues(alpha: 0.15),
           borderRadius: BTRadius.smallBR,
@@ -93,7 +92,7 @@ class _BscSearchState extends ConsumerState<BscSearch> {
         child: Text(
           name,
           style: TextStyle(
-            fontSize: 11.sp,
+            fontSize: 11,
             color: FluentTheme.of(context).accentColor,
             fontWeight: FontWeight.w500,
           ),
@@ -110,10 +109,10 @@ class _BscSearchState extends ConsumerState<BscSearch> {
       tags = tags.sublist(0, maxNum);
     }
     return SizedBox(
-      height: 24.h,
+      height: 24,
       child: Wrap(
-        spacing: 4.w,
-        runSpacing: 4.h,
+        spacing: 4,
+        runSpacing: 4,
         children: tags.map((e) => buildTag(e.name, e.count)).toList(),
       ),
     );
@@ -125,13 +124,13 @@ class _BscSearchState extends ConsumerState<BscSearch> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Flexible(child: _buildScoreWidget()),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8),
         Tooltip(
           message: '查看$label详情',
           child: BTCard(
             useShadow: false,
             useAcrylic: false,
-            padding: EdgeInsets.all(8.w),
+            padding: EdgeInsets.all(8),
             borderRadius: BTRadius.medium,
             onTap: () => ref
                 .read(navStoreProvider)
@@ -142,7 +141,7 @@ class _BscSearchState extends ConsumerState<BscSearch> {
                 ),
             child: Icon(
               FluentIcons.open_in_new_tab,
-              size: 16.sp,
+              size: 16,
               color: FluentTheme.of(context).accentColor,
             ),
           ),
@@ -157,7 +156,7 @@ class _BscSearchState extends ConsumerState<BscSearch> {
     var scoreColor = _getScoreColor(score);
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: scoreColor.withValues(alpha: 0.15),
         borderRadius: BTRadius.mediumBR,
@@ -166,21 +165,21 @@ class _BscSearchState extends ConsumerState<BscSearch> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(FluentIcons.favorite_star_fill, size: 14.sp, color: scoreColor),
-          SizedBox(width: 4.w),
+          Icon(FluentIcons.favorite_star_fill, size: 14, color: scoreColor),
+          SizedBox(width: 4),
           Text(
             score.toStringAsFixed(1),
             style: TextStyle(
-              fontSize: 14.sp,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
               color: scoreColor,
             ),
           ),
-          SizedBox(width: 6.w),
+          SizedBox(width: 6),
           Text(
             scoreLabel,
             style: TextStyle(
-              fontSize: 12.sp,
+              fontSize: 12,
               color: BTColors.textSecondary(context),
             ),
           ),
@@ -243,8 +242,8 @@ class _BscSearchState extends ConsumerState<BscSearch> {
 
   Widget _buildMetaInfo() {
     return Wrap(
-      spacing: 8.w,
-      runSpacing: 4.h,
+      spacing: 8,
+      runSpacing: 4,
       children: [
         if (subject.date != null && subject.date!.isNotEmpty)
           _buildMetaItem(FluentIcons.calendar, subject.date!),
@@ -260,12 +259,12 @@ class _BscSearchState extends ConsumerState<BscSearch> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12.sp, color: BTColors.textSecondary(context)),
-        SizedBox(width: 4.w),
+        Icon(icon, size: 12, color: BTColors.textSecondary(context)),
+        SizedBox(width: 4),
         Text(
           text,
           style: TextStyle(
-            fontSize: 11.sp,
+            fontSize: 11,
             color: BTColors.textSecondary(context),
           ),
         ),
@@ -284,40 +283,36 @@ class _BscSearchState extends ConsumerState<BscSearch> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (collect > 0) ...[
-          Icon(FluentIcons.heart_fill, size: 12.sp, color: Colors.red),
-          SizedBox(width: 3.w),
+          Icon(FluentIcons.heart_fill, size: 12, color: Colors.red),
+          SizedBox(width: 3),
           Text(
             '$collect',
             style: TextStyle(
-              fontSize: 11.sp,
+              fontSize: 11,
               color: BTColors.textSecondary(context),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10),
         ],
         if (wish > 0) ...[
-          Icon(
-            FluentIcons.favorite_star_fill,
-            size: 12.sp,
-            color: Colors.orange,
-          ),
-          SizedBox(width: 3.w),
+          Icon(FluentIcons.favorite_star_fill, size: 12, color: Colors.orange),
+          SizedBox(width: 3),
           Text(
             '$wish',
             style: TextStyle(
-              fontSize: 11.sp,
+              fontSize: 11,
               color: BTColors.textSecondary(context),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10),
         ],
         if (doing > 0) ...[
-          Icon(FluentIcons.play, size: 12.sp, color: Colors.green),
-          SizedBox(width: 3.w),
+          Icon(FluentIcons.play, size: 12, color: Colors.green),
+          SizedBox(width: 3),
           Text(
             '$doing',
             style: TextStyle(
-              fontSize: 11.sp,
+              fontSize: 11,
               color: BTColors.textSecondary(context),
             ),
           ),

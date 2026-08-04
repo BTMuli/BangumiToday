@@ -3,7 +3,6 @@ import 'dart:async';
 import '../../../models/rss/rss.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
@@ -134,8 +133,8 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     var isTorrent = file.endsWith('.torrent');
 
     return Container(
-      margin: EdgeInsets.only(bottom: 6.h),
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      margin: EdgeInsets.only(bottom: 6),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context),
         borderRadius: BTRadius.smallBR,
@@ -153,12 +152,12 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
                     : isVideo
                     ? FluentIcons.video
                     : FluentIcons.document,
-                size: 16.sp,
+                size: 16,
                 color: isDownloading
                     ? FluentTheme.of(context).accentColor
                     : BTColors.textSecondary(context),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8),
               Expanded(
                 child: Tooltip(
                   message: file,
@@ -172,19 +171,19 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
               ),
             ],
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6),
           Row(
             children: [
               if (isDownloading) ...[
                 Expanded(child: ProgressBar(value: null, strokeWidth: 2)),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8),
                 Text(
                   '下载中',
                   style: BTTypography.caption(
                     context,
                   ).copyWith(color: FluentTheme.of(context).accentColor),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8),
               ] else
                 const Spacer(),
               _FileItemActions(
@@ -205,7 +204,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   Widget buildContent() {
     if (files.isEmpty) {
       return Padding(
-        padding: EdgeInsets.symmetric(vertical: 8.h),
+        padding: EdgeInsets.symmetric(vertical: 8),
         child: Text('没有找到任何文件', style: BTTypography.body(context)),
       );
     }
@@ -232,7 +231,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   Widget _buildCountBadge(BuildContext context, int count) {
     var accentColor = FluentTheme.of(context).accentColor;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: accentColor.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(10),
@@ -240,7 +239,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       child: Text(
         '$count',
         style: TextStyle(
-          fontSize: 11.sp,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
           color: accentColor,
         ),
@@ -255,15 +254,15 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       children: [
         Text('下载目录', style: BTTypography.subtitle(context)),
         if (files.isNotEmpty) ...[
-          SizedBox(width: 8.w),
+          SizedBox(width: 8),
           _buildCountBadge(context, files.length),
         ],
-        SizedBox(width: 8.w),
+        SizedBox(width: 8),
         Tooltip(
           message: widget.downloadDir.isEmpty ? '未设置下载目录' : widget.downloadDir,
           child: Icon(
             FluentIcons.info,
-            size: 14.sp,
+            size: 14,
             color: BTColors.textTertiary(context),
           ),
         ),
@@ -274,7 +273,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
             child: IconButton(
               icon: BtIcon(
                 FluentIcons.delete,
-                size: 14.sp,
+                size: 14,
                 color: FluentTheme.of(context).accentColor,
               ),
               onPressed: () async {
@@ -291,7 +290,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
         Tooltip(
           message: '刷新文件',
           child: IconButton(
-            icon: BtIcon(FluentIcons.refresh, size: 14.sp),
+            icon: BtIcon(FluentIcons.refresh, size: 14),
             onPressed: () async {
               if (widget.downloadDir.isEmpty) {
                 await BtInfobar.error(context, '请先设置下载目录');
@@ -305,7 +304,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
         Tooltip(
           message: '打开目录',
           child: IconButton(
-            icon: BtIcon(FluentIcons.folder, size: 14.sp),
+            icon: BtIcon(FluentIcons.folder, size: 14),
             onPressed: () async {
               if (widget.downloadDir.isEmpty) {
                 await BtInfobar.error(context, '请先设置下载目录');
@@ -321,7 +320,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     if (!widget.expandable) {
       return _buildFixedResourcePanel(
         context,
-        leading: Icon(FluentIcons.folder_open, size: 18.sp, color: accentColor),
+        leading: Icon(FluentIcons.folder_open, size: 18, color: accentColor),
         header: header,
         content: buildContent(),
         controller: widget.contentScrollController,
@@ -329,7 +328,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     }
 
     return Expander(
-      leading: Icon(FluentIcons.folder_open, size: 18.sp, color: accentColor),
+      leading: Icon(FluentIcons.folder_open, size: 18, color: accentColor),
       header: header,
       content: buildContent(),
     );
@@ -372,7 +371,7 @@ class _FileItemActions extends StatelessWidget {
           Tooltip(
             message: '打开文件',
             child: IconButton(
-              icon: BtIcon(FluentIcons.open_file, size: 14.sp),
+              icon: BtIcon(FluentIcons.open_file, size: 14),
               onPressed: () async {
                 var filePath = path.join(dir, file);
                 await launchUrlString('file://$filePath');
@@ -384,7 +383,7 @@ class _FileItemActions extends StatelessWidget {
           child: IconButton(
             icon: BtIcon(
               FluentIcons.delete,
-              size: 14.sp,
+              size: 14,
               color: FluentTheme.of(context).accentColor,
             ),
             onPressed: () async {
@@ -597,8 +596,8 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     var accentColor = FluentTheme.of(context).accentColor;
 
     return Container(
-      margin: EdgeInsets.only(bottom: 6.h),
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      margin: EdgeInsets.only(bottom: 6),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: isPending
             ? accentColor.withValues(alpha: 0.1)
@@ -617,15 +616,15 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
             children: [
               Icon(
                 MdiIcons.download,
-                size: 16.sp,
+                size: 16,
                 color: isPending
                     ? accentColor
                     : BTColors.textSecondary(context),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8),
               if (isPending) ...[
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: accentColor,
                     borderRadius: BTRadius.roundBR,
@@ -634,12 +633,12 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
                     '新',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 10.sp,
+                      fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                SizedBox(width: 7.w),
+                SizedBox(width: 7),
               ],
               Expanded(
                 child: Tooltip(
@@ -654,26 +653,26 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
               ),
             ],
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4),
           Row(
             children: [
               if (fileSize != null) ...[
                 Icon(
                   FluentIcons.save,
-                  size: 10.sp,
+                  size: 10,
                   color: BTColors.textTertiary(context),
                 ),
-                SizedBox(width: 4.w),
+                SizedBox(width: 4),
                 Text(fileSize, style: BTTypography.caption(context)),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12),
               ],
               if (item.pubDate != null) ...[
                 Icon(
                   FluentIcons.clock,
-                  size: 10.sp,
+                  size: 10,
                   color: BTColors.textTertiary(context),
                 ),
-                SizedBox(width: 4.w),
+                SizedBox(width: 4),
                 Text(
                   item.pubDate!.length > 10
                       ? item.pubDate!.substring(0, 10)
@@ -686,7 +685,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
                 Tooltip(
                   message: '标记为已处理',
                   child: IconButton(
-                    icon: BtIcon(FluentIcons.check_mark, size: 14.sp),
+                    icon: BtIcon(FluentIcons.check_mark, size: 14),
                     onPressed: () => _markItemHandled(item),
                   ),
                 ),
@@ -707,7 +706,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
   Widget buildContent() {
     if (rssItems.isEmpty) {
       return Padding(
-        padding: EdgeInsets.symmetric(vertical: 8.h),
+        padding: EdgeInsets.symmetric(vertical: 8),
         child: Text('没有找到任何 RSS 信息', style: BTTypography.body(context)),
       );
     }
@@ -734,7 +733,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
   Widget _buildCountBadge(BuildContext context, int count) {
     var accentColor = FluentTheme.of(context).accentColor;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: accentColor.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(10),
@@ -742,7 +741,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
       child: Text(
         '$count',
         style: TextStyle(
-          fontSize: 11.sp,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
           color: accentColor,
         ),
@@ -759,13 +758,13 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
       children: [
         Text('RSS 订阅', style: BTTypography.subtitle(context)),
         if (rssItems.isNotEmpty) ...[
-          SizedBox(width: 8.w),
+          SizedBox(width: 8),
           _buildCountBadge(context, rssItems.length),
         ],
         if (pendingItemKeys.isNotEmpty) ...[
-          SizedBox(width: 8.w),
+          SizedBox(width: 8),
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 2.h),
+            padding: EdgeInsets.symmetric(horizontal: 7, vertical: 2),
             decoration: BoxDecoration(
               color: accentColor,
               borderRadius: BTRadius.roundBR,
@@ -774,18 +773,18 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
               '${pendingItemKeys.length} 条更新',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 11.sp,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ],
-        SizedBox(width: 8.w),
+        SizedBox(width: 8),
         Tooltip(
           message: rssLink,
           child: Icon(
             FluentIcons.info,
-            size: 14.sp,
+            size: 14,
             color: BTColors.textTertiary(context),
           ),
         ),
@@ -794,7 +793,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
           Tooltip(
             message: '全部标记为已处理',
             child: IconButton(
-              icon: BtIcon(FluentIcons.clear_selection, size: 14.sp),
+              icon: BtIcon(FluentIcons.clear_selection, size: 14),
               onPressed: _markAllHandled,
             ),
           ),
@@ -804,7 +803,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
             child: IconButton(
               icon: BtIcon(
                 FluentIcons.delete,
-                size: 14.sp,
+                size: 14,
                 color: FluentTheme.of(context).accentColor,
               ),
               onPressed: () async {
@@ -821,7 +820,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
         Tooltip(
           message: '刷新 RSS',
           child: IconButton(
-            icon: BtIcon(FluentIcons.refresh, size: 14.sp),
+            icon: BtIcon(FluentIcons.refresh, size: 14),
             onPressed: () async {
               var result = await BmfRssService.instance.refreshBmf(bmf);
               if (!context.mounted) return;
@@ -836,7 +835,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
         Tooltip(
           message: '打开 RSS',
           child: IconButton(
-            icon: BtIcon(FluentIcons.edge_logo, size: 14.sp),
+            icon: BtIcon(FluentIcons.edge_logo, size: 14),
             onPressed: () async => await launchUrlString(rssLink),
           ),
         ),
@@ -846,7 +845,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     if (!widget.expandable) {
       return _buildFixedResourcePanel(
         context,
-        leading: Icon(MdiIcons.rss, size: 18.sp, color: accentColor),
+        leading: Icon(MdiIcons.rss, size: 18, color: accentColor),
         header: header,
         content: buildContent(),
         controller: widget.contentScrollController,
@@ -855,7 +854,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
 
     return Expander(
       initiallyExpanded: widget.initiallyExpanded,
-      leading: Icon(MdiIcons.rss, size: 18.sp, color: accentColor),
+      leading: Icon(MdiIcons.rss, size: 18, color: accentColor),
       header: header,
       content: buildContent(),
     );
@@ -881,11 +880,11 @@ Widget _buildFixedResourcePanel(
         ColoredBox(
           color: BTColors.surfaceSecondary(context),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
                 leading,
-                SizedBox(width: 10.w),
+                SizedBox(width: 10),
                 Expanded(child: header),
               ],
             ),
@@ -898,7 +897,7 @@ Widget _buildFixedResourcePanel(
             thumbVisibility: controller != null,
             child: SingleChildScrollView(
               controller: controller,
-              padding: EdgeInsets.all(10.w),
+              padding: EdgeInsets.all(10),
               child: content,
             ),
           ),
@@ -985,14 +984,14 @@ class _RssItemActions extends ConsumerWidget {
         Tooltip(
           message: '内置下载',
           child: IconButton(
-            icon: BtIcon(FluentIcons.download, size: 14.sp),
+            icon: BtIcon(FluentIcons.download, size: 14),
             onPressed: () async => await download(context, ref),
           ),
         ),
         Tooltip(
           message: '打开链接',
           child: IconButton(
-            icon: BtIcon(FluentIcons.edge_logo, size: 14.sp),
+            icon: BtIcon(FluentIcons.edge_logo, size: 14),
             onPressed: () async => await openLink(context),
           ),
         ),

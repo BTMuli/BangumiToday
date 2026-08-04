@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../core/theme/bt_theme.dart';
 
@@ -82,9 +81,7 @@ class BtInfobar {
     return InfoBar(
       title: Text(
         text,
-        style: BTTypography.body(context).copyWith(
-          fontWeight: FontWeight.w500,
-        ),
+        style: BTTypography.body(context).copyWith(fontWeight: FontWeight.w500),
       ),
       severity: severity,
     );
@@ -121,8 +118,8 @@ class BTSnackBar {
       context,
       duration: duration,
       builder: (context, close) => Container(
-        margin: EdgeInsets.all(16.w),
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        margin: EdgeInsets.all(16),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: isDark
               ? const Color(0xFF2D2D2D).withValues(alpha: 0.95)
@@ -137,14 +134,9 @@ class BTSnackBar {
         ),
         child: Row(
           children: [
-            Expanded(
-              child: Text(
-                message,
-                style: BTTypography.body(context),
-              ),
-            ),
+            Expanded(child: Text(message, style: BTTypography.body(context))),
             if (actionLabel != null && onAction != null) ...[
-              SizedBox(width: 12.w),
+              SizedBox(width: 12),
               GestureDetector(
                 onTap: () {
                   close();
@@ -181,10 +173,7 @@ class BTToast {
 
     var overlay = Overlay.of(context);
     _overlayEntry = OverlayEntry(
-      builder: (context) => _BTToastWidget(
-        message: message,
-        icon: icon,
-      ),
+      builder: (context) => _BTToastWidget(message: message, icon: icon),
     );
 
     overlay.insert(_overlayEntry!);
@@ -207,22 +196,19 @@ class _BTToastWidget extends StatelessWidget {
   final String message;
   final IconData? icon;
 
-  const _BTToastWidget({
-    required this.message,
-    this.icon,
-  });
+  const _BTToastWidget({required this.message, this.icon});
 
   @override
   Widget build(BuildContext context) {
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return Positioned(
-      bottom: 80.h,
+      bottom: 80,
       left: 0,
       right: 0,
       child: Center(
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
             color: isDark
                 ? const Color(0xFF2D2D2D).withValues(alpha: 0.95)
@@ -241,15 +227,12 @@ class _BTToastWidget extends StatelessWidget {
               if (icon != null) ...[
                 Icon(
                   icon,
-                  size: 18.sp,
+                  size: 18,
                   color: FluentTheme.of(context).accentColor,
                 ),
-                SizedBox(width: 10.w),
+                SizedBox(width: 10),
               ],
-              Text(
-                message,
-                style: BTTypography.body(context),
-              ),
+              Text(message, style: BTTypography.body(context)),
             ],
           ),
         ),

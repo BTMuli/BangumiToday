@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
@@ -85,15 +84,15 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
           children: [
             Icon(
               FluentIcons.photo_error,
-              size: 32.sp,
+              size: 32,
               color: BTColors.textTertiary(context),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8),
             Text(
               err ?? '无封面',
               style: BTTypography.body(context).copyWith(
                 color: BTColors.textTertiary(context),
-                fontSize: err == null ? 14.sp : 12.sp,
+                fontSize: err == null ? 14 : 12,
               ),
             ),
           ],
@@ -118,8 +117,8 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
         fit: BoxFit.cover,
         progressIndicatorBuilder: (context, url, dp) => Center(
           child: SizedBox(
-            width: 24.w,
-            height: 24.w,
+            width: 24,
+            height: 24,
             child: ProgressRing(
               value: dp.progress == null ? 0 : dp.progress! * 100,
               strokeWidth: 2,
@@ -141,19 +140,19 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
     rateWidget.add(
       RatingControl(
         rating: score,
-        iconSize: 16.sp,
-        starSpacing: 1.sp,
+        iconSize: 16,
+        starSpacing: 1,
         ratedIconColor: FluentTheme.of(context).accentColor.withAlpha(128),
         unratedIconColor: Colors.white.withAlpha(128),
       ),
     );
-    rateWidget.add(SizedBox(height: 4.h));
+    rateWidget.add(SizedBox(height: 4));
     rateWidget.add(
       Text(
         '${data.score} $label',
         style: TextStyle(
           color: Colors.white,
-          fontSize: 12.sp,
+          fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -180,10 +179,7 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                 child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 10.w,
-                    vertical: 8.h,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
@@ -221,7 +217,7 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
           onLongPress: onLongPress,
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
-            padding: EdgeInsets.all(8.w),
+            padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: _isHovered
                   ? FluentTheme.of(context).accentColor.withValues(alpha: 0.1)
@@ -230,7 +226,7 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
             ),
             child: Icon(
               icon,
-              size: 18.sp,
+              size: 18,
               color: FluentTheme.of(context).accentColor,
             ),
           ),
@@ -262,19 +258,23 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
             await launchUrlString(link);
           },
         ),
-        SizedBox(width: 4.w),
+        SizedBox(width: 4),
         buildActionButton(
           context: context,
           icon: FluentIcons.info,
           tooltip: '查看详情',
-          onPressed: () => ref.read(navStoreProvider).addNavItemB(
+          onPressed: () => ref
+              .read(navStoreProvider)
+              .addNavItemB(
                 type: data.type.label,
                 subject: data.id,
                 paneTitle: data.nameCn == '' ? data.name : data.nameCn,
               ),
           onLongPress: () async {
             var name = data.nameCn == '' ? data.name : data.nameCn;
-            ref.read(navStoreProvider).addNavItemB(
+            ref
+                .read(navStoreProvider)
+                .addNavItemB(
                   type: data.type.label,
                   subject: data.id,
                   paneTitle: name,
@@ -299,15 +299,15 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
           message: title,
           child: Text(
             title,
-            style: BTTypography.subtitle(context).copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: BTTypography.subtitle(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
         ),
         if (subTitle.isNotEmpty) ...[
-          SizedBox(height: 4.h),
+          SizedBox(height: 4),
           Tooltip(
             message: subTitle,
             child: Text(
@@ -318,7 +318,7 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
             ),
           ),
         ],
-        SizedBox(height: 8.h),
+        SizedBox(height: 8),
         buildAction(context),
       ],
     );
@@ -352,16 +352,16 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
                 color: _isHovered
                     ? FluentTheme.of(context).accentColor.withValues(alpha: 0.3)
                     : (isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.black.withValues(alpha: 0.04)),
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : Colors.black.withValues(alpha: 0.04)),
                 width: 1,
               ),
               boxShadow: _isHovered
                   ? [
                       BoxShadow(
-                        color: FluentTheme.of(context)
-                            .accentColor
-                            .withValues(alpha: 0.1),
+                        color: FluentTheme.of(
+                          context,
+                        ).accentColor.withValues(alpha: 0.1),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -369,13 +369,13 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
                     ]
                   : BTTheme.shadow(context, level: BTShadowLevel.subtle),
             ),
-            padding: EdgeInsets.all(10.w),
+            padding: EdgeInsets.all(10),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 Expanded(child: buildCover(context)),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12),
                 Expanded(child: buildInfo(context)),
               ],
             ),

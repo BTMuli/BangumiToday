@@ -6,7 +6,6 @@ import 'package:bangumi_today/pages/bangumi-calendar/bc_pw_card.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -61,18 +60,15 @@ void main() {
     await tester.runAsync(() async {
       await tester.pumpWidget(
         ProviderScope(
-          child: ScreenUtilInit(
-            designSize: const Size(1280, 720),
-            builder: (_, _) => fluent.FluentApp(
-              debugShowCheckedModeBanner: false,
-              home: fluent.ScaffoldPage(
-                padding: fluent.EdgeInsets.zero,
-                content: Center(
-                  child: SizedBox(
-                    width: cardSize.width,
-                    height: cardSize.height,
-                    child: BcpCardWidget(data: buildSubject()),
-                  ),
+          child: fluent.FluentApp(
+            debugShowCheckedModeBanner: false,
+            home: fluent.ScaffoldPage(
+              padding: fluent.EdgeInsets.zero,
+              content: Center(
+                child: SizedBox(
+                  width: cardSize.width,
+                  height: cardSize.height,
+                  child: BcpCardWidget(data: buildSubject()),
                 ),
               ),
             ),

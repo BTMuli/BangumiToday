@@ -2,7 +2,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../models/bangumi/bangumi_model_patch.dart';
@@ -80,7 +79,7 @@ class _SdpRateChartWidgetState extends ConsumerState<SdpRateChartWidget> {
           color: color.light,
           gradient: gradient,
           borderRadius: const BorderRadius.all(Radius.circular(4)),
-          width: 35.w,
+          width: 35,
         ),
       ],
       showingTooltipIndicators: [0],
@@ -187,7 +186,7 @@ class _SdpRateChartWidgetState extends ConsumerState<SdpRateChartWidget> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 300.h,
+      height: 300,
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(8.0),

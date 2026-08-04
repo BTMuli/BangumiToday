@@ -1,7 +1,6 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../core/layout/responsive.dart';
@@ -35,12 +34,12 @@ class BcpDayWidget extends StatelessWidget {
         var columns = BTBreakpoints.getGridColumns(constraints.maxWidth);
         return GridView.builder(
           controller: ScrollController(),
-          padding: EdgeInsets.all(8.w),
+          padding: EdgeInsets.all(8),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
             childAspectRatio: 10 / 7,
-            mainAxisSpacing: 8.h,
-            crossAxisSpacing: 8.w,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
           ),
           itemCount: data.length,
           scrollCacheExtent: const ScrollCacheExtent.pixels(500),

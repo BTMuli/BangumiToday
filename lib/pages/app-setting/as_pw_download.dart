@@ -4,7 +4,6 @@ import 'dart:math';
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../core/services/bt_engine_client.dart';
@@ -316,7 +315,7 @@ class _AppConfigDownloadWidgetState
                 '（如引擎更新后）时可手动重新注册，也可以直接在新弹窗中点击“允许访问”。'
                 '注册与移除都需要管理员授权。',
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -326,11 +325,11 @@ class _AppConfigDownloadWidgetState
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8),
               if (_firewallStatus == EngineFirewallRuleStatus.registered ||
                   _firewallStatus == EngineFirewallRuleStatus.pathMismatch)
                 Padding(
-                  padding: EdgeInsets.only(right: 8.w),
+                  padding: EdgeInsets.only(right: 8),
                   child: Button(
                     onPressed: _firewallBusy ? null : _unregisterFirewallRule,
                     child: const Text('移除规则'),
@@ -422,7 +421,7 @@ class _AppConfigDownloadWidgetState
             ),
             severity: InfoBarSeverity.warning,
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12),
           ListTile(
             title: const Text('下载完成后继续做种'),
             subtitle: const Text('分享率或时间限制任一先达到即停止'),
@@ -479,7 +478,7 @@ class _AppConfigDownloadWidgetState
             enabled: !_saving && !_refreshingTrackers,
             placeholder: 'https://example.com/trackers.txt',
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12),
           const BTSettingGroupTitle('手工 Tracker（换行或逗号分隔）'),
           TextBox(
             controller: _manualTrackerController,
@@ -488,7 +487,7 @@ class _AppConfigDownloadWidgetState
             enabled: !_saving && !_refreshingTrackers,
             placeholder: 'udp://tracker.example:6969/announce',
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8),
           Checkbox(
             checked: _trackerConfig.autoUpdate,
             onChanged: _saving || _refreshingTrackers
@@ -500,7 +499,7 @@ class _AppConfigDownloadWidgetState
                   ),
             content: const Text('距上次成功更新满 24 小时后自动刷新'),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -523,7 +522,7 @@ class _AppConfigDownloadWidgetState
               ),
             ],
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton(

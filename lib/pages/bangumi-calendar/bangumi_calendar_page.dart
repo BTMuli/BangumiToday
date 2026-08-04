@@ -1,7 +1,6 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../controller/app/progress_controller.dart';
@@ -278,7 +277,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const ProgressRing(),
-          SizedBox(height: 20.h),
+          SizedBox(height: 20),
           const Text('正在加载数据...'),
         ],
       ),
@@ -421,13 +420,13 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     return Row(
       children: [
         buildSearch(context),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8),
         buildRefresh(context),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8),
         buildCollectSwitch(context),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8),
         buildFlyoutButton(context),
-        SizedBox(width: 16.w),
+        SizedBox(width: 16),
       ],
     );
   }

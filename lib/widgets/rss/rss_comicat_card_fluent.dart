@@ -4,7 +4,6 @@ import '../../models/rss/rss.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -107,7 +106,7 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
           curve: Curves.easeInOut,
           decoration: BoxDecoration(
             color: backgroundColor,
-            borderRadius: BorderRadius.circular(8.r),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: theme.brightness == Brightness.light
                   ? Colors.grey[60]
@@ -124,7 +123,7 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(7.r),
+            borderRadius: BorderRadius.circular(7),
             child: BackdropFilter(
               filter: ImageFilter.blur(
                 sigmaX: _isHovered ? 20 : 10,
@@ -133,7 +132,7 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
               child: Transform.translate(
                 offset: Offset(0, _isPressed ? 2.0 : 0.0),
                 child: Padding(
-                  padding: EdgeInsets.all(12.r),
+                  padding: EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -143,7 +142,7 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                           child: Text(
                             title,
                             style: TextStyle(
-                              fontSize: 14.sp,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                               height: 1.4,
                             ),
@@ -152,7 +151,7 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                           ),
                         ),
                       ),
-                      SizedBox(height: 8.h),
+                      SizedBox(height: 8),
                       Row(
                         children: [
                           if (item.categories.isNotEmpty &&
@@ -160,39 +159,39 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                               item.categories.first.value!.isNotEmpty) ...[
                             Container(
                               padding: EdgeInsets.symmetric(
-                                horizontal: 6.w,
-                                vertical: 2.h,
+                                horizontal: 6,
+                                vertical: 2,
                               ),
                               decoration: BoxDecoration(
                                 color: accentColor.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4.r),
+                                borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 item.categories.first.value!,
                                 style: TextStyle(
-                                  fontSize: 10.sp,
+                                  fontSize: 10,
                                   color: accentColor,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
-                            SizedBox(width: 8.w),
+                            SizedBox(width: 8),
                           ],
                           if (item.author != null &&
                               item.author!.isNotEmpty) ...[
                             Icon(
                               FluentIcons.contact,
-                              size: 12.sp,
+                              size: 12,
                               color: theme.brightness == Brightness.light
                                   ? Colors.grey[130]
                                   : Colors.grey[100],
                             ),
-                            SizedBox(width: 4.w),
+                            SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 item.author!,
                                 style: TextStyle(
-                                  fontSize: 11.sp,
+                                  fontSize: 11,
                                   color: theme.brightness == Brightness.light
                                       ? Colors.grey[130]
                                       : Colors.grey[100],
@@ -201,20 +200,20 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            SizedBox(width: 12.w),
+                            SizedBox(width: 12),
                           ],
                           Icon(
                             FluentIcons.clock,
-                            size: 12.sp,
+                            size: 12,
                             color: theme.brightness == Brightness.light
                                 ? Colors.grey[130]
                                 : Colors.grey[100],
                           ),
-                          SizedBox(width: 4.w),
+                          SizedBox(width: 4),
                           Text(
                             time,
                             style: TextStyle(
-                              fontSize: 11.sp,
+                              fontSize: 11,
                               color: theme.brightness == Brightness.light
                                   ? Colors.grey[130]
                                   : Colors.grey[100],
@@ -222,21 +221,21 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 4.h),
+                      SizedBox(height: 4),
                       Row(
                         children: [
                           // Icon(
                           //   FluentIcons.download,
-                          //   size: 12.sp,
+                          //   size: 12,
                           //   color: theme.brightness == Brightness.light
                           //       ? Colors.grey[130]
                           //       : Colors.grey[100],
                           // ),
-                          // SizedBox(width: 4.w),
+                          // SizedBox(width: 4),
                           // Text(
                           //   sizeStr,
                           //   style: TextStyle(
-                          //     fontSize: 11.sp,
+                          //     fontSize: 11,
                           //     color: theme.brightness == Brightness.light
                           //         ? Colors.grey[130]
                           //         : Colors.grey[100],
@@ -246,12 +245,12 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                               item.enclosure!.type!.isNotEmpty) ...[
                             Container(
                               padding: EdgeInsets.symmetric(
-                                horizontal: 6.w,
-                                vertical: 2.h,
+                                horizontal: 6,
+                                vertical: 2,
                               ),
                               decoration: BoxDecoration(
                                 color: accentColor.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(4.r),
+                                borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 item.enclosure!.type!
@@ -259,7 +258,7 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                                     .last
                                     .toUpperCase(),
                                 style: TextStyle(
-                                  fontSize: 10.sp,
+                                  fontSize: 10,
                                   color: accentColor,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -268,7 +267,7 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                           ],
                         ],
                       ),
-                      SizedBox(height: 8.h),
+                      SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -277,7 +276,7 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                             child: IconButton(
                               icon: Icon(
                                 FluentIcons.download,
-                                size: 16.sp,
+                                size: 16,
                                 color: accentColor,
                               ),
                               onPressed: () => _download(context),
@@ -288,7 +287,7 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
                             child: IconButton(
                               icon: Icon(
                                 FluentIcons.edge_logo,
-                                size: 16.sp,
+                                size: 16,
                                 color: accentColor,
                               ),
                               onPressed: _openLink,

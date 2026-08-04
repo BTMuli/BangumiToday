@@ -4,7 +4,6 @@ import '../../models/rss/rss.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -129,7 +128,7 @@ class _RssMikanCardFluentState extends ConsumerState<RssMikanCardFluent> {
           curve: Curves.easeInOut,
           decoration: BoxDecoration(
             color: backgroundColor,
-            borderRadius: BorderRadius.circular(8.r),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: theme.brightness == Brightness.light
                   ? Colors.grey[60]
@@ -146,7 +145,7 @@ class _RssMikanCardFluentState extends ConsumerState<RssMikanCardFluent> {
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(7.r),
+            borderRadius: BorderRadius.circular(7),
             child: BackdropFilter(
               filter: ImageFilter.blur(
                 sigmaX: _isHovered ? 20 : 10,
@@ -155,7 +154,7 @@ class _RssMikanCardFluentState extends ConsumerState<RssMikanCardFluent> {
               child: Transform.translate(
                 offset: Offset(0, _isPressed ? 2.0 : 0.0),
                 child: Padding(
-                  padding: EdgeInsets.all(12.r),
+                  padding: EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -165,7 +164,7 @@ class _RssMikanCardFluentState extends ConsumerState<RssMikanCardFluent> {
                           child: Text(
                             item.title ?? '',
                             style: TextStyle(
-                              fontSize: 14.sp,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                               height: 1.4,
                             ),
@@ -174,39 +173,39 @@ class _RssMikanCardFluentState extends ConsumerState<RssMikanCardFluent> {
                           ),
                         ),
                       ),
-                      SizedBox(height: 8.h),
+                      SizedBox(height: 8),
                       Row(
                         children: [
                           Icon(
                             FluentIcons.clock,
-                            size: 12.sp,
+                            size: 12,
                             color: theme.brightness == Brightness.light
                                 ? Colors.grey[130]
                                 : Colors.grey[100],
                           ),
-                          SizedBox(width: 4.w),
+                          SizedBox(width: 4),
                           Text(
                             pubDate,
                             style: TextStyle(
-                              fontSize: 11.sp,
+                              fontSize: 11,
                               color: theme.brightness == Brightness.light
                                   ? Colors.grey[130]
                                   : Colors.grey[100],
                             ),
                           ),
-                          SizedBox(width: 12.w),
+                          SizedBox(width: 12),
                           Icon(
                             FluentIcons.download,
-                            size: 12.sp,
+                            size: 12,
                             color: theme.brightness == Brightness.light
                                 ? Colors.grey[130]
                                 : Colors.grey[100],
                           ),
-                          SizedBox(width: 4.w),
+                          SizedBox(width: 4),
                           Text(
                             sizeStr,
                             style: TextStyle(
-                              fontSize: 11.sp,
+                              fontSize: 11,
                               color: theme.brightness == Brightness.light
                                   ? Colors.grey[130]
                                   : Colors.grey[100],
@@ -214,7 +213,7 @@ class _RssMikanCardFluentState extends ConsumerState<RssMikanCardFluent> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 8.h),
+                      SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -223,7 +222,7 @@ class _RssMikanCardFluentState extends ConsumerState<RssMikanCardFluent> {
                             child: IconButton(
                               icon: Icon(
                                 FluentIcons.download,
-                                size: 16.sp,
+                                size: 16,
                                 color: accentColor,
                               ),
                               onPressed: () => _download(context),
@@ -234,7 +233,7 @@ class _RssMikanCardFluentState extends ConsumerState<RssMikanCardFluent> {
                             child: IconButton(
                               icon: Icon(
                                 FluentIcons.edge_logo,
-                                size: 16.sp,
+                                size: 16,
                                 color: accentColor,
                               ),
                               onPressed: _openLink,

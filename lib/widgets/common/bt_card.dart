@@ -3,7 +3,6 @@ import 'dart:ui';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/theme/bt_theme.dart';
 
@@ -73,8 +72,7 @@ class _BTCardState extends State<BTCard> with SingleTickerProviderStateMixin {
 
   void _handleHover(PointerHoverEvent event) {
     if (!widget.useReveal) return;
-    var renderBox =
-        _cardKey.currentContext?.findRenderObject() as RenderBox?;
+    var renderBox = _cardKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
     setState(() {
@@ -109,7 +107,7 @@ class _BTCardState extends State<BTCard> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     var borderRadius = widget.borderRadius ?? BTRadius.large;
-    var effectivePadding = widget.padding ?? EdgeInsets.all(12.w);
+    var effectivePadding = widget.padding ?? EdgeInsets.all(12);
 
     Widget cardContent = Container(
       key: _cardKey,

@@ -2,7 +2,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../controller/app/page_controller.dart';
@@ -240,7 +239,7 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
       mainAxisSize: MainAxisSize.min,
       children: BangumiSubjectType.values.map((type) {
         return Padding(
-          padding: EdgeInsets.only(right: 8.w),
+          padding: EdgeInsets.only(right: 8),
           child: _FilterChip(
             label: type.label,
             isSelected: types.contains(type),
@@ -281,8 +280,8 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: isDark
             ? Colors.white.withValues(alpha: 0.03)
@@ -303,7 +302,7 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
                 onPressed: () async => await search(),
                 isLoading: loading,
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12),
               Expanded(
                 child: _AnimatedSearchBox(
                   controller: textController,
@@ -314,14 +313,14 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
                   },
                 ),
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12),
               buildTypeSelects(),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8),
               buildNsfwCheck(),
             ],
           ),
           if (types.isNotEmpty) ...[
-            SizedBox(height: 12.h),
+            SizedBox(height: 12),
             _buildSelectedTypeChips(),
           ],
         ],
@@ -331,8 +330,8 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
 
   Widget _buildSelectedTypeChips() {
     return Wrap(
-      spacing: 8.w,
-      runSpacing: 8.h,
+      spacing: 8,
+      runSpacing: 8,
       children: types.map((type) {
         return _FilterChip(
           label: type.label,
@@ -371,7 +370,7 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
 
   Widget _buildViewToggle() {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
           if (totalResults > 0)
@@ -379,21 +378,21 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
               children: [
                 Icon(
                   FluentIcons.search,
-                  size: 14.sp,
+                  size: 14,
                   color: BTColors.textSecondary(context),
                 ),
-                SizedBox(width: 6.w),
+                SizedBox(width: 6),
                 Text(
                   '找到 $totalResults 个结果',
                   style: TextStyle(
-                    fontSize: 13.sp,
+                    fontSize: 13,
                     color: BTColors.textSecondary(context),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: FluentTheme.of(
                       context,
@@ -403,7 +402,7 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
                   child: Text(
                     '第 ${controller.cur}/${controller.total} 页',
                     style: TextStyle(
-                      fontSize: 12.sp,
+                      fontSize: 12,
                       color: FluentTheme.of(context).accentColor,
                     ),
                   ),
@@ -417,7 +416,7 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
               useShadow: false,
               useAcrylic: true,
               acrylicOpacity: 0.7,
-              padding: EdgeInsets.all(4.w),
+              padding: EdgeInsets.all(4),
               borderRadius: BTRadius.small,
               onTap: () {
                 setState(() {
@@ -429,14 +428,14 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
                 children: [
                   Icon(
                     isGridView ? FluentIcons.list : FluentIcons.tiles,
-                    size: 14.sp,
+                    size: 14,
                     color: FluentTheme.of(context).accentColor,
                   ),
-                  SizedBox(width: 6.w),
+                  SizedBox(width: 6),
                   Text(
                     isGridView ? '列表' : '网格',
                     style: TextStyle(
-                      fontSize: 12.sp,
+                      fontSize: 12,
                       color: BTColors.textSecondary(context),
                     ),
                   ),
@@ -451,7 +450,7 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
 
   Widget _buildListView() {
     return ListView.separated(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: result.length,
       itemBuilder: (context, index) {
         return BTFadeSlideIn(
@@ -461,7 +460,7 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
           child: BscSearch(result[index]),
         );
       },
-      separatorBuilder: (context, index) => SizedBox(height: 12.h),
+      separatorBuilder: (context, index) => SizedBox(height: 12),
     );
   }
 
@@ -470,11 +469,11 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
       builder: (context, constraints) {
         var crossAxisCount = _calculateCrossAxisCount(constraints.maxWidth);
         return GridView.builder(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 12.w,
-            mainAxisSpacing: 12.h,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
             childAspectRatio: 0.65,
           ),
           itemCount: result.length,
@@ -519,7 +518,7 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
 
   Widget _buildPagination() {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 12.h),
+      padding: EdgeInsets.symmetric(vertical: 12),
       child: PageWidget(controller),
     );
   }
@@ -546,7 +545,7 @@ class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
         child: Center(
           child: Icon(
             FluentIcons.photo_error,
-            size: 32.sp,
+            size: 32,
             color: BTColors.textTertiary(context),
           ),
         ),
@@ -570,7 +569,7 @@ class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
         child: Center(
           child: Icon(
             FluentIcons.photo_error,
-            size: 32.sp,
+            size: 32,
             color: BTColors.textTertiary(context),
           ),
         ),
@@ -583,18 +582,18 @@ class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
     var subTitle = subject.nameCn == '' ? '' : subject.name;
 
     return Padding(
-      padding: EdgeInsets.all(8.w),
+      padding: EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label == '条目' ? name : '[$label] $name',
-            style: BTTypography.subtitle(context).copyWith(fontSize: 13.sp),
+            style: BTTypography.subtitle(context).copyWith(fontSize: 13),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           if (subTitle.isNotEmpty) ...[
-            SizedBox(height: 2.h),
+            SizedBox(height: 2),
             Text(
               subTitle,
               style: BTTypography.caption(context),
@@ -602,13 +601,13 @@ class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          SizedBox(height: 6.h),
+          SizedBox(height: 6),
           _buildScoreChip(),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4),
           _buildMetaInfo(),
           const Spacer(),
           _buildCollectionInfo(),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4),
           _buildActionButtons(),
         ],
       ),
@@ -617,8 +616,8 @@ class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
 
   Widget _buildMetaInfo() {
     return Wrap(
-      spacing: 6.w,
-      runSpacing: 4.h,
+      spacing: 6,
+      runSpacing: 4,
       children: [
         if (subject.date != null && subject.date!.isNotEmpty)
           _buildMetaChip(FluentIcons.calendar, subject.date!.split('-')[0]),
@@ -632,7 +631,7 @@ class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
 
   Widget _buildMetaChip(IconData icon, String text) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: BTColors.textSecondary(context).withValues(alpha: 0.1),
         borderRadius: BTRadius.smallBR,
@@ -640,12 +639,12 @@ class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 10.sp, color: BTColors.textSecondary(context)),
-          SizedBox(width: 3.w),
+          Icon(icon, size: 10, color: BTColors.textSecondary(context)),
+          SizedBox(width: 3),
           Text(
             text,
             style: TextStyle(
-              fontSize: 10.sp,
+              fontSize: 10,
               color: BTColors.textSecondary(context),
             ),
           ),
@@ -665,30 +664,30 @@ class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
         if (collect > 0) ...[
           Icon(
             FluentIcons.heart_fill,
-            size: 10.sp,
+            size: 10,
             color: BTColors.textSecondary(context),
           ),
-          SizedBox(width: 3.w),
+          SizedBox(width: 3),
           Text(
             '$collect',
             style: TextStyle(
-              fontSize: 10.sp,
+              fontSize: 10,
               color: BTColors.textSecondary(context),
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8),
         ],
         if (wish > 0) ...[
           Icon(
             FluentIcons.favorite_star_fill,
-            size: 10.sp,
+            size: 10,
             color: BTColors.textSecondary(context),
           ),
-          SizedBox(width: 3.w),
+          SizedBox(width: 3),
           Text(
             '$wish',
             style: TextStyle(
-              fontSize: 10.sp,
+              fontSize: 10,
               color: BTColors.textSecondary(context),
             ),
           ),
@@ -702,7 +701,7 @@ class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
     var scoreColor = _getScoreColor(score);
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: scoreColor.withValues(alpha: 0.15),
         borderRadius: BTRadius.smallBR,
@@ -711,12 +710,12 @@ class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(FluentIcons.favorite_star_fill, size: 10.sp, color: scoreColor),
-          SizedBox(width: 3.w),
+          Icon(FluentIcons.favorite_star_fill, size: 10, color: scoreColor),
+          SizedBox(width: 3),
           Text(
             score.toStringAsFixed(1),
             style: TextStyle(
-              fontSize: 11.sp,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: scoreColor,
             ),
@@ -745,7 +744,7 @@ class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: Container(
-                padding: EdgeInsets.all(6.w),
+                padding: EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: FluentTheme.of(
                     context,
@@ -754,7 +753,7 @@ class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
                 ),
                 child: Icon(
                   FluentIcons.open_in_new_tab,
-                  size: 12.sp,
+                  size: 12,
                   color: FluentTheme.of(context).accentColor,
                 ),
               ),
@@ -870,7 +869,7 @@ class _AnimatedSearchButtonState extends State<_AnimatedSearchButton>
           },
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
-            padding: EdgeInsets.all(12.w),
+            padding: EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: _isHovered
                   ? accentColor
@@ -888,14 +887,14 @@ class _AnimatedSearchButtonState extends State<_AnimatedSearchButton>
             ),
             child: widget.isLoading
                 ? SizedBox(
-                    width: 16.w,
-                    height: 16.w,
+                    width: 16,
+                    height: 16,
                     child: const ProgressRing(
                       strokeWidth: 2,
                       activeColor: Colors.white,
                     ),
                   )
-                : Icon(FluentIcons.search, size: 16.sp, color: Colors.white),
+                : Icon(FluentIcons.search, size: 16, color: Colors.white),
           ),
         ),
       ),
@@ -954,14 +953,14 @@ class _AnimatedSearchBoxState extends State<_AnimatedSearchBox> {
             placeholder: '搜索条目名称...',
             placeholderStyle: TextStyle(
               color: BTColors.textTertiary(context),
-              fontSize: 14.sp,
+              fontSize: 14,
             ),
             style: BTTypography.body(context),
             onSubmitted: widget.onSubmitted,
           ),
         ),
         if (_hasText) ...[
-          SizedBox(width: 8.w),
+          SizedBox(width: 8),
           GestureDetector(
             onTap: widget.onClear,
             child: MouseRegion(
@@ -970,7 +969,7 @@ class _AnimatedSearchBoxState extends State<_AnimatedSearchBox> {
                 duration: BTTheme.animationDurationFast,
                 opacity: _hasText ? 1.0 : 0.0,
                 child: Container(
-                  padding: EdgeInsets.all(4.w),
+                  padding: EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     color: BTColors.textSecondary(
                       context,
@@ -979,16 +978,16 @@ class _AnimatedSearchBoxState extends State<_AnimatedSearchBox> {
                   ),
                   child: Icon(
                     FluentIcons.clear,
-                    size: 12.sp,
+                    size: 12,
                     color: BTColors.textSecondary(context),
                   ),
                 ),
               ),
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8),
         ] else
-          SizedBox(width: 12.w),
+          SizedBox(width: 12),
       ],
     );
   }
@@ -1059,7 +1058,7 @@ class _FilterChipState extends State<_FilterChip>
           },
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: widget.isSelected
                   ? accentColor.withValues(alpha: _isHovered ? 1.0 : 0.9)
@@ -1098,21 +1097,21 @@ class _FilterChipState extends State<_FilterChip>
                     color: widget.isSelected
                         ? Colors.white
                         : BTColors.textPrimary(context),
-                    fontSize: 13.sp,
+                    fontSize: 13,
                     fontWeight: widget.isSelected
                         ? FontWeight.w600
                         : FontWeight.w400,
                   ),
                 ),
                 if (widget.isSelected && widget.onDeleted != null) ...[
-                  SizedBox(width: 6.w),
+                  SizedBox(width: 6),
                   GestureDetector(
                     onTap: widget.onDeleted,
                     child: MouseRegion(
                       cursor: SystemMouseCursors.click,
                       child: Icon(
                         FluentIcons.chrome_close,
-                        size: 10.sp,
+                        size: 10,
                         color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),

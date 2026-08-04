@@ -1,5 +1,4 @@
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/theme/bt_theme.dart';
 
@@ -142,8 +141,8 @@ class _BTButtonState extends State<BTButton>
       children: [
         if (widget.isLoading)
           SizedBox(
-            width: 16.w,
-            height: 16.w,
+            width: 16,
+            height: 16,
             child: ProgressRing(
               strokeWidth: 2,
               activeColor: widget.type == BTButtonType.primary
@@ -154,17 +153,17 @@ class _BTButtonState extends State<BTButton>
         else if (widget.icon != null) ...[
           Icon(
             widget.icon,
-            size: (widget.isCompact ? 14 : 16).sp,
+            size: widget.isCompact ? 14 : 16,
             color: widget.type == BTButtonType.primary
                 ? Colors.white
                 : BTColors.textPrimary(context),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8),
         ],
         if (!widget.isLoading)
           DefaultTextStyle(
             style: TextStyle(
-              fontSize: (widget.isCompact ? 13 : 14).sp,
+              fontSize: widget.isCompact ? 13 : 14,
               fontWeight: FontWeight.w500,
               color: widget.type == BTButtonType.primary
                   ? Colors.white
@@ -194,8 +193,8 @@ class _BTButtonState extends State<BTButton>
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
             padding: EdgeInsets.symmetric(
-              horizontal: widget.isCompact ? 12.w : 16.w,
-              vertical: widget.isCompact ? 6.h : 10.h,
+              horizontal: widget.isCompact ? 12 : 16,
+              vertical: widget.isCompact ? 6 : 10,
             ),
             decoration: BoxDecoration(
               color: isDisabled
@@ -267,11 +266,11 @@ class _BTIconButtonState extends State<BTIconButton>
     var iconColor =
         widget.color ??
         (widget.isActive ? accentColor : BTColors.textSecondary(context));
-    var iconSize = widget.size ?? 18.sp;
+    var iconSize = widget.size ?? 18;
 
     Widget iconWidget = AnimatedContainer(
       duration: BTTheme.animationDurationFast,
-      padding: EdgeInsets.all(8.w),
+      padding: EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: isHovered
             ? accentColor.withValues(alpha: 0.1)
@@ -326,7 +325,7 @@ class BTSegmentedControl extends StatelessWidget {
     var accentColor = FluentTheme.of(context).accentColor;
 
     return Container(
-      padding: EdgeInsets.all(4.w),
+      padding: EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context),
         borderRadius: BTRadius.mediumBR,
@@ -344,7 +343,7 @@ class BTSegmentedControl extends StatelessWidget {
             onTap: onChanged != null ? () => onChanged!(entry.key) : null,
             child: AnimatedContainer(
               duration: BTTheme.animationDurationFast,
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected ? accentColor : Colors.transparent,
                 borderRadius: BTRadius.smallBR,
@@ -352,7 +351,7 @@ class BTSegmentedControl extends StatelessWidget {
               child: Text(
                 entry.value,
                 style: TextStyle(
-                  fontSize: 13.sp,
+                  fontSize: 13,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   color: isSelected
                       ? Colors.white
@@ -403,7 +402,7 @@ class _BTToggleButtonState extends State<BTToggleButton> {
             : null,
         child: AnimatedContainer(
           duration: BTTheme.animationDurationFast,
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: widget.value
                 ? accentColor
@@ -436,16 +435,16 @@ class _BTToggleButtonState extends State<BTToggleButton> {
               if (widget.icon != null) ...[
                 Icon(
                   widget.icon,
-                  size: 16.sp,
+                  size: 16,
                   color: widget.value
                       ? Colors.white
                       : BTColors.textSecondary(context),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8),
               ],
               DefaultTextStyle(
                 style: TextStyle(
-                  fontSize: 14.sp,
+                  fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: widget.value
                       ? Colors.white
@@ -496,19 +495,19 @@ class _BTFloatingActionButtonState extends State<BTFloatingActionButton>
         ? Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(widget.icon, size: 20.sp, color: Colors.white),
-              SizedBox(width: 8.w),
+              Icon(widget.icon, size: 20, color: Colors.white),
+              SizedBox(width: 8),
               Text(
                 widget.label!,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 14.sp,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           )
-        : Icon(widget.icon, size: 22.sp, color: Colors.white);
+        : Icon(widget.icon, size: 22, color: Colors.white);
 
     Widget fab = AnimatedBuilder(
       animation: scaleAnimation,
@@ -517,7 +516,7 @@ class _BTFloatingActionButtonState extends State<BTFloatingActionButton>
       },
       child: AnimatedContainer(
         duration: BTTheme.animationDurationFast,
-        padding: EdgeInsets.all(widget.isExtended ? 16.w : 14.w),
+        padding: EdgeInsets.all(widget.isExtended ? 16 : 14),
         decoration: BoxDecoration(
           color: accentColor,
           borderRadius: widget.isExtended ? BTRadius.largeBR : BTRadius.roundBR,

@@ -1,5 +1,4 @@
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/theme/bt_theme.dart';
 import 'bt_card.dart';
@@ -79,7 +78,7 @@ class _BTSettingSectionState extends State<BTSettingSection> {
               child: AnimatedContainer(
                 duration: BTTheme.animationDurationFast,
                 curve: BTTheme.animationCurve,
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   color: _hovered
                       ? accent.withValues(alpha: 0.05)
@@ -93,8 +92,8 @@ class _BTSettingSectionState extends State<BTSettingSection> {
                     AnimatedContainer(
                       duration: BTTheme.animationDurationFast,
                       curve: BTTheme.animationCurve,
-                      width: 38.w,
-                      height: 38.w,
+                      width: 38,
+                      height: 38,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
@@ -113,13 +112,9 @@ class _BTSettingSectionState extends State<BTSettingSection> {
                           ),
                         ],
                       ),
-                      child: Icon(
-                        widget.icon,
-                        size: 19.sp,
-                        color: Colors.white,
-                      ),
+                      child: Icon(widget.icon, size: 19, color: Colors.white),
                     ),
-                    SizedBox(width: 12.w),
+                    SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,10 +123,10 @@ class _BTSettingSectionState extends State<BTSettingSection> {
                             widget.title,
                             style: BTTypography.bodyStrong(
                               context,
-                            ).copyWith(fontSize: 15.sp),
+                            ).copyWith(fontSize: 15),
                           ),
                           if (widget.subtitle != null) ...[
-                            SizedBox(height: 2.h),
+                            SizedBox(height: 2),
                             Text(
                               widget.subtitle!,
                               style: BTTypography.caption(context),
@@ -142,7 +137,7 @@ class _BTSettingSectionState extends State<BTSettingSection> {
                     ),
                     if (widget.trailing != null) ...[
                       widget.trailing!,
-                      SizedBox(width: 8.w),
+                      SizedBox(width: 8),
                     ],
                     AnimatedRotation(
                       turns: _expanded ? 0.5 : 0,
@@ -150,7 +145,7 @@ class _BTSettingSectionState extends State<BTSettingSection> {
                       curve: BTTheme.animationCurve,
                       child: Icon(
                         FluentIcons.chevron_down,
-                        size: 16.sp,
+                        size: 16,
                         color: _hovered
                             ? accent
                             : BTColors.textSecondary(context),
@@ -168,7 +163,7 @@ class _BTSettingSectionState extends State<BTSettingSection> {
               alignment: Alignment.topCenter,
               child: _expanded
                   ? Container(
-                      padding: EdgeInsets.fromLTRB(16.w, 6.h, 16.w, 16.h),
+                      padding: EdgeInsets.fromLTRB(16, 6, 16, 16),
                       decoration: BoxDecoration(
                         border: Border(
                           top: BorderSide(color: BTColors.divider(context)),
@@ -197,7 +192,7 @@ class BTSettingDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.h),
+      padding: EdgeInsets.symmetric(vertical: 8),
       child: Divider(
         style: DividerThemeData(
           thickness: 1,
@@ -220,12 +215,12 @@ class BTSettingGroupTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(top: 12.h, bottom: 6.h),
+      padding: EdgeInsets.only(top: 12, bottom: 6),
       child: Text(
         text,
         style: BTTypography.bodyStrong(
           context,
-        ).copyWith(fontSize: 13.sp, color: FluentTheme.of(context).accentColor),
+        ).copyWith(fontSize: 13, color: FluentTheme.of(context).accentColor),
       ),
     );
   }
@@ -254,7 +249,7 @@ class BTSettingHint extends StatelessWidget {
   Widget build(BuildContext context) {
     var tint = color ?? FluentTheme.of(context).accentColor;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: tint.withValues(alpha: 0.08),
         borderRadius: BTRadius.mediumBR,
@@ -263,13 +258,13 @@ class BTSettingHint extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16.sp, color: tint),
-          SizedBox(width: 10.w),
+          Icon(icon, size: 16, color: tint),
+          SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
               style: TextStyle(
-                fontSize: 13.sp,
+                fontSize: 13,
                 height: 1.5,
                 color: BTColors.textSecondary(context),
               ),

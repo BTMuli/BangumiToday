@@ -1,7 +1,6 @@
 // Package imports:
 import '../../models/rss/rss.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
@@ -66,9 +65,9 @@ class _RbpComicatState extends State<RbpComicatWidget>
             await launchUrlString('https://comicat.org');
           },
         ),
-        SizedBox(width: 10.w),
+        SizedBox(width: 10),
         const Text('Comicat'),
-        SizedBox(width: 10.w),
+        SizedBox(width: 10),
         IconButton(icon: const Icon(FluentIcons.refresh), onPressed: refresh),
       ],
     );
@@ -82,7 +81,7 @@ class _RbpComicatState extends State<RbpComicatWidget>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const ProgressRing(),
-            SizedBox(height: 20.h),
+            SizedBox(height: 20),
             const Text('正在加载数据...'),
           ],
         ),
@@ -100,12 +99,12 @@ class _RbpComicatState extends State<RbpComicatWidget>
           return Stack(
             children: [
               GridView.builder(
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: crossAxisCount,
                   mainAxisExtent: mainAxisExtent,
-                  crossAxisSpacing: 12.w,
-                  mainAxisSpacing: 12.h,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
                 ),
                 itemCount: rssItems.length,
                 itemBuilder: (context, index) {
@@ -113,12 +112,12 @@ class _RbpComicatState extends State<RbpComicatWidget>
                 },
               ),
               Positioned(
-                bottom: 16.h,
-                right: 16.w,
+                bottom: 16,
+                right: 16,
                 child: Opacity(
                   opacity: 0.3,
                   child: SizedBox(
-                    width: 100.spMin,
+                    width: 100,
                     child: Image.asset(
                       'assets/images/platforms/comicat-kb.png',
                     ),

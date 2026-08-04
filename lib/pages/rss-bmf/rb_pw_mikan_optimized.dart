@@ -3,7 +3,6 @@ import 'dart:math';
 import '../../models/rss/rss.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../core/services/optimized_rss_service.dart';
@@ -244,7 +243,7 @@ class _OptimizedRbpMikanWidgetState
         IconButton(
           icon: Image.asset(
             'assets/images/platforms/mikan-logo.png',
-            height: 30.h,
+            height: 30,
             fit: BoxFit.cover,
           ),
           onPressed: () async {
@@ -253,12 +252,12 @@ class _OptimizedRbpMikanWidgetState
         ),
         Image.asset(
           'assets/images/platforms/mikan-text.png',
-          height: 30.h,
+          height: 30,
           fit: BoxFit.cover,
         ),
-        SizedBox(width: 10.w),
+        SizedBox(width: 10),
         IconButton(
-          icon: Icon(FluentIcons.refresh, size: 15.sp),
+          icon: Icon(FluentIcons.refresh, size: 15),
           onPressed: () {
             if (useUserRSS) {
               refreshUserRSS(forceRefresh: true);
@@ -267,10 +266,10 @@ class _OptimizedRbpMikanWidgetState
             }
           },
         ),
-        SizedBox(width: 10.w),
+        SizedBox(width: 10),
         ...buildTokenBar(),
-        SizedBox(width: 10.w),
-        Text('共 ${_allItems.length} 条', style: TextStyle(fontSize: 12.sp)),
+        SizedBox(width: 10),
+        Text('共 ${_allItems.length} 条', style: TextStyle(fontSize: 12)),
       ],
     );
   }
@@ -301,11 +300,11 @@ class _OptimizedRbpMikanWidgetState
           setState(() {});
         },
       ),
-      SizedBox(width: 10.w),
+      SizedBox(width: 10),
       FilledButton(onPressed: null, child: Text('Token: $token')),
-      SizedBox(width: 10.w),
+      SizedBox(width: 10),
       Button(onPressed: tryEditToken, child: const Text('编辑Token')),
-      SizedBox(width: 10.w),
+      SizedBox(width: 10),
       Button(onPressed: tryEditUrl, child: const Text('编辑URL')),
     ];
   }
@@ -317,7 +316,7 @@ class _OptimizedRbpMikanWidgetState
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const ProgressRing(),
-            SizedBox(height: 20.h),
+            SizedBox(height: 20),
             const Text('正在加载数据...'),
           ],
         ),
@@ -330,7 +329,7 @@ class _OptimizedRbpMikanWidgetState
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(FluentIcons.mail, size: 48),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16),
             const Text('暂无数据'),
           ],
         ),
@@ -340,7 +339,7 @@ class _OptimizedRbpMikanWidgetState
     return VirtualListView<RssItem>(
       items: _displayItems,
       itemHeight: 200,
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       isLoading: _isLoading,
       hasMore: _hasMore,
       onLoadMore: _loadMore,
@@ -349,14 +348,14 @@ class _OptimizedRbpMikanWidgetState
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(FluentIcons.mail, size: 48),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16),
             const Text('暂无数据'),
           ],
         ),
       ),
       itemBuilder: (context, item, index) {
         return Padding(
-          padding: EdgeInsets.only(bottom: 12.h),
+          padding: EdgeInsets.only(bottom: 12),
           child: RssMikanCard2(item),
         );
       },

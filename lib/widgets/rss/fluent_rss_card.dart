@@ -1,7 +1,6 @@
 import 'dart:ui';
 
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class FluentRssCard extends StatefulWidget {
   final Widget child;
@@ -52,7 +51,7 @@ class _FluentRssCardState extends State<FluentRssCard> {
           height: widget.height,
           decoration: BoxDecoration(
             color: backgroundColor,
-            borderRadius: BorderRadius.circular(8.r),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: theme.brightness == Brightness.light
                   ? Colors.grey[60]
@@ -69,7 +68,7 @@ class _FluentRssCardState extends State<FluentRssCard> {
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(7.r),
+            borderRadius: BorderRadius.circular(7),
             child: BackdropFilter(
               filter: ImageFilter.blur(
                 sigmaX: _isHovered ? 20 : 10,
@@ -78,7 +77,7 @@ class _FluentRssCardState extends State<FluentRssCard> {
               child: Transform.translate(
                 offset: Offset(0, _isPressed ? 2.0 : 0.0),
                 child: Padding(
-                  padding: widget.padding ?? EdgeInsets.all(12.r),
+                  padding: widget.padding ?? EdgeInsets.all(12),
                   child: widget.child,
                 ),
               ),

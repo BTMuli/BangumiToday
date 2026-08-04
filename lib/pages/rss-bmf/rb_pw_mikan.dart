@@ -2,7 +2,6 @@
 import '../../models/rss/rss.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
@@ -202,7 +201,7 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
         IconButton(
           icon: Image.asset(
             'assets/images/platforms/mikan-logo.png',
-            height: 30.h,
+            height: 30,
             fit: BoxFit.cover,
           ),
           onPressed: () async {
@@ -212,15 +211,15 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
         ),
         Image.asset(
           'assets/images/platforms/mikan-text.png',
-          height: 30.h,
+          height: 30,
           fit: BoxFit.cover,
         ),
-        SizedBox(width: 10.w),
+        SizedBox(width: 10),
         IconButton(
-          icon: Icon(FluentIcons.refresh, size: 15.sp),
+          icon: Icon(FluentIcons.refresh, size: 15),
           onPressed: useUserRSS ? refreshUserRSS : refreshMikanRSS,
         ),
-        SizedBox(width: 10.w),
+        SizedBox(width: 10),
         ...buildTokenBar(),
       ],
     );
@@ -253,11 +252,11 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
           setState(() {});
         },
       ),
-      SizedBox(width: 10.w),
+      SizedBox(width: 10),
       FilledButton(onPressed: null, child: Text('Token: $token')),
-      SizedBox(width: 10.w),
+      SizedBox(width: 10),
       Button(onPressed: tryEditToken, child: const Text('编辑Token')),
-      SizedBox(width: 10.w),
+      SizedBox(width: 10),
       Button(onPressed: tryEditUrl, child: const Text('编辑URL')),
     ];
   }
@@ -270,7 +269,7 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const ProgressRing(),
-            SizedBox(height: 20.h),
+            SizedBox(height: 20),
             const Text('正在加载数据...'),
           ],
         ),
@@ -286,12 +285,12 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
           var mainAxisExtent = 180.0;
 
           return GridView.builder(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
               mainAxisExtent: mainAxisExtent,
-              crossAxisSpacing: 12.w,
-              mainAxisSpacing: 12.h,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
             ),
             itemCount: data.length,
             itemBuilder: (context, index) {

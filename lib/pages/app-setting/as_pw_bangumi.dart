@@ -3,7 +3,6 @@ import 'package:app_links/app_links.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
@@ -287,8 +286,8 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     }
     return ListTile(
       leading: Container(
-        width: 32.w,
-        height: 32.w,
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
@@ -299,8 +298,8 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
         clipBehavior: Clip.antiAlias,
         child: CachedNetworkImage(
           imageUrl: BtrBangumiApi.rewriteUrl(hive.user!.avatar.small),
-          width: 32.w,
-          height: 32.w,
+          width: 32,
+          height: 32,
           fit: BoxFit.cover,
           placeholder: (_, _) => const ProgressRing(),
           errorWidget: (_, _, _) => const Icon(FluentIcons.error),
@@ -337,9 +336,9 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       trailing: Row(
         children: [
           Button(onPressed: freshToken, child: const Text('刷新授权')),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8),
           Button(onPressed: oauthUser, child: const Text('重新授权')),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8),
           Button(
             child: const Text('查看授权'),
             onPressed: () async {
@@ -362,7 +361,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       trailing: Row(
         children: [
           Button(onPressed: toUserCollection, child: const Text('查看收藏')),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8),
           Button(onPressed: refreshCollection, child: const Text('刷新收藏')),
         ],
       ),

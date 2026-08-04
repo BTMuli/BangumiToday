@@ -3,7 +3,6 @@ import 'dart:convert';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import '../../models/app/response.dart';
@@ -28,9 +27,9 @@ class AppRespErrWidget extends StatelessWidget {
   List<Widget> buildContent() {
     var content = <Widget>[
       buildTitle('code', response.code.toString()),
-      SizedBox(height: 12.h),
+      SizedBox(height: 12),
       buildTitle('message', response.message),
-      SizedBox(height: 12.h),
+      SizedBox(height: 12),
     ];
     if (response.code != 0 || response.data == null) {
       return content;
@@ -44,8 +43,8 @@ class AppRespErrWidget extends StatelessWidget {
     return [
       ...content,
       Container(
-        height: 200.h,
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+        height: 200,
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           color: Colors.white.withAlpha(60),

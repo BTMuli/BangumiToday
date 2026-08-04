@@ -1,7 +1,6 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // Project imports:
 import 'store/app_store.dart';
@@ -36,17 +35,12 @@ class BTApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     var appStore = ref.watch(appStoreProvider);
-    return ScreenUtilInit(
-      designSize: const Size(1280, 720),
-      builder: (_, child) {
-        return FluentApp(
-          title: 'BangumiToday',
-          themeMode: appStore.themeMode,
-          theme: getTheme(context, appStore),
-          home: const AppNavWidget(),
-          debugShowCheckedModeBanner: false,
-        );
-      },
+    return FluentApp(
+      title: 'BangumiToday',
+      themeMode: appStore.themeMode,
+      theme: getTheme(context, appStore),
+      home: const AppNavWidget(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }

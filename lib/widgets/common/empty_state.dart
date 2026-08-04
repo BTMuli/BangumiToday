@@ -1,5 +1,4 @@
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/theme/bt_theme.dart';
 
@@ -192,8 +191,8 @@ class _BTEmptyStateState extends State<BTEmptyState>
   Widget _buildAnimatedIcon(BuildContext context) {
     if (widget.type == EmptyStateType.loading) {
       return SizedBox(
-        width: 64.w,
-        height: 64.w,
+        width: 64,
+        height: 64,
         child: ProgressRing(
           strokeWidth: 3,
           activeColor: _getIconColor(context),
@@ -208,26 +207,20 @@ class _BTEmptyStateState extends State<BTEmptyState>
       builder: (context, value, child) {
         return Transform.scale(
           scale: 0.5 + (value * 0.5),
-          child: Opacity(
-            opacity: value.clamp(0.0, 1.0),
-            child: child,
-          ),
+          child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
         );
       },
       child: Container(
-        width: 80.w,
-        height: 80.w,
+        width: 80,
+        height: 80,
         decoration: BoxDecoration(
           color: _getIconColor(context).withValues(alpha: 0.1),
           shape: BoxShape.circle,
         ),
         child: Center(
-          child: widget.icon ??
-              Icon(
-                _getIcon(),
-                size: 40.sp,
-                color: _getIconColor(context),
-              ),
+          child:
+              widget.icon ??
+              Icon(_getIcon(), size: 40, color: _getIconColor(context)),
         ),
       ),
     );
@@ -251,36 +244,36 @@ class _BTEmptyStateState extends State<BTEmptyState>
           );
         },
         child: Padding(
-          padding: EdgeInsets.all(32.w),
+          padding: EdgeInsets.all(32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildAnimatedIcon(context),
-              SizedBox(height: 24.h),
+              SizedBox(height: 24),
               if (widget.title != null) ...[
                 Text(
                   widget.title!,
-                  style: BTTypography.subtitle(context).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: BTTypography.subtitle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w600),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8),
               ],
               if (widget.message != null) ...[
                 Text(
                   widget.message!,
-                  style: BTTypography.body(context).copyWith(
-                    color: BTColors.textSecondary(context),
-                  ),
+                  style: BTTypography.body(
+                    context,
+                  ).copyWith(color: BTColors.textSecondary(context)),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 24.h),
+                SizedBox(height: 24),
               ],
               if (widget.customContent != null) ...[
                 widget.customContent!,
-                SizedBox(height: 24.h),
+                SizedBox(height: 24),
               ],
               if (widget.onAction != null && widget.actionText != null)
                 _AnimatedActionButton(
@@ -299,10 +292,7 @@ class _AnimatedActionButton extends StatefulWidget {
   final String text;
   final VoidCallback onPressed;
 
-  const _AnimatedActionButton({
-    required this.text,
-    required this.onPressed,
-  });
+  const _AnimatedActionButton({required this.text, required this.onPressed});
 
   @override
   State<_AnimatedActionButton> createState() => _AnimatedActionButtonState();
@@ -321,9 +311,10 @@ class _AnimatedActionButtonState extends State<_AnimatedActionButton>
       duration: BTTheme.animationDurationFast,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
   }
 
   @override
@@ -358,14 +349,11 @@ class _AnimatedActionButtonState extends State<_AnimatedActionButton>
         child: AnimatedBuilder(
           animation: _scaleAnimation,
           builder: (context, child) {
-            return Transform.scale(
-              scale: _scaleAnimation.value,
-              child: child,
-            );
+            return Transform.scale(scale: _scaleAnimation.value, child: child);
           },
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
-            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
               color: _isHovered
                   ? FluentTheme.of(context).accentColor
@@ -374,9 +362,9 @@ class _AnimatedActionButtonState extends State<_AnimatedActionButton>
               boxShadow: _isHovered
                   ? [
                       BoxShadow(
-                        color: FluentTheme.of(context)
-                            .accentColor
-                            .withValues(alpha: 0.3),
+                        color: FluentTheme.of(
+                          context,
+                        ).accentColor.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -387,7 +375,7 @@ class _AnimatedActionButtonState extends State<_AnimatedActionButton>
               widget.text,
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 14.sp,
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -430,11 +418,7 @@ class BTLoadingState extends StatelessWidget {
   final String? message;
   final double? progress;
 
-  const BTLoadingState({
-    super.key,
-    this.message,
-    this.progress,
-  });
+  const BTLoadingState({super.key, this.message, this.progress});
 
   @override
   Widget build(BuildContext context) {
@@ -443,8 +427,8 @@ class BTLoadingState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(
-            width: 48.w,
-            height: 48.w,
+            width: 48,
+            height: 48,
             child: ProgressRing(
               value: progress,
               strokeWidth: 3,
@@ -452,12 +436,12 @@ class BTLoadingState extends StatelessWidget {
             ),
           ),
           if (message != null) ...[
-            SizedBox(height: 16.h),
+            SizedBox(height: 16),
             Text(
               message!,
-              style: BTTypography.body(context).copyWith(
-                color: BTColors.textSecondary(context),
-              ),
+              style: BTTypography.body(
+                context,
+              ).copyWith(color: BTColors.textSecondary(context)),
             ),
           ],
         ],
