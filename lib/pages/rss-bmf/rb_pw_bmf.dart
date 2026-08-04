@@ -11,6 +11,7 @@ import '../../core/utils/rss_date.dart';
 import '../../database/app/app_rss.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../providers/app_providers.dart';
+import '../../tools/file_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
@@ -86,6 +87,7 @@ class RbpBmfWidget extends ConsumerStatefulWidget {
 class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     with AutomaticKeepAliveClientMixin {
   final BtsAppRss rss = BtsAppRss();
+  final BTFileTool fileTool = BTFileTool();
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _rssPaneController = ScrollController();
   final ScrollController _filePaneController = ScrollController();
@@ -396,12 +398,22 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
       var confirm = await showConfirm(
         context,
         title: '删除 BMF',
-        content: '确定删除 ${bmf.title ?? bmf.subject} 的关联配置吗？本地文件不会被删除。',
+        content: '确定删除 ${bmf.title ?? bmf.subject} 的关联配置吗？',
       );
-      if (!confirm) return;
+      if (!confirm || !mounted) return;
+    }
+
+    var isDelDir = false;
+    if (bmf.download != null && bmf.download!.isNotEmpty) {
+      isDelDir = await showConfirm(
+        context,
+        title: '删除下载目录',
+        content: '是否删除下载目录？',
+      );
     }
 
     await ref.read(bmfRepositoryProvider).delete(bmf.subject);
+    if (isDelDir) await fileTool.deleteDir(bmf.download!);
     if (!mounted) return;
     setState(() => selectedSubject = null);
     await BtInfobar.success(context, 'BMF 配置已删除');
