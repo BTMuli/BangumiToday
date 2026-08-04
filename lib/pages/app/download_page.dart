@@ -204,7 +204,6 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
         return _DownloadTaskCard(
           task: task,
           busy: store.isTaskBusy(task.id),
-          elapsedSeconds: store.downloadElapsedSeconds(task.id),
           selectionMode: _selecting,
           selected: _selectedIds.contains(task.id),
           onSelect: () => _toggleSelect(task.id),
@@ -597,7 +596,6 @@ class _DownloadTaskCard extends StatelessWidget {
   const _DownloadTaskCard({
     required this.task,
     required this.busy,
-    required this.elapsedSeconds,
     required this.onAction,
     this.selectionMode = false,
     this.selected = false,
@@ -606,7 +604,6 @@ class _DownloadTaskCard extends StatelessWidget {
 
   final BtTaskSnapshot task;
   final bool busy;
-  final int elapsedSeconds;
   final bool selectionMode;
   final bool selected;
   final VoidCallback? onSelect;
@@ -779,13 +776,6 @@ class _DownloadTaskCard extends StatelessWidget {
                           label: '预计耗时',
                           value: _etaLabel(task),
                           color: BTColors.warningLight(context),
-                        ),
-                      if (elapsedSeconds > 0)
-                        _TaskMetric(
-                          icon: FluentIcons.history,
-                          label: '总耗时',
-                          value: _formatDuration(elapsedSeconds),
-                          color: BTColors.info,
                         ),
                       if (task.state == 'seeding' || task.uploadedBytes > 0)
                         _TaskMetric(
