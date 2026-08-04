@@ -442,7 +442,9 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       currentIndex: tabIndex,
       onChanged: (index) => setState(() => tabIndex = index),
       closeButtonVisibility: CloseButtonVisibilityMode.never,
-      tabWidthBehavior: TabWidthBehavior.sizeToContent,
+      tabWidthBehavior: TabWidthBehavior.equal,
+      minTabWidth: 80,
+      maxTabWidth: 320,
     );
   }
 }

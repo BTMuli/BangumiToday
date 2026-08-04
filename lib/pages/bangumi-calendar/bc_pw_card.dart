@@ -331,31 +331,35 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
     var subTitle = data.nameCn == '' ? '' : data.name;
     title = unescape.convert(title);
     subTitle = unescape.convert(subTitle);
-    
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Tooltip(
-          message: title,
-          child: Text(
-            title,
-            style: BTTypography.subtitle(context).copyWith(
-              fontWeight: FontWeight.w600,
+        Flexible(
+          child: Tooltip(
+            message: title,
+            child: Text(
+              title,
+              style: BTTypography.subtitle(context).copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
           ),
         ),
         if (subTitle.isNotEmpty) ...[
           SizedBox(height: 4.h),
-          Tooltip(
-            message: subTitle,
-            child: Text(
-              subTitle,
-              style: BTTypography.caption(context),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+          Flexible(
+            child: Tooltip(
+              message: subTitle,
+              child: Text(
+                subTitle,
+                style: BTTypography.caption(context),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
         ],
