@@ -970,9 +970,11 @@ class _PeersTabState extends State<_PeersTab> {
   }
 
   void _openClientFilter() {
-    var clients =
-        widget.details.peers.map((peer) => peer.client).toSet().toList()
-          ..sort();
+    var clients = widget.details.peers
+        .map((peer) => peer.clientName)
+        .toSet()
+        .toList()
+      ..sort();
     _filterController.showFlyout(
       barrierDismissible: true,
       dismissOnPointerMoveAway: false,
@@ -1019,14 +1021,14 @@ class _PeersTabState extends State<_PeersTab> {
     var peers = widget.details.peers;
     var clientFilter = _clientFilter;
     if (clientFilter != null) {
-      peers = peers.where((peer) => peer.client == clientFilter).toList();
+      peers = peers.where((peer) => peer.clientName == clientFilter).toList();
     }
     if (_sortIndex == -1) return peers;
     var sorted = List<BtTaskPeerDetail>.of(peers);
     sorted.sort((a, b) {
       var result = switch (_sortIndex) {
         0 => a.endpoint.toLowerCase().compareTo(b.endpoint.toLowerCase()),
-        1 => a.client.toLowerCase().compareTo(b.client.toLowerCase()),
+        1 => _compareClient(a, b),
         2 => a.progress.compareTo(b.progress),
         3 => a.downloadRate.compareTo(b.downloadRate),
         _ => a.uploadRate.compareTo(b.uploadRate),
@@ -1034,6 +1036,16 @@ class _PeersTabState extends State<_PeersTab> {
       return _ascending ? result : -result;
     });
     return sorted;
+  }
+
+  static int _compareClient(BtTaskPeerDetail a, BtTaskPeerDetail b) {
+    var nameResult = a.clientName.toLowerCase().compareTo(
+          b.clientName.toLowerCase(),
+        );
+    if (nameResult != 0) return nameResult;
+    return a.clientVersion.toLowerCase().compareTo(
+          b.clientVersion.toLowerCase(),
+        );
   }
 
   @override
@@ -1071,8 +1083,32 @@ class _PeersTabState extends State<_PeersTab> {
         return _TableRow(
           flexes: const [3, 3, 2, 2, 2],
           columns: [
-            Text(peer.endpoint, maxLines: 1, overflow: TextOverflow.ellipsis),
-            Text(peer.client, maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(
+              peer.endpointLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  peer.clientName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (peer.clientVersion.isNotEmpty) ...[
+                  SizedBox(height: 2),
+                  Text(
+                    peer.clientVersion,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: BTTypography.caption(context).copyWith(
+                      color: BTColors.textSecondary(context),
+                    ),
+                  ),
+                ],
+              ],
+            ),
             Padding(
               padding: EdgeInsets.only(right: 12),
               child: Column(

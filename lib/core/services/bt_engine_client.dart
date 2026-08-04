@@ -187,6 +187,43 @@ class BtTaskPeerDetail {
   final double progress;
   final int downloadRate;
   final int uploadRate;
+
+  /// 展示用地址：IPv6 的 `[地址]:端口` 会去掉两侧方括号。
+  String get endpointLabel => endpoint.replaceAll('[', '').replaceAll(']', '');
+
+  /// 客户端名称，例如 `qBittorrent 4.4.5` 解析为 `qBittorrent`。
+  String get clientName => _splitClient(client).$1;
+
+  /// 客户端版本；客户端字符串不含版本时为空字符串。
+  String get clientVersion => _splitClient(client).$2;
+
+  /// 按常见 Peer 客户端字符串格式拆分名称与版本：
+  /// `名称 版本`、`名称/版本`、`名称 名称/版本`，无法识别时整体作为名称。
+  static (String, String) _splitClient(String raw) {
+    var value = raw.trim();
+    if (value.isEmpty) return ('unknown', '');
+    var slash = value.lastIndexOf('/');
+    if (slash > 0) {
+      var name = value.substring(0, slash).trim();
+      var version = value.substring(slash + 1).trim();
+      return (name.isEmpty ? 'unknown' : name, version);
+    }
+    var space = value.lastIndexOf(' ');
+    if (space > 0) {
+      var version = value.substring(space + 1).trim();
+      if (_isVersionToken(version)) {
+        return (value.substring(0, space).trim(), version);
+      }
+    }
+    return (value, '');
+  }
+
+  static bool _isVersionToken(String token) {
+    var value = token;
+    if (value.isEmpty) return false;
+    if (value[0] == 'v' || value[0] == 'V') value = value.substring(1);
+    return value.isNotEmpty && RegExp(r'^[0-9][0-9.]*$').hasMatch(value);
+  }
 }
 
 class BtTaskDetails {

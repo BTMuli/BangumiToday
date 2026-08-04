@@ -67,6 +67,62 @@ void main() {
     });
   });
 
+  group('BtTaskPeerDetail', () {
+    BtTaskPeerDetail peer(String client, {String endpoint = '1.2.3.4:51413'}) {
+      return BtTaskPeerDetail(
+        endpoint: endpoint,
+        client: client,
+        progress: 0.5,
+        downloadRate: 1,
+        uploadRate: 1,
+      );
+    }
+
+    test('strips brackets from ipv6 endpoints', () {
+      expect(
+        peer(
+          'qBittorrent 4.4.5',
+          endpoint: '[2001:db8::1]:51413',
+        ).endpointLabel,
+        '2001:db8::1:51413',
+      );
+    });
+
+    test('keeps plain ipv4 endpoints unchanged', () {
+      expect(peer('qBittorrent 4.4.5').endpointLabel, '1.2.3.4:51413');
+    });
+
+    test('splits space-separated client into name and version', () {
+      var value = peer('Transmission 2.94');
+      expect(value.clientName, 'Transmission');
+      expect(value.clientVersion, '2.94');
+    });
+
+    test('splits slash-separated client into name and version', () {
+      var value = peer('qBittorrent/4.4.5');
+      expect(value.clientName, 'qBittorrent');
+      expect(value.clientVersion, '4.4.5');
+    });
+
+    test('splits multi-word name with slash-separated version', () {
+      var value = peer('Baidu Netdisk/7.2.3');
+      expect(value.clientName, 'Baidu Netdisk');
+      expect(value.clientVersion, '7.2.3');
+    });
+
+    test('keeps the whole string as name when no version is present', () {
+      var value = peer('unknown');
+      expect(value.clientName, 'unknown');
+      expect(value.clientVersion, isEmpty);
+    });
+
+    test('does not treat a trailing non-version word as version', () {
+      var value = peer('Some Custom Client');
+      expect(value.clientName, 'Some Custom Client');
+      expect(value.clientVersion, isEmpty);
+    });
+  });
+
   group('BtEngineClient', () {
     late Directory temporaryDirectory;
     late String executablePath;
