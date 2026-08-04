@@ -429,6 +429,30 @@ void main() {
     );
 
     test(
+      'restores persisted elapsed exactly once across snapshot bursts',
+      () async {
+        var elapsed = _DelayedElapsedStore({'task': 120});
+        gateway.currentTasks = [_task(state: 'downloading')];
+
+        var restored = BtDownloadStore(
+          client: gateway,
+          completionNotifier: (task) async {},
+          elapsedStore: elapsed,
+        );
+        addTearDown(restored.dispose);
+
+        // The engine can emit several snapshots while the restore read is
+        // still in flight. Each snapshot must not re-add the persisted base.
+        gateway.emitTasks([_task(state: 'downloading')]);
+        gateway.emitTasks([_task(state: 'downloading')]);
+        gateway.emitTasks([_task(state: 'downloading')]);
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+
+        expect(restored.downloadElapsedSeconds('task'), 120);
+      },
+    );
+
+    test(
       'persists accumulated download elapsed time when leaving download',
       () async {
         var elapsed = _MemoryElapsedStore();
@@ -521,6 +545,29 @@ class _MemoryElapsedStore implements BtTaskElapsedStore {
 
   @override
   Future<int?> readSeconds(String taskId) async => values[taskId];
+
+  @override
+  Future<void> writeSeconds(String taskId, int seconds) async {
+    values[taskId] = seconds;
+  }
+
+  @override
+  Future<void> delete(String taskId) async {
+    values.remove(taskId);
+  }
+}
+
+class _DelayedElapsedStore implements BtTaskElapsedStore {
+  _DelayedElapsedStore([Map<String, int>? initial])
+    : values = Map.of(initial ?? const {});
+
+  final Map<String, int> values;
+
+  @override
+  Future<int?> readSeconds(String taskId) async {
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    return values[taskId];
+  }
 
   @override
   Future<void> writeSeconds(String taskId, int seconds) async {

@@ -94,6 +94,7 @@ class BtDownloadStore extends ChangeNotifier {
   final Map<String, int> _elapsedSeconds = {};
   final Map<String, DateTime> _lastElapsedPersistAt = {};
   final Set<String> _restoredElapsedTaskIds = {};
+  final Map<String, Future<void>> _restoringElapsed = {};
   final Set<String> _availableTaskIds = {};
   Timer? _elapsedTimer;
   List<BtTaskSnapshot> _tasks;
@@ -234,7 +235,17 @@ class BtDownloadStore extends ChangeNotifier {
     }
   }
 
-  Future<void> _restoreElapsedFor(String id) async {
+  Future<void> _restoreElapsedFor(String id) {
+    var inFlight = _restoringElapsed[id];
+    if (inFlight != null) return inFlight;
+    var future = _doRestoreElapsedFor(id).whenComplete(() {
+      _restoringElapsed.remove(id);
+    });
+    _restoringElapsed[id] = future;
+    return future;
+  }
+
+  Future<void> _doRestoreElapsedFor(String id) async {
     try {
       var base = await _elapsedStore.readSeconds(id);
       if (base != null && base > 0) {
