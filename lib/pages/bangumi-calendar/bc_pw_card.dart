@@ -221,12 +221,16 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
       var score = data.rating!.score / 2;
       var label = getBangumiRateLabel(data.rating!.score);
       rateWidget.add(
-        RatingControl(
-          rating: score,
-          iconSize: 16.sp,
-          starSpacing: 1.sp,
-          ratedIconColor: FluentTheme.of(context).accentColor.withAlpha(128),
-          unratedIconColor: Colors.white.withAlpha(128),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: RatingControl(
+            rating: score,
+            iconSize: 16.sp,
+            starSpacing: 1.sp,
+            ratedIconColor: FluentTheme.of(context).accentColor.withAlpha(128),
+            unratedIconColor: Colors.white.withAlpha(128),
+          ),
         ),
       );
       rateWidget.add(SizedBox(height: 4.h));
@@ -281,7 +285,13 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
       children: [
         ...rateWidget,
         if (statWidget.isNotEmpty)
-          Row(children: [const Spacer(), ...statWidget]),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(mainAxisSize: MainAxisSize.min, children: statWidget),
+            ),
+          ),
       ],
     );
   }
