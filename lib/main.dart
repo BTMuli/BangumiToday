@@ -21,6 +21,7 @@ import 'core/cache/lru_cache_manager.dart';
 import 'core/memory/memory_manager.dart';
 import 'core/services/bt_engine_client.dart';
 import 'core/services/bmf_rss_service.dart';
+import 'core/utils/window_effect.dart';
 import 'database/app/app_config.dart';
 import 'database/bt_sqlite.dart';
 import 'request/bangumi/bangumi_api.dart';
@@ -83,6 +84,7 @@ Future<void> _initBackgroundServices() async {
   BtrBangumiApi.setBaseUrl(await appConfig.readBangumiUrl());
   await BTHiveTool.init();
   var btDownloadConfig = await appConfig.readBtDownloadConfig();
+  var themeMode = await appConfig.readThemeMode();
   var trackerStore = TrackerHive();
 
   await Future.wait([
@@ -112,7 +114,14 @@ Future<void> _initBackgroundServices() async {
 
   await _runOptionalService(
     '窗口特效',
-    () => Window.setEffect(effect: WindowEffect.acrylic),
+    () => applyWindowMaterial(
+      dark: switch (themeMode) {
+        ThemeMode.dark => true,
+        ThemeMode.light => false,
+        ThemeMode.system =>
+          PlatformDispatcher.instance.platformBrightness == Brightness.dark,
+      },
+    ),
   );
 
   unawaited(_runOptionalService('BMF RSS 服务', BmfRssService.instance.start));
