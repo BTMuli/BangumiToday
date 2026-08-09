@@ -34,21 +34,21 @@ dependencies:
   crypto: ^3.0.7
   rss_dart: ^1.0.14
   device_info_plus: ^13.2.0
-  dio: ^5.10.0
+  dio: ^5.11.0
   ffi: ^2.2.0
   file_selector: ^1.1.0
   fl_chart: ^1.2.0
-  fluent_ui: ^4.16.0
+  fluent_ui: ^4.16.1
   flutter:
     sdk: flutter
   flutter_acrylic: ^1.1.4
-  flutter_cache_manager: ^3.4.1
+  flutter_cache_manager: ^3.4.2
   flutter_driver:
     sdk: flutter
-  flutter_riverpod: ^3.3.2
+  flutter_riverpod: ^3.4.2
   flutter_secure_storage: ^11.0.0
   hive: ^2.2.3
-  hooks_riverpod: ^3.3.2
+  hooks_riverpod: ^3.4.2
   html: ^0.15.6
   html_unescape: ^2.0.0
   jiffy: ^6.4.5
@@ -56,7 +56,7 @@ dependencies:
   local_notifier: ^0.1.6
   logger: ^2.7.0
   flutter_material_design_icons: ^3.1.0+7447
-  package_info_plus: ^10.2.0
+  package_info_plus: ^10.2.1
   path: ^1.9.1
   path_provider: ^2.1.6
   sqflite_common_ffi: ^2.4.2
@@ -78,7 +78,7 @@ dev_dependencies:
     sdk: flutter
   husky: ^0.1.7
   import_sorter: ^4.6.0 # dart run import_sorter:main
-  json_serializable: ^6.14.0
+  json_serializable: ^6.14.1
   lint_staged: ^0.5.1
   mockito: ^5.6.4
   msix: ^3.18.0
