@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../controller/app/progress_controller.dart';
+import '../../database/bangumi/bangumi_collection.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
@@ -33,6 +34,9 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
 
   /// 用户 hive
   final BgmUserHive hive = BgmUserHive();
+
+  /// 收藏数据库
+  final BtsBangumiCollection sqlite = BtsBangumiCollection();
 
   /// 进度条
   late ProgressController progress = ProgressController();
@@ -103,6 +107,13 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
         },
       ),
       MenuFlyoutItem(
+        leading: const Icon(FluentIcons.favorite_star),
+        text: const Text('刷新用户收藏'),
+        onPressed: () async {
+          await refreshCollection();
+        },
+      ),
+      MenuFlyoutItem(
         leading: const Icon(FluentIcons.permissions),
         text: const Text('刷新授权'),
         onPressed: () async {
@@ -148,6 +159,70 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
       );
     }
     setState(() {});
+  }
+
+  /// 刷新用户收藏
+  Future<void> refreshCollection() async {
+    if (hive.user == null) {
+      if (mounted) await BtInfobar.error(context, '未找到用户信息');
+      return;
+    }
+    progress = ProgressWidget.show(
+      context,
+      title: '刷新收藏信息',
+      text: '正在刷新收藏信息',
+      onTaskbar: true,
+    );
+    const limit = 50;
+    var offset = 0;
+    var repository = ref.read(bangumiRepositoryProvider);
+    var resp = await repository.getCollectionSubjects(
+      username: hive.user!.id.toString(),
+      limit: limit,
+      offset: offset,
+    );
+    if (resp.code != 0 || resp.data == null) {
+      progress.end();
+      if (mounted) await showRespErr(resp, context);
+      return;
+    }
+    await sqlite.preCheck();
+    var pageResp = resp.data!;
+    var total = pageResp.total;
+    var count = 0;
+    while (true) {
+      offset += pageResp.data.length;
+      for (var item in pageResp.data) {
+        count++;
+        progress.update(
+          title: '写入收藏信息：$count/$total',
+          text: '[${item.subject.id}] ${item.subject.name}',
+          progress: count * 100 / total,
+        );
+        await sqlite.write(item, check: false);
+      }
+      if (offset >= total) {
+        progress.end();
+        if (mounted) await BtInfobar.success(context, '收藏信息写入完成');
+        return;
+      }
+      progress.update(
+        title: '获取收藏信息',
+        text: '偏移：$offset，总计：$total',
+        progress: count * 100 / total,
+      );
+      resp = await repository.getCollectionSubjects(
+        username: hive.user!.id.toString(),
+        limit: limit,
+        offset: offset,
+      );
+      if (resp.code != 0 || resp.data == null) {
+        progress.end();
+        if (mounted) await showRespErr(resp, context);
+        return;
+      }
+      pageResp = resp.data!;
+    }
   }
 
   /// 退出登录
