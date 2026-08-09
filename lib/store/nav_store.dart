@@ -6,6 +6,7 @@ import 'package:hive/hive.dart';
 
 import '../models/hive/nav_model.dart';
 import '../pages/subject-detail/subject_detail_page.dart';
+import '../widgets/app/nav_item_icon.dart';
 
 final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
   var store = BTNavStore();
@@ -25,9 +26,13 @@ final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
 class BTNavStore extends ChangeNotifier {
   final int topNavCount = Platform.isWindows ? 4 : 3;
 
+  /// 动态条目上限：超出后按最近使用顺序淘汰最旧的条目。
+  static const int maxDynamicItems = 50;
+
   int curIndex = 0;
 
   final List<BtmAppNavItem> _navItems = [];
+  final List<String> _recentParams = [];
 
   final Set<int> _loadedIndices = {};
 
@@ -46,9 +51,20 @@ class BTNavStore extends ChangeNotifier {
   void setCurIndex(int index) {
     curIndex = index;
     _loadedIndices.add(index);
+    _touchRecent(index);
     _preloadAdjacent(index);
     _cleanupCache();
     notifyListeners();
+  }
+
+  /// 将动态条目标记为最近使用（移到最后）。
+  void _touchRecent(int index) {
+    var navIndex = index - topNavCount;
+    if (navIndex < 0 || navIndex >= _navItems.length) return;
+    var param = _navItems[navIndex].param;
+    if (param == null) return;
+    _recentParams.remove(param);
+    _recentParams.add(param);
   }
 
   void _preloadAdjacent(int index) {
@@ -102,6 +118,7 @@ class BTNavStore extends ChangeNotifier {
   void goIndex(int index) {
     curIndex = index;
     _loadedIndices.add(index);
+    _touchRecent(index);
     notifyListeners();
   }
 
@@ -113,13 +130,18 @@ class BTNavStore extends ChangeNotifier {
   }) {
     var title = '$type详情 $subject';
     if (paneTitle != null && paneTitle.isNotEmpty) title = paneTitle;
+    var paneType = BtmAppNavItemType.subject;
+    var param = 'subjectDetail_$subject';
     var pane = PaneItem(
-      icon: const Icon(FluentIcons.info),
+      icon: NavItemIcon(
+        title: title,
+        onClose: () => removeNavItem(title, type: paneType, param: param),
+        onCloseOthers: () => removeNavItemOthers(param),
+        onCloseAll: removeAllNavItems,
+      ),
       title: Text(title),
       body: SubjectDetailPage(id: subject.toString()),
     );
-    var paneType = BtmAppNavItemType.subject;
-    var param = 'subjectDetail_$subject';
     addNavItem(pane, title, type: paneType, param: param, jump: jump);
   }
 
@@ -157,6 +179,9 @@ class BTNavStore extends ChangeNotifier {
       var subject = param!.replaceAll('subjectDetail_', '');
       var hiveItem = BtmAppNavHive(title: title, subjectId: int.parse(subject));
       Hive.box<BtmAppNavHive>('nav').put(subject, hiveItem);
+      _recentParams.remove(param);
+      _recentParams.add(param);
+      _trimToCap();
     }
     if (!jump) {
       if (curIndex == topNavCount + _navItems.length - 1) {
@@ -174,6 +199,36 @@ class BTNavStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 超出上限时按最近使用顺序淘汰最旧的动态条目。
+  void _trimToCap() {
+    while (_navItems.length > maxDynamicItems && _recentParams.isNotEmpty) {
+      var oldestParam = _recentParams.first;
+      var navIndex = _navItems.indexWhere(
+        (item) =>
+            item.param == oldestParam && item.type == BtmAppNavItemType.subject,
+      );
+      if (navIndex == -1) {
+        _recentParams.removeAt(0);
+        continue;
+      }
+      var item = _navItems[navIndex];
+      removeNavItem(item.title, type: item.type, param: item.param);
+    }
+  }
+
+  /// 关闭除 [exceptParam] 以外的所有动态条目；为空时关闭全部动态条目。
+  void removeNavItemOthers(String? exceptParam) {
+    var targets = _navItems.where((item) => item.param != exceptParam).toList();
+    for (var item in targets) {
+      removeNavItem(item.title, type: item.type, param: item.param);
+    }
+  }
+
+  /// 关闭全部动态条目。
+  void removeAllNavItems() {
+    removeNavItemOthers(null);
+  }
+
   void removeNavItem(
     String title, {
     BtmAppNavItemType type = BtmAppNavItemType.app,
@@ -187,6 +242,7 @@ class BTNavStore extends ChangeNotifier {
     _loadedIndices.remove(actualIndex);
 
     _navItems.removeAt(findIndex);
+    if (param != null) _recentParams.remove(param);
     if (curIndex == actualIndex) {
       curIndex = 0;
     } else if (curIndex > actualIndex) {

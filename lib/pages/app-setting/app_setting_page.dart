@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
+import '../../widgets/common/bt_content_frame.dart';
 import 'as_pw_bangumi.dart';
 import 'as_pw_device.dart';
 import 'as_pw_download.dart';
@@ -212,33 +213,35 @@ class _SettingPageState extends ConsumerState<SettingPage>
     var configList = buildConfigList();
     return ScaffoldPage.withPadding(
       padding: EdgeInsets.all(16),
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          buildPageHeader(context),
-          SizedBox(height: 16),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                var list = ListView.separated(
-                  itemBuilder: (_, int idx) => configList[idx],
-                  separatorBuilder: (_, _) => SizedBox(height: 12),
-                  itemCount: configList.length,
-                );
-                // 窗口较窄时隐藏右侧应用徽章，避免挤压设置列表
-                if (constraints.maxWidth < 1000) return list;
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: list),
-                    SizedBox(width: 16),
-                    buildAppBadge(context),
-                  ],
-                );
-              },
+      content: BTContentFrame(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            buildPageHeader(context),
+            SizedBox(height: 16),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  var list = ListView.separated(
+                    itemBuilder: (_, int idx) => configList[idx],
+                    separatorBuilder: (_, _) => SizedBox(height: 12),
+                    itemCount: configList.length,
+                  );
+                  // 窗口较窄时隐藏右侧应用徽章，避免挤压设置列表
+                  if (constraints.maxWidth < 1000) return list;
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: list),
+                      SizedBox(width: 16),
+                      buildAppBadge(context),
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -22,6 +22,7 @@ import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../widgets/common/bt_animations.dart';
+import '../../widgets/common/bt_content_frame.dart';
 import '../../widgets/common/bt_drawer.dart';
 import '../../widgets/bangumi/subject_detail/bsd_bmf_drawer.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_collection.dart';
@@ -684,7 +685,10 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return ScaffoldPage(header: buildHeader(), content: buildContent());
+    return ScaffoldPage(
+      header: buildHeader(),
+      content: BTContentFrame(child: buildContent()),
+    );
   }
 }
 
