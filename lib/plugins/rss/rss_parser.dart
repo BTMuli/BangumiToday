@@ -80,12 +80,15 @@ class RssItem {
   });
 
   factory RssItem.parse(XmlElement element) {
+    var torrent = RssItemTorrent.parse(element);
     return RssItem(
       title: _text(element, 'title'),
       description: _text(element, 'description'),
       link: _text(element, 'link'),
       author: _text(element, 'author'),
-      pubDate: _text(element, 'pubDate'),
+      // Mikan puts the publish time inside its <torrent> extension instead of
+      // a direct <item><pubDate>, so fall back to the torrent value.
+      pubDate: _text(element, 'pubDate') ?? torrent.pubDate,
       guid: _text(element, 'guid'),
       categories: element
           .findElements('category', namespaceUri: '*')
@@ -93,7 +96,7 @@ class RssItem {
           .toList(growable: false),
       enclosure: _enclosure(element),
       dc: _dublinCore(element),
-      torrent: RssItemTorrent.parse(element),
+      torrent: torrent,
     );
   }
 }

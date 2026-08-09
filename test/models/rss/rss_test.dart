@@ -99,4 +99,49 @@ void main() {
     expect(item.torrent?.infohash, 'mikan-hash');
     expect(item.torrent?.filename, 'Episode 1.mkv');
   });
+
+  test('falls back to the torrent pubDate used by Mikan feeds', () {
+    var item = RssFeed.parse('''
+      <rss version="2.0">
+        <channel>
+          <title>Example</title>
+          <link>https://example.com</link>
+          <description>Example feed</description>
+          <item>
+            <title>Episode 1</title>
+            <torrent xmlns="http://mikanani.me/0.1/">
+              <contentLength>2097152</contentLength>
+              <magnetURI>magnet:?xt=urn:btih:mikan</magnetURI>
+              <infoHash>mikan-hash</infoHash>
+              <fileName>Episode 1.mkv</fileName>
+              <pubDate>2026-08-09T22:00:46.303812</pubDate>
+            </torrent>
+          </item>
+        </channel>
+      </rss>
+    ''').items.single;
+
+    expect(item.pubDate, '2026-08-09T22:00:46.303812');
+  });
+
+  test('prefers the direct item pubDate over the torrent pubDate', () {
+    var item = RssFeed.parse('''
+      <rss version="2.0">
+        <channel>
+          <title>Example</title>
+          <link>https://example.com</link>
+          <description>Example feed</description>
+          <item>
+            <title>Episode 1</title>
+            <pubDate>2026-08-01T12:00:00Z</pubDate>
+            <torrent xmlns="http://mikanani.me/0.1/">
+              <pubDate>2026-08-09T22:00:46.303812</pubDate>
+            </torrent>
+          </item>
+        </channel>
+      </rss>
+    ''').items.single;
+
+    expect(item.pubDate, '2026-08-01T12:00:00Z');
+  });
 }
