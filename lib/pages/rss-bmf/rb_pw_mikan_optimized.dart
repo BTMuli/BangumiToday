@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import '../../models/rss/rss.dart';
@@ -43,17 +44,20 @@ class _OptimizedRbpMikanWidgetState
 
   String? get mikanRss => ref.watch(appStoreProvider).mikanRss;
 
+  /// Token 仅用于请求，不在界面中明文展示。
+  String get maskedToken => token.isEmpty ? '未设置' : '••••••••';
+
   @override
   bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration.zero, init);
+    unawaited(Future<void>.delayed(Duration.zero, init));
   }
 
   Future<void> refreshMikanRSS({bool forceRefresh = false}) async {
-    if (_isLoading) return;
+    if (!mounted || _isLoading) return;
 
     setState(() {
       _isLoading = true;
@@ -86,14 +90,12 @@ class _OptimizedRbpMikanWidgetState
         if (mounted) await showRespErr(result, context);
       }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> refreshUserRSS({bool forceRefresh = false}) async {
-    if (_isLoading) return;
+    if (!mounted || _isLoading) return;
 
     setState(() {
       _isLoading = true;
@@ -126,9 +128,7 @@ class _OptimizedRbpMikanWidgetState
         if (mounted) await showRespErr(result, context);
       }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -151,6 +151,7 @@ class _OptimizedRbpMikanWidgetState
 
   Future<void> init() async {
     var mikan = await sqlite.readMikanToken();
+    if (!mounted) return;
     if (mikan == null || mikan.isEmpty) {
       useUserRSS = false;
       await refreshMikanRSS();
@@ -188,7 +189,7 @@ class _OptimizedRbpMikanWidgetState
     await sqlite.writeMikanToken(token);
     if (mounted) await BtInfobar.success(context, 'Token 已保存');
     useUserRSS = true;
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   Future<void> tryEditUrl() async {
@@ -301,7 +302,7 @@ class _OptimizedRbpMikanWidgetState
         },
       ),
       SizedBox(width: 10),
-      FilledButton(onPressed: null, child: Text('Token: $token')),
+      FilledButton(onPressed: null, child: Text('Token: $maskedToken')),
       SizedBox(width: 10),
       Button(onPressed: tryEditToken, child: const Text('编辑Token')),
       SizedBox(width: 10),

@@ -38,6 +38,10 @@ app.*.map.json
 
 # secret
 .env
+.dart-define.json
+build_config.json
+*.pfx
+*.p12
 genSign.ps1
 # build
 BangumiToday.msix

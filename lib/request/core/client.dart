@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 // Project imports:
 import '../bangumi/bangumi_interceptor.dart';
+import '../../tools/log_tool.dart';
 
 /// 获取 Interceptor
 LogInterceptor getInterceptor() {
@@ -16,11 +17,7 @@ LogInterceptor getInterceptor() {
     responseHeader: false,
     error: true,
     logPrint: (object) {
-      if (object is String) {
-        debugPrint(object);
-      } else {
-        debugPrint(object.toString());
-      }
+      debugPrint(BTLogTool.sanitize(object));
     },
   );
 }

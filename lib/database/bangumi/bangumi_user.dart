@@ -1,6 +1,9 @@
 // Dart imports:
 import 'dart:convert';
 
+// Package imports:
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 // Project imports:
 import '../../models/bangumi/bangumi_model.dart';
 import '../../tools/log_tool.dart';
@@ -23,6 +26,13 @@ class BtsBangumiUser {
 
   /// 表名-用户
   final String _tableNameUser = 'BangumiUser';
+
+  /// 系统安全存储。旧版 SQLite 凭据会在首次读取时迁移到这里。
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+
+  static const Set<String> _secureTokenKeys = {'accessToken', 'refreshToken'};
+
+  static String _secureKey(String key) => 'bangumi.$key';
 
   /// 初始化用户表
   /// 数据类型参考：lib/models/bangumi/user_request.dart
@@ -129,6 +139,17 @@ class BtsBangumiUser {
 
   /// 读取token，通用
   Future<String?> readToken(String key) async {
+    if (_secureTokenKeys.contains(key)) {
+      try {
+        var secureValue = await _secureStorage.read(key: _secureKey(key));
+        if (secureValue != null && secureValue.isNotEmpty) {
+          return secureValue;
+        }
+      } catch (error) {
+        BTLogTool.warn('读取系统安全存储失败，将尝试迁移旧凭据：$error');
+      }
+    }
+
     await _instance.preCheck();
     var result = await _instance.sqlite.db.query(
       _tableNameUser,
@@ -137,11 +158,42 @@ class BtsBangumiUser {
     );
     if (result.isEmpty) return null;
     var value = result.first['value'];
-    return value.toString();
+    var legacyValue = value?.toString();
+    if (legacyValue == null || legacyValue.isEmpty) return legacyValue;
+
+    if (_secureTokenKeys.contains(key)) {
+      try {
+        await _secureStorage.write(key: _secureKey(key), value: legacyValue);
+        await _instance.sqlite.db.delete(
+          _tableNameUser,
+          where: 'key = ?',
+          whereArgs: [key],
+        );
+      } catch (error) {
+        BTLogTool.warn('迁移旧用户凭据失败：$error');
+      }
+    }
+    return legacyValue;
   }
 
   /// 写入/更新token，通用
   Future<void> writeToken(String key, String value) async {
+    if (_secureTokenKeys.contains(key)) {
+      try {
+        await _secureStorage.write(key: _secureKey(key), value: value);
+        await _instance.preCheck();
+        await _instance.sqlite.db.delete(
+          _tableNameUser,
+          where: 'key = ?',
+          whereArgs: [key],
+        );
+        BTLogTool.info('Write user credential: $key');
+        return;
+      } catch (error) {
+        BTLogTool.warn('写入系统安全存储失败，将保留旧存储兼容路径：$error');
+      }
+    }
+
     await _instance.preCheck();
     var result = await _instance.sqlite.db.query(
       _tableNameUser,
@@ -166,6 +218,13 @@ class BtsBangumiUser {
 
   /// 删除token，通用
   Future<void> deleteToken(String key) async {
+    if (_secureTokenKeys.contains(key)) {
+      try {
+        await _secureStorage.delete(key: _secureKey(key));
+      } catch (error) {
+        BTLogTool.warn('删除系统安全存储凭据失败：$error');
+      }
+    }
     await _instance.preCheck();
     await _instance.sqlite.db.delete(
       _tableNameUser,

@@ -8,6 +8,7 @@ import 'package:bangumi_today/database/bt_sqlite.dart';
 import 'package:bangumi_today/models/database/app_bmf_model.dart';
 import 'package:bangumi_today/models/database/app_rss_model.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -16,6 +17,7 @@ void main() {
 
   setUpAll(() async {
     sqfliteFfiInit();
+    FlutterSecureStorage.setMockInitialValues({});
     database = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
     BTSqlite().db = database;
   });
@@ -61,7 +63,10 @@ void main() {
       where: 'key = ?',
       whereArgs: ['accessToken'],
     );
-    expect(rows.single['value'], 'token');
+    // Flutter's desktop test host does not register the platform secure
+    // storage plugin, so migration can legitimately fall back to SQLite.
+    expect(rows.length, lessThanOrEqualTo(1));
+    expect(await user.readAccessToken(), 'token');
   });
 
   test('credential and config logs do not contain stored values', () async {

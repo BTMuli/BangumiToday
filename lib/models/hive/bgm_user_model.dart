@@ -12,10 +12,12 @@ class BgmUserHiveModel {
   /// 用户
   final BangumiUser? user;
 
-  /// accessToken
+  /// Legacy accessToken slot kept so existing Hive records remain readable.
+  @Deprecated('Tokens are stored in the platform secure storage.')
   final String? accessToken;
 
-  /// refreshToken
+  /// Legacy refreshToken slot kept so existing Hive records remain readable.
+  @Deprecated('Tokens are stored in the platform secure storage.')
   final String? refreshToken;
 
   /// expireTime

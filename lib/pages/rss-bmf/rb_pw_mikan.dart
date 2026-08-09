@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:async';
+
 // Package imports:
 import '../../models/rss/rss.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -48,6 +51,9 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
   /// mikan 镜像
   String? get mikanRss => ref.watch(appStoreProvider).mikanRss;
 
+  /// Token 仅用于请求，不在界面中明文展示。
+  String get maskedToken => token.isEmpty ? '未设置' : '••••••••';
+
   /// 保存状态
   @override
   bool get wantKeepAlive => true;
@@ -56,11 +62,12 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration.zero, init);
+    unawaited(Future<void>.delayed(Duration.zero, init));
   }
 
   /// 刷新
   Future<void> refreshMikanRSS() async {
+    if (!mounted) return;
     rssItems.clear();
     setState(() {});
     var resGet = await mikanAPI.getClassicRSS();
@@ -69,12 +76,14 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
       return;
     }
     rssItems = resGet.data!;
+    if (!mounted) return;
     setState(() {});
     if (mounted) await BtInfobar.success(context, '已刷新Mikan列表');
   }
 
   /// 刷新
   Future<void> refreshUserRSS() async {
+    if (!mounted) return;
     userItems.clear();
     setState(() {});
     var resGet = await mikanAPI.getUserRSS(token);
@@ -83,6 +92,7 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
       return;
     }
     userItems = resGet.data!;
+    if (!mounted) return;
     setState(() {});
     if (mounted) await BtInfobar.success(context, '已刷新用户列表');
   }
@@ -90,6 +100,7 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
   /// 初始化
   Future<void> init() async {
     var mikan = await sqlite.readMikanToken();
+    if (!mounted) return;
     if (mikan == null || mikan.isEmpty) {
       useUserRSS = false;
       await refreshMikanRSS();
@@ -128,7 +139,7 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
     await sqlite.writeMikanToken(token);
     if (mounted) await BtInfobar.success(context, 'Token 已保存');
     useUserRSS = true;
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   Future<void> tryEditUrl() async {
@@ -249,11 +260,11 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
               if (mounted) await BtInfobar.success(context, '已切换到Mikan列表');
             }
           }
-          setState(() {});
+          if (mounted) setState(() {});
         },
       ),
       SizedBox(width: 10),
-      FilledButton(onPressed: null, child: Text('Token: $token')),
+      FilledButton(onPressed: null, child: Text('Token: $maskedToken')),
       SizedBox(width: 10),
       Button(onPressed: tryEditToken, child: const Text('编辑Token')),
       SizedBox(width: 10),

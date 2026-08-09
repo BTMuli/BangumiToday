@@ -40,6 +40,35 @@ class BTLogTool {
   /// 日志目录
   static late String logDir;
 
+  /// 删除日志、异常和网络 URL 中可能包含的凭据。
+  static String sanitize(Object? message) {
+    var value = message?.toString() ?? '';
+    if (message is List<String>) value = message.join('\n');
+
+    value = value.replaceAllMapped(
+      RegExp(
+        r'(authorization\s*[:=]\s*bearer\s+)[^\s,}]+',
+        caseSensitive: false,
+      ),
+      (match) => '${match.group(1)}[REDACTED]',
+    );
+    value = value.replaceAllMapped(
+      RegExp(
+        r'([?&](?:token|code|access_token|refresh_token|client_secret)\s*=)[^&#\s}]+',
+        caseSensitive: false,
+      ),
+      (match) => '${match.group(1)}[REDACTED]',
+    );
+    value = value.replaceAllMapped(
+      RegExp(
+        r'''(["']?(?:token|access_token|refresh_token|client_secret|app_secret|authorization)["']?\s*[:=]\s*["']?)[^"'\s,}]+''',
+        caseSensitive: false,
+      ),
+      (match) => '${match.group(1)}[REDACTED]',
+    );
+    return value;
+  }
+
   /// 获取实例
   factory BTLogTool() => instance;
 
@@ -102,10 +131,7 @@ class BTLogTool {
 
   /// 打印信息日志
   static void info(dynamic message) {
-    var str = message.toString();
-    if (message is List<String>) {
-      str = message.join('\n');
-    }
+    var str = sanitize(message);
     if (!_isInitialized) {
       debugPrint(str);
       return;
@@ -115,10 +141,7 @@ class BTLogTool {
 
   /// 打印警告日志
   static void warn(dynamic message) {
-    var str = message.toString();
-    if (message is List<String>) {
-      str = message.join('\n');
-    }
+    var str = sanitize(message);
     if (!_isInitialized) {
       debugPrint(str);
       return;
@@ -128,10 +151,7 @@ class BTLogTool {
 
   /// 打印错误日志
   static void error(dynamic message) {
-    var str = message.toString();
-    if (message is List<String>) {
-      str = message.join('\n');
-    }
+    var str = sanitize(message);
     if (!_isInitialized) {
       debugPrint(str);
       return;

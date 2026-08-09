@@ -30,12 +30,8 @@ class BgmUserHive extends ChangeNotifier {
   static Box<BgmUserHiveModel> get box => Hive.box<BgmUserHiveModel>('bgmUser');
 
   /// 获取模型
-  BgmUserHiveModel get model => BgmUserHiveModel(
-    user: _user,
-    accessToken: _accessToken,
-    refreshToken: _refreshToken,
-    expireTime: _expireTime,
-  );
+  BgmUserHiveModel get model =>
+      BgmUserHiveModel(user: _user, expireTime: _expireTime);
 
   /// 用户
   BangumiUser? _user;
@@ -63,15 +59,27 @@ class BgmUserHive extends ChangeNotifier {
 
   /// 初始化用户
   Future<void> initUser() async {
+    // Older releases persisted tokens in the Hive record as well as SQLite.
+    // Feed those legacy slots through BtsBangumiUser once before replacing
+    // the record, so upgrading cannot silently log the user out.
+    var legacyModel = box.get('user');
     var user = await sqlite.readUser();
     if (user != null) {
       _user = user;
     }
     var accessToken = await sqlite.readAccessToken();
+    if (accessToken == null && legacyModel?.accessToken != null) {
+      await sqlite.writeAccessToken(legacyModel!.accessToken!);
+      accessToken = await sqlite.readAccessToken();
+    }
     if (accessToken != null) {
       _accessToken = accessToken;
     }
     var refreshToken = await sqlite.readRefreshToken();
+    if (refreshToken == null && legacyModel?.refreshToken != null) {
+      await sqlite.writeRefreshToken(legacyModel!.refreshToken!);
+      refreshToken = await sqlite.readRefreshToken();
+    }
     if (refreshToken != null) {
       _refreshToken = refreshToken;
     }

@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart';
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_driver/driver_extension.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:system_theme/system_theme.dart';
@@ -52,7 +51,6 @@ Future<void> main() async {
     windowManager.ensureInitialized(),
     Window.initialize(),
     SystemTheme.accentColor.load(),
-    dotenv.load(fileName: ".env"),
   ]);
 
   WindowOptions windowOpts = const WindowOptions(
@@ -163,5 +161,5 @@ void _reportUnhandledError(Object error, StackTrace stackTrace) {
     return;
   }
 
-  debugPrint('未处理异常: $error\n$stackTrace');
+  debugPrint(BTLogTool.sanitize('未处理异常: $error\n$stackTrace'));
 }

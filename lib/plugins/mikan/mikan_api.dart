@@ -73,23 +73,15 @@ class BtrMikanApi {
       var channel = RssFeed.parse(resp.data.toString());
       return BTResponse.success(data: channel.items);
     } on DioException catch (e) {
-      var errInfo = [
-        "Fail to load user RSS",
-        "DioErr: ${e.error}",
-        "UserToken: $token",
-      ];
+      var errInfo = ["Fail to load user RSS", "DioErr: ${e.error}"];
       BTLogTool.error(errInfo);
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load user RSS',
-        data: {'error': e.error, 'token': token},
+        data: {'error': e.error},
       );
     } on Exception catch (e) {
-      var errInfo = [
-        "Fail to load user RSS",
-        "Err: ${e.toString()}",
-        "UserToken: $token",
-      ];
+      var errInfo = ["Fail to load user RSS", "Err: ${e.toString()}"];
       BTLogTool.error(errInfo);
       return BTResponse.error(
         code: 666,
