@@ -2,6 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
+// Project imports:
 import '../../models/app/response.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
 import '../constants/app_constants.dart';
@@ -12,30 +16,49 @@ import 'app_link_service.dart';
 /// OAuth 回调是应用级事件，不能由页面各自监听。协调器保证同一时间
 /// 只有一个授权流程，并在回调中校验一次性 state。
 class BangumiOAuthCoordinator {
-  BangumiOAuthCoordinator._();
+  BangumiOAuthCoordinator._({
+    AppLinkService? appLinkService,
+    String Function()? stateGenerator,
+    Duration? callbackTimeout,
+  }) : _appLinkService = appLinkService ?? AppLinkService.instance,
+       _stateGenerator = stateGenerator ?? _createState,
+       _callbackTimeout = callbackTimeout ?? const Duration(minutes: 5);
+
+  /// 仅供测试注入依赖：链接服务、state 生成器和回调超时。
+  @visibleForTesting
+  BangumiOAuthCoordinator.forTesting({
+    AppLinkService? appLinkService,
+    String Function()? stateGenerator,
+    Duration callbackTimeout = const Duration(minutes: 5),
+  }) : _appLinkService = appLinkService ?? AppLinkService.instance,
+       _stateGenerator = stateGenerator ?? _createState,
+       _callbackTimeout = callbackTimeout;
 
   static final BangumiOAuthCoordinator instance = BangumiOAuthCoordinator._();
 
+  final AppLinkService _appLinkService;
+  final String Function() _stateGenerator;
+  final Duration _callbackTimeout;
   StreamSubscription<Uri>? _callbackSubscription;
   bool _isAuthorizing = false;
 
-  Future<BTResponse> authorize(BtrBangumiOauth api) async {
+  Future<BTResponse> authorize(BangumiOauthGateway api) async {
     if (_isAuthorizing) {
       return BTResponse.error(code: 409, message: '已有授权流程正在进行', data: null);
     }
 
     _isAuthorizing = true;
-    var state = _createState();
+    var state = _stateGenerator();
     var callback = Completer<Uri>();
-    AppLinkService.instance.start();
-    _callbackSubscription = AppLinkService.instance.stream.listen((uri) {
+    _appLinkService.start();
+    _callbackSubscription = _appLinkService.stream.listen((uri) {
       if (!_isOAuthCallback(uri) || callback.isCompleted) return;
       callback.complete(uri);
     });
 
     try {
       await api.openAuthorizePage(state: state);
-      var uri = await callback.future.timeout(const Duration(minutes: 5));
+      var uri = await callback.future.timeout(_callbackTimeout);
       if (uri.queryParameters['state'] != state) {
         return BTResponse.error(code: 400, message: '授权回调校验失败', data: null);
       }
@@ -64,7 +87,7 @@ class BangumiOAuthCoordinator {
         uri.host.toLowerCase() == 'oauth';
   }
 
-  String _createState() {
+  static String _createState() {
     var bytes = List<int>.generate(24, (_) => Random.secure().nextInt(256));
     return base64UrlEncode(bytes).replaceAll('=', '');
   }

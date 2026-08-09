@@ -11,9 +11,18 @@ import '../core/client.dart';
 import 'bangumi_api.dart';
 import 'bangumi_error_handler.dart';
 
+/// OAuth 授权网关抽象，便于测试注入可控实现。
+abstract class BangumiOauthGateway {
+  /// 打开授权页面。
+  Future<void> openAuthorizePage({String? state});
+
+  /// 用授权码换取 AccessToken。
+  Future<BTResponse> getAccessToken(String code, {String? state});
+}
+
 /// bangumi.tv 的 OAuth
 /// 参考: https://github.com/bangumi/api/blob/master/docs-raw/How-to-Auth.md
-class BtrBangumiOauth {
+class BtrBangumiOauth implements BangumiOauthGateway {
   /// 请求客户端
   late final BtrClient client;
 
@@ -31,6 +40,7 @@ class BtrBangumiOauth {
   }
 
   /// 打开授权页面
+  @override
   Future<void> openAuthorizePage({String? state}) async {
     var appId = getBgmAppId();
     var params = BangumiOauthParams(appId: appId, state: state);
@@ -41,6 +51,7 @@ class BtrBangumiOauth {
   }
 
   /// 获取 AccessToken
+  @override
   Future<BTResponse> getAccessToken(String code, {String? state}) async {
     var appId = getBgmAppId();
     var appSecret = getBgmAppSecret();
