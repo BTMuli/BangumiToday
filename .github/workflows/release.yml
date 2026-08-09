@@ -14,6 +14,7 @@ jobs:
     env:
       BANGUMI_APP_ID: ${{ secrets.BANGUMI_APP_ID }}
       BANGUMI_APP_SECRET: ${{ secrets.BANGUMI_APP_SECRET }}
+      MSIX_CERTIFICATE_BASE64: ${{ secrets.MSIX_CERTIFICATE_BASE64 }}
     steps:
       - name: 签出仓库
         uses: actions/checkout@v4
@@ -37,6 +38,15 @@ jobs:
       - name: 拉取依赖
         run: flutter pub get
 
+      - name: Dart 格式检查
+        run: dart format --output=none --set-exit-if-changed lib test test_driver
+
+      - name: Dart 静态分析
+        run: dart analyze --fatal-infos --fatal-warnings lib test test_driver
+
+      - name: Flutter 测试
+        run: flutter test
+
       - name: 构建并测试下载引擎
         shell: pwsh
         working-directory: repos/bt_download
@@ -53,26 +63,48 @@ jobs:
           $runtimePath = (Resolve-Path 'out/install/windows-x64-release').Path
           "BT_DOWNLOAD_RUNTIME_DIR=$runtimePath" >> $env:GITHUB_ENV
 
-      - name: 写入 .env
+      - name: 准备 Flutter 构建参数
         shell: pwsh
         run: |
-          New-Item -Path . -Name .env -ItemType File -Force
-          Add-Content -Path .env -Value "BANGUMI_APP_ID=${env:BANGUMI_APP_ID}"
-          Add-Content -Path .env -Value "BANGUMI_APP_SECRET=${env:BANGUMI_APP_SECRET}"
+          if ([string]::IsNullOrWhiteSpace($env:BANGUMI_APP_ID) -or
+              [string]::IsNullOrWhiteSpace($env:BANGUMI_APP_SECRET)) {
+            throw 'BANGUMI_APP_ID and BANGUMI_APP_SECRET must be configured.'
+          }
+          $defines = [ordered]@{
+            BANGUMI_APP_ID = $env:BANGUMI_APP_ID
+            BANGUMI_APP_SECRET = $env:BANGUMI_APP_SECRET
+          } | ConvertTo-Json
+          [IO.File]::WriteAllText(
+            'build_config.json',
+            $defines,
+            [Text.UTF8Encoding]::new($false)
+          )
 
       - name: 打包并压缩
         shell: pwsh
         run: |
-          flutter build windows --release
+          flutter build windows --release --dart-define-from-file=build_config.json
           ./scripts/verify_windows_bundle.ps1 `
             -BundlePath build/windows/x64/runner/Release `
             -EngineRuntimePath $env:BT_DOWNLOAD_RUNTIME_DIR
           Compress-Archive -Path ./build/windows/x64/runner/Release/* -DestinationPath BangumiToday.zip
 
+      - name: 准备 MSIX 签名证书
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:MSIX_CERTIFICATE_BASE64)) {
+            throw 'MSIX_CERTIFICATE_BASE64 must be configured.'
+          }
+          [IO.File]::WriteAllBytes(
+            'build_certificate.pfx',
+            [Convert]::FromBase64String($env:MSIX_CERTIFICATE_BASE64)
+          )
+
       - name: 打包msix
         run: >
           dart run msix:create
           --build-windows false
+          --certificate-path build_certificate.pfx
           -p ${{ secrets.SIGN_SECRET }}
 
       - name: 打包msix-Store
@@ -83,7 +115,19 @@ jobs:
           -b "CN=5FE33156-C3CE-4E71-A036-81BAA99521CB"
           -n "BangumiToday_Store"
           --build-windows false
+          --certificate-path build_certificate.pfx
           -p ${{ secrets.SIGN_SECRET }}
+
+      - name: 清理发布临时文件
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path -LiteralPath 'build_config.json') {
+            Remove-Item -LiteralPath 'build_config.json' -Force
+          }
+          if (Test-Path -LiteralPath 'build_certificate.pfx') {
+            Remove-Item -LiteralPath 'build_certificate.pfx' -Force
+          }
 
       - name: 上传文件
         uses: actions/upload-artifact@v4

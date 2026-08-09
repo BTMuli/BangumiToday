@@ -40,6 +40,28 @@ function Get-DotEnvValue {
     return $value
 }
 
+function Get-DartDefineValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    try {
+        $config = [IO.File]::ReadAllText($Path) | ConvertFrom-Json
+        $value = $config.$Name
+    }
+    catch {
+        throw "Unable to read $Name from ${Path}: $($_.Exception.Message)"
+    }
+    if ($null -eq $value -or [string]::IsNullOrWhiteSpace([string]$value)) {
+        throw "$Name in $Path must not be empty"
+    }
+    return [string]$value
+}
+
 function ConvertTo-MsixVersion {
     param(
         [Parameter(Mandatory = $true)]
@@ -306,17 +328,33 @@ Write-Output 'OK'
 
 $projectRoot = $PSScriptRoot
 $envPath = Join-Path $projectRoot '.env'
+$dartInputPath = Join-Path $projectRoot '.dart-define.json'
 $engineSourcePath = Join-Path $projectRoot 'repos\bt_download'
 $bundlePath = Join-Path $projectRoot 'build\windows\x64\runner\Release'
 $verifyScriptPath = Join-Path $projectRoot `
     'scripts\verify_windows_bundle.ps1'
 $msixPath = Join-Path $projectRoot 'BangumiToday.msix'
+$dartDefinePath = Join-Path $projectRoot 'build_config.json'
+$certificatePath = Join-Path $projectRoot 'BTMuli.pfx'
 
 if (-not (Test-Path -LiteralPath $envPath -PathType Leaf)) {
     throw ".env does not exist: $envPath"
 }
+if (-not (Test-Path -LiteralPath $certificatePath -PathType Leaf)) {
+    throw "MSIX certificate does not exist: $certificatePath"
+}
 
 $signPassword = Get-DotEnvValue -Path $envPath -Name 'SIGN_SECRET'
+$bangumiAppId = if (Test-Path -LiteralPath $dartInputPath -PathType Leaf) {
+    Get-DartDefineValue -Path $dartInputPath -Name 'BANGUMI_APP_ID'
+} else {
+    Get-DotEnvValue -Path $envPath -Name 'BANGUMI_APP_ID'
+}
+$bangumiAppSecret = if (Test-Path -LiteralPath $dartInputPath -PathType Leaf) {
+    Get-DartDefineValue -Path $dartInputPath -Name 'BANGUMI_APP_SECRET'
+} else {
+    Get-DotEnvValue -Path $envPath -Name 'BANGUMI_APP_SECRET'
+}
 $version = ConvertTo-MsixVersion (Get-DotEnvValue `
     -Path $envPath -Name 'MSIX_VERSION')
 
@@ -357,6 +395,16 @@ if ($version -lt $installedVersion) {
 
 Push-Location $projectRoot
 try {
+    $dartDefines = [ordered]@{
+        BANGUMI_APP_ID = $bangumiAppId
+        BANGUMI_APP_SECRET = $bangumiAppSecret
+    } | ConvertTo-Json
+    [IO.File]::WriteAllText(
+        $dartDefinePath,
+        $dartDefines,
+        [Text.UTF8Encoding]::new($false)
+    )
+
     if ($EngineRuntimePath) {
         $resolvedEngineRuntimePath = (Resolve-Path `
             -LiteralPath $EngineRuntimePath).Path
@@ -388,7 +436,12 @@ try {
     $env:BT_DOWNLOAD_RUNTIME_DIR = $resolvedEngineRuntimePath
     $flutterPath = (Get-Command flutter -ErrorAction Stop).Source
     Invoke-NativeCommand -FilePath $flutterPath `
-        -Arguments @('build', 'windows', '--release') `
+        -Arguments @(
+            'build',
+            'windows',
+            '--release',
+            "--dart-define-from-file=$dartDefinePath"
+        ) `
         -Description "Building BangumiToday $version with bt_download..."
 
     & $verifyScriptPath -BundlePath $bundlePath `
@@ -403,7 +456,9 @@ try {
             'false',
             "--version=$version",
             '-p',
-            $signPassword
+            $signPassword,
+            '-c',
+            $certificatePath
         ) `
         -Description "Creating BangumiToday MSIX $version..."
 
@@ -439,5 +494,8 @@ try {
     }
 }
 finally {
+    if (Test-Path -LiteralPath $dartDefinePath -PathType Leaf) {
+        Remove-Item -LiteralPath $dartDefinePath -Force
+    }
     Pop-Location
 }
