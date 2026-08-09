@@ -3,20 +3,6 @@ const btEngineMaxProtocolFrameBytes = 1024 * 1024;
 
 enum BtEngineClientState { stopped, starting, ready, stopping, failed }
 
-/// 解析协议版本为 `(major, minor)`，格式必须为 `major.minor`。
-(int, int) parseBtEngineProtocolVersion(String value) {
-  var parts = value.split('.');
-  if (parts.length != 2) {
-    throw const FormatException('invalid protocol version');
-  }
-  var major = int.tryParse(parts[0]);
-  var minor = int.tryParse(parts[1]);
-  if (major == null || minor == null || major < 0 || minor < 0) {
-    throw const FormatException('invalid protocol version');
-  }
-  return (major, minor);
-}
-
 class BtTaskError {
   const BtTaskError({
     required this.code,

@@ -251,35 +251,27 @@ void main() {
       expect(details.peers.single.downloadRate, 1024);
     });
 
-    test('negotiates protocol 1.1 with an old engine and falls back to full '
-        'details for tabbed lists', () async {
-      process.readyProtocolVersion = '1.1';
-      await client.start(
-        executablePath: executablePath,
-        statePath: path.join(temporaryDirectory.path, 'state'),
-      );
+    test(
+      'rejects an engine whose protocol version is not exactly 1.2',
+      () async {
+        process.readyProtocolVersion = '1.1';
 
-      expect(client.supportsTabbedDetails, isFalse);
-      var initialize = process.requests.firstWhere(
-        (request) => request['method'] == 'engine.initialize',
-      );
-      expect(initialize['params']['protocolVersion'], '1.1');
-
-      var files = await client.taskFiles('task');
-      var peers = await client.taskPeers('task');
-
-      expect(
-        process.requests.where((request) => request['method'] == 'task.files'),
-        isEmpty,
-      );
-      expect(
-        process.requests.where((request) => request['method'] == 'task.peers'),
-        isEmpty,
-      );
-      expect(files.files.single.path, 'episode.mkv');
-      expect(files.totalFiles, 1);
-      expect(peers.peers.single.client, 'qBittorrent');
-    });
+        await expectLater(
+          client.start(
+            executablePath: executablePath,
+            statePath: path.join(temporaryDirectory.path, 'state'),
+          ),
+          throwsA(
+            isA<BtEngineClientException>().having(
+              (error) => error.message,
+              'message',
+              contains('unsupported download engine protocol'),
+            ),
+          ),
+        );
+        expect(client.state, BtEngineClientState.failed);
+      },
+    );
 
     test(
       'requests tabbed file and peer lists on a protocol 1.2 engine',
@@ -289,7 +281,6 @@ void main() {
           statePath: path.join(temporaryDirectory.path, 'state'),
         );
 
-        expect(client.supportsTabbedDetails, isTrue);
         var files = await client.taskFiles('task', limit: 1);
         var peers = await client.taskPeers('task', offset: 1);
 
@@ -619,7 +610,8 @@ class FakeBtEngineProcess implements BtEngineProcess {
           },
         );
       case 'task.files':
-        var filesOffset = ((request['params'] as Map?)?['offset'] as num?)?.toInt() ?? 0;
+        var filesOffset =
+            ((request['params'] as Map?)?['offset'] as num?)?.toInt() ?? 0;
         _respond(
           request,
           result: {
@@ -638,7 +630,8 @@ class FakeBtEngineProcess implements BtEngineProcess {
           },
         );
       case 'task.peers':
-        var peersOffset = ((request['params'] as Map?)?['offset'] as num?)?.toInt() ?? 0;
+        var peersOffset =
+            ((request['params'] as Map?)?['offset'] as num?)?.toInt() ?? 0;
         _respond(
           request,
           result: {

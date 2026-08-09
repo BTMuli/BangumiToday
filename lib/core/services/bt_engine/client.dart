@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 // Package imports:
 import 'package:path/path.dart' as path;
@@ -47,21 +46,12 @@ class BtEngineClient implements BtEngineGateway {
   var _nextRequestId = 0;
   Future<void> _sendQueue = Future.value();
   int? _sequence;
-  int? _engineProtocolMinor;
   BtEngineClientState _state = BtEngineClientState.stopped;
-
-  /// 客户端支持的引擎协议次版本范围。
-  static const _minEngineProtocolMinor = 1;
-  static const _maxEngineProtocolMinor = 2;
 
   @override
   BtEngineClientState get state => _state;
   @override
   bool get isReady => _state == BtEngineClientState.ready;
-
-  /// 引擎是否支持按 Tab 拆分详情（`task.files` / `task.peers`）。
-  bool get supportsTabbedDetails => (_engineProtocolMinor ?? 0) >= 2;
-
   @override
   List<BtTaskSnapshot> get tasks => List.unmodifiable(_tasks.values);
   @override
@@ -111,11 +101,15 @@ class BtEngineClient implements BtEngineGateway {
       _listenToProcess(process);
 
       var ready = await _readyCompleter!.future.timeout(readyTimeout);
-      var engineMinor = _negotiateEngineProtocol(ready['protocolVersion']);
-      _engineProtocolMinor = engineMinor;
+      if (ready['protocolVersion'] != btEngineProtocolVersion) {
+        throw BtEngineClientException(
+          'unsupported download engine protocol: '
+          '${ready['protocolVersion']}',
+        );
+      }
 
       await request('engine.initialize', {
-        'protocolVersion': '1.$engineMinor',
+        'protocolVersion': btEngineProtocolVersion,
         'statePath': engineStatePath,
         'userAgent': await getClientUA(),
         if (config.isNotEmpty) 'config': config,
@@ -127,28 +121,6 @@ class BtEngineClient implements BtEngineGateway {
       _setState(BtEngineClientState.failed);
       await _terminateFailedStart();
       rethrow;
-    }
-  }
-
-  /// 校验引擎通告的协议版本，返回客户端可协商的次版本。
-  ///
-  /// 只接受与客户端主版本一致且次版本落在支持范围内的引擎；
-  /// 旧引擎（协议 1.1）通过协商降级使用，不触发新方法。
-  int _negotiateEngineProtocol(Object? rawVersion) {
-    try {
-      var (major, minor) = parseBtEngineProtocolVersion(
-        rawVersion as String? ?? '',
-      );
-      if (major != 1 ||
-          minor < _minEngineProtocolMinor ||
-          minor > _maxEngineProtocolMinor) {
-        throw const FormatException('unsupported protocol version');
-      }
-      return minor;
-    } on FormatException {
-      throw BtEngineClientException(
-        'unsupported download engine protocol: $rawVersion',
-      );
     }
   }
 
@@ -164,46 +136,6 @@ class BtEngineClient implements BtEngineGateway {
     return future;
   }
 
-  BtTaskFilesResult _filesFromDetails(
-    BtTaskDetails details,
-    int offset,
-    int limit,
-  ) {
-    var files = details.files;
-    var end = min(files.length, offset + limit);
-    var page = offset < end
-        ? files.sublist(offset, end)
-        : const <BtTaskFileDetail>[];
-    var truncated = details.filesTruncated || end < files.length;
-    return BtTaskFilesResult(
-      files: page,
-      truncated: truncated,
-      totalFiles: details.totalFiles,
-      offset: offset,
-      nextOffset: truncated ? end : null,
-    );
-  }
-
-  BtTaskPeersResult _peersFromDetails(
-    BtTaskDetails details,
-    int offset,
-    int limit,
-  ) {
-    var peers = details.peers;
-    var end = min(peers.length, offset + limit);
-    var page = offset < end
-        ? peers.sublist(offset, end)
-        : const <BtTaskPeerDetail>[];
-    var truncated = details.peersTruncated || end < peers.length;
-    return BtTaskPeersResult(
-      peers: page,
-      truncated: truncated,
-      totalPeers: details.totalPeers,
-      offset: offset,
-      nextOffset: truncated ? end : null,
-    );
-  }
-
   @override
   Future<BtTaskDetails> taskDetails(String id) {
     return _singleFlight('task.details:$id', () async {
@@ -214,12 +146,6 @@ class BtEngineClient implements BtEngineGateway {
 
   @override
   Future<BtTaskFilesResult> taskFiles(String id, {int offset = 0, int? limit}) {
-    if (!supportsTabbedDetails) {
-      return _singleFlight('task.files.fallback:$id', () async {
-        var details = await taskDetails(id);
-        return _filesFromDetails(details, offset, limit ?? 2000);
-      });
-    }
     return _singleFlight('task.files:$id:$offset:${limit ?? ''}', () async {
       var result = await request('task.files', {
         'id': id,
@@ -232,12 +158,6 @@ class BtEngineClient implements BtEngineGateway {
 
   @override
   Future<BtTaskPeersResult> taskPeers(String id, {int offset = 0, int? limit}) {
-    if (!supportsTabbedDetails) {
-      return _singleFlight('task.peers.fallback:$id', () async {
-        var details = await taskDetails(id);
-        return _peersFromDetails(details, offset, limit ?? 500);
-      });
-    }
     return _singleFlight('task.peers:$id:$offset:${limit ?? ''}', () async {
       var result = await request('task.peers', {
         'id': id,
@@ -642,7 +562,6 @@ class BtEngineClient implements BtEngineGateway {
     _readyCompleter = null;
     _taskRefresh = null;
     _sequence = null;
-    _engineProtocolMinor = null;
     _inflight.clear();
     _sendQueue = Future.value();
     _failPendingRequests(
