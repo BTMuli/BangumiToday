@@ -17,7 +17,6 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/cache/lru_cache_manager.dart';
-import 'core/memory/memory_manager.dart';
 import 'core/services/bt_engine_client.dart';
 import 'core/services/bmf_rss_service.dart';
 import 'core/utils/window_effect.dart';
@@ -107,8 +106,6 @@ Future<void> _initBackgroundServices() async {
     _runOptionalService('应用缓存', BTCacheManager.instance.init),
     _runOptionalService('LRU 缓存', LRUCacheManager.instance.init),
   ]);
-
-  MemoryManager.instance.startMonitoring(interval: const Duration(seconds: 60));
 
   await _runOptionalService(
     '窗口特效',

@@ -4,7 +4,6 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hive/hive.dart';
 
-import '../core/memory/memory_manager.dart';
 import '../models/hive/nav_model.dart';
 import '../pages/subject-detail/subject_detail_page.dart';
 
@@ -45,23 +44,11 @@ class BTNavStore extends ChangeNotifier {
   bool isIndexLoaded(int index) => _loadedIndices.contains(index);
 
   void setCurIndex(int index) {
-    if (curIndex != index) {
-      _markIndexAsNotInUse(curIndex);
-    }
     curIndex = index;
     _loadedIndices.add(index);
     _preloadAdjacent(index);
     _cleanupCache();
     notifyListeners();
-  }
-
-  void _markIndexAsNotInUse(int index) {
-    var navIndex = index - topNavCount;
-    if (navIndex >= 0 && navIndex < _navItems.length) {
-      var item = _navItems[navIndex];
-      var key = 'nav_item_${item.param ?? item.title}';
-      MemoryManager.instance.unregisterDisposable(key);
-    }
   }
 
   void _preloadAdjacent(int index) {
