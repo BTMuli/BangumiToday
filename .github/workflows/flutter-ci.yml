@@ -9,27 +9,4 @@ on:
 jobs:
   quality:
     name: Flutter quality
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          architecture: x64
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Check formatting
-        run: dart format --output=none --set-exit-if-changed lib test test_driver
-
-      - name: Analyze
-        run: dart analyze --fatal-infos --fatal-warnings lib test test_driver
-
-      - name: Test
-        run: flutter test
+    uses: ./.github/workflows/quality.yml

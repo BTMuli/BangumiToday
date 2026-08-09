@@ -6,8 +6,13 @@ on:
       - "v*.*.*"
 
 jobs:
+  quality:
+    name: Flutter quality gate
+    uses: ./.github/workflows/quality.yml
+
   build:
     name: Build Windows
+    needs: quality
     runs-on: windows-latest
     permissions:
       contents: write
@@ -37,15 +42,6 @@ jobs:
 
       - name: 拉取依赖
         run: flutter pub get
-
-      - name: Dart 格式检查
-        run: dart format --output=none --set-exit-if-changed lib test test_driver
-
-      - name: Dart 静态分析
-        run: dart analyze --fatal-infos --fatal-warnings lib test test_driver
-
-      - name: Flutter 测试
-        run: flutter test
 
       - name: 构建并测试下载引擎
         shell: pwsh
