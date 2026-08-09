@@ -21,6 +21,9 @@ class BtsAppBmf {
   /// Whether the table has the airDate column.
   static bool hasAirDate = false;
 
+  /// Whether the table has the autoUpdate column.
+  static bool hasAutoUpdate = false;
+
   /// 获取实例
   factory BtsAppBmf() => _instance;
 
@@ -42,6 +45,7 @@ class BtsAppBmf {
           airDate TEXT DEFAULT '',
           rss TEXT,
           download TEXT,
+          autoUpdate INTEGER NOT NULL DEFAULT 1,
           UNIQUE(subject)
         );
       ''');
@@ -56,6 +60,8 @@ class BtsAppBmf {
     if (!hasMk) await checkMkUpdate();
 
     if (!hasAirDate) await checkAirDateUpdate();
+
+    if (!hasAutoUpdate) await checkAutoUpdateUpdate();
   }
 
   /// 检查是否有title字段
@@ -101,6 +107,21 @@ class BtsAppBmf {
     }
   }
 
+  Future<void> checkAutoUpdateUpdate() async {
+    var check = await _instance.sqlite.db.rawQuery(
+      'PRAGMA table_info($_tableName)',
+    );
+    hasAutoUpdate = check.any((element) => element['name'] == 'autoUpdate');
+    if (!hasAutoUpdate) {
+      await _instance.sqlite.db.execute(
+        'ALTER TABLE $_tableName ADD COLUMN autoUpdate '
+        'INTEGER NOT NULL DEFAULT 1;',
+      );
+      hasAutoUpdate = true;
+      BTLogTool.info('Update table $_tableName add autoUpdate');
+    }
+  }
+
   /// 读取全部配置
   Future<List<AppBmfModel>> readAll() async {
     await _instance.preCheck();
@@ -141,8 +162,9 @@ class BtsAppBmf {
     if (result.isEmpty) {
       await _instance.sqlite.db.rawInsert(
         'INSERT INTO $_tableName '
-        '(subject, rss, download, title, airDate, mkBgmId, mkGroupId) '
-        'VALUES (?, ?, ?, ?, ?, ?, ?)',
+        '(subject, rss, download, title, airDate, mkBgmId, mkGroupId, '
+        'autoUpdate) '
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         [
           model.subject,
           model.rss,
@@ -151,13 +173,14 @@ class BtsAppBmf {
           model.airDate,
           model.mkBgmId,
           model.mkGroupId,
+          model.autoUpdate ? 1 : 0,
         ],
       );
     } else {
       await _instance.sqlite.db.rawUpdate(
         'UPDATE $_tableName SET '
         'rss = ?, download = ?, title = ?, airDate = ?, '
-        'mkBgmId = ?, mkGroupId = ? '
+        'mkBgmId = ?, mkGroupId = ?, autoUpdate = ? '
         'WHERE subject = ?',
         [
           model.rss,
@@ -166,6 +189,7 @@ class BtsAppBmf {
           model.airDate,
           model.mkBgmId,
           model.mkGroupId,
+          model.autoUpdate ? 1 : 0,
           model.subject,
         ],
       );

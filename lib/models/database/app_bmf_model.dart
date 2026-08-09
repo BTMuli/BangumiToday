@@ -34,6 +34,9 @@ class AppBmfModel {
   /// 下载目录
   late String? download;
 
+  /// 是否自动更新 RSS
+  late bool autoUpdate;
+
   /// 构造函数
   AppBmfModel({
     this.id = -1,
@@ -44,6 +47,7 @@ class AppBmfModel {
     this.download,
     this.mkBgmId,
     this.mkGroupId,
+    this.autoUpdate = true,
   });
 
   /// JSON 序列化
@@ -63,6 +67,7 @@ class AppBmfModel {
     Object? mkBgmId = _unset,
     Object? mkGroupId = _unset,
     Object? download = _unset,
+    Object? autoUpdate = _unset,
   }) {
     return AppBmfModel(
       id: id == _unset ? this.id : id as int,
@@ -73,6 +78,7 @@ class AppBmfModel {
       mkBgmId: mkBgmId == _unset ? this.mkBgmId : mkBgmId as String?,
       mkGroupId: mkGroupId == _unset ? this.mkGroupId : mkGroupId as String?,
       download: download == _unset ? this.download : download as String?,
+      autoUpdate: autoUpdate == _unset ? this.autoUpdate : autoUpdate as bool,
     );
   }
 }

@@ -15,6 +15,7 @@ AppBmfModel _$AppBmfModelFromJson(Map<String, dynamic> json) => AppBmfModel(
   download: json['download'] as String?,
   mkBgmId: json['mkBgmId'] as String?,
   mkGroupId: json['mkGroupId'] as String?,
+  autoUpdate: (json['autoUpdate'] as num?)?.toInt() != 0,
 );
 
 Map<String, dynamic> _$AppBmfModelToJson(AppBmfModel instance) =>
@@ -27,4 +28,5 @@ Map<String, dynamic> _$AppBmfModelToJson(AppBmfModel instance) =>
       'mkBgmId': instance.mkBgmId,
       'mkGroupId': instance.mkGroupId,
       'download': instance.download,
+      'autoUpdate': instance.autoUpdate,
     };

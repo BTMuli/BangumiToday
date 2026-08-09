@@ -1,9 +1,11 @@
 import 'package:bangumi_today/database/bangumi/bangumi_collection.dart';
 import 'package:bangumi_today/database/bangumi/bangumi_data.dart';
 import 'package:bangumi_today/database/bangumi/bangumi_user.dart';
+import 'package:bangumi_today/database/app/app_bmf.dart';
 import 'package:bangumi_today/database/app/app_config.dart';
 import 'package:bangumi_today/database/app/app_rss.dart';
 import 'package:bangumi_today/database/bt_sqlite.dart';
+import 'package:bangumi_today/models/database/app_bmf_model.dart';
 import 'package:bangumi_today/models/database/app_rss_model.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -139,5 +141,35 @@ void main() {
     var updated = await rss.read(model.rss);
     expect(updated?.pendingItemKeys, {'episode-2'});
     expect(updated?.updated, fetchedAt);
+  });
+
+  test('BMF auto update defaults to enabled and persists', () async {
+    await database.execute('''
+      CREATE TABLE AppBmf (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subject INTEGER NOT NULL,
+        title TEXT DEFAULT '',
+        airDate TEXT DEFAULT '',
+        rss TEXT,
+        download TEXT,
+        UNIQUE(subject)
+      );
+    ''');
+    BtsAppBmf.hasTitle = false;
+    BtsAppBmf.hasMk = false;
+    BtsAppBmf.hasAirDate = false;
+    BtsAppBmf.hasAutoUpdate = false;
+
+    var bmf = BtsAppBmf();
+    await bmf.preCheck();
+    var columns = await database.rawQuery('PRAGMA table_info(AppBmf)');
+    expect(columns.map((column) => column['name']), contains('autoUpdate'));
+
+    var model = AppBmfModel(subject: 42, title: 'Example');
+    await bmf.write(model);
+    expect((await bmf.read(42))?.autoUpdate, isTrue);
+
+    await bmf.write(model.copyWith(autoUpdate: false));
+    expect((await bmf.read(42))?.autoUpdate, isFalse);
   });
 }

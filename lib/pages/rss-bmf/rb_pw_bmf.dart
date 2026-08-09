@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 
@@ -18,18 +19,29 @@ import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_detail/bmf_card.dart';
 import '../../widgets/bangumi/subject_detail/bmf_expander.dart';
 
-enum _BmfConfigurationFilter { all, updates, hasRss, incomplete }
+enum _BmfConfigurationFilter {
+  all,
+  updates,
+  hasRss,
+  autoUpdate,
+  manualUpdate,
+  incomplete,
+}
 
 class BmfFilterStats {
   final int total;
   final int updates;
   final int hasRss;
+  final int autoUpdate;
+  final int manualUpdate;
   final int incomplete;
 
   const BmfFilterStats({
     required this.total,
     required this.updates,
     required this.hasRss,
+    required this.autoUpdate,
+    required this.manualUpdate,
     required this.incomplete,
   });
 
@@ -37,6 +49,8 @@ class BmfFilterStats {
     total: 0,
     updates: 0,
     hasRss: 0,
+    autoUpdate: 0,
+    manualUpdate: 0,
     incomplete: 0,
   );
 }
@@ -69,11 +83,13 @@ class _BmfConfigDraft {
   final String title;
   final String rss;
   final String download;
+  final bool autoUpdate;
 
   const _BmfConfigDraft({
     required this.title,
     required this.rss,
     required this.download,
+    required this.autoUpdate,
   });
 }
 
@@ -164,6 +180,8 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
 
   void _computeStats(List<AppBmfModel> bmfList) {
     var hasRss = 0;
+    var autoUpdate = 0;
+    var manualUpdate = 0;
     var incomplete = 0;
     var updates = 0;
     for (var item in bmfList) {
@@ -171,6 +189,11 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
       var directoryConfigured =
           item.download != null && item.download!.isNotEmpty;
       if (rssConfigured) hasRss++;
+      if (item.autoUpdate) {
+        autoUpdate++;
+      } else {
+        manualUpdate++;
+      }
       if (!rssConfigured || !directoryConfigured) incomplete++;
       if ((_pendingCounts[item.subject] ?? 0) > 0) updates++;
     }
@@ -178,6 +201,8 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
       total: bmfList.length,
       updates: updates,
       hasRss: hasRss,
+      autoUpdate: autoUpdate,
+      manualUpdate: manualUpdate,
       incomplete: incomplete,
     );
   }
@@ -218,6 +243,8 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
             _BmfConfigurationFilter.updates =>
               (_pendingCounts[bmf.subject] ?? 0) > 0,
             _BmfConfigurationFilter.hasRss => hasRss,
+            _BmfConfigurationFilter.autoUpdate => bmf.autoUpdate,
+            _BmfConfigurationFilter.manualUpdate => !bmf.autoUpdate,
             _BmfConfigurationFilter.incomplete => !hasRss || !hasDirectory,
           };
         }).toList()..sort((a, b) {
@@ -339,6 +366,30 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     }
   }
 
+  Future<void> _setAutoUpdate(AppBmfModel bmf, bool enabled) async {
+    if (bmf.autoUpdate == enabled) return;
+    await ref
+        .read(bmfRepositoryProvider)
+        .updateModel(bmf.copyWith(autoUpdate: enabled));
+    if (mounted) {
+      await BtInfobar.success(
+        context,
+        enabled ? '已开启 RSS 自动更新' : '已关闭 RSS 自动更新',
+      );
+    }
+  }
+
+  Future<void> _copyTitle(AppBmfModel bmf) async {
+    var title = bmf.title?.trim();
+    if (title == null || title.isEmpty) {
+      await BtInfobar.error(context, '标题为空');
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: title));
+    if (mounted) await BtInfobar.success(context, '已复制标题: $title');
+  }
+
   Future<void> _editConfiguration(AppBmfModel bmf) async {
     var draft = await showDialog<_BmfConfigDraft>(
       context: context,
@@ -383,6 +434,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
       title: titleValue.isEmpty ? null : titleValue,
       rss: rssValue.isEmpty ? null : rssValue,
       download: downloadValue.isEmpty ? null : downloadValue,
+      autoUpdate: draft.autoUpdate,
       mkBgmId: null,
       mkGroupId: null,
     );
@@ -567,6 +619,18 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
               ),
               _buildFilterChip(
                 context,
+                label: '自动更新',
+                count: filterStats.autoUpdate,
+                value: _BmfConfigurationFilter.autoUpdate,
+              ),
+              _buildFilterChip(
+                context,
+                label: '手动更新',
+                count: filterStats.manualUpdate,
+                value: _BmfConfigurationFilter.manualUpdate,
+              ),
+              _buildFilterChip(
+                context,
                 label: '待补全',
                 count: filterStats.incomplete,
                 value: _BmfConfigurationFilter.incomplete,
@@ -725,6 +789,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
             pendingCount: _pendingCounts[bmf.subject] ?? 0,
             selected: !compact && selected?.subject == bmf.subject,
             dense: true,
+            onAutoUpdateChanged: (enabled) => _setAutoUpdate(bmf, enabled),
             onOpen: () => setState(() {
               selectedSubject = bmf.subject;
               _showCompactDetail = compact;
@@ -810,6 +875,11 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
                             ),
                           _buildStatusBadge(
                             context,
+                            label: bmf.autoUpdate ? 'RSS 自动更新' : 'RSS 手动更新',
+                            active: bmf.autoUpdate,
+                          ),
+                          _buildStatusBadge(
+                            context,
                             label: hasRss ? 'RSS 已关联' : '缺少 RSS',
                             active: hasRss,
                           ),
@@ -836,6 +906,13 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
                   ),
                 ),
                 SizedBox(width: 6),
+                Tooltip(
+                  message: '复制标题',
+                  child: IconButton(
+                    icon: BtIcon(FluentIcons.copy, size: 14),
+                    onPressed: () => _copyTitle(bmf),
+                  ),
+                ),
                 Tooltip(
                   message: '打开番剧详情',
                   child: IconButton(
@@ -1033,6 +1110,10 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
                 ? '没有找到匹配的番剧'
                 : configurationFilter == _BmfConfigurationFilter.updates
                 ? '没有待处理更新'
+                : configurationFilter == _BmfConfigurationFilter.autoUpdate
+                ? '没有开启自动更新的 BMF'
+                : configurationFilter == _BmfConfigurationFilter.manualUpdate
+                ? '没有关闭自动更新的 BMF'
                 : configurationFilter == _BmfConfigurationFilter.incomplete
                 ? '当前关联均已补全'
                 : '暂无 BMF 关联',
@@ -1062,6 +1143,8 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
   late final TextEditingController _titleController;
   late final TextEditingController _rssController;
   late final TextEditingController _downloadController;
+  late bool _autoUpdate;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -1071,6 +1154,7 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
     _downloadController = TextEditingController(
       text: widget.bmf.download ?? '',
     );
+    _autoUpdate = widget.bmf.autoUpdate;
   }
 
   @override
@@ -1087,8 +1171,27 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
         title: _titleController.text,
         rss: _rssController.text,
         download: _downloadController.text,
+        autoUpdate: _autoUpdate,
       ),
     );
+  }
+
+  Future<void> _refreshNow() async {
+    if (_refreshing) return;
+    if (widget.bmf.rss == null || widget.bmf.rss!.isEmpty) {
+      await BtInfobar.error(context, '请先配置 RSS');
+      return;
+    }
+
+    setState(() => _refreshing = true);
+    var result = await BmfRssService.instance.refreshBmf(widget.bmf);
+    if (!mounted) return;
+    setState(() => _refreshing = false);
+    if (result) {
+      await BtInfobar.success(context, 'RSS 刷新成功');
+    } else {
+      await BtInfobar.error(context, 'RSS 刷新失败');
+    }
   }
 
   @override
@@ -1122,6 +1225,18 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
               placeholder: 'Mikan RSS 或其他兼容订阅地址',
             ),
             SizedBox(height: 14),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('RSS 自动更新'),
+              subtitle: Text(
+                _autoUpdate ? '应用运行时会按计划自动刷新 RSS' : '已关闭自动刷新，可使用刷新按钮手动更新',
+              ),
+              trailing: ToggleSwitch(
+                checked: _autoUpdate,
+                onChanged: (value) => setState(() => _autoUpdate = value),
+              ),
+            ),
+            SizedBox(height: 6),
             _buildLabel(context, '本地目录'),
             TextBox(
               controller: _downloadController,
@@ -1150,6 +1265,17 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
         Button(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
+        ),
+        Button(
+          onPressed: _refreshing ? null : _refreshNow,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(FluentIcons.refresh, size: 13),
+              SizedBox(width: 6),
+              Text(_refreshing ? '刷新中…' : '刷新 RSS'),
+            ],
+          ),
         ),
         FilledButton(onPressed: _submit, child: const Text('保存关联')),
       ],

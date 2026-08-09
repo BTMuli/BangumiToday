@@ -23,6 +23,7 @@ class BmfCard extends ConsumerStatefulWidget {
   final AppBmfModel bmf;
   final VoidCallback? onDelete;
   final VoidCallback? onOpen;
+  final void Function(bool enabled)? onAutoUpdateChanged;
   final bool selected;
   final int? pendingCount;
   final bool dense;
@@ -32,6 +33,7 @@ class BmfCard extends ConsumerStatefulWidget {
     required this.bmf,
     this.onDelete,
     this.onOpen,
+    this.onAutoUpdateChanged,
     this.selected = false,
     this.pendingCount,
     this.dense = false,
@@ -332,6 +334,14 @@ class _BmfCardState extends ConsumerState<BmfCard>
             isActive: fileCount > 0,
           ),
         ),
+        Tooltip(
+          message: bmf.autoUpdate ? '自动更新 RSS：已开启' : '自动更新 RSS：已关闭',
+          child: ToggleSwitch(
+            checked: bmf.autoUpdate,
+            onChanged: widget.onAutoUpdateChanged,
+          ),
+        ),
+        SizedBox(width: 6),
         Tooltip(
           message: '跳转到详情页',
           child: IconButton(

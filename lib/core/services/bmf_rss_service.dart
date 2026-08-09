@@ -97,7 +97,7 @@ class BmfRssService {
   Future<void> _start(Duration refreshInterval) async {
     BTLogTool.info('BMF RSS 服务启动');
     await _loadKnownItems();
-    await _refreshAllRss();
+    await _refreshAllRss(respectAutoUpdate: true);
 
     _refreshTimer = Timer.periodic(refreshInterval, (_) {
       unawaited(_refreshFromTimer());
@@ -109,7 +109,7 @@ class BmfRssService {
 
   Future<void> _refreshFromTimer() async {
     try {
-      await _refreshAllRss();
+      await _refreshAllRss(respectAutoUpdate: true);
     } catch (error, stackTrace) {
       BTLogTool.error([
         'BMF RSS 定时刷新失败',
@@ -146,11 +146,13 @@ class BmfRssService {
     }
   }
 
-  Future<void> _refreshAllRss() async {
-    await _bulkRefreshGuard.run(_performRefreshAllRss);
+  Future<void> _refreshAllRss({required bool respectAutoUpdate}) async {
+    await _bulkRefreshGuard.run(
+      () => _performRefreshAllRss(respectAutoUpdate: respectAutoUpdate),
+    );
   }
 
-  Future<void> _performRefreshAllRss() async {
+  Future<void> _performRefreshAllRss({required bool respectAutoUpdate}) async {
     var bmfList = await _bmfDb.readAll();
     if (bmfList.isEmpty) {
       BTLogTool.info('没有 BMF 订阅需要刷新');
@@ -162,7 +164,12 @@ class BmfRssService {
     var mikanUrl = await _configDb.readMikanUrl();
 
     var subscriptions = bmfList
-        .where((bmf) => bmf.rss != null && bmf.rss!.isNotEmpty)
+        .where(
+          (bmf) =>
+              bmf.rss != null &&
+              bmf.rss!.isNotEmpty &&
+              (!respectAutoUpdate || bmf.autoUpdate),
+        )
         .toList();
 
     var updates = <_RssSubscriptionUpdate>[];
@@ -317,7 +324,7 @@ class BmfRssService {
 
   Future<void> refreshNow() async {
     BTLogTool.info('手动刷新所有 BMF RSS');
-    await _refreshAllRss();
+    await _refreshAllRss(respectAutoUpdate: false);
   }
 
   Future<bool> refreshBmf(AppBmfModel bmf) async {
@@ -335,7 +342,7 @@ class BmfRssService {
 
   Future<bool> onBmfWritten(AppBmfModel bmf) async {
     if (!_isInitialized) return false;
-    if (bmf.rss == null || bmf.rss!.isEmpty) return false;
+    if (!bmf.autoUpdate || bmf.rss == null || bmf.rss!.isEmpty) return false;
 
     var mikanUrl = await _configDb.readMikanUrl();
 

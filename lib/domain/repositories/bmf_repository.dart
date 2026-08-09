@@ -55,7 +55,7 @@ class BmfRepository {
   }
 
   Future<void> refreshRss(AppBmfModel model) async {
-    await BmfRssService.instance.onBmfWritten(model);
+    await BmfRssService.instance.refreshBmf(model);
   }
 
   Future<void> updateMikanUrl(String url, String ori) async {
