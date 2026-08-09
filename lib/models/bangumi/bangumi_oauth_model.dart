@@ -63,8 +63,12 @@ class BangumiOauthParams {
   @JsonKey(name: 'redirect_uri')
   String redirectUri = 'BangumiToday://oauth/bangumi/callback';
 
+  /// 防止伪造回调的随机状态值
+  @JsonKey(name: 'state', includeIfNull: false)
+  String? state;
+
   /// constructor
-  BangumiOauthParams({required this.appId});
+  BangumiOauthParams({required this.appId, this.state});
 
   /// from json
   factory BangumiOauthParams.fromJson(Map<String, dynamic> json) =>

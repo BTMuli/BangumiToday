@@ -31,24 +31,24 @@ class BtrBangumiOauth {
   }
 
   /// 打开授权页面
-  Future<void> openAuthorizePage() async {
+  Future<void> openAuthorizePage({String? state}) async {
     var appId = getBgmAppId();
-    var params = BangumiOauthParams(appId: appId);
-    var url = Uri.parse('$siteBaseUrl/oauth/authorize').replace(
-      queryParameters: params.toJson(),
-    );
+    var params = BangumiOauthParams(appId: appId, state: state);
+    var url = Uri.parse(
+      '$siteBaseUrl/oauth/authorize',
+    ).replace(queryParameters: params.toJson());
     await launchUrl(url);
   }
 
   /// 获取 AccessToken
-  Future<BTResponse> getAccessToken(String code) async {
+  Future<BTResponse> getAccessToken(String code, {String? state}) async {
     var appId = getBgmAppId();
     var appSecret = getBgmAppSecret();
     var params = BangumiOauthTokenGetParams(
       appId: appId,
       appSecret: appSecret,
       code: code,
-      state: '',
+      state: state,
     );
     try {
       var response = await client.dio.post(

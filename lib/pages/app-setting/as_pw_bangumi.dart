@@ -1,5 +1,4 @@
 // Package imports:
-import 'package:app_links/app_links.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +6,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../../controller/app/progress_controller.dart';
+import '../../../core/services/bangumi_oauth_coordinator.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
@@ -47,9 +47,6 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
   /// 认证相关客户端
   final BtrBangumiOauth apiOauth = BtrBangumiOauth();
 
-  /// app-link 监听
-  final AppLinks appLinks = AppLinks();
-
   /// 进度条
   late ProgressController progress = ProgressController();
 
@@ -67,7 +64,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       return;
     }
     collectionCount = await sqlite.getCount();
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   /// 刷新访问令牌
@@ -83,6 +80,10 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       return;
     }
     var res = await hive.refreshAuth(force: force);
+    if (!mounted) {
+      progress.end();
+      return;
+    }
     if (res == null || !res) {
       progress.end();
     }
@@ -100,7 +101,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       return;
     }
     progress.end();
-    if (mounted) await BtInfobar.success(context, '刷新访问令牌成功 ${hive.tokenAC}');
+    if (mounted) await BtInfobar.success(context, '刷新访问令牌成功');
   }
 
   /// 刷新用户信息
@@ -123,6 +124,10 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       return;
     }
     await hive.updateUser(userResp.data!);
+    if (!mounted) {
+      progress.end();
+      return;
+    }
     progress.update(title: '获取用户信息成功', text: '用户信息：${hive.user!.nickname}');
     progress.end();
     if (mounted) {
@@ -140,36 +145,24 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     } else {
       progress = ProgressWidget.show(context, title: '前往授权页面');
     }
-    await apiOauth.openAuthorizePage();
     progress.update(text: '等待授权回调');
-    appLinks.uriLinkStream.listen((uri) async {
-      debugPrint(uri.toString());
-      if (uri.toString().startsWith('bangumitoday://oauth')) {
-        progress.update(text: '处理授权回调');
-        var code = uri.queryParameters['code'];
-        if (code == null) {
-          if (mounted) await BtInfobar.error(context, '授权失败：未找到授权码');
-          progress.end();
-          // 停止监听
-          appLinks.uriLinkStream.listen((_) {});
-          return;
-        }
-        progress.update(text: '授权码：$code');
-        var res = await apiOauth.getAccessToken(code);
-        if (res.code != 0 || res.data == null) {
-          progress.end();
-          if (mounted) await showRespErr(res, context);
-          return;
-        }
-        assert(res.data != null);
-        var at = res.data as BangumiOauthTokenGetData;
-        await hive.updateAccessToken(at.accessToken, update: false);
-        await hive.updateRefreshToken(at.refreshToken, update: false);
-        await hive.updateExpireTime(at.expiresIn, update: false);
-        await hive.updateBox();
-        await freshUserInfo();
-      }
-    });
+    var res = await BangumiOAuthCoordinator.instance.authorize(apiOauth);
+    if (!mounted) {
+      progress.end();
+      return;
+    }
+    if (res.code != 0 || res.data == null) {
+      progress.end();
+      await showRespErr(res, context);
+      return;
+    }
+    progress.update(text: '保存授权信息');
+    var at = res.data as BangumiOauthTokenGetData;
+    await hive.updateAccessToken(at.accessToken, update: false);
+    await hive.updateRefreshToken(at.refreshToken, update: false);
+    await hive.updateExpireTime(at.expiresIn, update: false);
+    await hive.updateBox();
+    await freshUserInfo();
   }
 
   /// 刷新收藏
@@ -271,7 +264,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     );
     if (!deleteConfirm) return;
     await hive.deleteUser();
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   /// 构建用户

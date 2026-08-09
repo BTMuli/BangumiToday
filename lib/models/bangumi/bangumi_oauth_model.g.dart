@@ -25,7 +25,10 @@ Map<String, dynamic> _$BangumiOauthConfigToJson(BangumiOauthConfig instance) =>
     };
 
 BangumiOauthParams _$BangumiOauthParamsFromJson(Map<String, dynamic> json) =>
-    BangumiOauthParams(appId: json['client_id'] as String)
+    BangumiOauthParams(
+        appId: json['client_id'] as String,
+        state: json['state'] as String?,
+      )
       ..responseType = json['response_type'] as String
       ..redirectUri = json['redirect_uri'] as String;
 
@@ -34,6 +37,7 @@ Map<String, dynamic> _$BangumiOauthParamsToJson(BangumiOauthParams instance) =>
       'client_id': instance.appId,
       'response_type': instance.responseType,
       'redirect_uri': instance.redirectUri,
+      'state': ?instance.state,
     };
 
 BangumiOauthTokenGetParams _$BangumiOauthTokenGetParamsFromJson(
