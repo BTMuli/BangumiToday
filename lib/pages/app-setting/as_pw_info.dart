@@ -181,11 +181,7 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
         await ref.read(appStoreProvider.notifier).setAccentColor(color);
         if (mounted) Navigator.of(context).pop();
       },
-      child: SizedBox(
-        width: 32,
-        height: 32,
-        child: ColoredBox(color: color),
-      ),
+      child: SizedBox(width: 32, height: 32, child: ColoredBox(color: color)),
     );
   }
 

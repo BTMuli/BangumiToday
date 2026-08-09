@@ -171,11 +171,8 @@ class CacheableData<T> extends Disposable {
   final Duration? maxAge;
   final void Function(T?)? onDisposeCallback;
 
-  CacheableData({
-    this.data,
-    this.maxAge,
-    this.onDisposeCallback,
-  }) : createdAt = DateTime.now();
+  CacheableData({this.data, this.maxAge, this.onDisposeCallback})
+    : createdAt = DateTime.now();
 
   bool get isExpired {
     if (maxAge == null) return false;

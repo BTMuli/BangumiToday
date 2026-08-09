@@ -191,39 +191,44 @@ void main() {
       expect(firewallCalls, 1);
     });
 
-    test('enableEngine reports firewall registration failure as a warning',
-        () async {
-      var switchStore = BtDownloadStore(
-        client: gateway,
-        completionNotifier: (task) async {},
-        writeConfig: (config) async {},
-        registerFirewallRule: () async => throw Exception('elevation canceled'),
-      );
-      addTearDown(switchStore.dispose);
+    test(
+      'enableEngine reports firewall registration failure as a warning',
+      () async {
+        var switchStore = BtDownloadStore(
+          client: gateway,
+          completionNotifier: (task) async {},
+          writeConfig: (config) async {},
+          registerFirewallRule: () async =>
+              throw Exception('elevation canceled'),
+        );
+        addTearDown(switchStore.dispose);
 
-      var warning = await switchStore.enableEngine();
+        var warning = await switchStore.enableEngine();
 
-      expect(warning, contains('防火墙规则注册失败'));
-      expect(gateway.startCalls, 1);
-    });
+        expect(warning, contains('防火墙规则注册失败'));
+        expect(gateway.startCalls, 1);
+      },
+    );
 
-    test('disableEngine persists the disabled flag and shuts the engine down',
-        () async {
-      var written = <BtDownloadConfig?>[];
-      gateway.emitState(BtEngineClientState.ready);
-      await Future<void>.delayed(Duration.zero);
-      var switchStore = BtDownloadStore(
-        client: gateway,
-        completionNotifier: (task) async {},
-        writeConfig: (config) async => written.add(config),
-      );
-      addTearDown(switchStore.dispose);
+    test(
+      'disableEngine persists the disabled flag and shuts the engine down',
+      () async {
+        var written = <BtDownloadConfig?>[];
+        gateway.emitState(BtEngineClientState.ready);
+        await Future<void>.delayed(Duration.zero);
+        var switchStore = BtDownloadStore(
+          client: gateway,
+          completionNotifier: (task) async {},
+          writeConfig: (config) async => written.add(config),
+        );
+        addTearDown(switchStore.dispose);
 
-      await switchStore.disableEngine();
+        await switchStore.disableEngine();
 
-      expect(written.single?.engineEnabled, isFalse);
-      expect(gateway.shutdownCalls, 1);
-    });
+        expect(written.single?.engineEnabled, isFalse);
+        expect(gateway.shutdownCalls, 1);
+      },
+    );
 
     test('refresh refuses to auto-start a disabled engine', () async {
       var switchStore = BtDownloadStore(
@@ -286,10 +291,7 @@ void main() {
           'b',
           'g',
         ]);
-        expect(store.stoppedTasks.map((task) => task.id).toList(), [
-          'f',
-          'h',
-        ]);
+        expect(store.stoppedTasks.map((task) => task.id).toList(), ['f', 'h']);
       },
     );
 
@@ -313,10 +315,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
 
       expect(store.activeTasks.map((task) => task.id).toList(), ['paused']);
-      expect(
-        store.stoppedTasks.map((task) => task.id).toList(),
-        ['completed'],
-      );
+      expect(store.stoppedTasks.map((task) => task.id).toList(), ['completed']);
     });
 
     test('recheck keeps a completed task in the stopped tab', () async {

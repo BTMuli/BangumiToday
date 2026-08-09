@@ -112,10 +112,7 @@ class PaginationManager<T> extends ChangeNotifier {
       notifyListeners();
       _stateController.add(_state);
     } catch (e) {
-      _state = _state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      _state = _state.copyWith(isLoading: false, error: e.toString());
       notifyListeners();
       _stateController.add(_state);
     }
@@ -151,10 +148,7 @@ class PaginationManager<T> extends ChangeNotifier {
       notifyListeners();
       _stateController.add(_state);
     } catch (e) {
-      _state = _state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      _state = _state.copyWith(isLoading: false, error: e.toString());
       notifyListeners();
       _stateController.add(_state);
     }
@@ -201,10 +195,7 @@ class PaginationManager<T> extends ChangeNotifier {
       notifyListeners();
       _stateController.add(_state);
     } catch (e) {
-      _state = _state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      _state = _state.copyWith(isLoading: false, error: e.toString());
       notifyListeners();
       _stateController.add(_state);
     }
@@ -342,12 +333,14 @@ class LazyListManager<T> {
   }
 
   void _emitState() {
-    _stateController.add(LazyListState<T>(
-      items: List.unmodifiable(_items),
-      isLoading: _isLoading,
-      hasMore: _hasMore,
-      error: _error,
-    ));
+    _stateController.add(
+      LazyListState<T>(
+        items: List.unmodifiable(_items),
+        isLoading: _isLoading,
+        hasMore: _hasMore,
+        error: _error,
+      ),
+    );
   }
 
   void dispose() {

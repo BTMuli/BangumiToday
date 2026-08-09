@@ -30,20 +30,22 @@ class RssCacheEntry {
   }
 
   Map<String, dynamic> toJson() => {
-        'items': items
-            .map((e) => {
-                  'title': e.title,
-                  'link': e.link,
-                  'description': e.description,
-                  'pubDate': e.pubDate,
-                  'author': e.author,
-                })
-            .toList(),
-        'fetchTime': fetchTime.toIso8601String(),
-        'etag': etag,
-        'lastModified': lastModified,
-        'ttl': ttl,
-      };
+    'items': items
+        .map(
+          (e) => {
+            'title': e.title,
+            'link': e.link,
+            'description': e.description,
+            'pubDate': e.pubDate,
+            'author': e.author,
+          },
+        )
+        .toList(),
+    'fetchTime': fetchTime.toIso8601String(),
+    'etag': etag,
+    'lastModified': lastModified,
+    'ttl': ttl,
+  };
 
   static RssCacheEntry? fromJson(Map<String, dynamic> json) {
     try {
@@ -188,8 +190,9 @@ class OptimizedRssService {
 
       var oldItems = cachedEntry?.items ?? [];
       var oldLinks = oldItems.map((e) => e.link).toSet();
-      var actualNewItems =
-          newItems.where((e) => !oldLinks.contains(e.link)).toList();
+      var actualNewItems = newItems
+          .where((e) => !oldLinks.contains(e.link))
+          .toList();
 
       return BTResponse.success(
         data: IncrementalRssResult(
@@ -357,12 +360,14 @@ class RssSubscriptionManager {
     if (result.code == 0 && result.data != null) {
       _subscriptions[url] = result.data!.allItems;
 
-      _updateController.add(RssUpdateEvent(
-        url: url,
-        newItems: result.data!.newItems,
-        allItems: result.data!.allItems,
-        hasNewItems: result.data!.hasNewItems,
-      ));
+      _updateController.add(
+        RssUpdateEvent(
+          url: url,
+          newItems: result.data!.newItems,
+          allItems: result.data!.allItems,
+          hasNewItems: result.data!.hasNewItems,
+        ),
+      );
     }
   }
 

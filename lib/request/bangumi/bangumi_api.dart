@@ -192,9 +192,7 @@ class BtrBangumiApi {
           '/v0/search/subjects',
           queryParameters: params,
           data: data,
-          options: Options(
-            contentType: 'application/json',
-          ),
+          options: Options(contentType: 'application/json'),
           cancelToken: token,
         ),
       );
@@ -231,9 +229,7 @@ class BtrBangumiApi {
         cancelPrevious: cancelPrevious,
         request: (token) => client.dio.get(
           '/v0/subjects/$id',
-          options: Options(
-            contentType: 'application/json',
-          ),
+          options: Options(contentType: 'application/json'),
           cancelToken: token,
         ),
       );

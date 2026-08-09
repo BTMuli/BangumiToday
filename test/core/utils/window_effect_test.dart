@@ -45,10 +45,7 @@ void main() {
     });
 
     test('rejects non-Windows version strings', () {
-      expect(
-        isMicaSupported(operatingSystemVersion: 'macOS 13.0'),
-        isFalse,
-      );
+      expect(isMicaSupported(operatingSystemVersion: 'macOS 13.0'), isFalse);
     });
   });
 }

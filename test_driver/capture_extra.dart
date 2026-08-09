@@ -6,7 +6,7 @@ import 'package:flutter_driver/flutter_driver.dart';
 const _wheelScript = 'D:/Code/App/bangumi_today/scripts/scroll_app.ps1';
 
 Future<void> main(List<String> args) async {
-  final out = File('test_driver/capture_extra.log');
+  var out = File('test_driver/capture_extra.log');
   if (out.existsSync()) out.deleteSync();
   void say(String s) {
     out.writeAsStringSync('$s\n', mode: FileMode.append);
@@ -16,7 +16,7 @@ Future<void> main(List<String> args) async {
     } catch (_) {}
   }
 
-  final driver = await FlutterDriver.connect(
+  var driver = await FlutterDriver.connect(
     dartVmServiceUrl: args[0],
     timeout: const Duration(seconds: 60),
   );
@@ -25,8 +25,10 @@ Future<void> main(List<String> args) async {
   Future<void> wheel(String dir, int ticks) async {
     await Process.run('powershell', <String>[
       '-NoProfile',
-      '-ExecutionPolicy', 'Bypass',
-      '-File', _wheelScript,
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      _wheelScript,
       dir,
       '$ticks',
     ]);
@@ -34,13 +36,15 @@ Future<void> main(List<String> args) async {
   }
 
   Future<void> shot(String name) async {
-    final png = await driver.screenshot().timeout(const Duration(seconds: 30));
+    var png = await driver.screenshot().timeout(const Duration(seconds: 30));
     File('build/verify_shots2/$name').writeAsBytesSync(png);
     say('SHOT $name (${png.length} bytes)');
   }
 
-  Future<bool> exists(SerializableFinder f,
-      {Duration t = const Duration(seconds: 2)}) async {
+  Future<bool> exists(
+    SerializableFinder f, {
+    Duration t = const Duration(seconds: 2),
+  }) async {
     try {
       await driver.waitFor(f, timeout: t);
       return true;
@@ -71,5 +75,5 @@ Future<void> main(List<String> args) async {
   say('做种分享率 in tree: ${await exists(find.text('做种分享率'))}');
 
   say('DONE');
-  driver.close();
+  await driver.close();
 }

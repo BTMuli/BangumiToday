@@ -139,10 +139,7 @@ class _LazyTabPageState extends State<LazyTabPage> {
               var index = entry.key;
 
               if (!widget.lazyLoad || _loadedIndices.contains(index)) {
-                return _cachedBodies.putIfAbsent(
-                  index,
-                  () => entry.value.body,
-                );
+                return _cachedBodies.putIfAbsent(index, () => entry.value.body);
               }
               return const SizedBox.shrink();
             }).toList(),
@@ -196,7 +193,8 @@ class _LazyNavigationViewState extends State<LazyNavigationView> {
       _selectedIndex = widget.selectedIndex;
       _loadedIndices.add(_selectedIndex);
       _cachedBodies.removeWhere(
-          (key, _) => (key - _selectedIndex).abs() > widget.preloadCount + 2);
+        (key, _) => (key - _selectedIndex).abs() > widget.preloadCount + 2,
+      );
       _preloadAdjacent();
     }
   }
@@ -219,10 +217,7 @@ class _LazyNavigationViewState extends State<LazyNavigationView> {
         var item = entry.value;
 
         if (!widget.lazyLoad || _loadedIndices.contains(index)) {
-          return _cachedBodies.putIfAbsent(
-            index,
-            () => item.body!,
-          );
+          return _cachedBodies.putIfAbsent(index, () => item.body!);
         }
         return const SizedBox.shrink();
       }).toList(),

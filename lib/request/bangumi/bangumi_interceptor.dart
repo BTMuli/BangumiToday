@@ -87,10 +87,7 @@ class AuthInterceptor extends Interceptor {
   }
 
   /// 用新 token 重试原请求
-  Future<void> _retry(
-    DioException err,
-    ErrorInterceptorHandler handler,
-  ) async {
+  Future<void> _retry(DioException err, ErrorInterceptorHandler handler) async {
     var requestOptions = err.requestOptions;
 
     // 更新 header 为最新 token

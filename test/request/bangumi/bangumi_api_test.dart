@@ -14,10 +14,7 @@ void main() {
     });
 
     test('defaults to the AniBT mirror', () {
-      expect(
-        BtrBangumiApi.baseUrl,
-        BTAppConstants.bangumiApiBaseUrl,
-      );
+      expect(BtrBangumiApi.baseUrl, BTAppConstants.bangumiApiBaseUrl);
     });
 
     test('removes trailing slashes', () {
@@ -29,10 +26,7 @@ void main() {
     test('falls back to the default for an empty URL', () {
       BtrBangumiApi.setBaseUrl('   ');
 
-      expect(
-        BtrBangumiApi.baseUrl,
-        BTAppConstants.bangumiApiBaseUrl,
-      );
+      expect(BtrBangumiApi.baseUrl, BTAppConstants.bangumiApiBaseUrl);
     });
   });
 
@@ -60,8 +54,7 @@ void main() {
       var mappings = {
         'https://bgm.tv/subject/1': 'https://bangumi.lol/subject/1',
         'https://api.bgm.tv/v0/me': 'https://api.bangumi.lol/v0/me',
-        'https://lain.bgm.tv/pic/a.jpg':
-            'https://lain.bangumi.lol/pic/a.jpg',
+        'https://lain.bgm.tv/pic/a.jpg': 'https://lain.bangumi.lol/pic/a.jpg',
         'https://fast.bgm.tv/a': 'https://fast.bangumi.lol/a',
         'https://next.bgm.tv/a': 'https://next.bangumi.lol/a',
         'https://doujin.bgm.tv/a': 'https://doujin.bangumi.lol/a',
@@ -76,9 +69,7 @@ void main() {
       BtrBangumiApi.setBaseUrl(BTAppConstants.bangumiApiBaseUrl);
       var data = <String, dynamic>{
         'url': 'http://bgm.tv/subject/1',
-        'images': <String, dynamic>{
-          'small': 'http://lain.bgm.tv/pic/a.jpg',
-        },
+        'images': <String, dynamic>{'small': 'http://lain.bgm.tv/pic/a.jpg'},
       };
 
       var rewritten = BtrBangumiApi.rewriteResponseData(data);

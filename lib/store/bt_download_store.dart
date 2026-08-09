@@ -435,9 +435,7 @@ class BtDownloadStore extends ChangeNotifier {
   Future<void> _startEngine() async {
     var config = await _readConfig();
     if (!config.engineEnabled) {
-      throw const BtEngineClientException(
-        '下载引擎未开启，请先手动开启下载引擎',
-      );
+      throw const BtEngineClientException('下载引擎未开启，请先手动开启下载引擎');
     }
     await _client.start(config: await _startConfigProvider());
   }

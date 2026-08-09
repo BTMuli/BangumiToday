@@ -95,10 +95,6 @@ class BTApiHandler {
   BTResponse<T> _handleGenericError<T>(Object e, String? logContext) {
     var context = logContext ?? 'API request';
     BTLogTool.error('$context failed: $e');
-    return BTResponse<T>(
-      code: 666,
-      message: e.toString(),
-      data: null,
-    );
+    return BTResponse<T>(code: 666, message: e.toString(), data: null);
   }
 }

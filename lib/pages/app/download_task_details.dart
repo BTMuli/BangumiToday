@@ -970,11 +970,9 @@ class _PeersTabState extends State<_PeersTab> {
   }
 
   void _openClientFilter() {
-    var clients = widget.details.peers
-        .map((peer) => peer.clientName)
-        .toSet()
-        .toList()
-      ..sort();
+    var clients =
+        widget.details.peers.map((peer) => peer.clientName).toSet().toList()
+          ..sort();
     _filterController.showFlyout(
       barrierDismissible: true,
       dismissOnPointerMoveAway: false,
@@ -1040,12 +1038,12 @@ class _PeersTabState extends State<_PeersTab> {
 
   static int _compareClient(BtTaskPeerDetail a, BtTaskPeerDetail b) {
     var nameResult = a.clientName.toLowerCase().compareTo(
-          b.clientName.toLowerCase(),
-        );
+      b.clientName.toLowerCase(),
+    );
     if (nameResult != 0) return nameResult;
     return a.clientVersion.toLowerCase().compareTo(
-          b.clientVersion.toLowerCase(),
-        );
+      b.clientVersion.toLowerCase(),
+    );
   }
 
   @override
@@ -1102,9 +1100,9 @@ class _PeersTabState extends State<_PeersTab> {
                     peer.clientVersion,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: BTTypography.caption(context).copyWith(
-                      color: BTColors.textSecondary(context),
-                    ),
+                    style: BTTypography.caption(
+                      context,
+                    ).copyWith(color: BTColors.textSecondary(context)),
                   ),
                 ],
               ],

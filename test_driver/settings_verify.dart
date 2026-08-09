@@ -5,11 +5,14 @@ import 'dart:io';
 import 'package:flutter_driver/flutter_driver.dart';
 
 Future<void> main(List<String> args) async {
-  final vmUrl = args.isNotEmpty ? args[0] : Platform.environment['VM_SERVICE_URL'];
-  final outDir = args.length > 1 ? args[1] : Directory.current.path;
+  var vmUrl = args.isNotEmpty
+      ? args[0]
+      : Platform.environment['VM_SERVICE_URL'];
+  var outDir = args.length > 1 ? args[1] : Directory.current.path;
   void say(String s) {
-    File('$outDir/settings_verify.log')
-        .writeAsStringSync('$s\n', mode: FileMode.append);
+    File(
+      '$outDir/settings_verify.log',
+    ).writeAsStringSync('$s\n', mode: FileMode.append);
   }
 
   if (vmUrl == null) {
@@ -17,7 +20,7 @@ Future<void> main(List<String> args) async {
     exit(2);
   }
 
-  final driver = await FlutterDriver.connect(
+  var driver = await FlutterDriver.connect(
     dartVmServiceUrl: vmUrl,
     timeout: const Duration(seconds: 60),
   );
@@ -29,7 +32,7 @@ Future<void> main(List<String> args) async {
   }
 
   Future<void> shot(String name) async {
-    final png = await driver.screenshot().timeout(const Duration(seconds: 30));
+    var png = await driver.screenshot().timeout(const Duration(seconds: 30));
     File('$outDir/$name').writeAsBytesSync(png);
     say('SHOT $name (${png.length} bytes)');
   }
@@ -70,14 +73,20 @@ Future<void> main(List<String> args) async {
   await guarded('折叠设备分区', () async {
     say('STEP collapse 设备信息');
     await driver.tap(find.text('设备信息'));
-    await driver.waitForAbsent(find.text('所在平台'), timeout: const Duration(seconds: 10));
+    await driver.waitForAbsent(
+      find.text('所在平台'),
+      timeout: const Duration(seconds: 10),
+    );
     await shot('settings_collapsed.png');
   });
 
   await guarded('展开设备分区', () async {
     say('STEP expand 设备信息');
     await driver.tap(find.text('设备信息'));
-    await driver.waitFor(find.text('所在平台'), timeout: const Duration(seconds: 10));
+    await driver.waitFor(
+      find.text('所在平台'),
+      timeout: const Duration(seconds: 10),
+    );
     await shot('settings_expanded.png');
   });
 
