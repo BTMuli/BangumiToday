@@ -11,12 +11,14 @@ import '../../models/bangumi/bangumi_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
+import '../../widgets/common/bt_card.dart';
 import 'sd_pw_rate_chart.dart';
 
 class SdpOverviewWidget extends StatelessWidget {
   final BangumiSubject item;
+  final ValueChanged<String>? onTagTap;
 
-  const SdpOverviewWidget(this.item, {super.key});
+  const SdpOverviewWidget(this.item, {super.key, this.onTagTap});
 
   Widget buildCoverError(BuildContext context, {String? err}) {
     return Container(
@@ -112,15 +114,36 @@ class SdpOverviewWidget extends StatelessWidget {
     );
   }
 
-  Widget buildTag(BuildContext context, String text) {
+  Widget buildTag(BuildContext context, BangumiTag tag) {
     var accentColor = FluentTheme.of(context).accentColor;
-    return Container(
+    Widget tagWidget = Container(
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         borderRadius: BTRadius.smallBR,
         color: accentColor.withValues(alpha: 0.1),
       ),
-      child: Text(text, style: TextStyle(fontSize: 11, color: accentColor)),
+      child: Text(tag.name, style: TextStyle(fontSize: 11, color: accentColor)),
+    );
+    if (onTagTap != null) {
+      tagWidget = BTCard(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        borderRadius: BTRadius.small,
+        useAcrylic: false,
+        useShadow: false,
+        backgroundColor: accentColor.withValues(alpha: 0.1),
+        borderColor: accentColor.withValues(alpha: 0.2),
+        onTap: () => onTagTap!.call(tag.name),
+        child: Text(
+          tag.name,
+          style: TextStyle(fontSize: 11, color: accentColor),
+        ),
+      );
+    }
+    return Tooltip(
+      message: onTagTap == null
+          ? '${tag.name} (${tag.count})'
+          : '点击搜索标签：${tag.name} (${tag.count})',
+      child: tagWidget,
     );
   }
 
@@ -212,7 +235,7 @@ class SdpOverviewWidget extends StatelessWidget {
           Wrap(
             spacing: 6,
             runSpacing: 4,
-            children: showTags.map((e) => buildTag(context, e.name)).toList(),
+            children: showTags.map((e) => buildTag(context, e)).toList(),
           ),
         ],
       ],

@@ -21,6 +21,12 @@ class BtcPageController extends ChangeNotifier {
   /// 页面改变回调
   Future<void> Function(int) onChanged;
 
+  /// 是否正在切换页面
+  bool _isLoading = false;
+
+  /// 是否正在切换页面
+  bool get isLoading => _isLoading;
+
   /// 构造函数
   BtcPageController({
     required this.total,
@@ -71,9 +77,15 @@ class BtcPageController extends ChangeNotifier {
 
   /// 跳转到指定页
   Future<void> jump(int page) async {
-    if (page >= 1 && page <= totalPage) {
+    if (_isLoading || page < 1 || page > totalPage) return;
+
+    _isLoading = true;
+    notifyListeners();
+    try {
       await onChanged(page);
       cur = page;
+    } finally {
+      _isLoading = false;
       notifyListeners();
     }
   }
@@ -97,10 +109,28 @@ class _PageWidgetState extends State<PageWidget> {
   /// 数据
   BtcPageController get controller => widget.controller;
 
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
-    controller.addListener(() => setState);
+    controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(PageWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) return;
+    oldWidget.controller.removeListener(_onControllerChanged);
+    controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void dispose() {
+    controller.removeListener(_onControllerChanged);
+    super.dispose();
   }
 
   /// 获取背景色
@@ -113,18 +143,21 @@ class _PageWidgetState extends State<PageWidget> {
   /// 构建页码
   List<Widget> buildPages() {
     var pages = controller.visiblePages;
+    var enabled = !controller.isLoading;
     var result = <Widget>[];
     result.add(
       PageItemBtn(
         icon: FluentIcons.chevron_left,
         text: '上一页',
-        onPressed: () async {
-          if (controller.cur > 1) {
-            await controller.jump(controller.cur - 1);
-          } else {
-            if (mounted) await BtInfobar.warn(context, '已经是第一页');
-          }
-        },
+        onPressed: enabled
+            ? () async {
+                if (controller.cur > 1) {
+                  await controller.jump(controller.cur - 1);
+                } else {
+                  if (mounted) await BtInfobar.warn(context, '已经是第一页');
+                }
+              }
+            : null,
       ),
     );
     result.add(const SizedBox(width: 4));
@@ -136,7 +169,7 @@ class _PageWidgetState extends State<PageWidget> {
           PageItemPage(
             page: page,
             cur: controller.cur,
-            onPressed: controller.jump,
+            onPressed: enabled ? controller.jump : null,
           ),
         );
       }
@@ -146,13 +179,15 @@ class _PageWidgetState extends State<PageWidget> {
       PageItemBtn(
         icon: FluentIcons.chevron_right,
         text: '下一页',
-        onPressed: () async {
-          if (controller.cur < controller.totalPage) {
-            await controller.jump(controller.cur + 1);
-          } else {
-            if (mounted) await BtInfobar.warn(context, '已经是最后一页');
-          }
-        },
+        onPressed: enabled
+            ? () async {
+                if (controller.cur < controller.totalPage) {
+                  await controller.jump(controller.cur + 1);
+                } else {
+                  if (mounted) await BtInfobar.warn(context, '已经是最后一页');
+                }
+              }
+            : null,
       ),
     );
     return result;
@@ -178,7 +213,7 @@ class PageItemBtn extends StatelessWidget {
   final String text;
 
   /// 点击事件
-  final Future<void> Function() onPressed;
+  final Future<void> Function()? onPressed;
 
   /// 构造
   const PageItemBtn({
@@ -206,7 +241,7 @@ class PageItemPage extends StatelessWidget {
   final int cur;
 
   /// 点击事件
-  final Future<void> Function(int) onPressed;
+  final Future<void> Function(int)? onPressed;
 
   /// 构造
   const PageItemPage({
@@ -219,13 +254,15 @@ class PageItemPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Button(
-      onPressed: () async {
-        if (cur == page) {
-          await BtInfobar.warn(context, '已经是第$page页');
-          return;
-        }
-        await onPressed(page);
-      },
+      onPressed: onPressed == null
+          ? null
+          : () async {
+              if (cur == page) {
+                await BtInfobar.warn(context, '已经是第$page页');
+                return;
+              }
+              await onPressed!.call(page);
+            },
       style: ButtonStyle(
         backgroundColor: WidgetStatePropertyAll(
           cur == page

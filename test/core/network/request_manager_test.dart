@@ -14,6 +14,10 @@ void main() {
       expect(RequestKey.search('naruto', 0), 'search_naruto_0');
     });
 
+    test('search keeps tag filters isolated', () {
+      expect(RequestKey.search('', 0, tag: ['action']), 'search__0_tag_action');
+    });
+
     test('subjectDetail returns correct key', () {
       expect(RequestKey.subjectDetail(123), 'subject_detail_123');
     });

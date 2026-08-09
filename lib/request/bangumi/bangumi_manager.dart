@@ -140,8 +140,10 @@ class RequestKey {
   static String userCollections(String username) =>
       'user_collections_$username';
 
-  static String search(String keyword, int offset) =>
-      'search_${keyword}_$offset';
+  static String search(String keyword, int offset, {List<String>? tag}) {
+    if (tag == null || tag.isEmpty) return 'search_${keyword}_$offset';
+    return 'search_${keyword}_${offset}_tag_${tag.join('|')}';
+  }
 
   static String rss(String source) => 'rss_$source';
 }

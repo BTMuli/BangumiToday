@@ -185,7 +185,7 @@ class BtrBangumiApi {
     BTLogTool.info('searchSubjectsParams: ${jsonEncode(params)}');
     try {
       var result = await _requestManager.request<Response>(
-        key: RequestKey.search(keyword, offset),
+        key: RequestKey.search(keyword, offset, tag: tag),
         deduplicate: deduplicate,
         cancelPrevious: cancelPrevious,
         request: (token) => client.dio.post(

@@ -1,5 +1,4 @@
 // Package imports:
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,18 +9,28 @@ import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../providers/app_providers.dart';
-import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_card/bsc_search.dart';
 import '../../widgets/common/bt_animations.dart';
-import '../../widgets/common/bt_card.dart';
 import '../../widgets/common/empty_state.dart';
 
 /// 搜索页面
 class SubjectSearchPage extends ConsumerStatefulWidget {
+  /// 初始标签筛选条件
+  final String? tag;
+
   /// 构造函数
-  const SubjectSearchPage({super.key});
+  const SubjectSearchPage({super.key, this.tag});
+
+  /// 获取搜索页标题
+  static String titleForTag(String? tag) {
+    var normalizedTag = tag?.trim();
+    if (normalizedTag == null || normalizedTag.isEmpty) {
+      return 'Bangumi-条目搜索';
+    }
+    return 'Bangumi-标签搜索：$normalizedTag';
+  }
 
   @override
   ConsumerState<SubjectSearchPage> createState() => _SubjectSearchPageState();
@@ -30,6 +39,9 @@ class SubjectSearchPage extends ConsumerStatefulWidget {
 /// 搜索页面状态
 class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
     with AutomaticKeepAliveClientMixin {
+  /// 当前标签筛选条件
+  String? selectedTag;
+
   /// controller
   late BtcPageController controller = BtcPageController.defaultInit();
 
@@ -70,9 +82,6 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
   /// 是否在加载中
   bool loading = false;
 
-  /// 视图模式：true为网格视图，false为列表视图
-  bool isGridView = false;
-
   /// 保持状态
   @override
   bool get wantKeepAlive => true;
@@ -81,13 +90,63 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
   @override
   void initState() {
     super.initState();
+    selectedTag = _normalizeTag(widget.tag);
     controller.onChanged = onPageChanged;
+    if (selectedTag != null) Future.microtask(search);
+  }
+
+  String? _normalizeTag(String? value) {
+    var normalized = value?.trim();
+    if (normalized == null || normalized.isEmpty) return null;
+    return normalized;
+  }
+
+  void _searchByTag(String tag) {
+    var normalizedTag = _normalizeTag(tag);
+    if (normalizedTag == null) return;
+
+    var title = SubjectSearchPage.titleForTag(normalizedTag);
+    ref
+        .read(navStoreProvider)
+        .addNavItem(
+          PaneItem(
+            icon: const Icon(FluentIcons.search),
+            title: Text(title),
+            body: SubjectSearchPage(tag: normalizedTag),
+          ),
+          title,
+        );
+  }
+
+  List<String>? get tagFilter {
+    return selectedTag == null ? null : [selectedTag!];
+  }
+
+  String get pageTitle => SubjectSearchPage.titleForTag(widget.tag);
+
+  @override
+  void didUpdateWidget(SubjectSearchPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tag == widget.tag) return;
+
+    selectedTag = _normalizeTag(widget.tag);
+    _resetResults();
+    if (selectedTag != null) Future.microtask(search);
+  }
+
+  void _resetResults() {
+    offset = 0;
+    totalResults = 0;
+    result.clear();
+    resultMap.clear();
+    controller.reset(total: 0, cur: 0);
   }
 
   /// dispose
   @override
   void dispose() {
     controller.dispose();
+    textController.dispose();
     super.dispose();
   }
 
@@ -106,6 +165,7 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
       nsfw: nsfw,
       offset: (page - 1) * limit,
       limit: limit,
+      tag: tagFilter,
     );
     if (!mounted) return;
     if (resp.code != 0 || resp.data == null) {
@@ -122,12 +182,9 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
 
   /// 搜索
   Future<void> search() async {
-    var input = textController.text;
-    if (input.isEmpty) {
-      offset = 0;
-      controller.reset(total: 0, cur: 0);
-      result.clear();
-      resultMap.clear();
+    var input = textController.text.trim();
+    if (input.isEmpty && selectedTag == null) {
+      _resetResults();
       setState(() {});
       await BtInfobar.warn(context, '请输入搜索内容');
       return;
@@ -138,15 +195,8 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
     }
     if (loading) return;
     loading = true;
-    result.clear();
-    resultMap.clear();
+    _resetResults();
     setState(() {});
-    if (result.isNotEmpty) {
-      loading = false;
-      await controller.jump(1);
-      setState(() {});
-      return;
-    }
     var repository = ref.read(bangumiRepositoryProvider);
     var resp = await repository.searchSubjects(
       input,
@@ -155,6 +205,7 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
       nsfw: nsfw,
       offset: offset,
       limit: limit,
+      tag: tagFilter,
     );
     if (!mounted) return;
     if (resp.code != 0 || resp.data == null) {
@@ -184,10 +235,13 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
       leading: IconButton(
         icon: const Icon(FluentIcons.back),
         onPressed: () {
-          ref.read(navStoreProvider).removeNavItem('Bangumi-条目搜索');
+          ref.read(navStoreProvider).removeNavItem(pageTitle);
         },
       ),
-      title: const Text('Bangumi-条目搜索'),
+      title: Text(
+        pageTitle,
+        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600),
+      ),
     );
   }
 
@@ -239,7 +293,7 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
       mainAxisSize: MainAxisSize.min,
       children: BangumiSubjectType.values.map((type) {
         return Padding(
-          padding: EdgeInsets.only(right: 8),
+          padding: EdgeInsets.only(right: 6),
           child: _FilterChip(
             label: type.label,
             isSelected: types.contains(type),
@@ -280,8 +334,8 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: isDark
             ? Colors.white.withValues(alpha: 0.03)
@@ -302,7 +356,7 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
                 onPressed: () async => await search(),
                 isLoading: loading,
               ),
-              SizedBox(width: 12),
+              SizedBox(width: 10),
               Expanded(
                 child: _AnimatedSearchBox(
                   controller: textController,
@@ -313,37 +367,47 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
                   },
                 ),
               ),
-              SizedBox(width: 12),
+              SizedBox(width: 10),
               buildTypeSelects(),
-              SizedBox(width: 8),
+              SizedBox(width: 6),
               buildNsfwCheck(),
             ],
           ),
-          if (types.isNotEmpty) ...[
-            SizedBox(height: 12),
-            _buildSelectedTypeChips(),
+          if (types.isNotEmpty || selectedTag != null) ...[
+            SizedBox(height: 8),
+            _buildSelectedFilterChips(),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildSelectedTypeChips() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: types.map((type) {
-        return _FilterChip(
-          label: type.label,
+  Widget _buildSelectedFilterChips() {
+    var chips = types.map((type) {
+      return _FilterChip(
+        label: type.label,
+        isSelected: true,
+        onDeleted: () {
+          setState(() {
+            types.remove(type);
+          });
+        },
+      );
+    }).toList();
+    if (selectedTag != null) {
+      chips.add(
+        _FilterChip(
+          label: '标签: $selectedTag',
           isSelected: true,
           onDeleted: () {
-            setState(() {
-              types.remove(type);
-            });
+            selectedTag = null;
+            _resetResults();
+            setState(() {});
           },
-        );
-      }).toList(),
-    );
+        ),
+      );
+    }
+    return Wrap(spacing: 6, runSpacing: 4, children: chips);
   }
 
   Widget buildResult() {
@@ -352,29 +416,33 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
     }
     if (controller.total == 0) {
       return BTEmptyState.noSearchResult(
-        keyword: textController.text.isEmpty ? null : textController.text,
+        keyword: textController.text.isEmpty
+            ? selectedTag
+            : textController.text,
         actionText: '清除搜索',
         onAction: () {
           textController.clear();
+          selectedTag = null;
+          _resetResults();
           setState(() {});
         },
       );
     }
     return Column(
       children: [
-        _buildViewToggle(),
-        Expanded(child: isGridView ? _buildGridView() : _buildListView()),
+        _buildResultSummary(),
+        Expanded(child: _buildTwoColumnListView()),
       ],
     );
   }
 
-  Widget _buildViewToggle() {
+  Widget _buildResultSummary() {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: [
-          if (totalResults > 0)
-            Row(
+          Expanded(
+            child: Row(
               children: [
                 Icon(
                   FluentIcons.search,
@@ -390,115 +458,37 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(width: 8),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: FluentTheme.of(
-                      context,
-                    ).accentColor.withValues(alpha: 0.1),
-                    borderRadius: BTRadius.smallBR,
-                  ),
-                  child: Text(
-                    '第 ${controller.cur}/${controller.total} 页',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: FluentTheme.of(context).accentColor,
-                    ),
-                  ),
-                ),
               ],
             ),
-          const Spacer(),
-          Tooltip(
-            message: isGridView ? '切换到列表视图' : '切换到网格视图',
-            child: BTCard(
-              useShadow: false,
-              useAcrylic: true,
-              acrylicOpacity: 0.7,
-              padding: EdgeInsets.all(4),
-              borderRadius: BTRadius.small,
-              onTap: () {
-                setState(() {
-                  isGridView = !isGridView;
-                });
-              },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isGridView ? FluentIcons.list : FluentIcons.tiles,
-                    size: 14,
-                    color: FluentTheme.of(context).accentColor,
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    isGridView ? '列表' : '网格',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: BTColors.textSecondary(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
+          if (controller.total > 1) ...[
+            SizedBox(width: 8),
+            PageWidget(controller),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildListView() {
-    return ListView.separated(
+  Widget _buildTwoColumnListView() {
+    return GridView.builder(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        mainAxisExtent: 168,
+      ),
       itemCount: result.length,
       itemBuilder: (context, index) {
         return BTFadeSlideIn(
           duration: const Duration(milliseconds: 300),
           delay: Duration(milliseconds: index * 50),
           offset: const Offset(0, 0.05),
-          child: BscSearch(result[index]),
-        );
-      },
-      separatorBuilder: (context, index) => SizedBox(height: 12),
-    );
-  }
-
-  Widget _buildGridView() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        var crossAxisCount = _calculateCrossAxisCount(constraints.maxWidth);
-        return GridView.builder(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.65,
-          ),
-          itemCount: result.length,
-          itemBuilder: (context, index) {
-            return BTFadeSlideIn(
-              duration: const Duration(milliseconds: 300),
-              delay: Duration(milliseconds: index * 50),
-              offset: const Offset(0, 0.05),
-              child: _buildGridItem(result[index]),
-            );
-          },
+          child: BscSearch(result[index], onTagTap: _searchByTag),
         );
       },
     );
-  }
-
-  int _calculateCrossAxisCount(double width) {
-    if (width < 600) return 1;
-    if (width < 900) return 2;
-    if (width < 1200) return 3;
-    return 4;
-  }
-
-  Widget _buildGridItem(BangumiSubjectSearchData data) {
-    return _GridSearchCard(data);
   }
 
   @override
@@ -510,289 +500,6 @@ class _SubjectSearchPageState extends ConsumerState<SubjectSearchPage>
         children: [
           buildSearch(),
           Expanded(child: buildResult()),
-          if (controller.total > 0) _buildPagination(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPagination() {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 12),
-      child: PageWidget(controller),
-    );
-  }
-}
-
-class _GridSearchCard extends ConsumerStatefulWidget {
-  final BangumiSubjectSearchData data;
-
-  const _GridSearchCard(this.data);
-
-  @override
-  ConsumerState<_GridSearchCard> createState() => _GridSearchCardState();
-}
-
-class _GridSearchCardState extends ConsumerState<_GridSearchCard> {
-  BangumiSubjectSearchData get subject => widget.data;
-  String get label => subject.type?.label ?? '条目';
-
-  Widget _buildCover() {
-    var img = subject.images.common;
-    if (img.isEmpty) {
-      return Container(
-        color: BTColors.surfaceSecondary(context),
-        child: Center(
-          child: Icon(
-            FluentIcons.photo_error,
-            size: 32,
-            color: BTColors.textTertiary(context),
-          ),
-        ),
-      );
-    }
-
-    var pathGet = Uri.parse(img).path;
-    var rReg = RegExp(r'^/r/[^/]+/pic');
-    if (rReg.hasMatch(pathGet)) pathGet = pathGet.replaceFirst(rReg, '/pic');
-
-    return CachedNetworkImage(
-      imageUrl: '${BtrBangumiApi.imageBaseUrl}/r/0x600$pathGet',
-      fit: BoxFit.cover,
-      progressIndicatorBuilder: (context, url, dp) => Center(
-        child: ProgressRing(
-          value: dp.progress == null ? 0 : dp.progress! * 100,
-        ),
-      ),
-      errorWidget: (context, url, error) => Container(
-        color: BTColors.surfaceSecondary(context),
-        child: Center(
-          child: Icon(
-            FluentIcons.photo_error,
-            size: 32,
-            color: BTColors.textTertiary(context),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfo() {
-    var name = subject.nameCn == '' ? subject.name : subject.nameCn;
-    var subTitle = subject.nameCn == '' ? '' : subject.name;
-
-    return Padding(
-      padding: EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label == '条目' ? name : '[$label] $name',
-            style: BTTypography.subtitle(context).copyWith(fontSize: 13),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (subTitle.isNotEmpty) ...[
-            SizedBox(height: 2),
-            Text(
-              subTitle,
-              style: BTTypography.caption(context),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-          SizedBox(height: 6),
-          _buildScoreChip(),
-          SizedBox(height: 4),
-          _buildMetaInfo(),
-          const Spacer(),
-          _buildCollectionInfo(),
-          SizedBox(height: 4),
-          _buildActionButtons(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetaInfo() {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 4,
-      children: [
-        if (subject.date != null && subject.date!.isNotEmpty)
-          _buildMetaChip(FluentIcons.calendar, subject.date!.split('-')[0]),
-        if (subject.eps > 0)
-          _buildMetaChip(FluentIcons.play, '${subject.eps}集'),
-        if (subject.platform != null && subject.platform!.isNotEmpty)
-          _buildMetaChip(FluentIcons.devices2, subject.platform!),
-      ],
-    );
-  }
-
-  Widget _buildMetaChip(IconData icon, String text) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: BTColors.textSecondary(context).withValues(alpha: 0.1),
-        borderRadius: BTRadius.smallBR,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 10, color: BTColors.textSecondary(context)),
-          SizedBox(width: 3),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 10,
-              color: BTColors.textSecondary(context),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCollectionInfo() {
-    var collect = subject.collection.collect ?? 0;
-    var wish = subject.collection.wish ?? 0;
-
-    if (collect == 0 && wish == 0) return const SizedBox.shrink();
-
-    return Row(
-      children: [
-        if (collect > 0) ...[
-          Icon(
-            FluentIcons.heart_fill,
-            size: 10,
-            color: BTColors.textSecondary(context),
-          ),
-          SizedBox(width: 3),
-          Text(
-            '$collect',
-            style: TextStyle(
-              fontSize: 10,
-              color: BTColors.textSecondary(context),
-            ),
-          ),
-          SizedBox(width: 8),
-        ],
-        if (wish > 0) ...[
-          Icon(
-            FluentIcons.favorite_star_fill,
-            size: 10,
-            color: BTColors.textSecondary(context),
-          ),
-          SizedBox(width: 3),
-          Text(
-            '$wish',
-            style: TextStyle(
-              fontSize: 10,
-              color: BTColors.textSecondary(context),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildScoreChip() {
-    var score = subject.rating.score;
-    var scoreColor = _getScoreColor(score);
-
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: scoreColor.withValues(alpha: 0.15),
-        borderRadius: BTRadius.smallBR,
-        border: Border.all(color: scoreColor.withValues(alpha: 0.3), width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(FluentIcons.favorite_star_fill, size: 10, color: scoreColor),
-          SizedBox(width: 3),
-          Text(
-            score.toStringAsFixed(1),
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: scoreColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    var paneTitle = subject.nameCn == '' ? subject.name : subject.nameCn;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Tooltip(
-          message: '查看详情',
-          child: GestureDetector(
-            onTap: () => ref
-                .read(navStoreProvider)
-                .addNavItemB(
-                  type: label,
-                  subject: subject.id,
-                  paneTitle: paneTitle,
-                ),
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Container(
-                padding: EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: FluentTheme.of(
-                    context,
-                  ).accentColor.withValues(alpha: 0.1),
-                  borderRadius: BTRadius.smallBR,
-                ),
-                child: Icon(
-                  FluentIcons.open_in_new_tab,
-                  size: 12,
-                  color: FluentTheme.of(context).accentColor,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Color _getScoreColor(double score) {
-    if (score >= 8.0) return const Color(0xFF107C10);
-    if (score >= 7.0) return const Color(0xFF0078D4);
-    if (score >= 6.0) return const Color(0xFFFFB900);
-    if (score >= 5.0) return const Color(0xFFFF8C00);
-    return const Color(0xFFD13438);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
-
-    return BTCard(
-      padding: EdgeInsets.zero,
-      margin: EdgeInsets.zero,
-      useAcrylic: true,
-      acrylicOpacity: 0.8,
-      useReveal: true,
-      useShadow: true,
-      shadowLevel: BTShadowLevel.medium,
-      borderColor: isDark
-          ? Colors.white.withValues(alpha: 0.1)
-          : Colors.black.withValues(alpha: 0.06),
-      borderWidth: 1.5,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AspectRatio(aspectRatio: 1.0, child: _buildCover()),
-          Expanded(child: _buildInfo()),
         ],
       ),
     );
@@ -869,7 +576,7 @@ class _AnimatedSearchButtonState extends State<_AnimatedSearchButton>
           },
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
-            padding: EdgeInsets.all(12),
+            padding: EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: _isHovered
                   ? accentColor
@@ -894,7 +601,7 @@ class _AnimatedSearchButtonState extends State<_AnimatedSearchButton>
                       activeColor: Colors.white,
                     ),
                   )
-                : Icon(FluentIcons.search, size: 16, color: Colors.white),
+                : Icon(FluentIcons.search, size: 14, color: Colors.white),
           ),
         ),
       ),
@@ -1058,7 +765,7 @@ class _FilterChipState extends State<_FilterChip>
           },
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: widget.isSelected
                   ? accentColor.withValues(alpha: _isHovered ? 1.0 : 0.9)
@@ -1097,21 +804,21 @@ class _FilterChipState extends State<_FilterChip>
                     color: widget.isSelected
                         ? Colors.white
                         : BTColors.textPrimary(context),
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: widget.isSelected
                         ? FontWeight.w600
                         : FontWeight.w400,
                   ),
                 ),
                 if (widget.isSelected && widget.onDeleted != null) ...[
-                  SizedBox(width: 6),
+                  SizedBox(width: 4),
                   GestureDetector(
                     onTap: widget.onDeleted,
                     child: MouseRegion(
                       cursor: SystemMouseCursors.click,
                       child: Icon(
                         FluentIcons.chrome_close,
-                        size: 10,
+                        size: 9,
                         color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),

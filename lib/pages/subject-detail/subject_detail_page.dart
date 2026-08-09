@@ -26,6 +26,7 @@ import '../../widgets/common/bt_drawer.dart';
 import '../../widgets/bangumi/subject_detail/bsd_bmf_drawer.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_episodes.dart';
+import '../subject-search/subject_search_page.dart';
 import 'sd_pw_overview.dart';
 import 'sd_pw_relation.dart';
 
@@ -172,6 +173,24 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
       return;
     }
     if (mounted) await showSearchResult(context, items);
+  }
+
+  /// 根据标签搜索动画
+  void searchByTag(String tag) {
+    var normalizedTag = tag.trim();
+    if (normalizedTag.isEmpty) return;
+
+    var title = SubjectSearchPage.titleForTag(normalizedTag);
+    ref
+        .read(navStoreProvider)
+        .addNavItem(
+          PaneItem(
+            icon: const Icon(FluentIcons.search),
+            title: Text(title),
+            body: SubjectSearchPage(tag: normalizedTag),
+          ),
+          title,
+        );
   }
 
   /// 显示搜索结果
@@ -569,7 +588,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
                 ),
                 boxShadow: BTTheme.shadow(context, level: BTShadowLevel.medium),
               ),
-              child: SdpOverviewWidget(data!),
+              child: SdpOverviewWidget(data!, onTagTap: searchByTag),
             ),
           ),
           SizedBox(height: 12),
