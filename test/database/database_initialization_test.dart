@@ -3,11 +3,13 @@ import 'package:bangumi_today/database/bangumi/bangumi_data.dart';
 import 'package:bangumi_today/database/bangumi/bangumi_user.dart';
 import 'package:bangumi_today/database/app/app_bmf.dart';
 import 'package:bangumi_today/database/app/app_config.dart';
+import 'package:bangumi_today/database/app/app_mikan_credential.dart';
 import 'package:bangumi_today/database/app/app_rss.dart';
 import 'package:bangumi_today/database/bt_sqlite.dart';
 import 'package:bangumi_today/models/database/app_bmf_model.dart';
 import 'package:bangumi_today/models/database/app_rss_model.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -82,7 +84,7 @@ void main() {
       var user = BtsBangumiUser();
       await user.deleteAccessToken();
       await user.writeAccessToken(accessToken);
-      await BtsAppConfig().writeMikanToken(mikanToken);
+      await BtsMikanCredential().writeToken(mikanToken);
     } finally {
       debugPrint = originalDebugPrint;
     }
@@ -91,6 +93,75 @@ void main() {
     expect(output, isNot(contains(accessToken)));
     expect(output, isNot(contains(mikanToken)));
   });
+
+  test('Mikan token migrates from legacy config to secure storage', () async {
+    const legacyMikanToken = 'legacy-mikan-token-for-migration';
+    await FlutterSecureStorage().delete(key: 'mikan.token');
+    await BtsAppConfig().delete(BtsMikanCredential.legacyConfigKey);
+    await BtsAppConfig().write(
+      BtsMikanCredential.legacyConfigKey,
+      legacyMikanToken,
+    );
+
+    var credential = BtsMikanCredential();
+    expect(await credential.readToken(), legacyMikanToken);
+
+    var rows = await database.query(
+      'AppConfig',
+      where: 'key = ?',
+      whereArgs: [BtsMikanCredential.legacyConfigKey],
+    );
+    expect(rows, isEmpty);
+    expect(
+      await FlutterSecureStorage().read(key: 'mikan.token'),
+      legacyMikanToken,
+    );
+  });
+
+  test(
+    'Mikan token falls back to legacy config when secure storage fails',
+    () async {
+      const fallbackMikanToken = 'fallback-mikan-token-for-plugin-failure';
+      await BtsAppConfig().delete(BtsMikanCredential.legacyConfigKey);
+
+      var credential = BtsMikanCredential(
+        secureStorage: _FailingSecureStorage(),
+      );
+      await credential.writeToken(fallbackMikanToken);
+
+      var rows = await database.query(
+        'AppConfig',
+        where: 'key = ?',
+        whereArgs: [BtsMikanCredential.legacyConfigKey],
+      );
+      expect(rows, hasLength(1));
+      expect(rows.first['value'], fallbackMikanToken);
+
+      expect(await credential.readToken(), fallbackMikanToken);
+    },
+  );
+
+  test(
+    'deleting Mikan token cleans secure storage and legacy config',
+    () async {
+      const deleteMikanToken = 'mikan-token-to-delete';
+      await FlutterSecureStorage().delete(key: 'mikan.token');
+      await BtsAppConfig().delete(BtsMikanCredential.legacyConfigKey);
+
+      var credential = BtsMikanCredential();
+      await credential.writeToken(deleteMikanToken);
+      await credential.deleteToken();
+
+      expect(await FlutterSecureStorage().read(key: 'mikan.token'), isNull);
+      var rows = await database.query(
+        'AppConfig',
+        where: 'key = ?',
+        whereArgs: [BtsMikanCredential.legacyConfigKey],
+      );
+      expect(rows, isEmpty);
+      expect(await credential.readToken(), isNull);
+    },
+  );
 
   test('Bangumi data initialization is idempotent', () async {
     var bangumiData = BtsBangumiData();
@@ -177,4 +248,47 @@ void main() {
     await bmf.write(model.copyWith(autoUpdate: false));
     expect((await bmf.read(42))?.autoUpdate, isFalse);
   });
+}
+
+/// 模拟安全存储插件不可用，用于验证回退路径。
+class _FailingSecureStorage extends FlutterSecureStorage {
+  @override
+  Future<String?> read({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    throw PlatformException(code: 'test_secure_storage_failure');
+  }
+
+  @override
+  Future<void> write({
+    required String key,
+    required String? value,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    throw PlatformException(code: 'test_secure_storage_failure');
+  }
+
+  @override
+  Future<void> delete({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    throw PlatformException(code: 'test_secure_storage_failure');
+  }
 }

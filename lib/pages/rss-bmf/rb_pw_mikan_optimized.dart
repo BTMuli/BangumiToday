@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../core/services/optimized_rss_service.dart';
 import '../../database/app/app_config.dart';
+import '../../database/app/app_mikan_credential.dart';
 import '../../domain/repositories/bmf_repository.dart';
 import '../../plugins/mikan/mikan_api.dart';
 import '../../store/app_store.dart';
@@ -150,7 +151,7 @@ class _OptimizedRbpMikanWidgetState
   }
 
   Future<void> init() async {
-    var mikan = await sqlite.readMikanToken();
+    var mikan = await BtsMikanCredential().readToken();
     if (!mounted) return;
     if (mikan == null || mikan.isEmpty) {
       useUserRSS = false;
@@ -186,7 +187,7 @@ class _OptimizedRbpMikanWidgetState
       return;
     }
     token = parsed;
-    await sqlite.writeMikanToken(token);
+    await BtsMikanCredential().writeToken(token);
     if (mounted) await BtInfobar.success(context, 'Token 已保存');
     useUserRSS = true;
     if (mounted) setState(() {});
