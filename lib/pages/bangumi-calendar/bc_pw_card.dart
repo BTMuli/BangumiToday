@@ -346,30 +346,26 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Flexible(
-          child: Tooltip(
-            message: title,
-            child: Text(
-              title,
-              style: BTTypography.subtitle(
-                context,
-              ).copyWith(fontWeight: FontWeight.w600),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
+        Tooltip(
+          message: title,
+          child: Text(
+            title,
+            style: BTTypography.subtitle(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         if (subTitle.isNotEmpty) ...[
           SizedBox(height: 4),
-          Flexible(
-            child: Tooltip(
-              message: subTitle,
-              child: Text(
-                subTitle,
-                style: BTTypography.caption(context),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+          Tooltip(
+            message: subTitle,
+            child: Text(
+              subTitle,
+              style: BTTypography.caption(context),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
