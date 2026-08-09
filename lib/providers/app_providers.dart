@@ -9,13 +9,10 @@ import '../store/app_store.dart';
 import '../store/bgm_user_hive.dart';
 import '../store/tracker_hive.dart';
 
+export '../store/app_store.dart' show BTAppStore, appStoreProvider;
 export '../domain/repositories/bmf_repository.dart';
 export '../store/bmf_store.dart';
 export '../store/nav_store.dart';
-
-final appStoreProvider = ChangeNotifierProvider<BTAppStore>((ref) {
-  return BTAppStore();
-});
 
 final bgmUserHiveProvider = ChangeNotifierProvider<BgmUserHive>((ref) {
   return BgmUserHive();
