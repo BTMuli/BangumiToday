@@ -229,4 +229,22 @@ class _DpiEngine implements BtEngineGateway {
   Future<BtTaskDetails> taskDetails(String id) async {
     throw UnimplementedError();
   }
+
+  @override
+  Future<BtTaskFilesResult> taskFiles(
+    String id, {
+    int offset = 0,
+    int? limit,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<BtTaskPeersResult> taskPeers(
+    String id, {
+    int offset = 0,
+    int? limit,
+  }) async {
+    throw UnimplementedError();
+  }
 }

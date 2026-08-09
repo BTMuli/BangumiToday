@@ -1,9 +1,23 @@
 part of '../download_task_details.dart';
 
 class _FilesTab extends ConsumerStatefulWidget {
-  const _FilesTab({required this.details});
+  const _FilesTab({
+    required this.files,
+    required this.truncated,
+    required this.task,
+    required this.taskId,
+    required this.loading,
+    this.error,
+    this.onRetry,
+  });
 
-  final BtTaskDetails details;
+  final List<BtTaskFileDetail> files;
+  final bool truncated;
+  final BtTaskSnapshot task;
+  final String taskId;
+  final bool loading;
+  final String? error;
+  final VoidCallback? onRetry;
 
   @override
   ConsumerState<_FilesTab> createState() => _FilesTabState();
@@ -16,21 +30,20 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
   @override
   void initState() {
     super.initState();
-    _files = List.of(widget.details.files);
+    _files = List.of(widget.files);
   }
 
   @override
   void didUpdateWidget(covariant _FilesTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.details.task.id != widget.details.task.id ||
-        (_busyIndices.isEmpty &&
-            !identical(oldWidget.details, widget.details))) {
-      _files = List.of(widget.details.files);
+    if (oldWidget.task.id != widget.task.id ||
+        (_busyIndices.isEmpty && !identical(oldWidget.files, widget.files))) {
+      _files = List.of(widget.files);
     }
   }
 
   bool get _canEdit {
-    var state = widget.details.task.state;
+    var state = widget.task.state;
     return state != 'completed' && state != 'seeding';
   }
 
@@ -48,7 +61,7 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
 
   Future<void> _applyPriorities(Map<int, int> changes) async {
     if (changes.isEmpty || !mounted) return;
-    var taskId = widget.details.task.id;
+    var taskId = widget.taskId;
     var previous = <int, int>{
       for (var index in changes.keys) index: _files[index].priority,
     };
@@ -90,7 +103,7 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
   }
 
   void _applyAll(bool include) {
-    if (widget.details.filesTruncated || _files.isEmpty) return;
+    if (widget.truncated || _files.isEmpty) return;
     unawaited(
       _applyPriorities({
         for (var i = 0; i < _files.length; i++) i: include ? 4 : 0,
@@ -100,6 +113,13 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
 
   @override
   Widget build(BuildContext context) {
+    var error = widget.error;
+    if (error != null && _files.isEmpty) {
+      return _DetailTabError(error: error, onRetry: widget.onRetry);
+    }
+    if (_files.isEmpty && widget.loading) {
+      return const Center(child: ProgressRing());
+    }
     if (_files.isEmpty) {
       return const _DetailEmptyState(
         icon: FluentIcons.folder,
@@ -108,8 +128,9 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
       );
     }
     var footerParts = <String>[
-      if (widget.details.filesTruncated) '文件较多，仅显示前 ${_files.length} 个',
+      if (widget.truncated) '文件较多，仅显示前 ${_files.length} 个',
       if (!_canEdit) '下载完成后不可修改文件选择',
+      if (error != null) '刷新失败，正在显示上次结果',
     ];
     return Column(
       children: [
@@ -125,16 +146,12 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                   ),
                 ),
                 Button(
-                  onPressed: widget.details.filesTruncated
-                      ? null
-                      : () => _applyAll(true),
+                  onPressed: widget.truncated ? null : () => _applyAll(true),
                   child: const Text('全部下载'),
                 ),
                 SizedBox(width: 8),
                 Button(
-                  onPressed: widget.details.filesTruncated
-                      ? null
-                      : () => _applyAll(false),
+                  onPressed: widget.truncated ? null : () => _applyAll(false),
                   child: const Text('全部跳过'),
                 ),
               ],

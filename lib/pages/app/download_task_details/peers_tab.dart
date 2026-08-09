@@ -1,9 +1,19 @@
 part of '../download_task_details.dart';
 
 class _PeersTab extends StatefulWidget {
-  const _PeersTab({required this.details});
+  const _PeersTab({
+    required this.peers,
+    required this.truncated,
+    required this.loading,
+    this.error,
+    this.onRetry,
+  });
 
-  final BtTaskDetails details;
+  final List<BtTaskPeerDetail> peers;
+  final bool truncated;
+  final bool loading;
+  final String? error;
+  final VoidCallback? onRetry;
 
   @override
   State<_PeersTab> createState() => _PeersTabState();
@@ -33,9 +43,8 @@ class _PeersTabState extends State<_PeersTab> {
   }
 
   void _openClientFilter() {
-    var clients =
-        widget.details.peers.map((peer) => peer.clientName).toSet().toList()
-          ..sort();
+    var clients = widget.peers.map((peer) => peer.clientName).toSet().toList()
+      ..sort();
     _filterController.showFlyout(
       barrierDismissible: true,
       dismissOnPointerMoveAway: false,
@@ -79,7 +88,7 @@ class _PeersTabState extends State<_PeersTab> {
   }
 
   List<BtTaskPeerDetail> _sortedPeers() {
-    var peers = widget.details.peers;
+    var peers = widget.peers;
     var clientFilter = _clientFilter;
     if (clientFilter != null) {
       peers = peers.where((peer) => peer.clientName == clientFilter).toList();
@@ -111,7 +120,14 @@ class _PeersTabState extends State<_PeersTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.details.peers.isEmpty) {
+    var error = widget.error;
+    if (error != null && widget.peers.isEmpty) {
+      return _DetailTabError(error: error, onRetry: widget.onRetry);
+    }
+    if (widget.peers.isEmpty && widget.loading) {
+      return const Center(child: ProgressRing());
+    }
+    if (widget.peers.isEmpty) {
       return const _DetailEmptyState(
         icon: FluentIcons.people,
         title: '暂无已连接 Peer',
@@ -120,9 +136,10 @@ class _PeersTabState extends State<_PeersTab> {
     }
     var peers = _sortedPeers();
     var footerParts = <String>[
-      if (widget.details.peersTruncated) 'Peer 较多，仅显示前 500 个',
+      if (widget.truncated) 'Peer 较多，仅显示前 ${widget.peers.length} 个',
       if (_clientFilter != null)
-        '已按客户端「$_clientFilter」筛选 · 显示 ${peers.length} / ${widget.details.peers.length} 个',
+        '已按客户端「$_clientFilter」筛选 · 显示 ${peers.length} / ${widget.peers.length} 个',
+      if (error != null) '刷新失败，正在显示上次结果',
     ];
     return _TableShell(
       footer: footerParts.isEmpty ? null : footerParts.join(' · '),

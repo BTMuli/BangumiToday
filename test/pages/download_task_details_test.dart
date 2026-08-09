@@ -90,7 +90,7 @@ void main() {
   );
 
   testWidgets('overview tab renders task and torrent sections', (tester) async {
-    await _pumpDetails(tester, details: _detailsWithSections());
+    var engine = await _pumpDetails(tester, details: _detailsWithSections());
 
     expect(find.text('基本信息'), findsOneWidget);
     expect(find.text('存储路径'), findsOneWidget);
@@ -106,6 +106,10 @@ void main() {
     expect(find.text('种子信息'), findsOneWidget);
     expect(find.text('分片大小'), findsOneWidget);
     expect(find.text('分片数量'), findsOneWidget);
+    expect(find.text('Peer 2'), findsOneWidget);
+    expect(find.text('文件 2'), findsOneWidget);
+    expect(engine.taskPeersCalls, 0);
+    expect(engine.taskFilesCalls, 0);
 
     await tester.pumpWidget(const SizedBox());
   });
@@ -131,14 +135,17 @@ void main() {
   testWidgets('peers tab renders rows and client filter narrows the list', (
     tester,
   ) async {
-    await _pumpDetails(tester, details: _detailsWithSections());
+    var engine = await _pumpDetails(tester, details: _detailsWithSections());
 
     await tester.tap(find.textContaining('Peer'));
+    await tester.pump();
     await tester.pump();
 
     expect(find.text('127.0.0.1:6881'), findsOneWidget);
     expect(find.text('qBittorrent'), findsOneWidget);
     expect(find.text('Transmission'), findsOneWidget);
+    expect(engine.taskPeersCalls, 1);
+    expect(engine.taskFilesCalls, 0);
 
     await tester.tap(find.text('客户端'));
     await tester.pump();
@@ -167,17 +174,67 @@ void main() {
 
     await tester.tap(find.textContaining('文件'));
     await tester.pump();
+    await tester.pump();
 
     expect(find.text('episode.mkv'), findsOneWidget);
     expect(find.text('subtitle.ass'), findsOneWidget);
     expect(find.text('全部下载'), findsOneWidget);
     expect(find.text('全部跳过'), findsOneWidget);
+    expect(engine.taskFilesCalls, 1);
+    expect(engine.taskPeersCalls, 0);
 
     await tester.tap(find.text('全部跳过'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(engine.setFilePrioritiesCalls, 1);
 
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('peer tab fetches peers on demand without requesting files', (
+    tester,
+  ) async {
+    var engine = await _pumpDetails(tester, details: _detailsWithSections());
+    expect(engine.taskDetailsCalls, 1);
+    expect(engine.taskPeersCalls, 0);
+    expect(engine.taskFilesCalls, 0);
+    expect(find.text('Peer 2'), findsOneWidget);
+    expect(find.text('文件 2'), findsOneWidget);
+
+    await tester.tap(find.textContaining('Peer'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(engine.taskPeersCalls, 1);
+    expect(engine.taskFilesCalls, 0);
+    expect(find.text('127.0.0.1:6881'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('tab fetch failure shows retry without breaking the page', (
+    tester,
+  ) async {
+    var engine = await _pumpDetails(tester, details: _detailsWithSections());
+    engine.filesError = const BtEngineClientException('engine unavailable');
+
+    await tester.tap(find.textContaining('文件'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('无法加载列表'), findsOneWidget);
+    expect(find.text('基本信息'), findsNothing);
+    expect(find.text('Peer 2'), findsOneWidget);
+
+    engine.filesError = null;
+    await tester.tap(find.text('重试'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('episode.mkv'), findsOneWidget);
+
+    // 消化按钮 hover 定时器后再销毁页面。
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -189,9 +246,11 @@ void main() {
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
+    await tester.pump();
     expect(find.text('分片完成情况'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
     await tester.pump();
     expect(find.text('127.0.0.1:6881'), findsOneWidget);
 
@@ -213,7 +272,9 @@ void main() {
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
+    await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
     await tester.pump();
     expect(find.text('127.0.0.1:6881'), findsOneWidget);
 
@@ -291,8 +352,10 @@ BtTaskDetails _details() {
     completedPieces: '10',
     files: const [],
     filesTruncated: false,
+    totalFiles: 0,
     peers: const [],
     peersTruncated: false,
+    totalPeers: 0,
   );
 }
 
@@ -307,6 +370,7 @@ BtTaskDetails _detailsWithSections() {
       BtTaskFileDetail(path: 'subtitle.ass', size: 10, completedBytes: 10),
     ],
     filesTruncated: false,
+    totalFiles: 2,
     peers: [
       BtTaskPeerDetail(
         endpoint: '127.0.0.1:6881',
@@ -324,6 +388,7 @@ BtTaskDetails _detailsWithSections() {
       ),
     ],
     peersTruncated: false,
+    totalPeers: 2,
   );
 }
 
@@ -339,7 +404,11 @@ class FakeDetailsEngine implements BtEngineGateway {
   List<BtTaskSnapshot> currentTasks = [];
   BtTaskDetails? details;
   int taskDetailsCalls = 0;
+  int taskFilesCalls = 0;
+  int taskPeersCalls = 0;
   int setFilePrioritiesCalls = 0;
+  Object? filesError;
+  Object? peersError;
   Completer<BtTaskDetails>? nextDetailsCompleter;
 
   void emitState(BtEngineClientState value) {
@@ -375,7 +444,59 @@ class FakeDetailsEngine implements BtEngineGateway {
   Future<BtTaskDetails> taskDetails(String id) async {
     taskDetailsCalls++;
     if (nextDetailsCompleter != null) return nextDetailsCompleter!.future;
-    return details ?? _details();
+    var value = details ?? _details();
+    return BtTaskDetails(
+      task: value.task,
+      pieceLength: value.pieceLength,
+      pieceCount: value.pieceCount,
+      completedPieces: value.completedPieces,
+      files: const [],
+      filesTruncated: false,
+      totalFiles: value.files.length,
+      peers: const [],
+      peersTruncated: false,
+      totalPeers: value.peers.length,
+    );
+  }
+
+  @override
+  Future<BtTaskFilesResult> taskFiles(
+    String id, {
+    int offset = 0,
+    int? limit,
+  }) async {
+    taskFilesCalls++;
+    if (filesError != null) throw filesError!;
+    var value = details ?? _details();
+    var files = value.files;
+    var end = (offset + (limit ?? files.length)).clamp(0, files.length);
+    return BtTaskFilesResult(
+      files: offset < end ? files.sublist(offset, end) : const [],
+      truncated: false,
+      totalFiles: files.length,
+      offset: offset,
+      nextOffset: null,
+    );
+  }
+
+  @override
+  Future<BtTaskPeersResult> taskPeers(
+    String id, {
+    int offset = 0,
+    int? limit,
+  }) async {
+    taskPeersCalls++;
+    if (peersError != null) throw peersError!;
+    var value = details ?? _details();
+    var peers = value.peers;
+    var end = (offset + (limit ?? peers.length)).clamp(0, peers.length);
+    return BtTaskPeersResult(
+      peers: offset < end ? peers.sublist(offset, end) : const [],
+      truncated: false,
+      totalPeers: peers.length,
+      offset: offset,
+      nextOffset: null,
+    );
   }
 
   @override

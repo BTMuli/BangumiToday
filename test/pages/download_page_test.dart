@@ -210,9 +210,39 @@ class FakePageEngine implements BtEngineGateway {
     completedPieces: '10',
     files: const [],
     filesTruncated: false,
+    totalFiles: 0,
     peers: const [],
     peersTruncated: false,
+    totalPeers: 0,
   );
+
+  @override
+  Future<BtTaskFilesResult> taskFiles(
+    String id, {
+    int offset = 0,
+    int? limit,
+  }) async {
+    return const BtTaskFilesResult(
+      files: [],
+      truncated: false,
+      totalFiles: 0,
+      offset: 0,
+    );
+  }
+
+  @override
+  Future<BtTaskPeersResult> taskPeers(
+    String id, {
+    int offset = 0,
+    int? limit,
+  }) async {
+    return const BtTaskPeersResult(
+      peers: [],
+      truncated: false,
+      totalPeers: 0,
+      offset: 0,
+    );
+  }
 
   @override
   Future<void> start({

@@ -1,7 +1,21 @@
-const btEngineProtocolVersion = '1.1';
+const btEngineProtocolVersion = '1.2';
 const btEngineMaxProtocolFrameBytes = 1024 * 1024;
 
 enum BtEngineClientState { stopped, starting, ready, stopping, failed }
+
+/// 解析协议版本为 `(major, minor)`，格式必须为 `major.minor`。
+(int, int) parseBtEngineProtocolVersion(String value) {
+  var parts = value.split('.');
+  if (parts.length != 2) {
+    throw const FormatException('invalid protocol version');
+  }
+  var major = int.tryParse(parts[0]);
+  var minor = int.tryParse(parts[1]);
+  if (major == null || minor == null || major < 0 || minor < 0) {
+    throw const FormatException('invalid protocol version');
+  }
+  return (major, minor);
+}
 
 class BtTaskError {
   const BtTaskError({
@@ -220,8 +234,10 @@ class BtTaskDetails {
     required this.completedPieces,
     required this.files,
     required this.filesTruncated,
+    required this.totalFiles,
     required this.peers,
     required this.peersTruncated,
+    required this.totalPeers,
   });
 
   factory BtTaskDetails.fromJson(Map<String, dynamic> json) {
@@ -234,6 +250,8 @@ class BtTaskDetails {
           .toList(growable: false);
     }
 
+    var files = parseList('files', BtTaskFileDetail.fromJson);
+    var peers = parseList('peers', BtTaskPeerDetail.fromJson);
     return BtTaskDetails(
       task: BtTaskSnapshot.fromJson(
         Map<String, dynamic>.from(json['task'] as Map),
@@ -241,10 +259,12 @@ class BtTaskDetails {
       pieceLength: (json['pieceLength'] as num?)?.toInt() ?? 0,
       pieceCount: (json['pieceCount'] as num?)?.toInt() ?? 0,
       completedPieces: json['completedPieces'] as String? ?? '',
-      files: parseList('files', BtTaskFileDetail.fromJson),
+      files: files,
       filesTruncated: json['filesTruncated'] as bool? ?? false,
-      peers: parseList('peers', BtTaskPeerDetail.fromJson),
+      totalFiles: (json['totalFiles'] as num?)?.toInt() ?? files.length,
+      peers: peers,
       peersTruncated: json['peersTruncated'] as bool? ?? false,
+      totalPeers: (json['totalPeers'] as num?)?.toInt() ?? peers.length,
     );
   }
 
@@ -254,8 +274,88 @@ class BtTaskDetails {
   final String completedPieces;
   final List<BtTaskFileDetail> files;
   final bool filesTruncated;
+  final int totalFiles;
   final List<BtTaskPeerDetail> peers;
   final bool peersTruncated;
+  final int totalPeers;
+}
+
+/// `task.files` 的响应：按 `offset`/`limit` 窗口返回的文件列表。
+class BtTaskFilesResult {
+  const BtTaskFilesResult({
+    required this.files,
+    required this.truncated,
+    required this.totalFiles,
+    required this.offset,
+    this.nextOffset,
+  });
+
+  factory BtTaskFilesResult.fromJson(Map<String, dynamic> json) {
+    var values = json['files'];
+    var files = values is List
+        ? values
+              .whereType<Map>()
+              .map(
+                (value) =>
+                    BtTaskFileDetail.fromJson(Map<String, dynamic>.from(value)),
+              )
+              .toList(growable: false)
+        : const <BtTaskFileDetail>[];
+    return BtTaskFilesResult(
+      files: files,
+      truncated: json['filesTruncated'] as bool? ?? false,
+      totalFiles: (json['totalFiles'] as num?)?.toInt() ?? files.length,
+      offset: (json['offset'] as num?)?.toInt() ?? 0,
+      nextOffset: (json['nextOffset'] as num?)?.toInt(),
+    );
+  }
+
+  final List<BtTaskFileDetail> files;
+
+  /// 当前窗口之后是否仍有文件（`nextOffset` 指向下一页起点）。
+  final bool truncated;
+  final int totalFiles;
+  final int offset;
+  final int? nextOffset;
+}
+
+/// `task.peers` 的响应：按 `offset`/`limit` 窗口返回的 Peer 列表。
+class BtTaskPeersResult {
+  const BtTaskPeersResult({
+    required this.peers,
+    required this.truncated,
+    required this.totalPeers,
+    required this.offset,
+    this.nextOffset,
+  });
+
+  factory BtTaskPeersResult.fromJson(Map<String, dynamic> json) {
+    var values = json['peers'];
+    var peers = values is List
+        ? values
+              .whereType<Map>()
+              .map(
+                (value) =>
+                    BtTaskPeerDetail.fromJson(Map<String, dynamic>.from(value)),
+              )
+              .toList(growable: false)
+        : const <BtTaskPeerDetail>[];
+    return BtTaskPeersResult(
+      peers: peers,
+      truncated: json['peersTruncated'] as bool? ?? false,
+      totalPeers: (json['totalPeers'] as num?)?.toInt() ?? peers.length,
+      offset: (json['offset'] as num?)?.toInt() ?? 0,
+      nextOffset: (json['nextOffset'] as num?)?.toInt(),
+    );
+  }
+
+  final List<BtTaskPeerDetail> peers;
+
+  /// 当前窗口之后是否仍有 Peer（`nextOffset` 指向下一页起点）。
+  final bool truncated;
+  final int totalPeers;
+  final int offset;
+  final int? nextOffset;
 }
 
 class BtEngineEvent {

@@ -19,6 +19,8 @@ abstract interface class BtEngineGateway {
 
   Future<void> refreshTasks();
   Future<BtTaskDetails> taskDetails(String id);
+  Future<BtTaskFilesResult> taskFiles(String id, {int offset = 0, int? limit});
+  Future<BtTaskPeersResult> taskPeers(String id, {int offset = 0, int? limit});
   Future<List<int>> setFilePriorities(String id, Map<int, int> priorities);
   Future<Map<String, dynamic>> status();
   Future<Map<String, dynamic>> configure(Map<String, dynamic> config);

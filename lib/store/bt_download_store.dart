@@ -131,6 +131,16 @@ class BtDownloadStore extends ChangeNotifier {
   }
 
   Future<BtTaskDetails> taskDetails(String id) => _client.taskDetails(id);
+  Future<BtTaskFilesResult> taskFiles(
+    String id, {
+    int offset = 0,
+    int? limit,
+  }) => _client.taskFiles(id, offset: offset, limit: limit);
+  Future<BtTaskPeersResult> taskPeers(
+    String id, {
+    int offset = 0,
+    int? limit,
+  }) => _client.taskPeers(id, offset: offset, limit: limit);
   Future<List<int>> setFilePriorities(String id, Map<int, int> priorities) =>
       _client.setFilePriorities(id, priorities);
 

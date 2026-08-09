@@ -251,6 +251,95 @@ void main() {
       expect(details.peers.single.downloadRate, 1024);
     });
 
+    test('negotiates protocol 1.1 with an old engine and falls back to full '
+        'details for tabbed lists', () async {
+      process.readyProtocolVersion = '1.1';
+      await client.start(
+        executablePath: executablePath,
+        statePath: path.join(temporaryDirectory.path, 'state'),
+      );
+
+      expect(client.supportsTabbedDetails, isFalse);
+      var initialize = process.requests.firstWhere(
+        (request) => request['method'] == 'engine.initialize',
+      );
+      expect(initialize['params']['protocolVersion'], '1.1');
+
+      var files = await client.taskFiles('task');
+      var peers = await client.taskPeers('task');
+
+      expect(
+        process.requests.where((request) => request['method'] == 'task.files'),
+        isEmpty,
+      );
+      expect(
+        process.requests.where((request) => request['method'] == 'task.peers'),
+        isEmpty,
+      );
+      expect(files.files.single.path, 'episode.mkv');
+      expect(files.totalFiles, 1);
+      expect(peers.peers.single.client, 'qBittorrent');
+    });
+
+    test(
+      'requests tabbed file and peer lists on a protocol 1.2 engine',
+      () async {
+        await client.start(
+          executablePath: executablePath,
+          statePath: path.join(temporaryDirectory.path, 'state'),
+        );
+
+        expect(client.supportsTabbedDetails, isTrue);
+        var files = await client.taskFiles('task', limit: 1);
+        var peers = await client.taskPeers('task', offset: 1);
+
+        expect(files.files.single.path, 'episode.mkv');
+        expect(files.truncated, isFalse);
+        expect(files.offset, 0);
+        expect(files.nextOffset, isNull);
+        expect(peers.peers.single.client, 'qBittorrent');
+        expect(peers.offset, 1);
+        var fileRequest = process.requests.firstWhere(
+          (request) => request['method'] == 'task.files',
+        );
+        expect(fileRequest['params'], {'id': 'task', 'limit': 1});
+        var peerRequest = process.requests.firstWhere(
+          (request) => request['method'] == 'task.peers',
+        );
+        expect(peerRequest['params'], {'id': 'task', 'offset': 1});
+      },
+    );
+
+    test('deduplicates concurrent tabbed detail requests', () async {
+      await client.start(
+        executablePath: executablePath,
+        statePath: path.join(temporaryDirectory.path, 'state'),
+      );
+
+      var results = await Future.wait([
+        client.taskFiles('task', limit: 1),
+        client.taskFiles('task', limit: 1),
+        client.taskDetails('task'),
+        client.taskDetails('task'),
+      ]);
+
+      expect(
+        process.requests.where((request) => request['method'] == 'task.files'),
+        hasLength(1),
+      );
+      expect(
+        process.requests.where(
+          (request) => request['method'] == 'task.details',
+        ),
+        hasLength(1),
+      );
+      expect(
+        (results[0] as BtTaskFilesResult).files.single.path,
+        'episode.mkv',
+      );
+      expect((results[2] as BtTaskDetails).task.id, 'task');
+    });
+
     test(
       'sends partial file priorities and parses the applied vector',
       () async {
@@ -404,13 +493,14 @@ class FakeBtEngineProcess implements BtEngineProcess {
         'jsonrpc': '2.0',
         'method': 'event.ready',
         'params': {
-          'protocolVersion': btEngineProtocolVersion,
+          'protocolVersion': readyProtocolVersion,
           'engineVersion': 'test',
         },
       });
     });
   }
 
+  String readyProtocolVersion = btEngineProtocolVersion;
   final StreamController<List<int>> _stdoutController = StreamController();
   final StreamController<List<int>> _stderrController = StreamController();
   final StreamController<List<int>> _stdinController = StreamController();
@@ -526,6 +616,45 @@ class FakeBtEngineProcess implements BtEngineProcess {
               },
             ],
             'peersTruncated': false,
+          },
+        );
+      case 'task.files':
+        var filesOffset = ((request['params'] as Map?)?['offset'] as num?)?.toInt() ?? 0;
+        _respond(
+          request,
+          result: {
+            'files': [
+              {
+                'path': 'episode.mkv',
+                'size': 100,
+                'completedBytes': 50,
+                'priority': 0,
+              },
+            ],
+            'filesTruncated': false,
+            'totalFiles': 1,
+            'offset': filesOffset,
+            'nextOffset': null,
+          },
+        );
+      case 'task.peers':
+        var peersOffset = ((request['params'] as Map?)?['offset'] as num?)?.toInt() ?? 0;
+        _respond(
+          request,
+          result: {
+            'peers': [
+              {
+                'endpoint': '127.0.0.1:6881',
+                'client': 'qBittorrent',
+                'progress': 0.75,
+                'downloadRate': 1024,
+                'uploadRate': 0,
+              },
+            ],
+            'peersTruncated': false,
+            'totalPeers': 1,
+            'offset': peersOffset,
+            'nextOffset': null,
           },
         );
       case 'task.setFilePriorities':

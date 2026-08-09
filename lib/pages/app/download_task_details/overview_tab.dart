@@ -51,7 +51,7 @@ class _OverviewTab extends StatelessWidget {
                     : '等待元数据',
               ),
               _DetailRow(label: '分片数量', value: '${details.pieceCount}'),
-              _DetailRow(label: '文件数量', value: '${details.files.length}'),
+              _DetailRow(label: '文件数量', value: '${details.totalFiles}'),
               _DetailRow(
                 label: '做种策略',
                 value:

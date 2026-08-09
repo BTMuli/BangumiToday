@@ -38,11 +38,16 @@ class DownloadTaskDetails extends ConsumerStatefulWidget {
 class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
     with WidgetsBindingObserver {
   BtTaskDetails? _details;
+  BtTaskFilesResult? _files;
+  BtTaskPeersResult? _peers;
   Object? _error;
+  String? _tabError;
   Timer? _refreshTimer;
   var _loading = true;
   var _tabIndex = 0;
   var _refreshing = false;
+  var _filesLoading = false;
+  var _peersLoading = false;
   var _appActive = true;
 
   static const _peerTabIndex = 2;
@@ -94,17 +99,21 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
   Future<void> _refresh({bool silent = false}) async {
     if (!_appActive || !_engineReady || _refreshing) return;
     _refreshing = true;
-    if (!silent && mounted) setState(() => _loading = true);
+    if (!silent && mounted) setState(() => _loading = _details == null);
     try {
-      var details = await ref
-          .read(btDownloadStoreProvider)
-          .taskDetails(widget.taskId);
+      var store = ref.read(btDownloadStoreProvider);
+      var details = await store.taskDetails(widget.taskId);
       if (!mounted) return;
       setState(() {
         _details = details;
         _error = null;
         _loading = false;
       });
+      if (_tabIndex == _filesTabIndex) {
+        await _loadFiles(store);
+      } else if (_tabIndex == _peerTabIndex) {
+        await _loadPeers(store);
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -113,6 +122,42 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
       });
     } finally {
       _refreshing = false;
+    }
+  }
+
+  Future<void> _loadFiles(BtDownloadStore store) async {
+    if (_filesLoading) return;
+    _filesLoading = true;
+    try {
+      var files = await store.taskFiles(widget.taskId);
+      if (!mounted) return;
+      setState(() {
+        _files = files;
+        _tabError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _tabError = error.toString());
+    } finally {
+      _filesLoading = false;
+    }
+  }
+
+  Future<void> _loadPeers(BtDownloadStore store) async {
+    if (_peersLoading) return;
+    _peersLoading = true;
+    try {
+      var peers = await store.taskPeers(widget.taskId);
+      if (!mounted) return;
+      setState(() {
+        _peers = peers;
+        _tabError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _tabError = error.toString());
+    } finally {
+      _peersLoading = false;
     }
   }
 
@@ -154,11 +199,11 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
               const _DetailTab(icon: FluentIcons.processing, label: '进度'),
               _DetailTab(
                 icon: FluentIcons.people,
-                label: 'Peer ${_details!.peers.length}',
+                label: 'Peer ${_details!.totalPeers}',
               ),
               _DetailTab(
                 icon: FluentIcons.folder,
-                label: '文件 ${_details!.files.length}',
+                label: '文件 ${_details!.totalFiles}',
               ),
             ],
             index: _tabIndex,
@@ -182,8 +227,26 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
                     children: [
                       _OverviewTab(task: task, details: _details!),
                       _ProgressTab(task: task, details: _details!),
-                      _PeersTab(details: _details!),
-                      _FilesTab(details: _details!),
+                      _PeersTab(
+                        peers: _peers?.peers ?? const [],
+                        truncated: _peers?.truncated ?? false,
+                        loading: _peers == null,
+                        error: _tabIndex == _peerTabIndex ? _tabError : null,
+                        onRetry: () => unawaited(
+                          _loadPeers(ref.read(btDownloadStoreProvider)),
+                        ),
+                      ),
+                      _FilesTab(
+                        files: _files?.files ?? const [],
+                        truncated: _files?.truncated ?? false,
+                        task: task,
+                        taskId: widget.taskId,
+                        loading: _files == null,
+                        error: _tabIndex == _filesTabIndex ? _tabError : null,
+                        onRetry: () => unawaited(
+                          _loadFiles(ref.read(btDownloadStoreProvider)),
+                        ),
+                      ),
                     ],
                   ),
                 ),

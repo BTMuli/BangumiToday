@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 // Package imports:
 import 'package:path/path.dart' as path;
@@ -35,6 +36,7 @@ class BtEngineClient implements BtEngineGateway {
   final StreamController<BtEngineClientState> _stateController =
       StreamController<BtEngineClientState>.broadcast();
   final Map<String, Completer<Map<String, dynamic>>> _pendingRequests = {};
+  final Map<String, Future<Object?>> _inflight = {};
   final Map<String, BtTaskSnapshot> _tasks = {};
 
   BtEngineProcess? _process;
@@ -43,13 +45,23 @@ class BtEngineClient implements BtEngineGateway {
   Completer<Map<String, dynamic>>? _readyCompleter;
   Future<void>? _taskRefresh;
   var _nextRequestId = 0;
+  Future<void> _sendQueue = Future.value();
   int? _sequence;
+  int? _engineProtocolMinor;
   BtEngineClientState _state = BtEngineClientState.stopped;
+
+  /// 客户端支持的引擎协议次版本范围。
+  static const _minEngineProtocolMinor = 1;
+  static const _maxEngineProtocolMinor = 2;
 
   @override
   BtEngineClientState get state => _state;
   @override
   bool get isReady => _state == BtEngineClientState.ready;
+
+  /// 引擎是否支持按 Tab 拆分详情（`task.files` / `task.peers`）。
+  bool get supportsTabbedDetails => (_engineProtocolMinor ?? 0) >= 2;
+
   @override
   List<BtTaskSnapshot> get tasks => List.unmodifiable(_tasks.values);
   @override
@@ -99,15 +111,11 @@ class BtEngineClient implements BtEngineGateway {
       _listenToProcess(process);
 
       var ready = await _readyCompleter!.future.timeout(readyTimeout);
-      if (ready['protocolVersion'] != btEngineProtocolVersion) {
-        throw BtEngineClientException(
-          'unsupported download engine protocol: '
-          '${ready['protocolVersion']}',
-        );
-      }
+      var engineMinor = _negotiateEngineProtocol(ready['protocolVersion']);
+      _engineProtocolMinor = engineMinor;
 
       await request('engine.initialize', {
-        'protocolVersion': btEngineProtocolVersion,
+        'protocolVersion': '1.$engineMinor',
         'statePath': engineStatePath,
         'userAgent': await getClientUA(),
         if (config.isNotEmpty) 'config': config,
@@ -120,6 +128,124 @@ class BtEngineClient implements BtEngineGateway {
       await _terminateFailedStart();
       rethrow;
     }
+  }
+
+  /// 校验引擎通告的协议版本，返回客户端可协商的次版本。
+  ///
+  /// 只接受与客户端主版本一致且次版本落在支持范围内的引擎；
+  /// 旧引擎（协议 1.1）通过协商降级使用，不触发新方法。
+  int _negotiateEngineProtocol(Object? rawVersion) {
+    try {
+      var (major, minor) = parseBtEngineProtocolVersion(
+        rawVersion as String? ?? '',
+      );
+      if (major != 1 ||
+          minor < _minEngineProtocolMinor ||
+          minor > _maxEngineProtocolMinor) {
+        throw const FormatException('unsupported protocol version');
+      }
+      return minor;
+    } on FormatException {
+      throw BtEngineClientException(
+        'unsupported download engine protocol: $rawVersion',
+      );
+    }
+  }
+
+  /// 并发请求去重：相同 key 的在途请求共享同一个 Future。
+  Future<T> _singleFlight<T>(String key, Future<T> Function() load) {
+    var existing = _inflight[key];
+    if (existing != null) return existing as Future<T>;
+    late Future<T> future;
+    future = load().whenComplete(() {
+      if (identical(_inflight[key], future)) _inflight.remove(key);
+    });
+    _inflight[key] = future;
+    return future;
+  }
+
+  BtTaskFilesResult _filesFromDetails(
+    BtTaskDetails details,
+    int offset,
+    int limit,
+  ) {
+    var files = details.files;
+    var end = min(files.length, offset + limit);
+    var page = offset < end
+        ? files.sublist(offset, end)
+        : const <BtTaskFileDetail>[];
+    var truncated = details.filesTruncated || end < files.length;
+    return BtTaskFilesResult(
+      files: page,
+      truncated: truncated,
+      totalFiles: details.totalFiles,
+      offset: offset,
+      nextOffset: truncated ? end : null,
+    );
+  }
+
+  BtTaskPeersResult _peersFromDetails(
+    BtTaskDetails details,
+    int offset,
+    int limit,
+  ) {
+    var peers = details.peers;
+    var end = min(peers.length, offset + limit);
+    var page = offset < end
+        ? peers.sublist(offset, end)
+        : const <BtTaskPeerDetail>[];
+    var truncated = details.peersTruncated || end < peers.length;
+    return BtTaskPeersResult(
+      peers: page,
+      truncated: truncated,
+      totalPeers: details.totalPeers,
+      offset: offset,
+      nextOffset: truncated ? end : null,
+    );
+  }
+
+  @override
+  Future<BtTaskDetails> taskDetails(String id) {
+    return _singleFlight('task.details:$id', () async {
+      var result = await request('task.details', {'id': id});
+      return BtTaskDetails.fromJson(result);
+    });
+  }
+
+  @override
+  Future<BtTaskFilesResult> taskFiles(String id, {int offset = 0, int? limit}) {
+    if (!supportsTabbedDetails) {
+      return _singleFlight('task.files.fallback:$id', () async {
+        var details = await taskDetails(id);
+        return _filesFromDetails(details, offset, limit ?? 2000);
+      });
+    }
+    return _singleFlight('task.files:$id:$offset:${limit ?? ''}', () async {
+      var result = await request('task.files', {
+        'id': id,
+        if (offset > 0) 'offset': offset,
+        'limit': ?limit,
+      });
+      return BtTaskFilesResult.fromJson(result);
+    });
+  }
+
+  @override
+  Future<BtTaskPeersResult> taskPeers(String id, {int offset = 0, int? limit}) {
+    if (!supportsTabbedDetails) {
+      return _singleFlight('task.peers.fallback:$id', () async {
+        var details = await taskDetails(id);
+        return _peersFromDetails(details, offset, limit ?? 500);
+      });
+    }
+    return _singleFlight('task.peers:$id:$offset:${limit ?? ''}', () async {
+      var result = await request('task.peers', {
+        'id': id,
+        if (offset > 0) 'offset': offset,
+        'limit': ?limit,
+      });
+      return BtTaskPeersResult.fromJson(result);
+    });
   }
 
   Future<Map<String, dynamic>> request(
@@ -146,8 +272,7 @@ class BtEngineClient implements BtEngineGateway {
     }
 
     try {
-      process.stdin.writeln(frame);
-      await process.stdin.flush();
+      await _enqueueSend(frame);
     } catch (error) {
       _pendingRequests.remove(id);
       throw BtEngineClientException(
@@ -164,17 +289,28 @@ class BtEngineClient implements BtEngineGateway {
     }
   }
 
+  /// 串行化 stdin 写入：`IOSink.flush()` 在途时再次写入会抛错，
+  /// 并发 RPC（如详情页按 Tab 请求）必须排队发送。
+  Future<void> _enqueueSend(String frame) {
+    var next = _sendQueue.then((_) => _writeFrame(frame));
+    _sendQueue = next.catchError((_) {});
+    return next;
+  }
+
+  Future<void> _writeFrame(String frame) {
+    var process = _process;
+    if (process == null) {
+      throw const BtEngineClientException('download engine is not running');
+    }
+    process.stdin.writeln(frame);
+    return process.stdin.flush();
+  }
+
   @override
   Future<Map<String, dynamic>> status() => request('engine.status');
 
   @override
   Future<void> refreshTasks() => _loadTasks();
-
-  @override
-  Future<BtTaskDetails> taskDetails(String id) async {
-    var result = await request('task.details', {'id': id});
-    return BtTaskDetails.fromJson(result);
-  }
 
   @override
   Future<List<int>> setFilePriorities(
@@ -506,6 +642,9 @@ class BtEngineClient implements BtEngineGateway {
     _readyCompleter = null;
     _taskRefresh = null;
     _sequence = null;
+    _engineProtocolMinor = null;
+    _inflight.clear();
+    _sendQueue = Future.value();
     _failPendingRequests(
       const BtEngineClientException('download engine stopped'),
     );
