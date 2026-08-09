@@ -122,7 +122,13 @@ Future<void> _initBackgroundServices() async {
     ),
   );
 
-  unawaited(_runOptionalService('BMF RSS 服务', BmfRssService.instance.start));
+  // Let the first frame become interactive before the bulk RSS refresh.
+  unawaited(
+    Future<void>.delayed(
+      const Duration(seconds: 3),
+      () => _runOptionalService('BMF RSS 服务', BmfRssService.instance.start),
+    ),
+  );
 }
 
 void _runApp(Widget child) {
