@@ -58,8 +58,10 @@ class SdpOverviewWidget extends StatelessWidget {
     }
     var pathGet = Uri.parse(images.large).path;
     var link = '${BtrBangumiApi.imageBaseUrl}/r/0x600$pathGet';
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: 400, maxHeight: 280),
+    return SizedBox(
+      key: const ValueKey('subject-detail-cover'),
+      width: 200,
+      height: 280,
       child: ClipRRect(
         borderRadius: BTRadius.mediumBR,
         child: CachedNetworkImage(
@@ -285,7 +287,15 @@ class SdpOverviewWidget extends StatelessWidget {
           ),
         ),
         SizedBox(width: 12),
-        Flexible(child: SdpRateChartWidget(item.rating)),
+        Flexible(
+          child: Align(
+            alignment: Alignment.topRight,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: SdpRateChartWidget(item.rating),
+            ),
+          ),
+        ),
       ],
     );
   }
