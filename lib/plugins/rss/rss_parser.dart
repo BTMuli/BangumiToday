@@ -44,7 +44,7 @@ class RssFeed {
       lastBuildDate: _text(channel, 'lastBuildDate'),
       ttl: int.tryParse(_text(channel, 'ttl') ?? '') ?? 0,
       items: channel
-          .findElements('item', namespace: '*')
+          .findElements('item', namespaceUri: '*')
           .map(RssItem.parse)
           .toList(growable: false),
     );
@@ -88,7 +88,7 @@ class RssItem {
       pubDate: _text(element, 'pubDate'),
       guid: _text(element, 'guid'),
       categories: element
-          .findElements('category', namespace: '*')
+          .findElements('category', namespaceUri: '*')
           .map(RssCategory.parse)
           .toList(growable: false),
       enclosure: _enclosure(element),
@@ -181,12 +181,12 @@ class RssItemTorrent {
 /// Returns the text of the first direct child element with the local
 /// [name], ignoring namespaces, or `null` when absent.
 String? _text(XmlElement element, String name) {
-  return element.getElement(name, namespace: '*')?.innerText;
+  return element.getElement(name, namespaceUri: '*')?.innerText;
 }
 
 /// Parses the first `<enclosure>` direct child of [element].
 RssEnclosure? _enclosure(XmlElement element) {
-  var enclosure = element.getElement('enclosure', namespace: '*');
+  var enclosure = element.getElement('enclosure', namespaceUri: '*');
   if (enclosure == null) return null;
   return RssEnclosure(
     url: enclosure.getAttribute('url'),
@@ -197,7 +197,7 @@ RssEnclosure? _enclosure(XmlElement element) {
 
 /// Parses Dublin Core metadata from the direct children of [element].
 DublinCore? _dublinCore(XmlElement element) {
-  var date = element.getElement('date', namespace: '*')?.innerText;
+  var date = element.getElement('date', namespaceUri: '*')?.innerText;
   if (date == null) return null;
   return DublinCore(date: date);
 }

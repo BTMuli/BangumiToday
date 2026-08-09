@@ -64,7 +64,7 @@ dependencies:
   url_launcher: ^6.3.2
   window_manager: ^0.5.2
   windows_taskbar: ^1.1.2
-  xml: ^6.6.1
+  xml: ^7.0.1
 
 dev_dependencies:
   # The "flutter_lints" package below contains a set of recommended lints to
