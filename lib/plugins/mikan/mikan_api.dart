@@ -129,9 +129,19 @@ class BtrMikanApi {
   }
 
   /// 获取自定义 RSS
-  Future<BTResponse> getCustomRSS(String url) async {
+  Future<BTResponse> getCustomRSS(
+    String url, {
+    Duration? connectTimeout,
+    Duration? receiveTimeout,
+  }) async {
     try {
-      var resp = await client.dio.get(url);
+      var resp = await client.dio.get(
+        url,
+        options: Options(
+          connectTimeout: connectTimeout,
+          receiveTimeout: receiveTimeout,
+        ),
+      );
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
       var errInfo = ["Fail to load custom RSS $url", "DioErr: ${e.error}"];

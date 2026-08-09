@@ -76,6 +76,24 @@ void main() {
     });
   }
 
+  BmfRssService buildService(
+    _FakeMikanApi api,
+    DateTime Function() now, {
+    int concurrency = 4,
+    Duration recoveryWindow = const Duration(minutes: 5),
+    int maxAttempts = 4,
+  }) {
+    return BmfRssService.forTesting(
+      api: api,
+      now: now,
+      retryBaseDelay: Duration.zero,
+      jitter: () => Duration.zero,
+      concurrency: concurrency,
+      recoveryWindow: recoveryWindow,
+      maxAttempts: maxAttempts,
+    );
+  }
+
   test('startup reuses fresh cache and makes no network requests', () async {
     var now = DateTime.now();
     var rss1 = 'https://example.com/feed-1.xml';
@@ -92,7 +110,7 @@ void main() {
     );
 
     var api = _FakeMikanApi();
-    var service = BmfRssService.forTesting(api: api, now: () => now);
+    var service = buildService(api, () => now);
     await service.start(refreshInterval: const Duration(hours: 1));
 
     expect(api.requestedUrls, isEmpty);
@@ -119,7 +137,7 @@ void main() {
 
     var api = _FakeMikanApi()
       ..responses[staleRss] = BTResponse.success(data: _rssXml);
-    var service = BmfRssService.forTesting(api: api, now: () => now);
+    var service = buildService(api, () => now);
     await service.start(refreshInterval: const Duration(hours: 1));
 
     expect(api.requestedUrls, [staleRss]);
@@ -145,7 +163,7 @@ void main() {
 
     var api = _FakeMikanApi()
       ..handler = (_) => BTResponse.success(data: _rssXml);
-    var service = BmfRssService.forTesting(api: api, now: () => now);
+    var service = buildService(api, () => now);
     await service.start(refreshInterval: const Duration(hours: 1));
     expect(api.requestedUrls, isEmpty);
 
@@ -176,13 +194,15 @@ void main() {
       ..handler = (url) => url == failingRss
           ? BTResponse.error(code: 500, message: 'boom', data: null)
           : BTResponse.success(data: _rssXml);
-    var service = BmfRssService.forTesting(api: api, now: () => now);
+    var service = buildService(api, () => now);
     await service.start(refreshInterval: const Duration(hours: 1));
 
     expect(api.requestedUrls.toSet(), {failingRss, okRss});
     expect((await BtsAppRss().read(failingRss))?.lastFailed, isNot(0));
     expect((await BtsAppRss().read(okRss))?.lastFailed, 0);
     expect(service.lastRefreshMetrics?.requested, 2);
+    expect(service.lastRefreshMetrics?.successes, 1);
+    expect(service.lastRefreshMetrics?.failures, 1);
     service.stop();
   });
 
@@ -198,7 +218,7 @@ void main() {
 
     var api = _FakeMikanApi()
       ..responses[rss] = BTResponse.success(data: _rssXml);
-    var service = BmfRssService.forTesting(api: api, now: () => now);
+    var service = buildService(api, () => now);
     await service.start(refreshInterval: const Duration(hours: 1));
 
     expect(api.requestedUrls, [rss]);
@@ -217,7 +237,7 @@ void main() {
 
     var api = _FakeMikanApi()
       ..responses[rss] = BTResponse.success(data: _rssXml);
-    var service = BmfRssService.forTesting(api: api, now: () => now);
+    var service = buildService(api, () => now);
     await service.start(refreshInterval: const Duration(hours: 1));
 
     expect(api.requestedUrls, [rss]);
@@ -236,10 +256,135 @@ void main() {
 
     var api = _FakeMikanApi()
       ..responses[rss] = BTResponse.success(data: _rssXml);
-    var service = BmfRssService.forTesting(api: api, now: () => now);
+    var service = buildService(api, () => now);
     await service.start(refreshInterval: const Duration(hours: 1));
 
     expect(api.requestedUrls, [rss]);
+    service.stop();
+  });
+
+  test('a 429 source is retried up to the max attempts', () async {
+    var now = DateTime.now();
+    var rss = 'https://example.com/429.xml';
+    await seedSubscription(1, rss);
+    await seedCache(
+      rss,
+      updated: now.subtract(const Duration(hours: 1)).millisecondsSinceEpoch,
+    );
+
+    var api = _FakeMikanApi()
+      ..handler = (_) =>
+          BTResponse.error(code: 429, message: 'rate limited', data: null);
+    var service = buildService(api, () => now, maxAttempts: 4);
+    await service.start(refreshInterval: const Duration(hours: 1));
+
+    expect(api.requestedUrls, hasLength(4));
+    expect(service.lastRefreshMetrics?.failures, 1);
+    expect((await BtsAppRss().read(rss))?.lastFailed, isNot(0));
+    service.stop();
+  });
+
+  test(
+    'retries recover within the same refresh and clear the failure state',
+    () async {
+      var now = DateTime.now();
+      var rss = 'https://example.com/recover.xml';
+      await seedSubscription(1, rss);
+      await seedCache(
+        rss,
+        updated: now.subtract(const Duration(hours: 1)).millisecondsSinceEpoch,
+      );
+
+      var attempts = 0;
+      var api = _FakeMikanApi()
+        ..handler = (_) {
+          attempts++;
+          if (attempts < 3) {
+            return BTResponse.error(code: 500, message: 'boom', data: null);
+          }
+          return BTResponse.success(data: _rssXml);
+        };
+      var service = buildService(api, () => now);
+      await service.start(refreshInterval: const Duration(hours: 1));
+
+      expect(attempts, 3);
+      expect(service.lastRefreshMetrics?.successes, 1);
+      expect(service.lastRefreshMetrics?.failures, 0);
+      expect((await BtsAppRss().read(rss))?.lastFailed, 0);
+      service.stop();
+    },
+  );
+
+  test('a recently failed source is skipped by backoff and recovers after the '
+      'window', () async {
+    var current = DateTime.now();
+    var rss = 'https://example.com/backoff.xml';
+    await seedSubscription(1, rss);
+    await seedCache(
+      rss,
+      updated: current
+          .subtract(const Duration(hours: 1))
+          .millisecondsSinceEpoch,
+    );
+    await database.update(
+      'AppRss',
+      {
+        'lastFailed': current
+            .subtract(const Duration(minutes: 1))
+            .millisecondsSinceEpoch,
+      },
+      where: 'rss = ?',
+      whereArgs: [rss],
+    );
+
+    var api = _FakeMikanApi()
+      ..handler = (_) => BTResponse.success(data: _rssXml);
+    var service = buildService(api, () => current);
+    await service.start(refreshInterval: const Duration(hours: 1));
+    expect(api.requestedUrls, isEmpty);
+    expect(service.lastRefreshMetrics?.backoffSkips, 1);
+
+    service.stop();
+    current = current.add(const Duration(minutes: 6));
+    await service.start(refreshInterval: const Duration(hours: 1));
+
+    expect(api.requestedUrls, [rss]);
+    expect(service.lastRefreshMetrics?.successes, 1);
+    expect((await BtsAppRss().read(rss))?.lastFailed, 0);
+    service.stop();
+  });
+
+  test('cancelPendingRefresh stops scheduling the remaining sources', () async {
+    var now = DateTime.now();
+    var rss1 = 'https://example.com/cancel-1.xml';
+    var rss2 = 'https://example.com/cancel-2.xml';
+    await seedSubscription(1, rss1);
+    await seedSubscription(2, rss2);
+    await seedCache(
+      rss1,
+      updated: now.subtract(const Duration(hours: 1)).millisecondsSinceEpoch,
+    );
+    await seedCache(
+      rss2,
+      updated: now.subtract(const Duration(hours: 1)).millisecondsSinceEpoch,
+    );
+
+    late BmfRssService service;
+    var firstRequest = true;
+    var api = _FakeMikanApi()
+      ..handler = (url) {
+        if (firstRequest) {
+          firstRequest = false;
+          service.cancelPendingRefresh();
+        }
+        return BTResponse.success(data: _rssXml);
+      };
+    service = buildService(api, () => now, concurrency: 1);
+    await service.start(refreshInterval: const Duration(hours: 1));
+
+    expect(api.requestedUrls, hasLength(1));
+    expect(service.lastRefreshMetrics?.requested, 2);
+    expect(service.lastRefreshMetrics?.successes, 1);
     service.stop();
   });
 }
@@ -250,7 +395,11 @@ class _FakeMikanApi extends BtrMikanApi {
   BTResponse Function(String url)? handler;
 
   @override
-  Future<BTResponse> getCustomRSS(String url) async {
+  Future<BTResponse> getCustomRSS(
+    String url, {
+    Duration? connectTimeout,
+    Duration? receiveTimeout,
+  }) async {
     requestedUrls.add(url);
     if (handler != null) return handler!(url);
     return responses[url] ??
