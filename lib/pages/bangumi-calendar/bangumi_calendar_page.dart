@@ -160,34 +160,38 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     }
     var rawData = dataGet.data as BangumiDataJson;
     progress.update(title: '成功获取数据', text: '正在写入数据');
-    int cnt, total;
-    var sites = [];
-    for (var entry in rawData.siteMeta.entries) {
-      sites.add(BangumiDataSiteFull.fromSite(entry.key, entry.value));
-    }
-    total = sites.length;
-    cnt = 1;
-    for (var site in sites) {
-      progress.update(
-        title: '写入站点数据 $cnt/$total',
-        text: site.title,
-        progress: (cnt / total) * 100,
+    try {
+      var sites = <BangumiDataSiteFull>[
+        for (var entry in rawData.siteMeta.entries)
+          BangumiDataSiteFull.fromSite(entry.key, entry.value),
+      ];
+      await sqliteBd.writeSitesBatch(
+        sites,
+        onProgress: (completed, total) {
+          progress.update(
+            title: '写入站点数据 $completed/$total',
+            text: '已写入 $completed 个站点',
+            progress: total == 0 ? 0 : completed * 100 / total,
+          );
+        },
       );
-      await sqliteBd.writeSite(site);
-      cnt++;
-      await Future.delayed(const Duration(milliseconds: 200));
-    }
-    var items = rawData.items;
-    total = items.length;
-    cnt = 1;
-    for (var item in items) {
-      progress.update(
-        title: '写入条目数据 $cnt/$total',
-        text: item.title,
-        progress: (cnt / total) * 100,
+      var items = rawData.items;
+      await sqliteBd.writeItemBatch(
+        items,
+        onProgress: (completed, total) {
+          progress.update(
+            title: '写入条目数据 $completed/$total',
+            text: '已写入 $completed 个条目',
+            progress: total == 0 ? 0 : completed * 100 / total,
+          );
+        },
       );
-      await sqliteBd.writeItem(item);
-      cnt++;
+    } catch (error) {
+      progress.update(text: '写入数据失败');
+      await Future.delayed(const Duration(seconds: 1));
+      progress.end();
+      if (mounted) await BtInfobar.error(context, 'BangumiData 写入失败：$error');
+      return;
     }
     await BTNotifierTool.showMini(title: 'BangumiData', body: '数据更新完成');
     await sqliteAc.writeBangumiDataVersion(remote);
