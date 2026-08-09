@@ -10,6 +10,9 @@ part 'app_rss_model.g.dart';
 /// AppRss 表的数据模型
 @JsonSerializable(explicitToJson: true)
 class AppRssModel {
+  /// 当前缓存版本；解析逻辑升级后递增以强制刷新旧缓存。
+  static const int currentCacheVersion = 1;
+
   /// RSS URL
   final String rss;
 
@@ -31,6 +34,14 @@ class AppRssModel {
   /// RSS 更新后尚未由用户处理的条目标识。
   String pendingItems;
 
+  /// 缓存版本，与 [currentCacheVersion] 不一致视为过期。
+  @JsonKey(defaultValue: currentCacheVersion)
+  int cacheVersion;
+
+  /// 最近一次刷新失败时间（epoch 毫秒），0 表示无失败。
+  @JsonKey(defaultValue: 0)
+  int lastFailed;
+
   /// 构造函数
   AppRssModel({
     required this.rss,
@@ -40,6 +51,8 @@ class AppRssModel {
     this.mkBgmId,
     this.mkGroupId,
     this.pendingItems = '[]',
+    this.cacheVersion = currentCacheVersion,
+    this.lastFailed = 0,
   });
 
   Set<String> get pendingItemKeys {

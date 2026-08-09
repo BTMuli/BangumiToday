@@ -219,6 +219,51 @@ void main() {
     expect(updated?.updated, fetchedAt);
   });
 
+  test(
+    'RSS cache version and failure columns migrate and round trip',
+    () async {
+      await database.execute('DROP TABLE IF EXISTS AppRss');
+      await database.execute('''
+      CREATE TABLE AppRss (
+        rss TEXT PRIMARY KEY NOT NULL,
+        data TEXT,
+        mkBgmId TEXT,
+        mkGroupId TEXT,
+        ttl INTEGER NOT NULL,
+        updated INTEGER NOT NULL
+      );
+    ''');
+      BtsAppRss.hasMkBgmId = false;
+      BtsAppRss.hasPendingItems = false;
+      BtsAppRss.hasCacheVersion = false;
+      BtsAppRss.hasLastFailed = false;
+
+      var rss = BtsAppRss();
+      await rss.preCheck();
+      var names = (await database.rawQuery(
+        'PRAGMA table_info(AppRss)',
+      )).map((column) => column['name']).toSet();
+      expect(names, containsAll(['cacheVersion', 'lastFailed']));
+
+      var model = AppRssModel(
+        rss: 'https://example.com/feed.xml',
+        data: '<rss />',
+        ttl: 15,
+      );
+      model.lastFailed = 12345;
+      await rss.write(model);
+
+      var saved = await rss.read(model.rss);
+      expect(saved?.cacheVersion, AppRssModel.currentCacheVersion);
+      expect(saved?.lastFailed, 0);
+
+      await rss.markRefreshFailure(saved!);
+      var afterFailure = await rss.read(model.rss);
+      expect(afterFailure?.lastFailed, isNot(0));
+      expect(afterFailure?.updated, saved.updated);
+    },
+  );
+
   test('BMF auto update defaults to enabled and persists', () async {
     await database.execute('''
       CREATE TABLE AppBmf (

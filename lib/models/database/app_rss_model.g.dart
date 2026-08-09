@@ -14,6 +14,8 @@ AppRssModel _$AppRssModelFromJson(Map<String, dynamic> json) => AppRssModel(
   mkBgmId: json['mkBgmId'] as String?,
   mkGroupId: json['mkGroupId'] as String?,
   pendingItems: json['pendingItems'] as String? ?? '[]',
+  cacheVersion: (json['cacheVersion'] as num?)?.toInt() ?? 1,
+  lastFailed: (json['lastFailed'] as num?)?.toInt() ?? 0,
 );
 
 Map<String, dynamic> _$AppRssModelToJson(AppRssModel instance) =>
@@ -25,4 +27,6 @@ Map<String, dynamic> _$AppRssModelToJson(AppRssModel instance) =>
       'ttl': instance.ttl,
       'updated': instance.updated,
       'pendingItems': instance.pendingItems,
+      'cacheVersion': instance.cacheVersion,
+      'lastFailed': instance.lastFailed,
     };

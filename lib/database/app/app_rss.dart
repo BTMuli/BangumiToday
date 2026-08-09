@@ -24,6 +24,12 @@ class BtsAppRss {
   /// 是否有待处理条目标识字段
   static bool hasPendingItems = false;
 
+  /// 是否有缓存版本字段
+  static bool hasCacheVersion = false;
+
+  /// 是否有失败状态字段
+  static bool hasLastFailed = false;
+
   /// 表名
   final String _tableName = 'AppRss';
 
@@ -39,13 +45,40 @@ class BtsAppRss {
           mkGroupId TEXT,
           ttl INTEGER NOT NULL,
           updated INTEGER NOT NULL,
-          pendingItems TEXT NOT NULL DEFAULT '[]'
+          pendingItems TEXT NOT NULL DEFAULT '[]',
+          cacheVersion INTEGER NOT NULL DEFAULT 1,
+          lastFailed INTEGER NOT NULL DEFAULT 0
         );
       ''');
       BTLogTool.info('Create table $_tableName');
     }
     if (!hasMkBgmId) await updateMkId();
     if (!hasPendingItems) await updatePendingItemsColumn();
+    if (!hasCacheVersion || !hasLastFailed) await updateCacheColumns();
+  }
+
+  /// 更新缓存版本与失败状态列
+  Future<void> updateCacheColumns() async {
+    var check = await instance.sqlite.db.rawQuery(
+      'PRAGMA table_info($_tableName)',
+    );
+    hasCacheVersion = check.any((element) => element['name'] == 'cacheVersion');
+    if (!hasCacheVersion) {
+      await instance.sqlite.db.execute(
+        'ALTER TABLE $_tableName '
+        'ADD COLUMN cacheVersion INTEGER NOT NULL DEFAULT 1;',
+      );
+      hasCacheVersion = true;
+    }
+    hasLastFailed = check.any((element) => element['name'] == 'lastFailed');
+    if (!hasLastFailed) {
+      await instance.sqlite.db.execute(
+        'ALTER TABLE $_tableName '
+        'ADD COLUMN lastFailed INTEGER NOT NULL DEFAULT 0;',
+      );
+      hasLastFailed = true;
+    }
+    BTLogTool.info('Update $_tableName add cache columns');
   }
 
   /// 更新mkId
@@ -103,6 +136,7 @@ class BtsAppRss {
   Future<void> write(AppRssModel model) async {
     await instance.preCheck();
     model.updated = DateTime.now().millisecondsSinceEpoch;
+    model.lastFailed = 0;
     if (model.mkBgmId != null && model.mkBgmId!.isNotEmpty) {
       await writeByMkId(model);
       return;
@@ -161,6 +195,7 @@ class BtsAppRss {
   Future<void> writeByMkId(AppRssModel model) async {
     await instance.preCheck();
     model.updated = DateTime.now().millisecondsSinceEpoch;
+    model.lastFailed = 0;
     var check = await instance.sqlite.db.query(
       _tableName,
       where: 'mkBgmId = ?',
@@ -217,6 +252,27 @@ class BtsAppRss {
     await instance.sqlite.db.update(
       _tableName,
       {'pendingItems': model.pendingItems},
+      where: 'rss = ?',
+      whereArgs: [model.rss],
+    );
+  }
+
+  /// 记录一次刷新失败，不清除最近成功时间。
+  Future<void> markRefreshFailure(AppRssModel model) async {
+    await instance.preCheck();
+    var values = {'lastFailed': DateTime.now().millisecondsSinceEpoch};
+    if (model.mkBgmId != null && model.mkBgmId!.isNotEmpty) {
+      await instance.sqlite.db.update(
+        _tableName,
+        values,
+        where: 'mkBgmId = ?',
+        whereArgs: [model.mkBgmId],
+      );
+      return;
+    }
+    await instance.sqlite.db.update(
+      _tableName,
+      values,
       where: 'rss = ?',
       whereArgs: [model.rss],
     );
