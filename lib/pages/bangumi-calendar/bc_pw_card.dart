@@ -64,6 +64,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
 
   Future<void> getTime() async {
     var itemGet = await BtsBangumiData().readItem(data.name);
+    if (!mounted) return;
     if (itemGet == null) return;
     upTime = itemGet.begin;
     var time = DateTime.parse(upTime);
