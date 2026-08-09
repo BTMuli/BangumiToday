@@ -26,30 +26,65 @@ class DownloadTaskDetails extends ConsumerStatefulWidget {
       _DownloadTaskDetailsState();
 }
 
-class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
+class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
+    with WidgetsBindingObserver {
   BtTaskDetails? _details;
   Object? _error;
   Timer? _refreshTimer;
   var _loading = true;
   var _tabIndex = 0;
+  var _refreshing = false;
+  var _appActive = true;
+
+  static const _peerTabIndex = 2;
+  static const _filesTabIndex = 3;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Future.microtask(_refresh);
-    _refreshTimer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) => _refresh(silent: true),
-    );
+    _startRefreshTimer();
   }
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _stopRefreshTimer();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appActive = state == AppLifecycleState.resumed;
+    if (!_appActive) {
+      _stopRefreshTimer();
+      return;
+    }
+    _startRefreshTimer();
+    unawaited(_refresh(silent: true));
+  }
+
+  void _startRefreshTimer() {
+    if (_refreshTimer != null) return;
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => unawaited(_refresh(silent: true)),
+    );
+  }
+
+  void _stopRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
+  bool get _engineReady =>
+      ref.read(btDownloadStoreProvider).engineState ==
+      BtEngineClientState.ready;
+
   Future<void> _refresh({bool silent = false}) async {
+    if (!_appActive || !_engineReady || _refreshing) return;
+    _refreshing = true;
     if (!silent && mounted) setState(() => _loading = true);
     try {
       var details = await ref
@@ -67,6 +102,17 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
         _error = error;
         _loading = false;
       });
+    } finally {
+      _refreshing = false;
+    }
+  }
+
+  void _onTabChanged(int index) {
+    if (index == _tabIndex) return;
+    setState(() => _tabIndex = index);
+    // Peer/文件列表只在对应 Tab 可见时拉取，经 single-flight 去重。
+    if (index == _peerTabIndex || index == _filesTabIndex) {
+      unawaited(_refresh(silent: true));
     }
   }
 
@@ -107,7 +153,16 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
               ),
             ],
             index: _tabIndex,
-            onChanged: (index) => setState(() => _tabIndex = index),
+            onChanged: _onTabChanged,
+            trailing: Tooltip(
+              message: '刷新详情',
+              child: IconButton(
+                icon: const Icon(FluentIcons.refresh, size: 14),
+                onPressed: _refreshing
+                    ? null
+                    : () => unawaited(_refresh(silent: true)),
+              ),
+            ),
           ),
           Expanded(
             child: Stack(
@@ -415,11 +470,13 @@ class _DetailTabBar extends StatelessWidget {
     required this.tabs,
     required this.index,
     required this.onChanged,
+    this.trailing,
   });
 
   final List<_DetailTab> tabs;
   final int index;
   final ValueChanged<int> onChanged;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -439,6 +496,8 @@ class _DetailTabBar extends StatelessWidget {
                 onTap: () => onChanged(i),
               ),
             ),
+          if (trailing != null)
+            Padding(padding: EdgeInsets.only(left: 8), child: trailing),
         ],
       ),
     );
