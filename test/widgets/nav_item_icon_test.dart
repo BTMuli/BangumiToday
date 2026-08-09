@@ -1,6 +1,7 @@
 import 'package:bangumi_today/widgets/app/nav_item_icon.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -71,6 +72,33 @@ void main() {
     await tester.tap(find.text('关闭全部'));
     await tester.pumpAndSettle();
     expect(closedAll, isTrue);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('context menu key opens the management menu', (tester) async {
+    await tester.pumpWidget(
+      FluentApp(
+        home: ScaffoldPage(
+          content: Center(
+            child: NavItemIcon(
+              title: '动画详情 7',
+              onClose: () {},
+              onCloseOthers: () {},
+              onCloseAll: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+    await tester.pumpAndSettle();
+
+    expect(find.text('关闭「动画详情 7」'), findsOneWidget);
+    expect(find.text('关闭全部'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
   });

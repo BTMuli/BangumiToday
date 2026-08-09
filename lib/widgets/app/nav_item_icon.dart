@@ -1,5 +1,6 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/services.dart';
 
 /// 动态导航条目的首字图标。
 ///
@@ -27,6 +28,8 @@ class NavItemIcon extends StatefulWidget {
 
 class _NavItemIconState extends State<NavItemIcon> {
   final FlyoutController _menuController = FlyoutController();
+  final FocusNode _focusNode = FocusNode();
+  var _focused = false;
 
   static const _palette = <Color>[
     Color(0xFF0F6CBD),
@@ -44,6 +47,7 @@ class _NavItemIconState extends State<NavItemIcon> {
   @override
   void dispose() {
     _menuController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -87,6 +91,20 @@ class _NavItemIconState extends State<NavItemIcon> {
     );
   }
 
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    var key = event.logicalKey;
+    var isContextMenu =
+        key == LogicalKeyboardKey.contextMenu ||
+        (key == LogicalKeyboardKey.f10 &&
+            HardwareKeyboard.instance.isShiftPressed);
+    if (isContextMenu) {
+      _openMenu();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     var color = _palette[widget.title.hashCode.abs() % _palette.length];
@@ -95,24 +113,32 @@ class _NavItemIconState extends State<NavItemIcon> {
       controller: _menuController,
       child: Tooltip(
         message: widget.title,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onSecondaryTap: _openMenu,
-          child: Container(
-            width: widget.size,
-            height: widget.size,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              glyph,
-              style: TextStyle(
-                color: color,
-                fontSize: widget.size * 0.62,
-                fontWeight: FontWeight.w600,
-                height: 1,
+        child: Focus(
+          focusNode: _focusNode,
+          onFocusChange: (value) => setState(() => _focused = value),
+          onKeyEvent: _onKey,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onSecondaryTap: _openMenu,
+            child: Container(
+              width: widget.size,
+              height: widget.size,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(4),
+                border: _focused
+                    ? Border.all(color: color.withValues(alpha: 0.7))
+                    : null,
+              ),
+              child: Text(
+                glyph,
+                style: TextStyle(
+                  color: color,
+                  fontSize: widget.size * 0.62,
+                  fontWeight: FontWeight.w600,
+                  height: 1,
+                ),
               ),
             ),
           ),

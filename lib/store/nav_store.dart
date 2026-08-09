@@ -156,11 +156,14 @@ class BTNavStore extends ChangeNotifier {
       title: item.title,
       body: item.body,
       icon: item.icon,
-      trailing: IconButton(
-        icon: const Icon(FluentIcons.clear),
-        onPressed: () {
-          removeNavItem(title, type: type, param: param);
-        },
+      trailing: Tooltip(
+        message: '关闭「$title」',
+        child: IconButton(
+          icon: const Icon(FluentIcons.clear),
+          onPressed: () {
+            removeNavItem(title, type: type, param: param);
+          },
+        ),
       ),
     );
     var navItem = BtmAppNavItem(

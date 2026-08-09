@@ -19,13 +19,13 @@ void main() {
     await BTSqlite().db.close();
   });
 
-  BangumiLegacySubjectSmall buildSubject() {
+  BangumiLegacySubjectSmall buildSubject({String? name, String? nameCn}) {
     return BangumiLegacySubjectSmall(
       id: 1,
       url: 'https://bgm.tv/subject/1',
       type: BangumiLegacySubjectType.anime,
-      name: 'ふつつかな悪女ではございますが ～雛宮蝶鼠とりかえ伝～',
-      nameCn: '恶女不才，请多关照 ～雏宫蝶鼠换身传～',
+      name: name ?? 'ふつつかな悪女ではございますが ～雛宮蝶鼠とりかえ伝～',
+      nameCn: nameCn ?? '恶女不才，请多关照 ～雏宫蝶鼠换身传～',
       summary: '',
       airDate: '2026-07-01',
       airWeekday: 2,
@@ -53,6 +53,7 @@ void main() {
     WidgetTester tester, {
     required Size windowSize,
     required Size cardSize,
+    BangumiLegacySubjectSmall? subject,
   }) async {
     tester.view.physicalSize = windowSize;
     tester.view.devicePixelRatio = 1.0;
@@ -68,7 +69,7 @@ void main() {
                 child: SizedBox(
                   width: cardSize.width,
                   height: cardSize.height,
-                  child: BcpCardWidget(data: buildSubject()),
+                  child: BcpCardWidget(data: subject ?? buildSubject()),
                 ),
               ),
             ),
@@ -98,6 +99,26 @@ void main() {
       tester,
       windowSize: const Size(2575, 1407),
       cardSize: const Size(428.8, 300.2),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('long titles do not overflow in narrow grid cards', (
+    tester,
+  ) async {
+    // 1280x720 下 5 列网格的真实卡片尺寸约 262 x 183.7 逻辑像素。
+    await pumpCard(
+      tester,
+      windowSize: const Size(1280, 720),
+      cardSize: const Size(262, 183.7),
+      subject: buildSubject(
+        name:
+            'とても長い日本語のタイトルで確認する「異世界おじさん」第１２話・最終回（前編）'
+            '——カードの省略とレイアウト崩れを確認するための長いタイトルです',
+        nameCn:
+            '这是一个非常长的中文标题，用于验证卡片在窄尺寸下不会溢出：'
+            '异世界舅舅第十二话最终回（前篇）——请确认文字能够正确省略而不是撑破布局',
+      ),
     );
     expect(tester.takeException(), isNull);
   });
