@@ -18,80 +18,9 @@ import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_detail/bmf_card.dart';
 import '../../widgets/bangumi/subject_detail/bmf_expander.dart';
+import 'bmf_filter_model.dart';
 
-enum _BmfConfigurationFilter {
-  all,
-  updates,
-  hasRss,
-  autoUpdate,
-  manualUpdate,
-  incomplete,
-}
-
-class BmfFilterStats {
-  final int total;
-  final int updates;
-  final int hasRss;
-  final int autoUpdate;
-  final int manualUpdate;
-  final int incomplete;
-
-  const BmfFilterStats({
-    required this.total,
-    required this.updates,
-    required this.hasRss,
-    required this.autoUpdate,
-    required this.manualUpdate,
-    required this.incomplete,
-  });
-
-  static const empty = BmfFilterStats(
-    total: 0,
-    updates: 0,
-    hasRss: 0,
-    autoUpdate: 0,
-    manualUpdate: 0,
-    incomplete: 0,
-  );
-}
-
-class BmfQuarter {
-  final int year;
-  final int quarter;
-
-  const BmfQuarter(this.year, this.quarter);
-
-  static const all = BmfQuarter(0, 0);
-
-  factory BmfQuarter.fromDate(DateTime date) {
-    return BmfQuarter(date.year, ((date.month - 1) ~/ 3) + 1);
-  }
-
-  factory BmfQuarter.current() => BmfQuarter.fromDate(DateTime.now());
-
-  String get label => this == all ? '全部季度' : '$year Q$quarter';
-
-  @override
-  bool operator ==(Object other) =>
-      other is BmfQuarter && other.year == year && other.quarter == quarter;
-
-  @override
-  int get hashCode => Object.hash(year, quarter);
-}
-
-class _BmfConfigDraft {
-  final String title;
-  final String rss;
-  final String download;
-  final bool autoUpdate;
-
-  const _BmfConfigDraft({
-    required this.title,
-    required this.rss,
-    required this.download,
-    required this.autoUpdate,
-  });
-}
+part 'rb_pw_bmf/config_dialog.dart';
 
 class RbpBmfWidget extends ConsumerStatefulWidget {
   const RbpBmfWidget({super.key});
@@ -107,18 +36,9 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _rssPaneController = ScrollController();
   final ScrollController _filePaneController = ScrollController();
+  late final BmfFilterModel _filterModel = BmfFilterModel(rss: rss);
 
-  List<AppBmfModel> filteredList = [];
-  BmfFilterStats filterStats = BmfFilterStats.empty;
-  _BmfConfigurationFilter configurationFilter = _BmfConfigurationFilter.all;
-  BmfQuarter selectedQuarter = BmfQuarter.all;
-  List<BmfQuarter> quarterOptions = [];
-  String searchQuery = '';
   int? selectedSubject;
-  final Map<int, int> _pendingCounts = {};
-  final Map<int, DateTime> _latestUpdateTimes = {};
-  final Map<String, int> _rssSubjectsByKey = {};
-  String _loadedStatusSignature = '';
   int _handledNavigationRequest = 0;
   bool _showCompactDetail = false;
 
@@ -135,13 +55,17 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     super.initState();
     _statusSubscription = BmfRssService.instance.statusStream.listen((event) {
       if (!mounted) return;
-      setState(() => _pendingCounts[event.subject] = event.pendingCount);
+      setState(() {
+        _filterModel.pendingCounts[event.subject] = event.pendingCount;
+      });
     });
     _updateSubscription = BmfRssService.instance.updateStream.listen((event) {
-      var subject = _rssSubjectsByKey[event.key];
+      var subject = _filterModel.rssSubjectsByKey[event.key];
       var latestUpdate = latestRssPublishedAt(event.items);
       if (!mounted || subject == null || latestUpdate == null) return;
-      setState(() => _latestUpdateTimes[subject] = latestUpdate);
+      setState(() {
+        _filterModel.latestUpdateTimes[subject] = latestUpdate;
+      });
     });
   }
 
@@ -178,156 +102,14 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     }
   }
 
-  void _computeStats(List<AppBmfModel> bmfList) {
-    var hasRss = 0;
-    var autoUpdate = 0;
-    var manualUpdate = 0;
-    var incomplete = 0;
-    var updates = 0;
-    for (var item in bmfList) {
-      var rssConfigured = item.rss != null && item.rss!.isNotEmpty;
-      var directoryConfigured =
-          item.download != null && item.download!.isNotEmpty;
-      if (rssConfigured) hasRss++;
-      if (item.autoUpdate) {
-        autoUpdate++;
-      } else {
-        manualUpdate++;
-      }
-      if (!rssConfigured || !directoryConfigured) incomplete++;
-      if ((_pendingCounts[item.subject] ?? 0) > 0) updates++;
-    }
-    filterStats = BmfFilterStats(
-      total: bmfList.length,
-      updates: updates,
-      hasRss: hasRss,
-      autoUpdate: autoUpdate,
-      manualUpdate: manualUpdate,
-      incomplete: incomplete,
-    );
-  }
-
-  void applyFilter(List<AppBmfModel> bmfList) {
-    var quarters = bmfList
-        .map((bmf) => DateTime.tryParse(bmf.airDate ?? ''))
-        .whereType<DateTime>()
-        .map(BmfQuarter.fromDate)
-        .toSet();
-    quarters.add(BmfQuarter.current());
-    quarterOptions = quarters.toList()
-      ..sort((a, b) {
-        var yearCompare = b.year.compareTo(a.year);
-        return yearCompare != 0 ? yearCompare : b.quarter.compareTo(a.quarter);
-      });
-
-    var quarterFilteredList = bmfList.where((bmf) {
-      if (selectedQuarter == BmfQuarter.all) return true;
-      var airDate = DateTime.tryParse(bmf.airDate ?? '');
-      return airDate != null && BmfQuarter.fromDate(airDate) == selectedQuarter;
-    }).toList();
-    _computeStats(quarterFilteredList);
-
-    var query = searchQuery.trim().toLowerCase();
-    filteredList =
-        quarterFilteredList.where((bmf) {
-          var matchesSearch =
-              query.isEmpty ||
-              (bmf.title?.toLowerCase().contains(query) ?? false) ||
-              bmf.subject.toString().contains(query);
-          if (!matchesSearch) return false;
-
-          var hasRss = bmf.rss != null && bmf.rss!.isNotEmpty;
-          var hasDirectory = bmf.download != null && bmf.download!.isNotEmpty;
-          return switch (configurationFilter) {
-            _BmfConfigurationFilter.all => true,
-            _BmfConfigurationFilter.updates =>
-              (_pendingCounts[bmf.subject] ?? 0) > 0,
-            _BmfConfigurationFilter.hasRss => hasRss,
-            _BmfConfigurationFilter.autoUpdate => bmf.autoUpdate,
-            _BmfConfigurationFilter.manualUpdate => !bmf.autoUpdate,
-            _BmfConfigurationFilter.incomplete => !hasRss || !hasDirectory,
-          };
-        }).toList()..sort((a, b) {
-          var aDate =
-              _latestUpdateTimes[a.subject] ??
-              DateTime.tryParse(a.airDate ?? '');
-          var bDate =
-              _latestUpdateTimes[b.subject] ??
-              DateTime.tryParse(b.airDate ?? '');
-          if (aDate != null && bDate != null) {
-            var dateCompare = bDate.compareTo(aDate);
-            if (dateCompare != 0) return dateCompare;
-          } else if (aDate != null) {
-            return -1;
-          } else if (bDate != null) {
-            return 1;
-          }
-          return b.subject.compareTo(a.subject);
-        });
-  }
-
-  void _scheduleStatusLoad(List<AppBmfModel> bmfList) {
-    _rssSubjectsByKey
-      ..clear()
-      ..addEntries(
-        bmfList
-            .where((item) => item.rss != null && item.rss!.isNotEmpty)
-            .map(
-              (item) => MapEntry(
-                item.mkBgmId != null && item.mkBgmId!.isNotEmpty
-                    ? item.mkBgmId!
-                    : item.rss!,
-                item.subject,
-              ),
-            ),
-      );
-    var signature = bmfList
-        .map((item) => '${item.subject}:${item.rss}:${item.mkBgmId}')
-        .join('|');
-    if (_loadedStatusSignature == signature) return;
-    _loadedStatusSignature = signature;
-    Future.microtask(() => _loadUpdateStates(bmfList));
-  }
-
-  Future<void> _loadUpdateStates(List<AppBmfModel> bmfList) async {
-    var sources = bmfList
-        .where((item) => item.rss != null && item.rss!.isNotEmpty)
-        .toList();
-    var values = await Future.wait(
-      sources.map((item) async {
-        var model = item.mkBgmId != null && item.mkBgmId!.isNotEmpty
-            ? await rss.readByMkId(item.mkBgmId!)
-            : await rss.read(item.rss!);
-        return (
-          item.subject,
-          model?.pendingItemKeys.length ?? 0,
-          model == null ? null : latestRssPublishedAtFromXml(model.data),
-        );
-      }),
-    );
-    if (!mounted) return;
-    setState(() {
-      _pendingCounts
-        ..clear()
-        ..addEntries(values.map((value) => MapEntry(value.$1, value.$2)));
-      _latestUpdateTimes
-        ..clear()
-        ..addEntries(
-          values
-              .where((value) => value.$3 != null)
-              .map((value) => MapEntry(value.$1, value.$3!)),
-        );
-    });
-  }
-
   void _applyNavigationIntent(BmfNavigationStore navigation) {
     if (navigation.requestId == _handledNavigationRequest) return;
     _handledNavigationRequest = navigation.requestId;
     selectedSubject = navigation.targetSubject;
     _showCompactDetail = navigation.targetSubject != null;
-    configurationFilter = _BmfConfigurationFilter.all;
-    selectedQuarter = BmfQuarter.all;
-    searchQuery = '';
+    _filterModel.configurationFilter = BmfConfigurationFilter.all;
+    _filterModel.selectedQuarter = BmfQuarter.all;
+    _filterModel.searchQuery = '';
     _debounceTimer?.cancel();
     _searchController.clear();
   }
@@ -335,13 +117,15 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   void onSearch(String query) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 250), () {
-      if (mounted) setState(() => searchQuery = query);
+      if (mounted) setState(() => _filterModel.searchQuery = query);
     });
   }
 
   AppBmfModel? _selectedModel() {
-    if (filteredList.isEmpty || selectedSubject == null) return null;
-    return filteredList
+    if (_filterModel.filteredList.isEmpty || selectedSubject == null) {
+      return null;
+    }
+    return _filterModel.filteredList
         .where((item) => item.subject == selectedSubject)
         .firstOrNull;
   }
@@ -513,8 +297,13 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
 
     return bmfListAsync.when(
       data: (bmfList) {
-        _scheduleStatusLoad(bmfList);
-        applyFilter(bmfList);
+        if (_filterModel.scheduleStatusLoad(bmfList)) {
+          Future.microtask(() async {
+            await _filterModel.loadUpdateStates(bmfList);
+            if (mounted) setState(() {});
+          });
+        }
+        _filterModel.applyFilter(bmfList);
         return ScaffoldPage(
           padding: EdgeInsets.zero,
           content: Column(
@@ -569,7 +358,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
             ),
           ),
           Text(
-            '${filterStats.total} 个关联',
+            '${_filterModel.filterStats.total} 个关联',
             style: BTTypography.caption(context),
           ),
           SizedBox(width: 8),
@@ -602,38 +391,38 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
               _buildFilterChip(
                 context,
                 label: '全部',
-                count: filterStats.total,
-                value: _BmfConfigurationFilter.all,
+                count: _filterModel.filterStats.total,
+                value: BmfConfigurationFilter.all,
               ),
               _buildFilterChip(
                 context,
                 label: '有更新',
-                count: filterStats.updates,
-                value: _BmfConfigurationFilter.updates,
+                count: _filterModel.filterStats.updates,
+                value: BmfConfigurationFilter.updates,
               ),
               _buildFilterChip(
                 context,
                 label: '已关联 RSS',
-                count: filterStats.hasRss,
-                value: _BmfConfigurationFilter.hasRss,
+                count: _filterModel.filterStats.hasRss,
+                value: BmfConfigurationFilter.hasRss,
               ),
               _buildFilterChip(
                 context,
                 label: '自动更新',
-                count: filterStats.autoUpdate,
-                value: _BmfConfigurationFilter.autoUpdate,
+                count: _filterModel.filterStats.autoUpdate,
+                value: BmfConfigurationFilter.autoUpdate,
               ),
               _buildFilterChip(
                 context,
                 label: '手动更新',
-                count: filterStats.manualUpdate,
-                value: _BmfConfigurationFilter.manualUpdate,
+                count: _filterModel.filterStats.manualUpdate,
+                value: BmfConfigurationFilter.manualUpdate,
               ),
               _buildFilterChip(
                 context,
                 label: '待补全',
-                count: filterStats.incomplete,
-                value: _BmfConfigurationFilter.incomplete,
+                count: _filterModel.filterStats.incomplete,
+                value: BmfConfigurationFilter.incomplete,
               ),
             ],
           );
@@ -646,13 +435,13 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
                   controller: _searchController,
                   placeholder: '搜索番剧标题或 ID…',
                   prefix: BtIcon(FluentIcons.search, size: 14),
-                  suffix: searchQuery.isEmpty
+                  suffix: _filterModel.searchQuery.isEmpty
                       ? null
                       : IconButton(
                           icon: BtIcon(FluentIcons.clear, size: 12),
                           onPressed: () {
                             _searchController.clear();
-                            setState(() => searchQuery = '');
+                            setState(() => _filterModel.searchQuery = '');
                           },
                         ),
                   onChanged: onSearch,
@@ -683,9 +472,9 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
     BuildContext context, {
     required String label,
     required int count,
-    required _BmfConfigurationFilter value,
+    required BmfConfigurationFilter value,
   }) {
-    var selected = configurationFilter == value;
+    var selected = _filterModel.configurationFilter == value;
     var accent = FluentTheme.of(context).accentColor;
     return Button(
       style: ButtonStyle(
@@ -695,7 +484,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
               : BTColors.surfaceSecondary(context),
         ),
       ),
-      onPressed: () => setState(() => configurationFilter = value),
+      onPressed: () => setState(() => _filterModel.configurationFilter = value),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -720,14 +509,14 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
 
   Widget _buildQuarterFilter() {
     return ComboBox<BmfQuarter>(
-      value: selectedQuarter,
+      value: _filterModel.selectedQuarter,
       isExpanded: true,
       items: [
         const ComboBoxItem<BmfQuarter>(
           value: BmfQuarter.all,
           child: Text('全部季度'),
         ),
-        ...quarterOptions.map(
+        ..._filterModel.quarterOptions.map(
           (quarter) => ComboBoxItem<BmfQuarter>(
             value: quarter,
             child: Text(quarter.label),
@@ -735,13 +524,15 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
         ),
       ],
       onChanged: (value) {
-        if (value != null) setState(() => selectedQuarter = value);
+        if (value != null) {
+          setState(() => _filterModel.selectedQuarter = value);
+        }
       },
     );
   }
 
   Widget _buildWorkspace(BuildContext context) {
-    if (filteredList.isEmpty) return _buildEmptyState(context);
+    if (_filterModel.filteredList.isEmpty) return _buildEmptyState(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -779,14 +570,14 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
       color: BTColors.surfaceSecondary(context),
       child: ListView.separated(
         padding: EdgeInsets.all(10),
-        itemCount: filteredList.length,
+        itemCount: _filterModel.filteredList.length,
         separatorBuilder: (_, _) => SizedBox(height: 8),
         itemBuilder: (context, index) {
-          var bmf = filteredList[index];
+          var bmf = _filterModel.filteredList[index];
           return BmfCard(
             key: ValueKey(bmf.subject),
             bmf: bmf,
-            pendingCount: _pendingCounts[bmf.subject] ?? 0,
+            pendingCount: _filterModel.pendingCounts[bmf.subject] ?? 0,
             selected: !compact && selected?.subject == bmf.subject,
             dense: true,
             onAutoUpdateChanged: (enabled) => _setAutoUpdate(bmf, enabled),
@@ -808,7 +599,7 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
   }) {
     var hasRss = bmf.rss != null && bmf.rss!.isNotEmpty;
     var hasDirectory = bmf.download != null && bmf.download!.isNotEmpty;
-    var pendingCount = _pendingCounts[bmf.subject] ?? 0;
+    var pendingCount = _filterModel.pendingCounts[bmf.subject] ?? 0;
 
     return ColoredBox(
       color: BTColors.surfacePrimary(context),
@@ -1098,7 +889,8 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            configurationFilter == _BmfConfigurationFilter.incomplete
+            _filterModel.configurationFilter ==
+                    BmfConfigurationFilter.incomplete
                 ? FluentIcons.completed
                 : MdiIcons.linkOff,
             size: 46,
@@ -1106,186 +898,32 @@ class _RbpBmfState extends ConsumerState<RbpBmfWidget>
           ),
           SizedBox(height: 12),
           Text(
-            searchQuery.isNotEmpty
+            _filterModel.searchQuery.isNotEmpty
                 ? '没有找到匹配的番剧'
-                : configurationFilter == _BmfConfigurationFilter.updates
+                : _filterModel.configurationFilter ==
+                      BmfConfigurationFilter.updates
                 ? '没有待处理更新'
-                : configurationFilter == _BmfConfigurationFilter.autoUpdate
+                : _filterModel.configurationFilter ==
+                      BmfConfigurationFilter.autoUpdate
                 ? '没有开启自动更新的 BMF'
-                : configurationFilter == _BmfConfigurationFilter.manualUpdate
+                : _filterModel.configurationFilter ==
+                      BmfConfigurationFilter.manualUpdate
                 ? '没有关闭自动更新的 BMF'
-                : configurationFilter == _BmfConfigurationFilter.incomplete
+                : _filterModel.configurationFilter ==
+                      BmfConfigurationFilter.incomplete
                 ? '当前关联均已补全'
                 : '暂无 BMF 关联',
             style: BTTypography.subtitle(context),
           ),
           SizedBox(height: 5),
           Text(
-            searchQuery.isNotEmpty ? '尝试其他标题或 Bangumi ID' : '可以在番剧详情页创建 BMF 关联',
+            _filterModel.searchQuery.isNotEmpty
+                ? '尝试其他标题或 Bangumi ID'
+                : '可以在番剧详情页创建 BMF 关联',
             style: BTTypography.caption(context),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _BmfConfigDialog extends StatefulWidget {
-  final AppBmfModel bmf;
-
-  const _BmfConfigDialog({required this.bmf});
-
-  @override
-  State<_BmfConfigDialog> createState() => _BmfConfigDialogState();
-}
-
-class _BmfConfigDialogState extends State<_BmfConfigDialog> {
-  late final TextEditingController _titleController;
-  late final TextEditingController _rssController;
-  late final TextEditingController _downloadController;
-  late bool _autoUpdate;
-  bool _refreshing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _titleController = TextEditingController(text: widget.bmf.title ?? '');
-    _rssController = TextEditingController(text: widget.bmf.rss ?? '');
-    _downloadController = TextEditingController(
-      text: widget.bmf.download ?? '',
-    );
-    _autoUpdate = widget.bmf.autoUpdate;
-  }
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _rssController.dispose();
-    _downloadController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    Navigator.of(context).pop(
-      _BmfConfigDraft(
-        title: _titleController.text,
-        rss: _rssController.text,
-        download: _downloadController.text,
-        autoUpdate: _autoUpdate,
-      ),
-    );
-  }
-
-  Future<void> _refreshNow() async {
-    if (_refreshing) return;
-    if (widget.bmf.rss == null || widget.bmf.rss!.isEmpty) {
-      await BtInfobar.error(context, '请先配置 RSS');
-      return;
-    }
-
-    setState(() => _refreshing = true);
-    var result = await BmfRssService.instance.refreshBmf(widget.bmf);
-    if (!mounted) return;
-    setState(() => _refreshing = false);
-    if (result) {
-      await BtInfobar.success(context, 'RSS 刷新成功');
-    } else {
-      await BtInfobar.error(context, 'RSS 刷新失败');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ContentDialog(
-      constraints: BoxConstraints(maxWidth: 620),
-      title: Row(
-        children: [
-          Icon(FluentIcons.link, size: 18),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '编辑 ${widget.bmf.title ?? widget.bmf.subject}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildLabel(context, '显示标题'),
-            TextBox(controller: _titleController, placeholder: '番剧标题'),
-            SizedBox(height: 14),
-            _buildLabel(context, 'RSS 订阅'),
-            TextBox(
-              controller: _rssController,
-              placeholder: 'Mikan RSS 或其他兼容订阅地址',
-            ),
-            SizedBox(height: 14),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('RSS 自动更新'),
-              subtitle: Text(
-                _autoUpdate ? '应用运行时会按计划自动刷新 RSS' : '已关闭自动刷新，可使用刷新按钮手动更新',
-              ),
-              trailing: ToggleSwitch(
-                checked: _autoUpdate,
-                onChanged: (value) => setState(() => _autoUpdate = value),
-              ),
-            ),
-            SizedBox(height: 6),
-            _buildLabel(context, '本地目录'),
-            TextBox(
-              controller: _downloadController,
-              placeholder: '内置下载引擎保存文件的目标目录',
-              suffix: Tooltip(
-                message: '选择目录',
-                child: IconButton(
-                  icon: BtIcon(FluentIcons.folder_open, size: 14),
-                  onPressed: () async {
-                    var directory = await getDirectoryPath();
-                    if (directory == null || !mounted) return;
-                    setState(() => _downloadController.text = directory);
-                  },
-                ),
-              ),
-            ),
-            SizedBox(height: 10),
-            Text(
-              '应用会把 torrent 与该目录交给内置下载引擎；任务可在下载管理页查看。',
-              style: BTTypography.caption(context),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        Button(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        Button(
-          onPressed: _refreshing ? null : _refreshNow,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(FluentIcons.refresh, size: 13),
-              SizedBox(width: 6),
-              Text(_refreshing ? '刷新中…' : '刷新 RSS'),
-            ],
-          ),
-        ),
-        FilledButton(onPressed: _submit, child: const Text('保存关联')),
-      ],
-    );
-  }
-
-  Widget _buildLabel(BuildContext context, String label) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 6),
-      child: Text(label, style: BTTypography.bodyStrong(context)),
     );
   }
 }
