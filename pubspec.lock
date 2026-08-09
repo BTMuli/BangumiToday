@@ -703,8 +703,13 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "4.6.0"
+  integration_test:
+    dependency: "direct dev"
+    description: flutter
+    source: sdk
+    version: "0.0.0"
   intl:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: intl
       sha256: "3df61194eb431efc39c4ceba583b95633a403f46c9fd341e550ce0bfa50e9aa5"
@@ -1103,14 +1108,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.4.2"
-  rss_dart:
-    dependency: "direct main"
-    description:
-      name: rss_dart
-      sha256: "09c0123427e9557d74562e07f9d22effe3fd493893602e8a8d24b961490f2c30"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "1.0.14"
   rxdart:
     dependency: transitive
     description:

@@ -144,6 +144,9 @@ Future<void> _runOptionalService(
 }
 
 void _configureErrorHandling() {
+  // 桌面集成测试由测试绑定接管错误上报，避免与应用的全局错误处理器冲突。
+  // 通过 `--dart-define=BANGUMI_INTEGRATION_TEST=true` 显式开启。
+  if (const bool.fromEnvironment('BANGUMI_INTEGRATION_TEST')) return;
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
     _reportUnhandledError(
