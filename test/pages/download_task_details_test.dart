@@ -87,12 +87,108 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets('overview tab renders task and torrent sections', (tester) async {
+    await _pumpDetails(tester, details: _detailsWithSections());
+
+    expect(find.text('基本信息'), findsOneWidget);
+    expect(find.text('存储路径'), findsOneWidget);
+    expect(find.text(r'D:\Downloads'), findsWidgets);
+    expect(find.text('Info Hash'), findsOneWidget);
+    expect(find.text('abcd'), findsOneWidget);
+    expect(find.text('来源类型'), findsOneWidget);
+    expect(find.text('Magnet 磁力链接'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -250));
+    await tester.pump();
+
+    expect(find.text('种子信息'), findsOneWidget);
+    expect(find.text('分片大小'), findsOneWidget);
+    expect(find.text('分片数量'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('progress tab renders piece and transfer sections', (
+    tester,
+  ) async {
+    await _pumpDetails(tester, details: _detailsWithSections());
+
+    await tester.tap(find.text('进度'));
+    await tester.pump();
+
+    expect(find.text('分片完成情况'), findsOneWidget);
+    expect(find.text('传输统计'), findsOneWidget);
+    expect(find.text('已下载'), findsOneWidget);
+    expect(find.text('已上传'), findsOneWidget);
+    expect(find.text('已校验'), findsOneWidget);
+    expect(find.text('连接'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('peers tab renders rows and client filter narrows the list', (
+    tester,
+  ) async {
+    await _pumpDetails(tester, details: _detailsWithSections());
+
+    await tester.tap(find.textContaining('Peer'));
+    await tester.pump();
+
+    expect(find.text('127.0.0.1:6881'), findsOneWidget);
+    expect(find.text('qBittorrent'), findsOneWidget);
+    expect(find.text('Transmission'), findsOneWidget);
+
+    await tester.tap(find.text('客户端'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('全部客户端'), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FlyoutListTile),
+        matching: find.text('Transmission'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('127.0.0.1:6881'), findsNothing);
+    expect(find.text('qBittorrent'), findsNothing);
+    expect(find.text('Transmission'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('files tab renders rows and bulk actions apply priorities', (
+    tester,
+  ) async {
+    var engine = await _pumpDetails(tester, details: _detailsWithSections());
+
+    await tester.tap(find.textContaining('文件'));
+    await tester.pump();
+
+    expect(find.text('episode.mkv'), findsOneWidget);
+    expect(find.text('subtitle.ass'), findsOneWidget);
+    expect(find.text('全部下载'), findsOneWidget);
+    expect(find.text('全部跳过'), findsOneWidget);
+
+    await tester.tap(find.text('全部跳过'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(engine.setFilePrioritiesCalls, 1);
+
+    await tester.pumpWidget(const SizedBox());
+  });
 }
 
-Future<FakeDetailsEngine> _pumpDetails(WidgetTester tester) async {
+Future<FakeDetailsEngine> _pumpDetails(
+  WidgetTester tester, {
+  BtTaskDetails? details,
+}) async {
   var engine = FakeDetailsEngine()
     ..currentState = BtEngineClientState.ready
-    ..currentTasks = [_task()];
+    ..currentTasks = [_task()]
+    ..details = details;
   var store = BtDownloadStore(client: engine);
   addTearDown(() {
     engine.dispose();
@@ -156,6 +252,37 @@ BtTaskDetails _details() {
   );
 }
 
+BtTaskDetails _detailsWithSections() {
+  return BtTaskDetails(
+    task: _task(),
+    pieceLength: 16384,
+    pieceCount: 2,
+    completedPieces: '10',
+    files: [
+      BtTaskFileDetail(path: 'episode.mkv', size: 100, completedBytes: 50),
+      BtTaskFileDetail(path: 'subtitle.ass', size: 10, completedBytes: 10),
+    ],
+    filesTruncated: false,
+    peers: [
+      BtTaskPeerDetail(
+        endpoint: '127.0.0.1:6881',
+        client: 'qBittorrent 4.4.5',
+        progress: 0.75,
+        downloadRate: 1024,
+        uploadRate: 0,
+      ),
+      BtTaskPeerDetail(
+        endpoint: '192.168.1.10:51413',
+        client: 'Transmission 2.94',
+        progress: 0.25,
+        downloadRate: 128,
+        uploadRate: 32,
+      ),
+    ],
+    peersTruncated: false,
+  );
+}
+
 class FakeDetailsEngine implements BtEngineGateway {
   final StreamController<BtEngineEvent> _events =
       StreamController<BtEngineEvent>.broadcast();
@@ -166,7 +293,9 @@ class FakeDetailsEngine implements BtEngineGateway {
 
   BtEngineClientState currentState = BtEngineClientState.stopped;
   List<BtTaskSnapshot> currentTasks = [];
+  BtTaskDetails? details;
   int taskDetailsCalls = 0;
+  int setFilePrioritiesCalls = 0;
   Completer<BtTaskDetails>? nextDetailsCompleter;
 
   void emitState(BtEngineClientState value) {
@@ -202,7 +331,7 @@ class FakeDetailsEngine implements BtEngineGateway {
   Future<BtTaskDetails> taskDetails(String id) async {
     taskDetailsCalls++;
     if (nextDetailsCompleter != null) return nextDetailsCompleter!.future;
-    return _details();
+    return details ?? _details();
   }
 
   @override
@@ -224,6 +353,7 @@ class FakeDetailsEngine implements BtEngineGateway {
     String id,
     Map<int, int> priorities,
   ) async {
+    setFilePrioritiesCalls++;
     return const [];
   }
 
