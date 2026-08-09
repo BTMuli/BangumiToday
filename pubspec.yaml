@@ -32,30 +32,25 @@ dependencies:
   app_links: ^7.2.1
   cached_network_image: ^3.4.1
   crypto: ^3.0.7
-  cupertino_icons: ^1.0.9
   rss_dart: ^1.0.14
   device_info_plus: ^13.2.0
   dio: ^5.10.0
-  events_emitter2: ^1.0.4
   ffi: ^2.2.0
   file_selector: ^1.1.0
   fl_chart: ^1.2.0
   fluent_ui: ^4.16.0
-  fluentui_system_icons: ^1.1.273
   flutter:
     sdk: flutter
   flutter_acrylic: ^1.1.4
   flutter_cache_manager: ^3.4.1
-  flutter_dotenv: ^6.0.1
   flutter_driver:
     sdk: flutter
-  flutter_rating_bar: ^4.0.1
   flutter_riverpod: ^3.3.2
+  flutter_secure_storage: ^11.0.0
   hive: ^2.2.3
   hooks_riverpod: ^3.3.2
   html: ^0.15.6
   html_unescape: ^2.0.0
-  intl: ^0.20.2
   jiffy: ^6.4.5
   json_annotation: ^4.12.0
   local_notifier: ^0.1.6
@@ -64,7 +59,6 @@ dependencies:
   package_info_plus: ^10.2.0
   path: ^1.9.1
   path_provider: ^2.1.6
-  provider: ^6.1.5+1
   sqflite_common_ffi: ^2.4.2
   system_theme: ^3.3.0
   url_launcher: ^6.3.2
@@ -102,7 +96,6 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - .env
     - assets/fonts/
     - assets/images/logo.png
     - assets/images/platforms/
@@ -140,7 +133,6 @@ msix_config:
   display_name: BangumiToday
   logo_path: assets/images/logo.png
   install_certificate: false
-  certificate_path: BTMuli.pfx
   publisher: CN=目棃, C=CN, E=bt-muli@outlook.com
   publisher_display_name: BTMuli
   output_name: BangumiToday
