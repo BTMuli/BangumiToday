@@ -348,6 +348,9 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       barrierDismissible: true,
       dismissOnPointerMoveAway: false,
       dismissWithEsc: true,
+      // 固定在按钮下方右对齐展开，避免 auto 定位贴到窗口顶部盖住按钮
+      placementMode: FlyoutPlacementMode.bottomRight,
+      additionalOffset: 16,
       builder: (context) => MenuFlyout(
         items: [buildFlyoutCollection(context), buildFlyoutData(context)],
       ),
