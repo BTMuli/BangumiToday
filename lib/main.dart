@@ -52,6 +52,18 @@ Future<void> main() async {
     SystemTheme.accentColor.load(),
   ]);
 
+  // 首帧前读取主题模式并应用窗口材质，让启动加载页与窗口背景在深浅主题下
+  // 都与应用主题一致，避免启动阶段先出现白屏。
+  var themeMode = ThemeMode.system;
+  try {
+    await BTLogTool.init();
+    await BTSqlite.init();
+    themeMode = await BtsAppConfig().readThemeMode();
+    await applyWindowMaterial(dark: _resolveDark(themeMode));
+  } catch (error, stackTrace) {
+    _reportUnhandledError(error, stackTrace);
+  }
+
   WindowOptions windowOpts = const WindowOptions(
     title: kDebugMode ? 'BangumiToday[Dev]' : 'BangumiToday',
     size: Size(1280, 720),
@@ -62,15 +74,28 @@ Future<void> main() async {
     () async => await windowManager.show(),
   );
 
-  _runApp(const BTSplashScreen());
+  _runApp(BTSplashScreen(themeMode: themeMode));
 
   try {
     await _initBackgroundServices();
     _runApp(const BTApp());
   } catch (error, stackTrace) {
     _reportUnhandledError(error, stackTrace);
-    _runApp(BTSplashScreen(errorMessage: error.toString()));
+    _runApp(
+      BTSplashScreen(errorMessage: error.toString(), themeMode: themeMode),
+    );
   }
+}
+
+/// 根据主题模式解析窗口深浅色
+bool _resolveDark(ThemeMode mode) {
+  return switch (mode) {
+    ThemeMode.dark => true,
+    ThemeMode.light => false,
+    ThemeMode.system =>
+      WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+          Brightness.dark,
+  };
 }
 
 Future<void> _initBackgroundServices() async {
