@@ -4,6 +4,7 @@ import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../../core/theme/bt_theme.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
@@ -29,6 +30,123 @@ class BsdUserCollection extends StatefulWidget {
 
   @override
   State<BsdUserCollection> createState() => _BsdUserCollectionState();
+}
+
+/// 条目评分选择器，以分片进度块的形式展示 0 到 10 分。
+class SubjectRatingSelector extends StatefulWidget {
+  const SubjectRatingSelector({
+    required this.rating,
+    required this.onChanged,
+    super.key,
+  });
+
+  final int rating;
+  final Future<void> Function(int rating) onChanged;
+
+  @override
+  State<SubjectRatingSelector> createState() => _SubjectRatingSelectorState();
+}
+
+class _SubjectRatingSelectorState extends State<SubjectRatingSelector> {
+  int? _hoveredRating;
+  bool _updating = false;
+
+  Future<void> _selectRating(int value) async {
+    if (_updating) return;
+    setState(() => _updating = true);
+    try {
+      await widget.onChanged(value);
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var accent = FluentTheme.of(context).accentColor;
+    var inactive = BTColors.surfaceTertiary(context);
+    var previewRating = _hoveredRating ?? widget.rating;
+    var labelStyle = BTTypography.caption(
+      context,
+    ).copyWith(fontWeight: FontWeight.w600);
+
+    return Semantics(
+      label: widget.rating == 0 ? '当前未评分' : '当前评分 ${widget.rating} 分',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('0分', style: labelStyle),
+          SizedBox(width: 6),
+          SizedBox(
+            width: 220,
+            height: 26,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: List.generate(10, (index) {
+                var score = index + 1;
+                var isActive = score <= previewRating;
+                var isSelected = score == widget.rating;
+                var color = isActive
+                    ? Color.lerp(inactive, accent, score / 10)!
+                    : inactive;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(left: index == 0 ? 0 : 3),
+                    child: Tooltip(
+                      message: '$score分 · ${getBangumiRateLabel(score * 1.0)}',
+                      child: Semantics(
+                        button: true,
+                        selected: isSelected,
+                        label: '评分 $score 分',
+                        child: MouseRegion(
+                          cursor: _updating
+                              ? SystemMouseCursors.basic
+                              : SystemMouseCursors.click,
+                          onEnter: _updating
+                              ? null
+                              : (_) => setState(() {
+                                  _hoveredRating = score;
+                                }),
+                          onExit: _updating
+                              ? null
+                              : (_) => setState(() {
+                                  _hoveredRating = null;
+                                }),
+                          child: GestureDetector(
+                            key: ValueKey('subject-rating-block-$score'),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _updating
+                                ? null
+                                : () async => _selectRating(score),
+                            child: Center(
+                              child: AnimatedContainer(
+                                duration: BTTheme.animationDurationNormal,
+                                curve: BTTheme.animationCurve,
+                                height: isSelected ? 24 : 20,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: isSelected
+                                      ? Border.all(color: accent, width: 2)
+                                      : null,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+          SizedBox(width: 6),
+          Text('10分', style: labelStyle),
+        ],
+      ),
+    );
+  }
 }
 
 /// State
@@ -326,43 +444,32 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
     );
   }
 
+  Future<void> updateRating(int value) async {
+    if (value == rating) {
+      await BtInfobar.warn(context, '条目 ${subject.id} 评分与当前评分相同');
+      return;
+    }
+    var confirm = await showConfirm(
+      context,
+      title: '确认评分',
+      content: '确认将条目 ${subject.id} 评分更新为 $value 分吗？',
+    );
+    if (!confirm) return;
+    var resp = await api.updateCollectionSubject(subject.id, rate: value);
+    if (resp.code != 0 || resp.data == null) {
+      if (mounted) await showRespErr(resp, context);
+    } else {
+      if (mounted) {
+        await BtInfobar.success(context, '条目 ${subject.id} 评分更新为 $value 分');
+      }
+      setState(() {});
+      await init();
+    }
+  }
+
   /// buildRatingBar
   Widget buildRateBox() {
-    return ComboBox<int>(
-      placeholder: const Text('0  [未评分]'),
-      value: rating,
-      items: List.generate(
-        10,
-        (index) => ComboBoxItem<int>(
-          value: index + 1,
-          child: index == 9
-              ? Text('10 [${getBangumiRateLabel(index + 1)}]')
-              : Text('${index + 1}  [${getBangumiRateLabel(index + 1)}]'),
-        ),
-      ),
-      onChanged: (val) async {
-        if (val == rating) {
-          await BtInfobar.warn(context, '条目 ${subject.id} 评分与当前评分相同');
-          return;
-        }
-        var confirm = await showConfirm(
-          context,
-          title: '确认评分',
-          content: '确认将条目 ${subject.id} 评分更新为 $val 分吗？',
-        );
-        if (!confirm) return;
-        var resp = await api.updateCollectionSubject(subject.id, rate: val);
-        if (resp.code != 0 || resp.data == null) {
-          if (mounted) await showRespErr(resp, context);
-        } else {
-          if (mounted) {
-            await BtInfobar.success(context, '条目 ${subject.id} 评分更新为 $val 分');
-          }
-          setState(() {});
-          await init();
-        }
-      },
-    );
+    return SubjectRatingSelector(rating: rating, onChanged: updateRating);
   }
 
   /// buildCollection
