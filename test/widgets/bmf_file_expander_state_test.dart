@@ -83,7 +83,7 @@ void main() {
       path.join(tempDir.path, fileName),
     ).writeAsBytesSync(List.filled(100, 0));
     gateway.currentTasks = [
-      _task(savePath: tempDir.path, state: 'downloading'),
+      _task(savePath: tempDir.path, state: 'downloading', progress: 0.1),
     ];
     gateway.fileResults['task'] = const BtTaskFilesResult(
       files: [

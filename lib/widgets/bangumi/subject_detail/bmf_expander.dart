@@ -63,12 +63,14 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   List<String> files = [];
   List<String> aria2Files = [];
   final Map<String, List<BtTaskFileDetail>> _taskFileDetails = {};
+  final Map<String, DateTime> _taskFileDetailsFetchedAt = {};
   final Set<String> _knownTaskIds = {};
   late Timer timerFiles;
   int _refreshGeneration = 0;
   bool _refreshingFiles = false;
   DateTime? _lastStoreRefreshAt;
   static const _minStoreRefreshInterval = Duration(seconds: 1);
+  static const _fileDetailsMinInterval = Duration(seconds: 5);
   BtDirDownloadState? _dirState;
 
   @override
@@ -168,7 +170,10 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     }
   }
 
-  /// 刷新该目录下引擎任务的文件详情缓存（非完成任务，与轮询同节奏）。
+  /// 刷新该目录下引擎任务的文件详情缓存（非完成任务）。
+  ///
+  /// 文件详情只用于标记单个文件是否已完成，进度由任务快照实时驱动，
+  /// 因此放宽拉取频率：距上次成功拉取不足 [_fileDetailsMinInterval] 时跳过。
   Future<void> _refreshTaskFileDetails(
     String downloadDir,
     int generation,
@@ -185,13 +190,21 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       if (!isTaskAvailable(task)) refreshIds.add(task.id);
     }
     _taskFileDetails.removeWhere((id, _) => !matchedIds.contains(id));
+    _taskFileDetailsFetchedAt.removeWhere((id, _) => !matchedIds.contains(id));
     for (var id in refreshIds) {
       if (!mounted || generation != _refreshGeneration) return;
+      var lastFetchedAt = _taskFileDetailsFetchedAt[id];
+      if (lastFetchedAt != null &&
+          DateTime.now().difference(lastFetchedAt) < _fileDetailsMinInterval) {
+        continue;
+      }
       try {
         var result = await store.taskFiles(id);
         _taskFileDetails[id] = List.of(result.files);
+        _taskFileDetailsFetchedAt[id] = DateTime.now();
       } catch (error) {
         _taskFileDetails.remove(id);
+        _taskFileDetailsFetchedAt.remove(id);
         BTLogTool.warn('刷新 BMF 下载任务文件详情失败: $error');
       }
     }
@@ -213,10 +226,10 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     _scheduleRefresh();
   }
 
-  /// 仅响应任务状态变化：刷新文件详情并重建，不重复扫描目录。
+  /// 响应 store 通知：进度已在 [build] 中由 `ref.watch` 实时重建，
+  /// 这里仅负责发现新任务 id 时触发完整目录扫描。
   ///
-  /// 目录内容不会因任务状态变化而改变，因此这里只更新引擎文件详情；
-  /// 新任务 id 出现时才走完整目录扫描，用于发现磁盘上的新文件。
+  /// 常规快照更新不重复扫描目录、也不拉取文件详情，避免高频 RPC。
   Future<void> _refreshStoreState() async {
     var generation = ++_refreshGeneration;
     var store = ref.read(btDownloadStoreProvider);
@@ -228,11 +241,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     if (!mounted || generation != _refreshGeneration) return;
     if (hasNewTask) {
       await refreshFiles();
-      return;
     }
-    await _refreshTaskFileDetails(widget.downloadDir, generation);
-    if (!mounted || generation != _refreshGeneration) return;
-    setState(() {});
   }
 
   Widget buildFileItem(BuildContext context, String file) {
