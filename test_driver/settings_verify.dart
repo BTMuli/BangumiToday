@@ -1,7 +1,10 @@
 // Temporary verification driver for the settings page redesign.
 // Usage: dart run test_driver/settings_verify.dart <vmServiceUrl> <outDir>
+
+// Dart imports:
 import 'dart:io';
 
+// Package imports:
 import 'package:flutter_driver/flutter_driver.dart';
 
 Future<void> main(List<String> args) async {

@@ -1,6 +1,8 @@
+// Flutter imports:
+import 'package:flutter/services.dart';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter/services.dart';
 
 /// 动态导航条目的首字图标。
 ///

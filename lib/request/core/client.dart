@@ -4,8 +4,8 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 // Project imports:
-import '../bangumi/bangumi_interceptor.dart';
 import '../../tools/log_tool.dart';
+import '../bangumi/bangumi_interceptor.dart';
 
 /// 获取 Interceptor
 LogInterceptor getInterceptor() {

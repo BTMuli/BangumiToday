@@ -1,14 +1,18 @@
+// Dart imports:
 import 'dart:io';
 import 'dart:typed_data';
 
+// Package imports:
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hive/hive.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+// Project imports:
 import 'package:bangumi_today/database/bt_sqlite.dart';
 import 'package:bangumi_today/models/app/bt_tracker_config.dart';
 import 'package:bangumi_today/models/hive/tracker_model.dart';
 import 'package:bangumi_today/store/tracker_hive.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:dio/dio.dart';
-import 'package:hive/hive.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

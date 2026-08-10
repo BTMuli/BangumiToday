@@ -1,7 +1,9 @@
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+// Project imports:
 import '../core/providers/repository_providers.dart';
 import '../domain/repositories/bangumi_repository.dart';
 import '../request/bangumi/bangumi_api.dart';

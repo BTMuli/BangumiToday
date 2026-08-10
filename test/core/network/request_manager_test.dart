@@ -1,8 +1,12 @@
+// Dart imports:
 import 'dart:async';
 
-import 'package:bangumi_today/request/bangumi/bangumi_manager.dart';
+// Package imports:
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
+import 'package:bangumi_today/request/bangumi/bangumi_manager.dart';
 
 void main() {
   group('RequestKey', () {

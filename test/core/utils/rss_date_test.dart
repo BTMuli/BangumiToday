@@ -1,6 +1,9 @@
+// Package imports:
+import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
 import 'package:bangumi_today/core/utils/rss_date.dart';
 import 'package:bangumi_today/models/rss/rss.dart';
-import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('returns the latest RSS item publication time', () {

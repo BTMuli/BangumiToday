@@ -2,7 +2,6 @@
 import 'dart:async';
 
 // Package imports:
-import '../../models/rss/rss.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -11,6 +10,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../database/app/app_config.dart';
 import '../../database/app/app_mikan_credential.dart';
 import '../../domain/repositories/bmf_repository.dart';
+import '../../models/rss/rss.dart';
 import '../../plugins/mikan/mikan_api.dart';
 import '../../store/app_store.dart';
 import '../../ui/bt_dialog.dart';

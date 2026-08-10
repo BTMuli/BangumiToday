@@ -1,8 +1,11 @@
+// Package imports:
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+// Project imports:
 import 'package:bangumi_today/database/bangumi/bangumi_data.dart';
 import 'package:bangumi_today/database/bt_sqlite.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_data_model.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   late Database database;

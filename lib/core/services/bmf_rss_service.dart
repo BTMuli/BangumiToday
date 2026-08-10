@@ -1,3 +1,4 @@
+// Dart imports:
 import 'dart:async';
 import 'dart:math';
 
@@ -5,15 +6,14 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 // Project imports:
-import '../../models/rss/rss.dart';
-
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_config.dart';
 import '../../database/app/app_rss.dart';
 import '../../main.dart';
+import '../../models/app/response.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../models/database/app_rss_model.dart';
-import '../../models/app/response.dart';
+import '../../models/rss/rss.dart';
 import '../../plugins/mikan/mikan_api.dart';
 import '../../store/bmf_store.dart';
 import '../../store/nav_store.dart';

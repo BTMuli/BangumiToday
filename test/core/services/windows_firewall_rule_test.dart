@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 
 // Package imports:
-import 'package:bangumi_today/core/services/windows_firewall_rule.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
+import 'package:bangumi_today/core/services/windows_firewall_rule.dart';
 
 const _ruleName = 'BangumiToday bt_download engine';
 

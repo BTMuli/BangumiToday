@@ -1,8 +1,13 @@
-import 'package:bangumi_today/widgets/app/nav_item_icon.dart';
-import 'package:fluent_ui/fluent_ui.dart';
+// Flutter imports:
 import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
+
+// Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
+import 'package:bangumi_today/widgets/app/nav_item_icon.dart';
 
 void main() {
   testWidgets('renders the first character of the title', (tester) async {

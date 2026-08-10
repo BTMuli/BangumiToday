@@ -1,9 +1,9 @@
 // Package imports:
-import '../../models/rss/rss.dart';
 import 'package:dio/dio.dart';
 
 // Project imports:
 import '../../models/app/response.dart';
+import '../../models/rss/rss.dart';
 import '../../tools/log_tool.dart';
 import '../core/client.dart';
 

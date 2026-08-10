@@ -1,13 +1,18 @@
+// Flutter imports:
+import 'package:flutter/widgets.dart';
+
+// Package imports:
+import 'package:fluent_ui/fluent_ui.dart' as fluent;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+// Project imports:
 import 'package:bangumi_today/database/bt_sqlite.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_enum.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_model.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_model_patch.dart';
 import 'package:bangumi_today/pages/bangumi-calendar/bc_pw_card.dart';
-import 'package:fluent_ui/fluent_ui.dart' as fluent;
-import 'package:flutter/widgets.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   setUpAll(() async {

@@ -1,8 +1,11 @@
 // Verification driver for the home (Bangumi-今日放送) page at default and
 // maximized window sizes. Captures screenshots and reports PASS/FAIL.
 // Usage: dart run test_driver/home_ui_verify.dart <vmServiceUrl> <outDir>
+
+// Dart imports:
 import 'dart:io';
 
+// Package imports:
 import 'package:flutter_driver/flutter_driver.dart';
 
 const _winHelper = 'D:/Code/App/bangumi_today/scripts/home_win.ps1';

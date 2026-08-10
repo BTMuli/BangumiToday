@@ -1,13 +1,19 @@
+// Dart imports:
 import 'dart:async';
 
+// Flutter imports:
+import 'package:flutter/material.dart' show Scaffold;
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
+
+// Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
 import 'package:bangumi_today/core/services/bt_engine_client.dart';
 import 'package:bangumi_today/pages/app/download_task_details.dart';
 import 'package:bangumi_today/store/bt_download_store.dart';
-import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter/material.dart' show Scaffold;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart' show LogicalKeyboardKey;
-import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets('dispose stops detail polling', (tester) async {

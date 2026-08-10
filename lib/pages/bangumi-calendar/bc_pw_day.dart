@@ -1,6 +1,8 @@
+// Flutter imports:
+import 'package:flutter/rendering.dart';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter/rendering.dart';
 
 // Project imports:
 import '../../core/layout/responsive.dart';

@@ -1,11 +1,15 @@
+// Dart imports:
 import 'dart:io';
 
+// Package imports:
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
 import 'package:bangumi_today/core/constants/app_constants.dart';
 import 'package:bangumi_today/request/bangumi/bangumi_api.dart';
 import 'package:bangumi_today/request/bangumi/bangumi_error_handler.dart';
 import 'package:bangumi_today/request/bangumi/bangumi_oauth.dart';
-import 'package:dio/dio.dart';
-import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('BtrBangumiApi base URL', () {

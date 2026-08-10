@@ -1,6 +1,9 @@
 // Capture precise views: very top of settings page and the download-limit rows.
+
+// Dart imports:
 import 'dart:io';
 
+// Package imports:
 import 'package:flutter_driver/flutter_driver.dart';
 
 const _wheelScript = 'D:/Code/App/bangumi_today/scripts/scroll_app.ps1';

@@ -1,6 +1,9 @@
 // Quick test: tap the settings pane entry via semantics regex.
+
+// Dart imports:
 import 'dart:io';
 
+// Package imports:
 import 'package:flutter_driver/flutter_driver.dart';
 
 Future<void> main(List<String> args) async {

@@ -1,9 +1,12 @@
+// Dart imports:
 import 'dart:io';
 
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hive/hive.dart';
 
+// Project imports:
 import '../models/hive/nav_model.dart';
 import '../pages/subject-detail/subject_detail_page.dart';
 import '../widgets/app/nav_item_icon.dart';

@@ -1,3 +1,14 @@
+// Flutter imports:
+import 'package:flutter/material.dart' show Scaffold;
+
+// Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+// Project imports:
 import 'package:bangumi_today/database/app/app_bmf.dart';
 import 'package:bangumi_today/database/app/app_config.dart';
 import 'package:bangumi_today/database/app/app_rss.dart';
@@ -7,12 +18,6 @@ import 'package:bangumi_today/models/database/app_rss_model.dart';
 import 'package:bangumi_today/pages/rss-bmf/rb_pw_bmf.dart';
 import 'package:bangumi_today/store/bmf_store.dart';
 import 'package:bangumi_today/widgets/bangumi/subject_detail/bmf_expander.dart';
-import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter/material.dart' show Scaffold;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 const _rssXml = '''
 <rss version="2.0">

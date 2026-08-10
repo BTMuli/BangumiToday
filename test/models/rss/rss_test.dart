@@ -1,5 +1,8 @@
-import 'package:bangumi_today/models/rss/rss.dart';
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
+import 'package:bangumi_today/models/rss/rss.dart';
 
 void main() {
   test('parses standard RSS fields', () {

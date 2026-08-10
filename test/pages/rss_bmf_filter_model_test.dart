@@ -1,7 +1,10 @@
+// Package imports:
+import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
 import 'package:bangumi_today/database/app/app_rss.dart';
 import 'package:bangumi_today/models/database/app_bmf_model.dart';
 import 'package:bangumi_today/pages/rss-bmf/bmf_filter_model.dart';
-import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   AppBmfModel bmf({

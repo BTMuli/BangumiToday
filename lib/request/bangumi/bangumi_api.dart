@@ -7,7 +7,6 @@ import 'package:dio/dio.dart';
 // Project imports:
 import '../../core/cache/cache_manager.dart';
 import '../../core/constants/app_constants.dart';
-import 'bangumi_manager.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
@@ -20,6 +19,7 @@ import '../../store/bgm_user_hive.dart';
 import '../../tools/log_tool.dart';
 import '../core/client.dart';
 import 'bangumi_error_handler.dart';
+import 'bangumi_manager.dart';
 
 /// bangumi.tv 的 API
 /// 详细文档请参考 https://bangumi.github.io/api/

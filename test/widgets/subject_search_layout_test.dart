@@ -1,5 +1,11 @@
-import 'package:bangumi_today/domain/repositories/bangumi_repository.dart';
+// Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
 import 'package:bangumi_today/controller/app/page_controller.dart';
+import 'package:bangumi_today/domain/repositories/bangumi_repository.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_enum.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_model.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_model_patch.dart';
@@ -7,9 +13,6 @@ import 'package:bangumi_today/models/bangumi/request_subject.dart';
 import 'package:bangumi_today/pages/subject-search/subject_search_page.dart';
 import 'package:bangumi_today/providers/app_providers.dart';
 import 'package:bangumi_today/widgets/bangumi/subject_card/bsc_search.dart';
-import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
 
 class _FakeSearchRepository extends Fake implements BTBangumiRepository {
   List<String>? lastTag;

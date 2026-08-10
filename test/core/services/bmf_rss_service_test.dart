@@ -1,3 +1,8 @@
+// Package imports:
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+// Project imports:
 import 'package:bangumi_today/core/services/bmf_rss_service.dart';
 import 'package:bangumi_today/database/app/app_bmf.dart';
 import 'package:bangumi_today/database/app/app_rss.dart';
@@ -6,8 +11,6 @@ import 'package:bangumi_today/models/app/response.dart';
 import 'package:bangumi_today/models/database/app_bmf_model.dart';
 import 'package:bangumi_today/models/database/app_rss_model.dart';
 import 'package:bangumi_today/plugins/mikan/mikan_api.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 const _rssXml = '''
 <rss version="2.0">

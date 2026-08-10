@@ -1,7 +1,10 @@
 // Diagnostic: test which finders resolve on the running app.
 // Usage: dart run test_driver/diag_finders.dart <vmServiceUrl>
+
+// Dart imports:
 import 'dart:io';
 
+// Package imports:
 import 'package:flutter_driver/flutter_driver.dart';
 
 Future<void> main(List<String> args) async {

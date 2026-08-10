@@ -1,18 +1,23 @@
-import 'package:bangumi_today/database/bangumi/bangumi_collection.dart';
-import 'package:bangumi_today/database/bangumi/bangumi_data.dart';
-import 'package:bangumi_today/database/bangumi/bangumi_user.dart';
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+
+// Package imports:
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+// Project imports:
 import 'package:bangumi_today/database/app/app_bmf.dart';
 import 'package:bangumi_today/database/app/app_config.dart';
 import 'package:bangumi_today/database/app/app_mikan_credential.dart';
 import 'package:bangumi_today/database/app/app_rss.dart';
+import 'package:bangumi_today/database/bangumi/bangumi_collection.dart';
+import 'package:bangumi_today/database/bangumi/bangumi_data.dart';
+import 'package:bangumi_today/database/bangumi/bangumi_user.dart';
 import 'package:bangumi_today/database/bt_sqlite.dart';
 import 'package:bangumi_today/models/database/app_bmf_model.dart';
 import 'package:bangumi_today/models/database/app_rss_model.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   late Database database;

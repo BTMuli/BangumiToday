@@ -1,5 +1,8 @@
-import 'package:bangumi_today/core/utils/window_effect.dart';
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
+import 'package:bangumi_today/core/utils/window_effect.dart';
 
 void main() {
   group('isMicaSupported', () {

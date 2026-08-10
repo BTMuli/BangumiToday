@@ -1,6 +1,9 @@
+// Package imports:
+import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
 import 'package:bangumi_today/models/app/bt_tracker_config.dart';
 import 'package:bangumi_today/store/tracker_hive.dart';
-import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('normalizes and validates Tracker URLs', () {

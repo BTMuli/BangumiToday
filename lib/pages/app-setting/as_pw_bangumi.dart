@@ -6,16 +6,16 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../../controller/app/progress_controller.dart';
-import '../../../core/services/bangumi_oauth_coordinator.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/bangumi_oauth_coordinator.dart';
 import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_oauth_model.dart';
 import '../../../providers/app_providers.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../request/bangumi/bangumi_oauth.dart';
-import '../../../store/bgm_user_hive.dart';
 import '../../../store/app_store.dart' as app_store;
+import '../../../store/bgm_user_hive.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_icon.dart';
 import '../../../ui/bt_infobar.dart';

@@ -1,10 +1,11 @@
-// Package imports:
+// Dart imports:
 import 'dart:io';
 
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher_string.dart';

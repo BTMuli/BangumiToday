@@ -1,6 +1,9 @@
-import 'package:bangumi_today/widgets/app/nav_item_icon.dart';
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
+import 'package:bangumi_today/widgets/app/nav_item_icon.dart';
 
 void main() {
   List<PaneItem> buildDynamicItems({int count = 50}) {

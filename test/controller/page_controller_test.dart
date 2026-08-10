@@ -1,8 +1,12 @@
+// Dart imports:
 import 'dart:async';
 
-import 'package:bangumi_today/controller/app/page_controller.dart';
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
+import 'package:bangumi_today/controller/app/page_controller.dart';
 
 void main() {
   test('ignores page changes while a previous page is loading', () async {

@@ -1,12 +1,17 @@
+// Dart imports:
 import 'dart:ui';
 
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
+// Package imports:
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:html_unescape/html_unescape.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
 import '../../core/theme/bt_theme.dart';
 import '../../database/bangumi/bangumi_data.dart';
 import '../../models/app/response.dart';

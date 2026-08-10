@@ -1,9 +1,14 @@
+// Dart imports:
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:fluent_ui/fluent_ui.dart';
+// Flutter imports:
 import 'package:flutter/gestures.dart';
 
+// Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
+
+// Project imports:
 import '../../core/theme/bt_theme.dart';
 
 class BTCard extends StatefulWidget {

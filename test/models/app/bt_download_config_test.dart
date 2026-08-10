@@ -1,5 +1,8 @@
-import 'package:bangumi_today/models/app/bt_download_config.dart';
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
+import 'package:bangumi_today/models/app/bt_download_config.dart';
 
 void main() {
   test('uses the engine defaults and serializes every protocol field', () {

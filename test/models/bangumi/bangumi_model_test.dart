@@ -1,7 +1,10 @@
+// Package imports:
+import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
 import 'package:bangumi_today/models/bangumi/bangumi_enum.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_model.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_model_patch.dart';
-import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   T roundTrip<T>(

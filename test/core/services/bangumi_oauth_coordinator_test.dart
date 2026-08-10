@@ -1,10 +1,14 @@
+// Dart imports:
 import 'dart:async';
 
+// Package imports:
+import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
 import 'package:bangumi_today/core/services/app_link_service.dart';
 import 'package:bangumi_today/core/services/bangumi_oauth_coordinator.dart';
 import 'package:bangumi_today/models/app/response.dart';
 import 'package:bangumi_today/request/bangumi/bangumi_oauth.dart';
-import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('BangumiOAuthCoordinator', () {

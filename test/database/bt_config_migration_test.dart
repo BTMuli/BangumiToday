@@ -1,7 +1,10 @@
-import 'package:bangumi_today/database/app/app_config.dart';
-import 'package:bangumi_today/database/bt_sqlite.dart';
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+// Project imports:
+import 'package:bangumi_today/database/app/app_config.dart';
+import 'package:bangumi_today/database/bt_sqlite.dart';
 
 void main() {
   setUpAll(() async {

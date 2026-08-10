@@ -1,11 +1,15 @@
+// Dart imports:
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:bangumi_today/core/services/bt_engine_client.dart';
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as path;
+
+// Project imports:
+import 'package:bangumi_today/core/services/bt_engine_client.dart';
 
 void main() {
   test('locates the sidecar beside the host executable', () {

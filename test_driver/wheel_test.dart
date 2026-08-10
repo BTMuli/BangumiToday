@@ -1,6 +1,9 @@
 // Test: does native mouse-wheel scrolling move the settings ListView?
+
+// Dart imports:
 import 'dart:io';
 
+// Package imports:
 import 'package:flutter_driver/flutter_driver.dart';
 
 Future<void> main(List<String> args) async {

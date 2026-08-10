@@ -1,9 +1,9 @@
 // Package imports:
-import '../../models/rss/rss.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../models/rss/rss.dart';
 import '../../request/rss/comicat_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../widgets/rss/rss_comicat_card_fluent.dart';

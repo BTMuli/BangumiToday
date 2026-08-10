@@ -1,10 +1,10 @@
 // Package imports:
-import '../../models/rss/rss.dart';
 import 'package:dio/dio.dart';
 
 // Project imports:
 import '../../database/app/app_config.dart';
 import '../../models/app/response.dart';
+import '../../models/rss/rss.dart';
 import '../../request/core/client.dart';
 import '../../tools/log_tool.dart';
 import 'mikan_utils.dart';

@@ -1,9 +1,13 @@
+// Dart imports:
 import 'dart:io';
 
-import 'package:bangumi_today/models/hive/nav_model.dart';
-import 'package:bangumi_today/store/nav_store.dart';
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
+
+// Project imports:
+import 'package:bangumi_today/models/hive/nav_model.dart';
+import 'package:bangumi_today/store/nav_store.dart';
 
 void main() {
   late Directory tempDir;

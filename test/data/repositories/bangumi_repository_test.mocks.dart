@@ -3,15 +3,21 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+
+// Dart imports:
 import 'dart:async' as _i4;
 
-import 'package:bangumi_today/data/datasources/bangumi_remote_data_source.dart'
-    as _i3;
+// Package imports:
+import 'package:mockito/mockito.dart' as _i1;
+
+// Project imports:
 import 'package:bangumi_today/models/app/response.dart' as _i2;
 import 'package:bangumi_today/models/bangumi/bangumi_enum.dart' as _i6;
 import 'package:bangumi_today/models/bangumi/bangumi_model.dart' as _i7;
 import 'package:bangumi_today/models/bangumi/request_subject.dart' as _i5;
-import 'package:mockito/mockito.dart' as _i1;
+
+import 'package:bangumi_today/data/datasources/bangumi_remote_data_source.dart'
+    as _i3;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values

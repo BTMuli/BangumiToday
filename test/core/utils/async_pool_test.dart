@@ -1,7 +1,11 @@
+// Dart imports:
 import 'dart:async';
 
-import 'package:bangumi_today/core/utils/async_pool.dart';
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
+import 'package:bangumi_today/core/utils/async_pool.dart';
 
 void main() {
   test('single flight reuses an in-flight operation and resets', () async {

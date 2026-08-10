@@ -1,6 +1,8 @@
+// Dart imports:
 import 'dart:ffi';
 import 'dart:io';
 
+// Package imports:
 import 'package:ffi/ffi.dart';
 
 const _processTerminate = 0x0001;

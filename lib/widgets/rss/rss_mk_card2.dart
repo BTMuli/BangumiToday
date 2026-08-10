@@ -1,5 +1,4 @@
 // Package imports:
-import '../../models/rss/rss.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +7,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../database/app/app_config.dart';
+import '../../models/rss/rss.dart';
 import '../../store/bt_download_store.dart';
 import '../../tools/download_tool.dart';
 import '../../ui/bt_infobar.dart';

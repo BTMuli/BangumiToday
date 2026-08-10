@@ -2,8 +2,11 @@
 // Uses native mouse-wheel scrolling (scripts/scroll_app.ps1) because
 // desktop Flutter ignores synthetic touch drags on this ListView.
 // Usage: dart run test_driver/verify_settings_fresh.dart <vmServiceUrl> <outDir>
+
+// Dart imports:
 import 'dart:io';
 
+// Package imports:
 import 'package:flutter_driver/flutter_driver.dart';
 
 const _wheelScript = 'D:/Code/App/bangumi_today/scripts/scroll_app.ps1';

@@ -1,6 +1,9 @@
+// Package imports:
+import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
 import 'package:bangumi_today/core/services/rss_freshness.dart';
 import 'package:bangumi_today/models/database/app_rss_model.dart';
-import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   const window = Duration(minutes: 30);

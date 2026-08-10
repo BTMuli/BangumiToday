@@ -1,7 +1,11 @@
+// Dart imports:
 import 'dart:async';
 
-import 'package:bangumi_today/core/services/app_link_service.dart';
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
+import 'package:bangumi_today/core/services/app_link_service.dart';
 
 void main() {
   group('AppLinkService', () {

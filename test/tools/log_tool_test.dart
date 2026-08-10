@@ -1,5 +1,8 @@
-import 'package:bangumi_today/tools/log_tool.dart';
+// Package imports:
 import 'package:flutter_test/flutter_test.dart';
+
+// Project imports:
+import 'package:bangumi_today/tools/log_tool.dart';
 
 void main() {
   test('sanitizes bearer headers, query parameters and JSON fields', () {
