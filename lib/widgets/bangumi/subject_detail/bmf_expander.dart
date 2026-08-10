@@ -1,21 +1,27 @@
+// Dart imports:
 import 'dart:async';
 
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
+// Project imports:
 import '../../../core/services/bmf_rss_service.dart';
+import '../../../core/services/bt_engine/protocol.dart';
 import '../../../core/theme/bt_theme.dart';
 import '../../../database/app/app_config.dart';
 import '../../../database/app/app_rss.dart';
 import '../../../models/database/app_bmf_model.dart';
 import '../../../models/rss/rss.dart';
 import '../../../store/app_store.dart';
+import '../../../store/bt_dir_download_state.dart';
 import '../../../store/bt_download_store.dart';
 import '../../../tools/download_tool.dart';
 import '../../../tools/file_tool.dart';
+import '../../../tools/log_tool.dart';
 import '../../../tools/notifier_tool.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_icon.dart';
@@ -53,14 +59,24 @@ class BmfFileExpander extends ConsumerStatefulWidget {
 class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   final BTFileTool fileTool = BTFileTool();
   final BTNotifierTool notifierTool = BTNotifierTool();
+  late final BtDownloadStore _downloadStore;
   List<String> files = [];
   List<String> aria2Files = [];
+  final Map<String, List<BtTaskFileDetail>> _taskFileDetails = {};
+  final Set<String> _knownTaskIds = {};
   late Timer timerFiles;
   int _refreshGeneration = 0;
+  bool _refreshingFiles = false;
+  DateTime? _lastStoreRefreshAt;
+  static const _minStoreRefreshInterval = Duration(seconds: 1);
+  BtDirDownloadState? _dirState;
 
   @override
   void initState() {
     super.initState();
+    _downloadStore = ref.read(btDownloadStoreProvider);
+    _knownTaskIds.addAll(_downloadStore.tasks.map((task) => task.id));
+    _downloadStore.addListener(_onDownloadStoreChanged);
     timerFiles = getTimerFiles();
     Future.microtask(refreshFiles);
   }
@@ -78,6 +94,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
 
   @override
   void dispose() {
+    _downloadStore.removeListener(_onDownloadStoreChanged);
     _refreshGeneration++;
     timerFiles.cancel();
     super.dispose();
@@ -91,49 +108,139 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   }
 
   Future<void> refreshFiles() async {
+    if (_refreshingFiles) return;
+    _refreshingFiles = true;
     var generation = ++_refreshGeneration;
     var downloadDir = widget.downloadDir;
     var subject = widget.subject;
-    var filesGet = await fileTool.getFileNames(downloadDir);
-    if (!mounted || generation != _refreshGeneration) return;
-    var aria2FilesGet = filesGet
-        .where((element) => element.endsWith('.aria2'))
-        .map((e) => e.replaceAll('.aria2', ''))
-        .toList();
-    if (aria2FilesGet.isNotEmpty) {
-      if (!timerFiles.isActive) timerFiles = getTimerFiles();
-    } else {
-      if (timerFiles.isActive) timerFiles.cancel();
-    }
-    if (aria2Files.isNotEmpty && aria2FilesGet != aria2Files) {
-      var diffFiles = aria2Files
-          .where((element) => !aria2FilesGet.contains(element))
+    try {
+      var filesGet = await fileTool.getFileNames(downloadDir);
+      if (!mounted || generation != _refreshGeneration) return;
+      var aria2FilesGet = filesGet
+          .where((element) => element.endsWith('.aria2'))
+          .map((e) => e.replaceAll('.aria2', ''))
           .toList();
-      if (diffFiles.isNotEmpty) {
-        for (var file in diffFiles) {
-          var exist = await fileTool.isFileExist(path.join(downloadDir, file));
-          if (!mounted || generation != _refreshGeneration) return;
-          if (!exist) continue;
-          await notifierTool.showVideo(
-            subject: subject,
-            dir: downloadDir,
-            file: file,
-          );
-          if (!mounted || generation != _refreshGeneration) return;
+      await _refreshTaskFileDetails(downloadDir, generation);
+      if (!mounted || generation != _refreshGeneration) return;
+      var store = ref.read(btDownloadStoreProvider);
+      var dirState = computeDirDownloadState(
+        dir: downloadDir,
+        tasks: store.tasks,
+        fileDetailsByTaskId: _taskFileDetails,
+        dirFileNames: filesGet,
+        aria2FileNames: aria2FilesGet,
+      );
+      var keepPolling = dirState.hasActiveTasks || aria2FilesGet.isNotEmpty;
+      if (keepPolling) {
+        if (!timerFiles.isActive) timerFiles = getTimerFiles();
+      } else if (timerFiles.isActive) {
+        timerFiles.cancel();
+      }
+      if (aria2Files.isNotEmpty && aria2FilesGet != aria2Files) {
+        var diffFiles = aria2Files
+            .where((element) => !aria2FilesGet.contains(element))
+            .toList();
+        if (diffFiles.isNotEmpty) {
+          for (var file in diffFiles) {
+            var exist = await fileTool.isFileExist(
+              path.join(downloadDir, file),
+            );
+            if (!mounted || generation != _refreshGeneration) return;
+            if (!exist) continue;
+            await notifierTool.showVideo(
+              subject: subject,
+              dir: downloadDir,
+              file: file,
+            );
+            if (!mounted || generation != _refreshGeneration) return;
+          }
         }
       }
+      if (!mounted || generation != _refreshGeneration) return;
+      setState(() {
+        files = filesGet
+            .where((element) => !element.endsWith('.aria2'))
+            .toList();
+        aria2Files = aria2FilesGet;
+      });
+    } finally {
+      _refreshingFiles = false;
     }
+  }
+
+  /// 刷新该目录下引擎任务的文件详情缓存（非完成任务，与轮询同节奏）。
+  Future<void> _refreshTaskFileDetails(
+    String downloadDir,
+    int generation,
+  ) async {
+    var store = ref.read(btDownloadStoreProvider);
+    var normalizedDir = path.normalize(downloadDir).toLowerCase();
+    var matchedIds = <String>{};
+    var refreshIds = <String>[];
+    for (var task in store.tasks) {
+      if (path.normalize(task.savePath).toLowerCase() != normalizedDir) {
+        continue;
+      }
+      matchedIds.add(task.id);
+      if (!isTaskAvailable(task)) refreshIds.add(task.id);
+    }
+    _taskFileDetails.removeWhere((id, _) => !matchedIds.contains(id));
+    for (var id in refreshIds) {
+      if (!mounted || generation != _refreshGeneration) return;
+      try {
+        var result = await store.taskFiles(id);
+        _taskFileDetails[id] = List.of(result.files);
+      } catch (error) {
+        _taskFileDetails.remove(id);
+        BTLogTool.warn('刷新 BMF 下载任务文件详情失败: $error');
+      }
+    }
+  }
+
+  /// store 通知后安排一次状态刷新（新任务出现时立即拉取文件详情）。
+  void _scheduleRefresh() {
+    var now = DateTime.now();
+    if (_lastStoreRefreshAt != null &&
+        now.difference(_lastStoreRefreshAt!) < _minStoreRefreshInterval) {
+      return;
+    }
+    _lastStoreRefreshAt = now;
+    Future.microtask(_refreshStoreState);
+  }
+
+  void _onDownloadStoreChanged() {
+    if (!mounted) return;
+    _scheduleRefresh();
+  }
+
+  /// 仅响应任务状态变化：刷新文件详情并重建，不重复扫描目录。
+  ///
+  /// 目录内容不会因任务状态变化而改变，因此这里只更新引擎文件详情；
+  /// 新任务 id 出现时才走完整目录扫描，用于发现磁盘上的新文件。
+  Future<void> _refreshStoreState() async {
+    var generation = ++_refreshGeneration;
+    var store = ref.read(btDownloadStoreProvider);
+    var currentIds = store.tasks.map((task) => task.id).toSet();
+    var hasNewTask = !currentIds.containsAll(_knownTaskIds);
+    _knownTaskIds
+      ..clear()
+      ..addAll(currentIds);
     if (!mounted || generation != _refreshGeneration) return;
-    setState(() {
-      files = filesGet.where((element) => !element.endsWith('.aria2')).toList();
-      aria2Files = aria2FilesGet;
-    });
+    if (hasNewTask) {
+      await refreshFiles();
+      return;
+    }
+    await _refreshTaskFileDetails(widget.downloadDir, generation);
+    if (!mounted || generation != _refreshGeneration) return;
+    setState(() {});
   }
 
   Widget buildFileItem(BuildContext context, String file) {
-    var isDownloading = aria2Files.contains(file);
+    var fileState = _dirState?.stateFor(file);
+    var isIncomplete = fileState?.isIncomplete ?? aria2Files.contains(file);
     var isVideo = file.endsWith('.mp4') || file.endsWith('.mkv');
     var isTorrent = file.endsWith('.torrent');
+    var statusLabel = fileState?.statusLabel ?? '下载中';
 
     return Container(
       margin: EdgeInsets.only(bottom: 6),
@@ -156,7 +263,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
                     ? FluentIcons.video
                     : FluentIcons.document,
                 size: 16,
-                color: isDownloading
+                color: isIncomplete
                     ? FluentTheme.of(context).accentColor
                     : BTColors.textSecondary(context),
               ),
@@ -177,14 +284,19 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
           SizedBox(height: 6),
           Row(
             children: [
-              if (isDownloading) ...[
-                Expanded(child: ProgressBar(value: null, strokeWidth: 2)),
+              if (isIncomplete) ...[
+                Expanded(
+                  child: ProgressBar(
+                    value: fileState?.progress,
+                    strokeWidth: 2,
+                  ),
+                ),
                 SizedBox(width: 8),
                 Text(
-                  '下载中',
+                  statusLabel,
                   style: BTTypography.caption(
                     context,
-                  ).copyWith(color: FluentTheme.of(context).accentColor),
+                  ).copyWith(color: _statusColor(context, fileState)),
                 ),
                 SizedBox(width: 8),
               ] else
@@ -194,7 +306,8 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
                 dir: widget.downloadDir,
                 isVideo: isVideo,
                 isTorrent: isTorrent,
-                isDownloading: isDownloading,
+                canOpen: isVideo && !isIncomplete,
+                isIncomplete: isIncomplete,
                 onDelete: refreshFiles,
               ),
             ],
@@ -202,6 +315,15 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
         ],
       ),
     );
+  }
+
+  Color _statusColor(BuildContext context, BtFileDownloadState? fileState) {
+    if (fileState == null || fileState.isActive) {
+      return FluentTheme.of(context).accentColor;
+    }
+    if (fileState.isPaused) return BTColors.warningLight(context);
+    if (fileState.isFailed) return BTColors.errorLight(context);
+    return FluentTheme.of(context).accentColor;
   }
 
   Widget buildContent() {
@@ -250,15 +372,55 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     );
   }
 
+  Widget _buildDownloadingBadge(BuildContext context, String label) {
+    var accentColor = FluentTheme.of(context).accentColor;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: accentColor,
+        borderRadius: BTRadius.roundBR,
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     var accentColor = FluentTheme.of(context).accentColor;
+    var store = ref.watch(btDownloadStoreProvider);
+    _dirState = computeDirDownloadState(
+      dir: widget.downloadDir,
+      tasks: store.tasks,
+      fileDetailsByTaskId: _taskFileDetails,
+      dirFileNames: files,
+      aria2FileNames: aria2Files,
+    );
     var header = Row(
       children: [
         Text('下载目录', style: BTTypography.subtitle(context)),
         if (files.isNotEmpty) ...[
           SizedBox(width: 8),
           _buildCountBadge(context, files.length),
+        ],
+        if (_dirState != null && _dirState!.hasIncompleteFiles) ...[
+          SizedBox(width: 8),
+          _buildDownloadingBadge(
+            context,
+            '${_dirState!.incompleteFileCount} 个下载中',
+          ),
+        ] else if (_dirState != null && _dirState!.hasActiveTasks) ...[
+          SizedBox(width: 8),
+          _buildDownloadingBadge(
+            context,
+            '${_dirState!.activeTaskCount} 个任务下载中',
+          ),
         ],
         SizedBox(width: 8),
         Tooltip(

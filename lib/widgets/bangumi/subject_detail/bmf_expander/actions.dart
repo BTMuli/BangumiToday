@@ -5,7 +5,8 @@ class _FileItemActions extends StatelessWidget {
   final String dir;
   final bool isVideo;
   final bool isTorrent;
-  final bool isDownloading;
+  final bool canOpen;
+  final bool isIncomplete;
   final Future<void> Function() onDelete;
   final BTFileTool fileTool = BTFileTool();
 
@@ -14,7 +15,8 @@ class _FileItemActions extends StatelessWidget {
     required this.dir,
     required this.isVideo,
     required this.isTorrent,
-    required this.isDownloading,
+    required this.canOpen,
+    required this.isIncomplete,
     required this.onDelete,
   });
 
@@ -32,7 +34,7 @@ class _FileItemActions extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (isVideo && !isDownloading)
+        if (isVideo && canOpen)
           Tooltip(
             message: '打开文件',
             child: IconButton(
@@ -55,7 +57,9 @@ class _FileItemActions extends StatelessWidget {
               var confirm = await showConfirm(
                 context,
                 title: '删除文件',
-                content: '确定删除文件 $file 吗？',
+                content: isIncomplete
+                    ? '该文件尚未下载完成，删除可能中断下载任务。确定删除文件 $file 吗？'
+                    : '确定删除文件 $file 吗？',
               );
               if (!confirm) return;
               var filePath = path.join(dir, file);
