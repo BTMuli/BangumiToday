@@ -1,0 +1,4 @@
+interface:
+  display_name: "BangumiToday Codebase"
+  short_description: "Architecture, domain, and build knowledge for the repo"
+  default_prompt: "Use $bangumi-today to navigate, analyze, or modify the BangumiToday Flutter codebase."
