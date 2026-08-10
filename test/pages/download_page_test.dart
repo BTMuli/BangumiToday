@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:bangumi_today/core/services/bt_engine_client.dart';
 import 'package:bangumi_today/pages/app/download_page.dart';
 import 'package:bangumi_today/store/bt_download_store.dart';
+import 'package:bangumi_today/widgets/common/bt_buttons.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -107,6 +109,55 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(engine.pauseCalls, ['a']);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('segmented control switches with keyboard', (tester) async {
+    var index = 0;
+    await tester.pumpWidget(
+      FluentApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            return Center(
+              child: BTSegmentedControl(
+                selectedIndex: index,
+                options: const ['进行中 2', '已停止 1'],
+                onChanged: (value) => setState(() => index = value),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    // Tab 聚焦第一个选项，再 Tab 到第二个（此时选中仍是第一个）。
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+
+    // 回车激活第二个选项。
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(index, 1);
+
+    // 左方向键切回第一个选项。
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(index, 0);
+
+    // 左键到头后循环到第二个选项。
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(index, 1);
+
+    // Tab 回到第一个选项后空格激活。
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(index, 0);
 
     await tester.pumpWidget(const SizedBox());
   });

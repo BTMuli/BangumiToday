@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../core/theme/bt_theme.dart';
@@ -307,7 +309,7 @@ class _BTIconButtonState extends State<BTIconButton>
   }
 }
 
-class BTSegmentedControl extends StatelessWidget {
+class BTSegmentedControl extends StatefulWidget {
   final int selectedIndex;
   final List<String> options;
   final ValueChanged<int>? onChanged;
@@ -320,9 +322,36 @@ class BTSegmentedControl extends StatelessWidget {
   });
 
   @override
+  State<BTSegmentedControl> createState() => _BTSegmentedControlState();
+}
+
+class _BTSegmentedControlState extends State<BTSegmentedControl> {
+  late final List<FocusNode> _nodes = List.generate(
+    widget.options.length,
+    (_) => FocusNode(),
+  );
+
+  @override
+  void dispose() {
+    for (var node in _nodes) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  void _select(int index) {
+    widget.onChanged?.call(index);
+    _nodes[index].requestFocus();
+  }
+
+  void _move(int from, int delta) {
+    var next = (from + delta + _nodes.length) % _nodes.length;
+    _select(next);
+  }
+
+  @override
   Widget build(BuildContext context) {
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
-    var accentColor = FluentTheme.of(context).accentColor;
 
     return Container(
       padding: EdgeInsets.all(4),
@@ -337,30 +366,107 @@ class BTSegmentedControl extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: options.asMap().entries.map((entry) {
-          var isSelected = entry.key == selectedIndex;
-          return GestureDetector(
-            onTap: onChanged != null ? () => onChanged!(entry.key) : null,
-            child: AnimatedContainer(
-              duration: BTTheme.animationDurationFast,
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? accentColor : Colors.transparent,
-                borderRadius: BTRadius.smallBR,
-              ),
-              child: Text(
-                entry.value,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: isSelected
-                      ? Colors.white
-                      : BTColors.textSecondary(context),
-                ),
+        children: [
+          for (var i = 0; i < widget.options.length; i++)
+            _SegmentedOption(
+              label: widget.options[i],
+              selected: i == widget.selectedIndex,
+              focusNode: _nodes[i],
+              onTap: () => _select(i),
+              onMove: (delta) => _move(i, delta),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SegmentedOption extends StatefulWidget {
+  const _SegmentedOption({
+    required this.label,
+    required this.selected,
+    required this.focusNode,
+    required this.onTap,
+    required this.onMove,
+  });
+
+  final String label;
+  final bool selected;
+  final FocusNode focusNode;
+  final VoidCallback onTap;
+  final ValueChanged<int> onMove;
+
+  @override
+  State<_SegmentedOption> createState() => _SegmentedOptionState();
+}
+
+class _SegmentedOptionState extends State<_SegmentedOption> {
+  var _hovered = false;
+  var _focused = false;
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    var key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      widget.onMove(-1);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowRight) {
+      widget.onMove(1);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter ||
+        key == LogicalKeyboardKey.space) {
+      widget.onTap();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var accentColor = FluentTheme.of(context).accentColor;
+    var isSelected = widget.selected;
+    return Focus(
+      focusNode: widget.focusNode,
+      onFocusChange: (value) => setState(() => _focused = value),
+      onKeyEvent: _onKey,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: BTTheme.animationDurationFast,
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? accentColor
+                  : (_hovered || _focused
+                        ? accentColor.withValues(alpha: 0.08)
+                        : Colors.transparent),
+              borderRadius: BTRadius.smallBR,
+              border: Border.all(
+                color: _focused
+                    ? accentColor.withValues(alpha: 0.6)
+                    : Colors.transparent,
               ),
             ),
-          );
-        }).toList(),
+            child: Text(
+              widget.label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected
+                    ? Colors.white
+                    : BTColors.textSecondary(context),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -8,75 +8,78 @@ class _ProgressTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: EdgeInsets.all(18),
-      children: [
-        _SectionCard(
-          icon: FluentIcons.grid_view_small,
-          title: '分片完成情况',
-          trailing: Text(
-            _pieceSummary(details) +
-                _pieceGridNote(details.completedPieces.length),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: BTTypography.caption(context),
+    return _KeyboardScrollable(
+      builder: (context, controller) => ListView(
+        controller: controller,
+        padding: EdgeInsets.all(18),
+        children: [
+          _SectionCard(
+            icon: FluentIcons.grid_view_small,
+            title: '分片完成情况',
+            trailing: Text(
+              _pieceSummary(details) +
+                  _pieceGridNote(details.completedPieces.length),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: BTTypography.caption(context),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _PieceMap(completedPieces: details.completedPieces),
+                SizedBox(height: 12),
+                _PieceLegend(pieceCount: details.completedPieces.length),
+              ],
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _PieceMap(completedPieces: details.completedPieces),
-              SizedBox(height: 12),
-              _PieceLegend(pieceCount: details.completedPieces.length),
-            ],
+          SizedBox(height: 12),
+          _SectionCard(
+            icon: FluentIcons.processing,
+            title: '传输统计',
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                var width = (constraints.maxWidth - 10) / 2;
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _TransferMetric(
+                      width: width,
+                      label: '已下载',
+                      value:
+                          '${BTFileTool.formatSize(task.downloadedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
+                      icon: FluentIcons.download,
+                      color: FluentTheme.of(context).accentColor,
+                    ),
+                    _TransferMetric(
+                      width: width,
+                      label: '已上传',
+                      value: BTFileTool.formatSize(task.uploadedBytes),
+                      icon: FluentIcons.upload,
+                      color: BTColors.successLight(context),
+                    ),
+                    _TransferMetric(
+                      width: width,
+                      label: '已校验',
+                      value:
+                          '${BTFileTool.formatSize(task.verifiedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
+                      icon: FluentIcons.check_mark,
+                      color: BTColors.info,
+                    ),
+                    _TransferMetric(
+                      width: width,
+                      label: '连接',
+                      value: '${task.peers} Peer · ${task.seeds} Seed',
+                      icon: FluentIcons.people,
+                      color: BTColors.info,
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
-        ),
-        SizedBox(height: 12),
-        _SectionCard(
-          icon: FluentIcons.processing,
-          title: '传输统计',
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              var width = (constraints.maxWidth - 10) / 2;
-              return Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _TransferMetric(
-                    width: width,
-                    label: '已下载',
-                    value:
-                        '${BTFileTool.formatSize(task.downloadedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
-                    icon: FluentIcons.download,
-                    color: FluentTheme.of(context).accentColor,
-                  ),
-                  _TransferMetric(
-                    width: width,
-                    label: '已上传',
-                    value: BTFileTool.formatSize(task.uploadedBytes),
-                    icon: FluentIcons.upload,
-                    color: BTColors.successLight(context),
-                  ),
-                  _TransferMetric(
-                    width: width,
-                    label: '已校验',
-                    value:
-                        '${BTFileTool.formatSize(task.verifiedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
-                    icon: FluentIcons.check_mark,
-                    color: BTColors.info,
-                  ),
-                  _TransferMetric(
-                    width: width,
-                    label: '连接',
-                    value: '${task.peers} Peer · ${task.seeds} Seed',
-                    icon: FluentIcons.people,
-                    color: BTColors.info,
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

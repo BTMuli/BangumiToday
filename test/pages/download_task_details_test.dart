@@ -284,6 +284,106 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('overview section scrolls with keyboard', (tester) async {
+    await _pumpDetails(tester, details: _detailsWithSections());
+
+    await _tabUntilLabel(tester, 'download-detail-scroll');
+
+    var scrollable = tester.state<ScrollableState>(
+      find
+          .descendant(
+            of: find.byType(ListView).first,
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    var before = scrollable.position.pixels;
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    var after = scrollable.position.pixels;
+
+    expect(after, greaterThan(before));
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('peer table headers respond to keyboard', (tester) async {
+    var engine = await _pumpDetails(tester, details: _detailsWithSections());
+
+    await tester.tap(find.textContaining('Peer'));
+    await tester.pump();
+    await tester.pump();
+
+    // Tab 进入表头，聚焦“地址”后按空格切换排序。
+    await _tabUntilLabel(tester, 'download-table-header-');
+    expect(find.byIcon(FluentIcons.chevron_up), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(find.byIcon(FluentIcons.chevron_up), findsOneWidget);
+
+    // 再 Tab 到“客户端”表头，回车打开筛选菜单。
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      'download-table-header-客户端',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('全部客户端'), findsOneWidget);
+
+    expect(engine.taskPeersCalls, 1);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('peer table rows are focusable and arrow keys navigate', (
+    tester,
+  ) async {
+    await _pumpDetails(tester, details: _detailsWithSections());
+
+    await tester.tap(find.textContaining('Peer'));
+    await tester.pump();
+    await tester.pump();
+
+    await _tabUntilLabel(tester, 'download-table-row-');
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      'download-table-row-0',
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      'download-table-row-1',
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      'download-table-row-0',
+    );
+
+    await tester.pumpWidget(const SizedBox());
+  });
+}
+
+Future<void> _tabUntilLabel(
+  WidgetTester tester,
+  String prefix, {
+  int maxTabs = 40,
+}) async {
+  for (var i = 0; i < maxTabs; i++) {
+    var label = FocusManager.instance.primaryFocus?.debugLabel ?? '';
+    if (label.startsWith(prefix)) return;
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+  }
+  fail('焦点未到达 $prefix（当前 ${FocusManager.instance.primaryFocus?.debugLabel}）');
 }
 
 Future<FakeDetailsEngine> _pumpDetails(
