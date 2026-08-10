@@ -159,47 +159,6 @@ class BtsBangumiData {
     }
   }
 
-  /// 批量写入站点元数据，按 [batchSize] 分批提交事务。
-  ///
-  /// 同一批内任一写入失败会回滚该批；已提交批次保持幂等，可断点重试。
-  /// [onProgress] 在每批提交后回调（已完成数、总数），用于进度更新。
-  Future<void> writeSitesBatch(
-    List<BangumiDataSiteFull> sites, {
-    int batchSize = 200,
-    void Function(int completed, int total)? onProgress,
-  }) async {
-    await _instance.preCheck();
-    var total = sites.length;
-    if (total == 0) return;
-    var completed = 0;
-    for (var start = 0; start < total; start += batchSize) {
-      var end = start + batchSize;
-      if (end > total) end = total;
-      var batch = sites.sublist(start, end);
-      await _instance.sqlite.db.transaction((txn) async {
-        for (var site in batch) {
-          var result = await txn.query(
-            _tableNameSite,
-            where: 'key = ?',
-            whereArgs: [site.key],
-          );
-          if (result.isEmpty) {
-            await txn.insert(_tableNameSite, site.toSqlJson());
-          } else {
-            await txn.update(
-              _tableNameSite,
-              site.toSqlJson(),
-              where: 'key = ?',
-              whereArgs: [site.key],
-            );
-          }
-        }
-      });
-      completed += batch.length;
-      onProgress?.call(completed, total);
-    }
-  }
-
   /// 写入/更新条目
   Future<void> writeItem(BangumiDataItem item, {bool check = true}) async {
     if (check) await _instance.preCheckItem();

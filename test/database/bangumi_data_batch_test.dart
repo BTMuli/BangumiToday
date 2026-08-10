@@ -25,10 +25,8 @@ void main() {
   test('empty batches write nothing', () async {
     var data = BtsBangumiData();
 
-    await data.writeSitesBatch(const []);
     await data.writeItemBatch(const []);
 
-    expect(await data.readSiteAll(), isEmpty);
     expect(await data.readItemAll(), isEmpty);
   });
 
@@ -39,24 +37,6 @@ void main() {
     await data.writeItemBatch(items);
 
     expect(await data.readItemAll(), hasLength(50));
-  });
-
-  test('multi-batch writes report progress and stay idempotent', () async {
-    var data = BtsBangumiData();
-    var sites = [for (var i = 0; i < 250; i++) _site('site-$i', 'Site $i')];
-    var progress = <int>[];
-
-    await data.writeSitesBatch(
-      sites,
-      batchSize: 100,
-      onProgress: (completed, total) => progress.add(completed),
-    );
-
-    expect(progress, [100, 200, 250]);
-    expect(await data.readSiteAll(), hasLength(250));
-
-    await data.writeSitesBatch(sites, batchSize: 100);
-    expect(await data.readSiteAll(), hasLength(250));
   });
 
   test(
@@ -87,16 +67,6 @@ void main() {
 
       expect(await data.readItemAll(), hasLength(250));
     },
-  );
-}
-
-BangumiDataSiteFull _site(String key, String title) {
-  return BangumiDataSiteFull(
-    key: key,
-    title: title,
-    urlTemplate: 'https://example.com/{id}',
-    type: 'onair',
-    regions: const ['JP'],
   );
 }
 

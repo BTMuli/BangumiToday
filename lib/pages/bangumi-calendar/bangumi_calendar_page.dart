@@ -165,23 +165,24 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
         for (var entry in rawData.siteMeta.entries)
           BangumiDataSiteFull.fromSite(entry.key, entry.value),
       ];
-      await sqliteBd.writeSitesBatch(
-        sites,
-        onProgress: (completed, total) {
-          progress.update(
-            title: '写入站点数据 $completed/$total',
-            text: '已写入 $completed 个站点',
-            progress: total == 0 ? 0 : completed * 100 / total,
-          );
-        },
-      );
+      var siteTotal = sites.length;
+      for (var i = 0; i < siteTotal; i++) {
+        var site = sites[i];
+        progress.update(
+          title: '写入站点数据 ${i + 1}/$siteTotal',
+          text: site.title,
+          progress: siteTotal == 0 ? 0 : (i + 1) * 100 / siteTotal,
+        );
+        await sqliteBd.writeSite(site);
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
       var items = rawData.items;
       await sqliteBd.writeItemBatch(
         items,
         onProgress: (completed, total) {
           progress.update(
-            title: '写入条目数据 $completed/$total',
-            text: '已写入 $completed 个条目',
+            title: '写入条目数据',
+            text: '$completed/$total',
             progress: total == 0 ? 0 : completed * 100 / total,
           );
         },
