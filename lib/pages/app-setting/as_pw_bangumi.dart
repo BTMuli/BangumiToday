@@ -2,13 +2,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../../controller/app/progress_controller.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/bangumi_oauth_coordinator.dart';
-import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_oauth_model.dart';
 import '../../../providers/app_providers.dart';
@@ -38,12 +36,6 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
   /// 用户 hive
   final BgmUserHive hive = BgmUserHive();
 
-  /// 收藏数据库
-  final BtsBangumiCollection sqlite = BtsBangumiCollection();
-
-  /// 总收藏数
-  late int collectionCount = 0;
-
   /// 认证相关客户端
   final BtrBangumiOauth apiOauth = BtrBangumiOauth();
 
@@ -53,55 +45,18 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() async => await init());
+    hive.addListener(_onHiveChanged);
   }
 
-  /// 初始化
-  Future<void> init() async {
-    if (hive.tokenAC == null ||
-        hive.tokenRF == null ||
-        hive.expireTime == null) {
-      return;
-    }
-    collectionCount = await sqlite.getCount();
+  @override
+  void dispose() {
+    hive.removeListener(_onHiveChanged);
+    super.dispose();
+  }
+
+  /// hive 数据变化时刷新界面
+  void _onHiveChanged() {
     if (mounted) setState(() {});
-  }
-
-  /// 刷新访问令牌
-  Future<void> freshToken({bool force = false}) async {
-    if (progress.isShow) {
-      progress.update(title: '刷新访问令牌', text: '正在刷新访问令牌', progress: null);
-    } else {
-      progress = ProgressWidget.show(context, title: '刷新访问令牌');
-    }
-    if (hive.tokenRF == null) {
-      progress.end();
-      if (mounted) await BtInfobar.error(context, '未找到刷新令牌');
-      return;
-    }
-    var res = await hive.refreshAuth(force: force);
-    if (!mounted) {
-      progress.end();
-      return;
-    }
-    if (res == null || !res) {
-      progress.end();
-    }
-    if (res == null && mounted) {
-      var confirm = await showConfirm(
-        context,
-        title: '确认刷新？',
-        content: '检测到令牌未过期，是否仍然刷新令牌？',
-      );
-      if (!confirm) {
-        progress.end();
-        return;
-      }
-      await freshToken(force: true);
-      return;
-    }
-    progress.end();
-    if (mounted) await BtInfobar.success(context, '刷新访问令牌成功');
   }
 
   /// 刷新用户信息
@@ -165,92 +120,6 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     await freshUserInfo();
   }
 
-  /// 刷新收藏
-  Future<void> refreshCollection() async {
-    if (hive.user == null) {
-      await BtInfobar.error(context, '未找到用户信息');
-      return;
-    }
-    progress = ProgressWidget.show(
-      context,
-      title: '刷新收藏信息',
-      text: '正在刷新收藏信息',
-      onTaskbar: true,
-    );
-    const limit = 50;
-    var offset = 0;
-    var repository = ref.read(bangumiRepositoryProvider);
-    var resp = await repository.getCollectionSubjects(
-      username: hive.user!.id.toString(),
-      limit: limit,
-      offset: offset,
-    );
-    if (resp.code != 0 || resp.data == null) {
-      progress.end();
-      if (mounted) await showRespErr(resp, context);
-      return;
-    }
-    await sqlite.preCheck();
-    var checkFlag = true;
-    var cnt = 1;
-    var pageResp = resp.data!;
-    var total = pageResp.total;
-    while (checkFlag) {
-      offset += pageResp.data.length;
-      for (var item in pageResp.data) {
-        progress.update(
-          title: '写入收藏信息：$cnt/$total',
-          text: '[${item.subject.id}] ${item.subject.name}',
-          progress: cnt * 100 / total,
-        );
-        await sqlite.write(item, check: false);
-        cnt++;
-      }
-      if (offset >= total) {
-        checkFlag = false;
-        progress.end();
-        if (mounted) await BtInfobar.success(context, '收藏信息写入完成');
-        break;
-      }
-      progress.update(
-        title: '获取收藏信息',
-        text: '偏移：$offset，总计：$total',
-        progress: cnt * 100 / total,
-      );
-      resp = await repository.getCollectionSubjects(
-        username: hive.user!.id.toString(),
-        limit: limit,
-        offset: offset,
-      );
-      if (resp.code != 0 || resp.data == null) {
-        progress.end();
-        if (mounted) await showRespErr(resp, context);
-        return;
-      }
-      pageResp = resp.data!;
-    }
-  }
-
-  /// 跳转到用户收藏
-  Future<void> toUserCollection() async {
-    ref.read(navStoreProvider).goIndex(2);
-  }
-
-  /// 尝试刷新用户信息
-  Future<void> tryRefreshUserInfo() async {
-    if (hive.user == null) {
-      await BtInfobar.error(context, '未找到用户信息');
-      return;
-    }
-    var freshConfirm = await showConfirm(
-      context,
-      title: '刷新用户信息',
-      content: '是否刷新用户信息？',
-    );
-    if (!freshConfirm) return;
-    await freshUserInfo();
-  }
-
   /// 尝试删除用户信息
   Future<void> tryDeleteUserInfo() async {
     if (hive.user == null) {
@@ -267,18 +136,14 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     if (mounted) setState(() {});
   }
 
-  /// 构建用户
-  Widget buildUser() {
-    if (hive.user == null) {
-      return ListTile(
-        leading: const BtIcon(FluentIcons.user_sync),
-        title: const Text('用户信息'),
-        subtitle: const Text('未找到用户信息'),
-        trailing: FilledButton(onPressed: oauthUser, child: const Text('前往授权')),
-      );
-    }
-    return ListTile(
-      leading: Container(
+  /// 构建用户信息与授权信息（合并展示）
+  Widget buildUserAuth() {
+    var user = hive.user;
+    Widget leading;
+    if (user == null) {
+      leading = const BtIcon(FluentIcons.user_sync);
+    } else {
+      leading = Container(
         width: 32,
         height: 32,
         decoration: BoxDecoration(
@@ -290,72 +155,43 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
         ),
         clipBehavior: Clip.antiAlias,
         child: CachedNetworkImage(
-          imageUrl: BtrBangumiApi.rewriteUrl(hive.user!.avatar.small),
+          imageUrl: BtrBangumiApi.rewriteUrl(user.avatar.small),
           width: 32,
           height: 32,
           fit: BoxFit.cover,
           placeholder: (_, _) => const ProgressRing(),
           errorWidget: (_, _, _) => const Icon(FluentIcons.error),
         ),
+      );
+    }
+    return ListTile(
+      leading: leading,
+      title: Text(user?.nickname ?? '未找到用户信息'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (user != null) Text('ID: ${user.id}(${user.userGroup.label})'),
+          Text(
+            hive.expireTime == null ? '未找到授权信息' : '授权过期时间：${hive.expireTime}',
+          ),
+        ],
       ),
-      title: Text(hive.user!.nickname),
-      subtitle: Text('ID: ${hive.user!.id}(${hive.user!.userGroup.label})'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          BTIconButton(
-            icon: FluentIcons.refresh,
-            tooltip: '刷新用户信息',
-            onPressed: tryRefreshUserInfo,
+          if (user != null) ...[
+            BTIconButton(
+              icon: FluentIcons.delete,
+              tooltip: '删除用户',
+              onPressed: tryDeleteUserInfo,
+            ),
+            SizedBox(width: 8),
+          ],
+          FilledButton(
+            onPressed: oauthUser,
+            child: Text(user == null ? '前往授权' : '重新授权'),
           ),
-          BTIconButton(
-            icon: FluentIcons.delete,
-            tooltip: '删除用户',
-            onPressed: tryDeleteUserInfo,
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 构建授权信息
-  Widget buildOauth() {
-    return ListTile(
-      leading: const BtIcon(FluentIcons.authenticator_app),
-      title: const Text('授权信息'),
-      subtitle: hive.expireTime == DateTime.now()
-          ? const Text('未找到授权信息')
-          : Text('授权过期时间：${hive.expireTime}'),
-      trailing: Row(
-        children: [
-          Button(onPressed: freshToken, child: const Text('刷新授权')),
-          SizedBox(width: 8),
-          Button(onPressed: oauthUser, child: const Text('重新授权')),
-          SizedBox(width: 8),
-          Button(
-            child: const Text('查看授权'),
-            onPressed: () async {
-              await launchUrlString(
-                '${BtrBangumiApi.nextBaseUrl}/demo/access-token',
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 构建收藏
-  Widget buildCollection() {
-    return ListTile(
-      leading: const BtIcon(FluentIcons.favorite_star),
-      title: const Text('收藏信息'),
-      subtitle: Text('收藏数：$collectionCount'),
-      trailing: Row(
-        children: [
-          Button(onPressed: toUserCollection, child: const Text('查看收藏')),
-          SizedBox(width: 8),
-          Button(onPressed: refreshCollection, child: const Text('刷新收藏')),
         ],
       ),
     );
@@ -403,16 +239,9 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     return BTSettingSection(
       icon: FluentIcons.user_window,
       title: 'Bangumi 配置',
-      subtitle: '账号授权、收藏与镜像站设置',
-      initiallyExpanded: true,
-      children: [
-        buildMirror(),
-        const BTSettingDivider(),
-        buildUser(),
-        buildOauth(),
-        const BTSettingDivider(),
-        buildCollection(),
-      ],
+      subtitle: '账号授权与镜像站设置',
+      initiallyExpanded: false,
+      children: [buildMirror(), const BTSettingDivider(), buildUserAuth()],
     );
   }
 }

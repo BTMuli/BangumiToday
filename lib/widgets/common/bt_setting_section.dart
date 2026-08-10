@@ -42,9 +42,14 @@ class BTSettingSection extends StatefulWidget {
   State<BTSettingSection> createState() => _BTSettingSectionState();
 }
 
-class _BTSettingSectionState extends State<BTSettingSection> {
+class _BTSettingSectionState extends State<BTSettingSection>
+    with AutomaticKeepAliveClientMixin {
   late bool _expanded = widget.initiallyExpanded;
   bool _hovered = false;
+
+  /// 保持展开状态，滚动出可视区域再回来时不重置
+  @override
+  bool get wantKeepAlive => true;
 
   void _toggle() {
     setState(() => _expanded = !_expanded);
@@ -52,6 +57,7 @@ class _BTSettingSectionState extends State<BTSettingSection> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     var accent = FluentTheme.of(context).accentColor;
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 

@@ -3,6 +3,7 @@ import 'dart:io';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -111,14 +112,9 @@ class _SettingPageState extends ConsumerState<SettingPage>
           children: [
             Row(
               children: [
-                Container(
+                SizedBox(
                   width: 56,
                   height: 56,
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BTRadius.mediumBR,
-                  ),
                   child: Image.asset('assets/images/logo.png'),
                 ),
                 SizedBox(width: 12),
@@ -150,37 +146,32 @@ class _SettingPageState extends ConsumerState<SettingPage>
             ),
             SizedBox(height: 16),
             Text(
-              '番剧时间表、RSS 订阅与下载管理',
+              '基于 Bangumi.tv 与蜜柑计划的番剧应用，'
+              '结合本地目录提供番剧更新提醒、RSS 订阅与下载、进度记录等功能。',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.9),
                 fontSize: 13,
               ),
             ),
             SizedBox(height: 14),
-            Button(
-              style: ButtonStyle(
-                backgroundColor: WidgetStatePropertyAll(
-                  Colors.white.withValues(alpha: 0.12),
+            Row(
+              children: [
+                buildBadgeAction(
+                  context,
+                  // ignore: deprecated_member_use
+                  icon: MdiIcons.github,
+                  label: 'GitHub 仓库',
+                  url: 'https://github.com/BTMuli/BangumiToday',
                 ),
-                foregroundColor: WidgetStatePropertyAll(Colors.white),
-                padding: WidgetStatePropertyAll(
-                  EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                SizedBox(width: 8),
+                buildBadgeAction(
+                  context,
+                  // ignore: deprecated_member_use
+                  icon: MdiIcons.qqchat,
+                  label: 'QQ 群',
+                  url: 'https://qm.qq.com/q/hUxIfSWluo',
                 ),
-                shape: WidgetStatePropertyAll(
-                  RoundedRectangleBorder(borderRadius: BTRadius.mediumBR),
-                ),
-              ),
-              onPressed: () async {
-                await launchUrlString('https://github.com/BTMuli/BangumiToday');
-              },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(FluentIcons.link, size: 14),
-                  SizedBox(width: 6),
-                  const Text('GitHub 仓库'),
-                ],
-              ),
+              ],
             ),
             SizedBox(height: 12),
             Text(
@@ -190,6 +181,42 @@ class _SettingPageState extends ConsumerState<SettingPage>
                 fontSize: 11,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建应用徽章操作按钮
+  Widget buildBadgeAction(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String url,
+  }) {
+    return Expanded(
+      child: Button(
+        style: ButtonStyle(
+          backgroundColor: WidgetStatePropertyAll(
+            Colors.white.withValues(alpha: 0.12),
+          ),
+          foregroundColor: WidgetStatePropertyAll(Colors.white),
+          padding: WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BTRadius.mediumBR),
+          ),
+        ),
+        onPressed: () async {
+          await launchUrlString(url);
+        },
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14),
+            SizedBox(width: 6),
+            Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
           ],
         ),
       ),
@@ -228,7 +255,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
                     itemCount: configList.length,
                   );
                   // 窗口较窄时隐藏右侧应用徽章，避免挤压设置列表
-                  if (constraints.maxWidth < 1000) return list;
+                  if (constraints.maxWidth < 800) return list;
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

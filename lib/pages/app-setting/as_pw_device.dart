@@ -34,7 +34,7 @@ class _AppConfigDeviceWidgetState extends State<AppConfigDeviceWidget> {
       icon: MdiIcons.laptopAccount,
       title: '设备信息',
       subtitle: diw.productName,
-      initiallyExpanded: true,
+      initiallyExpanded: false,
       children: [
         ListTile(
           leading: const BtIcon(MdiIcons.laptop),

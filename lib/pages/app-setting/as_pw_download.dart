@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import '../../core/services/bt_engine_client.dart';
 import '../../core/services/windows_firewall_rule.dart';
+import '../../core/theme/bt_theme.dart';
 import '../../database/app/app_config.dart';
 import '../../models/app/bt_download_config.dart';
 import '../../models/app/bt_tracker_config.dart';
@@ -249,31 +250,204 @@ class _AppConfigDownloadWidgetState
     super.dispose();
   }
 
-  Widget _numberSetting({
-    required String title,
-    required String description,
-    required int value,
-    required int min,
-    required int max,
-    required ValueChanged<int> onChanged,
-  }) {
-    return ListTile(
-      title: Text(title),
-      subtitle: Text(description),
-      trailing: SizedBox(
-        width: 180,
-        child: NumberBox<int>(
+  /// 构建一行网格设置
+  Widget _gridRow(List<Widget> cells) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < cells.length; i++) ...[
+          if (i > 0) SizedBox(width: 12),
+          Expanded(child: cells[i]),
+        ],
+      ],
+    );
+  }
+
+  /// 构建下载限制（两行三列）
+  Widget buildDownloadLimits() {
+    Widget cell({
+      required String title,
+      required String description,
+      required Widget control,
+    }) {
+      return _SettingGridCell(
+        title: title,
+        description: description,
+        control: control,
+      );
+    }
+
+    Widget numberCell({
+      required String title,
+      required String description,
+      required int value,
+      required int min,
+      required int max,
+      required ValueChanged<int> onChanged,
+    }) {
+      return cell(
+        title: title,
+        description: description,
+        control: NumberBox<int>(
           value: value,
           min: min,
           max: max,
-          mode: SpinButtonPlacementMode.inline,
+          mode: SpinButtonPlacementMode.none,
           onChanged: _saving
               ? null
               : (next) {
                   if (next != null) onChanged(next);
                 },
         ),
-      ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _gridRow([
+          numberCell(
+            title: '同时下载任务数',
+            description: '并行下载任务数上限',
+            value: _config.activeDownloads,
+            min: 1,
+            max: 64,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(activeDownloads: value),
+            ),
+          ),
+          numberCell(
+            title: '下载限速（KiB/s）',
+            description: '0 表示不限速',
+            value: _config.downloadRateLimitKiB,
+            min: 0,
+            max: _maxRateLimitKiB,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(downloadRateLimit: value * 1024),
+            ),
+          ),
+          numberCell(
+            title: '上传限速（KiB/s）',
+            description: '0 表示不限速',
+            value: _config.uploadRateLimitKiB,
+            min: 0,
+            max: _maxRateLimitKiB,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(uploadRateLimit: value * 1024),
+            ),
+          ),
+        ]),
+        SizedBox(height: 12),
+        _gridRow([
+          numberCell(
+            title: '全局连接数',
+            description: '引擎最大连接数',
+            value: _config.connectionsLimit,
+            min: 1,
+            max: 10000,
+            onChanged: (value) => setState(() {
+              _config = _config.copyWith(
+                connectionsLimit: value,
+                connectionsPerTask: min(_config.connectionsPerTask, value),
+              );
+            }),
+          ),
+          numberCell(
+            title: '单任务连接数',
+            description: '单任务最大连接数',
+            value: _config.connectionsPerTask,
+            min: 1,
+            max: _config.connectionsLimit,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(connectionsPerTask: value),
+            ),
+          ),
+          numberCell(
+            title: '磁力元数据超时（秒）',
+            description: '超时未获取元数据则标记失败',
+            value: _config.metadataTimeoutSeconds,
+            min: 1,
+            max: 86400,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(metadataTimeoutSeconds: value),
+            ),
+          ),
+        ]),
+      ],
+    );
+  }
+
+  /// 构建做种设置（三列）
+  Widget buildSeedingSettings() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const InfoBar(
+          title: Text('Tracker 与做种隐私提示'),
+          content: Text(
+            '补充 Tracker 和 BT Peer 会获知任务 info-hash 与你的 IP。'
+            '公共补充 Tracker 不会应用到私有种子。',
+          ),
+          severity: InfoBarSeverity.warning,
+        ),
+        SizedBox(height: 12),
+        _gridRow([
+          _SettingGridCell(
+            title: '下载完成后继续做种',
+            description: '分享率或时间任一先达即停',
+            control: ToggleSwitch(
+              checked: _config.seedingEnabled,
+              onChanged: _saving
+                  ? null
+                  : (value) => setState(
+                      () => _config = _config.copyWith(seedingEnabled: value),
+                    ),
+            ),
+          ),
+          _SettingGridCell(
+            title: '做种分享率',
+            description: '0 表示不使用分享率条件',
+            control: NumberBox<double>(
+              value: _config.seedRatioLimit,
+              min: 0,
+              max: 100,
+              smallChange: 0.1,
+              mode: SpinButtonPlacementMode.none,
+              onChanged: _saving
+                  ? null
+                  : (value) {
+                      if (value != null) {
+                        setState(
+                          () =>
+                              _config = _config.copyWith(seedRatioLimit: value),
+                        );
+                      }
+                    },
+            ),
+          ),
+          _SettingGridCell(
+            title: '做种时间（分钟）',
+            description: '0 表示不使用时间条件',
+            control: NumberBox<int>(
+              value: _config.seedTimeLimitMinutes,
+              min: 0,
+              max: 525600,
+              mode: SpinButtonPlacementMode.none,
+              onChanged: _saving
+                  ? null
+                  : (value) {
+                      if (value != null) {
+                        setState(
+                          () => _config = _config.copyWith(
+                            seedTimeLimitMinutes: value,
+                          ),
+                        );
+                      }
+                    },
+            ),
+          ),
+        ]),
+      ],
     );
   }
 
@@ -283,7 +457,7 @@ class _AppConfigDownloadWidgetState
       icon: FluentIcons.download,
       title: '下载引擎',
       subtitle: '引擎开关、限速与 Tracker 设置',
-      initiallyExpanded: true,
+      initiallyExpanded: false,
       children: [
         if (_loading)
           const Padding(
@@ -348,127 +522,10 @@ class _AppConfigDownloadWidgetState
           ),
           const BTSettingDivider(),
           const BTSettingGroupTitle('下载限制'),
-          _numberSetting(
-            title: '同时下载任务数',
-            description: '允许并行下载的最大任务数量',
-            value: _config.activeDownloads,
-            min: 1,
-            max: 64,
-            onChanged: (value) => setState(
-              () => _config = _config.copyWith(activeDownloads: value),
-            ),
-          ),
-          _numberSetting(
-            title: '下载限速（KiB/s）',
-            description: '设为 0 表示不限速',
-            value: _config.downloadRateLimitKiB,
-            min: 0,
-            max: _maxRateLimitKiB,
-            onChanged: (value) => setState(
-              () => _config = _config.copyWith(downloadRateLimit: value * 1024),
-            ),
-          ),
-          _numberSetting(
-            title: '上传限速（KiB/s）',
-            description: '设为 0 表示不限速',
-            value: _config.uploadRateLimitKiB,
-            min: 0,
-            max: _maxRateLimitKiB,
-            onChanged: (value) => setState(
-              () => _config = _config.copyWith(uploadRateLimit: value * 1024),
-            ),
-          ),
-          _numberSetting(
-            title: '全局连接数',
-            description: '下载引擎允许建立的最大连接数量',
-            value: _config.connectionsLimit,
-            min: 1,
-            max: 10000,
-            onChanged: (value) => setState(() {
-              _config = _config.copyWith(
-                connectionsLimit: value,
-                connectionsPerTask: min(_config.connectionsPerTask, value),
-              );
-            }),
-          ),
-          _numberSetting(
-            title: '单任务连接数',
-            description: '每个下载任务允许建立的最大连接数量',
-            value: _config.connectionsPerTask,
-            min: 1,
-            max: _config.connectionsLimit,
-            onChanged: (value) => setState(
-              () => _config = _config.copyWith(connectionsPerTask: value),
-            ),
-          ),
-          _numberSetting(
-            title: '磁力元数据超时（秒）',
-            description: '超过该时间仍未获取到元数据时将任务标记为失败',
-            value: _config.metadataTimeoutSeconds,
-            min: 1,
-            max: 86400,
-            onChanged: (value) => setState(
-              () => _config = _config.copyWith(metadataTimeoutSeconds: value),
-            ),
-          ),
+          buildDownloadLimits(),
           const BTSettingDivider(),
           const BTSettingGroupTitle('做种设置'),
-          const InfoBar(
-            title: Text('Tracker 与做种隐私提示'),
-            content: Text(
-              '补充 Tracker 和 BT Peer 会获知任务 info-hash 与你的 IP。'
-              '公共补充 Tracker 不会应用到私有种子。',
-            ),
-            severity: InfoBarSeverity.warning,
-          ),
-          SizedBox(height: 12),
-          ListTile(
-            title: const Text('下载完成后继续做种'),
-            subtitle: const Text('分享率或时间限制任一先达到即停止'),
-            trailing: ToggleSwitch(
-              checked: _config.seedingEnabled,
-              onChanged: _saving
-                  ? null
-                  : (value) => setState(
-                      () => _config = _config.copyWith(seedingEnabled: value),
-                    ),
-            ),
-          ),
-          ListTile(
-            title: const Text('做种分享率'),
-            subtitle: const Text('设为 0 表示不使用分享率停止条件'),
-            trailing: SizedBox(
-              width: 180,
-              child: NumberBox<double>(
-                value: _config.seedRatioLimit,
-                min: 0,
-                max: 100,
-                smallChange: 0.1,
-                mode: SpinButtonPlacementMode.inline,
-                onChanged: _saving
-                    ? null
-                    : (value) {
-                        if (value != null) {
-                          setState(
-                            () => _config = _config.copyWith(
-                              seedRatioLimit: value,
-                            ),
-                          );
-                        }
-                      },
-              ),
-            ),
-          ),
-          _numberSetting(
-            title: '做种时间（分钟）',
-            description: '设为 0 表示不使用时间停止条件',
-            value: _config.seedTimeLimitMinutes,
-            min: 0,
-            max: 525600,
-            onChanged: (value) => setState(
-              () => _config = _config.copyWith(seedTimeLimitMinutes: value),
-            ),
-          ),
+          buildSeedingSettings(),
           const BTSettingDivider(),
           const BTSettingGroupTitle('Tracker 列表来源（每行一个 HTTP/HTTPS URL，最多 8 个）'),
           TextBox(
@@ -548,5 +605,83 @@ class _AppConfigDownloadWidgetState
     var count = TrackerHive().effectiveTrackers.length;
     var error = _trackerConfig.lastUpdateError;
     return '$prefix · 当前 $count 条${error == null ? '' : ' · $error'}';
+  }
+}
+
+/// 设置网格单元（标题 + 控件，说明文字悬停显示）
+class _SettingGridCell extends StatefulWidget {
+  /// 标题
+  final String title;
+
+  /// 说明文字
+  final String description;
+
+  /// 控件
+  final Widget control;
+
+  /// 构造函数
+  const _SettingGridCell({
+    required this.title,
+    required this.description,
+    required this.control,
+  });
+
+  @override
+  State<_SettingGridCell> createState() => _SettingGridCellState();
+}
+
+class _SettingGridCellState extends State<_SettingGridCell> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    var accent = FluentTheme.of(context).accentColor;
+    var isDark = FluentTheme.of(context).brightness == Brightness.dark;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Tooltip(
+        message: widget.description,
+        child: AnimatedContainer(
+          duration: BTTheme.animationDurationFast,
+          curve: BTTheme.animationCurve,
+          padding: EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? accent.withValues(alpha: 0.05)
+                : (isDark ? const Color(0xFF2B2B2B) : const Color(0xFFF7F7F7)),
+            borderRadius: BTRadius.mediumBR,
+            border: Border.all(
+              color: _hovered
+                  ? accent.withValues(alpha: 0.4)
+                  : BTColors.divider(context),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: BTTypography.bodyStrong(
+                    context,
+                  ).copyWith(fontSize: 13),
+                ),
+              ),
+              SizedBox(width: 8),
+              SizedBox(
+                width: 88,
+                height: 32,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: widget.control,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

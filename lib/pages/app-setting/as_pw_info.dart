@@ -6,14 +6,13 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../controller/app/progress_controller.dart';
 import '../../core/cache/cache_manager.dart';
 import '../../core/cache/lru_cache_manager.dart';
+import '../../core/theme/bt_theme.dart';
 import '../../store/app_store.dart';
 import '../../tools/download_tool.dart';
 import '../../tools/file_tool.dart';
@@ -33,9 +32,6 @@ class AspInfoWidget extends ConsumerStatefulWidget {
 }
 
 class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
-  /// 应用信息
-  PackageInfo? packageInfo;
-
   /// fileTool
   final BTFileTool fileTool = BTFileTool();
 
@@ -59,10 +55,6 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() async {
-      packageInfo = await PackageInfo.fromPlatform();
-      if (mounted) setState(() {});
-    });
     _calculateCacheSize();
   }
 
@@ -123,95 +115,107 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
     if (context.mounted) await BtInfobar.success(context, '已成功删除 $total 个文件');
   }
 
-  /// 构建应用信息
-  Widget buildAppInfo() {
-    return ListTile(
-      leading: Image.asset("assets/images/logo.png", width: 24, height: 24),
-      title: Text('BangumiToday'),
-      subtitle: Text('版本：${packageInfo?.version}+${packageInfo?.buildNumber}'),
-      trailing: BTIconButton(
-        icon: FluentIcons.link,
-        tooltip: 'GitHub 仓库',
-        onPressed: () async {
-          await launchUrlString('https://github.com/BTMuli/BangumiToday');
-        },
-      ),
-    );
-  }
-
-  /// 构建主题项
-  MenuFlyoutItemBase buildThemeFlyout(ThemeModeConfig theme) {
-    return MenuFlyoutItem(
-      text: Text(theme.label),
-      leading: curThemeMode == theme.cur
-          ? BtIcon(theme.icon)
-          : Icon(theme.icon),
-      onPressed: () async {
-        if (curThemeMode == theme.cur) {
-          if (mounted) await BtInfobar.warn(context, '当前主题已经是${theme.label}主题');
-          return;
-        }
-        await ref.read(appStoreProvider.notifier).setThemeMode(theme.cur);
-      },
-      selected: curThemeMode == theme.cur,
-      trailing: curThemeMode == theme.cur ? Icon(MdiIcons.check) : null,
-    );
-  }
-
-  /// 构建主题信息
-  Widget buildThemeSwitch() {
+  /// 构建主题模式切换按钮组
+  Widget buildThemeToggle() {
     var themes = getThemeModeConfigList();
-    var curTheme = getThemeModeConfig(curThemeMode);
-    return ListTile(
-      leading: BtIcon(curTheme.icon),
-      title: const Text('主题模式'),
-      subtitle: Text(curTheme.label),
-      trailing: DropDownButton(
-        title: Text(curTheme.label),
-        items: themes.map(buildThemeFlyout).toList(),
-      ),
-    );
-  }
-
-  /// 构建主题色切换展开
-  Widget buildColorFlyout(AccentColor color) {
-    return Button(
-      autofocus: curAccentColor == color,
-      style: ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
-      onPressed: () async {
-        await ref.read(appStoreProvider.notifier).setAccentColor(color);
-        if (mounted) Navigator.of(context).pop();
-      },
-      child: SizedBox(width: 32, height: 32, child: ColoredBox(color: color)),
-    );
-  }
-
-  /// 构建主题色切换
-  Widget buildColorSwitch() {
-    return ListTile(
-      leading: const BtIcon(FluentIcons.color),
-      title: const Text('主题色'),
-      subtitle: Text(
-        '#${curAccentColor.colorValue.toRadixString(16).toUpperCase()}',
-        style: TextStyle(color: curAccentColor),
-      ),
-      trailing: SplitButton(
-        flyout: FlyoutContent(
-          constraints: BoxConstraints(maxWidth: 200),
-          child: curThemeMode == ThemeMode.system
-              ? const Text('跟随系统设置\r\n无法更改')
-              : Wrap(
-                  runSpacing: 8,
-                  spacing: 8,
-                  children: Colors.accentColors.map(buildColorFlyout).toList(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('主题模式', style: BTTypography.bodyStrong(context)),
+        SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (var theme in themes)
+              ToggleButton(
+                checked: curThemeMode == theme.cur,
+                onChanged: (v) async {
+                  if (!v) return;
+                  await ref
+                      .read(appStoreProvider.notifier)
+                      .setThemeMode(theme.cur);
+                },
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(theme.icon, size: 14),
+                      SizedBox(width: 6),
+                      Text(theme.label),
+                    ],
+                  ),
                 ),
+              ),
+          ],
         ),
-        child: SizedBox(
-          width: 32,
-          height: 32,
-          child: ColoredBox(color: curAccentColor),
-        ),
-      ),
+      ],
+    );
+  }
+
+  /// 构建主题色切换按钮组
+  Widget buildColorToggle() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('主题色', style: BTTypography.bodyStrong(context)),
+        SizedBox(height: 8),
+        if (curThemeMode == ThemeMode.system)
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 6),
+            child: Text('跟随系统设置，无法更改主题色', style: BTTypography.caption(context)),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (var color in Colors.accentColors)
+                ToggleButton(
+                  checked: curAccentColor == color,
+                  onChanged: (v) async {
+                    if (!v) return;
+                    await ref
+                        .read(appStoreProvider.notifier)
+                        .setAccentColor(color);
+                  },
+                  style: ToggleButtonThemeData(
+                    checkedButtonStyle: ButtonStyle(
+                      padding: WidgetStatePropertyAll(EdgeInsets.zero),
+                    ),
+                    uncheckedButtonStyle: ButtonStyle(
+                      padding: WidgetStatePropertyAll(EdgeInsets.zero),
+                    ),
+                  ),
+                  child: Tooltip(
+                    message:
+                        '#${color.colorValue.toRadixString(16).toUpperCase()}',
+                    child: SizedBox.square(
+                      dimension: 32,
+                      child: ColoredBox(
+                        color: curAccentColor == color
+                            ? color
+                            : color.withValues(alpha: 0.35),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  /// 构建主题配置行（主题模式与主题色同一行）
+  Widget buildThemeRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: buildThemeToggle()),
+        SizedBox(width: 24),
+        Expanded(child: buildColorToggle()),
+      ],
     );
   }
 
@@ -347,10 +351,7 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
       subtitle: '主题、缓存、日志与路径设置',
       initiallyExpanded: true,
       children: [
-        buildAppInfo(),
-        const BTSettingDivider(),
-        buildThemeSwitch(),
-        buildColorSwitch(),
+        buildThemeRow(),
         const BTSettingDivider(),
         buildCacheInfo(),
         buildLogInfo(),
