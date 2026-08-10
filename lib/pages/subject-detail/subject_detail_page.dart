@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/legacy.dart';
 
 // Project imports:
 import '../../controller/app/progress_controller.dart';
+import '../../core/theme/bt_theme.dart';
 import '../../database/app/app_bmf.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
@@ -20,13 +21,12 @@ import '../../store/bgm_user_hive.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/tool_func.dart';
-import '../../core/theme/bt_theme.dart';
-import '../../widgets/common/bt_animations.dart';
-import '../../widgets/common/bt_content_frame.dart';
-import '../../widgets/common/bt_drawer.dart';
 import '../../widgets/bangumi/subject_detail/bsd_bmf_drawer.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_collection.dart';
 import '../../widgets/bangumi/subject_detail/bsd_user_episodes.dart';
+import '../../widgets/common/bt_animations.dart';
+import '../../widgets/common/bt_content_frame.dart';
+import '../../widgets/common/bt_drawer.dart';
 import '../subject-search/subject_search_page.dart';
 import 'sd_pw_overview.dart';
 import 'sd_pw_relation.dart';
@@ -274,61 +274,75 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     } else {
       title = data?.nameCn == '' ? data?.name : data?.nameCn;
     }
-    return PageHeader(
-      leading: IconButton(
-        icon: const Icon(FluentIcons.back),
-        onPressed: () {
-          if (data == null) {
-            BtInfobar.error(context, '数据为空');
-            return;
-          }
-          ref
-              .read(navStoreProvider)
-              .removeNavItem(
-                '${data!.type.label}详情 ${widget.id}',
-                type: BtmAppNavItemType.subject,
-                param: 'subjectDetail_${widget.id}',
-              );
-        },
+    var theme = FluentTheme.of(context);
+    return Padding(
+      padding: EdgeInsetsDirectional.only(
+        bottom: 18,
+        end: PageHeader.horizontalPadding(context),
       ),
-      title: Tooltip(
-        message: title,
-        child: Text(
-          '${data?.type.label ?? '条目'}详情：$title',
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-      commandBar: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          Tooltip(
-            message: '复制标题',
-            child: IconButton(
-              icon: const Icon(FluentIcons.copy),
-              onPressed: () {
-                if (title == null) {
-                  BtInfobar.error(context, '标题为空');
-                  return;
-                }
-                Clipboard.setData(ClipboardData(text: title));
-                BtInfobar.success(context, '已复制标题: $title');
-              },
+          IconButton(
+            icon: const Icon(FluentIcons.back),
+            onPressed: () {
+              if (data == null) {
+                BtInfobar.error(context, '数据为空');
+                return;
+              }
+              ref
+                  .read(navStoreProvider)
+                  .removeNavItem(
+                    '${data!.type.label}详情 ${widget.id}',
+                    type: BtmAppNavItemType.subject,
+                    param: 'subjectDetail_${widget.id}',
+                  );
+            },
+          ),
+          Expanded(
+            child: DefaultTextStyle.merge(
+              style: theme.typography.title,
+              child: Tooltip(
+                message: title,
+                child: Text(
+                  '${data?.type.label ?? '条目'}详情：$title',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ),
           ),
-          Tooltip(
-            message: '刷新页面',
-            child: IconButton(
-              icon: const Icon(FluentIcons.refresh),
-              onPressed: init,
-            ),
-          ),
-          Tooltip(
-            message: '搜索RSS(Mikan)',
-            child: IconButton(
-              icon: const Icon(FluentIcons.search),
-              onPressed: searchBangumi,
-            ),
+          SizedBox(width: PageHeader.horizontalPadding(context)),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Tooltip(
+                message: '复制标题',
+                child: IconButton(
+                  icon: const Icon(FluentIcons.copy),
+                  onPressed: () {
+                    if (title == null) {
+                      BtInfobar.error(context, '标题为空');
+                      return;
+                    }
+                    Clipboard.setData(ClipboardData(text: title));
+                    BtInfobar.success(context, '已复制标题: $title');
+                  },
+                ),
+              ),
+              Tooltip(
+                message: '刷新页面',
+                child: IconButton(
+                  icon: const Icon(FluentIcons.refresh),
+                  onPressed: init,
+                ),
+              ),
+              Tooltip(
+                message: '搜索RSS(Mikan)',
+                child: IconButton(
+                  icon: const Icon(FluentIcons.search),
+                  onPressed: searchBangumi,
+                ),
+              ),
+            ],
           ),
         ],
       ),
