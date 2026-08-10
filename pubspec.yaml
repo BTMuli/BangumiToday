@@ -20,7 +20,8 @@ version: 0.8.0+22
 
 environment:
   sdk: ">=3.9.0 <4.0.0"
-  flutter: ">=3.35.0"
+  # 需要包含 flutter/flutter#186564 的 OverlayPortal 布局修复（stable 3.44.x 缺失）
+  flutter: ">=3.46.0-0.1.pre"
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions

@@ -10,6 +10,11 @@
 ### Setup BangumiToday Project
 
 1. Download and install [Flutter](https://docs.flutter.dev/get-started/install/windows/desktop).
+   The project requires the **beta channel with Flutter >= 3.46.0-0.1.pre**
+   (3.47.0-0.3.pre is recommended). Stable 3.44.x does not contain the
+   [flutter/flutter#186564](https://github.com/flutter/flutter/pull/186564)
+   OverlayPortal layout fix and hits the `_RenderLayoutBuilder was mutated in
+   performLayout` assertion during debug runs.
 2. Clone the repository with its submodules, or fork it:
    `git clone --recursive https://github.com/BTMuli/BangumiToday.git`.
 3. Create a new branch from `main`.
