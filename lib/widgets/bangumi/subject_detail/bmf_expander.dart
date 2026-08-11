@@ -69,7 +69,9 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   late Timer timerFiles;
   int _refreshGeneration = 0;
   bool _refreshingFiles = false;
+  bool _refreshFilesQueued = false;
   DateTime? _lastStoreRefreshAt;
+  bool _storeRefreshScheduled = false;
   static const _minStoreRefreshInterval = Duration(seconds: 1);
   static const _fileDetailsMinInterval = Duration(seconds: 1);
   BtDirDownloadState? _dirState;
@@ -111,7 +113,10 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   }
 
   Future<void> refreshFiles() async {
-    if (_refreshingFiles) return;
+    if (_refreshingFiles) {
+      _refreshFilesQueued = true;
+      return;
+    }
     _refreshingFiles = true;
     var generation = ++_refreshGeneration;
     var downloadDir = widget.downloadDir;
@@ -168,6 +173,10 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       });
     } finally {
       _refreshingFiles = false;
+      if (_refreshFilesQueued && mounted) {
+        _refreshFilesQueued = false;
+        unawaited(refreshFiles());
+      }
     }
   }
 
@@ -213,13 +222,24 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
 
   /// store 通知后安排一次状态刷新（新任务出现时立即拉取文件详情）。
   void _scheduleRefresh() {
+    var currentIds = _downloadStore.tasks.map((task) => task.id).toSet();
+    var hasNewTask = !_knownTaskIds.containsAll(currentIds);
     var now = DateTime.now();
-    if (_lastStoreRefreshAt != null &&
+    if (!hasNewTask &&
+        _lastStoreRefreshAt != null &&
         now.difference(_lastStoreRefreshAt!) < _minStoreRefreshInterval) {
       return;
     }
     _lastStoreRefreshAt = now;
-    Future.microtask(_refreshStoreState);
+    if (_storeRefreshScheduled) return;
+    _storeRefreshScheduled = true;
+    unawaited(
+      Future<void>.microtask(() async {
+        _storeRefreshScheduled = false;
+        if (!mounted) return;
+        await _refreshStoreState();
+      }),
+    );
   }
 
   void _onDownloadStoreChanged() {
@@ -235,7 +255,8 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     var generation = ++_refreshGeneration;
     var store = ref.read(btDownloadStoreProvider);
     var currentIds = store.tasks.map((task) => task.id).toSet();
-    var hasNewTask = !currentIds.containsAll(_knownTaskIds);
+    // 新任务出现在当前集合中，但不在已知集合中。
+    var hasNewTask = !_knownTaskIds.containsAll(currentIds);
     _knownTaskIds
       ..clear()
       ..addAll(currentIds);
