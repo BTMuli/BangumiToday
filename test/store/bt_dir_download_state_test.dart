@@ -115,7 +115,7 @@ void main() {
       }
     });
 
-    test('shows task snapshot progress for incomplete files', () {
+    test('shows file progress for incomplete files', () {
       var state = computeDirDownloadState(
         dir: r'D:\Anime',
         tasks: [task(state: 'downloading', progress: 0.3)],
@@ -128,8 +128,7 @@ void main() {
       var fileState = state.stateFor('Anime - 01.mkv');
       expect(fileState?.isIncomplete, isTrue);
       expect(fileState?.isActive, isTrue);
-      // 进度跟随任务快照（0.3），而不是文件字节进度（0.5）。
-      expect(fileState?.progress, closeTo(0.3, 0.001));
+      expect(fileState?.progress, closeTo(0.5, 0.001));
     });
 
     test('treats verified task as available while downloading', () {

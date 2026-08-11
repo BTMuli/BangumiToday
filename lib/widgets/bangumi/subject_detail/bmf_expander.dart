@@ -71,7 +71,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   bool _refreshingFiles = false;
   DateTime? _lastStoreRefreshAt;
   static const _minStoreRefreshInterval = Duration(seconds: 1);
-  static const _fileDetailsMinInterval = Duration(seconds: 5);
+  static const _fileDetailsMinInterval = Duration(seconds: 1);
   BtDirDownloadState? _dirState;
 
   @override
@@ -173,8 +173,8 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
 
   /// 刷新该目录下引擎任务的文件详情缓存（非完成任务）。
   ///
-  /// 文件详情只用于标记单个文件是否已完成，进度由任务快照实时驱动，
-  /// 因此放宽拉取频率：距上次成功拉取不足 [_fileDetailsMinInterval] 时跳过。
+  /// 文件详情同时提供单文件完成状态和单文件进度；限制拉取频率，避免
+  /// 引擎快照高频更新时重复请求同一任务的文件列表。
   Future<void> _refreshTaskFileDetails(
     String downloadDir,
     int generation,
@@ -227,10 +227,10 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     _scheduleRefresh();
   }
 
-  /// 响应 store 通知：进度已在 [build] 中由 `ref.watch` 实时重建，
-  /// 这里仅负责发现新任务 id 时触发完整目录扫描。
+  /// 响应 store 通知：刷新文件详情，让 BMF 文件级进度跟随引擎更新。
   ///
-  /// 常规快照更新不重复扫描目录、也不拉取文件详情，避免高频 RPC。
+  /// 常规快照更新不重复扫描目录；新任务出现时才走完整目录扫描，
+  /// 用于发现磁盘上的新文件。
   Future<void> _refreshStoreState() async {
     var generation = ++_refreshGeneration;
     var store = ref.read(btDownloadStoreProvider);
@@ -242,7 +242,11 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     if (!mounted || generation != _refreshGeneration) return;
     if (hasNewTask) {
       await refreshFiles();
+      return;
     }
+    await _refreshTaskFileDetails(widget.downloadDir, generation);
+    if (!mounted || generation != _refreshGeneration) return;
+    setState(() {});
   }
 
   Widget buildFileItem(BuildContext context, String file) {
@@ -297,7 +301,9 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
               if (isIncomplete) ...[
                 Expanded(
                   child: ProgressBar(
-                    value: (fileState?.progress ?? 0) * 100,
+                    value: fileState?.progress == null
+                        ? null
+                        : fileState!.progress! * 100,
                     strokeWidth: 2,
                   ),
                 ),

@@ -27,8 +27,8 @@ class BtFileDownloadState {
   /// 已下载完成（任务可用或该文件字节已完整），可打开。
   final bool isComplete;
 
-  /// 展示用进度 0..1：引擎任务跟随快照的整任务进度，未知时为 null
-  /// （UI 显示为不确定动画，如 aria2 兜底）。
+  /// 单文件展示进度 0..1；未知时为 null（UI 显示为不确定动画，
+  /// 如 aria2 兜底）。
   final double? progress;
 
   /// 状态文案（下载中 / 校验中 / 已暂停 / 下载失败 等）。
@@ -85,7 +85,7 @@ bool isTaskAvailable(BtTaskSnapshot task) {
 ///
 /// [dir] 与任务 `savePath` 做大小写不敏感的归一化比较；
 /// [fileDetailsByTaskId] 为任务 id -> 引擎文件详情（来自 `taskFiles` RPC，可能为空），
-/// 仅用于判定单个文件是否已完成；进度统一取任务快照的 `progress`，保证与下载页一致；
+/// 用于判定单个文件是否已完成并显示该文件的字节进度；
 /// [dirFileNames] 为当前目录扫描到的文件名，用于统计可见未完成数；
 /// [aria2FileNames] 为 `.aria2` 伴生文件对应的文件名，作为外部下载工具兜底。
 BtDirDownloadState computeDirDownloadState({
@@ -184,8 +184,6 @@ BtFileDownloadState _fileStateForFile(
   BtTaskSnapshot task,
   BtTaskFileDetail file,
 ) {
-  // 文件详情只负责标记“单文件已完成”；未完成文件的展示进度跟随任务快照，
-  // 避免文件级 piece 粒度进度跳变且与下载页数值不一致。
   if (file.size > 0 && file.progress >= 1.0) {
     return const BtFileDownloadState(
       isActive: false,
@@ -195,7 +193,7 @@ BtFileDownloadState _fileStateForFile(
       statusLabel: '已完成',
     );
   }
-  return _fileStateForTask(task, progress: task.progress);
+  return _fileStateForTask(task, progress: file.progress);
 }
 
 BtFileDownloadState _fileStateForTask(BtTaskSnapshot task, {double? progress}) {

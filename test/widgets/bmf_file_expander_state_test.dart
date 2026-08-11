@@ -90,7 +90,7 @@ void main() {
         BtTaskFileDetail(
           path: '[Sub] Anime - 01.mkv',
           size: 1000,
-          completedBytes: 100,
+          completedBytes: 500,
         ),
       ],
       truncated: false,
@@ -106,7 +106,7 @@ void main() {
     expect(find.text('1 个下载中'), findsOneWidget);
     expect(find.byIcon(FluentIcons.open_file), findsNothing);
     var progressBar = tester.widget<ProgressBar>(find.byType(ProgressBar));
-    expect(progressBar.value, closeTo(0.1, 0.001));
+    expect(progressBar.value, closeTo(50, 0.001));
 
     await tester.pumpWidget(const SizedBox());
   });
@@ -202,7 +202,9 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('refreshes file progress from engine snapshots', (tester) async {
+  testWidgets('refreshes file progress from engine file details', (
+    tester,
+  ) async {
     var fileName = '[Sub] Anime - 01.mkv';
     File(
       path.join(tempDir.path, fileName),
@@ -215,7 +217,7 @@ void main() {
         BtTaskFileDetail(
           path: '[Sub] Anime - 01.mkv',
           size: 1000,
-          completedBytes: 100,
+          completedBytes: 200,
         ),
       ],
       truncated: false,
@@ -227,15 +229,18 @@ void main() {
     await pumpForRealAsync(tester, wrap(tempDir.path));
     expect(
       tester.widget<ProgressBar>(find.byType(ProgressBar)).value,
-      closeTo(0.1, 0.001),
+      closeTo(20, 0.001),
     );
 
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(seconds: 1)),
+    );
     gateway.fileResults['task'] = const BtTaskFilesResult(
       files: [
         BtTaskFileDetail(
           path: '[Sub] Anime - 01.mkv',
           size: 1000,
-          completedBytes: 500,
+          completedBytes: 700,
         ),
       ],
       truncated: false,
@@ -249,7 +254,7 @@ void main() {
 
     expect(
       tester.widget<ProgressBar>(find.byType(ProgressBar)).value,
-      closeTo(0.5, 0.001),
+      closeTo(70, 0.001),
     );
 
     await tester.pumpWidget(const SizedBox());
