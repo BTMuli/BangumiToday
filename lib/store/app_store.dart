@@ -21,20 +21,16 @@ class BTAppStore extends ChangeNotifier {
   /// 构造函数
   BTAppStore() {
     initTheme();
-    initAccentColor();
     initMikanRss();
     initBangumiUrl();
   }
 
-  /// 初始化主题
+  /// 初始化主题和主题色
   Future<void> initTheme() async {
-    _themeMode = await sqlite.readThemeMode();
-    notifyListeners();
-  }
-
-  /// 初始化主题色
-  Future<void> initAccentColor() async {
-    _accentColor = await sqlite.readAccentColor();
+    var themeMode = await sqlite.readThemeMode();
+    var accentColor = await sqlite.readAccentColor();
+    _themeMode = themeMode;
+    _accentColor = accentColor;
     notifyListeners();
   }
 

@@ -156,6 +156,7 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
 
   /// 构建主题色切换按钮组
   Widget buildColorToggle() {
+    var currentColorValue = curAccentColor.colorValue;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -173,7 +174,7 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
             children: [
               for (var color in Colors.accentColors)
                 ToggleButton(
-                  checked: curAccentColor == color,
+                  checked: currentColorValue == color.colorValue,
                   onChanged: (v) async {
                     if (!v) return;
                     await ref
@@ -194,7 +195,7 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
                     child: SizedBox.square(
                       dimension: 32,
                       child: ColoredBox(
-                        color: curAccentColor == color
+                        color: currentColorValue == color.colorValue
                             ? color
                             : color.withValues(alpha: 0.35),
                       ),
