@@ -11,7 +11,7 @@ import 'package:flutter_material_design_icons/flutter_material_design_icons.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
-import '../../../controller/app/progress_controller.dart';
+import '../../../controller/progress_controller.dart';
 import '../../../core/theme/bt_theme.dart';
 import '../../../database/app/app_rss.dart';
 import '../../../models/bangumi/bangumi_model.dart';

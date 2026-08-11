@@ -4,12 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 // Project imports:
-import '../core/providers/repository_providers.dart';
 import '../domain/repositories/bangumi_repository.dart';
 import '../request/bangumi/bangumi_api.dart';
 import '../store/app_store.dart';
 import '../store/bgm_user_hive.dart';
 import '../store/tracker_hive.dart';
+import 'repository_providers.dart';
 
 export '../store/app_store.dart' show BTAppStore, appStoreProvider;
 export '../domain/repositories/bmf_repository.dart';

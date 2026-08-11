@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Project imports:
-import '../../controller/app/progress_controller.dart';
+import '../../controller/progress_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/app_link_service.dart';
 import '../../core/services/bangumi_oauth_coordinator.dart';

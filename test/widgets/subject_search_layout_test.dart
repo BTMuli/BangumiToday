@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Project imports:
-import 'package:bangumi_today/controller/app/page_controller.dart';
+import 'package:bangumi_today/controller/page_controller.dart';
 import 'package:bangumi_today/domain/repositories/bangumi_repository.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_enum.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_model.dart';

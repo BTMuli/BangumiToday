@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 // Project imports:
-import '../../controller/app/progress_controller.dart';
+import '../../controller/progress_controller.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../database/app/app_bmf.dart';
 import '../../models/bangumi/bangumi_enum.dart';

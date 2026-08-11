@@ -6,7 +6,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Project imports:
-import 'package:bangumi_today/controller/app/page_controller.dart';
+import 'package:bangumi_today/controller/page_controller.dart';
 
 void main() {
   test('ignores page changes while a previous page is loading', () async {

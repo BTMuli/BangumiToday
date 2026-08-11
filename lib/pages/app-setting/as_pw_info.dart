@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 // Project imports:
-import '../../controller/app/progress_controller.dart';
+import '../../controller/progress_controller.dart';
 import '../../core/cache/cache_manager.dart';
 import '../../core/cache/lru_cache_manager.dart';
 import '../../core/theme/bt_theme.dart';
