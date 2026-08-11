@@ -30,6 +30,7 @@ import '../../../utils/tool_func.dart';
 import 'bmf_rss_data.dart';
 
 part 'bmf_expander/actions.dart';
+
 part 'bmf_expander/panel.dart';
 
 class BmfFileExpander extends ConsumerStatefulWidget {
@@ -296,7 +297,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
               if (isIncomplete) ...[
                 Expanded(
                   child: ProgressBar(
-                    value: fileState?.progress,
+                    value: (fileState?.progress ?? 0) * 100,
                     strokeWidth: 2,
                   ),
                 ),
