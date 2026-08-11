@@ -49,3 +49,5 @@ integration_test/screenshots/
 
 # build
 BangumiToday.msix
+# Widget Preview related
+.widget_preview/
