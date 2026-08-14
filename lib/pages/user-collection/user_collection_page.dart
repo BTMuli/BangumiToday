@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../controller/progress_controller.dart';
+import '../../core/services/bangumi_token_service.dart';
 import '../../database/bangumi/bangumi_collection.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../providers/app_providers.dart';
@@ -73,11 +74,11 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
 
   /// 刷新授权
   Future<void> refreshAuth() async {
-    var result = await hive.refreshAuth(force: true);
+    var result = await BangumiTokenService.instance.ensureFresh(force: true);
     if (!mounted) return;
-    if (result == null) {
+    if (result == BangumiTokenRefreshResult.notNeeded) {
       await BtInfobar.info(context, '授权未过期，无需刷新');
-    } else if (result) {
+    } else if (result == BangumiTokenRefreshResult.refreshed) {
       await BtInfobar.success(context, '授权刷新成功');
     } else {
       await BtInfobar.error(context, '授权刷新失败');

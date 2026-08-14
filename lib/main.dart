@@ -19,6 +19,7 @@ import 'app.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/cache/lru_cache_manager.dart';
 import 'core/services/app_link_service.dart';
+import 'core/services/bangumi_token_service.dart';
 import 'core/services/bmf_rss_service.dart';
 import 'core/services/bt_engine_client.dart';
 import 'core/services/desktop_tray_service.dart';
@@ -149,6 +150,11 @@ Future<void> _initBackgroundServices() async {
   var appConfig = BtsAppConfig();
   BtrBangumiApi.setBaseUrl(await appConfig.readBangumiUrl());
   await BTHiveTool.init();
+  unawaited(
+    _runOptionalService('Bangumi Token 预刷新', () async {
+      await BangumiTokenService.instance.ensureFresh();
+    }),
+  );
   var btDownloadConfig = await appConfig.readBtDownloadConfig();
   var themeMode = await appConfig.readThemeMode();
   var trackerStore = TrackerHive();

@@ -113,10 +113,11 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     }
     progress.update(text: '保存授权信息');
     var at = res.data as BangumiOauthTokenGetData;
-    await hive.updateAccessToken(at.accessToken, update: false);
-    await hive.updateRefreshToken(at.refreshToken, update: false);
-    await hive.updateExpireTime(at.expiresIn, update: false);
-    await hive.updateBox();
+    await hive.updateTokenSet(
+      accessToken: at.accessToken,
+      refreshToken: at.refreshToken,
+      expiresIn: at.expiresIn,
+    );
     await freshUserInfo();
   }
 

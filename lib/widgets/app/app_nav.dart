@@ -75,19 +75,6 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
   @override
   void initState() {
     super.initState();
-    Future.microtask(() async {
-      var check = await hive.checkExpired();
-      if (check == null || !check) return;
-      var fresh = await hive.refreshAuth(
-        onErr: (e) async {
-          if (!mounted) return;
-          await showRespErr(e, context);
-        },
-      );
-      if (mounted && fresh == true) {
-        await BtInfobar.success(context, '已成功刷新用户Token！');
-      }
-    });
 
     _appLinkSubscription = AppLinkService.instance.stream.listen(
       _handleAppLink,
@@ -191,10 +178,11 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
     }
     progress.update(text: '保存授权信息');
     var at = res.data as BangumiOauthTokenGetData;
-    await hive.updateAccessToken(at.accessToken, update: false);
-    await hive.updateRefreshToken(at.refreshToken, update: false);
-    await hive.updateExpireTime(at.expiresIn, update: false);
-    await hive.updateBox();
+    await hive.updateTokenSet(
+      accessToken: at.accessToken,
+      refreshToken: at.refreshToken,
+      expiresIn: at.expiresIn,
+    );
     await freshUserInfo();
   }
 

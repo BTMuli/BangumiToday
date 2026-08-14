@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 // Project imports:
 import '../../core/cache/cache_manager.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/services/bangumi_token_service.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
@@ -82,8 +83,8 @@ class BtrBangumiApi {
   final RequestManager _requestManager = RequestManager();
 
   /// 构造函数
-  BtrBangumiApi() {
-    client = BtrClient.withAuth();
+  BtrBangumiApi({BangumiTokenService? tokenService}) {
+    client = BtrClient.withAuth(tokenService: tokenService);
     client.dio.options.baseUrl = baseUrl;
     client.dio.interceptors.insert(0, _BangumiBaseUrlInterceptor());
   }

@@ -143,6 +143,26 @@ class BgmUserHive extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 一次性更新一组授权信息。
+  ///
+  /// 安全存储的多个 key 没有跨 key 事务，因此先完成所有持久化写入，再替换
+  /// 内存状态并通知监听者，避免请求在刷新过程中读到半套凭据。
+  Future<void> updateTokenSet({
+    required String accessToken,
+    required String refreshToken,
+    required int expiresIn,
+  }) async {
+    await sqlite.writeAccessToken(accessToken);
+    await sqlite.writeRefreshToken(refreshToken);
+    await sqlite.writeExpireTime(expiresIn);
+
+    _accessToken = accessToken;
+    _refreshToken = refreshToken;
+    _expireTime = await sqlite.readExpireTime();
+    await updateBox();
+    notifyListeners();
+  }
+
   /// 更新授权
   /// 返回 null 表示不需要刷新，返回 bool 表示是否刷新成功
   Future<bool?> refreshAuth({
@@ -150,10 +170,9 @@ class BgmUserHive extends ChangeNotifier {
     bool force = false,
   }) async {
     if (_refreshToken == null || _refreshToken!.isEmpty) return false;
-    if (_expireTime != null &&
-        DateTime.now().isBefore(_expireTime!) &&
-        !force) {
-      return null;
+    if (!force) {
+      var shouldRefresh = await checkExpired();
+      if (shouldRefresh != true) return null;
     }
     var resp = await api.refreshToken(_refreshToken!);
     if (resp.code != 0 || resp.data == null) {
@@ -161,10 +180,11 @@ class BgmUserHive extends ChangeNotifier {
       return false;
     }
     var data = resp.data! as BangumiOauthTokenRefreshData;
-    await updateAccessToken(data.accessToken, update: false);
-    await updateRefreshToken(data.refreshToken, update: false);
-    await updateExpireTime(data.expiresIn, update: false);
-    await updateBox();
+    await updateTokenSet(
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      expiresIn: data.expiresIn,
+    );
     return true;
   }
 
@@ -172,9 +192,8 @@ class BgmUserHive extends ChangeNotifier {
   Future<bool?> checkExpired() async {
     if (_refreshToken == null || _refreshToken!.isEmpty) return null;
     if (_expireTime != null) {
-      var diff = _expireTime!.difference(DateTime.now());
-      if (diff.inDays <= 1) return true;
-      return false;
+      var refreshAt = _expireTime!.subtract(const Duration(days: 1));
+      return !DateTime.now().isBefore(refreshAt);
     }
     return true;
   }

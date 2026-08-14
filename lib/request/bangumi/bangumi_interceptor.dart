@@ -1,11 +1,8 @@
-// Dart imports:
-import 'dart:async';
-
 // Package imports:
 import 'package:dio/dio.dart';
 
 // Project imports:
-import '../../store/bgm_user_hive.dart';
+import '../../core/services/bangumi_token_service.dart';
 import '../../tools/log_tool.dart';
 
 /// Token 认证拦截器
@@ -14,84 +11,73 @@ class AuthInterceptor extends Interceptor {
   /// Dio 实例，用于重试请求
   final Dio _dio;
 
-  /// 刷新锁，防止多个 401 并发时重复刷新 token
-  Completer<void>? _refreshLock;
-
-  /// 是否正在刷新中
-  bool get _isRefreshing => _refreshLock != null;
+  /// Token 刷新协调器。所有 Dio 客户端共享应用级 single-flight。
+  final BangumiTokenService _tokenService;
 
   /// 构造函数
-  AuthInterceptor(this._dio);
+  AuthInterceptor(this._dio, {BangumiTokenService? tokenService})
+    : _tokenService = tokenService ?? BangumiTokenService.instance;
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    var token = BgmUserHive().tokenAC;
-    if (token != null && token.isNotEmpty) {
-      options.headers['Authorization'] = 'Bearer $token';
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
+    try {
+      var token = options.extra['authRetried'] == true
+          ? _tokenService.currentAccessToken
+          : await _tokenService.accessTokenForRequest();
+      if (token != null && token.isNotEmpty) {
+        options.headers['Authorization'] = 'Bearer $token';
+      }
+      handler.next(options);
+    } catch (error, stackTrace) {
+      handler.reject(
+        DioException(
+          requestOptions: options,
+          error: error,
+          stackTrace: stackTrace,
+        ),
+      );
     }
-    handler.next(options);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     // 只处理 401 未授权
     if (err.response?.statusCode != 401 ||
-        err.type == DioExceptionType.cancel) {
+        err.type == DioExceptionType.cancel ||
+        err.requestOptions.extra['authRetried'] == true) {
       handler.next(err);
       return;
     }
 
-    // 如果已经在刷新，等待刷新完成
-    if (_isRefreshing) {
-      try {
-        await _refreshLock!.future;
-      } catch (_) {
-        handler.next(err);
-        return;
-      }
-      // 刷新完成后用新 token 重试
-      await _retry(err, handler);
+    var requestToken = err.requestOptions.headers['Authorization']?.toString();
+    var currentToken = _tokenService.currentAccessToken;
+    var tokenAlreadyRotated =
+        requestToken != null &&
+        currentToken != null &&
+        currentToken.isNotEmpty &&
+        requestToken != 'Bearer $currentToken';
+    var result = tokenAlreadyRotated
+        ? BangumiTokenRefreshResult.refreshed
+        : await _tokenService.ensureFresh(force: true);
+    if (result != BangumiTokenRefreshResult.refreshed) {
+      BTLogTool.warn('Token 刷新失败，重试终止：$result');
+      handler.next(err);
       return;
     }
 
-    // 开始刷新
-    _refreshLock = Completer<void>();
-    try {
-      var success = await _doRefreshToken();
-      _refreshLock!.complete();
-
-      if (success) {
-        await _retry(err, handler);
-      } else {
-        BTLogTool.warn('Token 刷新失败，重试终止');
-        handler.next(err);
-      }
-    } catch (e) {
-      _refreshLock!.completeError(e);
-      BTLogTool.error('Token 刷新异常: $e');
-      handler.next(err);
-    } finally {
-      _refreshLock = null;
-    }
-  }
-
-  /// 执行 token 刷新
-  Future<bool> _doRefreshToken() async {
-    var hive = BgmUserHive();
-    if (hive.tokenRF == null || hive.tokenRF!.isEmpty) {
-      BTLogTool.warn('无 refreshToken，无法刷新');
-      return false;
-    }
-    var result = await hive.refreshAuth(force: true);
-    return result == true;
+    await _retry(err, handler);
   }
 
   /// 用新 token 重试原请求
   Future<void> _retry(DioException err, ErrorInterceptorHandler handler) async {
     var requestOptions = err.requestOptions;
+    requestOptions.extra['authRetried'] = true;
 
     // 更新 header 为最新 token
-    var token = BgmUserHive().tokenAC;
+    var token = _tokenService.currentAccessToken;
     if (token != null && token.isNotEmpty) {
       requestOptions.headers['Authorization'] = 'Bearer $token';
     }
