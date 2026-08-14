@@ -46,6 +46,9 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
   /// 当前主题色
   AccentColor get curAccentColor => ref.watch(appStoreProvider).accentColor;
 
+  /// 关闭主窗口后是否隐藏到托盘
+  bool get minimizeToTray => ref.watch(appStoreProvider).minimizeToTray;
+
   /// 缓存大小
   int _cacheSize = 0;
 
@@ -220,6 +223,21 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
     );
   }
 
+  /// 构建关闭后最小化到托盘配置
+  Widget buildMinimizeToTrayInfo() {
+    return ListTile(
+      leading: const BtIcon(FluentIcons.system),
+      title: const Text('关闭后最小化到托盘'),
+      subtitle: const Text('关闭主窗口时继续在后台运行，可从托盘菜单退出应用'),
+      trailing: ToggleSwitch(
+        checked: minimizeToTray,
+        onChanged: (value) async {
+          await ref.read(appStoreProvider).setMinimizeToTray(value);
+        },
+      ),
+    );
+  }
+
   /// 构建日志信息
   Widget buildLogInfo() {
     return ListTile(
@@ -353,6 +371,8 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
       initiallyExpanded: true,
       children: [
         buildThemeRow(),
+        const BTSettingDivider(),
+        buildMinimizeToTrayInfo(),
         const BTSettingDivider(),
         buildCacheInfo(),
         buildLogInfo(),

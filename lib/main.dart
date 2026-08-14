@@ -18,12 +18,15 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/cache/lru_cache_manager.dart';
+import 'core/services/app_link_service.dart';
 import 'core/services/bmf_rss_service.dart';
 import 'core/services/bt_engine_client.dart';
+import 'core/services/desktop_tray_service.dart';
 import 'core/utils/window_effect.dart';
 import 'database/app/app_config.dart';
 import 'database/bt_sqlite.dart';
 import 'request/bangumi/bangumi_api.dart';
+import 'store/nav_store.dart';
 import 'store/tracker_hive.dart';
 import 'tools/download_tool.dart';
 import 'tools/hive_tool.dart';
@@ -32,6 +35,7 @@ import 'tools/notifier_tool.dart';
 import 'widgets/app/app_splash.dart';
 
 final globalContainer = ProviderContainer();
+bool _applicationExitStarted = false;
 
 Future<void> main() async {
   if (const bool.fromEnvironment('ENABLE_FLUTTER_DRIVER')) {
@@ -42,7 +46,7 @@ Future<void> main() async {
   _configureErrorHandling();
   AppLifecycleListener(
     onExitRequested: () async {
-      await BtEngineClient.instance.shutdown();
+      await _exitApplication();
       return AppExitResponse.exit;
     },
   );
@@ -79,12 +83,51 @@ Future<void> main() async {
 
   try {
     await _initBackgroundServices();
+    await _initDesktopTray();
     _runApp(const BTApp());
   } catch (error, stackTrace) {
     _reportUnhandledError(error, stackTrace);
     _runApp(
       BTSplashScreen(errorMessage: error.toString(), themeMode: themeMode),
     );
+  }
+}
+
+Future<void> _initDesktopTray() async {
+  await _runOptionalService('系统托盘', () async {
+    await BTDesktopTrayService.instance.initialize(
+      readMinimizeToTray: BtsAppConfig().readMinimizeToTray,
+      onOpenMain: () async {},
+      onOpenBmf: () async {
+        globalContainer.read(navStoreProvider).goToBmf();
+      },
+      onOpenDownload: Platform.isWindows
+          ? () async {
+              globalContainer.read(navStoreProvider).goToDownload();
+            }
+          : null,
+      onExit: _exitApplication,
+    );
+  });
+}
+
+Future<void> _exitApplication() async {
+  if (_applicationExitStarted) return;
+  _applicationExitStarted = true;
+  await _runExitStep('BMF RSS 服务', () async {
+    BmfRssService.instance.stop();
+  });
+  await _runExitStep('App Link 服务', AppLinkService.instance.dispose);
+  await _runExitStep('BT 下载引擎', BtEngineClient.instance.shutdown);
+  await _runExitStep('系统托盘', BTDesktopTrayService.instance.dispose);
+  await _runExitStep('主窗口', windowManager.destroy);
+}
+
+Future<void> _runExitStep(String name, Future<void> Function() action) async {
+  try {
+    await action();
+  } catch (error, stackTrace) {
+    BTLogTool.error(['$name 退出清理失败', error.toString(), stackTrace.toString()]);
   }
 }
 

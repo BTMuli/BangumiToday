@@ -21,6 +21,7 @@ class BTAppStore extends ChangeNotifier {
   /// 构造函数
   BTAppStore() {
     initTheme();
+    initMinimizeToTray();
     initMikanRss();
     initBangumiUrl();
   }
@@ -31,6 +32,12 @@ class BTAppStore extends ChangeNotifier {
     var accentColor = await sqlite.readAccentColor();
     _themeMode = themeMode;
     _accentColor = accentColor;
+    notifyListeners();
+  }
+
+  /// 初始化关闭后最小化到托盘配置。
+  Future<void> initMinimizeToTray() async {
+    _minimizeToTray = await sqlite.readMinimizeToTray();
     notifyListeners();
   }
 
@@ -58,6 +65,9 @@ class BTAppStore extends ChangeNotifier {
 
   /// Bangumi API 镜像地址
   String _bangumiUrl = BTAppConstants.bangumiApiBaseUrl;
+
+  /// 关闭主窗口后是否隐藏到系统托盘。
+  bool _minimizeToTray = true;
 
   /// 获取主题
   ThemeMode get themeMode => _themeMode;
@@ -97,6 +107,16 @@ class BTAppStore extends ChangeNotifier {
 
   /// 获取 Bangumi API 镜像地址
   String get bangumiUrl => _bangumiUrl;
+
+  /// 获取关闭后最小化到托盘配置。
+  bool get minimizeToTray => _minimizeToTray;
+
+  /// 设置关闭后最小化到托盘配置。
+  Future<void> setMinimizeToTray(bool value) async {
+    _minimizeToTray = value;
+    await sqlite.writeMinimizeToTray(value);
+    notifyListeners();
+  }
 
   /// 设置 Bangumi API 镜像地址
   Future<void> setBangumiUrl(String value) async {

@@ -125,6 +125,20 @@ class BTNavStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 切换到 RSS & BMF 页面。
+  void goToBmf() {
+    goIndex(1);
+  }
+
+  /// 切换到下载管理页面。
+  ///
+  /// 下载管理只在 Windows 注册到主导航，其他平台返回 false。
+  bool goToDownload() {
+    if (!Platform.isWindows) return false;
+    goIndex(3);
+    return true;
+  }
+
   void addNavItemB({
     String type = '条目',
     required int subject,

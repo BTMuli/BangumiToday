@@ -143,6 +143,29 @@ class BtsAppConfig {
     await _instance.write('accentColor', value.colorValue.toString());
   }
 
+  /// 读取关闭后最小化到托盘配置。
+  ///
+  /// 新配置默认开启，保证旧版本升级后仍能使用托盘恢复窗口。
+  Future<bool> readMinimizeToTray() async {
+    const defaultValue = true;
+    var value = await _instance.read('minimizeToTray');
+    if (value == null || value.isEmpty) {
+      await _instance.writeMinimizeToTray(defaultValue);
+      return defaultValue;
+    }
+    if (value == 'true') return true;
+    if (value == 'false') return false;
+
+    BTLogTool.warn('Invalid minimize-to-tray config: $value');
+    await _instance.writeMinimizeToTray(defaultValue);
+    return defaultValue;
+  }
+
+  /// 写入关闭后最小化到托盘配置。
+  Future<void> writeMinimizeToTray(bool value) async {
+    await _instance.write('minimizeToTray', value.toString());
+  }
+
   /// 读取 bangumiDataVersion
   Future<String?> readBangumiDataVersion() async {
     return _instance.read('bangumiDataVersion');
