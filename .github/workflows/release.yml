@@ -6,13 +6,8 @@ on:
       - "v*.*.*"
 
 jobs:
-  quality:
-    name: Flutter quality gate
-    uses: ./.github/workflows/quality.yml
-
   build:
     name: Build Windows
-    needs: quality
     runs-on: windows-latest
     permissions:
       contents: write

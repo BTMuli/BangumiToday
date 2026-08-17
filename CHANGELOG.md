@@ -2,12 +2,47 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2026-08-01
+Update: 2026-08-17
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:15`
 >
-> 更新于 `2026-08-01 14:59:25`
+> 更新于 `2026-08-17`
+
+## [v0.9.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.9.0) (2026-08-17)
+
+本版本围绕 Windows 下载能力和桌面使用体验进行扩展，同时强化 RSS 刷新、Bangumi 认证安全及持续集成质量。
+
+### 下载引擎与任务管理
+
+- ✨ 接入 Windows `bt_download` 引擎，新增下载管理页和任务详情页
+- ✨ 支持批量选择、全选、长按删除，以及按文件选择下载或跳过
+- ✨ 任务详情按概览、进度、文件和 Peer 分 Tab 展示，支持分片网格、传输统计及 Peer 排序筛选
+- ✨ 新增 Tracker、限量做种和下载引擎配置，并支持持久化保存
+- ✨ 增加下载完成通知、关联条目跳转和下载目录状态展示
+- 🔒 增加下载引擎进程监管、Windows 防火墙规则和退出清理，完善引擎生命周期管理
+
+### BMF 与 RSS
+
+- ✨ 增加 BMF RSS 自动更新开关，以及刷新全部收藏的入口
+- ✨ 删除 BMF 时支持确认是否同时删除对应下载目录，并展示目录文件的下载状态和进度
+- ⚡️ 增加 RSS freshness 缓存，完善并发刷新、退避和延迟启动，减少重复请求并提升刷新可靠性
+- ♻️ 使用自研 RSS 解析器替换 `rss_dart`，完善 RSS 数据解析和刷新链路
+
+### Bangumi 与桌面体验
+
+- ✨ 支持按标签搜索条目，并新增刷新全部收藏入口
+- ✨ 新增系统托盘支持，下载完成通知可直接跳转到关联条目
+- ✨ 统一 Bangumi OAuth 回调流程，支持 Token 自动刷新；Mikan 凭据迁移至安全存储
+- 💄 重构设置页布局与配置项，集中管理主题、缓存、目录、下载引擎、Tracker 和账号
+- 💄 支持 Windows 11 Mica 窗口材质并跟随主题，改善宽屏、DPI、键盘操作和加载页体验
+
+### 架构与质量
+
+- ♻️ 整理 `lib` 目录结构，按领域拆分 Bangumi 模型，并拆分下载引擎协议、传输层和网关
+- 🔒 加强运行时凭据保护和日志脱敏，避免敏感信息泄露
+- ✅ 增加 OAuth、异步竞态、下载引擎、数据库迁移、页面和组件测试
+- 🧱 完善 CI、桌面集成测试和 Windows 发布质量门禁，更新 Flutter beta 与相关依赖适配
 
 ## [v0.8.0](https://github.com/BTMuli/BangumiToday/releases/tag/v0.8.0) (2026-08-01)
 

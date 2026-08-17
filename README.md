@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2026-04-03
+Update: 2026-08-17
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2026-04-03 13:32:01`
+> 更新于 `2026-08-17 11:20:24`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -48,23 +48,64 @@ Update: 2026-04-03
 
 ## 应用预览
 
-![今日放送](./screenshots/calendar.png)
+### 发现与管理番剧
 
-![条目详情](./screenshots/subjectDetail.png)
+按星期浏览 Bangumi 每日放送，快速查看开播时间、评分与收藏热度。
 
-![条目搜索-网格](./screenshots/subjectSearchGrid.png)
+![今日放送：按星期浏览当季番剧](./screenshots/calendar.png)
 
-![条目搜索-列表](./screenshots/subjectSearchLine.png)
+使用类型筛选和关键词查找条目，在双栏结果中直接比较评分、标签与基本信息。
 
-![用户收藏](./screenshots/userCollection.png)
+![条目搜索：筛选并浏览搜索结果](./screenshots/subjectSearch.png)
 
-![BMF订阅](./screenshots/BMF.png)
+条目详情整合作品信息、评分分布、收藏状态、剧集进度与关联条目。
 
-![BMF订阅详情](./screenshots/BMF2.png)
+![条目详情：查看作品信息、评分与剧集进度](./screenshots/subjectDetail.png)
 
-![MikanRss](./screenshots/Mikan.png)
+登录 Bangumi 后，可按收藏状态集中浏览自己的追番列表。
 
-![ComicatRss](./screenshots/Comicat.png)
+![用户收藏：同步并管理 Bangumi 收藏](./screenshots/userCollection.png)
+
+### 订阅与下载
+
+BMF 工作台把番剧、RSS 订阅和本地目录组织成一个关联，可按更新状态、季度和关键词快速筛选。
+
+![BMF 工作台：集中管理番剧、RSS 与本地目录](./screenshots/BMF.png)
+
+选中关联后，可并排查看订阅内容与本地文件，并直接编辑、刷新或打开对应位置。
+
+![BMF 关联详情：对照 RSS 更新与本地文件](./screenshots/BMF2.png)
+
+应用聚合 Mikan、Comicat 与 AniBT 的最新资源，可从列表直接下载种子或交给内置下载引擎。
+
+<table>
+  <tr>
+    <td width="50%">
+      <strong>Mikan</strong><br>
+      <img src="./screenshots/Mikan.png" alt="Mikan RSS 资源列表">
+    </td>
+    <td width="50%">
+      <strong>Comicat</strong><br>
+      <img src="./screenshots/Comicat.png" alt="Comicat RSS 资源列表">
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2">
+      <strong>AniBT</strong><br>
+      <img src="./screenshots/AniBT.png" alt="AniBT RSS 资源列表">
+    </td>
+  </tr>
+</table>
+
+下载管理页集中展示任务进度、速度、连接状态与做种信息，并提供暂停、设置和文件操作入口。
+
+![下载管理：查看任务进度与连接状态](./screenshots/download.png)
+
+### 个性化与应用配置
+
+在统一设置页中调整主题、缓存与目录，配置下载引擎、Tracker 以及 Bangumi 账号。
+
+![应用设置：配置主题、目录、下载引擎与账号](./screenshots/settings.png)
 
 ## 依赖（按照字典序）
 
@@ -92,4 +133,4 @@ Update: 2026-04-03
 
 ## License
 
-[MIT](LICENSE)
+[MIT](./LICENSE)

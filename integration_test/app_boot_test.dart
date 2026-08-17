@@ -71,7 +71,6 @@ void main() {
         findsOneWidget,
         reason: 'Escape 后设置页异常',
       );
-      semantics.dispose();
     } catch (_) {
       await captureOnFailure(tester, 'app_boot_failure');
       rethrow;
