@@ -13,18 +13,16 @@ import '../../controller/progress_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/app_link_service.dart';
 import '../../core/services/bangumi_oauth_coordinator.dart';
-import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../pages/app-setting/app_setting_page.dart';
 import '../../pages/app/download_page.dart';
 import '../../pages/bangumi-calendar/bangumi_calendar_page.dart';
 import '../../pages/rss-bmf/rss_bmf_page.dart';
 import '../../pages/user-collection/user_collection_page.dart';
+import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
-import '../../store/app_store.dart';
 import '../../store/bgm_user_hive.dart';
-import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/get_theme_label.dart';
@@ -58,9 +56,6 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
 
   /// 认证相关客户端
   final BtrBangumiOauth apiOauth = BtrBangumiOauth();
-
-  /// Bangumi 请求客户端
-  final BtrBangumiApi apiBgm = BtrBangumiApi();
 
   /// 应用链接订阅
   StreamSubscription<Uri>? _appLinkSubscription;
@@ -136,13 +131,13 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
       if (mounted) await BtInfobar.error(context, '未找到访问令牌');
       return;
     }
-    var userResp = await apiBgm.getUserInfo();
+    var userResp = await ref.read(bangumiRepositoryProvider).getUserInfo();
     if (userResp.code != 0 || userResp.data == null) {
       progress.end();
       if (mounted) await showRespErr(userResp, context);
       return;
     }
-    await hive.updateUser(userResp.data! as BangumiUser);
+    await hive.updateUser(userResp.data!);
     if (!mounted) {
       progress.end();
       return;

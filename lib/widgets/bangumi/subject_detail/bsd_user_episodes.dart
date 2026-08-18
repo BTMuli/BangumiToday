@@ -1,17 +1,18 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../pages/subject-detail/subject_detail_page.dart';
-import '../../../request/bangumi/bangumi_api.dart';
+import '../../../providers/app_providers.dart';
 import '../../../tools/log_tool.dart';
 import '../../../ui/bt_infobar.dart';
 import 'bsd_episode.dart';
 
 /// SubjectDetail页面的章节模块，负责显示/操作章节信息
-class BsdUserEpisodes extends StatefulWidget {
+class BsdUserEpisodes extends ConsumerStatefulWidget {
   /// subjectInfo
   final BangumiSubject subject;
 
@@ -25,11 +26,11 @@ class BsdUserEpisodes extends StatefulWidget {
   const BsdUserEpisodes(this.subject, this.user, this.provider, {super.key});
 
   @override
-  State<BsdUserEpisodes> createState() => _BsdUserEpisodesState();
+  ConsumerState<BsdUserEpisodes> createState() => _BsdUserEpisodesState();
 }
 
 // todo，当条目章节数量过多时，需要分页加载，比如名侦探柯南(id:899)
-class _BsdUserEpisodesState extends State<BsdUserEpisodes>
+class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
     with AutomaticKeepAliveClientMixin {
   /// subject_id
   int get subjectId => widget.subject.id;
@@ -42,9 +43,6 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
 
   VoidCallback? _removeProviderListener;
   bool _isRefreshing = false;
-
-  /// 请求客户端
-  final BtrBangumiApi api = BtrBangumiApi();
 
   /// 章节信息
   List<BangumiEpisode> episodes = [];
@@ -116,33 +114,34 @@ class _BsdUserEpisodesState extends State<BsdUserEpisodes>
   /// 检测是否收藏
   Future<void> check() async {
     if (user == null) return;
-    var resp = await api.getCollectionSubject(user!.id.toString(), subjectId);
+    var resp = await ref
+        .read(bangumiRepositoryProvider)
+        .getCollectionSubject(user!.id.toString(), subjectId);
     isCollection = resp.code != 404;
     if (mounted) setState(() {});
   }
 
   /// 加载更多
   Future<void> load() async {
-    var ep1Resp = await api.getEpisodeList(
+    var repository = ref.read(bangumiRepositoryProvider);
+    var ep1Resp = await repository.getEpisodeList(
       subjectId,
       offset: offset,
       limit: 30,
     );
     var pageLen = 0;
-    if (ep1Resp.code == 0) {
-      var page = ep1Resp.data as BangumiPageT<BangumiEpisode>;
-      episodes.addAll(page.data);
-      pageLen = page.data.length;
+    if (ep1Resp.code == 0 && ep1Resp.data != null) {
+      episodes.addAll(ep1Resp.data!.data);
+      pageLen = ep1Resp.data!.data.length;
     }
     if (user != null && isCollection) {
-      var ep2Resp = await api.getCollectionEpisodes(
+      var ep2Resp = await repository.getCollectionEpisodes(
         subjectId,
         offset: offset,
         limit: 30,
       );
-      if (ep2Resp.code == 0) {
-        var page = ep2Resp.data as BangumiPageT<BangumiUserEpisodeCollection>;
-        userEpisodes.addAll(page.data);
+      if (ep2Resp.code == 0 && ep2Resp.data != null) {
+        userEpisodes.addAll(ep2Resp.data!.data);
       }
     }
     offset += pageLen;

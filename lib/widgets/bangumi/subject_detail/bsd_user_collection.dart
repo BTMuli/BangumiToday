@@ -1,21 +1,22 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../../core/theme/bt_theme.dart';
-import '../../../database/bangumi/bangumi_collection.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../pages/subject-detail/subject_detail_page.dart';
+import '../../../providers/app_providers.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_infobar.dart';
 import '../../../utils/bangumi_utils.dart';
 
 /// SubjectDetail的收藏模块，负责整个Subject的收藏信息
-class BsdUserCollection extends StatefulWidget {
+class BsdUserCollection extends ConsumerStatefulWidget {
   /// subjectInfo
   final BangumiSubject subject;
 
@@ -29,7 +30,7 @@ class BsdUserCollection extends StatefulWidget {
   const BsdUserCollection(this.subject, this.user, this.provider, {super.key});
 
   @override
-  State<BsdUserCollection> createState() => _BsdUserCollectionState();
+  ConsumerState<BsdUserCollection> createState() => _BsdUserCollectionState();
 }
 
 /// 条目评分选择器，以分片进度块的形式展示 0 到 10 分。
@@ -150,19 +151,13 @@ class _SubjectRatingSelectorState extends State<SubjectRatingSelector> {
 }
 
 /// State
-class _BsdUserCollectionState extends State<BsdUserCollection>
+class _BsdUserCollectionState extends ConsumerState<BsdUserCollection>
     with AutomaticKeepAliveClientMixin {
   /// subjectInfo
   BangumiSubject get subject => widget.subject;
 
   /// user
   BangumiUser get user => widget.user;
-
-  /// 客户端
-  final BtrBangumiApi api = BtrBangumiApi();
-
-  /// 用户收藏数据库
-  final BtsBangumiCollection sqlite = BtsBangumiCollection();
 
   /// flyout controller
   final FlyoutController controller = FlyoutController();
@@ -197,16 +192,16 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
 
   /// 初始化
   Future<void> init() async {
-    var resp = await api.getCollectionSubject(user.id.toString(), subject.id);
+    var resp = await ref
+        .read(bangumiRepositoryProvider)
+        .getCollectionSubject(user.id.toString(), subject.id);
     if (resp.code == 404) {
       collectionType = BangumiCollectionType.unknown;
-      await sqlite.delete(subject.id);
       setState(() {});
     } else if (resp.code != 0 || resp.data == null) {
       if (mounted) await showRespErr(resp, context);
     } else {
       userCollection = resp.data;
-      await sqlite.write(userCollection!);
       collectionType = userCollection!.type;
       rating = userCollection?.rate ?? 0;
       setState(() {});
@@ -215,7 +210,9 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
 
   /// 更新条目收藏状态
   Future<void> updateType(BangumiCollectionType type) async {
-    var resp = await api.updateCollectionSubject(subject.id, type: type);
+    var resp = await ref
+        .read(bangumiRepositoryProvider)
+        .updateCollectionSubject(subject.id, type: type);
     if (resp.code != 0) {
       if (mounted) await showRespErr(resp, context);
     } else {
@@ -389,7 +386,9 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
 
   /// 添加到收藏列表
   Future<void> addToCollection(BuildContext context) async {
-    var resp = await api.addCollectionSubject(subject.id);
+    var resp = await ref
+        .read(bangumiRepositoryProvider)
+        .addCollectionSubject(subject.id);
     if (!context.mounted) return;
     if (resp.code != 0) {
       await showRespErr(resp, context, title: '添加收藏失败');
@@ -455,8 +454,10 @@ class _BsdUserCollectionState extends State<BsdUserCollection>
       content: '确认将条目 ${subject.id} 评分更新为 $value 分吗？',
     );
     if (!confirm) return;
-    var resp = await api.updateCollectionSubject(subject.id, rate: value);
-    if (resp.code != 0 || resp.data == null) {
+    var resp = await ref
+        .read(bangumiRepositoryProvider)
+        .updateCollectionSubject(subject.id, rate: value);
+    if (resp.code != 0) {
       if (mounted) await showRespErr(resp, context);
     } else {
       if (mounted) {

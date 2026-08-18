@@ -14,11 +14,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../controller/progress_controller.dart';
 import '../../../core/theme/bt_theme.dart';
 import '../../../database/app/app_rss.dart';
-import '../../../models/bangumi/bangumi_model.dart';
 import '../../../models/database/app_bmf_model.dart';
 import '../../../pages/subject-detail/subject_detail_page.dart';
 import '../../../providers/app_providers.dart';
-import '../../../request/bangumi/bangumi_api.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/log_tool.dart';
 import '../../../ui/bt_dialog.dart';
@@ -46,7 +44,6 @@ class BsdBmfDrawer extends ConsumerStatefulWidget {
 
 class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
   final BtsAppRss sqliteRss = BtsAppRss();
-  final BtrBangumiApi apiBgm = BtrBangumiApi();
   late ProgressController progress = ProgressController();
   final BTFileTool fileTool = BTFileTool();
 
@@ -114,13 +111,15 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
     if (mounted) {
       progress = ProgressWidget.show(context, title: '正在查找标题', text: '请稍后');
     }
-    var resp = await apiBgm.getSubjectDetail(widget.subjectId.toString());
+    var resp = await ref
+        .read(bangumiRepositoryProvider)
+        .getSubjectDetail(widget.subjectId.toString());
     progress.end();
     if (resp.code != 0 || resp.data == null) {
       if (mounted) await showRespErr(resp, context);
       return null;
     }
-    var data = resp.data as BangumiSubject;
+    var data = resp.data!;
     if (data.nameCn.isEmpty) return data.name;
     return data.nameCn;
   }

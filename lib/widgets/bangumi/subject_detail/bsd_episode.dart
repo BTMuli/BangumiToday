@@ -1,16 +1,18 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
+import '../../../providers/app_providers.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_infobar.dart';
 
 /// Subject的单个Episode组件
-class BsdEpisode extends StatefulWidget {
+class BsdEpisode extends ConsumerStatefulWidget {
   /// 章节信息
   final BangumiEpisode episode;
 
@@ -21,19 +23,16 @@ class BsdEpisode extends StatefulWidget {
   const BsdEpisode(this.episode, {this.user, super.key});
 
   @override
-  State<BsdEpisode> createState() => _BsdEpisodeState();
+  ConsumerState<BsdEpisode> createState() => _BsdEpisodeState();
 }
 
 /// State
-class _BsdEpisodeState extends State<BsdEpisode> {
+class _BsdEpisodeState extends ConsumerState<BsdEpisode> {
   /// 章节信息
   BangumiEpisode get episode => widget.episode;
 
   /// 用户章节信息
   late BangumiUserEpisodeCollection? userEpisode = widget.user;
-
-  /// 客户端
-  final BtrBangumiApi api = BtrBangumiApi();
 
   /// flyout controller
   final FlyoutController controller = FlyoutController();
@@ -99,7 +98,9 @@ class _BsdEpisodeState extends State<BsdEpisode> {
 
   /// 刷新用户章节信息
   Future<void> freshUserEpisodes() async {
-    var resp = await api.getCollectionEpisode(episode.id);
+    var resp = await ref
+        .read(bangumiRepositoryProvider)
+        .getCollectionEpisode(episode.id);
     if (resp.code != 0) {
       if (mounted) await showRespErr(resp, context, title: '获取 $text 章节信息失败');
       return;
@@ -110,10 +111,9 @@ class _BsdEpisodeState extends State<BsdEpisode> {
 
   /// 更新章节收藏状态
   Future<void> updateType(BangumiEpisodeCollectionType type) async {
-    var resp = await api.updateCollectionEpisode(
-      type: type,
-      episode: episode.id,
-    );
+    var resp = await ref
+        .read(bangumiRepositoryProvider)
+        .updateCollectionEpisode(type: type, episode: episode.id);
     if (resp.code != 0) {
       if (mounted) await showRespErr(resp, context, title: '更新章节 $text 状态失败');
       return;
@@ -136,10 +136,9 @@ class _BsdEpisodeState extends State<BsdEpisode> {
     } else {
       target = BangumiEpisodeCollectionType.none;
     }
-    var resp = await api.updateCollectionEpisode(
-      type: target,
-      episode: episode.id,
-    );
+    var resp = await ref
+        .read(bangumiRepositoryProvider)
+        .updateCollectionEpisode(type: target, episode: episode.id);
     if (resp.code != 0) {
       if (mounted) {
         await showRespErr(resp, context, title: '更新章节 $text 状态失败');
