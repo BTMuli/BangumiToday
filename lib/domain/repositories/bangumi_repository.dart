@@ -76,4 +76,12 @@ abstract class BTBangumiRepository {
     required BangumiEpisodeCollectionType type,
     required int episode,
   });
+
+  /// 本地收藏条目 ID，供日历筛选。
+  Future<Set<int>> getCollectedSubjectIds();
+
+  /// 本地收藏列表，供收藏 Tab 首屏。
+  Future<List<BangumiUserSubjectCollection>> getLocalCollections({
+    BangumiCollectionType? type,
+  });
 }

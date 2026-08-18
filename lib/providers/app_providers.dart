@@ -4,17 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 // Project imports:
-import '../domain/repositories/bangumi_repository.dart';
-import '../request/bangumi/bangumi_api.dart';
 import '../store/app_store.dart';
 import '../store/bgm_user_hive.dart';
 import '../store/tracker_hive.dart';
-import 'repository_providers.dart';
 
 export '../store/app_store.dart' show BTAppStore, appStoreProvider;
 export '../domain/repositories/bmf_repository.dart';
 export '../store/bmf_store.dart';
 export '../store/nav_store.dart';
+export 'bangumi_providers.dart';
 
 final bgmUserHiveProvider = ChangeNotifierProvider<BgmUserHive>((ref) {
   return BgmUserHive();
@@ -22,14 +20,6 @@ final bgmUserHiveProvider = ChangeNotifierProvider<BgmUserHive>((ref) {
 
 final trackerHiveProvider = ChangeNotifierProvider<TrackerHive>((ref) {
   return TrackerHive();
-});
-
-final bangumiApiProvider = Provider<BtrBangumiApi>((ref) {
-  return BtrBangumiApi();
-});
-
-final bangumiRepositoryProvider = Provider<BTBangumiRepository>((ref) {
-  return BTRepositoryProviders.provideBangumiRepository();
 });
 
 final isLoggedInProvider = Provider<bool>((ref) {

@@ -16,6 +16,8 @@ import 'package:bangumi_today/models/bangumi/bangumi_enum.dart' as _i6;
 import 'package:bangumi_today/models/bangumi/bangumi_model.dart' as _i7;
 import 'package:bangumi_today/models/bangumi/request_subject.dart' as _i5;
 
+import 'package:bangumi_today/data/datasources/bangumi_local_data_source.dart'
+    as _i8;
 import 'package:bangumi_today/data/datasources/bangumi_remote_data_source.dart'
     as _i3;
 
@@ -364,4 +366,122 @@ class MockBTBangumiRemoteDataSource extends _i1.Mock
             ),
           )
           as _i4.Future<_i2.BTResponse<void>>);
+}
+
+/// A class which mocks [BTBangumiLocalDataSource].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockBTBangumiLocalDataSource extends _i1.Mock
+    implements _i8.BTBangumiLocalDataSource {
+  MockBTBangumiLocalDataSource() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  _i4.Future<void> init() =>
+      (super.noSuchMethod(
+            Invocation.method(#init, []),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
+
+  @override
+  _i4.Future<List<_i7.BangumiUserSubjectCollection>> getCollections() =>
+      (super.noSuchMethod(
+            Invocation.method(#getCollections, []),
+            returnValue:
+                _i4.Future<List<_i7.BangumiUserSubjectCollection>>.value(
+                  <_i7.BangumiUserSubjectCollection>[],
+                ),
+          )
+          as _i4.Future<List<_i7.BangumiUserSubjectCollection>>);
+
+  @override
+  _i4.Future<List<_i7.BangumiUserSubjectCollection>> getByType(
+    _i6.BangumiCollectionType? type,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#getByType, [type]),
+            returnValue:
+                _i4.Future<List<_i7.BangumiUserSubjectCollection>>.value(
+                  <_i7.BangumiUserSubjectCollection>[],
+                ),
+          )
+          as _i4.Future<List<_i7.BangumiUserSubjectCollection>>);
+
+  @override
+  _i4.Future<Set<int>> getAllSubjectIds() =>
+      (super.noSuchMethod(
+            Invocation.method(#getAllSubjectIds, []),
+            returnValue: _i4.Future<Set<int>>.value(<int>{}),
+          )
+          as _i4.Future<Set<int>>);
+
+  @override
+  _i4.Future<_i7.BangumiUserSubjectCollection?> getCollection(int? subjectId) =>
+      (super.noSuchMethod(
+            Invocation.method(#getCollection, [subjectId]),
+            returnValue: _i4.Future<_i7.BangumiUserSubjectCollection?>.value(),
+          )
+          as _i4.Future<_i7.BangumiUserSubjectCollection?>);
+
+  @override
+  _i4.Future<void> insertCollection(
+    _i7.BangumiUserSubjectCollection? collection,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#insertCollection, [collection]),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
+
+  @override
+  _i4.Future<void> updateCollection(
+    _i7.BangumiUserSubjectCollection? collection,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#updateCollection, [collection]),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
+
+  @override
+  _i4.Future<void> writeList(
+    List<_i7.BangumiUserSubjectCollection>? collections,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#writeList, [collections]),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
+
+  @override
+  _i4.Future<void> deleteCollection(int? subjectId) =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteCollection, [subjectId]),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
+
+  @override
+  _i4.Future<bool> isCollected(int? subjectId) =>
+      (super.noSuchMethod(
+            Invocation.method(#isCollected, [subjectId]),
+            returnValue: _i4.Future<bool>.value(false),
+          )
+          as _i4.Future<bool>);
+
+  @override
+  _i4.Future<void> clearAll() =>
+      (super.noSuchMethod(
+            Invocation.method(#clearAll, []),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
 }

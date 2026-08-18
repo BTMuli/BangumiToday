@@ -1,5 +1,6 @@
 // Project imports:
 import '../../database/bangumi/bangumi_collection.dart';
+import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import 'bangumi_local_data_source.dart';
 
@@ -20,6 +21,18 @@ class BTBangumiLocalDataSourceImpl implements BTBangumiLocalDataSource {
   }
 
   @override
+  Future<List<BangumiUserSubjectCollection>> getByType(
+    BangumiCollectionType type,
+  ) async {
+    return await _db.getByType(type);
+  }
+
+  @override
+  Future<Set<int>> getAllSubjectIds() async {
+    return await _db.getAllSubjectIds();
+  }
+
+  @override
   Future<BangumiUserSubjectCollection?> getCollection(int subjectId) async {
     return await _db.read(subjectId);
   }
@@ -32,6 +45,11 @@ class BTBangumiLocalDataSourceImpl implements BTBangumiLocalDataSource {
   @override
   Future<void> updateCollection(BangumiUserSubjectCollection collection) async {
     await _db.write(collection);
+  }
+
+  @override
+  Future<void> writeList(List<BangumiUserSubjectCollection> collections) async {
+    await _db.writeList(collections);
   }
 
   @override
