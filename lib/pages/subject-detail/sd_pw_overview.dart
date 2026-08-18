@@ -1,5 +1,6 @@
 // Flutter imports:
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
@@ -13,6 +14,7 @@ import '../../models/bangumi/bangumi_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
+import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/common/bt_card.dart';
 import 'sd_pw_rate_chart.dart';
@@ -163,6 +165,17 @@ class SdpOverviewWidget extends StatelessWidget {
                     context,
                     title: '详细数据，ID: ${item.id}',
                   );
+                },
+              ),
+            ),
+            Tooltip(
+              message: '复制标题',
+              child: IconButton(
+                icon: BtIcon(FluentIcons.copy, size: 14),
+                onPressed: () {
+                  var title = item.nameCn.isEmpty ? item.name : item.nameCn;
+                  Clipboard.setData(ClipboardData(text: title));
+                  BtInfobar.success(context, '已复制标题: $title');
                 },
               ),
             ),

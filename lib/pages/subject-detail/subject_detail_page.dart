@@ -1,13 +1,9 @@
-// Flutter imports:
-import 'package:flutter/services.dart';
-
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../controller/progress_controller.dart';
-import '../../core/theme/bt_theme.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/database/app_bmf_model.dart';
@@ -15,19 +11,17 @@ import '../../models/hive/nav_model.dart';
 import '../../plugins/mikan/mikan_api.dart';
 import '../../plugins/mikan/models/mikan_model.dart';
 import '../../providers/app_providers.dart';
-import '../../store/bgm_user_hive.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
-import '../../utils/tool_func.dart';
 import '../../widgets/bangumi/subject_detail/bsd_bmf_drawer.dart';
-import '../../widgets/bangumi/subject_detail/bsd_user_collection.dart';
-import '../../widgets/bangumi/subject_detail/bsd_user_episodes.dart';
-import '../../widgets/common/bt_animations.dart';
 import '../../widgets/common/bt_content_frame.dart';
 import '../../widgets/common/bt_drawer.dart';
 import '../subject-search/subject_search_page.dart';
-import 'sd_pw_overview.dart';
-import 'sd_pw_relation.dart';
+import 'sdp_layout_a.dart';
+import 'sdp_layout_current.dart';
+import 'sdp_layout_switcher.dart';
+import 'sdp_view_data.dart';
+import 'subject_layout_mode.dart';
 import 'subject_stat_providers.dart';
 
 part 'subject_detail_page/header.dart';
@@ -35,7 +29,6 @@ part 'subject_detail_page/content.dart';
 part 'subject_detail_page/context_menu.dart';
 
 /// 番剧详情
-/// TODO: 页面UI重构
 class SubjectDetailPage extends ConsumerStatefulWidget {
   /// 番剧 id
   final String id;
@@ -52,9 +45,6 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     with AutomaticKeepAliveClientMixin {
   /// 番剧数据
   BangumiSubject? data;
-
-  /// 用户Hive
-  final BgmUserHive hiveUser = BgmUserHive();
 
   /// mikanApi
   final BtrMikanApi mikanApi = BtrMikanApi();
@@ -75,6 +65,9 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   /// 是否显示错误组件
   bool showError = false;
   int _loadGeneration = 0;
+  final GlobalKey _collectionKey = GlobalKey();
+  final GlobalKey _episodesKey = GlobalKey();
+  final GlobalKey _relationsKey = GlobalKey();
 
   /// 当id改变时, 重新加载数据
   @override

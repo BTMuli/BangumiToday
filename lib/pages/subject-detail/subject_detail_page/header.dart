@@ -46,39 +46,15 @@ extension _SubjectDetailHeader on _SubjectDetailPageState {
             ),
           ),
           SizedBox(width: PageHeader.horizontalPadding(context)),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Tooltip(
-                message: '复制标题',
-                child: IconButton(
-                  icon: const Icon(FluentIcons.copy),
-                  onPressed: () {
-                    if (title == null) {
-                      BtInfobar.error(context, '标题为空');
-                      return;
-                    }
-                    Clipboard.setData(ClipboardData(text: title));
-                    BtInfobar.success(context, '已复制标题: $title');
-                  },
-                ),
-              ),
-              Tooltip(
-                message: '刷新页面',
-                child: IconButton(
-                  icon: const Icon(FluentIcons.refresh),
-                  onPressed: init,
-                ),
-              ),
-              Tooltip(
-                message: '搜索RSS(Mikan)',
-                child: IconButton(
-                  icon: const Icon(FluentIcons.search),
-                  onPressed: searchBangumi,
-                ),
-              ),
-            ],
+          Tooltip(
+            message: '刷新页面',
+            child: IconButton(
+              icon: const Icon(FluentIcons.refresh),
+              onPressed: init,
+            ),
           ),
+          SizedBox(width: 8),
+          const SdpLayoutSwitcher(),
         ],
       ),
     );
@@ -106,27 +82,6 @@ extension _SubjectDetailHeader on _SubjectDetailPageState {
           SizedBox(height: 12),
           const Text('Loading...'),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBmfDrawerButton(BuildContext context) {
-    var accentColor = FluentTheme.of(context).accentColor;
-    return Tooltip(
-      message: '打开 BMF 配置',
-      excludeFromSemantics: true,
-      child: IconButton(
-        icon: Icon(FluentIcons.app_icon_default, size: 18, color: accentColor),
-        onPressed: () => showBTDrawer(
-          context: context,
-          width: 420,
-          child: BsdBmfDrawer(
-            subjectId: data!.id,
-            title: data!.nameCn.isEmpty ? data!.name : data!.nameCn,
-            airDate: data!.date,
-            rssProvider: rssProvider,
-          ),
-        ),
       ),
     );
   }

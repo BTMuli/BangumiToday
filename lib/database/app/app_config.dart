@@ -277,4 +277,16 @@ class BtsAppConfig {
     config.validate();
     await _instance.write('btTrackerConfig', jsonEncode(config.toJson()));
   }
+
+  /// 读取条目详情布局。空值表示尚未选择，由调用方使用默认布局。
+  Future<String> readSubjectDetailLayout() async {
+    var value = await _instance.read('subjectDetailLayout');
+    if (value == null || value.isEmpty) return '';
+    return value;
+  }
+
+  /// 写入条目详情布局。
+  Future<void> writeSubjectDetailLayout(String value) async {
+    await _instance.write('subjectDetailLayout', value);
+  }
 }

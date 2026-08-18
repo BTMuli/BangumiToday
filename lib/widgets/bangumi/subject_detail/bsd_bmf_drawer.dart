@@ -29,6 +29,7 @@ class BsdBmfDrawer extends ConsumerStatefulWidget {
   final String title;
   final String? airDate;
   final SubjectRssStatProvider? rssProvider;
+  final VoidCallback? onSearchMikan;
 
   const BsdBmfDrawer({
     super.key,
@@ -36,6 +37,7 @@ class BsdBmfDrawer extends ConsumerStatefulWidget {
     required this.title,
     required this.airDate,
     this.rssProvider,
+    this.onSearchMikan,
   });
 
   @override
@@ -327,8 +329,39 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
                         ),
                         SizedBox(height: 8),
                         Text(
-                          '请设置 RSS 或下载目录',
+                          '搜索字幕组、粘贴 RSS 或选择下载目录',
                           style: BTTypography.caption(context),
+                        ),
+                        SizedBox(height: 16),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            if (widget.onSearchMikan != null)
+                              FilledButton(
+                                key: const ValueKey('bmf-empty-search'),
+                                onPressed: widget.onSearchMikan,
+                                child: const Text('搜索 Mikan'),
+                              ),
+                            Button(
+                              key: const ValueKey('bmf-empty-rss'),
+                              onPressed: () async {
+                                var input = await showInput(
+                                  context,
+                                  title: '设置 MikanRSS',
+                                  content: '建议精准到字幕组',
+                                );
+                                await updateRss(input);
+                              },
+                              child: const Text('粘贴 RSS'),
+                            ),
+                            Button(
+                              key: const ValueKey('bmf-empty-folder'),
+                              onPressed: updateFolder,
+                              child: const Text('选择下载目录'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -383,6 +416,12 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
             tooltip: '设置标题',
             onPressed: bmf.id != -1 ? updateTitle : null,
           ),
+          if (widget.onSearchMikan != null)
+            _buildTitleBarButton(
+              icon: FluentIcons.search,
+              tooltip: '搜索 RSS(Mikan)',
+              onPressed: widget.onSearchMikan,
+            ),
           _buildTitleBarButton(
             icon: MdiIcons.rss,
             tooltip: '设置 RSS',

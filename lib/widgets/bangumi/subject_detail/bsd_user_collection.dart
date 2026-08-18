@@ -26,8 +26,21 @@ class BsdUserCollection extends ConsumerStatefulWidget {
   /// provider
   final SubjectCollectStatProvider provider;
 
+  /// 操作条紧凑样式
+  final bool compact;
+
+  /// 未收藏时是否使用强调按钮
+  final bool filled;
+
   /// 构造函数
-  const BsdUserCollection(this.subject, this.user, this.provider, {super.key});
+  const BsdUserCollection(
+    this.subject,
+    this.user,
+    this.provider, {
+    this.compact = false,
+    this.filled = true,
+    super.key,
+  });
 
   @override
   ConsumerState<BsdUserCollection> createState() => _BsdUserCollectionState();
@@ -197,6 +210,7 @@ class _BsdUserCollectionState extends ConsumerState<BsdUserCollection>
         .getCollectionSubject(user.id.toString(), subject.id);
     if (resp.code == 404) {
       collectionType = BangumiCollectionType.unknown;
+      widget.provider.set(false);
       setState(() {});
     } else if (resp.code != 0 || resp.data == null) {
       if (mounted) await showRespErr(resp, context);
@@ -204,6 +218,11 @@ class _BsdUserCollectionState extends ConsumerState<BsdUserCollection>
       userCollection = resp.data;
       collectionType = userCollection!.type;
       rating = userCollection?.rate ?? 0;
+      widget.provider.set(
+        true,
+        type: collectionType,
+        epStatus: userCollection?.epStatus,
+      );
       setState(() {});
     }
   }
@@ -217,6 +236,7 @@ class _BsdUserCollectionState extends ConsumerState<BsdUserCollection>
       if (mounted) await showRespErr(resp, context);
     } else {
       collectionType = type;
+      widget.provider.set(true, type: type);
       if (mounted) {
         await BtInfobar.success(
           context,
@@ -401,6 +421,22 @@ class _BsdUserCollectionState extends ConsumerState<BsdUserCollection>
 
   /// 未收藏
   Widget buildUnCollection(BuildContext context) {
+    if (widget.compact) {
+      var child = const Text('加入收藏');
+      Future<void> onPressed() async => addToCollection(context);
+      if (widget.filled) {
+        return FilledButton(
+          key: const ValueKey('subject-collect-add'),
+          onPressed: onPressed,
+          child: child,
+        );
+      }
+      return Button(
+        key: const ValueKey('subject-collect-add'),
+        onPressed: onPressed,
+        child: child,
+      );
+    }
     return Row(
       children: [
         FlyoutTarget(

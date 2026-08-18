@@ -3,6 +3,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
+import '../../../core/theme/bt_theme.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../pages/subject-detail/subject_stat_providers.dart';
@@ -22,8 +23,21 @@ class BsdUserEpisodes extends ConsumerStatefulWidget {
   /// provider
   final SubjectCollectStatProvider provider;
 
+  /// 显示 m/n 进度摘要
+  final bool showSummary;
+
+  /// 是否直接展示剧集按钮格
+  final bool showGrid;
+
   /// 构造函数
-  const BsdUserEpisodes(this.subject, this.user, this.provider, {super.key});
+  const BsdUserEpisodes(
+    this.subject,
+    this.user,
+    this.provider, {
+    this.showSummary = false,
+    this.showGrid = true,
+    super.key,
+  });
 
   @override
   ConsumerState<BsdUserEpisodes> createState() => _BsdUserEpisodesState();
@@ -53,6 +67,8 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
   /// offset
   int offset = 0;
 
+  bool _gridExpanded = false;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -60,6 +76,7 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
   @override
   void initState() {
     super.initState();
+    _gridExpanded = widget.showGrid;
     Future.microtask(() async {
       if (widget.subject.type == BangumiSubjectType.anime) {
         await check();
@@ -102,6 +119,9 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
     if (!identical(oldWidget.provider, widget.provider)) {
       _removeProviderListener?.call();
       _listenToProvider();
+    }
+    if (oldWidget.showGrid != widget.showGrid) {
+      _gridExpanded = widget.showGrid;
     }
   }
 
@@ -206,7 +226,68 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (episodes.isEmpty) return const SizedBox.shrink();
-    return Wrap(spacing: 8, runSpacing: 8, children: buildList());
+    if (episodes.isEmpty) {
+      if (!widget.showSummary) return const SizedBox.shrink();
+      return Text('暂无剧集', style: BTTypography.caption(context));
+    }
+    var summary = widget.showSummary ? _buildSummary(context) : null;
+    var showGridNow = widget.showGrid || _gridExpanded;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (summary != null) ...[summary, SizedBox(height: 8)],
+        if (!showGridNow)
+          Button(
+            key: const ValueKey('subject-episodes-expand'),
+            onPressed: () => setState(() => _gridExpanded = true),
+            child: const Text('展开全部'),
+          )
+        else
+          Wrap(spacing: 8, runSpacing: 8, children: buildList()),
+      ],
+    );
+  }
+
+  Widget _buildSummary(BuildContext context) {
+    var mains = episodes.where((ep) => ep.type == BangumiEpType.main).toList();
+    var done = 0;
+    BangumiEpisode? next;
+    for (var ep in mains) {
+      var find = userEpisodes.indexWhere((item) => item.episode.id == ep.id);
+      var marked =
+          find != -1 &&
+          userEpisodes[find].type == BangumiEpisodeCollectionType.done;
+      if (marked) {
+        done++;
+      } else {
+        next ??= ep;
+      }
+    }
+    var total = mains.isNotEmpty ? mains.length : widget.subject.totalEpisodes;
+    if (total <= 0) total = widget.subject.eps;
+    var ratio = total <= 0 ? 0.0 : (done / total).clamp(0.0, 1.0);
+    var nextLabel = '';
+    if (next != null) {
+      var name = next.nameCn.isEmpty ? next.name : next.nameCn;
+      nextLabel = '下一话 EP${next.sort.toStringAsFixed(0)}';
+      if (next.airDate.isNotEmpty) {
+        nextLabel = '$nextLabel · ${next.airDate}';
+      } else if (name.isNotEmpty) {
+        nextLabel = '$nextLabel · $name';
+      }
+    }
+    return Column(
+      key: const ValueKey('subject-episodes-summary'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('正片 $done/$total', style: BTTypography.bodyStrong(context)),
+        SizedBox(height: 6),
+        SizedBox(height: 6, child: ProgressBar(value: ratio * 100)),
+        if (nextLabel.isNotEmpty) ...[
+          SizedBox(height: 6),
+          Text(nextLabel, style: BTTypography.caption(context)),
+        ],
+      ],
+    );
   }
 }
