@@ -295,16 +295,24 @@ class BtrBangumiApi {
     BangumiLegacyEpisodeType? type,
     int? limit,
     int? offset,
+    bool deduplicate = true,
+    bool cancelPrevious = false,
   }) async {
     var params = <String, dynamic>{'subject_id': id};
     if (type != null) params['type'] = type.value;
     if (limit != null) params['limit'] = limit;
     if (offset != null) params['offset'] = offset;
     try {
-      var resp = await client.dio.get(
-        '/v0/episodes',
-        queryParameters: params,
-        options: Options(contentType: 'application/json'),
+      var resp = await _requestManager.request<Response>(
+        key: RequestKey.subjectEpisodes(id, offset: offset, limit: limit),
+        deduplicate: deduplicate,
+        cancelPrevious: cancelPrevious,
+        request: (token) => client.dio.get(
+          '/v0/episodes',
+          queryParameters: params,
+          options: Options(contentType: 'application/json'),
+          cancelToken: token,
+        ),
       );
       var dataList = BangumiPageT<BangumiEpisode>.fromJson(
         resp.data as Map<String, dynamic>,
@@ -397,12 +405,20 @@ class BtrBangumiApi {
   /// 获取用户单个收藏
   Future<BTResponse> getCollectionSubject(
     String username,
-    int subjectId,
-  ) async {
+    int subjectId, {
+    bool deduplicate = true,
+    bool cancelPrevious = false,
+  }) async {
     try {
-      var resp = await client.dio.get(
-        '/v0/users/$username/collections/$subjectId',
-        options: Options(contentType: 'application/json'),
+      var resp = await _requestManager.request<Response>(
+        key: RequestKey.userCollection(username, subjectId),
+        deduplicate: deduplicate,
+        cancelPrevious: cancelPrevious,
+        request: (token) => client.dio.get(
+          '/v0/users/$username/collections/$subjectId',
+          options: Options(contentType: 'application/json'),
+          cancelToken: token,
+        ),
       );
       if (resp.data is! Map<String, dynamic>) {
         return handleBangumiUnexpectedResponse(
@@ -510,16 +526,28 @@ class BtrBangumiApi {
     int? offset,
     int? limit,
     BangumiLegacyEpisodeType? type,
+    bool deduplicate = true,
+    bool cancelPrevious = false,
   }) async {
     var params = <String, dynamic>{'subject_id': subjectId};
     if (offset != null) params['offset'] = offset;
     if (limit != null) params['limit'] = limit;
     if (type != null) params['type'] = type.value;
     try {
-      var resp = await client.dio.get(
-        '/v0/users/-/collections/$subjectId/episodes',
-        queryParameters: params,
-        options: Options(contentType: 'application/json'),
+      var resp = await _requestManager.request<Response>(
+        key: RequestKey.userCollectionEpisodes(
+          subjectId,
+          offset: offset,
+          limit: limit,
+        ),
+        deduplicate: deduplicate,
+        cancelPrevious: cancelPrevious,
+        request: (token) => client.dio.get(
+          '/v0/users/-/collections/$subjectId/episodes',
+          queryParameters: params,
+          options: Options(contentType: 'application/json'),
+          cancelToken: token,
+        ),
       );
       var dataList = BangumiPageT<BangumiUserEpisodeCollection>.fromJson(
         resp.data as Map<String, dynamic>,

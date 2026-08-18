@@ -84,4 +84,7 @@ abstract class BTBangumiRepository {
   Future<List<BangumiUserSubjectCollection>> getLocalCollections({
     BangumiCollectionType? type,
   });
+
+  /// 本地单条收藏，供条目详情首屏。
+  Future<BangumiUserSubjectCollection?> getLocalCollection(int subjectId);
 }

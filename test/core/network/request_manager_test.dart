@@ -44,6 +44,20 @@ void main() {
     test('rss returns correct key', () {
       expect(RequestKey.rss('mikan'), 'rss_mikan');
     });
+
+    test('subjectEpisodes includes offset and limit when set', () {
+      expect(
+        RequestKey.subjectEpisodes(456, offset: 0, limit: 100),
+        'subject_episodes_456_0_100',
+      );
+    });
+
+    test('userCollectionEpisodes includes offset and limit', () {
+      expect(
+        RequestKey.userCollectionEpisodes(8, offset: 0, limit: 100),
+        'user_collection_episodes_8_0_100',
+      );
+    });
   });
 
   group('RequestManager', () {

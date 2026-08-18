@@ -250,4 +250,9 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     if (type == null) return _localDataSource.getCollections();
     return _localDataSource.getByType(type);
   }
+
+  @override
+  Future<BangumiUserSubjectCollection?> getLocalCollection(int subjectId) {
+    return _localDataSource.getCollection(subjectId);
+  }
 }

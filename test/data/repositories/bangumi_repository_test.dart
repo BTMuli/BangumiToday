@@ -204,6 +204,18 @@ void main() {
       },
     );
 
+    test('getLocalCollection reads from local data source', () async {
+      var cached = _collection();
+      when(
+        mockLocalDataSource.getCollection(42),
+      ).thenAnswer((_) async => cached);
+
+      var result = await repository.getLocalCollection(42);
+
+      expect(result, cached);
+      verify(mockLocalDataSource.getCollection(42)).called(1);
+    });
+
     test(
       'updateCollectionSubject writes patched local row after remote success',
       () async {

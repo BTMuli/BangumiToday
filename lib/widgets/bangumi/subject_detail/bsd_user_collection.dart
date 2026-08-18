@@ -184,6 +184,9 @@ class _BsdUserCollectionState extends ConsumerState<BsdUserCollection>
   /// 用户评分
   late int rating = 0;
 
+  /// 本地或远程收藏结果已就绪
+  bool _loaded = false;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -205,26 +208,42 @@ class _BsdUserCollectionState extends ConsumerState<BsdUserCollection>
 
   /// 初始化
   Future<void> init() async {
-    var resp = await ref
-        .read(bangumiRepositoryProvider)
-        .getCollectionSubject(user.id.toString(), subject.id);
+    var repository = ref.read(bangumiRepositoryProvider);
+    var local = await repository.getLocalCollection(subject.id);
+    if (!mounted) return;
+    if (local != null) {
+      _applyCollection(local);
+    }
+    var resp = await repository.getCollectionSubject(
+      user.id.toString(),
+      subject.id,
+    );
+    if (!mounted) return;
     if (resp.code == 404) {
+      userCollection = null;
       collectionType = BangumiCollectionType.unknown;
+      rating = 0;
+      _loaded = true;
       widget.provider.set(false);
       setState(() {});
-    } else if (resp.code != 0 || resp.data == null) {
-      if (mounted) await showRespErr(resp, context);
-    } else {
-      userCollection = resp.data;
-      collectionType = userCollection!.type;
-      rating = userCollection?.rate ?? 0;
-      widget.provider.set(
-        true,
-        type: collectionType,
-        epStatus: userCollection?.epStatus,
-      );
-      setState(() {});
+      return;
     }
+    if (resp.code != 0 || resp.data == null) {
+      _loaded = true;
+      setState(() {});
+      if (local == null) await showRespErr(resp, context);
+      return;
+    }
+    _applyCollection(resp.data!);
+  }
+
+  void _applyCollection(BangumiUserSubjectCollection data) {
+    userCollection = data;
+    collectionType = data.type;
+    rating = data.rate;
+    _loaded = true;
+    widget.provider.set(true, type: collectionType, epStatus: data.epStatus);
+    setState(() {});
   }
 
   /// 更新条目收藏状态
@@ -538,6 +557,14 @@ class _BsdUserCollectionState extends ConsumerState<BsdUserCollection>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    if (!_loaded) {
+      return const SizedBox(
+        key: ValueKey('subject-collect-loading'),
+        width: 24,
+        height: 24,
+        child: ProgressRing(strokeWidth: 2),
+      );
+    }
     return collectionType == BangumiCollectionType.unknown
         ? buildUnCollection(context)
         : buildCollection();

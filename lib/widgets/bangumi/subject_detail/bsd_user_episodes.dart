@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:math';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +12,6 @@ import '../../../models/bangumi/bangumi_model.dart';
 import '../../../pages/subject-detail/subject_stat_providers.dart';
 import '../../../providers/app_providers.dart';
 import '../../../tools/log_tool.dart';
-import '../../../ui/bt_infobar.dart';
 import 'bsd_episode.dart';
 
 /// SubjectDetail页面的章节模块，负责显示/操作章节信息
@@ -69,6 +71,12 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
 
   bool _gridExpanded = false;
 
+  late bool _loading = widget.subject.type == BangumiSubjectType.anime;
+
+  static const _pageSize = 100;
+
+  Future<List<BangumiUserEpisodeCollection>?>? _userEpisodesInFlight;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -77,9 +85,9 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
   void initState() {
     super.initState();
     _gridExpanded = widget.showGrid;
+    isCollection = widget.provider.collected;
     Future.microtask(() async {
       if (widget.subject.type == BangumiSubjectType.anime) {
-        await check();
         await load();
       }
     });
@@ -91,11 +99,28 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
   }
 
   void _onProviderChanged(bool value) async {
-    if (!value || user == null || isCollection || _isRefreshing) return;
+    if (user == null) return;
     if (widget.subject.type != BangumiSubjectType.anime) return;
+    if (!value) {
+      isCollection = false;
+      if (userEpisodes.isNotEmpty) {
+        userEpisodes.clear();
+        if (mounted) setState(() {});
+      }
+      return;
+    }
+    if (isCollection || _isRefreshing) return;
+    isCollection = true;
+    if (_loading) {
+      _userEpisodesInFlight ??= _fetchUserEpisodePage(
+        offset: 0,
+        limit: _pageSize,
+      );
+      return;
+    }
     _isRefreshing = true;
     try {
-      await _refreshEpisodes();
+      await _loadUserEpisodes();
     } catch (error, stackTrace) {
       BTLogTool.error(['刷新章节信息失败', error.toString(), stackTrace.toString()]);
     } finally {
@@ -103,14 +128,43 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
     }
   }
 
-  Future<void> _refreshEpisodes() async {
-    offset = 0;
-    episodes.clear();
-    userEpisodes.clear();
+  Future<void> _loadUserEpisodes() async {
+    if (user == null) return;
+    var remaining = episodes.isEmpty ? _pageSize : episodes.length;
+    var fetched = 0;
+    while (fetched < remaining) {
+      var limit = min(_pageSize, remaining - fetched);
+      var page = await _fetchUserEpisodePage(offset: fetched, limit: limit);
+      if (page == null || page.isEmpty) break;
+      fetched += page.length;
+      if (page.length < limit) break;
+    }
     if (mounted) setState(() {});
-    await check();
-    await load();
-    if (mounted) await BtInfobar.success(context, '成功更新章节信息');
+  }
+
+  Future<List<BangumiUserEpisodeCollection>?> _fetchUserEpisodePage({
+    required int offset,
+    required int limit,
+  }) async {
+    var resp = await ref
+        .read(bangumiRepositoryProvider)
+        .getCollectionEpisodes(subjectId, offset: offset, limit: limit);
+    if (resp.code != 0 || resp.data == null) return null;
+    _mergeUserEpisodes(resp.data!.data);
+    return resp.data!.data;
+  }
+
+  void _mergeUserEpisodes(List<BangumiUserEpisodeCollection> items) {
+    for (var item in items) {
+      var index = userEpisodes.indexWhere(
+        (e) => e.episode.id == item.episode.id,
+      );
+      if (index == -1) {
+        userEpisodes.add(item);
+      } else {
+        userEpisodes[index] = item;
+      }
+    }
   }
 
   @override
@@ -131,40 +185,40 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
     super.dispose();
   }
 
-  /// 检测是否收藏
-  Future<void> check() async {
-    if (user == null) return;
-    var resp = await ref
-        .read(bangumiRepositoryProvider)
-        .getCollectionSubject(user!.id.toString(), subjectId);
-    isCollection = resp.code != 404;
-    if (mounted) setState(() {});
-  }
-
   /// 加载更多
   Future<void> load() async {
+    var isFirst = episodes.isEmpty;
+    if (isFirst) _loading = true;
     var repository = ref.read(bangumiRepositoryProvider);
-    var ep1Resp = await repository.getEpisodeList(
+    isCollection = isCollection || widget.provider.collected;
+    var epFuture = repository.getEpisodeList(
       subjectId,
       offset: offset,
-      limit: 30,
+      limit: _pageSize,
     );
+    var userEpFuture = _userEpisodesInFlight;
+    if (userEpFuture == null && user != null && isCollection) {
+      userEpFuture = _fetchUserEpisodePage(offset: offset, limit: _pageSize);
+      _userEpisodesInFlight = userEpFuture;
+    }
+    var ep1Resp = await epFuture;
     var pageLen = 0;
     if (ep1Resp.code == 0 && ep1Resp.data != null) {
       episodes.addAll(ep1Resp.data!.data);
       pageLen = ep1Resp.data!.data.length;
     }
-    if (user != null && isCollection) {
-      var ep2Resp = await repository.getCollectionEpisodes(
-        subjectId,
-        offset: offset,
-        limit: 30,
-      );
-      if (ep2Resp.code == 0 && ep2Resp.data != null) {
-        userEpisodes.addAll(ep2Resp.data!.data);
-      }
+    if (userEpFuture == null && user != null && widget.provider.collected) {
+      isCollection = true;
+      userEpFuture = _userEpisodesInFlight;
+      userEpFuture ??= _fetchUserEpisodePage(offset: offset, limit: _pageSize);
+      _userEpisodesInFlight = userEpFuture;
     }
+    if (userEpFuture != null) {
+      await userEpFuture;
+    }
+    _userEpisodesInFlight = null;
     offset += pageLen;
+    if (isFirst) _loading = false;
     if (mounted) setState(() {});
   }
 
@@ -227,6 +281,17 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
   Widget build(BuildContext context) {
     super.build(context);
     if (episodes.isEmpty) {
+      if (_loading) {
+        return const Align(
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            key: ValueKey('subject-episodes-loading'),
+            width: 24,
+            height: 24,
+            child: ProgressRing(strokeWidth: 2),
+          ),
+        );
+      }
       if (!widget.showSummary) return const SizedBox.shrink();
       return Text('暂无剧集', style: BTTypography.caption(context));
     }

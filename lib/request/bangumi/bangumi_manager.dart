@@ -133,10 +133,24 @@ class RequestKey {
 
   static String subjectDetail(int id) => 'subject_detail_$id';
 
-  static String subjectEpisodes(int id) => 'subject_episodes_$id';
+  static String subjectEpisodes(int id, {int? offset, int? limit}) {
+    if (offset == null && limit == null) {
+      return 'subject_episodes_$id';
+    }
+    return 'subject_episodes_${id}_${offset ?? 0}_${limit ?? 0}';
+  }
 
   static String userCollection(String username, int subjectId) =>
       'user_collection_${username}_$subjectId';
+
+  static String userCollectionEpisodes(
+    int subjectId, {
+    int? offset,
+    int? limit,
+  }) {
+    return 'user_collection_episodes_${subjectId}_'
+        '${offset ?? 0}_${limit ?? 0}';
+  }
 
   static String userCollections(String username) =>
       'user_collections_$username';
