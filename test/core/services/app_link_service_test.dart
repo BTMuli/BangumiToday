@@ -109,6 +109,18 @@ void main() {
         await service.dispose();
       },
     );
+
+    test('keeps the latest link for late subscribers', () async {
+      var source = _FakeAppLinkSource();
+      var service = AppLinkService.forTesting(source);
+      service.start();
+      var uri = Uri.parse('bangumitoday://oauth/bangumi/callback?code=1');
+      source.add(uri);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(service.latest, uri);
+      await service.dispose();
+    });
   });
 }
 

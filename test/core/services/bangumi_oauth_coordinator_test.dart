@@ -44,10 +44,15 @@ void main() {
 
     test('exchanges the token once for a valid callback', () async {
       var gateway = _FakeOauthGateway(source, callback: oauthCallback());
+      var steps = <String>[];
 
-      var result = await buildCoordinator().authorize(gateway);
+      var result = await buildCoordinator().authorize(
+        gateway,
+        onProgress: steps.add,
+      );
 
       expect(result.code, 0);
+      expect(steps, ['正在换取授权']);
       expect(gateway.authorizeStates, ['fixed-state']);
       expect(gateway.tokenCalls, hasLength(1));
       expect(gateway.tokenCalls.single.code, 'auth-code');
@@ -67,17 +72,52 @@ void main() {
       expect(gateway.tokenCalls, isEmpty);
     });
 
-    test('rejects a callback with a wrong state', () async {
+    test(
+      'ignores a callback with a wrong state and waits for a match',
+      () async {
+        var gateway = _FakeOauthGateway(
+          source,
+          callbacks: [
+            oauthCallback(state: 'wrong-state'),
+            oauthCallback(code: 'auth-code'),
+          ],
+        );
+
+        var result = await buildCoordinator().authorize(gateway);
+
+        expect(result.code, 0);
+        expect(gateway.tokenCalls, hasLength(1));
+        expect(gateway.tokenCalls.single.code, 'auth-code');
+      },
+    );
+
+    test('accepts the bangumi/callback redirect path', () async {
       var gateway = _FakeOauthGateway(
         source,
-        callback: oauthCallback(state: 'wrong-state'),
+        callback: Uri.parse(
+          'bangumitoday://oauth/bangumi/callback'
+          '?code=auth-code&state=fixed-state',
+        ),
       );
 
       var result = await buildCoordinator().authorize(gateway);
 
-      expect(result.code, 400);
-      expect(result.message, contains('校验失败'));
-      expect(gateway.tokenCalls, isEmpty);
+      expect(result.code, 0);
+      expect(gateway.tokenCalls.single.code, 'auth-code');
+    });
+
+    test('ignores an OAuth link when no authorize is in flight', () async {
+      var coordinator = buildCoordinator();
+      coordinator.attach();
+      source.add(oauthCallback());
+      await Future<void>.delayed(Duration.zero);
+
+      var gateway = _FakeOauthGateway(source, callback: oauthCallback());
+      var result = await coordinator.authorize(gateway);
+
+      expect(result.code, 0);
+      expect(gateway.authorizeStates, ['fixed-state']);
+      expect(gateway.tokenCalls.single.code, 'auth-code');
     });
 
     test(

@@ -19,10 +19,12 @@ import 'app.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/cache/lru_cache_manager.dart';
 import 'core/services/app_link_service.dart';
+import 'core/services/bangumi_oauth_coordinator.dart';
 import 'core/services/bangumi_token_service.dart';
 import 'core/services/bmf_rss_service.dart';
 import 'core/services/bt_engine_client.dart';
 import 'core/services/desktop_tray_service.dart';
+import 'core/services/windows_app_protocol.dart';
 import 'core/utils/window_effect.dart';
 import 'database/app/app_config.dart';
 import 'database/bt_sqlite.dart';
@@ -116,6 +118,7 @@ Future<void> _initDesktopTray() async {
 Future<void> _exitApplication() async {
   if (_applicationExitStarted) return;
   _applicationExitStarted = true;
+  await _runExitStep('Windows 协议还原', restoreWindowsAppProtocol);
   await _runExitStep('BMF RSS 服务', () async {
     BmfRssService.instance.stop();
   });
@@ -146,6 +149,9 @@ bool _resolveDark(ThemeMode mode) {
 
 Future<void> _initBackgroundServices() async {
   await BTLogTool.init();
+  await _runOptionalService('Windows 协议注册', registerWindowsAppProtocol);
+  AppLinkService.instance.start();
+  BangumiOAuthCoordinator.instance.attach();
 
   await BTSqlite.init();
   var appConfig = BtsAppConfig();

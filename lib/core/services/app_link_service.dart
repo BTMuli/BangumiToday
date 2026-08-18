@@ -7,6 +7,9 @@ import 'package:flutter/foundation.dart';
 // Package imports:
 import 'package:app_links/app_links.dart';
 
+// Project imports:
+import '../../tools/log_tool.dart';
+
 /// 应用链接来源抽象，测试时可注入可控的实现。
 abstract class AppLinkSource {
   /// 程序运行时的链接流，需要广播模式。
@@ -46,11 +49,15 @@ class AppLinkService {
   StreamController<Uri> _controller = StreamController<Uri>.broadcast();
   StreamSubscription<Uri>? _subscription;
   bool _started = false;
+  Uri? _latest;
 
   Stream<Uri> get stream {
     start();
     return _controller.stream;
   }
+
+  /// 最近一次收到的应用链接。授权流程开始时可回放 OAuth 回调。
+  Uri? get latest => _latest;
 
   void start() {
     if (_started) return;
@@ -59,7 +66,7 @@ class AppLinkService {
     }
     _started = true;
     _subscription = _source.uriLinkStream.listen(
-      _controller.add,
+      _emitLink,
       onError: (Object error, StackTrace stackTrace) {
         // App-link errors must not terminate the shared stream.
       },
@@ -67,10 +74,16 @@ class AppLinkService {
     unawaited(_emitInitialLink());
   }
 
+  void _emitLink(Uri uri) {
+    _latest = uri;
+    BTLogTool.info('收到应用链接：$uri');
+    if (!_controller.isClosed) _controller.add(uri);
+  }
+
   Future<void> _emitInitialLink() async {
     try {
       var uri = await _source.getInitialLink();
-      if (uri != null && !_controller.isClosed) _controller.add(uri);
+      if (uri != null) _emitLink(uri);
     } catch (_) {
       // A missing initial link is a normal startup condition.
     }

@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 // Project imports:
 import '../../models/app/response.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
+import '../../tools/log_tool.dart';
 import '../constants/app_constants.dart';
 import 'app_link_service.dart';
 
@@ -40,52 +41,84 @@ class BangumiOAuthCoordinator {
   final AppLinkService _appLinkService;
   final String Function() _stateGenerator;
   final Duration _callbackTimeout;
-  StreamSubscription<Uri>? _callbackSubscription;
+  StreamSubscription<Uri>? _streamSubscription;
+  Completer<Uri>? _callback;
+  String? _expectedState;
+  Uri? _ignoredOauth;
   bool _isAuthorizing = false;
 
-  Future<BTResponse> authorize(BangumiOauthGateway api) async {
+  /// 全程订阅应用链接。OAuth 回调若在未登录时到达，会打忽略日志而不是静默丢弃。
+  void attach() {
+    if (_streamSubscription != null) return;
+    _appLinkService.start();
+    _streamSubscription = _appLinkService.stream.listen(_onAppLink);
+  }
+
+  Future<BTResponse> authorize(
+    BangumiOauthGateway api, {
+    void Function(String text)? onProgress,
+  }) async {
     if (_isAuthorizing) {
       return BTResponse.error(code: 409, message: '已有授权流程正在进行', data: null);
     }
 
+    attach();
     _isAuthorizing = true;
     var state = _stateGenerator();
+    _expectedState = state;
     var callback = Completer<Uri>();
-    _appLinkService.start();
-    _callbackSubscription = _appLinkService.stream.listen((uri) {
-      if (!_isOAuthCallback(uri) || callback.isCompleted) return;
-      callback.complete(uri);
-    });
+    _callback = callback;
 
     try {
-      await api.openAuthorizePage(state: state);
-      var uri = await callback.future.timeout(_callbackTimeout);
-      if (uri.queryParameters['state'] != state) {
-        return BTResponse.error(code: 400, message: '授权回调校验失败', data: null);
+      var latest = _appLinkService.latest;
+      if (latest != null && latest != _ignoredOauth) {
+        _onAppLink(latest);
       }
+      if (!callback.isCompleted) {
+        await api.openAuthorizePage(state: state);
+      }
+      var uri = await callback.future.timeout(_callbackTimeout);
       var code = uri.queryParameters['code'];
       if (code == null || code.isEmpty) {
         return BTResponse.error(code: 400, message: '授权回调中未找到授权码', data: null);
       }
+      onProgress?.call('正在换取授权');
       return await api.getAccessToken(code, state: state);
     } on TimeoutException {
       return BTResponse.error(code: 408, message: '等待授权回调超时', data: null);
     } catch (error) {
-      return BTResponse.error(
-        code: 666,
-        message: '授权流程失败：${error.runtimeType}',
-        data: null,
-      );
+      return BTResponse.error(code: 666, message: '授权流程失败：$error', data: null);
     } finally {
-      await _callbackSubscription?.cancel();
-      _callbackSubscription = null;
+      _callback = null;
+      _expectedState = null;
       _isAuthorizing = false;
     }
   }
 
+  void _onAppLink(Uri uri) {
+    if (!_isOAuthCallback(uri)) return;
+    var callback = _callback;
+    if (callback == null) {
+      _ignoredOauth = uri;
+      BTLogTool.info('忽略 OAuth 回调：当前没有授权流程');
+      return;
+    }
+    if (callback.isCompleted) return;
+    if (uri.queryParameters['state'] != _expectedState) {
+      BTLogTool.info('忽略 OAuth 回调：state 不匹配');
+      return;
+    }
+    BTLogTool.info('收到 OAuth 回调：$uri');
+    callback.complete(uri);
+  }
+
   bool _isOAuthCallback(Uri uri) {
-    return uri.scheme.toLowerCase() == BTAppConstants.urlScheme &&
-        uri.host.toLowerCase() == 'oauth';
+    if (uri.scheme.toLowerCase() != BTAppConstants.urlScheme) return false;
+    if (uri.host.toLowerCase() == 'oauth') return true;
+    var segments = uri.pathSegments
+        .map((segment) => segment.toLowerCase())
+        .toList();
+    return segments.isNotEmpty && segments.first == 'oauth';
   }
 
   static String _createState() {

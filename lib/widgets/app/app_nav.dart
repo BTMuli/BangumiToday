@@ -162,7 +162,10 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
       progress = ProgressWidget.show(context, title: '前往授权页面');
     }
     progress.update(text: '等待授权回调');
-    var res = await BangumiOAuthCoordinator.instance.authorize(apiOauth);
+    var res = await BangumiOAuthCoordinator.instance.authorize(
+      apiOauth,
+      onProgress: (text) => progress.update(text: text),
+    );
     if (!mounted) {
       progress.end();
       return;
