@@ -25,12 +25,12 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `hooks_riverpod` (st
 | `lib/app.dart` | FluentApp shell, theme / window material sync |
 | `lib/controller/` | Page-scoped controllers (nav index, progress) |
 | `lib/core/` | Cross-cutting: constants, cache, layout, theme, services, errors, window effects |
-| `lib/data/` + `lib/domain/` | Bangumi repository pattern (local/remote datasources, repository interfaces) |
+| `lib/data/` + `lib/domain/` | Bangumi repository：远程 API + 收藏 SQLite 本地源 |
 | `lib/database/` | SQLite access: `app/` (AppConfig, AppBmf, AppRss, Mikan credential) and `bangumi/` (user, collection, data) |
 | `lib/models/` | JSON / Hive / database models with generated `.g.dart` |
 | `lib/pages/` | Feature pages (`app`, `app-setting`, `bangumi-calendar`, `rss-bmf`, `subject-detail`, `subject-search`, `user-collection`) |
 | `lib/plugins/` | Mikan API + self-built RSS parser |
-| `lib/providers/` | Riverpod provider exports |
+| `lib/providers/` | Riverpod provider exports；`bangumi_providers.dart` 组装 Bangumi 仓储 |
 | `lib/request/` | dio clients: `bangumi/`, `rss/`, `core/` (BtrClient, RequestManager) |
 | `lib/store/` | ChangeNotifier stores (app, nav, bmf, download) + Hive boxes |
 | `lib/tools/` | Stateless utility singletons (log, hive, download, file, notifier) |

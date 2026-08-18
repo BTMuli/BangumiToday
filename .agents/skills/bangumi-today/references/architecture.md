@@ -20,6 +20,7 @@ Contents:
 ## State management
 
 - Riverpod 3; store providers import `package:flutter_riverpod/legacy.dart` and use `ChangeNotifierProvider` / `AsyncNotifierProvider` (`appStoreProvider`, `navStoreProvider`, `bmfListProvider`, `bmfNavigationProvider`, `btDownloadStoreProvider`). `lib/providers/providers.dart` re-exports the stores.
+- Bangumi reads/writes go through `bangumiRepositoryProvider` (`lib/providers/bangumi_providers.dart`): remote API plus SQLite collections. Remote collection failures other than 404 fall back to local rows; 404 deletes the local row.
 - Store classes in `lib/store/` are `ChangeNotifier`s: write to SQLite/Hive, then `notifyListeners()`.
 - `lib/tools/` classes are stateless singletons (`BTLogTool`, `BTHiveTool`, `BTFileTool`, `BTDownloadTool`, `BTNotifierTool`); call them without Riverpod.
 - `lib/core/services/` singletons expose `instance` plus `forTesting` constructors with injected dependencies (see `BmfRssService`, `BangumiOAuthCoordinator`, `BtEngineClient`).
@@ -64,6 +65,7 @@ Contents:
 | Class | File | Purpose |
 |---|---|---|
 | `globalContainer` | `lib/main.dart` | Root ProviderContainer used by services for navigation |
+| `BTBangumiRepository` | `lib/data/repositories/bangumi_repository_impl.dart` | Bangumi API + local collection cache |
 | `BtrBangumiApi` | `lib/request/bangumi/bangumi_api.dart` | Bangumi API client (static base URL) |
 | `BtrMikanApi` | `lib/plugins/mikan/mikan_api.dart` | Mikan RSS/search client |
 | `BmfRssService` | `lib/core/services/bmf_rss_service.dart` | Background RSS refresh + notifications |
