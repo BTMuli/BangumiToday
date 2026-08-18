@@ -26,25 +26,28 @@ For an existing clone, initialize the download engine with
 
 ### Run BangumiToday Project
 
-For security reasons, the project stores some sensitive information in the `.env` file, which will
-not be uploaded to the repository.
+OAuth credentials are compile-time dart-defines and are never committed.
+Flutter does **not** read `.env` at runtime. Create `.dart-define.json` in the
+project root (gitignored):
 
-You need to create `.env` file in the root directory of the project, and fill the data below:
-
-```env
-BANGUMI_APP_ID=xxx
-BANGUMI_APP_SECRET=xxx
+```json
+{
+  "BANGUMI_APP_ID": "xxx",
+  "BANGUMI_APP_SECRET": "xxx"
+}
 ```
 
 You can get the `BANGUMI_APP_ID` and `BANGUMI_APP_SECRET` from [Bangumi API](https://bgm.tv/dev/app)
-
 by creating a new app.
 
-After you have created the `.env` file, you could run the project by using the following command:
+Then run:
 
 ```shell
-flutter run
+flutter run --dart-define-from-file=.dart-define.json
 ```
+
+`.env` is only used by the local release script (`dev_build.ps1`) for signing
+and version. An empty dart-define makes Bangumi return `app_nonexistence`.
 
 On Windows, the CMake build automatically configures and installs the `bt_download` submodule's
 Release runtime before launching a local Debug/Profile runner. The sidecar is copied to

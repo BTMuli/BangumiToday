@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 // Project imports:
 import 'package:bangumi_today/core/constants/app_constants.dart';
+import 'package:bangumi_today/models/bangumi/bangumi_oauth_model.dart';
 import 'package:bangumi_today/request/bangumi/bangumi_api.dart';
 import 'package:bangumi_today/request/bangumi/bangumi_error_handler.dart';
 import 'package:bangumi_today/request/bangumi/bangumi_oauth.dart';
@@ -103,8 +104,8 @@ void main() {
         fallbackMessage: 'Failed to load user info',
       );
 
-      expect(response.code, 666);
-      expect(response.message, contains('HandshakeException'));
+      expect(response.code, 503);
+      expect(response.message, '网络连接失败，请稍后重试');
       expect(response.data, isNull);
     });
 
@@ -168,6 +169,26 @@ void main() {
     expect(result.data, isNull);
   });
 
+  test('surfaces an HTML title from an unexpected response', () {
+    var requestOptions = RequestOptions(
+      path: '/oauth/access_token',
+      baseUrl: 'https://bangumi.lol',
+    );
+    var response = Response(
+      requestOptions: requestOptions,
+      statusCode: 400,
+      data: '<html><title>400 Bad Request - mirrox</title></html>',
+    );
+
+    var result = handleBangumiUnexpectedResponse(
+      response,
+      fallbackMessage: 'Bangumi token get error',
+    );
+
+    expect(result.code, 400);
+    expect(result.message, '400 Bad Request - mirrox');
+  });
+
   group('BtrBangumiOauth base URL', () {
     tearDown(() {
       BtrBangumiApi.setBaseUrl(BTAppConstants.bangumiApiBaseUrl);
@@ -198,6 +219,79 @@ void main() {
         BtrBangumiOauth.oauthBaseUrl,
         '${BTAppConstants.bangumiLolSiteBaseUrl}/oauth',
       );
+    });
+
+    test('exchanges tokens on the official OAuth host', () {
+      BtrBangumiApi.setBaseUrl(BTAppConstants.bangumiLolApiBaseUrl);
+
+      expect(
+        BtrBangumiOauth.oauthTokenBaseUrl,
+        '${BTAppConstants.officialBangumiSiteBaseUrl}/oauth',
+      );
+    });
+  });
+
+  group('readBangumiOauthError', () {
+    test('surfaces app_nonexistence from an HTTP 200 payload', () {
+      var result = readBangumiOauthError({
+        'error': 'app_nonexistence',
+        'error_description': 'The App is not exist',
+      }, fallbackMessage: 'Bangumi token get error');
+
+      expect(result, isNotNull);
+      expect(result!.code, 400);
+      expect(result.message, 'The App is not exist');
+    });
+
+    test('ignores a successful token payload', () {
+      expect(
+        readBangumiOauthError({
+          'access_token': 'token',
+          'refresh_token': 'refresh',
+        }, fallbackMessage: 'Bangumi token get error'),
+        isNull,
+      );
+    });
+  });
+
+  group('Bangumi OAuth params', () {
+    test('authorize, token and refresh share redirect_uri', () {
+      var authorize = BangumiOauthParams(appId: 'id', state: 's');
+      var token = BangumiOauthTokenGetParams(
+        appId: 'id',
+        appSecret: 'secret',
+        code: 'code',
+        state: 's',
+      );
+      var refresh = BangumiOauthTokenRefreshParams(
+        appId: 'id',
+        appSecret: 'secret',
+        refreshToken: 'rt',
+      );
+
+      expect(
+        authorize.toJson()['redirect_uri'],
+        BTAppConstants.bangumiOauthRedirectUri,
+      );
+      expect(
+        token.toJson()['redirect_uri'],
+        BTAppConstants.bangumiOauthRedirectUri,
+      );
+      expect(
+        refresh.toJson()['redirect_uri'],
+        BTAppConstants.bangumiOauthRedirectUri,
+      );
+      expect(refresh.toJson()['grant_type'], 'refresh_token');
+    });
+  });
+
+  group('BtrBangumiOauth credentials', () {
+    test('getAccessToken fails when dart-defines are missing', () async {
+      var result = await BtrBangumiOauth().getAccessToken('code', state: 's');
+
+      expect(result.code, 500);
+      expect(result.message, contains('dart-define-from-file'));
+      expect(result.message, contains('.env'));
     });
   });
 }

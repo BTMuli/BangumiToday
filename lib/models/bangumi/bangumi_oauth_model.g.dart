@@ -97,11 +97,14 @@ Map<String, dynamic> _$BangumiOauthTokenGetDataToJson(
 
 BangumiOauthTokenRefreshParams _$BangumiOauthTokenRefreshParamsFromJson(
   Map<String, dynamic> json,
-) => BangumiOauthTokenRefreshParams(
-  appId: json['client_id'] as String,
-  appSecret: json['client_secret'] as String,
-  refreshToken: json['refresh_token'] as String,
-)..grantType = json['grant_type'] as String;
+) =>
+    BangumiOauthTokenRefreshParams(
+        appId: json['client_id'] as String,
+        appSecret: json['client_secret'] as String,
+        refreshToken: json['refresh_token'] as String,
+      )
+      ..grantType = json['grant_type'] as String
+      ..redirectUri = json['redirect_uri'] as String;
 
 Map<String, dynamic> _$BangumiOauthTokenRefreshParamsToJson(
   BangumiOauthTokenRefreshParams instance,
@@ -110,6 +113,7 @@ Map<String, dynamic> _$BangumiOauthTokenRefreshParamsToJson(
   'client_id': instance.appId,
   'client_secret': instance.appSecret,
   'refresh_token': instance.refreshToken,
+  'redirect_uri': instance.redirectUri,
 };
 
 BangumiOauthTokenRefreshResp _$BangumiOauthTokenRefreshRespFromJson(

@@ -6,6 +6,8 @@ class BTAppConstants {
 
   static const String urlScheme = 'bangumitoday';
   static const String subjectPath = 'subject';
+  static const String bangumiOauthRedirectUri =
+      'BangumiToday://oauth/bangumi/callback';
 
   static const double defaultWindowWidth = 1280;
   static const double defaultWindowHeight = 720;

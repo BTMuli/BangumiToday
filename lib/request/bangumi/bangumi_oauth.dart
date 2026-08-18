@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // Project imports:
+import '../../core/constants/app_constants.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../tools/log_tool.dart';
@@ -29,8 +30,13 @@ class BtrBangumiOauth implements BangumiOauthGateway {
   /// 当前站点 URL
   static String get siteBaseUrl => BtrBangumiApi.siteBaseUrl;
 
-  /// 当前 OAuth URL
+  /// 授权页跟随所选站点；浏览器可过镜像的 Cloudflare。
   static String get oauthBaseUrl => '$siteBaseUrl/oauth';
+
+  /// 换 token 固定走官方站。bangumi.lol 的 mirrox 会把
+  /// `POST /oauth/access_token` 拦成 HTML 400。
+  static String get oauthTokenBaseUrl =>
+      '${BTAppConstants.officialBangumiSiteBaseUrl}/oauth';
 
   /// 构造函数
   BtrBangumiOauth() {
@@ -42,17 +48,31 @@ class BtrBangumiOauth implements BangumiOauthGateway {
   /// 打开授权页面
   @override
   Future<void> openAuthorizePage({String? state}) async {
+    if (!hasBgmOauthCredentials()) {
+      throw StateError(bgmOauthCredentialsMissing);
+    }
     var appId = getBgmAppId();
     var params = BangumiOauthParams(appId: appId, state: state);
+    var query = <String, String>{};
+    params.toJson().forEach((key, value) {
+      if (value != null) query[key] = value.toString();
+    });
     var url = Uri.parse(
-      '$siteBaseUrl/oauth/authorize',
-    ).replace(queryParameters: params.toJson());
+      '$oauthBaseUrl/authorize',
+    ).replace(queryParameters: query);
     await launchUrl(url);
   }
 
   /// 获取 AccessToken
   @override
   Future<BTResponse> getAccessToken(String code, {String? state}) async {
+    if (!hasBgmOauthCredentials()) {
+      return BTResponse.error(
+        code: 500,
+        message: bgmOauthCredentialsMissing,
+        data: null,
+      );
+    }
     var appId = getBgmAppId();
     var appSecret = getBgmAppSecret();
     var params = BangumiOauthTokenGetParams(
@@ -62,19 +82,22 @@ class BtrBangumiOauth implements BangumiOauthGateway {
       state: state,
     );
     try {
-      var response = await client.dio.post(
-        '/access_token',
-        data: params.toJson(),
-        options: Options(contentType: Headers.formUrlEncodedContentType),
-      );
-      if (response.data is! Map<String, dynamic>) {
+      var payload = _oauthForm(params.toJson());
+      var response = await _postOauthForm('/access_token', payload);
+      var map = bangumiJsonMap(response.data);
+      if (map == null) {
         return handleBangumiUnexpectedResponse(
           response,
           fallbackMessage: 'Bangumi token get error',
         );
       }
+      var oauthError = readBangumiOauthError(
+        map,
+        fallbackMessage: 'Bangumi token get error',
+      );
+      if (oauthError != null) return oauthError;
       return BangumiOauthTokenGetResp.success(
-        data: BangumiOauthTokenGetData.fromJson(response.data),
+        data: BangumiOauthTokenGetData.fromJson(map),
       );
     } on DioException catch (e) {
       return handleBangumiDioException(
@@ -93,6 +116,13 @@ class BtrBangumiOauth implements BangumiOauthGateway {
 
   /// 刷新 AccessToken
   Future<BTResponse> refreshToken(String refreshToken) async {
+    if (!hasBgmOauthCredentials()) {
+      return BTResponse.error(
+        code: 500,
+        message: bgmOauthCredentialsMissing,
+        data: null,
+      );
+    }
     var appId = getBgmAppId();
     var appSecret = getBgmAppSecret();
     var params = BangumiOauthTokenRefreshParams(
@@ -101,19 +131,22 @@ class BtrBangumiOauth implements BangumiOauthGateway {
       refreshToken: refreshToken,
     );
     try {
-      var response = await client.dio.post(
-        '/access_token',
-        data: params.toJson(),
-        options: Options(contentType: Headers.formUrlEncodedContentType),
-      );
-      if (response.data is! Map<String, dynamic>) {
+      var payload = _oauthForm(params.toJson());
+      var response = await _postOauthForm('/access_token', payload);
+      var map = bangumiJsonMap(response.data);
+      if (map == null) {
         return handleBangumiUnexpectedResponse(
           response,
           fallbackMessage: 'Bangumi token refresh error',
         );
       }
+      var oauthError = readBangumiOauthError(
+        map,
+        fallbackMessage: 'Bangumi token refresh error',
+      );
+      if (oauthError != null) return oauthError;
       return BangumiOauthTokenRefreshResp.success(
-        data: BangumiOauthTokenRefreshData.fromJson(response.data),
+        data: BangumiOauthTokenRefreshData.fromJson(map),
       );
     } on DioException catch (e) {
       return handleBangumiDioException(
@@ -133,21 +166,23 @@ class BtrBangumiOauth implements BangumiOauthGateway {
   /// 查询授权信息
   Future<BTResponse> getStatus(String accessToken) async {
     try {
-      var response = await client.dio.post(
-        '/token_status',
-        data: {'access_token': accessToken},
-        options: Options(contentType: Headers.formUrlEncodedContentType),
-      );
-      if (response.data is! Map<String, dynamic>) {
+      var response = await _postOauthForm('/token_status', {
+        'access_token': accessToken,
+      });
+      var map = bangumiJsonMap(response.data);
+      if (map == null) {
         return handleBangumiUnexpectedResponse(
           response,
           fallbackMessage: 'Bangumi token status error',
         );
       }
+      var oauthError = readBangumiOauthError(
+        map,
+        fallbackMessage: 'Bangumi token status error',
+      );
+      if (oauthError != null) return oauthError;
       return BangumiOauthTokenStatusResp.success(
-        data: BangumiOauthTokenStatusData.fromJson(
-          response.data as Map<String, dynamic>,
-        ),
+        data: BangumiOauthTokenStatusData.fromJson(map),
       );
     } on DioException catch (e) {
       return handleBangumiDioException(
@@ -163,12 +198,41 @@ class BtrBangumiOauth implements BangumiOauthGateway {
       );
     }
   }
+
+  Map<String, String> _oauthForm(Map<String, dynamic> data) {
+    var payload = <String, String>{};
+    data.forEach((key, value) {
+      if (value != null) payload[key] = value.toString();
+    });
+    return payload;
+  }
+
+  Future<Response<dynamic>> _postOauthForm(
+    String path,
+    Map<String, String> payload, {
+    bool useSelectedSite = false,
+  }) async {
+    var options = Options(
+      contentType: Headers.formUrlEncodedContentType,
+      extra: {if (useSelectedSite) 'oauthUseSelectedSite': true},
+    );
+    var response = await client.dio.post(path, data: payload, options: options);
+    if (bangumiJsonMap(response.data) != null || useSelectedSite) {
+      return response;
+    }
+    if (oauthBaseUrl == oauthTokenBaseUrl) return response;
+    BTLogTool.warn('官方 OAuth $path 非 JSON，改走 $oauthBaseUrl');
+    return _postOauthForm(path, payload, useSelectedSite: true);
+  }
 }
 
 class _BangumiOauthBaseUrlInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    options.baseUrl = BtrBangumiOauth.oauthBaseUrl;
+    var useSelectedSite = options.extra['oauthUseSelectedSite'] == true;
+    options.baseUrl = useSelectedSite
+        ? BtrBangumiOauth.oauthBaseUrl
+        : BtrBangumiOauth.oauthTokenBaseUrl;
     handler.next(options);
   }
 }

@@ -2,6 +2,7 @@
 import 'package:json_annotation/json_annotation.dart';
 
 // Project imports:
+import '../../core/constants/app_constants.dart';
 import '../app/response.dart';
 
 /// Bangumi.tv 的 OAuth 相关数据结构
@@ -61,7 +62,7 @@ class BangumiOauthParams {
 
   /// redirect_uri
   @JsonKey(name: 'redirect_uri')
-  String redirectUri = 'BangumiToday://oauth/bangumi/callback';
+  String redirectUri = BTAppConstants.bangumiOauthRedirectUri;
 
   /// 防止伪造回调的随机状态值
   @JsonKey(name: 'state', includeIfNull: false)
@@ -99,7 +100,7 @@ class BangumiOauthTokenGetParams {
 
   /// redirect_uri
   @JsonKey(name: 'redirect_uri')
-  String redirectUri = 'BangumiToday://oauth/bangumi/callback';
+  String redirectUri = BTAppConstants.bangumiOauthRedirectUri;
 
   /// state
   @JsonKey(name: 'state')
@@ -204,6 +205,10 @@ class BangumiOauthTokenRefreshParams {
   /// refresh_token
   @JsonKey(name: 'refresh_token')
   String refreshToken;
+
+  /// redirect_uri
+  @JsonKey(name: 'redirect_uri')
+  String redirectUri = BTAppConstants.bangumiOauthRedirectUri;
 
   /// constructor
   BangumiOauthTokenRefreshParams({

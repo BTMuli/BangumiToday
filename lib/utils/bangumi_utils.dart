@@ -8,6 +8,17 @@ String getBgmAppSecret() {
   return const String.fromEnvironment('BANGUMI_APP_SECRET');
 }
 
+/// Flutter 只吃编译期 dart-define，不会读取仓库里的 .env。
+const String bgmOauthCredentialsMissing =
+    'BANGUMI_APP_ID / BANGUMI_APP_SECRET 未注入。'
+    '本地请用 --dart-define-from-file=.dart-define.json 启动；'
+    '.env 只给发布脚本读取。';
+
+/// 当前编译是否带上了 OAuth 凭据。
+bool hasBgmOauthCredentials() {
+  return getBgmAppId().isNotEmpty && getBgmAppSecret().isNotEmpty;
+}
+
 /// 把 BangumiData `begin` 收成 `HH:mm`；无法解析时返回 null。
 String? formatBangumiAirClock(String? begin) {
   if (begin == null || begin.isEmpty) return null;

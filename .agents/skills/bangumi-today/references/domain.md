@@ -17,7 +17,7 @@ Contents:
 
 ## OAuth
 
-- Flow (`BangumiOAuthCoordinator.authorize`): open `<site>/oauth/authorize` with app id + random base64url `state`, wait for the app-link callback `bangumitoday://oauth?code=...&state=...` (5-minute timeout), validate `state`, exchange the code at `/oauth/access_token` (form-encoded), then fetch user info.
+- Flow (`BangumiOAuthCoordinator.authorize`): open `<site>/oauth/authorize` (paired with the selected API mirror so the browser can pass Cloudflare) with app id, `redirect_uri=BangumiToday://oauth/bangumi/callback`, and random base64url `state`; wait for the app-link callback `bangumitoday://oauth?...` (5-minute timeout), validate `state`, then exchange the code at official `https://bgm.tv/oauth/access_token` (form body, same `redirect_uri`). bangumi.lol's mirrox proxy returns HTML 400 for that POST. Refresh uses the same official endpoint with `grant_type=refresh_token`. HTTP 200 OAuth error payloads such as `app_nonexistence` are treated as failures. If the official token host returns non-JSON, the client retries the selected site.
 - Credentials `BANGUMI_APP_ID` / `BANGUMI_APP_SECRET` are compile-time dart-defines, never shipped as assets. Tokens persist via `BgmUserHive` + secure storage; `AuthInterceptor` refreshes on 401.
 
 ## BangumiData
