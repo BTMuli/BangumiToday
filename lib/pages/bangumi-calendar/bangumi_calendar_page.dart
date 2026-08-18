@@ -18,6 +18,7 @@ import '../../tools/notifier_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
+import '../../utils/bangumi_utils.dart';
 import '../subject-search/subject_search_page.dart';
 import 'bc_pw_day.dart';
 
@@ -42,6 +43,9 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
   /// 请求数据
   List<BangumiCalendarRespData> calendarData = [];
+
+  /// 开播时间，按条目原名索引
+  Map<String, String> airTimes = {};
 
   /// 是否只显示收藏
   bool isShowCollection = false;
@@ -123,6 +127,8 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       }
 
       calendarData = data;
+      await loadAirTimes(data);
+      if (!mounted) return;
       await BtInfobar.success(context, '成功刷新放送数据');
     } catch (error) {
       if (mounted) {
@@ -138,6 +144,30 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   List<BangumiLegacySubjectSmall> getTabData(int index) {
     if (index >= calendarData.length) return [];
     return calendarData[index].items;
+  }
+
+  /// 一次读出当周所需开播时间，避免每张卡片打 SQLite。
+  Future<void> loadAirTimes(List<BangumiCalendarRespData> days) async {
+    var names = <String>{
+      for (var day in days)
+        for (var item in day.items)
+          if (item.name.isNotEmpty) item.name,
+    };
+    if (names.isEmpty) {
+      airTimes = {};
+      return;
+    }
+    try {
+      var items = await sqliteBd.readItemsByTitles(names);
+      var next = <String, String>{};
+      for (var entry in items.entries) {
+        var clock = formatBangumiAirClock(entry.value.begin);
+        if (clock != null) next[entry.key] = clock;
+      }
+      airTimes = next;
+    } catch (_) {
+      airTimes = {};
+    }
   }
 
   /// 更新远程数据
@@ -296,7 +326,11 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       icon: index == today
           ? const Icon(FluentIcons.away_status)
           : const Icon(FluentIcons.calendar),
-      body: BcpDayWidget(data: getTabData(index), loading: isRequesting),
+      body: BcpDayWidget(
+        data: getTabData(index),
+        airTimes: airTimes,
+        loading: isRequesting,
+      ),
       semanticLabel: '星期${weekday[index]}',
       selectedBackgroundColor: WidgetStateColor.resolveWith(
         (_) => FluentTheme.of(context).accentColor,

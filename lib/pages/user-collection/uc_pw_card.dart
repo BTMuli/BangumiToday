@@ -5,7 +5,6 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 
 // Package imports:
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -20,6 +19,7 @@ import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/bangumi_utils.dart';
+import '../../widgets/bangumi/bt_bangumi_cover.dart';
 
 /// 收藏卡片
 class UcpCardWidget extends ConsumerStatefulWidget {
@@ -35,7 +35,7 @@ class UcpCardWidget extends ConsumerStatefulWidget {
 
 /// 收藏卡片状态
 class _UcpCardState extends ConsumerState<UcpCardWidget>
-    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   /// 数据
   BangumiSlimSubject get data => widget.data.subject;
 
@@ -45,10 +45,6 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
   /// 动画控制器
   late AnimationController _animationController;
   late Animation<double> _elevationAnimation;
-
-  /// 保存状态
-  @override
-  bool get wantKeepAlive => false;
 
   /// 初始化
   @override
@@ -103,31 +99,10 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
 
   /// 构建封面
   Widget buildCoverImage(BuildContext context) {
-    if (data.images.large == '') {
-      return buildCoverError(context);
-    }
-    // bangumi 在线切图
-    // see: https://github.com/bangumi/img-proxy
-    var pathGet = Uri.parse(data.images.large).path;
-    var link = '${BtrBangumiApi.imageBaseUrl}/r/0x600$pathGet';
-    return ClipRRect(
+    return BtBangumiCover(
+      imageUrl: data.images.large,
       borderRadius: BTRadius.mediumBR,
-      child: CachedNetworkImage(
-        imageUrl: link,
-        fit: BoxFit.cover,
-        progressIndicatorBuilder: (context, url, dp) => Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: ProgressRing(
-              value: dp.progress == null ? 0 : dp.progress! * 100,
-              strokeWidth: 2,
-            ),
-          ),
-        ),
-        errorWidget: (context, url, error) =>
-            buildCoverError(context, err: error.toString()),
-      ),
+      errorBuilder: buildCoverError,
     );
   }
 
@@ -327,7 +302,6 @@ class _UcpCardState extends ConsumerState<UcpCardWidget>
   /// 构建函数
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return MouseRegion(

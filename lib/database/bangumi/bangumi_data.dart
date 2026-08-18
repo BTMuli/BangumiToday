@@ -128,6 +128,33 @@ class BtsBangumiData {
     return BangumiDataItem.fromSqlJson(result.first);
   }
 
+  /// 按标题批量读取条目，查询次数与标题数量解耦。
+  Future<Map<String, BangumiDataItem>> readItemsByTitles(
+    Iterable<String> titles,
+  ) async {
+    await _instance.preCheckItem();
+    var unique = titles.where((title) => title.isNotEmpty).toSet().toList();
+    if (unique.isEmpty) return {};
+    var map = <String, BangumiDataItem>{};
+    const chunkSize = 400;
+    for (var start = 0; start < unique.length; start += chunkSize) {
+      var end = start + chunkSize;
+      if (end > unique.length) end = unique.length;
+      var chunk = unique.sublist(start, end);
+      var placeholders = List.filled(chunk.length, '?').join(',');
+      var result = await _instance.sqlite.db.query(
+        _tableNameItem,
+        where: 'title IN ($placeholders)',
+        whereArgs: chunk,
+      );
+      for (var row in result) {
+        var item = BangumiDataItem.fromSqlJson(row);
+        map[item.title] = item;
+      }
+    }
+    return map;
+  }
+
   /// 写入/更新站点元数据
   Future<void> writeSite(BangumiDataSiteFull site, {bool check = true}) async {
     if (check) await _instance.preCheckSite();

@@ -288,7 +288,6 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
         return Container(
           margin: EdgeInsets.all(8),
           child: GridView.builder(
-            controller: ScrollController(),
             padding: EdgeInsets.all(8),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,

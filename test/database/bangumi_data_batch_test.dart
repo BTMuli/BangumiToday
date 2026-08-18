@@ -71,6 +71,30 @@ void main() {
       expect(await data.readItemAll(), hasLength(250));
     },
   );
+
+  test('readItemsByTitles returns a map and ignores unknown titles', () async {
+    var data = BtsBangumiData();
+    await data.writeItemBatch([_item('alpha'), _item('beta'), _item('gamma')]);
+
+    var found = await data.readItemsByTitles([
+      'alpha',
+      'missing',
+      'beta',
+      'alpha',
+      '',
+    ]);
+
+    expect(found.keys, unorderedEquals(['alpha', 'beta']));
+    expect(found['alpha']?.title, 'alpha');
+  });
+
+  test('readItemsByTitles with no titles does not query rows', () async {
+    var data = BtsBangumiData();
+    await data.writeItemBatch([_item('only')]);
+
+    expect(await data.readItemsByTitles(const []), isEmpty);
+    expect(await data.readItemsByTitles(['', '']), isEmpty);
+  });
 }
 
 BangumiDataItem _item(String title) {

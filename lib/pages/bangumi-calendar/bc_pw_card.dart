@@ -5,7 +5,6 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 
 // Package imports:
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:html_unescape/html_unescape.dart';
@@ -13,36 +12,32 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
-import '../../database/bangumi/bangumi_data.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
-import '../../request/bangumi/bangumi_api.dart';
 import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/bangumi_utils.dart';
+import '../../widgets/bangumi/bt_bangumi_cover.dart';
 
 class BcpCardWidget extends ConsumerStatefulWidget {
   final BangumiLegacySubjectSmall data;
+  final String? airTime;
 
-  const BcpCardWidget({super.key, required this.data});
+  const BcpCardWidget({super.key, required this.data, this.airTime});
 
   @override
   ConsumerState<BcpCardWidget> createState() => _BcpCardState();
 }
 
 class _BcpCardState extends ConsumerState<BcpCardWidget>
-    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   BangumiLegacySubjectSmall get data => widget.data;
 
-  String upTime = '';
   bool _isHovered = false;
 
   late AnimationController _animationController;
   late Animation<double> _elevationAnimation;
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -54,27 +49,12 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
     _elevationAnimation = Tween<double>(begin: 0, end: 4).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
-    Future.delayed(Duration.zero, () async => await getTime());
   }
 
   @override
   void dispose() {
     _animationController.dispose();
     super.dispose();
-  }
-
-  String fmtInt(int time) {
-    return time.toString().padLeft(2, '0');
-  }
-
-  Future<void> getTime() async {
-    var itemGet = await BtsBangumiData().readItem(data.name);
-    if (!mounted) return;
-    if (itemGet == null) return;
-    upTime = itemGet.begin;
-    var time = DateTime.parse(upTime);
-    upTime = '${fmtInt(time.hour)}:${fmtInt(time.minute)}';
-    setState(() {});
   }
 
   Widget buildCoverError(BuildContext context, {String? err}) {
@@ -108,31 +88,10 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
   }
 
   Widget buildCoverImage(BuildContext context) {
-    if (data.images == null ||
-        data.images?.large == null ||
-        data.images?.large == '') {
-      return buildCoverError(context);
-    }
-    var pathGet = Uri.parse(data.images!.large).path;
-    var link = '${BtrBangumiApi.imageBaseUrl}/r/0x600$pathGet';
-    return ClipRRect(
+    return BtBangumiCover(
+      imageUrl: data.images?.large,
       borderRadius: BTRadius.mediumBR,
-      child: CachedNetworkImage(
-        imageUrl: link,
-        fit: BoxFit.cover,
-        progressIndicatorBuilder: (context, url, dp) => Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: ProgressRing(
-              value: dp.progress == null ? 0 : dp.progress! * 100,
-              strokeWidth: 2,
-            ),
-          ),
-        ),
-        errorWidget: (context, url, error) =>
-            buildCoverError(context, err: error.toString()),
-      ),
+      errorBuilder: buildCoverError,
     );
   }
 
@@ -379,7 +338,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
             ),
           ),
         ],
-        if (upTime.isNotEmpty) ...[
+        if (widget.airTime != null && widget.airTime!.isNotEmpty) ...[
           SizedBox(height: 6),
           Row(
             children: [
@@ -390,7 +349,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
               ),
               SizedBox(width: 4),
               Text(
-                upTime,
+                widget.airTime!,
                 style: BTTypography.caption(
                   context,
                 ).copyWith(color: FluentTheme.of(context).accentColor),
@@ -406,7 +365,6 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return MouseRegion(

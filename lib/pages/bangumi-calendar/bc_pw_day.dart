@@ -15,11 +15,19 @@ class BcpDayWidget extends StatelessWidget {
   /// 数据
   final List<BangumiLegacySubjectSmall> data;
 
+  /// 开播时间，按条目原名索引
+  final Map<String, String> airTimes;
+
   /// 是否在加载中
   final bool loading;
 
   /// 构造函数
-  const BcpDayWidget({super.key, required this.data, required this.loading});
+  const BcpDayWidget({
+    super.key,
+    required this.data,
+    this.airTimes = const {},
+    required this.loading,
+  });
 
   /// 构建空状态
   Widget buildEmptyState(BuildContext context) {
@@ -35,7 +43,6 @@ class BcpDayWidget extends StatelessWidget {
       builder: (context, constraints) {
         var columns = BTBreakpoints.getGridColumns(constraints.maxWidth);
         return GridView.builder(
-          controller: ScrollController(),
           padding: EdgeInsets.all(8),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
@@ -45,10 +52,13 @@ class BcpDayWidget extends StatelessWidget {
           ),
           itemCount: data.length,
           scrollCacheExtent: const ScrollCacheExtent.pixels(500),
-          itemBuilder: (context, index) => RepaintBoundary(
-            key: ValueKey(data[index].id),
-            child: BcpCardWidget(data: data[index]),
-          ),
+          itemBuilder: (context, index) {
+            var item = data[index];
+            return RepaintBoundary(
+              key: ValueKey(item.id),
+              child: BcpCardWidget(data: item, airTime: airTimes[item.name]),
+            );
+          },
         );
       },
     );

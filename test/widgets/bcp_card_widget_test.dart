@@ -5,36 +5,37 @@ import 'package:flutter/widgets.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Project imports:
-import 'package:bangumi_today/database/bt_sqlite.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_enum.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_model.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_model_patch.dart';
 import 'package:bangumi_today/pages/bangumi-calendar/bc_pw_card.dart';
+import 'package:bangumi_today/pages/bangumi-calendar/bc_pw_day.dart';
+import 'package:bangumi_today/widgets/bangumi/bt_bangumi_cover.dart';
 
 void main() {
-  setUpAll(() async {
-    sqfliteFfiInit();
-    BTSqlite().db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-  });
-
-  tearDownAll(() async {
-    await BTSqlite().db.close();
-  });
-
-  BangumiLegacySubjectSmall buildSubject({String? name, String? nameCn}) {
+  BangumiLegacySubjectSmall buildSubject({
+    int id = 1,
+    String? name,
+    String? nameCn,
+    String? cover,
+  }) {
     return BangumiLegacySubjectSmall(
-      id: 1,
-      url: 'https://bgm.tv/subject/1',
+      id: id,
+      url: 'https://bgm.tv/subject/$id',
       type: BangumiLegacySubjectType.anime,
       name: name ?? 'ふつつかな悪女ではございますが ～雛宮蝶鼠とりかえ伝～',
       nameCn: nameCn ?? '恶女不才，请多关照 ～雏宫蝶鼠换身传～',
       summary: '',
       airDate: '2026-07-01',
       airWeekday: 2,
-      images: BangumiPersonImages(large: '', medium: '', small: '', grid: ''),
+      images: BangumiPersonImages(
+        large: cover ?? '',
+        medium: '',
+        small: '',
+        grid: '',
+      ),
       eps: null,
       epsCount: null,
       rating: BangumiPatchRating(
@@ -59,6 +60,7 @@ void main() {
     required Size windowSize,
     required Size cardSize,
     BangumiLegacySubjectSmall? subject,
+    String? airTime,
   }) async {
     tester.view.physicalSize = windowSize;
     tester.view.devicePixelRatio = 1.0;
@@ -74,7 +76,10 @@ void main() {
                 child: SizedBox(
                   width: cardSize.width,
                   height: cardSize.height,
-                  child: BcpCardWidget(data: subject ?? buildSubject()),
+                  child: BcpCardWidget(
+                    data: subject ?? buildSubject(),
+                    airTime: airTime,
+                  ),
                 ),
               ),
             ),
@@ -126,5 +131,73 @@ void main() {
       ),
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shows a provided air time and hides it when missing', (
+    tester,
+  ) async {
+    await pumpCard(
+      tester,
+      windowSize: const Size(1280, 720),
+      cardSize: const Size(298, 209),
+      airTime: '22:30',
+    );
+    expect(find.text('22:30'), findsOneWidget);
+
+    await pumpCard(
+      tester,
+      windowSize: const Size(1280, 720),
+      cardSize: const Size(298, 209),
+    );
+    expect(find.text('22:30'), findsNothing);
+  });
+
+  testWidgets('calendar cards use the shared cover widget', (tester) async {
+    await pumpCard(
+      tester,
+      windowSize: const Size(1280, 720),
+      cardSize: const Size(298, 209),
+    );
+    expect(find.byType(BtBangumiCover), findsOneWidget);
+  });
+
+  testWidgets('calendar cards dispose after scrolling offscreen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 240);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    var subjects = [
+      for (var i = 0; i < 20; i++)
+        buildSubject(id: i + 1, name: 'show-$i', nameCn: '番剧$i'),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: fluent.FluentApp(
+          debugShowCheckedModeBanner: false,
+          home: fluent.ScaffoldPage(
+            padding: fluent.EdgeInsets.zero,
+            content: SizedBox(
+              width: 400,
+              height: 240,
+              child: BcpDayWidget(data: subjects, loading: false),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    var firstCard = find.byType(BcpCardWidget).first;
+    var element = tester.element(firstCard);
+    expect(element.mounted, isTrue);
+
+    await tester.drag(find.byType(GridView), const Offset(0, -4000));
+    await tester.pumpAndSettle();
+
+    expect(element.mounted, isFalse);
   });
 }
