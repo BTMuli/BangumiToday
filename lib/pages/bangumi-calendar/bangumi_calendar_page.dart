@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../controller/progress_controller.dart';
 import '../../core/errors/error_handler.dart';
 import '../../database/app/app_config.dart';
-import '../../database/bangumi/bangumi_collection.dart';
 import '../../database/bangumi/bangumi_data.dart';
 import '../../models/bangumi/bangumi_data_model.dart';
 import '../../models/bangumi/bangumi_model.dart';
@@ -49,9 +48,6 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
   /// 是否只显示收藏
   bool isShowCollection = false;
-
-  /// 收藏数据库
-  final BtsBangumiCollection sqliteBc = BtsBangumiCollection();
 
   /// 数据库-AppConfig
   final BtsAppConfig sqliteAc = BtsAppConfig();
@@ -117,7 +113,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
       var data = calendarGet.data!;
       if (isShowCollection) {
-        var collectedSubjectIds = await sqliteBc.getAllSubjectIds();
+        var collectedSubjectIds = await repository.getCollectedSubjectIds();
         if (!mounted) return;
         for (var day in data) {
           day.items.removeWhere(

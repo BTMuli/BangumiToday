@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import '../../controller/progress_controller.dart';
 import '../../core/services/bangumi_token_service.dart';
-import '../../database/bangumi/bangumi_collection.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
@@ -35,9 +34,6 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
 
   /// 用户 hive
   final BgmUserHive hive = BgmUserHive();
-
-  /// 收藏数据库
-  final BtsBangumiCollection sqlite = BtsBangumiCollection();
 
   /// 进度条
   late ProgressController progress = ProgressController();
@@ -187,7 +183,6 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
       if (mounted) await showRespErr(resp, context);
       return;
     }
-    await sqlite.preCheck();
     var pageResp = resp.data!;
     var total = pageResp.total;
     var count = 0;
@@ -200,7 +195,6 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
           text: '[${item.subject.id}] ${item.subject.name}',
           progress: count * 100 / total,
         );
-        await sqlite.write(item, check: false);
       }
       if (offset >= total) {
         progress.end();

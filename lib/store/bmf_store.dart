@@ -8,9 +8,8 @@ import 'package:flutter_riverpod/legacy.dart';
 // Project imports:
 import '../core/utils/async_pool.dart';
 import '../database/app/app_bmf.dart';
-import '../models/bangumi/bangumi_model.dart';
 import '../models/database/app_bmf_model.dart';
-import '../request/bangumi/bangumi_api.dart';
+import '../providers/bangumi_providers.dart';
 import '../tools/log_tool.dart';
 
 final bmfListProvider =
@@ -43,7 +42,6 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
   static const int _airDateLookupConcurrency = 4;
 
   final BtsAppBmf _sqlite = BtsAppBmf();
-  final BtrBangumiApi _api = BtrBangumiApi();
   final Map<int, AppBmfModel> _bmfMap = {};
 
   Map<int, AppBmfModel> get bmfMap => Map.unmodifiable(_bmfMap);
@@ -68,12 +66,11 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
       maxConcurrent: _airDateLookupConcurrency,
       action: (item) async {
         try {
-          var response = await _api.getSubjectDetail(
-            item.subject.toString(),
-            cancelPrevious: false,
-          );
-          if (response.code != 0 || response.data is! BangumiSubject) return;
-          var airDate = (response.data as BangumiSubject).date;
+          var response = await ref
+              .read(bangumiRepositoryProvider)
+              .getSubjectDetail(item.subject.toString());
+          if (response.code != 0 || response.data == null) return;
+          var airDate = response.data!.date;
           if (airDate == null || airDate.isEmpty) return;
           item.airDate = airDate;
           await _sqlite.updateAirDate(item.subject, airDate);

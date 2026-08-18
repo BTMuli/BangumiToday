@@ -12,7 +12,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../controller/page_controller.dart';
 import '../../controller/progress_controller.dart';
 import '../../core/layout/responsive.dart';
-import '../../database/bangumi/bangumi_collection.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
@@ -52,9 +51,6 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
   /// 用户Hive
   final BgmUserHive hive = BgmUserHive();
 
-  /// 收藏数据库
-  final BtsBangumiCollection sqlite = BtsBangumiCollection();
-
   /// page controller
   BtcPageController pageController = BtcPageController.defaultInit();
 
@@ -92,7 +88,9 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
 
   /// 获取数据
   Future<void> loadData() async {
-    var list = await sqlite.getByType(type);
+    var list = await ref
+        .read(bangumiRepositoryProvider)
+        .getLocalCollections(type: type);
     list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     if (list.isNotEmpty) {
       data = list;
@@ -150,7 +148,6 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
     while (checkFlag) {
       offsetC += pageResp.data.length;
       for (var item in pageResp.data) {
-        await sqlite.write(item, check: false);
         progress.update(
           text: '[${item.subject.id}] ${item.subject.name}',
           progress: (cnt / total) * 100,
