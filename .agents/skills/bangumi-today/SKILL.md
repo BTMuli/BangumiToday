@@ -60,7 +60,7 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `hooks_riverpod` (st
 
 Follow the pattern in `lib/database/app/app_bmf.dart`: singleton accessor, `preCheck()` creating the table, `PRAGMA table_info` guarded `ALTER TABLE` migrations for backward compatibility, and `read/write/delete` helpers that call the relevant service hooks (e.g. `BmfRssService.onBmfWritten` / `onBmfDeleted`).
 
-### Code quality gates (must pass before commit)
+### Code quality (local, before commit)
 
 - `dart format --output=none --set-exit-if-changed lib test test_driver`
 - `dart analyze --fatal-infos --fatal-warnings lib test test_driver`

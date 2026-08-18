@@ -69,10 +69,11 @@ Do not point `BT_DOWNLOAD_RUNTIME_DIR` at the engine build directory or copy onl
 SPDX SBOM. CMake rejects an incomplete runtime, and the verification script compares every bundled
 file with the source runtime by SHA-256 when `EngineRuntimePath` is provided.
 
-### Local Commands vs CI Quality Gates
+### Local checks
 
-PRs, the `main` branch and the release workflow share the same quality gate
-(`.github/workflows/quality.yml`). Run the same commands locally that CI runs:
+There is no PR / `main` quality workflow. Tag releases use
+`.github/workflows/release.yml` for Windows packaging and do not run
+`dart analyze` or `flutter test`. Run these commands locally before committing:
 
 | Check | Command |
 | --- | --- |
@@ -83,9 +84,7 @@ PRs, the `main` branch and the release workflow share the same quality gate
 | Bundle verification | `./scripts/verify_windows_bundle.ps1 -BundlePath build/windows/x64/runner/Debug` |
 
 The download engine process integration test is isolated behind the
-`BT_DOWNLOAD_TEST_ENGINE` environment variable and is skipped by default, so the plain
-`flutter test` command matches the CI run. A release only publishes after the quality gate
-(formatting, fatal analysis, tests and bundle verification) has passed.
+`BT_DOWNLOAD_TEST_ENGINE` environment variable and is skipped by default.
 
 ### Development
 
