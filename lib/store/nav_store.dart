@@ -1,4 +1,5 @@
 // Dart imports:
+import 'dart:collection';
 import 'dart:io';
 
 // Package imports:
@@ -37,26 +38,42 @@ class BTNavStore extends ChangeNotifier {
   final List<BtmAppNavItem> _navItems = [];
   final List<String> _recentParams = [];
 
-  final Set<int> _loadedIndices = {};
-
-  final Map<int, Widget> _cachedBodies = {};
+  /// 已访问页面的 LRU，key 与侧边项位置无关。
+  final LinkedHashSet<String> _alivePageKeys = LinkedHashSet();
 
   final int maxCachedPages = 10;
+
+  static const String settingsPageKey = 'footer_settings';
 
   List<PaneItem> get navItems {
     return _navItems.map((e) => e.body).toList();
   }
 
-  Set<int> get loadedIndices => Set.unmodifiable(_loadedIndices);
+  List<BtmAppNavItem> get dynamicNavItems {
+    return List.unmodifiable(_navItems);
+  }
 
-  bool isIndexLoaded(int index) => _loadedIndices.contains(index);
+  Set<String> get alivePageKeys => Set.unmodifiable(_alivePageKeys);
+
+  String pageKeyForItem(BtmAppNavItem item) {
+    if (item.param != null && item.param!.isNotEmpty) return item.param!;
+    return 'app_${item.title}';
+  }
+
+  String pageKeyForIndex(int index) {
+    if (index < 0) return 'const_0';
+    if (index < topNavCount) return 'const_$index';
+    var dyn = index - topNavCount;
+    if (dyn >= 0 && dyn < _navItems.length) {
+      return pageKeyForItem(_navItems[dyn]);
+    }
+    return settingsPageKey;
+  }
 
   void setCurIndex(int index) {
     curIndex = index;
-    _loadedIndices.add(index);
     _touchRecent(index);
-    _preloadAdjacent(index);
-    _cleanupCache();
+    _visitPage(pageKeyForIndex(index));
     notifyListeners();
   }
 
@@ -70,37 +87,19 @@ class BTNavStore extends ChangeNotifier {
     _recentParams.add(param);
   }
 
-  void _preloadAdjacent(int index) {
-    for (int i = 1; i <= 2; i++) {
-      var prevIndex = index - i;
-      var nextIndex = index + i;
-      if (prevIndex >= 0) _loadedIndices.add(prevIndex);
-      if (nextIndex < topNavCount + _navItems.length) {
-        _loadedIndices.add(nextIndex);
-      }
-    }
-  }
-
-  void _cleanupCache() {
-    if (_cachedBodies.length <= maxCachedPages) return;
-
-    var keysToRemove = <int>[];
-    for (var key in _cachedBodies.keys) {
-      if ((key - curIndex).abs() > 3) {
-        keysToRemove.add(key);
-      }
-    }
-
-    for (var key in keysToRemove) {
-      _cachedBodies.remove(key);
-      _loadedIndices.remove(key);
+  void _visitPage(String key) {
+    _alivePageKeys.remove(key);
+    _alivePageKeys.add(key);
+    while (_alivePageKeys.length > maxCachedPages) {
+      var oldest = _alivePageKeys.first;
+      if (oldest == key) break;
+      _alivePageKeys.remove(oldest);
     }
   }
 
   void clearCache() {
-    _cachedBodies.clear();
-    _loadedIndices.clear();
-    _loadedIndices.add(curIndex);
+    _alivePageKeys.clear();
+    _visitPage(pageKeyForIndex(curIndex));
     notifyListeners();
   }
 
@@ -120,8 +119,8 @@ class BTNavStore extends ChangeNotifier {
 
   void goIndex(int index) {
     curIndex = index;
-    _loadedIndices.add(index);
     _touchRecent(index);
+    _visitPage(pageKeyForIndex(index));
     notifyListeners();
   }
 
@@ -157,7 +156,7 @@ class BTNavStore extends ChangeNotifier {
         onCloseAll: removeAllNavItems,
       ),
       title: Text(title),
-      body: SubjectDetailPage(id: subject.toString()),
+      body: SubjectDetailPage(key: ValueKey(param), id: subject.toString()),
     );
     addNavItem(pane, title, type: paneType, param: param, jump: jump);
   }
@@ -215,7 +214,7 @@ class BTNavStore extends ChangeNotifier {
     } else {
       curIndex = _navItems.length + topNavCount - 1;
     }
-    _loadedIndices.add(curIndex);
+    _visitPage(pageKeyForIndex(curIndex));
     notifyListeners();
   }
 
@@ -258,10 +257,9 @@ class BTNavStore extends ChangeNotifier {
     if (findIndex == -1) return;
 
     var actualIndex = findIndex + topNavCount;
-    _cachedBodies.remove(actualIndex);
-    _loadedIndices.remove(actualIndex);
-
+    var removedKey = pageKeyForItem(_navItems[findIndex]);
     _navItems.removeAt(findIndex);
+    _alivePageKeys.remove(removedKey);
     if (param != null) _recentParams.remove(param);
     if (curIndex == actualIndex) {
       curIndex = 0;
@@ -272,6 +270,7 @@ class BTNavStore extends ChangeNotifier {
       var subject = param!.replaceAll('subjectDetail_', '');
       Hive.box<BtmAppNavHive>('nav').delete(subject);
     }
+    _visitPage(pageKeyForIndex(curIndex));
     notifyListeners();
   }
 
@@ -280,8 +279,7 @@ class BTNavStore extends ChangeNotifier {
   Map<String, dynamic> getStats() {
     return {
       'totalNavCount': totalNavCount,
-      'loadedIndices': _loadedIndices.length,
-      'cachedBodies': _cachedBodies.length,
+      'alivePageKeys': _alivePageKeys.length,
       'curIndex': curIndex,
     };
   }

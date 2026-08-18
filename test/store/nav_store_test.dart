@@ -113,4 +113,42 @@ void main() {
     expect(dynamicCount(store), 1);
     expect(Hive.box<BtmAppNavHive>('nav').length, 1);
   });
+
+  test('removing an earlier item keeps the current page key', () {
+    var store = BTNavStore();
+    store.addNavItemB(subject: 1, paneTitle: '条目 1', jump: false);
+    store.addNavItemB(subject: 2, paneTitle: '条目 2', jump: false);
+    store.addNavItemB(subject: 3, paneTitle: '条目 3', jump: false);
+
+    store.setCurIndex(store.topNavCount + 2);
+    expect(store.pageKeyForIndex(store.curIndex), 'subjectDetail_3');
+
+    store.removeNavItem(
+      '条目 1',
+      type: BtmAppNavItemType.subject,
+      param: 'subjectDetail_1',
+    );
+
+    expect(store.pageKeyForIndex(store.curIndex), 'subjectDetail_3');
+    expect(store.alivePageKeys.contains('subjectDetail_3'), isTrue);
+    expect(store.alivePageKeys.contains('subjectDetail_1'), isFalse);
+  });
+
+  test(
+    'switching index visits page keys without using item index as identity',
+    () {
+      var store = BTNavStore();
+      store.goIndex(0);
+      store.addNavItemB(subject: 8, paneTitle: '条目 8');
+      var subjectKey = store.pageKeyForIndex(store.curIndex);
+      expect(subjectKey, 'subjectDetail_8');
+
+      store.setCurIndex(0);
+      expect(store.pageKeyForIndex(store.curIndex), 'const_0');
+      expect(store.alivePageKeys.contains(subjectKey), isTrue);
+
+      store.setCurIndex(store.topNavCount);
+      expect(store.pageKeyForIndex(store.curIndex), subjectKey);
+    },
+  );
 }

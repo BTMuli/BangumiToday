@@ -26,6 +26,7 @@ import '../../store/bgm_user_hive.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/get_theme_label.dart';
+import 'nav_page_stack.dart';
 
 /// 应用导航
 class AppNavWidget extends ConsumerStatefulWidget {
@@ -267,12 +268,22 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    var store = ref.watch(navStoreProvider);
+    var constItems = getConstItems();
+    var selectedKey = store.pageKeyForIndex(store.curIndex);
     return NavigationView(
+      paneBodyBuilder: (_, _) {
+        return NavPageStack(
+          key: const ValueKey('nav-page-stack'),
+          selectedKey: selectedKey,
+          pages: _stackPages(store, constItems, selectedKey),
+        );
+      },
       pane: NavigationPane(
         selected: curIndex,
         onChanged: (index) => ref.read(navStoreProvider).setCurIndex(index),
         displayMode: PaneDisplayMode.compact,
-        items: [...getConstItems(), ..._navItems],
+        items: [...constItems, ..._navItems],
         footerItems: [
           PaneItemAction(
             icon: FlyoutTarget(
@@ -291,5 +302,37 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
         ],
       ),
     );
+  }
+
+  List<NavPageEntry> _stackPages(
+    BTNavStore store,
+    List<PaneItem> constItems,
+    String selectedKey,
+  ) {
+    var alive = store.alivePageKeys;
+    var entries = <NavPageEntry>[];
+    for (var i = 0; i < constItems.length; i++) {
+      var item = constItems[i];
+      if (item is PaneItemAction || item.body == null) continue;
+      var key = 'const_$i';
+      if (alive.contains(key) || key == selectedKey) {
+        entries.add(NavPageEntry(pageKey: key, body: item.body!));
+      }
+    }
+    for (var item in store.dynamicNavItems) {
+      var body = item.body.body;
+      if (body == null) continue;
+      var key = store.pageKeyForItem(item);
+      if (alive.contains(key) || key == selectedKey) {
+        entries.add(NavPageEntry(pageKey: key, body: body));
+      }
+    }
+    const settingsKey = BTNavStore.settingsPageKey;
+    if (alive.contains(settingsKey) || selectedKey == settingsKey) {
+      entries.add(
+        const NavPageEntry(pageKey: settingsKey, body: SettingPage()),
+      );
+    }
+    return entries;
   }
 }
