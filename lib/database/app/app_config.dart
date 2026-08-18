@@ -187,13 +187,21 @@ class BtsAppConfig {
   }
 
   /// 读取 mikan url
-  Future<String?> readMikanUrl() {
-    return _instance.read('mikanUrl');
+  Future<String> readMikanUrl() async {
+    var res = await _instance.read('mikanUrl');
+    var normalized = BTAppConstants.normalizeMikanUrl(res);
+    if (res != normalized) {
+      if (res != null && res.isNotEmpty) {
+        BTLogTool.warn('Normalize Mikan URL: $res -> $normalized');
+      }
+      await _instance.writeMikanUrl(normalized);
+    }
+    return normalized;
   }
 
   /// 写入/更新 mikan url
   Future<void> writeMikanUrl(String url) async {
-    await _instance.write('mikanUrl', url);
+    await _instance.write('mikanUrl', BTAppConstants.normalizeMikanUrl(url));
   }
 
   /// 读取 Bangumi API 镜像地址

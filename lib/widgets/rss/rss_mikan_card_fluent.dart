@@ -9,8 +9,8 @@ import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../database/app/app_config.dart';
 import '../../models/rss/rss.dart';
+import '../../plugins/mikan/mikan_api.dart';
 import '../../store/bt_download_store.dart';
 import '../../tools/download_tool.dart';
 import '../../ui/bt_infobar.dart';
@@ -29,20 +29,13 @@ class RssMikanCardFluent extends ConsumerStatefulWidget {
 class _RssMikanCardFluentState extends ConsumerState<RssMikanCardFluent> {
   bool _isHovered = false;
   bool _isPressed = false;
-  final BtsAppConfig sqliteConfig = BtsAppConfig();
 
   RssItem get item => widget.item;
 
   Future<void> _download(BuildContext context) async {
     if (item.enclosure?.url == null || item.title == null) return;
 
-    var mikanUrl = await sqliteConfig.readMikanUrl();
-    var urlReal = item.enclosure!.url!;
-    if (mikanUrl != null && mikanUrl.isNotEmpty) {
-      var url = Uri.parse(item.enclosure!.url!);
-      var urlDomain = '${url.scheme}://${url.host}';
-      urlReal = item.enclosure!.url!.replaceFirst(urlDomain, mikanUrl);
-    }
+    var urlReal = BtrMikanApi.rewriteUrl(item.enclosure!.url!);
 
     String? saveDir = widget.dir;
     if (saveDir == null || saveDir.isEmpty) {
@@ -87,13 +80,7 @@ class _RssMikanCardFluentState extends ConsumerState<RssMikanCardFluent> {
       return;
     }
 
-    var mikanUrl = await sqliteConfig.readMikanUrl();
-    var linkReal = item.link!;
-    if (mikanUrl != null && mikanUrl.isNotEmpty) {
-      var url = Uri.parse(item.link!);
-      var urlDomain = '${url.scheme}://${url.host}';
-      linkReal = item.link!.replaceFirst(urlDomain, mikanUrl);
-    }
+    var linkReal = BtrMikanApi.rewriteUrl(item.link!);
     await launchUrlString(linkReal);
   }
 

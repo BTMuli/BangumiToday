@@ -7,14 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../database/app/app_config.dart';
 import '../../database/app/app_mikan_credential.dart';
-import '../../domain/repositories/bmf_repository.dart';
 import '../../models/rss/rss.dart';
 import '../../plugins/mikan/mikan_api.dart';
 import '../../store/app_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import '../../widgets/rss/mikan_mirror_combo.dart';
 import '../../widgets/rss/rss_mikan_card_fluent.dart';
 
 /// 负责 MikanProject RSS 页面的显示
@@ -46,11 +45,8 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
   /// 是否使用用户订阅
   late bool useUserRSS = false;
 
-  /// 数据库
-  final BtsAppConfig sqlite = BtsAppConfig();
-
   /// mikan 镜像
-  String? get mikanRss => ref.watch(appStoreProvider).mikanRss;
+  String get mikanRss => ref.watch(appStoreProvider).mikanRss;
 
   /// Token 仅用于请求，不在界面中明文展示。
   String get maskedToken => token.isEmpty ? '未设置' : '••••••••';
@@ -143,50 +139,6 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
     if (mounted) setState(() {});
   }
 
-  Future<void> tryEditUrl() async {
-    var url = await sqlite.readMikanUrl();
-    if (url == null || url.isEmpty) url = defaultMikanMirror;
-    if (mounted) {
-      var input = await showInput(
-        context,
-        title: '输入 URL',
-        content: '请输入你的 Mikan URL\n（默认为 $defaultMikanMirror）',
-        value: url,
-      );
-      if (input == null || input == "") {
-        if (mounted) {
-          var check = await showConfirm(
-            context,
-            title: '确认清空 URL？',
-            content: '将使用默认地址 $defaultMikanMirror',
-          );
-          if (!check) return;
-        }
-        await ref
-            .read(appStoreProvider.notifier)
-            .setMikanRss(defaultMikanMirror);
-        return;
-      }
-      if (input == url) {
-        if (mounted) await BtInfobar.warn(context, 'URL 未变更');
-        return;
-      }
-      if (mounted) {
-        var confirm = await showConfirm(
-          context,
-          title: '确认更改 URL？',
-          content: '将同步修改RSS源地址',
-        );
-        if (!confirm) return;
-      }
-      if (input.endsWith("/")) input = input.substring(0, input.length - 1);
-      var repo = ref.read(bmfRepositoryProvider);
-      await repo.updateMikanUrl(input, url);
-      await ref.read(appStoreProvider.notifier).setMikanRss(input);
-      if (mounted) await BtInfobar.success(context, 'URL 已保存');
-    }
-  }
-
   /// 构建刷新按钮
   Widget buildAct() {
     return Tooltip(
@@ -206,34 +158,38 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
 
   /// 构建标题
   Widget buildTitle() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      mainAxisAlignment: MainAxisAlignment.start,
-      children: [
-        IconButton(
-          icon: Image.asset(
-            'assets/images/platforms/mikan-logo.png',
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          IconButton(
+            icon: Image.asset(
+              'assets/images/platforms/mikan-logo.png',
+              height: 30,
+              fit: BoxFit.cover,
+            ),
+            onPressed: () async {
+              await launchUrlString(mikanRss);
+            },
+          ),
+          Image.asset(
+            'assets/images/platforms/mikan-text.png',
             height: 30,
             fit: BoxFit.cover,
           ),
-          onPressed: () async {
-            var url = mikanRss ?? 'https://mikanani.me';
-            await launchUrlString(url);
-          },
-        ),
-        Image.asset(
-          'assets/images/platforms/mikan-text.png',
-          height: 30,
-          fit: BoxFit.cover,
-        ),
-        SizedBox(width: 10),
-        IconButton(
-          icon: Icon(FluentIcons.refresh, size: 15),
-          onPressed: useUserRSS ? refreshUserRSS : refreshMikanRSS,
-        ),
-        SizedBox(width: 10),
-        ...buildTokenBar(),
-      ],
+          SizedBox(width: 10),
+          const MikanMirrorCombo(),
+          SizedBox(width: 10),
+          IconButton(
+            icon: Icon(FluentIcons.refresh, size: 15),
+            onPressed: useUserRSS ? refreshUserRSS : refreshMikanRSS,
+          ),
+          SizedBox(width: 10),
+          ...buildTokenBar(),
+        ],
+      ),
     );
   }
 
@@ -268,8 +224,6 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
       FilledButton(onPressed: null, child: Text('Token: $maskedToken')),
       SizedBox(width: 10),
       Button(onPressed: tryEditToken, child: const Text('编辑Token')),
-      SizedBox(width: 10),
-      Button(onPressed: tryEditUrl, child: const Text('编辑URL')),
     ];
   }
 

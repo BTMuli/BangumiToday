@@ -19,6 +19,7 @@ import '../../store/bmf_store.dart';
 import '../../store/nav_store.dart';
 import '../../tools/log_tool.dart';
 import '../../tools/notifier_tool.dart';
+import '../constants/app_constants.dart';
 import '../utils/async_pool.dart';
 import 'rss_freshness.dart';
 
@@ -553,10 +554,10 @@ class BmfRssService {
   }
 
   String _getRssUrl(AppBmfModel bmf, String? mikanUrl) {
+    var baseUrl = BTAppConstants.normalizeMikanUrl(mikanUrl);
     if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) {
-      return bmf.rss!;
+      return BTAppConstants.rewriteMikanUrl(bmf.rss!, baseUrl);
     }
-    var baseUrl = mikanUrl ?? 'https://mikanani.me';
     var url = '$baseUrl/RSS/Bangumi?bangumiId=${bmf.mkBgmId}';
     if (bmf.mkGroupId != null) {
       url += '&subgroupid=${bmf.mkGroupId}';

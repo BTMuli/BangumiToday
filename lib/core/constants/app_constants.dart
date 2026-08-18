@@ -10,7 +10,18 @@ class BTAppConstants {
   static const double defaultWindowWidth = 1280;
   static const double defaultWindowHeight = 720;
 
-  static const String defaultMikanMirror = 'https://mikanani.me';
+  static const String officialMikanMirror = 'https://mikanani.me';
+  static const String defaultMikanMirror = 'https://mikanani.kas.pub';
+  static const List<String> mikanMirrors = [
+    defaultMikanMirror,
+    officialMikanMirror,
+  ];
+  static const Set<String> mikanHosts = {
+    'mikanani.me',
+    'mikanime.tv',
+    'mikanani.hacgn.fun',
+    'mikanani.kas.pub',
+  };
   static const String bangumiSiteBaseUrl = 'https://bgmmi.anibt.net';
   static const String bangumiApiBaseUrl = 'https://bgmapi.anibt.net';
   static const String bangumiImageBaseUrl = 'https://bgmimg.anibt.net';
@@ -47,6 +58,50 @@ class BTAppConstants {
     return _normalizeUrl(apiBaseUrl) == bangumiLolApiBaseUrl
         ? bangumiLolNextBaseUrl
         : officialBangumiNextBaseUrl;
+  }
+
+  static String mikanMirrorLabel(String value) {
+    if (value == officialMikanMirror) return 'mikanani.me（官方）';
+    if (value == defaultMikanMirror) return 'mikanani.kas.pub';
+    var host = Uri.tryParse(value)?.host;
+    if (host == null || host.isEmpty) return value;
+    return host;
+  }
+
+  static List<String> mikanMirrorChoices(String current) {
+    var values = [...mikanMirrors];
+    var normalized = normalizeMikanUrl(current);
+    if (!values.contains(normalized)) values.add(normalized);
+    return values;
+  }
+
+  static bool isMikanHost(String host) {
+    var normalized = host.toLowerCase();
+    if (normalized.startsWith('www.')) {
+      normalized = normalized.substring(4);
+    }
+    return mikanHosts.contains(normalized);
+  }
+
+  static String normalizeMikanUrl(String? value) {
+    if (value == null || value.trim().isEmpty) return defaultMikanMirror;
+    var normalized = _normalizeUrl(value);
+    return normalized.isEmpty ? defaultMikanMirror : normalized;
+  }
+
+  static String rewriteMikanUrl(String value, String mikanBaseUrl) {
+    var uri = Uri.tryParse(value);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return value;
+    if (uri.scheme != 'http' && uri.scheme != 'https') return value;
+    if (!isMikanHost(uri.host)) return value;
+
+    var targetUri = Uri.parse(normalizeMikanUrl(mikanBaseUrl));
+    if (uri.scheme == targetUri.scheme && uri.host == targetUri.host) {
+      return value;
+    }
+    return uri
+        .replace(scheme: targetUri.scheme, host: targetUri.host)
+        .toString();
   }
 
   static String rewriteBangumiUrl(String value, String apiBaseUrl) {

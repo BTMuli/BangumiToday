@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
+import '../../core/constants/app_constants.dart';
 import '../../core/services/bmf_rss_service.dart';
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_rss.dart';
@@ -61,16 +62,19 @@ class BmfRepository {
   }
 
   Future<void> updateMikanUrl(String url, String ori) async {
+    var target = BTAppConstants.normalizeMikanUrl(url);
+    var origin = BTAppConstants.normalizeMikanUrl(ori);
     var allBmf = await _sqlite.readAll();
     for (var item in allBmf) {
-      if (item.rss != null &&
-          item.rss!.isNotEmpty &&
-          item.rss!.startsWith(ori)) {
-        var newRss = item.rss!.replaceFirst(ori, url);
-        var updated = item.copyWith(rss: newRss);
-        await _sqlite.write(updated);
-        _ref.read(bmfListProvider.notifier).updateItem(updated);
+      if (item.rss == null || item.rss!.isEmpty) continue;
+      var newRss = BTAppConstants.rewriteMikanUrl(item.rss!, target);
+      if (newRss == item.rss && item.rss!.startsWith(origin)) {
+        newRss = item.rss!.replaceFirst(origin, target);
       }
+      if (newRss == item.rss) continue;
+      var updated = item.copyWith(rss: newRss);
+      await _sqlite.write(updated);
+      _ref.read(bmfListProvider.notifier).updateItem(updated);
     }
   }
 }

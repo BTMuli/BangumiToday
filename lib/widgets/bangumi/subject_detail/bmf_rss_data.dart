@@ -2,6 +2,7 @@
 import 'package:flutter/foundation.dart';
 
 // Project imports:
+import '../../../core/constants/app_constants.dart';
 import '../../../core/services/bmf_rss_service.dart';
 import '../../../database/app/app_rss.dart';
 import '../../../models/database/app_bmf_model.dart';
@@ -27,8 +28,11 @@ class BmfRssData extends ChangeNotifier {
 
   /// Mikan 完整订阅地址；非 Mikan 条目直接返回配置的 RSS。
   String get rssUrl {
-    if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) return bmf.rss!;
-    var url = '$mikanRss/RSS/Bangumi?bangumiId=${bmf.mkBgmId}';
+    var base = BTAppConstants.normalizeMikanUrl(mikanRss);
+    if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) {
+      return BTAppConstants.rewriteMikanUrl(bmf.rss!, base);
+    }
+    var url = '$base/RSS/Bangumi?bangumiId=${bmf.mkBgmId}';
     if (bmf.mkGroupId != null) url += '&subgroupid=${bmf.mkGroupId}';
     return url;
   }

@@ -93,14 +93,7 @@ class _RssItemActions extends ConsumerWidget {
 
   Future<String?> getSavePath(BuildContext context) async {
     if (item.enclosure?.url == null || item.title == null) return null;
-    var sqliteConfig = BtsAppConfig();
-    var mikanUrl = await sqliteConfig.readMikanUrl();
-    var urlReal = item.enclosure!.url!;
-    if (mikanUrl != null && mikanUrl.isNotEmpty) {
-      var url = Uri.parse(item.enclosure!.url!);
-      var urlDomain = '${url.scheme}://${url.host}';
-      urlReal = item.enclosure!.url!.replaceFirst(urlDomain, mikanUrl);
-    }
+    var urlReal = BtrMikanApi.rewriteUrl(item.enclosure!.url!);
     var dtt = BTDownloadTool();
     var savePath = await dtt.downloadRssTorrent(urlReal, item.title!);
     return savePath.isEmpty ? null : savePath;
@@ -134,14 +127,7 @@ class _RssItemActions extends ConsumerWidget {
 
   Future<void> openLink(BuildContext context) async {
     if (item.link == null) return;
-    var sqliteConfig = BtsAppConfig();
-    var mikanUrl = await sqliteConfig.readMikanUrl();
-    var linkReal = item.link!;
-    if (mikanUrl != null && mikanUrl.isNotEmpty) {
-      var url = Uri.parse(item.link!);
-      var urlDomain = '${url.scheme}://${url.host}';
-      linkReal = item.link!.replaceFirst(urlDomain, mikanUrl);
-    }
+    var linkReal = BtrMikanApi.rewriteUrl(item.link!);
     await launchUrlString(linkReal);
   }
 

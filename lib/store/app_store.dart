@@ -6,6 +6,7 @@ import 'package:system_theme/system_theme.dart';
 // Project imports:
 import '../core/constants/app_constants.dart';
 import '../database/app/app_config.dart';
+import '../plugins/mikan/mikan_api.dart';
 import '../request/bangumi/bangumi_api.dart';
 
 /// 应用状态提供者
@@ -43,7 +44,8 @@ class BTAppStore extends ChangeNotifier {
 
   /// 初始化MikanRss
   Future<void> initMikanRss() async {
-    _mikanRss = await sqlite.readMikanUrl();
+    BtrMikanApi.setBaseUrl(await sqlite.readMikanUrl());
+    _mikanRss = BtrMikanApi.baseUrl;
     notifyListeners();
   }
 
@@ -61,7 +63,7 @@ class BTAppStore extends ChangeNotifier {
   AccentColor _accentColor = Colors.blue.toAccentColor();
 
   /// MikanRss
-  String? _mikanRss;
+  String _mikanRss = BTAppConstants.defaultMikanMirror;
 
   /// Bangumi API 镜像地址
   String _bangumiUrl = BTAppConstants.bangumiApiBaseUrl;
@@ -96,12 +98,13 @@ class BTAppStore extends ChangeNotifier {
   }
 
   /// 获取MikanRss
-  String? get mikanRss => _mikanRss;
+  String get mikanRss => _mikanRss;
 
   /// 设置MikanRss
   Future<void> setMikanRss(String value) async {
-    _mikanRss = value;
-    await sqlite.writeMikanUrl(value);
+    BtrMikanApi.setBaseUrl(value);
+    _mikanRss = BtrMikanApi.baseUrl;
+    await sqlite.writeMikanUrl(_mikanRss);
     notifyListeners();
   }
 

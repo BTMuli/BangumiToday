@@ -2,43 +2,43 @@
 import 'package:dio/dio.dart';
 
 // Project imports:
-import '../../database/app/app_config.dart';
+import '../../core/constants/app_constants.dart';
 import '../../models/app/response.dart';
 import '../../models/rss/rss.dart';
 import '../../request/core/client.dart';
 import '../../tools/log_tool.dart';
 import 'mikan_utils.dart';
 
-const String defaultMikanMirror = 'https://mikanani.me';
-
 /// 蜜柑计划的API，主要是 rss 订阅
-/// 站点：https://mikanani.me
+/// 站点：https://mikanani.kas.pub
 class BtrMikanApi {
+  static String _baseUrl = BTAppConstants.defaultMikanMirror;
+
   /// 请求客户端
   late final BtrClient client;
 
-  final BtsAppConfig sqlite = BtsAppConfig();
+  /// 当前镜像 URL
+  static String get baseUrl => _baseUrl;
 
-  /// 基础 URL
-  final String baseUrl = defaultMikanMirror;
+  /// 将已知 Mikan 站点 URL 改写为当前镜像
+  static String rewriteUrl(String value) {
+    return BTAppConstants.rewriteMikanUrl(value, baseUrl);
+  }
+
+  /// 更新基础 URL
+  static void setBaseUrl(String value) {
+    _baseUrl = BTAppConstants.normalizeMikanUrl(value);
+  }
 
   /// 构造函数
   BtrMikanApi() {
     client = BtrClient();
     client.dio.options.baseUrl = baseUrl;
-  }
-
-  /// 检测baseUrl
-  Future<void> getBaseUrl() async {
-    var mkUrl = await sqlite.readMikanUrl();
-    if (mkUrl != null && mkUrl.isNotEmpty) {
-      client.dio.options.baseUrl = mkUrl;
-    }
+    client.dio.interceptors.insert(0, _MikanBaseUrlInterceptor());
   }
 
   /// 更新列表的 RSS
   Future<BTResponse> getClassicRSS() async {
-    await getBaseUrl();
     try {
       var resp = await client.dio.get('/RSS/Classic');
       var channel = RssFeed.parse(resp.data.toString());
@@ -64,7 +64,6 @@ class BtrMikanApi {
 
   /// 获取用户的 RSS
   Future<BTResponse> getUserRSS(String token) async {
-    await getBaseUrl();
     try {
       var resp = await client.dio.get(
         '/RSS/MyBangumi',
@@ -93,13 +92,12 @@ class BtrMikanApi {
 
   /// 查询
   Future<BTResponse> searchBgm(String search) async {
-    await getBaseUrl();
     try {
       var resp = await client.dio.get(
         '/Home/Search',
         queryParameters: {'searchstr': search},
       );
-      var parseList = parseSearchResult(resp.data, client.dio.options.baseUrl);
+      var parseList = parseSearchResult(resp.data, baseUrl);
       return BTResponse.success(data: parseList);
     } on DioException catch (e) {
       var errInfo = [
@@ -134,9 +132,10 @@ class BtrMikanApi {
     Duration? connectTimeout,
     Duration? receiveTimeout,
   }) async {
+    var fetchUrl = rewriteUrl(url);
     try {
       var resp = await client.dio.get(
-        url,
+        fetchUrl,
         options: Options(
           connectTimeout: connectTimeout,
           receiveTimeout: receiveTimeout,
@@ -160,5 +159,13 @@ class BtrMikanApi {
         data: e.toString(),
       );
     }
+  }
+}
+
+class _MikanBaseUrlInterceptor extends Interceptor {
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    options.baseUrl = BtrMikanApi.baseUrl;
+    handler.next(options);
   }
 }

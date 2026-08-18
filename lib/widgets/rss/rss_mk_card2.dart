@@ -6,8 +6,8 @@ import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../../database/app/app_config.dart';
 import '../../models/rss/rss.dart';
+import '../../plugins/mikan/mikan_api.dart';
 import '../../store/bt_download_store.dart';
 import '../../tools/download_tool.dart';
 import '../../ui/bt_infobar.dart';
@@ -21,24 +21,14 @@ class RssMikanCard2 extends ConsumerWidget {
   /// 目录，可选
   final String? dir;
 
-  /// app数据库
-  final BtsAppConfig sqliteConfig = BtsAppConfig();
-
   /// 构造函数
-  RssMikanCard2(this.item, {super.key, this.dir});
+  const RssMikanCard2(this.item, {super.key, this.dir});
 
   /// 下载
   Future<void> download(BuildContext context, WidgetRef ref) async {
     assert(item.enclosure != null && item.enclosure!.url != null);
     assert(item.title != null && item.title != '');
-    // 获取mikan下载链接
-    var mikanUrl = await sqliteConfig.readMikanUrl();
-    var urlReal = item.enclosure!.url!;
-    if (mikanUrl != null && mikanUrl.isNotEmpty) {
-      var url = Uri.parse(item.enclosure!.url!);
-      var urlDomain = '${url.scheme}://${url.host}';
-      urlReal = item.enclosure!.url!.replaceFirst(urlDomain, mikanUrl);
-    }
+    var urlReal = BtrMikanApi.rewriteUrl(item.enclosure!.url!);
     String? saveDir;
     if (dir == null || dir!.isEmpty) {
       saveDir = await getDirectoryPath();
@@ -98,13 +88,7 @@ class RssMikanCard2 extends ConsumerWidget {
                 await BtInfobar.error(context, '链接为空');
                 return;
               }
-              var mikanUrl = await sqliteConfig.readMikanUrl();
-              var linkReal = item.link!;
-              if (mikanUrl != null && mikanUrl.isNotEmpty) {
-                var url = Uri.parse(item.link!);
-                var urlDomain = '${url.scheme}://${url.host}';
-                linkReal = item.link!.replaceFirst(urlDomain, mikanUrl);
-              }
+              var linkReal = BtrMikanApi.rewriteUrl(item.link!);
               await launchUrlString(linkReal);
             },
           ),
