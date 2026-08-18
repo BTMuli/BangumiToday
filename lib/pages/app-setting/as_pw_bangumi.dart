@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../controller/progress_controller.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/bangumi_oauth_coordinator.dart';
+import '../../../core/services/bangumi_token_service.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_oauth_model.dart';
 import '../../../providers/app_providers.dart';
@@ -41,6 +42,9 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
 
   /// 进度条
   late ProgressController progress = ProgressController();
+
+  /// 是否正在刷新授权
+  bool _refreshingAuth = false;
 
   @override
   void initState() {
@@ -90,6 +94,37 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
         context,
         '成功获取[${hive.user!.id}]${hive.user!.nickname}信息',
       );
+    }
+  }
+
+  /// 是否已有可用于刷新的 refresh token
+  bool get _canRefreshAuth {
+    var token = hive.tokenRF;
+    return token != null && token.isNotEmpty;
+  }
+
+  /// 刷新授权
+  Future<void> refreshAuth() async {
+    if (_refreshingAuth) return;
+    if (!_canRefreshAuth) {
+      if (mounted) {
+        await BtInfobar.error(context, '未找到刷新令牌，无法刷新授权');
+      }
+      return;
+    }
+    setState(() => _refreshingAuth = true);
+    var result = await BangumiTokenService.instance.ensureFresh(force: true);
+    if (!mounted) return;
+    setState(() => _refreshingAuth = false);
+    switch (result) {
+      case BangumiTokenRefreshResult.notNeeded:
+        await BtInfobar.info(context, '授权未过期，无需刷新');
+      case BangumiTokenRefreshResult.refreshed:
+        await BtInfobar.success(context, '授权刷新成功');
+      case BangumiTokenRefreshResult.unavailable:
+        await BtInfobar.error(context, '未找到刷新令牌，无法刷新授权');
+      case BangumiTokenRefreshResult.failed:
+        await BtInfobar.error(context, '授权刷新失败');
     }
   }
 
@@ -186,6 +221,13 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
               icon: FluentIcons.delete,
               tooltip: '删除用户',
               onPressed: tryDeleteUserInfo,
+            ),
+            SizedBox(width: 8),
+          ],
+          if (_canRefreshAuth) ...[
+            Button(
+              onPressed: _refreshingAuth ? null : refreshAuth,
+              child: Text(_refreshingAuth ? '刷新中…' : '刷新授权'),
             ),
             SizedBox(width: 8),
           ],
