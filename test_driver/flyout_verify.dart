@@ -1,4 +1,4 @@
-// Verification driver for the home page "more" flyout.
+// Verification driver for the home page toolbar.
 // Usage: dart run test_driver/flyout_verify.dart <vmServiceUrl> <outDir>
 
 // Dart imports:
@@ -65,9 +65,6 @@ Future<void> main(List<String> args) async {
     }
   }
 
-  var moreButton = find.bySemanticsLabel(RegExp(r'^更多$'));
-  var firstItem = find.text('查看用户收藏');
-
   var homeOk = await guarded('home page loaded', () async {
     return exists(find.text('星期一'), timeout: const Duration(seconds: 30));
   });
@@ -77,36 +74,25 @@ Future<void> main(List<String> args) async {
     exit(1);
   }
 
-  var moreOk = await guarded('more button found', () => exists(moreButton));
-  if (!moreOk) {
-    say('ABORT: more button not found');
-    await driver.close();
-    exit(1);
-  }
-  await shot('01_home_before_flyout.png');
-
-  await driver.tap(moreButton).timeout(const Duration(seconds: 15));
-  await Future<void>.delayed(const Duration(milliseconds: 800));
-  var flyoutOk = await guarded(
-    'flyout first item visible',
-    () => exists(firstItem),
+  var dataOk = await guarded(
+    'bangumi data update button found',
+    () => exists(find.bySemanticsLabel(RegExp(r'^更新 BangumiData'))),
   );
-  if (!flyoutOk) {
-    say('ABORT: flyout did not open');
-    await driver.close();
-    exit(1);
-  }
-
-  var buttonTopLeft = await driver.getTopLeft(moreButton);
-  var buttonBottomLeft = await driver.getBottomLeft(moreButton);
-  var itemTopLeft = await driver.getTopLeft(firstItem);
-  say('BUTTON top-left => ${buttonTopLeft.dx},${buttonTopLeft.dy}');
-  say('BUTTON bottom-left => ${buttonBottomLeft.dx},${buttonBottomLeft.dy}');
-  say('ITEM top-left => ${itemTopLeft.dx},${itemTopLeft.dy}');
-  var gap = itemTopLeft.dy - buttonBottomLeft.dy;
-  say('GAP button-bottom -> item-top = $gap');
-  await shot('02_flyout_open.png');
+  var moreGone = await guarded(
+    'more button removed',
+    () async => !await exists(
+      find.bySemanticsLabel(RegExp(r'^更多$')),
+      timeout: const Duration(seconds: 2),
+    ),
+  );
+  var collectionGone = await guarded(
+    'collection jump removed',
+    () async =>
+        !await exists(find.text('查看用户收藏'), timeout: const Duration(seconds: 2)),
+  );
+  await shot('01_home_toolbar.png');
 
   say('DONE');
   await driver.close();
+  if (!dataOk || !moreGone || !collectionGone) exit(1);
 }

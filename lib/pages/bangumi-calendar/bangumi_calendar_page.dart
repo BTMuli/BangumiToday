@@ -15,7 +15,6 @@ import '../../request/bangumi/bangumi_data.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../tools/notifier_tool.dart';
 import '../../ui/bt_dialog.dart';
-import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/bangumi_utils.dart';
 import '../subject-search/subject_search_page.dart';
@@ -72,9 +71,6 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
   /// 今天
   int get today => DateTime.now().weekday - 1;
-
-  /// flyout controller
-  final FlyoutController controller = FlyoutController();
 
   /// 保存状态
   @override
@@ -339,67 +335,17 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     );
   }
 
-  /// 构建收藏按钮
-  MenuFlyoutItem buildFlyoutCollection(BuildContext context) {
-    var color = FluentTheme.of(context).accentColor;
-    return MenuFlyoutItem(
-      leading: Icon(
-        FluentIcons.favorite_star,
-        color: hive.user == null ? null : color,
-      ),
-      text: const Text('查看用户收藏'),
-      onPressed: () async {
-        if (hive.user == null) {
-          await BtInfobar.warn(context, '请前往用户界面登录');
-          return;
-        }
-        ref.read(navStoreProvider).goIndex(2);
-      },
-    );
-  }
-
-  /// 构建数据按钮
-  MenuFlyoutItem buildFlyoutData(BuildContext context) {
-    return MenuFlyoutItem(
-      leading: BtIcon(FluentIcons.database_source),
-      text: const Text('BangumiData 数据库'),
-      trailing: Text(
-        version,
-        style: TextStyle(
-          color: FluentTheme.of(context).accentColor.withAlpha(128),
+  /// 构建数据更新按钮
+  Widget buildDataUpdate(BuildContext context) {
+    return Tooltip(
+      message: '更新 BangumiData：$version',
+      child: FilledButton(
+        onPressed: refreshBgmData,
+        child: const Icon(
+          FluentIcons.database_source,
+          color: Colors.white,
+          semanticLabel: '更新 BangumiData',
         ),
-      ),
-      onPressed: refreshBgmData,
-    );
-  }
-
-  /// 构建flyout
-  void buildFlyout() {
-    controller.showFlyout(
-      barrierDismissible: true,
-      dismissOnPointerMoveAway: false,
-      dismissWithEsc: true,
-      // 固定在按钮下方右对齐展开，避免 auto 定位贴到窗口顶部盖住按钮
-      placementMode: FlyoutPlacementMode.bottomRight,
-      additionalOffset: 16,
-      builder: (context) => MenuFlyout(
-        items: [buildFlyoutCollection(context), buildFlyoutData(context)],
-      ),
-    );
-  }
-
-  /// 构建 flyout 按钮
-  Widget buildFlyoutButton(BuildContext context) {
-    return FlyoutTarget(
-      controller: controller,
-      child: Button(
-        style: ButtonStyle(
-          backgroundColor: WidgetStatePropertyAll(
-            FluentTheme.of(context).accentColor,
-          ),
-        ),
-        onPressed: buildFlyout,
-        child: const Tooltip(message: '更多', child: Icon(FluentIcons.more)),
       ),
     );
   }
@@ -463,7 +409,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
         SizedBox(width: 8),
         buildCollectSwitch(context),
         SizedBox(width: 8),
-        buildFlyoutButton(context),
+        buildDataUpdate(context),
         SizedBox(width: 16),
       ],
     );
