@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
-import '../../../pages/subject-detail/subject_detail_page.dart';
+import '../../../pages/subject-detail/subject_stat_providers.dart';
 import '../../../providers/app_providers.dart';
 import '../../../tools/log_tool.dart';
 import '../../../ui/bt_infobar.dart';

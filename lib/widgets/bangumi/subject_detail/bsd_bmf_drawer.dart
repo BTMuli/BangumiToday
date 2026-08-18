@@ -15,7 +15,7 @@ import '../../../controller/progress_controller.dart';
 import '../../../core/theme/bt_theme.dart';
 import '../../../database/app/app_rss.dart';
 import '../../../models/database/app_bmf_model.dart';
-import '../../../pages/subject-detail/subject_detail_page.dart';
+import '../../../pages/subject-detail/subject_stat_providers.dart';
 import '../../../providers/app_providers.dart';
 import '../../../tools/file_tool.dart';
 import '../../../tools/log_tool.dart';
