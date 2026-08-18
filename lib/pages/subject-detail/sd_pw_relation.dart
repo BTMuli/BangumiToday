@@ -1,5 +1,4 @@
 // Package imports:
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -12,6 +11,7 @@ import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../utils/tool_func.dart';
+import '../../widgets/bangumi/bt_bangumi_cover.dart';
 
 class SdpRelationWidget extends ConsumerStatefulWidget {
   final int subjectId;
@@ -115,39 +115,21 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
   }
 
   Widget buildCover(BangumiImages images) {
-    var pathGet = Uri.parse(images.large).path;
-    var link = '${BtrBangumiApi.imageBaseUrl}/r/0x600$pathGet';
-    return ClipRRect(
+    return BtBangumiCover(
+      imageUrl: images.large,
+      width: 80,
+      height: 120,
+      maxRequestEdge: BangumiCoverUrl.thumbMaxEdge,
       borderRadius: BTRadius.smallBR,
-      child: CachedNetworkImage(
-        imageUrl: link,
-        fit: BoxFit.cover,
+      progressSize: 16,
+      errorBuilder: (context, {err}) => Container(
         width: 80,
         height: 120,
-        progressIndicatorBuilder: (context, url, dp) => Container(
-          width: 80,
-          height: 120,
-          color: BTColors.surfaceSecondary(context),
-          child: Center(
-            child: SizedBox(
-              width: 16,
-              height: 16,
-              child: ProgressRing(
-                value: dp.progress == null ? 0 : dp.progress! * 100,
-                strokeWidth: 2,
-              ),
-            ),
-          ),
-        ),
-        errorWidget: (context, url, error) => Container(
-          width: 80,
-          height: 120,
-          color: BTColors.surfaceSecondary(context),
-          child: Icon(
-            FluentIcons.photo_error,
-            size: 20,
-            color: BTColors.textTertiary(context),
-          ),
+        color: BTColors.surfaceSecondary(context),
+        child: Icon(
+          FluentIcons.photo_error,
+          size: 20,
+          color: BTColors.textTertiary(context),
         ),
       ),
     );

@@ -1,5 +1,4 @@
 // Package imports:
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,11 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/bt_theme.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/request_subject.dart';
-import '../../../request/bangumi/bangumi_api.dart';
 import '../../../store/nav_store.dart';
 import '../../../ui/bt_icon.dart';
 import '../../../utils/bangumi_utils.dart';
 import '../../common/bt_card.dart';
+import '../bt_bangumi_cover.dart';
 
 /// Bangumi 条目卡片-搜索结果
 class BscSearch extends ConsumerStatefulWidget {
@@ -60,22 +59,11 @@ class _BscSearchState extends ConsumerState<BscSearch> {
 
   /// 构建卡片封面
   Widget buildCover(String img) {
-    if (img.isEmpty) return buildCoverEmpty();
-    // bangumi 在线切图 https://github.com/bangumi/img-proxy
-    var pathGet = Uri.parse(img).path;
-    // 可能是以 /r/xxx/pic 开头，用正则进行替换为 /pic
-    var rReg = RegExp(r'^/r/[^/]+/pic');
-    if (rReg.hasMatch(pathGet)) pathGet = pathGet.replaceFirst(rReg, '/pic');
-    return CachedNetworkImage(
-      imageUrl: '${BtrBangumiApi.imageBaseUrl}/r/0x600$pathGet',
-      fit: BoxFit.cover,
-      progressIndicatorBuilder: (context, url, dp) => Center(
-        child: ProgressRing(
-          value: dp.progress == null ? 0 : dp.progress! * 100,
-        ),
-      ),
-      errorWidget: (context, url, error) =>
-          buildCoverEmpty(err: error.toString()),
+    return BtBangumiCover(
+      imageUrl: img,
+      width: 112,
+      height: 168,
+      errorBuilder: (context, {err}) => buildCoverEmpty(err: err),
     );
   }
 

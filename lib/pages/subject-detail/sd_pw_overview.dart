@@ -2,7 +2,6 @@
 import 'package:flutter/foundation.dart';
 
 // Package imports:
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -14,6 +13,7 @@ import '../../models/bangumi/bangumi_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
+import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/common/bt_card.dart';
 import 'sd_pw_rate_chart.dart';
 
@@ -56,33 +56,18 @@ class SdpOverviewWidget extends StatelessWidget {
   }
 
   Widget buildCover(BuildContext context, BangumiImages images) {
-    if (images.large == '') {
-      return buildCoverError(context);
-    }
-    var pathGet = Uri.parse(images.large).path;
-    var link = '${BtrBangumiApi.imageBaseUrl}/r/0x600$pathGet';
     return SizedBox(
       key: const ValueKey('subject-detail-cover'),
       width: 200,
       height: 280,
-      child: ClipRRect(
+      child: BtBangumiCover(
+        imageUrl: images.large,
+        fit: BoxFit.scaleDown,
+        width: 200,
+        height: 280,
+        maxRequestEdge: BangumiCoverUrl.detailMaxEdge,
         borderRadius: BTRadius.mediumBR,
-        child: CachedNetworkImage(
-          imageUrl: link,
-          fit: BoxFit.scaleDown,
-          progressIndicatorBuilder: (context, url, dp) => Center(
-            child: SizedBox(
-              width: 24,
-              height: 24,
-              child: ProgressRing(
-                value: dp.progress == null ? 0 : dp.progress! * 100,
-                strokeWidth: 2,
-              ),
-            ),
-          ),
-          errorWidget: (context, url, error) =>
-              buildCoverError(context, err: error.toString()),
-        ),
+        errorBuilder: buildCoverError,
       ),
     );
   }
