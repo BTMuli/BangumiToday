@@ -64,36 +64,100 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('peer tab fetches immediately even when details are in flight', (
+    tester,
+  ) async {
+    var engine = await _pumpDetails(tester, details: _detailsWithSections());
+    expect(engine.taskDetailsCalls, 1);
+    expect(engine.taskPeersCalls, 0);
+
+    var completer = Completer<BtTaskDetails>();
+    engine.nextDetailsCompleter = completer;
+
+    await tester.tap(find.text('进度'));
+    await tester.pump();
+    expect(engine.taskDetailsCalls, 2);
+    expect(engine.taskPeersCalls, 0);
+
+    await tester.tap(find.text('Peer 2'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(engine.taskPeersCalls, 1);
+    expect(find.text('127.0.0.1:6881'), findsOneWidget);
+    expect(find.text('分片完成情况'), findsNothing);
+
+    completer.complete(_detailsWithSections());
+    engine.nextDetailsCompleter = null;
+    await tester.pump();
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets(
-    'tab switch refreshes once and does not duplicate an in-flight request',
+    'progress tab fetches immediately even when peers are in flight',
     (tester) async {
-      var engine = await _pumpDetails(tester);
+      var engine = await _pumpDetails(tester, details: _detailsWithSections());
+      var completer = Completer<BtTaskPeersResult>();
+      engine.nextPeersCompleter = completer;
+
+      await tester.tap(find.textContaining('Peer'));
+      await tester.pump();
+      expect(engine.taskPeersCalls, 1);
       expect(engine.taskDetailsCalls, 1);
 
-      var completer = Completer<BtTaskDetails>();
-      engine.nextDetailsCompleter = completer;
-
-      await tester.tap(find.textContaining('Peer'));
+      await tester.tap(find.text('进度'));
       await tester.pump();
       expect(engine.taskDetailsCalls, 2);
+      expect(find.text('分片完成情况'), findsOneWidget);
 
-      // 在途请求未完成时再切 Tab：single-flight 去重，不发起新请求。
-      await tester.tap(find.textContaining('文件'));
+      completer.complete(_peerPage());
+      engine.nextPeersCompleter = null;
       await tester.pump();
-      expect(engine.taskDetailsCalls, 2);
-
-      completer.complete(_details());
-      engine.nextDetailsCompleter = null;
-      await tester.pump();
-
-      // 请求完成后再次切换 Peer Tab，允许一次新的刷新。
-      await tester.tap(find.textContaining('Peer'));
-      await tester.pump();
-      expect(engine.taskDetailsCalls, 3);
 
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets('peer tab does not duplicate an in-flight peer request', (
+    tester,
+  ) async {
+    var engine = await _pumpDetails(tester, details: _detailsWithSections());
+    var completer = Completer<BtTaskPeersResult>();
+    engine.nextPeersCompleter = completer;
+
+    await tester.tap(find.textContaining('Peer'));
+    await tester.pump();
+    expect(engine.taskPeersCalls, 1);
+
+    await tester.tap(find.text('进度'));
+    await tester.pump();
+    await tester.tap(find.text('Peer 2'));
+    await tester.pump();
+    expect(engine.taskPeersCalls, 1);
+
+    completer.complete(_peerPage());
+    engine.nextPeersCompleter = null;
+    await tester.pump();
+    expect(find.text('127.0.0.1:6881'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('peer tab polling does not wait on task.details', (tester) async {
+    var engine = await _pumpDetails(tester, details: _detailsWithSections());
+    await tester.tap(find.textContaining('Peer'));
+    await tester.pump();
+    await tester.pump();
+    expect(engine.taskPeersCalls, 1);
+    var detailsCalls = engine.taskDetailsCalls;
+
+    await tester.pump(const Duration(seconds: 2));
+    expect(engine.taskPeersCalls, 2);
+    expect(engine.taskDetailsCalls, detailsCalls);
+
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets('overview tab renders task and torrent sections', (tester) async {
     var engine = await _pumpDetails(tester, details: _detailsWithSections());
@@ -498,6 +562,17 @@ BtTaskDetails _detailsWithSections() {
   );
 }
 
+BtTaskPeersResult _peerPage() {
+  var details = _detailsWithSections();
+  return BtTaskPeersResult(
+    peers: details.peers,
+    truncated: false,
+    totalPeers: details.peers.length,
+    offset: 0,
+    nextOffset: null,
+  );
+}
+
 class FakeDetailsEngine implements BtEngineGateway {
   final StreamController<BtEngineEvent> _events =
       StreamController<BtEngineEvent>.broadcast();
@@ -516,6 +591,7 @@ class FakeDetailsEngine implements BtEngineGateway {
   Object? filesError;
   Object? peersError;
   Completer<BtTaskDetails>? nextDetailsCompleter;
+  Completer<BtTaskPeersResult>? nextPeersCompleter;
 
   void emitState(BtEngineClientState value) {
     currentState = value;
@@ -592,6 +668,7 @@ class FakeDetailsEngine implements BtEngineGateway {
     int? limit,
   }) async {
     taskPeersCalls++;
+    if (nextPeersCompleter != null) return nextPeersCompleter!.future;
     if (peersError != null) throw peersError!;
     var value = details ?? _details();
     var peers = value.peers;

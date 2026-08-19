@@ -50,13 +50,19 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
   Timer? _refreshTimer;
   var _loading = true;
   var _tabIndex = 0;
-  var _refreshing = false;
+  var _detailsLoading = false;
   var _filesLoading = false;
   var _peersLoading = false;
   var _appActive = true;
 
   static const _peerTabIndex = 2;
   static const _filesTabIndex = 3;
+
+  bool get _tabLoading => switch (_tabIndex) {
+    _peerTabIndex => _peersLoading,
+    _filesTabIndex => _filesLoading,
+    _ => _detailsLoading,
+  };
 
   @override
   void initState() {
@@ -102,11 +108,27 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
       BtEngineClientState.ready;
 
   Future<void> _refresh({bool silent = false}) async {
-    if (!_appActive || !_engineReady || _refreshing) return;
-    _refreshing = true;
+    if (!_appActive || !_engineReady) return;
+    var store = ref.read(btDownloadStoreProvider);
+    // 当前可见 Tab 各自拉取，互不等待，避免切 Tab 被 overview 请求堵住。
+    switch (_tabIndex) {
+      case _peerTabIndex:
+        await _loadPeers(store);
+      case _filesTabIndex:
+        await _loadFiles(store);
+      default:
+        await _loadDetails(store, silent: silent);
+    }
+  }
+
+  Future<void> _loadDetails(
+    BtDownloadStore store, {
+    bool silent = false,
+  }) async {
+    if (!_appActive || !_engineReady || _detailsLoading) return;
+    _detailsLoading = true;
     if (!silent && mounted) setState(() => _loading = _details == null);
     try {
-      var store = ref.read(btDownloadStoreProvider);
       var details = await store.taskDetails(widget.taskId);
       if (!mounted) return;
       setState(() {
@@ -114,11 +136,6 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
         _error = null;
         _loading = false;
       });
-      if (_tabIndex == _filesTabIndex) {
-        await _loadFiles(store);
-      } else if (_tabIndex == _peerTabIndex) {
-        await _loadPeers(store);
-      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -126,12 +143,12 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
         _loading = false;
       });
     } finally {
-      _refreshing = false;
+      _detailsLoading = false;
     }
   }
 
   Future<void> _loadFiles(BtDownloadStore store) async {
-    if (_filesLoading) return;
+    if (!_appActive || !_engineReady || _filesLoading) return;
     _filesLoading = true;
     try {
       var files = await store.taskFiles(widget.taskId);
@@ -149,7 +166,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
   }
 
   Future<void> _loadPeers(BtDownloadStore store) async {
-    if (_peersLoading) return;
+    if (!_appActive || !_engineReady || _peersLoading) return;
     _peersLoading = true;
     try {
       var peers = await store.taskPeers(widget.taskId);
@@ -169,10 +186,8 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
   void _onTabChanged(int index) {
     if (index == _tabIndex) return;
     setState(() => _tabIndex = index);
-    // Peer/文件列表只在对应 Tab 可见时拉取，经 single-flight 去重。
-    if (index == _peerTabIndex || index == _filesTabIndex) {
-      unawaited(_refresh(silent: true));
-    }
+    // 立即按目标 Tab 拉数，不复用可能正在跑的其它 Tab 请求。
+    unawaited(_refresh(silent: true));
   }
 
   BtTaskSnapshot _currentTask(BtDownloadStore store) {
@@ -204,11 +219,11 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
               const _DetailTab(icon: FluentIcons.processing, label: '进度'),
               _DetailTab(
                 icon: FluentIcons.people,
-                label: 'Peer ${_details!.totalPeers}',
+                label: 'Peer ${_peers?.totalPeers ?? _details!.totalPeers}',
               ),
               _DetailTab(
                 icon: FluentIcons.folder,
-                label: '文件 ${_details!.totalFiles}',
+                label: '文件 ${_files?.totalFiles ?? _details!.totalFiles}',
               ),
             ],
             index: _tabIndex,
@@ -217,7 +232,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
               message: '刷新详情',
               child: IconButton(
                 icon: const Icon(FluentIcons.refresh, size: 14),
-                onPressed: _refreshing
+                onPressed: _tabLoading
                     ? null
                     : () => unawaited(_refresh(silent: true)),
               ),
