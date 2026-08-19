@@ -27,7 +27,7 @@ Widget sdpSurfaceCard(BuildContext context, Widget child) {
   );
 }
 
-class SdpSection extends StatelessWidget {
+class SdpSection extends StatefulWidget {
   const SdpSection({
     super.key,
     required this.icon,
@@ -42,12 +42,30 @@ class SdpSection extends StatelessWidget {
   final bool initiallyExpanded;
 
   @override
+  State<SdpSection> createState() => _SdpSectionState();
+}
+
+class _SdpSectionState extends State<SdpSection> {
+  /// Fluent [Expander] still builds [content] when collapsed; keep the
+  /// heavy children (剧集 / 关联 / 图表) out of the tree until first open.
+  late bool _contentMounted = widget.initiallyExpanded;
+
+  @override
   Widget build(BuildContext context) {
     return Expander(
-      initiallyExpanded: initiallyExpanded,
-      leading: Icon(icon, size: 18, color: FluentTheme.of(context).accentColor),
-      header: Text(title, style: BTTypography.subtitle(context)),
-      content: content,
+      initiallyExpanded: widget.initiallyExpanded,
+      leading: Icon(
+        widget.icon,
+        size: 18,
+        color: FluentTheme.of(context).accentColor,
+      ),
+      header: Text(widget.title, style: BTTypography.subtitle(context)),
+      onStateChanged: (open) {
+        if (open && !_contentMounted) {
+          setState(() => _contentMounted = true);
+        }
+      },
+      content: _contentMounted ? widget.content : const SizedBox.shrink(),
     );
   }
 }

@@ -43,7 +43,7 @@ BangumiSubject _subject() {
     totalEpisodes: 28,
     rating: BangumiPatchRating(
       total: 12000,
-      count: const {},
+      count: const {'1': 10, '5': 100, '8': 400, '9': 800, '10': 200},
       score: 8.9,
       rank: 1,
     ),
@@ -326,6 +326,56 @@ void main() {
     );
     expect(find.text('订阅下载'), findsOneWidget);
     expect(find.text('评分与热度'), findsOneWidget);
+  });
+
+  testWidgets('方案 A 首屏不请求剧集和关联', (tester) async {
+    var repo = _CountingDetailRepository();
+    await _pump(
+      tester,
+      ScaffoldPage(content: SdpLayoutA(view: _view(), hasBmf: false)),
+      repository: repo,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(repo.episodeCalls, 0);
+    expect(repo.relationCalls, 0);
+    expect(find.byType(SdpRateChartWidget), findsNothing);
+  });
+
+  testWidgets('方案 A 展开折叠节后才请求剧集和关联', (tester) async {
+    var repo = _CountingDetailRepository();
+    await _pump(
+      tester,
+      ScaffoldPage(content: SdpLayoutA(view: _view(), hasBmf: false)),
+      repository: repo,
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('剧集进度'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(repo.episodeCalls, 1);
+    expect(repo.relationCalls, 0);
+
+    await tester.ensureVisible(find.text('关联条目'));
+    await tester.tap(find.text('关联条目'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(repo.episodeCalls, 1);
+    expect(repo.relationCalls, 1);
+  });
+
+  testWidgets('方案 A 有 BMF 时首屏请求剧集', (tester) async {
+    var repo = _CountingDetailRepository();
+    await _pump(
+      tester,
+      ScaffoldPage(content: SdpLayoutA(view: _view(), hasBmf: true)),
+      repository: repo,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(repo.episodeCalls, 1);
+    expect(repo.relationCalls, 0);
   });
 
   testWidgets('切换布局不重复请求剧集和关联', (tester) async {

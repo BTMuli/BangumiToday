@@ -65,6 +65,7 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
 
   /// 用户章节信息
   List<BangumiUserEpisodeCollection> userEpisodes = [];
+  final Map<int, BangumiUserEpisodeCollection> _userEpById = {};
 
   /// offset
   int offset = 0;
@@ -105,6 +106,7 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
       isCollection = false;
       if (userEpisodes.isNotEmpty) {
         userEpisodes.clear();
+        _userEpById.clear();
         if (mounted) setState(() {});
       }
       return;
@@ -164,6 +166,7 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
       } else {
         userEpisodes[index] = item;
       }
+      _userEpById[item.episode.id] = item;
     }
   }
 
@@ -240,28 +243,26 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
   /// buildList
   List<Widget> buildList() {
     var res = <Widget>[];
-    episodes.sort(
-      (a, b) => a.type == b.type
-          ? a.sort.compareTo(b.sort)
-          : b.type.value.compareTo(a.type.value),
-    );
-    var curType = episodes[0].type;
+    var ordered = List<BangumiEpisode>.of(episodes)
+      ..sort(
+        (a, b) => a.type == b.type
+            ? a.sort.compareTo(b.sort)
+            : b.type.value.compareTo(a.type.value),
+      );
+    var curType = ordered[0].type;
     if (curType != BangumiEpType.main) {
       res.add(buildEpHint(curType));
     }
-    for (var i = 0; i < episodes.length; i++) {
-      if (curType != episodes[i].type) {
-        curType = episodes[i].type;
+    for (var i = 0; i < ordered.length; i++) {
+      if (curType != ordered[i].type) {
+        curType = ordered[i].type;
         res.add(buildEpHint(curType));
       }
-      // 在userEpisodes中找到对应的章节信息
-      var find = userEpisodes.indexWhere(
-        (element) => element.episode.id == episodes[i].id,
-      );
-      if (find != -1) {
-        res.add(BsdEpisode(episodes[i], user: userEpisodes[find]));
+      var userEp = _userEpById[ordered[i].id];
+      if (userEp != null) {
+        res.add(BsdEpisode(ordered[i], user: userEp));
       } else {
-        res.add(BsdEpisode(episodes[i]));
+        res.add(BsdEpisode(ordered[i]));
       }
     }
     if (episodes.length < widget.subject.totalEpisodes) {
@@ -318,10 +319,8 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
     var done = 0;
     BangumiEpisode? next;
     for (var ep in mains) {
-      var find = userEpisodes.indexWhere((item) => item.episode.id == ep.id);
-      var marked =
-          find != -1 &&
-          userEpisodes[find].type == BangumiEpisodeCollectionType.done;
+      var userEp = _userEpById[ep.id];
+      var marked = userEp?.type == BangumiEpisodeCollectionType.done;
       if (marked) {
         done++;
       } else {

@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:async';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +20,7 @@ import '../../widgets/bangumi/subject_detail/bsd_bmf_drawer.dart';
 import '../../widgets/common/bt_content_frame.dart';
 import '../../widgets/common/bt_drawer.dart';
 import '../subject-search/subject_search_page.dart';
+import 'sdp_action_bar.dart';
 import 'sdp_layout_a.dart';
 import 'sdp_layout_current.dart';
 import 'sdp_layout_switcher.dart';
@@ -89,19 +93,60 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   Future<void> init() async {
     if (!mounted) return;
     var generation = ++_loadGeneration;
+    collectProvider.set(false);
     setState(() {
       showError = false;
       data = null;
     });
     var repository = ref.read(bangumiRepositoryProvider);
-    var detailGet = await repository.getSubjectDetail(widget.id);
+    var detailGet = repository.getSubjectDetail(widget.id);
+    await _prefetchFirstScreen(generation);
+    var result = await detailGet;
     if (!mounted || generation != _loadGeneration) return;
-    if (detailGet.code != 0 || detailGet.data == null) {
+    if (result.code != 0 || result.data == null) {
       setState(() => showError = true);
-      await showRespErr(detailGet, context);
+      await showRespErr(result, context);
       return;
     }
-    setState(() => data = detailGet.data);
+    setState(() => data = result.data);
+  }
+
+  bool _subjectHasBmf(int subjectId) {
+    var list = ref
+        .read(bmfListProvider)
+        .maybeWhen(data: (items) => items, orElse: () => const <AppBmfModel>[]);
+    for (var item in list) {
+      if (item.subject == subjectId) return sdpBmfConfigured(item);
+    }
+    return false;
+  }
+
+  Future<void> _prefetchFirstScreen(int generation) async {
+    var subjectId = int.tryParse(widget.id);
+    if (subjectId == null) return;
+    var repository = ref.read(bangumiRepositoryProvider);
+    var user = ref.read(bgmUserHiveProvider).user;
+    var layoutA =
+        ref.read(subjectDetailLayoutModeProvider) == SubjectDetailLayoutMode.a;
+    var hasBmf = _subjectHasBmf(subjectId);
+    BangumiUserSubjectCollection? local;
+    if (user != null) {
+      local = await repository.getLocalCollection(subjectId);
+      if (!mounted || generation != _loadGeneration) return;
+      if (local != null) {
+        collectProvider.set(true, type: local.type, epStatus: local.epStatus);
+      }
+      unawaited(repository.getCollectionSubject(user.id.toString(), subjectId));
+    }
+    var watching = hasBmf || local?.type == BangumiCollectionType.doing;
+    if (!layoutA || watching) {
+      unawaited(repository.getEpisodeList(subjectId, offset: 0, limit: 100));
+      if (user != null && local != null) {
+        unawaited(
+          repository.getCollectionEpisodes(subjectId, offset: 0, limit: 100),
+        );
+      }
+    }
   }
 
   @override
