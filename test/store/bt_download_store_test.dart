@@ -29,6 +29,42 @@ void main() {
       await gateway.dispose();
     });
 
+    test('does not notify on identical task snapshots', () async {
+      var notifications = 0;
+      store.addListener(() => notifications++);
+      gateway.emitTasks([_task(state: 'downloading')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(notifications, 1);
+
+      gateway.emitTasks([_task(state: 'downloading')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(notifications, 1);
+    });
+
+    test('notifies once when a progress field changes', () async {
+      var notifications = 0;
+      store.addListener(() => notifications++);
+      gateway.emitTasks([_task(state: 'downloading')]);
+      await Future<void>.delayed(Duration.zero);
+      gateway.emitTasks([
+        _task(state: 'downloading', progress: 0.8, downloadedBytes: 80),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+      expect(notifications, 2);
+    });
+
+    test('does not notify on identical engine state', () async {
+      var notifications = 0;
+      store.addListener(() => notifications++);
+      gateway.emitState(BtEngineClientState.ready);
+      await Future<void>.delayed(Duration.zero);
+      expect(notifications, 1);
+
+      gateway.emitState(BtEngineClientState.ready);
+      await Future<void>.delayed(Duration.zero);
+      expect(notifications, 1);
+    });
+
     test('projects engine state and task snapshots', () async {
       gateway
         ..emitState(BtEngineClientState.ready)
@@ -401,7 +437,13 @@ void main() {
   });
 }
 
-BtTaskSnapshot _task({String? id, required String state}) {
+BtTaskSnapshot _task({
+  String? id,
+  required String state,
+  double progress = 0.5,
+  int downloadedBytes = 50,
+  int downloadRate = 10,
+}) {
   return BtTaskSnapshot(
     id: id ?? 'task',
     state: state,
@@ -410,7 +452,7 @@ BtTaskSnapshot _task({String? id, required String state}) {
     displayName: 'Example',
     infoHash: 'abc',
     totalBytes: 100,
-    downloadedBytes: 50,
+    downloadedBytes: downloadedBytes,
     verifiedBytes: 40,
     uploadedBytes: state == 'seeding' ? 25 : 0,
     shareRatio: state == 'seeding' ? 0.25 : 0,
@@ -418,8 +460,8 @@ BtTaskSnapshot _task({String? id, required String state}) {
     seedRatioLimit: 2,
     seedTimeLimitMinutes: 60,
     seedStopReason: state == 'completed' ? 'ratio' : null,
-    progress: 0.5,
-    downloadRate: 10,
+    progress: progress,
+    downloadRate: downloadRate,
     uploadRate: 2,
     peers: 3,
     seeds: 1,

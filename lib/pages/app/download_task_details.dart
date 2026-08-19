@@ -190,17 +190,17 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
     unawaited(_refresh(silent: true));
   }
 
-  BtTaskSnapshot _currentTask(BtDownloadStore store) {
-    for (var task in store.tasks) {
-      if (task.id == widget.taskId) return task;
-    }
-    return _details?.task ?? widget.initialTask;
-  }
-
   @override
   Widget build(BuildContext context) {
-    var store = ref.watch(btDownloadStoreProvider);
-    var task = _currentTask(store);
+    var snapshot = ref.watch(
+      btDownloadStoreProvider.select((store) {
+        for (var item in store.tasks) {
+          if (item.id == widget.taskId) return item;
+        }
+        return null;
+      }),
+    );
+    var task = snapshot ?? _details?.task ?? widget.initialTask;
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     if (_loading && _details == null) {
       return const Center(child: ProgressRing());

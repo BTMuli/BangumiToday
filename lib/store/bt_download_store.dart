@@ -58,14 +58,19 @@ class BtDownloadStore extends ChangeNotifier {
       _tasks.where(_isFileAvailable).map((task) => task.id),
     );
     _taskSubscription = _client.taskSnapshots.listen((tasks) {
+      var unchanged = _sameTaskSnapshots(_tasks, tasks);
       _updateTaskBaseStates(tasks);
       _notifyNewCompletions(tasks);
+      if (unchanged) return;
       _tasks = List.of(tasks);
       notifyListeners();
     });
     _stateSubscription = _client.states.listen((state) {
+      var ready = state == BtEngineClientState.ready;
+      var errorCleared = ready && _lastError != null;
+      if (_engineState == state && !errorCleared) return;
       _engineState = state;
-      if (state == BtEngineClientState.ready) _lastError = null;
+      if (ready) _lastError = null;
       notifyListeners();
     });
     _updateTaskBaseStates(_tasks);
@@ -115,6 +120,18 @@ class BtDownloadStore extends ChangeNotifier {
   int get totalUploadRate =>
       _tasks.fold(0, (total, task) => total + task.uploadRate);
   bool isTaskBusy(String id) => _busyTaskIds.contains(id);
+
+  static bool _sameTaskSnapshots(
+    List<BtTaskSnapshot> current,
+    List<BtTaskSnapshot> next,
+  ) {
+    if (identical(current, next)) return true;
+    if (current.length != next.length) return false;
+    for (var i = 0; i < current.length; i++) {
+      if (current[i] != next[i]) return false;
+    }
+    return true;
+  }
 
   /// 记录每个任务进入“校验中”之前的稳定状态，用于分类与排序。
   void _updateTaskBaseStates(List<BtTaskSnapshot> tasks) {

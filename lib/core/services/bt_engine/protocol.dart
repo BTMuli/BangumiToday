@@ -21,6 +21,17 @@ class BtTaskError {
   final String code;
   final String message;
   final bool retryable;
+
+  @override
+  bool operator ==(Object other) {
+    return other is BtTaskError &&
+        code == other.code &&
+        message == other.message &&
+        retryable == other.retryable;
+  }
+
+  @override
+  int get hashCode => Object.hash(code, message, retryable);
 }
 
 class BtTaskSnapshot {
@@ -120,6 +131,61 @@ class BtTaskSnapshot {
     if (RegExp(r'[^0]').hasMatch(parts[1])) return parts[1];
     return value;
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is BtTaskSnapshot &&
+        id == other.id &&
+        state == other.state &&
+        sourceKind == other.sourceKind &&
+        savePath == other.savePath &&
+        displayName == other.displayName &&
+        infoHash == other.infoHash &&
+        totalBytes == other.totalBytes &&
+        downloadedBytes == other.downloadedBytes &&
+        verifiedBytes == other.verifiedBytes &&
+        uploadedBytes == other.uploadedBytes &&
+        shareRatio == other.shareRatio &&
+        seedingSeconds == other.seedingSeconds &&
+        seedRatioLimit == other.seedRatioLimit &&
+        seedTimeLimitMinutes == other.seedTimeLimitMinutes &&
+        seedStopReason == other.seedStopReason &&
+        progress == other.progress &&
+        downloadRate == other.downloadRate &&
+        uploadRate == other.uploadRate &&
+        peers == other.peers &&
+        seeds == other.seeds &&
+        isPrivate == other.isPrivate &&
+        lastError == other.lastError;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    state,
+    sourceKind,
+    savePath,
+    displayName,
+    infoHash,
+    totalBytes,
+    downloadedBytes,
+    verifiedBytes,
+    uploadedBytes,
+    Object.hash(
+      shareRatio,
+      seedingSeconds,
+      seedRatioLimit,
+      seedTimeLimitMinutes,
+      seedStopReason,
+      progress,
+      downloadRate,
+      uploadRate,
+      peers,
+      seeds,
+      isPrivate,
+      lastError,
+    ),
+  );
 }
 
 class BtTaskFileDetail {
