@@ -33,6 +33,14 @@ void main() {
     await database.close();
   });
 
+  test('sqlite init does not reopen an already open database', () async {
+    var first = BTSqlite().db;
+    expect(BTSqlite.isInitialized, isTrue);
+    await BTSqlite.init();
+    await BTSqlite.init();
+    expect(identical(BTSqlite().db, first), isTrue);
+  });
+
   test('collection initialization is idempotent and preserves rows', () async {
     var collection = BtsBangumiCollection();
     await collection.init();

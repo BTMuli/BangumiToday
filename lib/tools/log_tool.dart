@@ -92,6 +92,7 @@ class BTLogTool {
 
   /// 初始化
   static Future<void> init() async {
+    if (_isInitialized) return;
     logDir = await instance.fileTool.getAppDataPath('log');
     var outputC = ConsoleOutput();
     var outputs = <LogOutput>[outputC];

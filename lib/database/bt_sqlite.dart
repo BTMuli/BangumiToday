@@ -16,8 +16,21 @@ class BTSqlite {
   /// 数据库
   late Database db;
 
+  static bool _isInitialized = false;
+  static Future<void>? _initFuture;
+
   /// 获取实例
   factory BTSqlite() => _instance;
+
+  /// 已完成初始化且连接可用（含测试注入的已打开数据库）。
+  static bool get isInitialized {
+    if (_isInitialized) return true;
+    try {
+      return _instance.db.isOpen;
+    } catch (_) {
+      return false;
+    }
+  }
 
   /// 获取数据库路径
   static Future<String> getDbPath() async {
@@ -31,7 +44,17 @@ class BTSqlite {
   }
 
   /// 初始化
-  static Future<void> init() async {
+  static Future<void> init() {
+    if (isInitialized) {
+      _isInitialized = true;
+      return Future.value();
+    }
+    return _initFuture ??= _open().whenComplete(() {
+      if (!_isInitialized) _initFuture = null;
+    });
+  }
+
+  static Future<void> _open() async {
     var ffi = databaseFactoryFfi;
     sqfliteFfiInit();
     var path = await getDbPath();
@@ -39,6 +62,7 @@ class BTSqlite {
       path,
       options: OpenDatabaseOptions(version: 1),
     );
+    _isInitialized = true;
     BTLogTool.info('SQLite init success');
     BTLogTool.info('Database path: $path');
   }
