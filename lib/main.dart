@@ -118,19 +118,31 @@ Future<void> _initDesktopTray() async {
 Future<void> _exitApplication() async {
   if (_applicationExitStarted) return;
   _applicationExitStarted = true;
+  // 先藏窗、再拆托盘，避免协议还原 / 引擎 shutdown 期间主窗体假死。
+  await _runExitStep('隐藏主窗口', windowManager.hide);
+  await _runExitStep('系统托盘', BTDesktopTrayService.instance.dispose);
   await _runExitStep('Windows 协议还原', restoreWindowsAppProtocol);
   await _runExitStep('BMF RSS 服务', () async {
     BmfRssService.instance.stop();
   });
   await _runExitStep('App Link 服务', AppLinkService.instance.dispose);
-  await _runExitStep('BT 下载引擎', BtEngineClient.instance.shutdown);
-  await _runExitStep('系统托盘', BTDesktopTrayService.instance.dispose);
+  await _runExitStep(
+    'BT 下载引擎',
+    BtEngineClient.instance.shutdown,
+    timeout: const Duration(seconds: 8),
+  );
   await _runExitStep('主窗口', windowManager.destroy);
 }
 
-Future<void> _runExitStep(String name, Future<void> Function() action) async {
+Future<void> _runExitStep(
+  String name,
+  Future<void> Function() action, {
+  Duration timeout = const Duration(seconds: 5),
+}) async {
   try {
-    await action();
+    await action().timeout(timeout);
+  } on TimeoutException {
+    BTLogTool.warn('$name 退出清理超时');
   } catch (error, stackTrace) {
     BTLogTool.error(['$name 退出清理失败', error.toString(), stackTrace.toString()]);
   }

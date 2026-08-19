@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:async';
+
 // Package imports:
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tray_manager/tray_manager.dart';
@@ -118,9 +121,46 @@ void main() {
       await flushCallbacks();
 
       expect(exitCount, 1);
-      expect(window.hideCount, 0);
+      expect(window.hideCount, 1);
     },
   );
+
+  test('exit menu item hides the window then requests exit', () async {
+    var exitCount = 0;
+    await initialize(onExit: () async => exitCount++);
+
+    service.onTrayMenuItemClick(
+      tray.menu!.getMenuItem(BTDesktopTrayService.exitAppKey)!,
+    );
+    await flushCallbacks();
+
+    expect(window.hideCount, 1);
+    expect(exitCount, 1);
+  });
+
+  test('exit waits for the tray menu to close before tearing down', () async {
+    var menu = Completer<void>();
+    tray.popUpBarrier = menu;
+    var exitCount = 0;
+    await initialize(onExit: () async => exitCount++);
+
+    service.onTrayIconRightMouseDown();
+    await flushCallbacks();
+    expect(tray.popupCount, 1);
+
+    service.onTrayMenuItemClick(
+      tray.menu!.getMenuItem(BTDesktopTrayService.exitAppKey)!,
+    );
+    await flushCallbacks();
+    expect(exitCount, 0);
+    expect(window.hideCount, 0);
+
+    menu.complete();
+    await flushCallbacks();
+
+    expect(window.hideCount, 1);
+    expect(exitCount, 1);
+  });
 
   test('menu commands navigate and show the window', () async {
     var bmfCount = 0;
@@ -165,6 +205,7 @@ class _FakeTrayAdapter implements BTTrayAdapter {
   Menu? menu;
   String? iconPath;
   String? toolTip;
+  Completer<void>? popUpBarrier;
   int popupCount = 0;
   int destroyCount = 0;
 
@@ -196,6 +237,8 @@ class _FakeTrayAdapter implements BTTrayAdapter {
   @override
   Future<void> popUpContextMenu() async {
     popupCount++;
+    var barrier = popUpBarrier;
+    if (barrier != null) await barrier.future;
   }
 
   @override

@@ -16,7 +16,8 @@ const _assocStrProgId = 20;
 const _assocFNoTruncate = 0x00000020;
 const _assocFIsProtocol = 0x00001000;
 const _shcneAssocChanged = 0x08000000;
-const _shcnfFlush = 0x1000;
+// SHCNF_FLUSH 会阻塞到 Explorer 等窗口处理完通知，托盘退出时会卡住主窗体。
+const _shcnfFlushNoWait = 0x2000;
 const _backupKey = r'HKCU\Software\BangumiToday\DevProtocolHijack';
 const _delegateExecuteName = 'DelegateExecute';
 
@@ -233,7 +234,7 @@ void _notifyAssocChangedNative() {
           Void Function(Int32, Uint32, Pointer<Void>, Pointer<Void>),
           void Function(int, int, Pointer<Void>, Pointer<Void>)
         >('SHChangeNotify');
-    notify(_shcneAssocChanged, _shcnfFlush, nullptr, nullptr);
+    notify(_shcneAssocChanged, _shcnfFlushNoWait, nullptr, nullptr);
   } catch (_) {
     // Association cache refresh is best-effort.
   }

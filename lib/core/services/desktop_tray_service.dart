@@ -184,6 +184,7 @@ class BTDesktopTrayService with TrayListener, WindowListener {
   bool _exitRequested = false;
   DateTime? _lastLeftClick;
   Menu? _menu;
+  Future<void>? _contextMenuFuture;
 
   /// 服务是否已完成托盘初始化。
   bool get isInitialized => _initialized;
@@ -218,6 +219,7 @@ class BTDesktopTrayService with TrayListener, WindowListener {
     _onOpenDownload = onOpenDownload;
     _onExit = onExit;
     _lastLeftClick = null;
+    _contextMenuFuture = null;
     _exitRequested = false;
 
     try {
@@ -277,6 +279,7 @@ class BTDesktopTrayService with TrayListener, WindowListener {
   /// 注销监听器、关闭关闭拦截并销毁托盘图标。
   Future<void> dispose() async {
     _lastLeftClick = null;
+    _contextMenuFuture = null;
     _initialized = false;
     if (_listenersRegistered) {
       _tray.removeListener(this);
@@ -334,7 +337,9 @@ class BTDesktopTrayService with TrayListener, WindowListener {
   void onTrayIconRightMouseDown() {
     if (!_initialized || _exitRequested) return;
     _lastLeftClick = null;
-    unawaited(_showContextMenu());
+    var menuFuture = _showContextMenu();
+    _contextMenuFuture = menuFuture;
+    unawaited(menuFuture);
   }
 
   Future<void> _showContextMenu() async {
@@ -432,10 +437,33 @@ class BTDesktopTrayService with TrayListener, WindowListener {
     if (_exitRequested) return;
     _exitRequested = true;
     try {
+      // tray_manager 在 Windows 上用 TrackPopupMenu 弹出菜单，该方法会卡住
+      // 平台线程直到菜单关闭。菜单点击回调会在这段嵌套消息循环里送达，
+      // 此时若立刻 hide/destroy 窗口或托盘，主窗体会无响应直到菜单返回。
+      await _waitForContextMenuToClose();
+      await _hideWindowSafely();
       await _onExit?.call();
     } catch (error, stackTrace) {
       _exitRequested = false;
       BTLogTool.error(['退出应用失败', error.toString(), stackTrace.toString()]);
+    }
+  }
+
+  Future<void> _waitForContextMenuToClose() async {
+    var menuFuture = _contextMenuFuture;
+    if (menuFuture == null) return;
+    try {
+      await menuFuture.timeout(const Duration(seconds: 2));
+    } on TimeoutException {
+      BTLogTool.warn('等待系统托盘菜单关闭超时，继续退出');
+    } catch (_) {}
+  }
+
+  Future<void> _hideWindowSafely() async {
+    try {
+      await _window.hide();
+    } catch (error, stackTrace) {
+      BTLogTool.warn(['退出前隐藏主窗口失败', error.toString(), stackTrace.toString()]);
     }
   }
 }
