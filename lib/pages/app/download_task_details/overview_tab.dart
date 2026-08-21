@@ -1,10 +1,15 @@
 part of '../download_task_details.dart';
 
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({required this.task, required this.details});
+  const _OverviewTab({
+    required this.task,
+    required this.details,
+    this.fileCount,
+  });
 
   final BtTaskSnapshot task;
   final BtTaskDetails details;
+  final int? fileCount;
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +58,10 @@ class _OverviewTab extends StatelessWidget {
                       : '等待元数据',
                 ),
                 _DetailRow(label: '分片数量', value: '${details.pieceCount}'),
-                _DetailRow(label: '文件数量', value: '${details.totalFiles}'),
+                _DetailRow(
+                  label: '文件数量',
+                  value: '${fileCount ?? details.contentFileCount}',
+                ),
                 _DetailRow(
                   label: '做种策略',
                   value:

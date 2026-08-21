@@ -95,6 +95,7 @@ void main() {
       ],
       truncated: false,
       totalFiles: 1,
+      totalContentFiles: 1,
       offset: 0,
     );
     createStore();
@@ -129,6 +130,7 @@ void main() {
       ],
       truncated: false,
       totalFiles: 1,
+      totalContentFiles: 1,
       offset: 0,
     );
     createStore();
@@ -163,6 +165,7 @@ void main() {
       ],
       truncated: false,
       totalFiles: 1,
+      totalContentFiles: 1,
       offset: 0,
     );
     createStore();
@@ -222,6 +225,7 @@ void main() {
       ],
       truncated: false,
       totalFiles: 1,
+      totalContentFiles: 1,
       offset: 0,
     );
     createStore();
@@ -245,6 +249,7 @@ void main() {
       ],
       truncated: false,
       totalFiles: 1,
+      totalContentFiles: 1,
       offset: 0,
     );
     gateway.emitTasks([
@@ -356,6 +361,7 @@ class _FakeGateway implements BtEngineGateway {
       files: const [],
       filesTruncated: false,
       totalFiles: 0,
+      contentFileCount: 0,
       peers: const [],
       peersTruncated: false,
       totalPeers: 0,
@@ -373,6 +379,7 @@ class _FakeGateway implements BtEngineGateway {
           files: [],
           truncated: false,
           totalFiles: 0,
+          totalContentFiles: 0,
           offset: 0,
         );
   }

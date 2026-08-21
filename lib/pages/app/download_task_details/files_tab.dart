@@ -4,6 +4,7 @@ class _FilesTab extends ConsumerStatefulWidget {
   const _FilesTab({
     required this.files,
     required this.truncated,
+    required this.totalFiles,
     required this.task,
     required this.taskId,
     required this.loading,
@@ -13,6 +14,7 @@ class _FilesTab extends ConsumerStatefulWidget {
 
   final List<BtTaskFileDetail> files;
   final bool truncated;
+  final int totalFiles;
   final BtTaskSnapshot task;
   final String taskId;
   final bool loading;
@@ -26,6 +28,8 @@ class _FilesTab extends ConsumerStatefulWidget {
 class _FilesTabState extends ConsumerState<_FilesTab> {
   late List<BtTaskFileDetail> _files;
   final Set<int> _busyIndices = {};
+  var _sortIndex = -1;
+  var _ascending = true;
 
   @override
   void initState() {
@@ -47,6 +51,46 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
     return state != 'completed' && state != 'seeding';
   }
 
+  void _toggleSort(int index) {
+    setState(() {
+      if (_sortIndex == index) {
+        _ascending = !_ascending;
+      } else {
+        _sortIndex = index;
+        _ascending = true;
+      }
+    });
+  }
+
+  List<_IndexedFile> _sortedFiles() {
+    var files = [
+      for (var index = 0; index < _files.length; index++)
+        if (!_files[index].isPadding)
+          _IndexedFile(index: index, file: _files[index]),
+    ];
+    if (_sortIndex == -1) return files;
+    files.sort((a, b) {
+      var result = switch (_sortIndex) {
+        0 => _compareText(_fileName(a.file.path), _fileName(b.file.path)),
+        1 => _compareText(_extension(a.file), _extension(b.file)),
+        2 => a.file.progress.compareTo(b.file.progress),
+        3 => a.file.completedBytes.compareTo(b.file.completedBytes),
+        _ => a.file.size.compareTo(b.file.size),
+      };
+      if (result == 0) result = a.index.compareTo(b.index);
+      return _ascending ? result : -result;
+    });
+    return files;
+  }
+
+  static int _compareText(String a, String b) =>
+      a.toLowerCase().compareTo(b.toLowerCase());
+
+  static String _extension(BtTaskFileDetail file) {
+    var extension = path.extension(file.path);
+    return extension.isEmpty ? '' : extension.substring(1).toLowerCase();
+  }
+
   void _replacePriorities(Map<int, int> changes) {
     for (var entry in changes.entries) {
       var file = _files[entry.key];
@@ -55,6 +99,7 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
         size: file.size,
         completedBytes: file.completedBytes,
         priority: entry.value,
+        paddingFile: file.paddingFile,
       );
     }
   }
@@ -83,6 +128,7 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                 size: _files[i].size,
                 completedBytes: _files[i].completedBytes,
                 priority: applied[i],
+                paddingFile: _files[i].paddingFile,
               ),
           ];
         }
@@ -106,7 +152,8 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
     if (widget.truncated || _files.isEmpty) return;
     unawaited(
       _applyPriorities({
-        for (var i = 0; i < _files.length; i++) i: include ? 4 : 0,
+        for (var i = 0; i < _files.length; i++)
+          if (!_files[i].isPadding) i: include ? 4 : 0,
       }),
     );
   }
@@ -127,8 +174,20 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
         description: '元数据就绪后会显示文件列表与独立进度',
       );
     }
+    var files = _sortedFiles();
+    if (files.isEmpty) {
+      return const _DetailEmptyState(
+        icon: FluentIcons.folder,
+        title: '暂无可展示文件',
+        description: '元数据中没有可下载的文件',
+      );
+    }
+    var selectedCount = _files
+        .where((file) => !file.isPadding && !file.isSkipped)
+        .length;
     var footerParts = <String>[
-      if (widget.truncated) '文件较多，仅显示前 ${_files.length} 个',
+      if (widget.truncated) '文件较多，已加载 ${files.length} / ${widget.totalFiles} 个',
+      '已选下载 $selectedCount 个',
       if (!_canEdit) '下载完成后不可修改文件选择',
       if (error != null) '刷新失败，正在显示上次结果',
     ];
@@ -160,17 +219,22 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
         Expanded(
           child: _TableShell(
             footer: footerParts.isEmpty ? null : footerParts.join(' · '),
-            header: const _TableHeader(
+            header: _TableHeader(
               columns: ['文件名', '类型', '进度', '已完成', '大小'],
-              flexes: [5, 1, 2, 2, 2],
+              flexes: const [7, 1, 2, 2, 2],
+              sortIndex: _sortIndex,
+              ascending: _ascending,
+              onSort: _toggleSort,
             ),
-            itemCount: _files.length,
+            itemCount: files.length,
             itemBuilder: (context, index) {
-              var file = _files[index];
+              var entry = files[index];
+              var file = entry.file;
+              var fileIndex = entry.index;
               var extension = path.extension(file.path);
               var progress = (file.progress * 100).clamp(0, 100).toDouble();
               return _TableRow(
-                flexes: const [5, 1, 2, 2, 2],
+                flexes: const [7, 1, 2, 2, 2],
                 columns: [
                   Row(
                     children: [
@@ -179,9 +243,10 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                           padding: EdgeInsets.only(right: 4),
                           child: Checkbox(
                             checked: !file.isSkipped,
-                            onChanged: _busyIndices.contains(index)
+                            onChanged: _busyIndices.contains(fileIndex)
                                 ? null
-                                : (value) => _toggleFile(index, value ?? true),
+                                : (value) =>
+                                      _toggleFile(fileIndex, value ?? true),
                             semanticLabel: '下载 ${file.path}',
                           ),
                         ),
@@ -192,10 +257,9 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                       ),
                       SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          file.path,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        child: Tooltip(
+                          message: file.path,
+                          child: Text(_fileName(file.path), softWrap: true),
                         ),
                       ),
                     ],
@@ -229,4 +293,17 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
       ],
     );
   }
+
+  static String _fileName(String value) {
+    var name = path.basename(value);
+    if (name == '.' || name.isEmpty) return value.isEmpty ? '未知文件' : value;
+    return name;
+  }
+}
+
+class _IndexedFile {
+  const _IndexedFile({required this.index, required this.file});
+
+  final int index;
+  final BtTaskFileDetail file;
 }

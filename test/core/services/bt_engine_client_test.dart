@@ -71,6 +71,51 @@ void main() {
     });
   });
 
+  group('BtTaskFileDetail.isPadding', () {
+    test('uses the engine padding marker', () {
+      expect(
+        const BtTaskFileDetail(
+          path: r'media\_____padding_file_0_____',
+          size: 8,
+          completedBytes: 8,
+          paddingFile: true,
+        ).isPadding,
+        isTrue,
+      );
+      expect(
+        const BtTaskFileDetail(
+          path: '360413',
+          size: 360413,
+          completedBytes: 360413,
+          priority: 0,
+          paddingFile: false,
+        ).isPadding,
+        isFalse,
+      );
+      expect(
+        const BtTaskFileDetail(
+          path: 'media/episode.mp4',
+          size: 8,
+          completedBytes: 8,
+        ).isPadding,
+        isFalse,
+      );
+    });
+
+    test('parses the engine padding marker', () {
+      expect(
+        BtTaskFileDetail.fromJson({
+          'path': 'episode.mp4',
+          'size': 8,
+          'completedBytes': 8,
+          'priority': 0,
+          'isPadding': true,
+        }).isPadding,
+        isTrue,
+      );
+    });
+  });
+
   group('BtTaskPeerDetail', () {
     BtTaskPeerDetail peer(String client, {String endpoint = '1.2.3.4:51413'}) {
       return BtTaskPeerDetail(
@@ -246,6 +291,7 @@ void main() {
 
       expect(details.task.id, 'task');
       expect(details.pieceCount, 2);
+      expect(details.contentFileCount, 1);
       expect(details.completedPieces, '10');
       expect(details.files.single.path, 'episode.mkv');
       expect(details.files.single.progress, 0.5);
@@ -592,12 +638,14 @@ class FakeBtEngineProcess implements BtEngineProcess {
             'pieceLength': 16384,
             'pieceCount': 2,
             'completedPieces': '10',
+            'contentFiles': 1,
             'files': [
               {
                 'path': 'episode.mkv',
                 'size': 100,
                 'completedBytes': 50,
                 'priority': 0,
+                'isPadding': false,
               },
             ],
             'filesTruncated': false,
@@ -625,10 +673,12 @@ class FakeBtEngineProcess implements BtEngineProcess {
                 'size': 100,
                 'completedBytes': 50,
                 'priority': 0,
+                'isPadding': false,
               },
             ],
             'filesTruncated': false,
             'totalFiles': 1,
+            'contentFiles': 1,
             'offset': filesOffset,
             'nextOffset': null,
           },

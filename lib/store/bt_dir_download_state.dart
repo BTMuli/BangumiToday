@@ -114,7 +114,7 @@ BtDirDownloadState computeDirDownloadState({
       continue;
     }
     for (var file in files) {
-      if (file.isSkipped || file.path.isEmpty) continue;
+      if (file.isPadding || file.isSkipped || file.path.isEmpty) continue;
       var name = path.basename(file.path);
       if (name.isEmpty) continue;
       _mergeFileState(byName, name, _fileStateForFile(task, file));
@@ -149,7 +149,7 @@ void _markCompleteFiles(
   List<BtTaskFileDetail> files,
 ) {
   for (var file in files) {
-    if (file.isSkipped || file.path.isEmpty) continue;
+    if (file.isPadding || file.isSkipped || file.path.isEmpty) continue;
     var name = path.basename(file.path);
     if (name.isEmpty) continue;
     byName[name] = const BtFileDownloadState(

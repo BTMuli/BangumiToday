@@ -221,10 +221,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
                 icon: FluentIcons.people,
                 label: 'Peer ${_peers?.totalPeers ?? _details!.totalPeers}',
               ),
-              _DetailTab(
-                icon: FluentIcons.folder,
-                label: '文件 ${_files?.totalFiles ?? _details!.totalFiles}',
-              ),
+              _DetailTab(icon: FluentIcons.folder, label: _filesTabLabel),
             ],
             index: _tabIndex,
             onChanged: _onTabChanged,
@@ -245,7 +242,13 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
                   child: IndexedStack(
                     index: _tabIndex,
                     children: [
-                      _OverviewTab(task: task, details: _details!),
+                      _OverviewTab(
+                        task: task,
+                        details: _details!,
+                        fileCount:
+                            _files?.contentFileCount ??
+                            _details!.contentFileCount,
+                      ),
                       _ProgressTab(task: task, details: _details!),
                       _PeersTab(
                         peers: _peers?.peers ?? const [],
@@ -259,6 +262,9 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
                       _FilesTab(
                         files: _files?.files ?? const [],
                         truncated: _files?.truncated ?? false,
+                        totalFiles:
+                            _files?.totalContentFiles ??
+                            _details!.contentFileCount,
                         task: task,
                         taskId: widget.taskId,
                         loading: _files == null,
@@ -302,6 +308,16 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
         ],
       ),
     );
+  }
+
+  String get _filesTabLabel {
+    var files = _files;
+    if (files == null) return '文件 ${_details!.contentFileCount}';
+    var total = files.contentFileCount;
+    var selectedCount = files.files
+        .where((file) => !file.isPadding && !file.isSkipped)
+        .length;
+    return selectedCount == total ? '文件 $total' : '文件 $selectedCount/$total';
   }
 }
 

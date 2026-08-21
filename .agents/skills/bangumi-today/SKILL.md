@@ -40,6 +40,11 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `hooks_riverpod` (st
 | `test/`, `integration_test/`, `test_driver/` | Unit/widget tests, boot integration test, flutter_driver scripts |
 | `repos/bt_download` | C++ download engine submodule (CMake/vcpkg, libtorrent) |
 
+### BangumiToday 与 bt_download 的协议对齐
+
+- `bangumi_today` 与 `repos/bt_download` 始终作为同一版本发布，协议实现与客户端严格同步；协议字段变更必须同时修改两端并一起验证。
+- 不需要为旧版引擎或旧版客户端增加兼容解析、字段缺省值、名称推断或行为回退。协议字段应按当前契约直接解析，缺失或类型错误应尽早暴露。
+
 ## Core workflows
 
 ### Decide where a change belongs

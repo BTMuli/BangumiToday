@@ -546,6 +546,7 @@ class FakeBtEngineGateway implements BtEngineGateway {
       files: const [],
       filesTruncated: false,
       totalFiles: 0,
+      contentFileCount: 0,
       peers: const [],
       peersTruncated: false,
       totalPeers: 0,
@@ -562,6 +563,7 @@ class FakeBtEngineGateway implements BtEngineGateway {
       files: [],
       truncated: false,
       totalFiles: 0,
+      totalContentFiles: 0,
       offset: 0,
     );
   }

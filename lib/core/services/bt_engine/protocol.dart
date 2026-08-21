@@ -194,6 +194,7 @@ class BtTaskFileDetail {
     required this.size,
     required this.completedBytes,
     this.priority = 4,
+    this.paddingFile = false,
   });
 
   factory BtTaskFileDetail.fromJson(Map<String, dynamic> json) {
@@ -202,6 +203,7 @@ class BtTaskFileDetail {
       size: (json['size'] as num?)?.toInt() ?? 0,
       completedBytes: (json['completedBytes'] as num?)?.toInt() ?? 0,
       priority: (json['priority'] as num?)?.toInt() ?? 4,
+      paddingFile: json['isPadding'] as bool,
     );
   }
 
@@ -209,10 +211,14 @@ class BtTaskFileDetail {
   final int size;
   final int completedBytes;
   final int priority;
+  final bool paddingFile;
 
   double get progress => size <= 0 ? 0 : (completedBytes / size).clamp(0, 1);
 
   bool get isSkipped => priority <= 0;
+
+  /// libtorrent 的对齐文件，不会写入下载目录，也不应在文件列表中展示。
+  bool get isPadding => paddingFile;
 }
 
 class BtTaskPeerDetail {
@@ -287,6 +293,7 @@ class BtTaskDetails {
     required this.files,
     required this.filesTruncated,
     required this.totalFiles,
+    required this.contentFileCount,
     required this.peers,
     required this.peersTruncated,
     required this.totalPeers,
@@ -314,6 +321,7 @@ class BtTaskDetails {
       files: files,
       filesTruncated: json['filesTruncated'] as bool? ?? false,
       totalFiles: (json['totalFiles'] as num?)?.toInt() ?? files.length,
+      contentFileCount: (json['contentFiles'] as num).toInt(),
       peers: peers,
       peersTruncated: json['peersTruncated'] as bool? ?? false,
       totalPeers: (json['totalPeers'] as num?)?.toInt() ?? peers.length,
@@ -327,6 +335,9 @@ class BtTaskDetails {
   final List<BtTaskFileDetail> files;
   final bool filesTruncated;
   final int totalFiles;
+
+  /// 不包含 libtorrent padding 文件的真实文件数量。
+  final int contentFileCount;
   final List<BtTaskPeerDetail> peers;
   final bool peersTruncated;
   final int totalPeers;
@@ -339,6 +350,7 @@ class BtTaskFilesResult {
     required this.truncated,
     required this.totalFiles,
     required this.offset,
+    required this.totalContentFiles,
     this.nextOffset,
   });
 
@@ -358,6 +370,7 @@ class BtTaskFilesResult {
       truncated: json['filesTruncated'] as bool? ?? false,
       totalFiles: (json['totalFiles'] as num?)?.toInt() ?? files.length,
       offset: (json['offset'] as num?)?.toInt() ?? 0,
+      totalContentFiles: (json['contentFiles'] as num).toInt(),
       nextOffset: (json['nextOffset'] as num?)?.toInt(),
     );
   }
@@ -369,6 +382,12 @@ class BtTaskFilesResult {
   final int totalFiles;
   final int offset;
   final int? nextOffset;
+
+  /// 引擎报告的不包含 padding 文件的总数。
+  final int totalContentFiles;
+
+  /// 过滤掉不会落盘的 padding 文件后的数量。
+  int get contentFileCount => totalContentFiles;
 }
 
 /// `task.peers` 的响应：按 `offset`/`limit` 窗口返回的 Peer 列表。

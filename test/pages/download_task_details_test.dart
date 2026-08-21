@@ -202,6 +202,20 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('file tab uses content count before loading file list', (
+    tester,
+  ) async {
+    var engine = await _pumpDetails(
+      tester,
+      details: _detailsWithSections(includePadding: true),
+    );
+
+    expect(find.text('文件 2'), findsOneWidget);
+    expect(engine.taskFilesCalls, 0);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('peers tab renders rows and client filter narrows the list', (
     tester,
   ) async {
@@ -257,6 +271,74 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(engine.setFilePrioritiesCalls, 1);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('files tab sorts progress and keeps original file indices', (
+    tester,
+  ) async {
+    var engine = await _pumpDetails(tester, details: _detailsWithSections());
+
+    await tester.tap(find.textContaining('文件'));
+    await tester.pump();
+    await tester.pump();
+
+    var progressHeader = find.text('进度').last;
+    await tester.tap(progressHeader);
+    await tester.pump();
+    await tester.tap(progressHeader);
+    await tester.pump();
+
+    expect(
+      tester.getTopLeft(find.text('subtitle.ass')).dy,
+      lessThan(tester.getTopLeft(find.text('episode.mkv')).dy),
+    );
+
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(engine.lastPriorities, {1: 0});
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('files tab shows selected count separately from metadata count', (
+    tester,
+  ) async {
+    await _pumpDetails(
+      tester,
+      details: _detailsWithSections(subtitlePriority: 0),
+    );
+
+    await tester.tap(find.textContaining('文件'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('文件 1/2'), findsOneWidget);
+    expect(find.text('已选下载 1 个'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('files tab hides padding files from the list and count', (
+    tester,
+  ) async {
+    await _pumpDetails(
+      tester,
+      details: _detailsWithSections(includePadding: true),
+    );
+
+    await tester.tap(find.textContaining('文件'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('文件 2'), findsOneWidget);
+    expect(find.text('360413'), findsNothing);
+    expect(find.text('episode.mkv'), findsOneWidget);
+    expect(find.text('subtitle.ass'), findsOneWidget);
+    expect(find.byType(Checkbox), findsNWidgets(2));
+    expect(find.text('已选下载 2 个'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
   });
@@ -523,13 +605,17 @@ BtTaskDetails _details() {
     files: const [],
     filesTruncated: false,
     totalFiles: 0,
+    contentFileCount: 0,
     peers: const [],
     peersTruncated: false,
     totalPeers: 0,
   );
 }
 
-BtTaskDetails _detailsWithSections() {
+BtTaskDetails _detailsWithSections({
+  int subtitlePriority = 4,
+  bool includePadding = false,
+}) {
   return BtTaskDetails(
     task: _task(),
     pieceLength: 16384,
@@ -537,10 +623,24 @@ BtTaskDetails _detailsWithSections() {
     completedPieces: '10',
     files: [
       BtTaskFileDetail(path: 'episode.mkv', size: 100, completedBytes: 50),
-      BtTaskFileDetail(path: 'subtitle.ass', size: 10, completedBytes: 10),
+      if (includePadding)
+        BtTaskFileDetail(
+          path: '360413',
+          size: 360413,
+          completedBytes: 360413,
+          priority: 0,
+          paddingFile: true,
+        ),
+      BtTaskFileDetail(
+        path: 'subtitle.ass',
+        size: 10,
+        completedBytes: 10,
+        priority: subtitlePriority,
+      ),
     ],
     filesTruncated: false,
-    totalFiles: 2,
+    totalFiles: includePadding ? 3 : 2,
+    contentFileCount: 2,
     peers: [
       BtTaskPeerDetail(
         endpoint: '127.0.0.1:6881',
@@ -588,6 +688,7 @@ class FakeDetailsEngine implements BtEngineGateway {
   int taskFilesCalls = 0;
   int taskPeersCalls = 0;
   int setFilePrioritiesCalls = 0;
+  Map<int, int> lastPriorities = const {};
   Object? filesError;
   Object? peersError;
   Completer<BtTaskDetails>? nextDetailsCompleter;
@@ -635,6 +736,7 @@ class FakeDetailsEngine implements BtEngineGateway {
       files: const [],
       filesTruncated: false,
       totalFiles: value.files.length,
+      contentFileCount: value.contentFileCount,
       peers: const [],
       peersTruncated: false,
       totalPeers: value.peers.length,
@@ -656,6 +758,7 @@ class FakeDetailsEngine implements BtEngineGateway {
       files: offset < end ? files.sublist(offset, end) : const [],
       truncated: false,
       totalFiles: files.length,
+      totalContentFiles: value.contentFileCount,
       offset: offset,
       nextOffset: null,
     );
@@ -702,6 +805,7 @@ class FakeDetailsEngine implements BtEngineGateway {
     Map<int, int> priorities,
   ) async {
     setFilePrioritiesCalls++;
+    lastPriorities = Map.of(priorities);
     return const [];
   }
 
