@@ -411,6 +411,12 @@ class BTDesktopTrayService with TrayListener, WindowListener {
     if (_closeActionInProgress || _exitRequested) return;
     _closeActionInProgress = true;
     try {
+      // 调试期间关闭窗口应真正退出，避免开发进程仍驻留在系统托盘中。
+      if (kDebugMode) {
+        await _requestExit();
+        return;
+      }
+
       var minimizeToTray = true;
       try {
         minimizeToTray = await _readMinimizeToTray!();

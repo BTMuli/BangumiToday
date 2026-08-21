@@ -99,12 +99,14 @@ void main() {
     expect(tray.popupCount, 1);
   });
 
-  test('close hides the window when the setting is enabled', () async {
-    await initialize();
+  test('close requests application exit in debug mode', () async {
+    var exitCount = 0;
+    await initialize(onExit: () async => exitCount++);
 
     service.onWindowClose();
     await flushCallbacks();
 
+    expect(exitCount, 1);
     expect(window.hideCount, 1);
     expect(window.destroyCount, 0);
   });
