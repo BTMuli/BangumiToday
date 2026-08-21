@@ -8,6 +8,7 @@ import '../core/constants/app_constants.dart';
 import '../database/app/app_config.dart';
 import '../plugins/mikan/mikan_api.dart';
 import '../request/bangumi/bangumi_api.dart';
+import '../request/core/client.dart';
 
 /// 应用状态提供者
 final appStoreProvider = ChangeNotifierProvider<BTAppStore>((ref) {
@@ -25,6 +26,7 @@ class BTAppStore extends ChangeNotifier {
     initMinimizeToTray();
     initMikanRss();
     initBangumiUrl();
+    initUseSystemProxy();
   }
 
   /// 初始化主题和主题色
@@ -56,6 +58,13 @@ class BTAppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 初始化系统代理配置。
+  Future<void> initUseSystemProxy() async {
+    _useSystemProxy = await sqlite.readUseSystemProxy();
+    await BtrClient.configureSystemProxy(_useSystemProxy);
+    notifyListeners();
+  }
+
   /// 主题
   ThemeMode _themeMode = ThemeMode.system;
 
@@ -70,6 +79,9 @@ class BTAppStore extends ChangeNotifier {
 
   /// 关闭主窗口后是否隐藏到系统托盘。
   bool _minimizeToTray = true;
+
+  /// 是否使用 Windows 系统代理。
+  bool _useSystemProxy = false;
 
   /// 获取主题
   ThemeMode get themeMode => _themeMode;
@@ -114,10 +126,21 @@ class BTAppStore extends ChangeNotifier {
   /// 获取关闭后最小化到托盘配置。
   bool get minimizeToTray => _minimizeToTray;
 
+  /// 获取是否使用系统代理。
+  bool get useSystemProxy => _useSystemProxy;
+
   /// 设置关闭后最小化到托盘配置。
   Future<void> setMinimizeToTray(bool value) async {
     _minimizeToTray = value;
     await sqlite.writeMinimizeToTray(value);
+    notifyListeners();
+  }
+
+  /// 设置是否使用系统代理。
+  Future<void> setUseSystemProxy(bool value) async {
+    await BtrClient.configureSystemProxy(value);
+    _useSystemProxy = value;
+    await sqlite.writeUseSystemProxy(value);
     notifyListeners();
   }
 

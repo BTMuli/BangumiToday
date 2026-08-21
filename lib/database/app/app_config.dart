@@ -166,6 +166,27 @@ class BtsAppConfig {
     await _instance.write('minimizeToTray', value.toString());
   }
 
+  /// 读取是否使用系统代理配置。
+  Future<bool> readUseSystemProxy() async {
+    const defaultValue = false;
+    var value = await _instance.read('useSystemProxy');
+    if (value == null || value.isEmpty) {
+      await _instance.writeUseSystemProxy(defaultValue);
+      return defaultValue;
+    }
+    if (value == 'true') return true;
+    if (value == 'false') return false;
+
+    BTLogTool.warn('Invalid system proxy config: $value');
+    await _instance.writeUseSystemProxy(defaultValue);
+    return defaultValue;
+  }
+
+  /// 写入是否使用系统代理配置。
+  Future<void> writeUseSystemProxy(bool value) async {
+    await _instance.write('useSystemProxy', value.toString());
+  }
+
   /// 读取 bangumiDataVersion
   Future<String?> readBangumiDataVersion() async {
     return _instance.read('bangumiDataVersion');

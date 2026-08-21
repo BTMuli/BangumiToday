@@ -15,6 +15,7 @@ import 'as_pw_bangumi.dart';
 import 'as_pw_device.dart';
 import 'as_pw_download.dart';
 import 'as_pw_info.dart';
+import 'as_pw_network.dart';
 
 /// 设置页面
 class SettingPage extends ConsumerStatefulWidget {
@@ -227,6 +228,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
   List<Widget> buildConfigList() {
     return [
       AspInfoWidget(),
+      if (Platform.isWindows) AppConfigNetworkWidget(),
       if (Platform.isWindows) AppConfigDownloadWidget(),
       AppConfigDeviceWidget(),
       AppConfigBgmWidget(),

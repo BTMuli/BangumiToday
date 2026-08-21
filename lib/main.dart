@@ -30,6 +30,7 @@ import 'database/app/app_config.dart';
 import 'database/bt_sqlite.dart';
 import 'plugins/mikan/mikan_api.dart';
 import 'request/bangumi/bangumi_api.dart';
+import 'request/core/client.dart';
 import 'store/nav_store.dart';
 import 'store/tracker_hive.dart';
 import 'tools/download_tool.dart';
@@ -169,6 +170,7 @@ Future<void> _initBackgroundServices() async {
   var appConfig = BtsAppConfig();
   BtrBangumiApi.setBaseUrl(await appConfig.readBangumiUrl());
   BtrMikanApi.setBaseUrl(await appConfig.readMikanUrl());
+  await BtrClient.configureSystemProxy(await appConfig.readUseSystemProxy());
   await BTHiveTool.init();
   unawaited(
     _runOptionalService('Bangumi Token 预刷新', () async {
