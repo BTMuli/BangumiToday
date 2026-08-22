@@ -72,6 +72,28 @@ class SystemProxyConfig {
   /// 是否至少配置了一个代理地址。
   bool get isAvailable => httpProxy != null || httpsProxy != null;
 
+  /// 转换为下载引擎使用的运行期代理对象。
+  Map<String, dynamic> toEngineJson({required bool enabled}) {
+    if (!enabled) return const <String, dynamic>{'enabled': false};
+
+    var http = _parseEngineEndpoint(httpProxy);
+    var https = _parseEngineEndpoint(httpsProxy);
+    var peer = https ?? http;
+    return <String, dynamic>{
+      'enabled': true,
+      if (http != null) 'httpProxy': http.url,
+      if (https != null) 'httpsProxy': https.url,
+      'bypass': List<String>.of(bypass),
+      if (peer != null)
+        'peerProxy': <String, dynamic>{
+          'host': peer.host,
+          'port': peer.port,
+          if (peer.username.isNotEmpty) 'username': peer.username,
+          if (peer.password.isNotEmpty) 'password': peer.password,
+        },
+    };
+  }
+
   /// 返回 dart:io 使用的 PAC 代理指令。
   String findProxy(Uri uri) {
     if (!uri.isScheme('http') && !uri.isScheme('https')) return 'DIRECT';
@@ -112,6 +134,49 @@ class SystemProxyConfig {
     return false;
   }
 
+  static _EngineProxyEndpoint? _parseEngineEndpoint(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    var text = value.trim();
+    if (!text.contains('://')) text = 'http://$text';
+    try {
+      var uri = Uri.parse(text);
+      var scheme = uri.scheme.toLowerCase();
+      if ((scheme != 'http' && scheme != 'https') ||
+          uri.host.isEmpty ||
+          !RegExp(r'^[A-Za-z0-9._:-]+$').hasMatch(uri.host)) {
+        return null;
+      }
+      if ((uri.path.isNotEmpty && uri.path != '/') ||
+          uri.hasQuery ||
+          uri.hasFragment) {
+        return null;
+      }
+      var port = uri.hasPort ? uri.port : (scheme == 'https' ? 443 : 80);
+      if (port < 1 || port > 65535) return null;
+
+      var username = '';
+      var password = '';
+      if (uri.userInfo.isNotEmpty) {
+        var separator = uri.userInfo.indexOf(':');
+        if (separator < 0) {
+          username = Uri.decodeComponent(uri.userInfo);
+        } else {
+          username = Uri.decodeComponent(uri.userInfo.substring(0, separator));
+          password = Uri.decodeComponent(uri.userInfo.substring(separator + 1));
+        }
+      }
+      return _EngineProxyEndpoint(
+        url: uri.toString(),
+        host: uri.host,
+        port: port,
+        username: username,
+        password: password,
+      );
+    } on FormatException {
+      return null;
+    }
+  }
+
   @override
   String toString() {
     return 'SystemProxyConfig('
@@ -129,6 +194,10 @@ class SystemProxyController {
 
   /// 当前是否启用系统代理。
   static bool get enabled => _enabled;
+
+  /// 当前配置对应的下载引擎运行期代理对象。
+  static Map<String, dynamic> get engineProxyConfig =>
+      _config.toEngineJson(enabled: _enabled);
 
   /// 更新代理配置并安装全局 HTTP 覆盖，使图片缓存等请求也能使用代理。
   static void configure({
@@ -152,6 +221,22 @@ class SystemProxyController {
     _overrides = overrides;
     HttpOverrides.global = overrides;
   }
+}
+
+class _EngineProxyEndpoint {
+  const _EngineProxyEndpoint({
+    required this.url,
+    required this.host,
+    required this.port,
+    required this.username,
+    required this.password,
+  });
+
+  final String url;
+  final String host;
+  final int port;
+  final String username;
+  final String password;
 }
 
 class _SystemProxyHttpOverrides extends HttpOverrides {

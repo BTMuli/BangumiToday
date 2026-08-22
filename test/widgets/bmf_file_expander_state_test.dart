@@ -427,6 +427,16 @@ class _FakeGateway implements BtEngineGateway {
   }
 
   @override
+  Future<BtTaskSnapshot> addHttp({
+    required String url,
+    required String savePath,
+    String? displayName,
+    bool start = true,
+  }) async {
+    return _task(savePath: savePath, state: 'downloading');
+  }
+
+  @override
   Future<Map<String, dynamic>> configure(Map<String, dynamic> config) async {
     return {'config': config};
   }

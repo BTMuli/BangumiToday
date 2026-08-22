@@ -48,7 +48,9 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
 
   bool get _canEdit {
     var state = widget.task.state;
-    return state != 'completed' && state != 'seeding';
+    return widget.task.sourceKind != 'http' &&
+        state != 'completed' &&
+        state != 'seeding';
   }
 
   void _toggleSort(int index) {

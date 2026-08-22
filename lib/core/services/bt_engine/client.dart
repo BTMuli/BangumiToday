@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 // Project imports:
 import '../../../request/core/client.dart';
 import '../../../tools/log_tool.dart';
+import '../../network/system_proxy.dart';
 import 'gateway.dart';
 import 'protocol.dart';
 import 'transport.dart';
@@ -112,6 +113,7 @@ class BtEngineClient implements BtEngineGateway {
         'protocolVersion': btEngineProtocolVersion,
         'statePath': engineStatePath,
         'userAgent': await getClientUA(),
+        'proxy': SystemProxyController.engineProxyConfig,
         if (config.isNotEmpty) 'config': config,
       });
       await _loadTasks();
@@ -256,6 +258,10 @@ class BtEngineClient implements BtEngineGateway {
     return request('engine.configure', config);
   }
 
+  Future<Map<String, dynamic>> configureProxy(Map<String, dynamic> proxy) {
+    return request('engine.configureProxy', proxy);
+  }
+
   @override
   Future<BtTaskSnapshot> addTorrentFile({
     required String torrentPath,
@@ -280,6 +286,21 @@ class BtEngineClient implements BtEngineGateway {
   }) {
     return _addTask(
       source: {'kind': 'magnet', 'uri': uri},
+      savePath: savePath,
+      displayName: displayName,
+      start: start,
+    );
+  }
+
+  @override
+  Future<BtTaskSnapshot> addHttp({
+    required String url,
+    required String savePath,
+    String? displayName,
+    bool start = true,
+  }) {
+    return _addTask(
+      source: {'kind': 'http', 'url': url},
       savePath: savePath,
       displayName: displayName,
       start: start,

@@ -423,24 +423,36 @@ class _DetailsHero extends StatelessWidget {
                 ),
               ),
               SizedBox(width: 8),
-              Expanded(
-                child: _HeroMetric(
-                  icon: FluentIcons.upload,
-                  label: '上传速度',
-                  value: '${BTFileTool.formatSize(task.uploadRate)}/s',
-                  color: BTColors.successLight(context),
+              if (task.sourceKind == 'http')
+                Expanded(
+                  child: _HeroMetric(
+                    icon: FluentIcons.database,
+                    label: '已下载',
+                    value:
+                        '${BTFileTool.formatSize(task.downloadedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
+                    color: BTColors.info,
+                  ),
+                )
+              else ...[
+                Expanded(
+                  child: _HeroMetric(
+                    icon: FluentIcons.upload,
+                    label: '上传速度',
+                    value: '${BTFileTool.formatSize(task.uploadRate)}/s',
+                    color: BTColors.successLight(context),
+                  ),
                 ),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: _HeroMetric(
-                  icon: FluentIcons.upload,
-                  label: '分享率 / 做种',
-                  value:
-                      '${task.shareRatio.toStringAsFixed(2)} / ${_durationLabel(task.seedingSeconds)}',
-                  color: BTColors.warningLight(context),
+                SizedBox(width: 8),
+                Expanded(
+                  child: _HeroMetric(
+                    icon: FluentIcons.upload,
+                    label: '分享率 / 做种',
+                    value:
+                        '${task.shareRatio.toStringAsFixed(2)} / ${_durationLabel(task.seedingSeconds)}',
+                    color: BTColors.warningLight(context),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ],
@@ -614,6 +626,7 @@ String _sourceKindLabel(String sourceKind) {
   return switch (sourceKind) {
     'torrentFile' => 'Torrent 文件',
     'magnet' => 'Magnet 磁力链接',
+    'http' => 'HTTP(S) 文件链接',
     _ => sourceKind,
   };
 }

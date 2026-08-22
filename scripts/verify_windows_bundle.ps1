@@ -49,6 +49,8 @@ $engineRoot = Resolve-ExistingDirectory -Path $engineRoot -Description 'Bundled 
 $requiredFiles = @(
     'bt_download.exe',
     'torrent-rasterbar.dll',
+    'libcurl.dll',
+    'z.dll',
     'libcrypto-3-x64.dll',
     'libssl-3-x64.dll',
     'msvcp140.dll',
@@ -56,9 +58,11 @@ $requiredFiles = @(
     'sbom.spdx.json',
     'THIRD_PARTY_NOTICES.txt',
     'licenses/boost.txt',
+    'licenses/curl.txt',
     'licenses/libtorrent.txt',
     'licenses/nlohmann-json.txt',
-    'licenses/openssl.txt'
+    'licenses/openssl.txt',
+    'licenses/zlib.txt'
 )
 
 $missingFiles = @(
@@ -77,6 +81,19 @@ $sbomPath = Join-Path $engineRoot 'sbom.spdx.json'
 $sbom = Get-Content -LiteralPath $sbomPath -Raw | ConvertFrom-Json
 if ($sbom.spdxVersion -ne 'SPDX-2.3') {
     throw "Unexpected bt_download SBOM version: $($sbom.spdxVersion)"
+}
+
+$sbomPackages = @($sbom.packages | ForEach-Object { $_.name })
+foreach ($packageName in @('curl', 'zlib')) {
+    if ($packageName -notin $sbomPackages) {
+        throw "Bundled bt_download SBOM is missing package: $packageName"
+    }
+}
+$sbomFiles = @($sbom.files | ForEach-Object { $_.fileName })
+foreach ($fileName in @('./libcurl.dll', './z.dll')) {
+    if ($fileName -notin $sbomFiles) {
+        throw "Bundled bt_download SBOM is missing file metadata: $fileName"
+    }
 }
 
 if ($EngineRuntimePath) {

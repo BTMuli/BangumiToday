@@ -64,4 +64,40 @@ void main() {
       );
     }
   });
+
+  test('builds the download engine proxy config without losing auth', () {
+    var config = SystemProxyConfig.fromWindows(
+      enabled: true,
+      proxyServer:
+          'http=http://127.0.0.1:7890;'
+          'https=http://user:secret@proxy.example:7891',
+      proxyOverride: '<local>;*.example.com',
+    );
+
+    expect(config.toEngineJson(enabled: true), {
+      'enabled': true,
+      'httpProxy': 'http://127.0.0.1:7890',
+      'httpsProxy': 'http://user:secret@proxy.example:7891',
+      'bypass': ['<local>', '*.example.com'],
+      'peerProxy': {
+        'host': 'proxy.example',
+        'port': 7891,
+        'username': 'user',
+        'password': 'secret',
+      },
+    });
+    expect(config.toEngineJson(enabled: false), {'enabled': false});
+  });
+
+  test('omits malformed endpoints from the engine proxy config', () {
+    var config = const SystemProxyConfig(
+      httpProxy: 'http://proxy.example/path',
+      httpsProxy: 'not a proxy',
+    );
+
+    expect(config.toEngineJson(enabled: true), {
+      'enabled': true,
+      'bypass': <String>[],
+    });
+  });
 }

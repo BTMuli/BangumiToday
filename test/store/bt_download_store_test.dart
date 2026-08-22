@@ -151,6 +151,20 @@ void main() {
       expect(gateway.refreshCalls, 1);
     });
 
+    test('submits an HTTP URL through the same global task store', () async {
+      var result = await store.addHttp(
+        url: 'https://example.com/releases/app.exe',
+        savePath: r'D:\Downloads',
+        displayName: 'HTTP Example',
+      );
+
+      expect(result.state, 'downloading');
+      expect(gateway.startCalls, 1);
+      expect(gateway.addedHttpUrl, 'https://example.com/releases/app.exe');
+      expect(gateway.addedHttpName, 'HTTP Example');
+      expect(gateway.refreshCalls, 1);
+    });
+
     test('notifies only when a known task enters completed state', () async {
       gateway.emitTasks([_task(state: 'downloading')]);
       gateway.emitTasks([_task(state: 'completed')]);
@@ -487,6 +501,8 @@ class FakeBtEngineGateway implements BtEngineGateway {
   bool? removedWithData;
   String? addedDisplayName;
   String? addedMagnetName;
+  String? addedHttpUrl;
+  String? addedHttpName;
   Map<String, dynamic>? configured;
   var shutdownCalls = 0;
 
@@ -610,6 +626,18 @@ class FakeBtEngineGateway implements BtEngineGateway {
   }) async {
     addedMagnetName = displayName;
     return _task(state: 'metadata');
+  }
+
+  @override
+  Future<BtTaskSnapshot> addHttp({
+    required String url,
+    required String savePath,
+    String? displayName,
+    bool start = true,
+  }) async {
+    addedHttpUrl = url;
+    addedHttpName = displayName;
+    return _task(state: 'downloading');
   }
 
   @override

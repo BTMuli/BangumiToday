@@ -173,6 +173,16 @@ class _DpiEngine implements BtEngineGateway {
   }
 
   @override
+  Future<BtTaskSnapshot> addHttp({
+    required String url,
+    required String savePath,
+    String? displayName,
+    bool start = true,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<BtTaskSnapshot> addTorrentFile({
     required String torrentPath,
     required String savePath,

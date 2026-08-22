@@ -202,6 +202,24 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('HTTP progress tab renders byte-range pieces', (tester) async {
+    await _pumpDetails(tester, details: _httpDetails());
+
+    await tester.tap(find.text('进度'));
+    await tester.pump();
+
+    expect(find.text('分片完成情况'), findsOneWidget);
+    expect(find.textContaining('2 / 4'), findsOneWidget);
+    expect(find.textContaining('HTTP 分片按字节区间展示传输进度'), findsOneWidget);
+    expect(find.text('HTTP 连接'), findsOneWidget);
+    expect(find.text('3 条'), findsOneWidget);
+    expect(find.text('已上传'), findsNothing);
+    expect(find.text('已校验'), findsNothing);
+    expect(find.text('连接'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('file tab uses content count before loading file list', (
     tester,
   ) async {
@@ -542,9 +560,10 @@ Future<FakeDetailsEngine> _pumpDetails(
   WidgetTester tester, {
   BtTaskDetails? details,
 }) async {
+  var initialTask = details?.task ?? _task();
   var engine = FakeDetailsEngine()
     ..currentState = BtEngineClientState.ready
-    ..currentTasks = [_task()]
+    ..currentTasks = [initialTask]
     ..details = details;
   var store = BtDownloadStore(client: engine);
   addTearDown(() {
@@ -559,7 +578,10 @@ Future<FakeDetailsEngine> _pumpDetails(
           body: SizedBox(
             width: 760,
             height: 640,
-            child: DownloadTaskDetails(taskId: 'task-1', initialTask: _task()),
+            child: DownloadTaskDetails(
+              taskId: 'task-1',
+              initialTask: initialTask,
+            ),
           ),
         ),
       ),
@@ -569,14 +591,17 @@ Future<FakeDetailsEngine> _pumpDetails(
   return engine;
 }
 
-BtTaskSnapshot _task({String state = 'downloading'}) {
+BtTaskSnapshot _task({
+  String state = 'downloading',
+  String sourceKind = 'magnet',
+}) {
   return BtTaskSnapshot(
     id: 'task-1',
     state: state,
-    sourceKind: 'magnet',
+    sourceKind: sourceKind,
     savePath: r'D:\Downloads',
     displayName: 'Example',
-    infoHash: 'abcd',
+    infoHash: sourceKind == 'http' ? null : 'abcd',
     totalBytes: 100,
     downloadedBytes: 10,
     verifiedBytes: 10,
@@ -609,6 +634,24 @@ BtTaskDetails _details() {
     peers: const [],
     peersTruncated: false,
     totalPeers: 0,
+  );
+}
+
+BtTaskDetails _httpDetails() {
+  var task = _task(sourceKind: 'http');
+  return BtTaskDetails(
+    task: task,
+    pieceLength: 256 * 1024,
+    pieceCount: 4,
+    completedPieces: '1100',
+    files: const [],
+    filesTruncated: false,
+    totalFiles: 1,
+    contentFileCount: 1,
+    peers: const [],
+    peersTruncated: false,
+    totalPeers: 0,
+    httpConnections: 3,
   );
 }
 
@@ -740,6 +783,7 @@ class FakeDetailsEngine implements BtEngineGateway {
       peers: const [],
       peersTruncated: false,
       totalPeers: value.peers.length,
+      httpConnections: value.httpConnections,
     );
   }
 
@@ -834,6 +878,16 @@ class FakeDetailsEngine implements BtEngineGateway {
     bool start = true,
   }) async {
     return _task(state: 'metadata');
+  }
+
+  @override
+  Future<BtTaskSnapshot> addHttp({
+    required String url,
+    required String savePath,
+    String? displayName,
+    bool start = true,
+  }) async {
+    return _task(state: 'downloading');
   }
 
   @override

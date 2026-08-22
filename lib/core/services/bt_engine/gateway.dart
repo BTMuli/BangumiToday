@@ -36,6 +36,12 @@ abstract interface class BtEngineGateway {
     String? displayName,
     bool start = true,
   });
+  Future<BtTaskSnapshot> addHttp({
+    required String url,
+    required String savePath,
+    String? displayName,
+    bool start = true,
+  });
   Future<BtTaskSnapshot> pause(String id);
   Future<BtTaskSnapshot> resume(String id);
   Future<BtTaskSnapshot> retry(String id);

@@ -25,10 +25,11 @@ class _OverviewTab extends StatelessWidget {
               children: [
                 _DetailRow(label: '任务状态', value: _stateLabel(task.state)),
                 _DetailRow(label: '存储路径', value: task.savePath),
-                _DetailRow(
-                  label: 'Info Hash',
-                  value: task.displayInfoHash ?? '等待元数据',
-                ),
+                if (task.sourceKind != 'http')
+                  _DetailRow(
+                    label: 'Info Hash',
+                    value: task.displayInfoHash ?? '等待元数据',
+                  ),
                 _DetailRow(
                   label: '资源大小',
                   value: BTFileTool.formatSize(task.totalBytes),
@@ -37,38 +38,48 @@ class _OverviewTab extends StatelessWidget {
                   label: '来源类型',
                   value: _sourceKindLabel(task.sourceKind),
                 ),
-                _DetailRow(
-                  label: '隐私种子',
-                  value: task.isPrivate ? '是' : '否',
-                  isLast: true,
-                ),
+                if (task.sourceKind != 'http')
+                  _DetailRow(
+                    label: '隐私种子',
+                    value: task.isPrivate ? '是' : '否',
+                    isLast: true,
+                  ),
               ],
             ),
           ),
           SizedBox(height: 12),
           _SectionCard(
             icon: FluentIcons.processing,
-            title: '种子信息',
+            title: task.sourceKind == 'http' ? 'HTTP 下载' : '种子信息',
             child: Column(
               children: [
-                _DetailRow(
-                  label: '分片大小',
-                  value: details.pieceLength > 0
-                      ? BTFileTool.formatSize(details.pieceLength)
-                      : '等待元数据',
-                ),
-                _DetailRow(label: '分片数量', value: '${details.pieceCount}'),
+                if (task.sourceKind != 'http') ...[
+                  _DetailRow(
+                    label: '分片大小',
+                    value: details.pieceLength > 0
+                        ? BTFileTool.formatSize(details.pieceLength)
+                        : '等待元数据',
+                  ),
+                  _DetailRow(label: '分片数量', value: '${details.pieceCount}'),
+                ],
                 _DetailRow(
                   label: '文件数量',
                   value: '${fileCount ?? details.contentFileCount}',
                 ),
-                _DetailRow(
-                  label: '做种策略',
-                  value:
-                      '分享率 ${task.seedRatioLimit.toStringAsFixed(1)} · '
-                      '${task.seedTimeLimitMinutes} 分钟',
-                  isLast: true,
-                ),
+                if (task.sourceKind == 'http')
+                  const _DetailRow(
+                    label: '恢复方式',
+                    value: 'HTTP Range 断点续传',
+                    isLast: true,
+                  )
+                else
+                  _DetailRow(
+                    label: '做种策略',
+                    value:
+                        '分享率 ${task.seedRatioLimit.toStringAsFixed(1)} · '
+                        '${task.seedTimeLimitMinutes} 分钟',
+                    isLast: true,
+                  ),
               ],
             ),
           ),

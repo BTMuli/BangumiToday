@@ -87,6 +87,68 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('manual add dialog submits a magnet task', (tester) async {
+    var engine = await _pumpPage(
+      tester,
+      tasks: [_task(id: 'a', state: 'downloading', displayName: 'Task A')],
+    );
+
+    await tester.tap(find.byIcon(FluentIcons.add));
+    await tester.pump();
+
+    expect(find.text('添加下载任务'), findsOneWidget);
+    var textBoxes = find.byType(TextBox);
+    expect(textBoxes, findsNWidgets(3));
+    await tester.enterText(
+      textBoxes.at(0),
+      'magnet:?xt=urn:btih:manual-example',
+    );
+    await tester.enterText(textBoxes.at(2), r'D:\ManualDownloads');
+    await tester.tap(find.text('添加任务'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(engine.addedMagnetUri, 'magnet:?xt=urn:btih:manual-example');
+    expect(engine.addedMagnetSavePath, r'D:\ManualDownloads');
+    expect(find.text('添加下载任务'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('manual add dialog submits a regular HTTP file URL', (
+    tester,
+  ) async {
+    var engine = await _pumpPage(
+      tester,
+      tasks: [_task(id: 'a', state: 'downloading', displayName: 'Task A')],
+    );
+
+    await tester.tap(find.byIcon(FluentIcons.add));
+    await tester.pump();
+    var textBoxes = find.byType(TextBox);
+    await tester.enterText(
+      textBoxes.at(0),
+      'https://github.com/agalwood/Motrix/releases/download/'
+      'v2.0.0-beta.21/Motrix-Setup-2.0.0-beta.21.exe',
+    );
+    await tester.enterText(textBoxes.at(2), r'D:\Downloads');
+    await tester.tap(find.text('添加任务'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      engine.addedHttpUrl,
+      'https://github.com/agalwood/Motrix/releases/download/'
+      'v2.0.0-beta.21/Motrix-Setup-2.0.0-beta.21.exe',
+    );
+    expect(engine.addedHttpSavePath, r'D:\Downloads');
+    expect(find.text('添加下载任务'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('shows empty states per tab', (tester) async {
     await _pumpPage(
       tester,
@@ -234,6 +296,10 @@ class FakePageEngine implements BtEngineGateway {
   List<BtTaskSnapshot> currentTasks = [];
   List<String> pauseCalls = [];
   List<String> removeCalls = [];
+  String? addedMagnetUri;
+  String? addedMagnetSavePath;
+  String? addedHttpUrl;
+  String? addedHttpSavePath;
 
   void dispose() {
     _events.close();
@@ -352,6 +418,20 @@ class FakePageEngine implements BtEngineGateway {
     String? displayName,
     bool start = true,
   }) async {
+    addedMagnetUri = uri;
+    addedMagnetSavePath = savePath;
+    return currentTasks.first;
+  }
+
+  @override
+  Future<BtTaskSnapshot> addHttp({
+    required String url,
+    required String savePath,
+    String? displayName,
+    bool start = true,
+  }) async {
+    addedHttpUrl = url;
+    addedHttpSavePath = savePath;
     return currentTasks.first;
   }
 

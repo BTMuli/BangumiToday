@@ -8,6 +8,7 @@ class _ProgressTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    var isHttp = task.sourceKind == 'http';
     return _KeyboardScrollable(
       builder: (context, controller) => ListView(
         controller: controller,
@@ -29,6 +30,14 @@ class _ProgressTab extends StatelessWidget {
                 _PieceMap(completedPieces: details.completedPieces),
                 SizedBox(height: 12),
                 _PieceLegend(pieceCount: details.completedPieces.length),
+                if (isHttp) ...[
+                  SizedBox(height: 8),
+                  Text(
+                    'HTTP 分片按字节区间展示传输进度，不代表内容已经过哈希校验；'
+                    '服务器支持时使用多条 Range 连接，不支持时自动降级。',
+                    style: BTTypography.caption(context),
+                  ),
+                ],
               ],
             ),
           ),
@@ -51,28 +60,40 @@ class _ProgressTab extends StatelessWidget {
                       icon: FluentIcons.download,
                       color: FluentTheme.of(context).accentColor,
                     ),
-                    _TransferMetric(
-                      width: width,
-                      label: '已上传',
-                      value: BTFileTool.formatSize(task.uploadedBytes),
-                      icon: FluentIcons.upload,
-                      color: BTColors.successLight(context),
-                    ),
-                    _TransferMetric(
-                      width: width,
-                      label: '已校验',
-                      value:
-                          '${BTFileTool.formatSize(task.verifiedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
-                      icon: FluentIcons.check_mark,
-                      color: BTColors.info,
-                    ),
-                    _TransferMetric(
-                      width: width,
-                      label: '连接',
-                      value: '${task.peers} Peer · ${task.seeds} Seed',
-                      icon: FluentIcons.people,
-                      color: BTColors.info,
-                    ),
+                    if (isHttp)
+                      _TransferMetric(
+                        width: width,
+                        label: 'HTTP 连接',
+                        value: details.httpConnections > 0
+                            ? '${details.httpConnections} 条'
+                            : '未连接',
+                        icon: FluentIcons.link,
+                        color: BTColors.info,
+                      ),
+                    if (!isHttp) ...[
+                      _TransferMetric(
+                        width: width,
+                        label: '已上传',
+                        value: BTFileTool.formatSize(task.uploadedBytes),
+                        icon: FluentIcons.upload,
+                        color: BTColors.successLight(context),
+                      ),
+                      _TransferMetric(
+                        width: width,
+                        label: '已校验',
+                        value:
+                            '${BTFileTool.formatSize(task.verifiedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
+                        icon: FluentIcons.check_mark,
+                        color: BTColors.info,
+                      ),
+                      _TransferMetric(
+                        width: width,
+                        label: '连接',
+                        value: '${task.peers} Peer · ${task.seeds} Seed',
+                        icon: FluentIcons.people,
+                        color: BTColors.info,
+                      ),
+                    ],
                   ],
                 );
               },

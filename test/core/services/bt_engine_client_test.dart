@@ -231,6 +231,7 @@ void main() {
         'protocolVersion': btEngineProtocolVersion,
         'statePath': path.absolute(statePath),
         'userAgent': 'BangumiToday/0.8.0',
+        'proxy': {'enabled': false},
         'config': {'activeDownloads': 1},
       });
       expect(
@@ -239,6 +240,19 @@ void main() {
         ),
         isTrue,
       );
+
+      await client.configureProxy({
+        'enabled': true,
+        'httpProxy': 'http://127.0.0.1:7890',
+      });
+      expect(
+        process.requests.last,
+        containsPair('method', 'engine.configureProxy'),
+      );
+      expect(process.requests.last['params'], {
+        'enabled': true,
+        'httpProxy': 'http://127.0.0.1:7890',
+      });
 
       process.emitStderr('diagnostic');
       await Future<void>.delayed(Duration.zero);
@@ -281,6 +295,34 @@ void main() {
       );
     });
 
+    test('submits an HTTP file task with protocol 1.4 source fields', () async {
+      await client.start(
+        executablePath: executablePath,
+        statePath: path.join(temporaryDirectory.path, 'state'),
+      );
+      var savePath = path.join(temporaryDirectory.path, 'downloads');
+
+      var task = await client.addHttp(
+        url: 'https://example.com/releases/app.exe',
+        savePath: savePath,
+        displayName: 'Example HTTP',
+      );
+
+      expect(task.id, 'http-task');
+      var request = process.requests.firstWhere(
+        (request) => request['method'] == 'task.add',
+      );
+      expect(request['params'], {
+        'source': {
+          'kind': 'http',
+          'url': 'https://example.com/releases/app.exe',
+        },
+        'savePath': path.absolute(savePath),
+        'displayName': 'Example HTTP',
+        'start': true,
+      });
+    });
+
     test('parses task detail sections', () async {
       await client.start(
         executablePath: executablePath,
@@ -293,6 +335,7 @@ void main() {
       expect(details.pieceCount, 2);
       expect(details.contentFileCount, 1);
       expect(details.completedPieces, '10');
+      expect(details.httpConnections, 3);
       expect(details.files.single.path, 'episode.mkv');
       expect(details.files.single.progress, 0.5);
       expect(details.files.single.priority, 0);
@@ -302,7 +345,7 @@ void main() {
     });
 
     test(
-      'rejects an engine whose protocol version is not exactly 1.2',
+      'rejects an engine whose protocol version is not exactly 1.4',
       () async {
         process.readyProtocolVersion = '1.1';
 
@@ -324,7 +367,7 @@ void main() {
     );
 
     test(
-      'requests tabbed file and peer lists on a protocol 1.2 engine',
+      'requests tabbed file and peer lists on a protocol 1.4 engine',
       () async {
         await client.start(
           executablePath: executablePath,
@@ -639,6 +682,7 @@ class FakeBtEngineProcess implements BtEngineProcess {
             'pieceCount': 2,
             'completedPieces': '10',
             'contentFiles': 1,
+            'httpConnections': 3,
             'files': [
               {
                 'path': 'episode.mkv',
@@ -710,6 +754,11 @@ class FakeBtEngineProcess implements BtEngineProcess {
           result: {
             'priorities': [4, 0, 4, 7],
           },
+        );
+      case 'task.add':
+        _respond(
+          request,
+          result: {'task': _taskJson(id: 'http-task', state: 'downloading')},
         );
       case 'engine.status':
         _respond(

@@ -19,13 +19,15 @@ class AppConfigNetworkWidget extends ConsumerWidget {
     return BTSettingSection(
       icon: FluentIcons.network_tower,
       title: '网络设置',
-      subtitle: '配置应用网络请求',
+      subtitle: '配置应用与下载引擎网络请求',
       initiallyExpanded: true,
       children: [
         ListTile(
           leading: const BtIcon(FluentIcons.globe),
           title: const Text('使用系统代理'),
-          subtitle: const Text('使用 Windows 系统代理转发应用网络请求，开启代理软件后无需启用 TUN 模式'),
+          subtitle: const Text(
+            '使用 Windows 系统代理转发应用及下载引擎网络请求，开启代理软件后无需启用 TUN 模式',
+          ),
           trailing: ToggleSwitch(
             checked: useSystemProxy,
             onChanged: (value) async {

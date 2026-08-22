@@ -5,10 +5,13 @@ import 'package:system_theme/system_theme.dart';
 
 // Project imports:
 import '../core/constants/app_constants.dart';
+import '../core/network/system_proxy.dart';
+import '../core/services/bt_engine_client.dart';
 import '../database/app/app_config.dart';
 import '../plugins/mikan/mikan_api.dart';
 import '../request/bangumi/bangumi_api.dart';
 import '../request/core/client.dart';
+import '../tools/log_tool.dart';
 
 /// 应用状态提供者
 final appStoreProvider = ChangeNotifierProvider<BTAppStore>((ref) {
@@ -62,6 +65,7 @@ class BTAppStore extends ChangeNotifier {
   Future<void> initUseSystemProxy() async {
     _useSystemProxy = await sqlite.readUseSystemProxy();
     await BtrClient.configureSystemProxy(_useSystemProxy);
+    await _syncDownloadEngineProxy();
     notifyListeners();
   }
 
@@ -138,10 +142,28 @@ class BTAppStore extends ChangeNotifier {
 
   /// 设置是否使用系统代理。
   Future<void> setUseSystemProxy(bool value) async {
-    await BtrClient.configureSystemProxy(value);
+    var previous = _useSystemProxy;
+    try {
+      await BtrClient.configureSystemProxy(value);
+      await _syncDownloadEngineProxy();
+      await sqlite.writeUseSystemProxy(value);
+    } catch (error, stackTrace) {
+      try {
+        await BtrClient.configureSystemProxy(previous);
+        await _syncDownloadEngineProxy();
+      } catch (rollbackError) {
+        BTLogTool.warn('回滚系统代理设置失败：$rollbackError');
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
     _useSystemProxy = value;
-    await sqlite.writeUseSystemProxy(value);
     notifyListeners();
+  }
+
+  Future<void> _syncDownloadEngineProxy() async {
+    var engine = BtEngineClient.instance;
+    if (!engine.isReady) return;
+    await engine.configureProxy(SystemProxyController.engineProxyConfig);
   }
 
   /// 设置 Bangumi API 镜像地址

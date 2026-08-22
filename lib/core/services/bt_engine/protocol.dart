@@ -1,4 +1,4 @@
-const btEngineProtocolVersion = '1.2';
+const btEngineProtocolVersion = '1.4';
 const btEngineMaxProtocolFrameBytes = 1024 * 1024;
 
 enum BtEngineClientState { stopped, starting, ready, stopping, failed }
@@ -297,6 +297,7 @@ class BtTaskDetails {
     required this.peers,
     required this.peersTruncated,
     required this.totalPeers,
+    this.httpConnections = 0,
   });
 
   factory BtTaskDetails.fromJson(Map<String, dynamic> json) {
@@ -325,6 +326,7 @@ class BtTaskDetails {
       peers: peers,
       peersTruncated: json['peersTruncated'] as bool? ?? false,
       totalPeers: (json['totalPeers'] as num?)?.toInt() ?? peers.length,
+      httpConnections: (json['httpConnections'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -341,6 +343,7 @@ class BtTaskDetails {
   final List<BtTaskPeerDetail> peers;
   final bool peersTruncated;
   final int totalPeers;
+  final int httpConnections;
 }
 
 /// `task.files` 的响应：按 `offset`/`limit` 窗口返回的文件列表。

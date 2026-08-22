@@ -170,6 +170,8 @@ endif ()
 set(BT_DOWNLOAD_REQUIRED_FILES
         bt_download.exe
         torrent-rasterbar.dll
+        libcurl.dll
+        z.dll
         libcrypto-3-x64.dll
         libssl-3-x64.dll
         msvcp140.dll
@@ -177,9 +179,11 @@ set(BT_DOWNLOAD_REQUIRED_FILES
         sbom.spdx.json
         THIRD_PARTY_NOTICES.txt
         licenses/boost.txt
+        licenses/curl.txt
         licenses/libtorrent.txt
         licenses/nlohmann-json.txt
-        licenses/openssl.txt)
+        licenses/openssl.txt
+        licenses/zlib.txt)
 
 if (BT_DOWNLOAD_RUNTIME_IS_MANAGED)
     set(BT_DOWNLOAD_RUNTIME_OUTPUTS "")

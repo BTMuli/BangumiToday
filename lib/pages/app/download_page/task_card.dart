@@ -164,18 +164,20 @@ class _DownloadTaskCard extends StatelessWidget {
                         value: '${BTFileTool.formatSize(task.downloadRate)}/s',
                         color: FluentTheme.of(context).accentColor,
                       ),
-                      _TaskMetric(
-                        icon: FluentIcons.upload,
-                        label: '上传',
-                        value: '${BTFileTool.formatSize(task.uploadRate)}/s',
-                        color: BTColors.successLight(context),
-                      ),
-                      _TaskMetric(
-                        icon: FluentIcons.people,
-                        label: '连接',
-                        value: '${task.peers} Peer · ${task.seeds} Seed',
-                        color: BTColors.info,
-                      ),
+                      if (task.sourceKind != 'http') ...[
+                        _TaskMetric(
+                          icon: FluentIcons.upload,
+                          label: '上传',
+                          value: '${BTFileTool.formatSize(task.uploadRate)}/s',
+                          color: BTColors.successLight(context),
+                        ),
+                        _TaskMetric(
+                          icon: FluentIcons.people,
+                          label: '连接',
+                          value: '${task.peers} Peer · ${task.seeds} Seed',
+                          color: BTColors.info,
+                        ),
+                      ],
                       if (task.state == 'downloading' &&
                           task.downloadRate > 0 &&
                           task.totalBytes > task.downloadedBytes)
@@ -380,12 +382,13 @@ class _TaskActions extends StatelessWidget {
             '重试',
             () => onAction((store) => store.retry(task.id)),
           ),
-        _button(
-          context,
-          FluentIcons.processing,
-          '重新校验',
-          () => onAction((store) => store.recheck(task.id)),
-        ),
+        if (task.sourceKind != 'http')
+          _button(
+            context,
+            FluentIcons.processing,
+            '重新校验',
+            () => onAction((store) => store.recheck(task.id)),
+          ),
         _button(
           context,
           FluentIcons.folder_open,
