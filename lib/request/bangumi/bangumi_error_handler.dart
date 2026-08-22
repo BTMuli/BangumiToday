@@ -38,7 +38,11 @@ BTResponse<T> handleBangumiDioException<T>(
     // Error handling must not fail when logging is not initialized yet.
   }
   var statusCode = exception.response?.statusCode;
-  statusCode ??= networkFailure ? 503 : 666;
+  // Keep transport failures separate from real HTTP 5xx responses. The UI
+  // uses 666 as the application's network-error code; mapping these failures
+  // to 503 incorrectly reports proxy, DNS, TLS, and timeout errors as server
+  // failures.
+  statusCode ??= 666;
   return BTResponse.error(code: statusCode, message: message, data: null);
 }
 

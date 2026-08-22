@@ -104,8 +104,30 @@ void main() {
         fallbackMessage: 'Failed to load user info',
       );
 
-      expect(response.code, 503);
+      expect(response.code, 666);
       expect(response.message, '网络连接失败，请稍后重试');
+      expect(response.data, isNull);
+    });
+
+    test('preserves an upstream server status', () {
+      var requestOptions = RequestOptions(path: '/calendar');
+      var exception = DioException.badResponse(
+        statusCode: 503,
+        requestOptions: requestOptions,
+        response: Response(
+          requestOptions: requestOptions,
+          statusCode: 503,
+          data: {'description': 'Service Unavailable'},
+        ),
+      );
+
+      var response = handleBangumiDioException(
+        exception,
+        fallbackMessage: 'Failed to load today',
+      );
+
+      expect(response.code, 503);
+      expect(response.message, 'Service Unavailable');
       expect(response.data, isNull);
     });
 

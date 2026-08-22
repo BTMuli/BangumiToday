@@ -65,7 +65,8 @@ void main() {
         data: null,
       );
       var error = AppError.fromResponse(response);
-      expect(error.type, AppErrorType.serverError);
+      expect(error.type, AppErrorType.networkError);
+      expect(error.displayMessage, '网络连接失败，请检查网络');
     });
 
     test('displayMessage returns userMessage when available', () {

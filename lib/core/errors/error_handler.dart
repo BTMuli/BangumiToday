@@ -52,13 +52,13 @@ class AppError {
         type = AppErrorType.rateLimit;
         userMessage = '请求过于频繁，请稍后再试';
         break;
-      case >= 500:
-        type = AppErrorType.serverError;
-        userMessage = '服务器错误，请稍后再试';
-        break;
       case 666:
         type = AppErrorType.networkError;
         userMessage = '网络连接失败，请检查网络';
+        break;
+      case >= 500:
+        type = AppErrorType.serverError;
+        userMessage = '服务器错误，请稍后再试';
         break;
       default:
         type = AppErrorType.unknown;
