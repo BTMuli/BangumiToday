@@ -41,6 +41,32 @@ void main() {
       expect(notifications, 1);
     });
 
+    test(
+      'keeps stoppedTasks identity when only active progress changes',
+      () async {
+        gateway.emitTasks([
+          _task(id: 'active', state: 'downloading'),
+          _task(id: 'done', state: 'completed'),
+        ]);
+        await Future<void>.delayed(Duration.zero);
+        var firstStopped = store.stoppedTasks;
+
+        gateway.emitTasks([
+          _task(
+            id: 'active',
+            state: 'downloading',
+            progress: 0.8,
+            downloadedBytes: 80,
+          ),
+          _task(id: 'done', state: 'completed'),
+        ]);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(identical(store.stoppedTasks, firstStopped), isTrue);
+        expect(store.activeTasks.single.progress, 0.8);
+      },
+    );
+
     test('notifies once when a progress field changes', () async {
       var notifications = 0;
       store.addListener(() => notifications++);

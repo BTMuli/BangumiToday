@@ -42,12 +42,14 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   static const _minStoreRefreshInterval = Duration(seconds: 1);
   static const _fileDetailsMinInterval = Duration(seconds: 1);
   BtDirDownloadState? _dirState;
+  List<BtTaskSnapshot> _dirTasks = const [];
 
   @override
   void initState() {
     super.initState();
     _downloadStore = ref.read(btDownloadStoreProvider);
-    _knownTaskIds.addAll(_downloadStore.tasks.map((task) => task.id));
+    _dirTasks = _tasksForDir(_downloadStore.tasks);
+    _knownTaskIds.addAll(_dirTasks.map((task) => task.id));
     _downloadStore.addListener(_onDownloadStoreChanged);
     timerFiles = getTimerFiles();
     Future.microtask(refreshFiles);
@@ -60,6 +62,10 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       _refreshGeneration++;
       files.clear();
       aria2Files.clear();
+      _dirTasks = _tasksForDir(_downloadStore.tasks);
+      _knownTaskIds
+        ..clear()
+        ..addAll(_dirTasks.map((task) => task.id));
       Future.microtask(refreshFiles);
     }
   }
@@ -187,9 +193,20 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     }
   }
 
+  List<BtTaskSnapshot> _tasksForDir(List<BtTaskSnapshot> tasks) {
+    var normalizedDir = path.normalize(widget.downloadDir).toLowerCase();
+    return [
+      for (var task in tasks)
+        if (path.normalize(task.savePath).toLowerCase() == normalizedDir) task,
+    ];
+  }
+
   /// store 通知后安排一次状态刷新（新任务出现时立即拉取文件详情）。
   void _scheduleRefresh() {
-    var currentIds = _downloadStore.tasks.map((task) => task.id).toSet();
+    var dirTasks = _tasksForDir(_downloadStore.tasks);
+    if (BtDownloadStore.sameTaskSnapshots(_dirTasks, dirTasks)) return;
+    _dirTasks = dirTasks;
+    var currentIds = dirTasks.map((task) => task.id).toSet();
     var hasNewTask = !_knownTaskIds.containsAll(currentIds);
     var now = DateTime.now();
     if (!hasNewTask &&
@@ -221,7 +238,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   Future<void> _refreshStoreState() async {
     var generation = ++_refreshGeneration;
     var store = ref.read(btDownloadStoreProvider);
-    var currentIds = store.tasks.map((task) => task.id).toSet();
+    var currentIds = _tasksForDir(store.tasks).map((task) => task.id).toSet();
     // 新任务出现在当前集合中，但不在已知集合中。
     var hasNewTask = !_knownTaskIds.containsAll(currentIds);
     _knownTaskIds
@@ -240,10 +257,9 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   @override
   Widget build(BuildContext context) {
     var accentColor = FluentTheme.of(context).accentColor;
-    var store = ref.watch(btDownloadStoreProvider);
     _dirState = computeDirDownloadState(
       dir: widget.downloadDir,
-      tasks: store.tasks,
+      tasks: _downloadStore.tasks,
       fileDetailsByTaskId: _taskFileDetails,
       dirFileNames: files,
       aria2FileNames: aria2Files,

@@ -36,30 +36,35 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
 
   @override
   Widget build(BuildContext context) {
-    var store = ref.watch(btDownloadStoreProvider);
-    _pruneSelection(store);
-    var activeTasks = store.activeTasks;
-    var stoppedTasks = store.stoppedTasks;
-    var tasks = _tabIndex == 0 ? activeTasks : stoppedTasks;
+    ref.listen(
+      btDownloadStoreProvider.select(
+        (store) => Object.hashAll(store.tasks.map((task) => task.id)),
+      ),
+      (_, _) {
+        _pruneSelection(ref.read(btDownloadStoreProvider));
+      },
+    );
+    var currentTasks = ref.watch(
+      btDownloadStoreProvider.select(
+        (store) => _tabIndex == 0 ? store.activeTasks : store.stoppedTasks,
+      ),
+    );
     return ScaffoldPage(
       header: PageHeader(
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _PageTitle(
-              activeCount: activeTasks.length,
-              stoppedCount: stoppedTasks.length,
-            ),
+            const _DownloadPageTitle(),
             SizedBox(width: 12),
             if (_selecting)
               _SelectionBar(
                 count: _selectedIds.length,
-                onSelectAll: tasks.isEmpty
+                onSelectAll: currentTasks.isEmpty
                     ? null
                     : () => setState(() {
                         _selectedIds
                           ..clear()
-                          ..addAll(tasks.map((task) => task.id));
+                          ..addAll(currentTasks.map((task) => task.id));
                       }),
                 onClear: _selectedIds.isEmpty
                     ? null
@@ -72,7 +77,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
                 message: '批量选择',
                 child: IconButton(
                   icon: const Icon(FluentIcons.check_list, size: 16),
-                  onPressed: tasks.isEmpty
+                  onPressed: currentTasks.isEmpty
                       ? null
                       : () => setState(() {
                           _selecting = true;
@@ -95,40 +100,24 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
           alignment: WrapAlignment.end,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _TotalRates(
-              downloadRate: store.totalDownloadRate,
-              uploadRate: store.totalUploadRate,
-            ),
-            BTSegmentedControl(
-              selectedIndex: _tabIndex,
-              options: [
-                '进行中 ${activeTasks.length}',
-                '已停止 ${stoppedTasks.length}',
-              ],
+            const _DownloadRates(),
+            _DownloadTabControl(
+              tabIndex: _tabIndex,
               onChanged: (index) => setState(() => _tabIndex = index),
             ),
-            _EngineStatus(
-              state: store.engineState,
-              onEnable: () => _enableEngine(context),
-            ),
-            Tooltip(
-              message: '刷新任务',
-              child: IconButton(
-                icon: store.refreshing
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: ProgressRing(strokeWidth: 2),
-                      )
-                    : const Icon(FluentIcons.refresh, size: 16),
-                onPressed: store.refreshing ? null : () => _refresh(context),
-              ),
-            ),
+            _DownloadEngineStatus(onEnable: () => _enableEngine(context)),
+            _DownloadRefreshButton(onRefresh: () => _refresh(context)),
           ],
         ),
       ),
       content: Container(
         color: BTColors.surfaceSecondary(context).withValues(alpha: 0.34),
-        child: _buildContent(context, store, tasks),
+        child: _DownloadTaskPane(
+          tabIndex: _tabIndex,
+          selecting: _selecting,
+          selectedIds: _selectedIds,
+          onToggleSelect: _toggleSelect,
+        ),
       ),
     );
   }
@@ -241,16 +230,120 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
       if (mounted) await BtInfobar.error(context, error.toString());
     }
   }
+}
 
-  Widget _buildContent(
-    BuildContext context,
-    BtDownloadStore store,
-    List<BtTaskSnapshot> tasks,
-  ) {
+class _DownloadPageTitle extends ConsumerWidget {
+  const _DownloadPageTitle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    var activeCount = ref.watch(
+      btDownloadStoreProvider.select((store) => store.activeTasks.length),
+    );
+    var stoppedCount = ref.watch(
+      btDownloadStoreProvider.select((store) => store.stoppedTasks.length),
+    );
+    return _PageTitle(activeCount: activeCount, stoppedCount: stoppedCount);
+  }
+}
+
+class _DownloadRates extends ConsumerWidget {
+  const _DownloadRates();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    var rates = ref.watch(
+      btDownloadStoreProvider.select(
+        (store) => (store.totalDownloadRate, store.totalUploadRate),
+      ),
+    );
+    return _TotalRates(downloadRate: rates.$1, uploadRate: rates.$2);
+  }
+}
+
+class _DownloadTabControl extends ConsumerWidget {
+  const _DownloadTabControl({required this.tabIndex, required this.onChanged});
+
+  final int tabIndex;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    var activeCount = ref.watch(
+      btDownloadStoreProvider.select((store) => store.activeTasks.length),
+    );
+    var stoppedCount = ref.watch(
+      btDownloadStoreProvider.select((store) => store.stoppedTasks.length),
+    );
+    return BTSegmentedControl(
+      selectedIndex: tabIndex,
+      options: ['进行中 $activeCount', '已停止 $stoppedCount'],
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _DownloadEngineStatus extends ConsumerWidget {
+  const _DownloadEngineStatus({this.onEnable});
+
+  final VoidCallback? onEnable;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    var state = ref.watch(
+      btDownloadStoreProvider.select((store) => store.engineState),
+    );
+    return _EngineStatus(state: state, onEnable: onEnable);
+  }
+}
+
+class _DownloadRefreshButton extends ConsumerWidget {
+  const _DownloadRefreshButton({required this.onRefresh});
+
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    var refreshing = ref.watch(
+      btDownloadStoreProvider.select((store) => store.refreshing),
+    );
+    return Tooltip(
+      message: '刷新任务',
+      child: IconButton(
+        icon: refreshing
+            ? const SizedBox.square(
+                dimension: 16,
+                child: ProgressRing(strokeWidth: 2),
+              )
+            : const Icon(FluentIcons.refresh, size: 16),
+        onPressed: refreshing ? null : onRefresh,
+      ),
+    );
+  }
+}
+
+class _DownloadTaskPane extends ConsumerWidget {
+  const _DownloadTaskPane({
+    required this.tabIndex,
+    required this.selecting,
+    required this.selectedIds,
+    required this.onToggleSelect,
+  });
+
+  final int tabIndex;
+  final bool selecting;
+  final Set<String> selectedIds;
+  final ValueChanged<String> onToggleSelect;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    var tasks = ref.watch(
+      btDownloadStoreProvider.select(
+        (store) => tabIndex == 0 ? store.activeTasks : store.stoppedTasks,
+      ),
+    );
     if (tasks.isEmpty) {
-      return _tabIndex == 0
-          ? _EmptyDownloads(store: store)
-          : const _EmptyStopped();
+      return tabIndex == 0 ? const _EmptyDownloads() : const _EmptyStopped();
     }
     return ListView.separated(
       padding: EdgeInsets.fromLTRB(20, 14, 20, 24),
@@ -258,22 +351,61 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
       separatorBuilder: (_, _) => SizedBox(height: 14),
       itemBuilder: (context, index) {
         var task = tasks[index];
-        return _DownloadTaskCard(
-          task: task,
-          busy: store.isTaskBusy(task.id),
-          selectionMode: _selecting,
-          selected: _selectedIds.contains(task.id),
-          onSelect: () => _toggleSelect(task.id),
-          onAction: (action) async {
-            try {
-              await action(ref.read(btDownloadStoreProvider));
-            } catch (error) {
-              if (context.mounted) {
-                await BtInfobar.error(context, error.toString());
-              }
-            }
-          },
+        return RepaintBoundary(
+          key: ValueKey(task.id),
+          child: _DownloadTaskTile(
+            taskId: task.id,
+            selectionMode: selecting,
+            selected: selectedIds.contains(task.id),
+            onSelect: () => onToggleSelect(task.id),
+          ),
         );
+      },
+    );
+  }
+}
+
+class _DownloadTaskTile extends ConsumerWidget {
+  const _DownloadTaskTile({
+    required this.taskId,
+    required this.selectionMode,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final String taskId;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback onSelect;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    var task = ref.watch(
+      btDownloadStoreProvider.select((store) {
+        for (var item in store.tasks) {
+          if (item.id == taskId) return item;
+        }
+        return null;
+      }),
+    );
+    var busy = ref.watch(
+      btDownloadStoreProvider.select((store) => store.isTaskBusy(taskId)),
+    );
+    if (task == null) return const SizedBox.shrink();
+    return _DownloadTaskCard(
+      task: task,
+      busy: busy,
+      selectionMode: selectionMode,
+      selected: selected,
+      onSelect: onSelect,
+      onAction: (action) async {
+        try {
+          await action(ref.read(btDownloadStoreProvider));
+        } catch (error) {
+          if (context.mounted) {
+            await BtInfobar.error(context, error.toString());
+          }
+        }
       },
     );
   }

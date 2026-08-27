@@ -1,13 +1,17 @@
 part of '../download_page.dart';
 
-class _EmptyDownloads extends StatelessWidget {
-  const _EmptyDownloads({required this.store});
-
-  final BtDownloadStore store;
+class _EmptyDownloads extends ConsumerWidget {
+  const _EmptyDownloads();
 
   @override
-  Widget build(BuildContext context) {
-    var failed = store.engineState == BtEngineClientState.failed;
+  Widget build(BuildContext context, WidgetRef ref) {
+    var engineState = ref.watch(
+      btDownloadStoreProvider.select((store) => store.engineState),
+    );
+    var lastError = ref.watch(
+      btDownloadStoreProvider.select((store) => store.lastError),
+    );
+    var failed = engineState == BtEngineClientState.failed;
     var color = failed
         ? BTColors.errorLight(context)
         : FluentTheme.of(context).accentColor;
@@ -42,19 +46,19 @@ class _EmptyDownloads extends StatelessWidget {
             Text(
               failed
                   ? '请检查引擎状态后重试'
-                  : store.engineState == BtEngineClientState.stopped
+                  : engineState == BtEngineClientState.stopped
                   ? '下载引擎未开启，点击右上角引擎状态开启'
                   : '从 RSS 条目添加任务后会显示在这里',
               style: BTTypography.body(
                 context,
               ).copyWith(color: BTColors.textSecondary(context)),
             ),
-            if (store.lastError != null) ...[
+            if (lastError != null) ...[
               SizedBox(height: 12),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: Text(
-                  store.lastError!,
+                  lastError,
                   textAlign: TextAlign.center,
                   style: BTTypography.caption(context).copyWith(color: color),
                 ),

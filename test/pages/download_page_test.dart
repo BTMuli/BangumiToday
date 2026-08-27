@@ -149,6 +149,57 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('stopped tab list select ignores active progress', (
+    tester,
+  ) async {
+    var listBuilds = 0;
+    tester.view.physicalSize = const Size(1280, 720);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    var engine = FakePageEngine()
+      ..currentState = BtEngineClientState.ready
+      ..currentTasks = [
+        _task(id: 'a', state: 'downloading', displayName: 'Task A'),
+        _task(id: 'b', state: 'completed', displayName: 'Task B'),
+      ];
+    var store = BtDownloadStore(client: engine);
+    addTearDown(engine.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [btDownloadStoreProvider.overrideWith((ref) => store)],
+        child: FluentApp(
+          home: Consumer(
+            builder: (context, ref, _) {
+              ref.watch(
+                btDownloadStoreProvider.select((store) => store.stoppedTasks),
+              );
+              listBuilds++;
+              return const SizedBox();
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    var afterFirst = listBuilds;
+
+    engine.emitTasks([
+      _task(
+        id: 'a',
+        state: 'downloading',
+        displayName: 'Task A',
+        progress: 0.9,
+      ),
+      _task(id: 'b', state: 'completed', displayName: 'Task B'),
+    ]);
+    await tester.pump();
+
+    expect(listBuilds, afterFirst);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('shows empty states per tab', (tester) async {
     await _pumpPage(
       tester,
@@ -260,6 +311,7 @@ BtTaskSnapshot _task({
   required String id,
   required String state,
   required String displayName,
+  double? progress,
 }) {
   return BtTaskSnapshot(
     id: id,
@@ -277,7 +329,7 @@ BtTaskSnapshot _task({
     seedRatioLimit: 2,
     seedTimeLimitMinutes: 60,
     seedStopReason: null,
-    progress: state == 'completed' ? 1 : 0.1,
+    progress: progress ?? (state == 'completed' ? 1 : 0.1),
     downloadRate: state == 'downloading' ? 10 : 0,
     uploadRate: 2,
     peers: 1,
@@ -305,6 +357,11 @@ class FakePageEngine implements BtEngineGateway {
     _events.close();
     _tasks.close();
     _states.close();
+  }
+
+  void emitTasks(List<BtTaskSnapshot> tasks) {
+    currentTasks = tasks;
+    _tasks.add(List.of(tasks));
   }
 
   @override

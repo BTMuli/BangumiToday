@@ -57,12 +57,15 @@ class BtDownloadStore extends ChangeNotifier {
     _availableTaskIds.addAll(
       _tasks.where(_isFileAvailable).map((task) => task.id),
     );
+    _updateTaskBaseStates(_tasks);
+    _rebuildTaskLists();
     _taskSubscription = _client.taskSnapshots.listen((tasks) {
       var unchanged = _sameTaskSnapshots(_tasks, tasks);
       _updateTaskBaseStates(tasks);
       _notifyNewCompletions(tasks);
       if (unchanged) return;
       _tasks = List.of(tasks);
+      _rebuildTaskLists();
       notifyListeners();
     });
     _stateSubscription = _client.states.listen((state) {
@@ -73,7 +76,6 @@ class BtDownloadStore extends ChangeNotifier {
       if (ready) _lastError = null;
       notifyListeners();
     });
-    _updateTaskBaseStates(_tasks);
   }
 
   final BtEngineGateway _client;
@@ -89,6 +91,8 @@ class BtDownloadStore extends ChangeNotifier {
   final Map<String, String> _taskBaseStates = {};
   final Set<String> _availableTaskIds = {};
   List<BtTaskSnapshot> _tasks;
+  List<BtTaskSnapshot> _activeTasks = const [];
+  List<BtTaskSnapshot> _stoppedTasks = const [];
   BtEngineClientState _engineState;
   String? _lastError;
   var _refreshing = false;
@@ -96,12 +100,13 @@ class BtDownloadStore extends ChangeNotifier {
   List<BtTaskSnapshot> get tasks => List.unmodifiable(_tasks);
 
   /// 进行中任务，按 正在下载 > 未下载 > 正在做种 > 已暂停 排序。
-  List<BtTaskSnapshot> get activeTasks =>
-      _sortTasks(_tasks.where((task) => !isStoppedTask(task)));
+  ///
+  /// 仅在该分组快照变化时替换列表实例，方便 Riverpod `select` 用
+  /// 引用相等跳过无关重建。
+  List<BtTaskSnapshot> get activeTasks => _activeTasks;
 
   /// 已停止任务（下载出错 / 已完成做种）。
-  List<BtTaskSnapshot> get stoppedTasks =>
-      _sortTasks(_tasks.where(isStoppedTask));
+  List<BtTaskSnapshot> get stoppedTasks => _stoppedTasks;
 
   /// 任务是否已停止：下载出错或已完成做种，不再参与下载与上传。
   ///
@@ -120,6 +125,24 @@ class BtDownloadStore extends ChangeNotifier {
   int get totalUploadRate =>
       _tasks.fold(0, (total, task) => total + task.uploadRate);
   bool isTaskBusy(String id) => _busyTaskIds.contains(id);
+
+  void _rebuildTaskLists() {
+    var nextActive = _sortTasks(_tasks.where((task) => !isStoppedTask(task)));
+    var nextStopped = _sortTasks(_tasks.where(isStoppedTask));
+    if (!_sameTaskSnapshots(_activeTasks, nextActive)) {
+      _activeTasks = nextActive;
+    }
+    if (!_sameTaskSnapshots(_stoppedTasks, nextStopped)) {
+      _stoppedTasks = nextStopped;
+    }
+  }
+
+  static bool sameTaskSnapshots(
+    List<BtTaskSnapshot> current,
+    List<BtTaskSnapshot> next,
+  ) {
+    return _sameTaskSnapshots(current, next);
+  }
 
   static bool _sameTaskSnapshots(
     List<BtTaskSnapshot> current,
