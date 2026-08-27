@@ -11,7 +11,6 @@ import 'package:path_provider/path_provider.dart';
 // Project imports:
 import '../../controller/progress_controller.dart';
 import '../../core/cache/cache_manager.dart';
-import '../../core/cache/lru_cache_manager.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../store/app_store.dart';
 import '../../tools/download_tool.dart';
@@ -69,12 +68,11 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
 
     var downloadSize = await fileTool.getDirSize(downloadDir);
     var cacheSize = BTCacheManager.instance.diskCacheSize;
-    var lruSize = LRUCacheManager.instance.diskCacheSize;
     var imageSize = await _getImageCacheSize();
 
     if (mounted) {
       setState(() {
-        _cacheSize = downloadSize + cacheSize + lruSize + imageSize;
+        _cacheSize = downloadSize + cacheSize + imageSize;
         _calculatingCache = false;
       });
     }
@@ -343,9 +341,6 @@ class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
     try {
       await BTCacheManager.instance.clear();
       progress.update(text: '已清除应用缓存');
-
-      await LRUCacheManager.instance.clear();
-      progress.update(text: '已清除 LRU 缓存');
 
       await DefaultCacheManager().emptyCache();
       progress.update(text: '已清除图片缓存');

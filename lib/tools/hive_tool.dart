@@ -31,27 +31,46 @@ class BTHiveTool {
     var dir = await getDataDir();
     await instance.fileTool.createDir(dir);
     Hive.init(dir);
-    await initBgmUserHiveBox();
-    await initNavHiveBox();
-    await initTrackerHiveBox();
+    if (!Hive.isAdapterRegistered(0)) {
+      Hive.registerAdapter(BtmAppNavItemAdapter());
+    }
+    if (!Hive.isAdapterRegistered(2)) {
+      Hive.registerAdapter(BgmUserHiveAdapter());
+    }
+    if (!Hive.isAdapterRegistered(3)) {
+      Hive.registerAdapter(TrackerHiveAdapter());
+    }
+    await Future.wait([
+      Hive.openBox<BtmAppNavHive>('nav'),
+      Hive.openBox<BgmUserHiveModel>('bgmUser'),
+      Hive.openBox<TrackerHiveModel>('tracker'),
+    ]);
+    await BgmUserHive().initUser();
+    await TrackerHive().init();
   }
 
   /// 初始化 navHiveBox
   static Future<void> initNavHiveBox() async {
-    Hive.registerAdapter(BtmAppNavItemAdapter());
+    if (!Hive.isAdapterRegistered(0)) {
+      Hive.registerAdapter(BtmAppNavItemAdapter());
+    }
     await Hive.openBox<BtmAppNavHive>('nav');
   }
 
   /// 初始化 bgmUserHiveBox
   static Future<void> initBgmUserHiveBox() async {
-    Hive.registerAdapter(BgmUserHiveAdapter());
+    if (!Hive.isAdapterRegistered(2)) {
+      Hive.registerAdapter(BgmUserHiveAdapter());
+    }
     await Hive.openBox<BgmUserHiveModel>('bgmUser');
     await BgmUserHive().initUser();
   }
 
   /// 初始化 trackerHiveBox
   static Future<void> initTrackerHiveBox() async {
-    Hive.registerAdapter(TrackerHiveAdapter());
+    if (!Hive.isAdapterRegistered(3)) {
+      Hive.registerAdapter(TrackerHiveAdapter());
+    }
     await Hive.openBox<TrackerHiveModel>('tracker');
     await TrackerHive().init();
   }

@@ -17,7 +17,6 @@ import 'package:window_manager/window_manager.dart';
 // Project imports:
 import 'app.dart';
 import 'core/cache/cache_manager.dart';
-import 'core/cache/lru_cache_manager.dart';
 import 'core/services/app_link_service.dart';
 import 'core/services/bangumi_oauth_coordinator.dart';
 import 'core/services/bangumi_token_service.dart';
@@ -162,7 +161,7 @@ bool _resolveDark(ThemeMode mode) {
 
 Future<void> _initBackgroundServices() async {
   await BTLogTool.init();
-  await _runOptionalService('Windows 协议注册', registerWindowsAppProtocol);
+  unawaited(_runOptionalService('Windows 协议注册', registerWindowsAppProtocol));
   AppLinkService.instance.start();
   BangumiOAuthCoordinator.instance.attach();
 
@@ -181,38 +180,39 @@ Future<void> _initBackgroundServices() async {
   var themeMode = await appConfig.readThemeMode();
   var trackerStore = TrackerHive();
 
-  await Future.wait([
-    _runOptionalService('下载服务', BTDownloadTool.init),
-    _runOptionalService('通知服务', BTNotifierTool.init),
-    if (Platform.isWindows && btDownloadConfig.engineEnabled)
-      _runOptionalService(
-        'BT 下载引擎',
-        () => BtEngineClient.instance.start(
-          config: btDownloadConfig.toEngineJson(
-            additionalTrackers: trackerStore.effectiveTrackers,
+  unawaited(
+    Future.wait([
+      _runOptionalService('下载服务', BTDownloadTool.init),
+      _runOptionalService('通知服务', BTNotifierTool.init),
+      if (Platform.isWindows && btDownloadConfig.engineEnabled)
+        _runOptionalService(
+          'BT 下载引擎',
+          () => BtEngineClient.instance.start(
+            config: btDownloadConfig.toEngineJson(
+              additionalTrackers: trackerStore.effectiveTrackers,
+            ),
           ),
         ),
-      ),
-  ]);
+    ]),
+  );
 
   if (Platform.isWindows) {
     unawaited(_runOptionalService('Tracker 自动更新', trackerStore.checkUpdate));
   }
 
-  await Future.wait([
-    _runOptionalService('应用缓存', BTCacheManager.instance.init),
-    _runOptionalService('LRU 缓存', LRUCacheManager.instance.init),
-  ]);
+  unawaited(_runOptionalService('应用缓存', BTCacheManager.instance.init));
 
-  await _runOptionalService(
-    '窗口特效',
-    () => applyWindowMaterial(
-      dark: switch (themeMode) {
-        ThemeMode.dark => true,
-        ThemeMode.light => false,
-        ThemeMode.system =>
-          PlatformDispatcher.instance.platformBrightness == Brightness.dark,
-      },
+  unawaited(
+    _runOptionalService(
+      '窗口特效',
+      () => applyWindowMaterial(
+        dark: switch (themeMode) {
+          ThemeMode.dark => true,
+          ThemeMode.light => false,
+          ThemeMode.system =>
+            PlatformDispatcher.instance.platformBrightness == Brightness.dark,
+        },
+      ),
     ),
   );
 
