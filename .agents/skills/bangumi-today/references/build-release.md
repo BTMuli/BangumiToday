@@ -54,7 +54,7 @@ Before committing, run locally:
 
 ## CI release (`.github/workflows/release.yml`)
 
-- Builds the engine on the runner (`VCPKG_INSTALLATION_ROOT`), `flutter build windows --release --dart-define-from-file=build_config.json`, verifies the bundle with SHA-256 parity, zips the Release folder, creates `BangumiToday.msix` plus a Store variant (`dart run msix:create --store true -i 27581BTMuli.BangumiToday -b "CN=5FE33156-..." -n BangumiToday_Store`), uploads artifacts, and drafts a GitHub release.
+- Builds the engine on the runner (`VCPKG_INSTALLATION_ROOT`), `flutter build windows --release --dart-define-from-file=build_config.json`, verifies the bundle with SHA-256 parity, zips the Release folder, creates `BangumiToday.msix` plus a Store variant (`dart run msix:create --store true -i 27581BTMuli.BangumiToday -b "CN=5FE33156-..." -n BangumiToday_Store`), exports the public signing certificate (`BTMuli.cer`, no private key) from the PFX, uploads artifacts, and drafts a GitHub release that includes the `.cer` for sideload trust.
 
 ## MSIX config (`pubspec.yaml` `msix_config`)
 

@@ -82,14 +82,37 @@ jobs:
 
       - name: 准备 MSIX 签名证书
         shell: pwsh
+        env:
+          SIGN_SECRET: ${{ secrets.SIGN_SECRET }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:MSIX_CERTIFICATE_BASE64)) {
             throw 'MSIX_CERTIFICATE_BASE64 must be configured.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:SIGN_SECRET)) {
+            throw 'SIGN_SECRET must be configured.'
           }
           [IO.File]::WriteAllBytes(
             'build_certificate.pfx',
             [Convert]::FromBase64String($env:MSIX_CERTIFICATE_BASE64)
           )
+          $pfxPath = (Resolve-Path 'build_certificate.pfx').Path
+          $cert = [Security.Cryptography.X509Certificates.X509Certificate2]::new(
+            $pfxPath,
+            $env:SIGN_SECRET
+          )
+          try {
+            [IO.File]::WriteAllBytes(
+              'BTMuli.cer',
+              $cert.Export(
+                [Security.Cryptography.X509Certificates.X509ContentType]::Cert
+              )
+            )
+            Write-Host (
+              "Exported public certificate $($cert.Thumbprint) ($($cert.Subject))"
+            )
+          } finally {
+            $cert.Dispose()
+          }
 
       - name: 打包msix
         run: >
@@ -128,6 +151,7 @@ jobs:
             BangumiToday.zip
             BangumiToday.msix
             BangumiToday_Store.msix
+            BTMuli.cer
 
       - name: 发行Release
         uses: marvinpinto/action-automatic-releases@latest
@@ -138,3 +162,4 @@ jobs:
             BangumiToday.zip
             BangumiToday.msix
             BangumiToday_Store.msix
+            BTMuli.cer
