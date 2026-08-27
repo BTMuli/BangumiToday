@@ -49,7 +49,7 @@ class SubjectDetailLayoutModeNotifier
   @override
   SubjectDetailLayoutMode build() {
     unawaited(_hydrate());
-    return SubjectDetailLayoutMode.current;
+    return SubjectDetailLayoutMode.a;
   }
 
   Future<void> _hydrate() async {

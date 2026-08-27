@@ -237,6 +237,15 @@ void main() {
     );
   });
 
+  test('详情布局默认是方案 A', () {
+    var container = ProviderContainer();
+    addTearDown(container.dispose);
+    expect(
+      container.read(subjectDetailLayoutModeProvider),
+      SubjectDetailLayoutMode.a,
+    );
+  });
+
   test('详情布局配置可解析', () {
     expect(SubjectDetailLayoutModeX.tryParse(null), isNull);
     expect(SubjectDetailLayoutModeX.tryParse(''), isNull);
@@ -253,10 +262,6 @@ void main() {
     expect(find.text('新布局'), findsOneWidget);
     expect(find.text('现状'), findsNothing);
     expect(find.text('A'), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('subject-layout-toggle')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
     var element = tester.element(find.byType(SdpLayoutSwitcher));
     var container = ProviderScope.containerOf(element);
     expect(
@@ -270,6 +275,14 @@ void main() {
     expect(
       container.read(subjectDetailLayoutModeProvider),
       SubjectDetailLayoutMode.current,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('subject-layout-toggle')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(
+      container.read(subjectDetailLayoutModeProvider),
+      SubjectDetailLayoutMode.a,
     );
   });
 
