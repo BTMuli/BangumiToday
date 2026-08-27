@@ -12,6 +12,7 @@ import '../../request/bangumi/bangumi_api.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import '../../widgets/common/bt_lazy_tab_body.dart';
 import 'uc_pw_tab.dart';
 
 /// user-collection.tv 用户收藏页面
@@ -28,6 +29,9 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
     with AutomaticKeepAliveClientMixin {
   /// tabIndex
   int tabIndex = 0;
+
+  /// 已访问过的收藏状态 Tab，未访问的不读库。
+  final Set<int> _visitedTabs = {0};
 
   /// 用户菜单 flyout 控制器
   final FlyoutController flyoutUser = FlyoutController();
@@ -61,7 +65,10 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
           ),
           icon: Icon(type.icon),
           text: Text(type.label),
-          body: UcpTabWidget(type),
+          body: BtLazyTabBody(
+            visited: _visitedTabs.contains(i),
+            child: UcpTabWidget(type),
+          ),
         ),
       );
     }
@@ -268,7 +275,10 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
       tabs: buildTabs(),
       header: Image.asset('assets/images/platforms/bangumi-text.png'),
       currentIndex: tabIndex,
-      onChanged: (index) => setState(() => tabIndex = index),
+      onChanged: (index) => setState(() {
+        tabIndex = index;
+        _visitedTabs.add(index);
+      }),
       footer: buildFooter(),
       closeButtonVisibility: CloseButtonVisibilityMode.never,
       tabWidthBehavior: TabWidthBehavior.sizeToContent,

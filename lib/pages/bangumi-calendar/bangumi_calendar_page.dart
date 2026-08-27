@@ -17,6 +17,7 @@ import '../../tools/notifier_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/bangumi_utils.dart';
+import '../../widgets/common/bt_lazy_tab_body.dart';
 import '../subject-search/subject_search_page.dart';
 import 'bc_pw_day.dart';
 
@@ -64,7 +65,10 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   late ProgressController progress = ProgressController();
 
   /// tabIndex
-  int tabIndex = 0;
+  int tabIndex = DateTime.now().weekday - 1;
+
+  /// 已访问过的星期 Tab，未访问的不挂网格。
+  late final Set<int> _visitedDays = {tabIndex};
 
   /// 星期列表
   List<String> weekday = ['一', '二', '三', '四', '五', '六', '日'];
@@ -97,6 +101,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     isRequesting = true;
     calendarData.clear();
     if (freshTab) tabIndex = today;
+    _visitedDays.add(tabIndex);
     setState(() {});
     try {
       var repository = ref.read(bangumiRepositoryProvider);
@@ -318,10 +323,13 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       icon: index == today
           ? const Icon(FluentIcons.away_status)
           : const Icon(FluentIcons.calendar),
-      body: BcpDayWidget(
-        data: getTabData(index),
-        airTimes: airTimes,
-        loading: isRequesting,
+      body: BtLazyTabBody(
+        visited: _visitedDays.contains(index),
+        child: BcpDayWidget(
+          data: getTabData(index),
+          airTimes: airTimes,
+          loading: isRequesting,
+        ),
       ),
       semanticLabel: '星期${weekday[index]}',
       selectedBackgroundColor: WidgetStateColor.resolveWith(
@@ -423,7 +431,10 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       header: Image.asset('assets/images/platforms/bangumi-logo.png'),
       footer: buildTabFooter(),
       currentIndex: tabIndex,
-      onChanged: (index) => setState(() => tabIndex = index),
+      onChanged: (index) => setState(() {
+        tabIndex = index;
+        _visitedDays.add(index);
+      }),
       closeButtonVisibility: CloseButtonVisibilityMode.never,
       tabWidthBehavior: TabWidthBehavior.equal,
       minTabWidth: 80,
