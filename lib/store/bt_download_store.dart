@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:path/path.dart' as path;
 
 // Project imports:
+import '../core/network/system_proxy.dart';
 import '../core/services/bt_engine_client.dart';
 import '../core/services/windows_firewall_rule.dart';
 import '../database/app/app_bmf.dart';
@@ -28,6 +29,10 @@ typedef BtEngineStartConfigProvider = Future<Map<String, dynamic>> Function();
 typedef BtEngineConfigReader = Future<BtDownloadConfig> Function();
 typedef BtEngineConfigWriter = Future<void> Function(BtDownloadConfig config);
 typedef BtFirewallRuleRegistrar = Future<void> Function();
+typedef BtDownloadProxySettingReader = Future<bool> Function();
+typedef BtDownloadProxySettingWriter = Future<void> Function(bool value);
+typedef BtDownloadProxyConfigBuilder =
+    Future<Map<String, dynamic>> Function({required bool enabled});
 
 final btDownloadStoreProvider = ChangeNotifierProvider<BtDownloadStore>((ref) {
   return BtDownloadStore();
@@ -41,6 +46,10 @@ class BtDownloadStore extends ChangeNotifier {
     BtEngineConfigReader? readConfig,
     BtEngineConfigWriter? writeConfig,
     BtFirewallRuleRegistrar? registerFirewallRule,
+    bool useSystemProxy = false,
+    BtDownloadProxySettingReader? readProxySetting,
+    BtDownloadProxySettingWriter? writeProxySetting,
+    BtDownloadProxyConfigBuilder? buildProxyConfig,
   }) : _client = client ?? BtEngineClient.instance,
        _completionNotifier = completionNotifier ?? _showCompletionNotification,
        _startConfigProvider =
@@ -51,8 +60,23 @@ class BtDownloadStore extends ChangeNotifier {
        _writeConfig =
            writeConfig ?? (client == null ? _saveConfig : _noopConfigWrite),
        _firewallRegistrar = registerFirewallRule ?? _registerFirewallRule,
+       _readProxySetting =
+           readProxySetting ??
+           (client == null
+               ? BtsAppConfig().readUseDownloadSystemProxy
+               : () async => useSystemProxy),
+       _writeProxySetting =
+           writeProxySetting ??
+           (client == null
+               ? BtsAppConfig().writeUseDownloadSystemProxy
+               : (_) async {}),
+       _buildProxyConfig =
+           buildProxyConfig ??
+           (client == null ? WindowsSystemProxy.engineConfig : _directProxy),
+       _useSystemProxy = useSystemProxy,
        _engineState = (client ?? BtEngineClient.instance).state,
        _tasks = List.of((client ?? BtEngineClient.instance).tasks) {
+    if (client == null) _proxyInit = _initProxySetting();
     _taskStates.addEntries(_tasks.map((task) => MapEntry(task.id, task.state)));
     _availableTaskIds.addAll(
       _tasks.where(_isFileAvailable).map((task) => task.id),
@@ -84,6 +108,9 @@ class BtDownloadStore extends ChangeNotifier {
   final BtEngineConfigReader _readConfig;
   final BtEngineConfigWriter _writeConfig;
   final BtFirewallRuleRegistrar _firewallRegistrar;
+  final BtDownloadProxySettingReader _readProxySetting;
+  final BtDownloadProxySettingWriter _writeProxySetting;
+  final BtDownloadProxyConfigBuilder _buildProxyConfig;
   late final StreamSubscription<List<BtTaskSnapshot>> _taskSubscription;
   late final StreamSubscription<BtEngineClientState> _stateSubscription;
   final Set<String> _busyTaskIds = {};
@@ -96,6 +123,8 @@ class BtDownloadStore extends ChangeNotifier {
   BtEngineClientState _engineState;
   String? _lastError;
   var _refreshing = false;
+  bool _useSystemProxy;
+  Future<void>? _proxyInit;
 
   List<BtTaskSnapshot> get tasks => List.unmodifiable(_tasks);
 
@@ -120,6 +149,9 @@ class BtDownloadStore extends ChangeNotifier {
   BtEngineClientState get engineState => _engineState;
   String? get lastError => _lastError;
   bool get refreshing => _refreshing;
+
+  /// 下载引擎是否使用 Windows 系统代理。与应用网络代理相互独立，默认关闭。
+  bool get useSystemProxy => _useSystemProxy;
   int get totalDownloadRate =>
       _tasks.fold(0, (total, task) => total + task.downloadRate);
   int get totalUploadRate =>
@@ -340,7 +372,7 @@ class BtDownloadStore extends ChangeNotifier {
     var config = await _readConfig();
     try {
       if (!_client.isReady) {
-        await _client.start(config: await _startConfigProvider());
+        await _startClient();
       }
       if (!config.engineEnabled) {
         await _writeConfig(config.copyWith(engineEnabled: true));
@@ -510,7 +542,58 @@ class BtDownloadStore extends ChangeNotifier {
     if (!config.engineEnabled) {
       throw const BtEngineClientException('下载引擎未开启，请先手动开启下载引擎');
     }
-    await _client.start(config: await _startConfigProvider());
+    await _startClient();
+  }
+
+  Future<void> _startClient() async {
+    await _ensureProxyReady();
+    var config = await _startConfigProvider();
+    var proxy = await _buildProxyConfig(enabled: _useSystemProxy);
+    var client = _client;
+    if (client is BtEngineClient) {
+      await client.start(config: config, proxy: proxy);
+    } else {
+      await client.start(config: config);
+    }
+  }
+
+  Future<void> _initProxySetting() async {
+    var value = await _readProxySetting();
+    if (_useSystemProxy == value) return;
+    _useSystemProxy = value;
+    notifyListeners();
+  }
+
+  Future<void> _ensureProxyReady() async {
+    var init = _proxyInit;
+    if (init != null) await init;
+  }
+
+  Future<void> _applyEngineProxy(Map<String, dynamic> proxy) async {
+    var client = _client;
+    if (client is BtEngineClient && client.isReady) {
+      await client.configureProxy(proxy);
+    }
+  }
+
+  /// 设置下载引擎是否使用系统代理，并在引擎已运行时热更新。
+  Future<void> setUseSystemProxy(bool value) async {
+    await _ensureProxyReady();
+    var previous = _useSystemProxy;
+    try {
+      var proxy = await _buildProxyConfig(enabled: value);
+      await _applyEngineProxy(proxy);
+      await _writeProxySetting(value);
+    } catch (error, stackTrace) {
+      try {
+        await _applyEngineProxy(await _buildProxyConfig(enabled: previous));
+      } catch (rollbackError) {
+        BTLogTool.warn('回滚下载代理设置失败：$rollbackError');
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+    _useSystemProxy = value;
+    notifyListeners();
   }
 
   static Future<Map<String, dynamic>> _loadStartConfig() async {
@@ -533,6 +616,12 @@ class BtDownloadStore extends ChangeNotifier {
       const BtDownloadConfig(engineEnabled: true);
 
   static Future<void> _noopConfigWrite(BtDownloadConfig config) async {}
+
+  static Future<Map<String, dynamic>> _directProxy({
+    required bool enabled,
+  }) async {
+    return <String, dynamic>{'enabled': enabled};
+  }
 
   static Future<void> _registerFirewallRule() async {
     if (!Platform.isWindows) return;

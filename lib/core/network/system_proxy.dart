@@ -260,6 +260,14 @@ class WindowsSystemProxy {
   static const _internetSettingsKey =
       r'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings';
 
+  /// 按开关构建下载引擎运行期代理对象；关闭时始终直连。
+  static Future<Map<String, dynamic>> engineConfig({
+    required bool enabled,
+  }) async {
+    if (!enabled) return const <String, dynamic>{'enabled': false};
+    return (await read()).toEngineJson(enabled: true);
+  }
+
   /// 读取当前系统代理设置。
   static Future<SystemProxyConfig> read() async {
     if (!Platform.isWindows) return const SystemProxyConfig.direct();

@@ -187,6 +187,27 @@ class BtsAppConfig {
     await _instance.write('useSystemProxy', value.toString());
   }
 
+  /// 读取下载引擎是否使用系统代理。默认关闭，与应用网络代理相互独立。
+  Future<bool> readUseDownloadSystemProxy() async {
+    const defaultValue = false;
+    var value = await _instance.read('useDownloadSystemProxy');
+    if (value == null || value.isEmpty) {
+      await _instance.writeUseDownloadSystemProxy(defaultValue);
+      return defaultValue;
+    }
+    if (value == 'true') return true;
+    if (value == 'false') return false;
+
+    BTLogTool.warn('Invalid download system proxy config: $value');
+    await _instance.writeUseDownloadSystemProxy(defaultValue);
+    return defaultValue;
+  }
+
+  /// 写入下载引擎是否使用系统代理。
+  Future<void> writeUseDownloadSystemProxy(bool value) async {
+    await _instance.write('useDownloadSystemProxy', value.toString());
+  }
+
   /// 读取 bangumiDataVersion
   Future<String?> readBangumiDataVersion() async {
     return _instance.read('bangumiDataVersion');

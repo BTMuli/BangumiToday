@@ -10,7 +10,6 @@ import 'package:path_provider/path_provider.dart';
 // Project imports:
 import '../../../request/core/client.dart';
 import '../../../tools/log_tool.dart';
-import '../../network/system_proxy.dart';
 import 'gateway.dart';
 import 'protocol.dart';
 import 'transport.dart';
@@ -73,6 +72,7 @@ class BtEngineClient implements BtEngineGateway {
     List<String> arguments = const [],
     String? statePath,
     Map<String, dynamic> config = const {},
+    Map<String, dynamic>? proxy,
     Duration readyTimeout = const Duration(seconds: 5),
   }) async {
     if (_process != null) {
@@ -113,7 +113,7 @@ class BtEngineClient implements BtEngineGateway {
         'protocolVersion': btEngineProtocolVersion,
         'statePath': engineStatePath,
         'userAgent': await getClientUA(),
-        'proxy': SystemProxyController.engineProxyConfig,
+        'proxy': proxy ?? const <String, dynamic>{'enabled': false},
         if (config.isNotEmpty) 'config': config,
       });
       await _loadTasks();
