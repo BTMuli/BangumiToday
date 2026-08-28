@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2026-08-17
+Update: 2026-08-29
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2026-08-17 11:20:24`
+> 更新于 `2026-08-29`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -26,9 +26,9 @@ Update: 2026-08-17
 
 # BangumiToday
 
-基于 [Bangumi.tv](https://bangumi.tv)、[蜜柑计划](https://mikanani.hacgn.fun/) 的番剧应用。
+基于 [Bangumi.tv](https://bangumi.tv)、[蜜柑计划](https://mikanani.kas.pub/) 的桌面番剧应用。
 
-结合本地目录，提供番剧更新提醒、SSR订阅&下载、进度记录等功能。
+结合本地目录，提供放送日历、RSS 订阅与内置下载、进度记录、系统托盘等功能。
 
 ## 下载
 
@@ -44,7 +44,8 @@ Update: 2026-08-17
 
 1. 用户已经拥有 [Bangumi.tv](https://bangumi.tv) 账号，并且通过应用相关页面完成了登录授权。
 2. 用户登录 Bangumi 账号后对收藏数据进行了同步。
-3. 用户在特定条目页面设置了 `RSS` 订阅地址和下载目录。
+3. 用户在特定条目页面设置了 RSS 订阅地址和下载目录。
+4. 如需访问受限站点，可在设置中启用系统代理；下载引擎代理可单独开关。
 
 ## 应用预览
 
@@ -58,7 +59,7 @@ Update: 2026-08-17
 
 ![条目搜索：筛选并浏览搜索结果](./screenshots/subjectSearch.png)
 
-条目详情整合作品信息、评分分布、收藏状态、剧集进度与关联条目。
+条目详情整合作品信息、评分分布、收藏状态、剧集进度与关联条目，默认使用更紧凑的新布局，也可切回原版。
 
 ![条目详情：查看作品信息、评分与剧集进度](./screenshots/subjectDetail.png)
 
@@ -76,7 +77,7 @@ BMF 工作台把番剧、RSS 订阅和本地目录组织成一个关联，可按
 
 ![BMF 关联详情：对照 RSS 更新与本地文件](./screenshots/BMF2.png)
 
-应用聚合 Mikan、Comicat 与 AniBT 的最新资源，可从列表直接下载种子或交给内置下载引擎。
+应用聚合 Mikan、Comicat 与 AniBT 的最新资源，可从列表直接下载种子或交给内置下载引擎。Mikan 默认使用 `mikanani.kas.pub`，也可切换官方站或自定义镜像。
 
 <table>
   <tr>
@@ -97,13 +98,13 @@ BMF 工作台把番剧、RSS 订阅和本地目录组织成一个关联，可按
   </tr>
 </table>
 
-下载管理页集中展示任务进度、速度、连接状态与做种信息，并提供暂停、设置和文件操作入口。
+下载管理页集中展示任务进度、速度、连接状态与做种信息，支持暂停、按文件选择、手动添加 HTTP / magnet / torrent，以及 Tracker 与限量做种。
 
 ![下载管理：查看任务进度与连接状态](./screenshots/download.png)
 
 ### 个性化与应用配置
 
-在统一设置页中调整主题、缓存与目录，配置下载引擎、Tracker 以及 Bangumi 账号。
+在统一设置页中调整主题、缓存与目录，配置下载引擎、Tracker、系统代理以及 Bangumi 账号。
 
 ![应用设置：配置主题、目录、下载引擎与账号](./screenshots/settings.png)
 
@@ -111,7 +112,7 @@ BMF 工作台把番剧、RSS 订阅和本地目录组织成一个关联，可按
 
 项目使用了如下依赖以实现相关功能：
 
-- [bt_download](https://github.com/BTMuli/bt_download)：提供内置 BitTorrent 下载能力。
+- [bt_download](https://github.com/BTMuli/bt_download) `0.2.0`：提供内置 BitTorrent 与 HTTP 多连接下载，并支持系统代理。
 - [FlChart](https://app.flchart.dev/)：用于绘制条目评分柱状图。
 - [Fluent UI](https://bdlukaa.github.io/fluent_ui/)：用于实现 Fluent Design 风格的 UI。
 - [Hive](https://github.com/isar/hive)：用于本地数据存储。
