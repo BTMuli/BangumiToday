@@ -37,7 +37,6 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `hooks_riverpod` (st
 | `lib/ui/` | Shared dialogs, infobars, icons, engine switch |
 | `lib/utils/` | Small helpers (Bangumi URL / rating utils) |
 | `lib/widgets/` | Reusable widgets grouped by domain |
-| `test/`, `integration_test/`, `test_driver/` | Unit/widget tests, boot integration test, flutter_driver scripts |
 | `repos/bt_download` | C++ download engine submodule (CMake/vcpkg, libtorrent) |
 
 ### BangumiToday 与 bt_download 的协议对齐
@@ -53,7 +52,7 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `hooks_riverpod` (st
 - Data model: add under `lib/models/` with `@JsonSerializable()` and regenerate `.g.dart`.
 - Database table / column: add or alter in `lib/database/<domain>/`, following the `preCheck()` + `PRAGMA table_info` migration pattern - never assume a column exists on old installs.
 - Network call: extend `BtrBangumiApi`, `BtrMikanApi`, or the RSS clients; wrap with `RequestManager` (dedup/cancel) and cache via `BTCacheManager`.
-- Background work: add a singleton service in `lib/core/services/` with an `instance` and an injectable `forTesting` constructor; wire it into `_initBackgroundServices()` in `lib/main.dart`.
+- Background work: add a singleton service in `lib/core/services/` with an `instance`; wire it into `_initBackgroundServices()` in `lib/main.dart`.
 
 ### Add a JSON model
 
@@ -67,9 +66,8 @@ Follow the pattern in `lib/database/app/app_bmf.dart`: singleton accessor, `preC
 
 ### Code quality (local, before commit)
 
-- `dart format --output=none --set-exit-if-changed lib test test_driver`
-- `dart analyze --fatal-infos --fatal-warnings lib test test_driver`
-- `flutter test` (engine integration tests are gated by `BT_DOWNLOAD_TEST_ENGINE` and skipped by default)
+- `dart format --output=none --set-exit-if-changed lib`
+- `dart analyze --fatal-infos --fatal-warnings lib`
 - Windows bundle check: `./scripts/verify_windows_bundle.ps1 -BundlePath build/windows/x64/runner/Debug` after `flutter build windows --debug`
 - Import sorting: `dart run import_sorter:main`
 - Lint traps in `analysis_options.yaml`: 80-char line limit, `unawaited_futures`, `always_declare_return_types`, `prefer_relative_imports`.

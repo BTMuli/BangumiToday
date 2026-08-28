@@ -10,12 +10,11 @@ Contents:
 
 ## Startup sequence (`lib/main.dart`)
 
-1. Optional `enableFlutterDriverExtension()` when `--dart-define=ENABLE_FLUTTER_DRIVER=true`.
-2. Ensure windowManager, acrylic `Window.initialize()`, and `SystemTheme.accentColor.load()` in parallel.
-3. Init log + SQLite, read theme mode, apply window material, show the splash screen.
-4. `_initBackgroundServices()`: init log, SQLite, set `BtrBangumiApi` base URL from AppConfig, init Hive, read download config and tracker store; then in parallel start optional services: `BTDownloadTool`, `BTNotifierTool`, and (Windows + `engineEnabled`) the `bt_download` engine with tracker store `effectiveTrackers`. Then init `BTCacheManager` + `LRUCacheManager`, apply window effects, and after a 3s delay start `BmfRssService`.
-5. Each optional service failure is logged, not fatal; unrecoverable errors render the splash with the error message.
-6. `UncontrolledProviderScope(container: globalContainer)` wraps the app. `globalContainer` is exported from `main.dart` so services (e.g. BMF notifications) can navigate.
+1. Ensure windowManager, acrylic `Window.initialize()`, and `SystemTheme.accentColor.load()` in parallel.
+2. Init log + SQLite, read theme mode, apply window material, show the splash screen.
+3. `_initBackgroundServices()`: init log, SQLite, set `BtrBangumiApi` base URL from AppConfig, init Hive, read download config and tracker store; then in parallel start optional services: `BTDownloadTool`, `BTNotifierTool`, and (Windows + `engineEnabled`) the `bt_download` engine with tracker store `effectiveTrackers`. Then init `BTCacheManager` + `LRUCacheManager`, apply window effects, and after a 3s delay start `BmfRssService`.
+4. Each optional service failure is logged, not fatal; unrecoverable errors render the splash with the error message.
+5. `UncontrolledProviderScope(container: globalContainer)` wraps the app. `globalContainer` is exported from `main.dart` so services (e.g. BMF notifications) can navigate.
 
 ## State management
 
@@ -23,7 +22,7 @@ Contents:
 - Bangumi reads/writes go through `bangumiRepositoryProvider` (`lib/providers/bangumi_providers.dart`): remote API plus SQLite collections. Remote collection failures other than 404 fall back to local rows; 404 deletes the local row.
 - Store classes in `lib/store/` are `ChangeNotifier`s: write to SQLite/Hive, then `notifyListeners()`.
 - `lib/tools/` classes are stateless singletons (`BTLogTool`, `BTHiveTool`, `BTFileTool`, `BTDownloadTool`, `BTNotifierTool`); call them without Riverpod.
-- `lib/core/services/` singletons expose `instance` plus `forTesting` constructors with injected dependencies (see `BmfRssService`, `BangumiOAuthCoordinator`, `BtEngineClient`).
+- `lib/core/services/` singletons expose `instance` (see `BmfRssService`, `BangumiOAuthCoordinator`, `BtEngineClient`).
 
 ## Navigation model
 

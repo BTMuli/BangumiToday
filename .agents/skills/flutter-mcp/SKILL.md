@@ -1,6 +1,6 @@
 ---
 name: flutter-mcp
-description: Use the official Dart and Flutter MCP server (the `dart` MCP server) to develop, analyze, test, and interactively drive the BangumiToday Flutter app. Invoke when analyzing or fixing Dart code, running tests, managing pub dependencies, formatting, inspecting the widget tree, or connecting to and driving a running app (screenshot, tap, scroll, hot reload) via flutter_driver. Also use it to write and run standalone `test_driver/*.dart` verification scripts against a live app.
+description: Use the official Dart and Flutter MCP server (the `dart` MCP server) to develop, analyze, and interactively drive the BangumiToday Flutter app. Invoke when analyzing or fixing Dart code, managing pub dependencies, formatting, inspecting the widget tree, or connecting to and driving a running app (screenshot, tap, scroll, hot reload). This project no longer ships a Flutter test suite or test_driver scripts.
 ---
 
 # Flutter MCP
@@ -77,183 +77,33 @@ Not available on this SDK, do not rely on them:
 
 ## Debugging the running app
 
-The app's `main()` gates `enableFlutterDriverExtension()` behind the compile-time flag `ENABLE_FLUTTER_DRIVER`, so the driver is only active when explicitly requested and never ships in production builds. There are two ways to debug, and both require launching with the flag.
+This project no longer ships `flutter_driver`, `test/`, or `test_driver/`. Debug a running app through DTD / widget inspector / VM service; do not add driver extensions or standalone driver scripts.
 
 ### Discovering the running app's URIs (DTD / VM service)
 
-If you are handed a DTD address like `ws://127.0.0.1:<dtdPort>/<token>/ws`, or need the VM service URL for a driver script, find the `development-service` process - it owns both endpoints:
+If you are handed a DTD address like `ws://127.0.0.1:<dtdPort>/<token>/ws`, find the `development-service` process - it owns both endpoints:
 
 ```powershell
 Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'development-service' } | Select-Object ProcessId, CommandLine
 ```
 
-- Its `--vm-service-uri=http://127.0.0.1:<vmPort>/<vmToken>=/` is the URL to pass to `FlutterDriver.connect` (Path B below).
 - The DTD ws port belongs to that same PID (`Get-NetTCPConnection -State Listen`).
-- Both URIs change on every app launch. Re-run the discovery after a restart, and confirm the launch actually used `--dart-define=ENABLE_FLUTTER_DRIVER=true` (check the `flutter run --machine` process command line); without the flag the driver extension is absent and `connect` hangs.
-- If the `dart` MCP server tools are not loaded in the current session (no `mcp__dart__*` tools, empty MCP resource list) even though `[mcp_servers.dart]` is configured and `dart mcp-server` processes are running, do not fight it: use Path B directly. Restart Codex later so the MCP config takes effect.
+- Both URIs change on every app launch. Re-run the discovery after a restart.
 
 ### Path A - Interactive via MCP tools (fast iteration)
 
-1. Launch the app with the driver enabled:
-   - MCP: `launch_app` with `root: "file:///D:/Code/App/bangumi_today"`, `device: "<id>"` (from `list_devices` or `flutter devices --machine`), and `args: ["--dart-define", "ENABLE_FLUTTER_DRIVER=true"]`. Returns a DTD URI.
-   - Shell fallback: `flutter run -d windows --dart-define=ENABLE_FLUTTER_DRIVER=true` (use `-d macos` on macOS).
+1. Launch the app:
+   - MCP: `launch_app` with `root: "file:///D:/Code/App/bangumi_today"`, `device: "<id>"` (from `list_devices` or `flutter devices --machine`). Returns a DTD URI.
+   - Shell fallback: `flutter run -d windows` (use `-d macos` on macOS).
 2. Connect: `dtd` with `command: "listDtdUris"`, then `command: "connect"`, `uri: "<dtd-uri>"`. Confirm with `listConnectedApps`; note the `appUri` (VM service URI) if more than one app is connected.
 3. Inspect before interacting: `widget_inspector` with `command: "get_widget_tree"` (use `summaryOnly: false` to see nested text widgets). The `flutter_driver_command` tool itself says: do not guess finders - use real text, tooltips, and widget types from the tree.
 4. Interact: `flutter_driver_command` with `command: "waitFor"` / `"tap"` / `"scroll"` / `"screenshot"` and `appUri` when required.
 5. Iterate: patch code, then `hot_reload` (`clearRuntimeErrors: true`); if global/const values changed, `hot_restart` instead. Re-check with `get_runtime_errors`.
 6. Clean up: `stop_app` when done (only if launched via `launch_app`; a shell `flutter run` keeps running until interrupted).
 
-### Path B - Standalone driver script (reproducible, shareable)
+### Path B - Standalone driver script
 
-For scripted verification (the pattern already proven in `test_driver/settings_verify.dart` and `test_driver/verify_settings_fresh.dart`):
-
-1. Launch the app with the flag (shell): `flutter run -d windows --dart-define=ENABLE_FLUTTER_DRIVER=true`. Copy the VM service URL printed by `flutter run` (or discover it from the `development-service` process as above):
-
-   `A Dart VM Service on Windows is available at: http://127.0.0.1:<port>/<token>=/`
-
-2. Write `test_driver/<name>.dart` using the template below (or copy an existing script and edit its steps).
-3. While the app is still running, execute the script from another shell:
-
-   `dart run test_driver/<name>.dart http://127.0.0.1:<port>/<token>=/ <outDir>`
-
-   (Second arg defaults to the current directory; `VM_SERVICE_URL` env var is also accepted.)
-4. Read `<name>.log` for PASS/FAIL lines and view the PNG screenshots it wrote. Fix the app, `r` (hot reload) or `R` (hot restart) in the `flutter run` console, then rerun the script.
-
-### Driver script template
-
-```dart
-// Verification script template.
-// Usage: dart run test_driver/verify_<name>.dart <vmServiceUrl> <outDir>
-import 'dart:io';
-
-import 'package:flutter_driver/flutter_driver.dart';
-
-Future<void> main(List<String> args) async {
-  var vmUrl =
-      args.isNotEmpty ? args[0] : Platform.environment['VM_SERVICE_URL'];
-  var outDir = args.length > 1 ? args[1] : Directory.current.path;
-  var logFile = File('$outDir/verify.log');
-  if (logFile.existsSync()) logFile.deleteSync();
-
-  void say(String s) {
-    var line = '[${DateTime.now().toIso8601String().substring(11, 19)}] $s';
-    logFile.writeAsStringSync('$line\n', mode: FileMode.append);
-    try {
-      stdout.writeln(line);
-      stdout.flush();
-    } catch (_) {}
-  }
-
-  if (vmUrl == null) {
-    say('No VM service URL provided.');
-    exit(2);
-  }
-
-  var driver = await FlutterDriver.connect(
-    dartVmServiceUrl: vmUrl,
-    timeout: const Duration(seconds: 60),
-  );
-  say('CONNECTED');
-  // Required before any find.bySemanticsLabel finder.
-  await driver.setSemantics(true);
-
-  Future<bool> exists(
-    SerializableFinder finder, {
-    Duration timeout = const Duration(seconds: 4),
-  }) async {
-    try {
-      await driver.waitFor(finder, timeout: timeout);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<bool> waitVisible(
-    String text, {
-    Duration timeout = const Duration(seconds: 20),
-  }) =>
-      exists(find.text(text), timeout: timeout);
-
-  Future<void> shot(String name) async {
-    var png = await driver.screenshot().timeout(const Duration(seconds: 30));
-    File('$outDir/$name').writeAsBytesSync(png);
-    say('SHOT $name (${png.length} bytes)');
-  }
-
-  // Desktop Flutter ignores synthetic touch drags on fluent_ui ListViews, so
-  // driver.scroll / scrollUntilVisible do nothing here. Use native mouse-wheel
-  // injection instead. The path below is the repo-root copy of the bundled
-  // helper (scripts/scroll_app.ps1); point -File at the skill copy otherwise.
-  Future<void> wheel(String dir, int ticks) async {
-    await Process.run('powershell', <String>[
-      '-NoProfile',
-      '-ExecutionPolicy', 'Bypass',
-      '-File', 'scripts/scroll_app.ps1',
-      dir,
-      '$ticks',
-    ]);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-  }
-
-  Future<bool> scrollTo(SerializableFinder finder) async {
-    for (final dir in <String>['down', 'up']) {
-      for (var i = 0; i < 12; i++) {
-        if (await exists(finder, timeout: const Duration(seconds: 2))) {
-          return true;
-        }
-        await wheel(dir, 8);
-      }
-    }
-    return false;
-  }
-
-  Future<bool> guarded(String label, Future<bool> Function() action) async {
-    try {
-      var ok = await action().timeout(const Duration(seconds: 60));
-      say(ok ? 'PASS $label' : 'FAIL $label');
-      return ok;
-    } catch (e) {
-      say('FAIL $label => $e');
-      return false;
-    }
-  }
-
-  // ---- custom steps start here ----
-  await shot('01_current.png');
-
-  // Navigate: prefer exact text; for icon-only compact NavigationPane entries
-  // use an anchored regex on the semantic label (exact labels can fail, and
-  // find.byTooltip does NOT match fluent_ui Tooltips - they set richMessage,
-  // not message). Restore a known state first if a previous run left the page
-  // scrolled/collapsed (state persists via PageStorage across runs).
-  if (!await exists(find.text('目标页面标题'))) {
-    final entry = find.bySemanticsLabel(RegExp(r'^入口语义标签'));
-    if (await exists(entry)) {
-      await driver.tap(entry);
-    } else {
-      say('NO entry found');
-    }
-  }
-
-  await guarded('页面标题可见', () async {
-    var ok = await waitVisible('目标页面标题');
-    await shot('02_after_nav.png');
-    return ok;
-  });
-
-  // Scroll targets into view before verifying or tapping them. waitFor only
-  // proves the widget is in the tree (lazy lists build items inside the
-  // cacheExtent), so wheel-scroll until the item is on screen, then screenshot.
-  await guarded('分区内容', () async {
-    await scrollTo(find.text('分区标题'));
-    return waitVisible('分区标题');
-  });
-
-  say('DONE');
-  await driver.close();
-}
-```
+Removed. Do not recreate `test_driver/` or add `ENABLE_FLUTTER_DRIVER`.
 
 ## flutter_driver_command reference
 
@@ -318,7 +168,7 @@ Lessons from real verification runs against this app; all verified on Windows wi
 - Analysis: MCP `analyze_files` is unavailable on this SDK - run `flutter analyze` in the shell (the repo's lint-staged config uses `dart analyze --fatal-infos --fatal-warnings`).
 - Fixes: `dart_fix` (MCP, with `--enable cli`) or shell `dart fix --apply`.
 - Format: `dart_format` (MCP, with `--enable cli`) or shell `dart format`; import sorting is `dart run import_sorter:main`.
-- Tests: `run_tests` (MCP, with `--enable cli`) - pass `roots: [{"root": "file:///D:/Code/App/bangumi_today"}]` and optionally `arguments: {"name": ["<substring>"]}`. The project runs `flutter test`. Shell fallback: `flutter test <path>`.
+- Tests: this project has no Flutter test suite; do not run `flutter test` or recreate `test/` / `test_driver/`.
 - Dependencies: `pub_dev_search` to find a package, then `pub` with `command: "add"`, `packageNames`, and `roots`. The project uses `flutter pub add` semantics.
 
 ## Common pitfalls
@@ -326,7 +176,6 @@ Lessons from real verification runs against this app; all verified on Windows wi
 - `No tool registered with the name X` -> the server args lack the needed `--enable` flag (or the tool is `analyze_files`/`lsp`, which cannot be enabled on Dart SDK 3.12). Restart Codex after changing args.
 - Forgetting `roots add` -> root-scoped tools reject the root URI. Add `file:///D:/Code/App/bangumi_today` once per session.
 - `launch_app` args must not include managed flags (`--print-dtd`, `--machine`, `--device-id`, `--target`, `-d`, `-t`); pass device via `device` and extra flags via `args`.
-- Driver scripts need the app launched with `--dart-define=ENABLE_FLUTTER_DRIVER=true`; without it, `FlutterDriver.connect` hangs or the MCP driver commands error.
 - After changing global/const values, `hot_reload` will not apply them - use `hot_restart`.
 - If the MCP tool set looks different from this document, the server version drifted (pub.dev `dart_mcp_server` is at 1.x while the SDK bundles 0.1.4); re-verify with a tools/list probe.
 
@@ -334,7 +183,6 @@ Lessons from real verification runs against this app; all verified on Windows wi
 
 - Desktop-only Flutter app (Windows/macOS folders; no Android/iOS targets).
 - UI stack: `fluent_ui`, `flutter_acrylic`, `window_manager`, Riverpod (hooks_riverpod).
-- `flutter_driver` is a dependency; the driver import in `lib/main.dart` is inert unless `--dart-define=ENABLE_FLUTTER_DRIVER=true` is passed.
-- Working driver examples live in `test_driver/` (`settings_verify.dart`, `verify_settings_fresh.dart` - the latter includes wheel-scrolling and deterministic state handling) - copy them for new verification scripts.
+- There is no `flutter_driver` dependency and no `test_driver/` directory.
 - The native mouse-wheel helper is bundled at `scripts/scroll_app.ps1` (a copy also lives at the repo root `scripts/scroll_app.ps1`); run it via `powershell -NoProfile -ExecutionPolicy Bypass -File <path> <up|down> <ticks>`.
 - Commit messages follow the repo's Gitmoji convention (see AGENTS.md).

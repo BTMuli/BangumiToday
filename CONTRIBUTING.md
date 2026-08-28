@@ -76,18 +76,14 @@ file with the source runtime by SHA-256 when `EngineRuntimePath` is provided.
 
 There is no PR / `main` quality workflow. Tag releases use
 `.github/workflows/release.yml` for Windows packaging and do not run
-`dart analyze` or `flutter test`. Run these commands locally before committing:
+`dart analyze`. Run these commands locally before committing:
 
 | Check | Command |
 | --- | --- |
-| Formatting | `dart format --output=none --set-exit-if-changed lib test test_driver` |
-| Static analysis | `dart analyze --fatal-infos --fatal-warnings lib test test_driver` |
-| Tests | `flutter test` |
+| Formatting | `dart format --output=none --set-exit-if-changed lib` |
+| Static analysis | `dart analyze --fatal-infos --fatal-warnings lib` |
 | Windows debug build | `flutter build windows --debug` |
 | Bundle verification | `./scripts/verify_windows_bundle.ps1 -BundlePath build/windows/x64/runner/Debug` |
-
-The download engine process integration test is isolated behind the
-`BT_DOWNLOAD_TEST_ENGINE` environment variable and is skipped by default.
 
 ### Development
 

@@ -22,25 +22,19 @@ Contents:
 
 - `flutter pub get`
 - `flutter run --dart-define-from-file=.dart-define.json` (add `-d windows` / `-d macos`)
-- Driver mode: append `--dart-define=ENABLE_FLUTTER_DRIVER=true` (see `$flutter-mcp`).
-- Integration boot test: `flutter test integration_test/app_boot_test.dart -d windows --dart-define=BANGUMI_INTEGRATION_TEST=true`
 
 ## Local verification
 
 There is no PR / `main` `quality.yml` or `flutter-ci.yml` job.
 `release.yml` packages Windows artifacts on `v*.*.*` tags and does not run
-`dart analyze` / `flutter test`.
+`dart analyze`.
 
 Before committing, run locally:
 
-1. `dart format --output=none --set-exit-if-changed lib test test_driver`
-2. `dart analyze --fatal-infos --fatal-warnings lib test test_driver`
-3. `flutter test`
-4. `flutter build windows --debug`
-5. `./scripts/verify_windows_bundle.ps1 -BundlePath build/windows/x64/runner/Debug`
-
-- Desktop journey: `flutter test integration_test/app_boot_test.dart -d windows --dart-define=BANGUMI_INTEGRATION_TEST=true`
-- `BT_DOWNLOAD_TEST_ENGINE` gates engine process integration tests; the default `flutter test` skips them.
+1. `dart format --output=none --set-exit-if-changed lib`
+2. `dart analyze --fatal-infos --fatal-warnings lib`
+3. `flutter build windows --debug`
+4. `./scripts/verify_windows_bundle.ps1 -BundlePath build/windows/x64/runner/Debug`
 
 ## Release build (local: `dev_build.ps1`)
 
