@@ -2,9 +2,6 @@
 import 'dart:async';
 import 'dart:math';
 
-// Flutter imports:
-import 'package:flutter/foundation.dart';
-
 // Project imports:
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_config.dart';
@@ -122,34 +119,6 @@ class BmfRssService {
        _maxBackoffDelay = maxBackoffDelay,
        _recoveryWindow = recoveryWindow,
        _jitter = jitter ?? _defaultJitter;
-
-  /// 仅供测试注入下载引擎 API、时钟与 freshness 窗口。
-  @visibleForTesting
-  BmfRssService.forTesting({
-    BtrMikanApi? api,
-    DateTime Function()? now,
-    Duration freshnessWindow = defaultFreshnessWindow,
-    int concurrency = defaultConcurrency,
-    Duration connectTimeout = defaultTimeout,
-    Duration receiveTimeout = defaultTimeout,
-    int maxAttempts = defaultMaxAttempts,
-    Duration retryBaseDelay = const Duration(seconds: 1),
-    Duration maxBackoffDelay = const Duration(minutes: 2),
-    Duration recoveryWindow = const Duration(minutes: 5),
-    Duration Function()? jitter,
-  }) : this._(
-         api: api,
-         now: now,
-         freshnessWindow: freshnessWindow,
-         concurrency: concurrency,
-         connectTimeout: connectTimeout,
-         receiveTimeout: receiveTimeout,
-         maxAttempts: maxAttempts,
-         retryBaseDelay: retryBaseDelay,
-         maxBackoffDelay: maxBackoffDelay,
-         recoveryWindow: recoveryWindow,
-         jitter: jitter,
-       );
 
   static final BmfRssService instance = BmfRssService._();
 

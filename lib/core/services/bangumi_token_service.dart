@@ -64,25 +64,6 @@ class BangumiTokenService {
        _writeTokenSet = writeTokenSet,
        _now = now;
 
-  /// 创建可注入时间、存储和 OAuth 网关的测试实例。
-  BangumiTokenService.forTesting({
-    required BangumiTokenReader readAccessToken,
-    required BangumiTokenReader readRefreshToken,
-    required BangumiExpireTimeReader readExpireTime,
-    required BangumiTokenRefresher refreshToken,
-    required BangumiTokenSetWriter writeTokenSet,
-    DateTime Function()? now,
-    Duration refreshAhead = BangumiTokenService.defaultRefreshAhead,
-  }) : this._(
-         readAccessToken: readAccessToken,
-         readRefreshToken: readRefreshToken,
-         readExpireTime: readExpireTime,
-         refreshToken: refreshToken,
-         writeTokenSet: writeTokenSet,
-         now: now ?? DateTime.now,
-         refreshAhead: refreshAhead,
-       );
-
   BangumiTokenService._default()
     : this._(
         readAccessToken: () => BgmUserHive().tokenAC,

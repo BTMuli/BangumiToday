@@ -9,7 +9,6 @@ import 'package:flutter/foundation.dart';
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
-import 'package:flutter_driver/driver_extension.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:window_manager/window_manager.dart';
@@ -43,10 +42,6 @@ final globalContainer = ProviderContainer();
 bool _applicationExitStarted = false;
 
 Future<void> main() async {
-  if (const bool.fromEnvironment('ENABLE_FLUTTER_DRIVER')) {
-    enableFlutterDriverExtension();
-  }
-
   WidgetsFlutterBinding.ensureInitialized();
   _configureErrorHandling();
   AppLifecycleListener(
@@ -245,9 +240,6 @@ Future<void> _runOptionalService(
 }
 
 void _configureErrorHandling() {
-  // 桌面集成测试由测试绑定接管错误上报，避免与应用的全局错误处理器冲突。
-  // 通过 `--dart-define=BANGUMI_INTEGRATION_TEST=true` 显式开启。
-  if (const bool.fromEnvironment('BANGUMI_INTEGRATION_TEST')) return;
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
     _reportUnhandledError(

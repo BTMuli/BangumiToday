@@ -12,7 +12,7 @@ import 'package:window_manager/window_manager.dart';
 // Project imports:
 import '../../tools/log_tool.dart';
 
-/// 托盘原生能力抽象，便于在单元测试中替换 MethodChannel。
+/// 托盘原生能力抽象。
 abstract interface class BTTrayAdapter {
   /// 注册托盘事件监听器。
   void addListener(TrayListener listener);
@@ -122,38 +122,6 @@ class BTDesktopTrayService with TrayListener, WindowListener {
       _now = DateTime.now,
       _doubleClickWindow = const Duration(milliseconds: 500);
 
-  BTDesktopTrayService._({
-    required BTTrayAdapter tray,
-    required BTWindowAdapter window,
-    required bool isSupported,
-    required bool isWindows,
-    required DateTime Function() now,
-    required Duration doubleClickWindow,
-  }) : _tray = tray,
-       _window = window,
-       _isSupported = isSupported,
-       _isWindows = isWindows,
-       _now = now,
-       _doubleClickWindow = doubleClickWindow;
-
-  /// 用于测试的构造函数。
-  @visibleForTesting
-  BTDesktopTrayService.forTesting({
-    required BTTrayAdapter tray,
-    required BTWindowAdapter window,
-    bool isSupported = true,
-    bool isWindows = true,
-    DateTime Function()? now,
-    Duration doubleClickWindow = const Duration(milliseconds: 500),
-  }) : this._(
-         tray: tray,
-         window: window,
-         isSupported: isSupported,
-         isWindows: isWindows,
-         now: now ?? DateTime.now,
-         doubleClickWindow: doubleClickWindow,
-       );
-
   /// 全局服务实例。
   static final BTDesktopTrayService instance = BTDesktopTrayService();
 
@@ -188,10 +156,6 @@ class BTDesktopTrayService with TrayListener, WindowListener {
 
   /// 服务是否已完成托盘初始化。
   bool get isInitialized => _initialized;
-
-  /// 当前生成的菜单，仅供测试检查菜单项。
-  @visibleForTesting
-  Menu? get menu => _menu;
 
   /// 初始化托盘、菜单和窗口关闭拦截。
   ///

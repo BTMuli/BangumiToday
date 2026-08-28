@@ -3,9 +3,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-// Flutter imports:
-import 'package:flutter/foundation.dart';
-
 // Project imports:
 import '../../models/app/response.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
@@ -18,23 +15,10 @@ import 'app_link_service.dart';
 /// OAuth 回调是应用级事件，不能由页面各自监听。协调器保证同一时间
 /// 只有一个授权流程，并在回调中校验一次性 state。
 class BangumiOAuthCoordinator {
-  BangumiOAuthCoordinator._({
-    AppLinkService? appLinkService,
-    String Function()? stateGenerator,
-    Duration? callbackTimeout,
-  }) : _appLinkService = appLinkService ?? AppLinkService.instance,
-       _stateGenerator = stateGenerator ?? _createState,
-       _callbackTimeout = callbackTimeout ?? const Duration(minutes: 5);
-
-  /// 仅供测试注入依赖：链接服务、state 生成器和回调超时。
-  @visibleForTesting
-  BangumiOAuthCoordinator.forTesting({
-    AppLinkService? appLinkService,
-    String Function()? stateGenerator,
-    Duration callbackTimeout = const Duration(minutes: 5),
-  }) : _appLinkService = appLinkService ?? AppLinkService.instance,
-       _stateGenerator = stateGenerator ?? _createState,
-       _callbackTimeout = callbackTimeout;
+  BangumiOAuthCoordinator._()
+    : _appLinkService = AppLinkService.instance,
+      _stateGenerator = _createState,
+      _callbackTimeout = const Duration(minutes: 5);
 
   static final BangumiOAuthCoordinator instance = BangumiOAuthCoordinator._();
 
