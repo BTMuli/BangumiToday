@@ -44,9 +44,6 @@ build_config.json
 *.p12
 genSign.ps1
 
-# 集成测试失败截图
-integration_test/screenshots/
-
 # build
 BangumiToday.msix
 # Widget Preview related
