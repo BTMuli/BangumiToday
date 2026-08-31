@@ -40,8 +40,7 @@ class DownloadTaskDetails extends ConsumerStatefulWidget {
       _DownloadTaskDetailsState();
 }
 
-class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
-    with WidgetsBindingObserver {
+class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
   BtTaskDetails? _details;
   BtTaskFilesResult? _files;
   BtTaskPeersResult? _peers;
@@ -53,7 +52,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
   var _detailsLoading = false;
   var _filesLoading = false;
   var _peersLoading = false;
-  var _appActive = true;
+  var _routeActive = false;
 
   static const _peerTabIndex = 2;
   static const _filesTabIndex = 3;
@@ -65,29 +64,24 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
   };
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    Future.microtask(_refresh);
-    _startRefreshTimer();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _stopRefreshTimer();
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    _appActive = state == AppLifecycleState.resumed;
-    if (!_appActive) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 桌面窗口失焦时路由仍为当前路由，详情应继续实时刷新。
+    var routeActive = ModalRoute.isCurrentOf(context) ?? true;
+    if (_routeActive == routeActive) return;
+    _routeActive = routeActive;
+    if (!_routeActive) {
       _stopRefreshTimer();
       return;
     }
     _startRefreshTimer();
-    unawaited(_refresh(silent: true));
+    unawaited(_refresh());
+  }
+
+  @override
+  void dispose() {
+    _stopRefreshTimer();
+    super.dispose();
   }
 
   void _startRefreshTimer() {
@@ -108,7 +102,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
       BtEngineClientState.ready;
 
   Future<void> _refresh({bool silent = false}) async {
-    if (!_appActive || !_engineReady) return;
+    if (!_routeActive || !_engineReady) return;
     var store = ref.read(btDownloadStoreProvider);
     // 当前可见 Tab 各自拉取，互不等待，避免切 Tab 被 overview 请求堵住。
     switch (_tabIndex) {
@@ -125,7 +119,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
     BtDownloadStore store, {
     bool silent = false,
   }) async {
-    if (!_appActive || !_engineReady || _detailsLoading) return;
+    if (!_routeActive || !_engineReady || _detailsLoading) return;
     _detailsLoading = true;
     if (!silent && mounted) setState(() => _loading = _details == null);
     try {
@@ -148,7 +142,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
   }
 
   Future<void> _loadFiles(BtDownloadStore store) async {
-    if (!_appActive || !_engineReady || _filesLoading) return;
+    if (!_routeActive || !_engineReady || _filesLoading) return;
     _filesLoading = true;
     try {
       var files = await store.taskFiles(widget.taskId);
@@ -166,7 +160,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails>
   }
 
   Future<void> _loadPeers(BtDownloadStore store) async {
-    if (!_appActive || !_engineReady || _peersLoading) return;
+    if (!_routeActive || !_engineReady || _peersLoading) return;
     _peersLoading = true;
     try {
       var peers = await store.taskPeers(widget.taskId);
