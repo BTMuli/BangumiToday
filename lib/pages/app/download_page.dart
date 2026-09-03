@@ -30,9 +30,17 @@ class DownloadPage extends ConsumerStatefulWidget {
 }
 
 class _DownloadPageState extends ConsumerState<DownloadPage> {
+  final TextEditingController _searchController = TextEditingController();
   var _tabIndex = 0;
+  var _searchQuery = '';
   var _selecting = false;
   final Set<String> _selectedIds = {};
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,11 +52,12 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
         _pruneSelection(ref.read(btDownloadStoreProvider));
       },
     );
-    var currentTasks = ref.watch(
+    var tasks = ref.watch(
       btDownloadStoreProvider.select(
         (store) => _tabIndex == 0 ? store.activeTasks : store.stoppedTasks,
       ),
     );
+    var currentTasks = _filterDownloadTasks(tasks, _searchQuery);
     return ScaffoldPage(
       header: PageHeader(
         title: Row(
@@ -92,6 +101,16 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
                 onPressed: () => _showManualAddDialog(context),
               ),
             ),
+            SizedBox(width: 8),
+            _DownloadSearchBox(
+              controller: _searchController,
+              query: _searchQuery,
+              onChanged: (value) => setState(() => _searchQuery = value),
+              onClear: () {
+                _searchController.clear();
+                setState(() => _searchQuery = '');
+              },
+            ),
           ],
         ),
         commandBar: Wrap(
@@ -114,6 +133,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
         color: BTColors.surfaceSecondary(context).withValues(alpha: 0.34),
         child: _DownloadTaskPane(
           tabIndex: _tabIndex,
+          searchQuery: _searchQuery,
           selecting: _selecting,
           selectedIds: _selectedIds,
           onToggleSelect: _toggleSelect,
@@ -325,12 +345,14 @@ class _DownloadRefreshButton extends ConsumerWidget {
 class _DownloadTaskPane extends ConsumerWidget {
   const _DownloadTaskPane({
     required this.tabIndex,
+    required this.searchQuery,
     required this.selecting,
     required this.selectedIds,
     required this.onToggleSelect,
   });
 
   final int tabIndex;
+  final String searchQuery;
   final bool selecting;
   final Set<String> selectedIds;
   final ValueChanged<String> onToggleSelect;
@@ -342,15 +364,19 @@ class _DownloadTaskPane extends ConsumerWidget {
         (store) => tabIndex == 0 ? store.activeTasks : store.stoppedTasks,
       ),
     );
+    var filteredTasks = _filterDownloadTasks(tasks, searchQuery);
     if (tasks.isEmpty) {
       return tabIndex == 0 ? const _EmptyDownloads() : const _EmptyStopped();
     }
+    if (filteredTasks.isEmpty) {
+      return _EmptySearchResults(query: searchQuery.trim());
+    }
     return ListView.separated(
       padding: EdgeInsets.fromLTRB(20, 14, 20, 24),
-      itemCount: tasks.length,
+      itemCount: filteredTasks.length,
       separatorBuilder: (_, _) => SizedBox(height: 14),
       itemBuilder: (context, index) {
-        var task = tasks[index];
+        var task = filteredTasks[index];
         return RepaintBoundary(
           key: ValueKey(task.id),
           child: _DownloadTaskTile(
@@ -363,6 +389,23 @@ class _DownloadTaskPane extends ConsumerWidget {
       },
     );
   }
+}
+
+List<BtTaskSnapshot> _filterDownloadTasks(
+  List<BtTaskSnapshot> tasks,
+  String query,
+) {
+  var normalizedQuery = query.trim().toLowerCase();
+  if (normalizedQuery.isEmpty) return tasks;
+  return tasks
+      .where((task) => _taskTitle(task).toLowerCase().contains(normalizedQuery))
+      .toList();
+}
+
+String _taskTitle(BtTaskSnapshot task) {
+  return task.displayName.isNotEmpty
+      ? task.displayName
+      : task.displayInfoHash ?? task.id;
 }
 
 class _DownloadTaskTile extends ConsumerWidget {

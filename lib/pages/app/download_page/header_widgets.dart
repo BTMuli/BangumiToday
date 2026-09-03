@@ -43,6 +43,42 @@ class _PageTitle extends StatelessWidget {
   }
 }
 
+class _DownloadSearchBox extends StatelessWidget {
+  const _DownloadSearchBox({
+    required this.controller,
+    required this.query,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final String query;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 200,
+      child: TextBox(
+        controller: controller,
+        placeholder: '搜索标题',
+        prefix: const Padding(
+          padding: EdgeInsets.only(left: 9),
+          child: Icon(FluentIcons.search, size: 14),
+        ),
+        suffix: query.trim().isEmpty
+            ? null
+            : IconButton(
+                icon: const Icon(FluentIcons.clear, size: 12),
+                onPressed: onClear,
+              ),
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
 class _EngineStatus extends StatelessWidget {
   const _EngineStatus({required this.state, this.onEnable});
 

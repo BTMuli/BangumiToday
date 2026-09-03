@@ -110,3 +110,51 @@ class _EmptyStopped extends StatelessWidget {
     );
   }
 }
+
+class _EmptySearchResults extends StatelessWidget {
+  const _EmptySearchResults({required this.query});
+
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    var color = BTColors.textTertiary(context);
+    return Center(
+      child: BTCard(
+        useAcrylic: false,
+        useReveal: false,
+        shadowLevel: BTShadowLevel.subtle,
+        padding: EdgeInsets.symmetric(horizontal: 52, vertical: 42),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(FluentIcons.search, size: 32, color: color),
+            ),
+            SizedBox(height: 18),
+            Text('没有匹配的下载任务', style: BTTypography.subtitle(context)),
+            SizedBox(height: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Text(
+                '未找到标题包含“$query”的任务',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: BTTypography.body(
+                  context,
+                ).copyWith(color: BTColors.textSecondary(context)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -23,9 +23,7 @@ class _DownloadTaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var progress = (task.progress * 100).clamp(0, 100).toDouble();
-    var title = task.displayName.isNotEmpty
-        ? task.displayName
-        : task.displayInfoHash ?? task.id;
+    var title = _taskTitle(task);
     var stateColor = _taskStateColor(context, task.state);
     var accentColor = FluentTheme.of(context).accentColor;
     return BTCard(
