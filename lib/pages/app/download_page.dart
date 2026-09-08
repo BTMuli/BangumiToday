@@ -34,6 +34,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
   var _tabIndex = 0;
   var _searchQuery = '';
   var _selecting = false;
+  var _batchBusy = false;
   final Set<String> _selectedIds = {};
 
   @override
@@ -58,28 +59,59 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
       ),
     );
     var currentTasks = _filterDownloadTasks(tasks, _searchQuery);
+    var availableActions = ref.watch(
+      btDownloadStoreProvider.select(
+        (store) => (
+          _hasBatchTargets(store, BtBatchAction.pause),
+          _hasBatchTargets(store, BtBatchAction.resume),
+          _hasBatchTargets(store, BtBatchAction.stop),
+        ),
+      ),
+    );
+    // Watch only eligibility changes, not unrelated store notifications.
+    bool canAct(BtBatchAction action) {
+      return !_batchBusy &&
+          switch (action) {
+            BtBatchAction.pause => availableActions.$1,
+            BtBatchAction.resume => availableActions.$2,
+            BtBatchAction.stop => availableActions.$3,
+          };
+    }
+
     return ScaffoldPage(
       header: PageHeader(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
+        title: Wrap(
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             const _DownloadPageTitle(),
             SizedBox(width: 12),
             if (_selecting)
               _SelectionBar(
                 count: _selectedIds.length,
-                onSelectAll: currentTasks.isEmpty
+                onPause: canAct(BtBatchAction.pause)
+                    ? () => _batchAct(BtBatchAction.pause)
+                    : null,
+                onResume: canAct(BtBatchAction.resume)
+                    ? () => _batchAct(BtBatchAction.resume)
+                    : null,
+                onStop: canAct(BtBatchAction.stop)
+                    ? () => _batchAct(BtBatchAction.stop)
+                    : null,
+                onSelectAll: currentTasks.isEmpty || _batchBusy
                     ? null
                     : () => setState(() {
                         _selectedIds
                           ..clear()
                           ..addAll(currentTasks.map((task) => task.id));
                       }),
-                onClear: _selectedIds.isEmpty
+                onClear: _selectedIds.isEmpty || _batchBusy
                     ? null
                     : () => setState(_selectedIds.clear),
-                onDelete: _selectedIds.isEmpty ? null : _confirmBatchDelete,
-                onCancel: _exitSelection,
+                onDelete: _selectedIds.isEmpty || _batchBusy
+                    ? null
+                    : _confirmBatchDelete,
+                onCancel: _batchBusy ? null : _exitSelection,
               )
             else
               Tooltip(
@@ -186,6 +218,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
           uri: draft.uri,
           savePath: draft.savePath,
           displayName: draft.displayName,
+          manual: true,
         );
       } else if (_isRemoteTorrentUri(uri)) {
         var torrentPath = await BTDownloadTool().downloadRssTorrent(
@@ -198,12 +231,14 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
           torrentPath: torrentPath,
           savePath: draft.savePath,
           displayName: draft.displayName,
+          manual: true,
         );
       } else {
         await store.addHttp(
           url: draft.uri,
           savePath: draft.savePath,
           displayName: draft.displayName,
+          manual: true,
         );
       }
       if (!mounted || !context.mounted) return;
@@ -222,9 +257,36 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
   }
 
   void _toggleSelect(String id) {
+    if (_batchBusy) return;
     setState(() {
       if (!_selectedIds.remove(id)) _selectedIds.add(id);
     });
+  }
+
+  bool _hasBatchTargets(BtDownloadStore store, BtBatchAction action) =>
+      _selecting &&
+      store.tasks.any(
+        (task) =>
+            _selectedIds.contains(task.id) && store.canBatchAct(task, action),
+      );
+
+  Future<void> _batchAct(BtBatchAction action) async {
+    if (_batchBusy) return;
+    var ids = _selectedIds.toList();
+    setState(() => _batchBusy = true);
+    try {
+      var count = await ref.read(btDownloadStoreProvider).batchAct(ids, action);
+      var label = switch (action) {
+        BtBatchAction.pause => '暂停',
+        BtBatchAction.resume => '恢复',
+        BtBatchAction.stop => '停止',
+      };
+      if (mounted) await BtInfobar.success(context, '已$label $count 个任务');
+    } catch (error) {
+      if (mounted) await BtInfobar.error(context, error.toString());
+    } finally {
+      if (mounted) setState(() => _batchBusy = false);
+    }
   }
 
   Future<void> _confirmBatchDelete() async {
@@ -241,6 +303,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
       content: '将删除已选择的 ${targets.length} 个任务，已下载的数据会保留。',
     );
     if (!confirmed || !mounted) return;
+    setState(() => _batchBusy = true);
     try {
       await ref.read(btDownloadStoreProvider).removeAll(targets);
       if (!mounted) return;
@@ -248,6 +311,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
       await BtInfobar.success(context, '已删除 ${targets.length} 个任务');
     } catch (error) {
       if (mounted) await BtInfobar.error(context, error.toString());
+    } finally {
+      if (mounted) setState(() => _batchBusy = false);
     }
   }
 }
@@ -471,6 +536,7 @@ IconData _taskStateIcon(String state) {
     'seeding' => FluentIcons.upload,
     'completed' => FluentIcons.check_mark,
     'paused' => FluentIcons.pause,
+    'stopped' => FluentIcons.stop,
     'error' => FluentIcons.error,
     'metadata' || 'checking' => FluentIcons.processing,
     _ => FluentIcons.clock,
@@ -485,6 +551,7 @@ String _stateLabel(String state) {
     'downloading' => '下载中',
     'seeding' => '做种中',
     'paused' => '已暂停',
+    'stopped' => '已停止',
     'completed' => '已完成',
     'error' => '发生错误',
     _ => state,

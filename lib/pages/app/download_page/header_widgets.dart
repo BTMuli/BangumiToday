@@ -217,6 +217,9 @@ class _SelectionBar extends StatelessWidget {
     required this.onSelectAll,
     required this.onClear,
     required this.onDelete,
+    required this.onPause,
+    required this.onResume,
+    required this.onStop,
     required this.onCancel,
   });
 
@@ -224,7 +227,10 @@ class _SelectionBar extends StatelessWidget {
   final VoidCallback? onSelectAll;
   final VoidCallback? onClear;
   final Future<void> Function()? onDelete;
-  final VoidCallback onCancel;
+  final VoidCallback? onCancel;
+  final VoidCallback? onPause;
+  final VoidCallback? onResume;
+  final VoidCallback? onStop;
 
   @override
   Widget build(BuildContext context) {
@@ -284,6 +290,27 @@ class _SelectionBar extends StatelessWidget {
                     : BTColors.errorLight(context),
               ),
               onPressed: onDelete,
+            ),
+          ),
+          Tooltip(
+            message: '批量暂停',
+            child: IconButton(
+              icon: const Icon(FluentIcons.pause, size: 16),
+              onPressed: onPause,
+            ),
+          ),
+          Tooltip(
+            message: '批量恢复',
+            child: IconButton(
+              icon: const Icon(FluentIcons.play, size: 16),
+              onPressed: onResume,
+            ),
+          ),
+          Tooltip(
+            message: '批量停止（保留数据，可恢复）',
+            child: IconButton(
+              icon: const Icon(FluentIcons.stop, size: 16),
+              onPressed: onStop,
             ),
           ),
           Tooltip(

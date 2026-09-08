@@ -38,6 +38,8 @@ final btDownloadStoreProvider = ChangeNotifierProvider<BtDownloadStore>((ref) {
   return BtDownloadStore();
 });
 
+enum BtBatchAction { pause, resume, stop }
+
 class BtDownloadStore extends ChangeNotifier {
   BtDownloadStore({
     BtEngineGateway? client,
@@ -143,7 +145,7 @@ class BtDownloadStore extends ChangeNotifier {
   /// 进行中/已停止两个标签页之间跳转。
   bool isStoppedTask(BtTaskSnapshot task) {
     var base = _taskBaseStates[task.id] ?? task.state;
-    return base == 'completed' || base == 'error';
+    return base == 'completed' || base == 'error' || base == 'stopped';
   }
 
   BtEngineClientState get engineState => _engineState;
@@ -240,6 +242,7 @@ class BtDownloadStore extends ChangeNotifier {
     required String torrentPath,
     required String savePath,
     String? displayName,
+    bool manual = false,
   }) async {
     _lastError = null;
     notifyListeners();
@@ -249,6 +252,7 @@ class BtDownloadStore extends ChangeNotifier {
         torrentPath: torrentPath,
         savePath: savePath,
         displayName: displayName,
+        manual: manual,
       );
       await _client.refreshTasks();
       return task;
@@ -263,6 +267,7 @@ class BtDownloadStore extends ChangeNotifier {
     required String uri,
     required String savePath,
     String? displayName,
+    bool manual = false,
   }) async {
     _lastError = null;
     notifyListeners();
@@ -272,6 +277,7 @@ class BtDownloadStore extends ChangeNotifier {
         uri: uri,
         savePath: savePath,
         displayName: displayName,
+        manual: manual,
       );
       await _client.refreshTasks();
       return task;
@@ -286,6 +292,7 @@ class BtDownloadStore extends ChangeNotifier {
     required String url,
     required String savePath,
     String? displayName,
+    bool manual = false,
   }) async {
     _lastError = null;
     notifyListeners();
@@ -295,6 +302,7 @@ class BtDownloadStore extends ChangeNotifier {
         url: url,
         savePath: savePath,
         displayName: displayName,
+        manual: manual,
       );
       await _client.refreshTasks();
       return task;
@@ -306,11 +314,51 @@ class BtDownloadStore extends ChangeNotifier {
   }
 
   Future<void> pause(String id) => _runTask(id, () => _client.pause(id));
+  Future<void> stop(String id) => _runTask(id, () => _client.stop(id));
   Future<void> resume(String id) => _runTask(id, () => _client.resume(id));
   Future<void> retry(String id) => _runTask(id, () => _client.retry(id));
   Future<void> recheck(String id) => _runTask(id, () => _client.recheck(id));
   Future<void> remove(String id) async {
     await _runTask(id, () => _client.remove(id, deleteData: false));
+  }
+
+  bool canBatchAct(BtTaskSnapshot task, BtBatchAction action) {
+    if (isTaskBusy(task.id)) return false;
+    return switch (action) {
+      BtBatchAction.pause => _shouldPauseBeforeRemove(task.state),
+      BtBatchAction.resume => {'paused', 'stopped'}.contains(task.state),
+      BtBatchAction.stop =>
+        _shouldPauseBeforeRemove(task.state) || task.state == 'paused',
+    };
+  }
+
+  /// Recheck eligibility for each task; one failure does not abort the batch.
+  Future<int> batchAct(Iterable<String> ids, BtBatchAction action) async {
+    var succeeded = 0;
+    var failures = <String>[];
+    for (var id in ids.toSet()) {
+      var task = _taskById(id);
+      if (task == null || !canBatchAct(task, action)) continue;
+      try {
+        switch (action) {
+          case BtBatchAction.pause:
+            await pause(id);
+          case BtBatchAction.resume:
+            await resume(id);
+          case BtBatchAction.stop:
+            await stop(id);
+        }
+        succeeded++;
+      } catch (error) {
+        failures.add('${task.displayName}: $error');
+      }
+    }
+    if (failures.isNotEmpty) {
+      throw BtEngineClientException(
+        '成功 $succeeded 个，失败 ${failures.length} 个：${failures.join('；')}',
+      );
+    }
+    return succeeded;
   }
 
   /// 批量移除任务（保留数据）；活跃任务会先暂停再移除。
@@ -447,7 +495,7 @@ class BtDownloadStore extends ChangeNotifier {
       'queued' => 1,
       'seeding' => 2,
       'error' => 3,
-      'paused' || 'completed' => 4,
+      'paused' || 'stopped' || 'completed' => 4,
       _ => 5,
     };
   }

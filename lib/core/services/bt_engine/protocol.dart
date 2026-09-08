@@ -1,4 +1,4 @@
-const btEngineProtocolVersion = '1.4';
+const btEngineProtocolVersion = '1.5';
 const btEngineMaxProtocolFrameBytes = 1024 * 1024;
 
 enum BtEngineClientState { stopped, starting, ready, stopping, failed }
@@ -39,6 +39,7 @@ class BtTaskSnapshot {
     required this.id,
     required this.state,
     required this.sourceKind,
+    required this.manual,
     required this.savePath,
     required this.displayName,
     required this.infoHash,
@@ -65,6 +66,7 @@ class BtTaskSnapshot {
       id: json['id'] as String,
       state: json['state'] as String,
       sourceKind: json['sourceKind'] as String,
+      manual: json['manual'] as bool,
       savePath: json['savePath'] as String,
       displayName: json['displayName'] as String? ?? '',
       infoHash: json['infoHash'] as String?,
@@ -95,6 +97,7 @@ class BtTaskSnapshot {
   final String id;
   final String state;
   final String sourceKind;
+  final bool manual;
   final String savePath;
   final String displayName;
   final String? infoHash;
@@ -138,6 +141,7 @@ class BtTaskSnapshot {
         id == other.id &&
         state == other.state &&
         sourceKind == other.sourceKind &&
+        manual == other.manual &&
         savePath == other.savePath &&
         displayName == other.displayName &&
         infoHash == other.infoHash &&
@@ -164,6 +168,7 @@ class BtTaskSnapshot {
     id,
     state,
     sourceKind,
+    manual,
     savePath,
     displayName,
     infoHash,

@@ -268,12 +268,14 @@ class BtEngineClient implements BtEngineGateway {
     required String savePath,
     String? displayName,
     bool start = true,
+    bool manual = false,
   }) {
     return _addTask(
       source: {'kind': 'torrentFile', 'path': path.absolute(torrentPath)},
       savePath: savePath,
       displayName: displayName,
       start: start,
+      manual: manual,
     );
   }
 
@@ -283,12 +285,14 @@ class BtEngineClient implements BtEngineGateway {
     required String savePath,
     String? displayName,
     bool start = true,
+    bool manual = false,
   }) {
     return _addTask(
       source: {'kind': 'magnet', 'uri': uri},
       savePath: savePath,
       displayName: displayName,
       start: start,
+      manual: manual,
     );
   }
 
@@ -298,15 +302,19 @@ class BtEngineClient implements BtEngineGateway {
     required String savePath,
     String? displayName,
     bool start = true,
+    bool manual = false,
   }) {
     return _addTask(
       source: {'kind': 'http', 'url': url},
       savePath: savePath,
       displayName: displayName,
       start: start,
+      manual: manual,
     );
   }
 
+  @override
+  Future<BtTaskSnapshot> stop(String id) => _taskCommand('task.stop', id);
   @override
   Future<BtTaskSnapshot> pause(String id) => _taskCommand('task.pause', id);
   @override
@@ -350,6 +358,7 @@ class BtEngineClient implements BtEngineGateway {
     required String savePath,
     required String? displayName,
     required bool start,
+    required bool manual,
   }) async {
     var result = await request('task.add', {
       'source': source,
@@ -357,6 +366,7 @@ class BtEngineClient implements BtEngineGateway {
       if (displayName != null && displayName.isNotEmpty)
         'displayName': displayName,
       'start': start,
+      'manual': manual,
     });
     return _taskFromResult(result);
   }

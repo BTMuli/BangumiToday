@@ -84,6 +84,13 @@ class _DownloadTaskCard extends StatelessWidget {
                               style: BTTypography.bodyStrong(context),
                             ),
                             SizedBox(height: 4),
+                            if (task.manual)
+                              Text(
+                                task.state == 'completed'
+                                    ? '手动任务 · 已归档，不跟踪文件'
+                                    : '手动任务 · 完成后不跟踪文件',
+                                style: BTTypography.caption(context),
+                              ),
                             Row(
                               children: [
                                 Icon(
@@ -340,6 +347,25 @@ class _TaskActions extends StatelessWidget {
           FluentIcons.info,
           '任务详情',
           () async {
+            if (task.manual && task.state == 'completed') {
+              await showDialog<void>(
+                context: context,
+                builder: (context) => ContentDialog(
+                  title: Text(_taskTitle(task)),
+                  content: Text(
+                    '手动任务已完成并归档，不再跟踪文件存在性。\n'
+                    '保存目录：${task.savePath}',
+                  ),
+                  actions: [
+                    Button(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('关闭'),
+                    ),
+                  ],
+                ),
+              );
+              return;
+            }
             await showBTDrawer(
               context: context,
               width: 760,
@@ -365,7 +391,7 @@ class _TaskActions extends StatelessWidget {
             '暂停',
             () => onAction((store) => store.pause(task.id)),
           ),
-        if (task.state == 'paused')
+        if (task.state == 'paused' || task.state == 'stopped')
           _button(
             context,
             FluentIcons.play,
@@ -380,7 +406,8 @@ class _TaskActions extends StatelessWidget {
             '重试',
             () => onAction((store) => store.retry(task.id)),
           ),
-        if (task.sourceKind != 'http')
+        if (task.sourceKind != 'http' &&
+            !(task.manual && task.state == 'completed'))
           _button(
             context,
             FluentIcons.processing,

@@ -29,19 +29,23 @@ abstract interface class BtEngineGateway {
     required String savePath,
     String? displayName,
     bool start = true,
+    bool manual = false,
   });
   Future<BtTaskSnapshot> addMagnet({
     required String uri,
     required String savePath,
     String? displayName,
     bool start = true,
+    bool manual = false,
   });
   Future<BtTaskSnapshot> addHttp({
     required String url,
     required String savePath,
     String? displayName,
     bool start = true,
+    bool manual = false,
   });
+  Future<BtTaskSnapshot> stop(String id);
   Future<BtTaskSnapshot> pause(String id);
   Future<BtTaskSnapshot> resume(String id);
   Future<BtTaskSnapshot> retry(String id);

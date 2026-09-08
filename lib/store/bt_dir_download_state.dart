@@ -207,6 +207,11 @@ BtFileDownloadState _fileStateForTask(BtTaskSnapshot task, {double? progress}) {
     );
   }
   return switch (task.state) {
+    'stopped' => BtFileDownloadState(
+      isPaused: true,
+      progress: progress,
+      statusLabel: '已停止',
+    ),
     'paused' => BtFileDownloadState(
       isPaused: true,
       progress: progress,
