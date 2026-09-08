@@ -1,5 +1,4 @@
 // Flutter imports:
-import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 class BTBreakpoints {

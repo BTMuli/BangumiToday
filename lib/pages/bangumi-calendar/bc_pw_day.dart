@@ -1,6 +1,3 @@
-// Flutter imports:
-import 'package:flutter/rendering.dart';
-
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 
