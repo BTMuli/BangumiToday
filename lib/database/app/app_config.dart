@@ -249,9 +249,17 @@ class BtsAppConfig {
   /// 读取 Bangumi API 镜像地址
   Future<String> readBangumiUrl() async {
     var res = await _instance.read('bangumiUrl');
+    if (res == BTAppConstants.legacyBangumiLolApiBaseUrl) {
+      BTLogTool.warn(
+        'Migrate Bangumi API URL: $res -> '
+        '${BTAppConstants.bangumiProApiBaseUrl}',
+      );
+      res = BTAppConstants.bangumiProApiBaseUrl;
+      await _instance.writeBangumiUrl(res);
+    }
     var isSupported =
         res == BTAppConstants.bangumiApiBaseUrl ||
-        res == BTAppConstants.bangumiLolApiBaseUrl ||
+        res == BTAppConstants.bangumiProApiBaseUrl ||
         res == BTAppConstants.officialBangumiApiBaseUrl;
     if (!isSupported) {
       if (res != null && res.isNotEmpty) {

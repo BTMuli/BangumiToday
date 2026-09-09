@@ -261,8 +261,8 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
             child: Text('bgmmi.anibt.net'),
           ),
           ComboBoxItem(
-            value: BTAppConstants.bangumiLolApiBaseUrl,
-            child: Text('bangumi.lol'),
+            value: BTAppConstants.bangumiProApiBaseUrl,
+            child: Text('bangumi.pro'),
           ),
           ComboBoxItem(
             value: BTAppConstants.officialBangumiApiBaseUrl,

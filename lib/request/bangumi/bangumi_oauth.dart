@@ -33,7 +33,7 @@ class BtrBangumiOauth implements BangumiOauthGateway {
   /// 授权页跟随所选站点；浏览器可过镜像的 Cloudflare。
   static String get oauthBaseUrl => '$siteBaseUrl/oauth';
 
-  /// 换 token 固定走官方站。bangumi.lol 的 mirrox 会把
+  /// 换 token 固定走官方站。bangumi.pro 的 mirrox 会把
   /// `POST /oauth/access_token` 拦成 HTML 400。
   static String get oauthTokenBaseUrl =>
       '${BTAppConstants.officialBangumiSiteBaseUrl}/oauth';

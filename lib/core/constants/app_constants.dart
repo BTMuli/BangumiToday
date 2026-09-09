@@ -27,12 +27,13 @@ class BTAppConstants {
   static const String bangumiSiteBaseUrl = 'https://bgmmi.anibt.net';
   static const String bangumiApiBaseUrl = 'https://bgmapi.anibt.net';
   static const String bangumiImageBaseUrl = 'https://bgmimg.anibt.net';
-  static const String bangumiLolSiteBaseUrl = 'https://bangumi.lol';
-  static const String bangumiLolApiBaseUrl = 'https://api.bangumi.lol';
-  static const String bangumiLolImageBaseUrl = 'https://lain.bangumi.lol';
-  static const String bangumiLolFastBaseUrl = 'https://fast.bangumi.lol';
-  static const String bangumiLolNextBaseUrl = 'https://next.bangumi.lol';
-  static const String bangumiLolDoujinBaseUrl = 'https://doujin.bangumi.lol';
+  static const String bangumiProSiteBaseUrl = 'https://bangumi.pro';
+  static const String bangumiProApiBaseUrl = 'https://api.bangumi.pro';
+  static const String bangumiProImageBaseUrl = 'https://lain.bangumi.pro';
+  static const String bangumiProFastBaseUrl = 'https://fast.bangumi.pro';
+  static const String bangumiProNextBaseUrl = 'https://next.bangumi.pro';
+  static const String bangumiProDoujinBaseUrl = 'https://doujin.bangumi.pro';
+  static const String legacyBangumiLolApiBaseUrl = 'https://api.bangumi.lol';
   static const String officialBangumiSiteBaseUrl = 'https://bgm.tv';
   static const String officialBangumiApiBaseUrl = 'https://api.bgm.tv';
   static const String officialBangumiImageBaseUrl = 'https://lain.bgm.tv';
@@ -43,7 +44,7 @@ class BTAppConstants {
   static String bangumiSiteBaseUrlFor(String apiBaseUrl) {
     return switch (_normalizeUrl(apiBaseUrl)) {
       officialBangumiApiBaseUrl => officialBangumiSiteBaseUrl,
-      bangumiLolApiBaseUrl => bangumiLolSiteBaseUrl,
+      bangumiProApiBaseUrl => bangumiProSiteBaseUrl,
       _ => bangumiSiteBaseUrl,
     };
   }
@@ -51,14 +52,14 @@ class BTAppConstants {
   static String bangumiImageBaseUrlFor(String apiBaseUrl) {
     return switch (_normalizeUrl(apiBaseUrl)) {
       officialBangumiApiBaseUrl => officialBangumiImageBaseUrl,
-      bangumiLolApiBaseUrl => bangumiLolImageBaseUrl,
+      bangumiProApiBaseUrl => bangumiProImageBaseUrl,
       _ => bangumiImageBaseUrl,
     };
   }
 
   static String bangumiNextBaseUrlFor(String apiBaseUrl) {
-    return _normalizeUrl(apiBaseUrl) == bangumiLolApiBaseUrl
-        ? bangumiLolNextBaseUrl
+    return _normalizeUrl(apiBaseUrl) == bangumiProApiBaseUrl
+        ? bangumiProNextBaseUrl
         : officialBangumiNextBaseUrl;
   }
 
@@ -125,18 +126,18 @@ class BTAppConstants {
         host = Uri.parse(bangumiImageBaseUrlFor(normalized)).host;
         break;
       case 'fast.bgm.tv':
-        if (normalized == bangumiLolApiBaseUrl) {
-          host = Uri.parse(bangumiLolFastBaseUrl).host;
+        if (normalized == bangumiProApiBaseUrl) {
+          host = Uri.parse(bangumiProFastBaseUrl).host;
         }
         break;
       case 'next.bgm.tv':
-        if (normalized == bangumiLolApiBaseUrl) {
-          host = Uri.parse(bangumiLolNextBaseUrl).host;
+        if (normalized == bangumiProApiBaseUrl) {
+          host = Uri.parse(bangumiProNextBaseUrl).host;
         }
         break;
       case 'doujin.bgm.tv':
-        if (normalized == bangumiLolApiBaseUrl) {
-          host = Uri.parse(bangumiLolDoujinBaseUrl).host;
+        if (normalized == bangumiProApiBaseUrl) {
+          host = Uri.parse(bangumiProDoujinBaseUrl).host;
         }
         break;
     }

@@ -10,14 +10,14 @@ Contents:
 
 ## Bangumi.tv API
 
-- Base URLs (`lib/core/constants/app_constants.dart`): default mirror API `https://bgmapi.anibt.net` (site `https://bgmmi.anibt.net`, images `https://bgmimg.anibt.net`); official `api.bgm.tv` / `bgm.tv` / `lain.bgm.tv`; and `api.bangumi.lol` (with `fast`/`next`/`doujin` mirrors). The user-selected endpoint is stored in AppConfig; `rewriteBangumiUrl` maps official hosts to the active mirror.
+- Base URLs (`lib/core/constants/app_constants.dart`): default mirror API `https://bgmapi.anibt.net` (site `https://bgmmi.anibt.net`, images `https://bgmimg.anibt.net`); official `api.bgm.tv` / `bgm.tv` / `lain.bgm.tv`; and `api.bangumi.pro` (with `fast`/`next`/`doujin` mirrors). The user-selected endpoint is stored in AppConfig; `rewriteBangumiUrl` maps official hosts to the active mirror.
 - Client `BtrBangumiApi` (docs: https://bangumi.github.io/api/): `/calendar`, `POST /v0/search/subjects` (filter `type`/`tag`/`airdate`/`rating`/`rank`/`nsfw`, sort `match|heat|rank|score`), subject detail/episodes/characters/persons, user info and collections, plus legacy v2 endpoints.
 - Models live in `lib/models/bangumi/` split per domain (subject, episode, character, person, collection, user, revision, patch, index, legacy) with generated JSON; `bangumi_enum.dart` holds subject types, episode types, and collection status.
 - Requests go through `RequestManager` with `RequestKey` entries: `bangumi_calendar`, `subject_detail_<id>`, `subject_episodes_<id>`, `user_collection_<user>_<id>`, `user_collections_<user>`, `search_<kw>_<offset>[_tag_...]`, `rss_<source>`.
 
 ## OAuth
 
-- Flow (`BangumiOAuthCoordinator.authorize`): open `<site>/oauth/authorize` (paired with the selected API mirror so the browser can pass Cloudflare) with app id, `redirect_uri=BangumiToday://oauth/bangumi/callback`, and random base64url `state`; wait for the app-link callback `bangumitoday://oauth?...` (5-minute timeout), validate `state`, then exchange the code at official `https://bgm.tv/oauth/access_token` (form body, same `redirect_uri`). bangumi.lol's mirrox proxy returns HTML 400 for that POST. Refresh uses the same official endpoint with `grant_type=refresh_token`. HTTP 200 OAuth error payloads such as `app_nonexistence` are treated as failures. If the official token host returns non-JSON, the client retries the selected site.
+- Flow (`BangumiOAuthCoordinator.authorize`): open `<site>/oauth/authorize` (paired with the selected API mirror so the browser can pass Cloudflare) with app id, `redirect_uri=BangumiToday://oauth/bangumi/callback`, and random base64url `state`; wait for the app-link callback `bangumitoday://oauth?...` (5-minute timeout), validate `state`, then exchange the code at official `https://bgm.tv/oauth/access_token` (form body, same `redirect_uri`). bangumi.pro's mirrox proxy returns HTML 400 for that POST. Refresh uses the same official endpoint with `grant_type=refresh_token`. HTTP 200 OAuth error payloads such as `app_nonexistence` are treated as failures. If the official token host returns non-JSON, the client retries the selected site.
 - Credentials `BANGUMI_APP_ID` / `BANGUMI_APP_SECRET` are compile-time dart-defines, never shipped as assets. Tokens persist via `BgmUserHive` + secure storage; `AuthInterceptor` refreshes on 401.
 
 ## BangumiData
