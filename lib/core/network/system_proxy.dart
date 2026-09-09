@@ -72,6 +72,19 @@ class SystemProxyConfig {
   /// 是否至少配置了一个代理地址。
   bool get isAvailable => httpProxy != null || httpsProxy != null;
 
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is SystemProxyConfig &&
+            httpProxy == other.httpProxy &&
+            httpsProxy == other.httpsProxy &&
+            _listEquals(bypass, other.bypass);
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(httpProxy, httpsProxy, Object.hashAll(bypass));
+
   /// 转换为下载引擎使用的运行期代理对象。
   Map<String, dynamic> toEngineJson({required bool enabled}) {
     if (!enabled) return const <String, dynamic>{'enabled': false};
@@ -184,6 +197,15 @@ class SystemProxyConfig {
         'httpsProxy: $httpsProxy, '
         'bypass: $bypass)';
   }
+}
+
+bool _listEquals<T>(List<T> left, List<T> right) {
+  if (identical(left, right)) return true;
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }
 
 /// 为应用内所有 dart:io HTTP 客户端提供统一的代理回调。

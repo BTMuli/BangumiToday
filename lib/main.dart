@@ -23,6 +23,7 @@ import 'core/services/bangumi_token_service.dart';
 import 'core/services/bmf_rss_service.dart';
 import 'core/services/bt_engine_client.dart';
 import 'core/services/desktop_tray_service.dart';
+import 'core/services/system_proxy_watch_service.dart';
 import 'core/services/windows_app_protocol.dart';
 import 'core/utils/window_effect.dart';
 import 'database/app/app_config.dart';
@@ -117,6 +118,7 @@ Future<void> _exitApplication() async {
   // 先藏窗、再拆托盘，避免协议还原 / 引擎 shutdown 期间主窗体假死。
   await _runExitStep('隐藏主窗口', windowManager.hide);
   await _runExitStep('系统托盘', BTDesktopTrayService.instance.dispose);
+  await _runExitStep('系统代理监听', SystemProxyWatchService.instance.stop);
   await _runExitStep('Windows 协议还原', restoreWindowsAppProtocol);
   await _runExitStep('BMF RSS 服务', () async {
     BmfRssService.instance.stop();
@@ -176,6 +178,22 @@ Future<void> _initBackgroundServices() async {
   var useDownloadSystemProxy = await appConfig.readUseDownloadSystemProxy();
   var themeMode = await appConfig.readThemeMode();
   var trackerStore = TrackerHive();
+
+  if (Platform.isWindows) {
+    await _runOptionalService('系统代理监听', () async {
+      await SystemProxyWatchService.instance.start(
+        onChanged: (proxy) async {
+          BtrClient.refreshSystemProxy(proxy);
+          if (!await appConfig.readUseDownloadSystemProxy()) return;
+
+          var engine = BtEngineClient.instance;
+          if (engine.isReady) {
+            await engine.configureProxy(proxy.toEngineJson(enabled: true));
+          }
+        },
+      );
+    });
+  }
 
   unawaited(
     Future.wait([

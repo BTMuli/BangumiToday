@@ -89,7 +89,20 @@ class BtrClient {
     var proxy = const SystemProxyConfig.direct();
     if (value) proxy = await WindowsSystemProxy.read();
 
-    SystemProxyController.configure(enabled: value, config: proxy);
+    _applySystemProxy(enabled: value, config: proxy);
+  }
+
+  /// 系统代理设置在应用运行期间变化时，刷新已有客户端的连接池。
+  static void refreshSystemProxy(SystemProxyConfig proxy) {
+    if (!useSystemProxy) return;
+    _applySystemProxy(enabled: true, config: proxy);
+  }
+
+  static void _applySystemProxy({
+    required bool enabled,
+    required SystemProxyConfig config,
+  }) {
+    SystemProxyController.configure(enabled: enabled, config: config);
     for (var client in List<BtrClient>.of(_clients)) {
       client._refreshHttpClientAdapter();
     }
