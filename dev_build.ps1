@@ -99,6 +99,76 @@ function Set-DotEnvValue {
     )
 }
 
+function Select-MsixVersionIncrement {
+    param(
+        [Parameter(Mandatory = $true)]
+        [version]$CurrentVersion
+    )
+
+    $options = @(
+        [version]::new(
+            $CurrentVersion.Major,
+            $CurrentVersion.Minor,
+            $CurrentVersion.Build,
+            $CurrentVersion.Revision + 1
+        ),
+        [version]::new(
+            $CurrentVersion.Major,
+            $CurrentVersion.Minor,
+            $CurrentVersion.Build + 1,
+            0
+        ),
+        [version]::new(
+            $CurrentVersion.Major,
+            $CurrentVersion.Minor + 1,
+            0,
+            0
+        ),
+        [version]::new($CurrentVersion.Major + 1, 0, 0, 0)
+    )
+
+    Write-Host "Installed version is already $CurrentVersion."
+    Write-Host 'Select the next MSIX version (Up/Down, Enter to confirm, Esc to cancel):'
+
+    $selectedIndex = 0
+    $escape = [char]0x1B
+    $cursorUp = "${escape}[$($options.Count)A"
+    $clearLine = "${escape}[2K`r"
+    $hasRendered = $false
+    while ($true) {
+        if ($hasRendered) {
+            Write-Host -NoNewline $cursorUp
+        }
+        for ($index = 0; $index -lt $options.Count; $index++) {
+            $prefix = if ($index -eq $selectedIndex) {
+                [char]0x25CF
+            } else {
+                [char]0x25CB
+            }
+            $line = " $prefix $($options[$index])"
+            Write-Host "$clearLine$line"
+        }
+        $hasRendered = $true
+
+        $key = [Console]::ReadKey($true)
+        switch ($key.Key) {
+            'UpArrow' {
+                $selectedIndex = ($selectedIndex - 1 + $options.Count) % `
+                    $options.Count
+            }
+            'DownArrow' {
+                $selectedIndex = ($selectedIndex + 1) % $options.Count
+            }
+            'Enter' {
+                return $options[$selectedIndex]
+            }
+            'Escape' {
+                return $null
+            }
+        }
+    }
+}
+
 function Invoke-NativeCommand {
     param(
         [Parameter(Mandatory = $true)]
@@ -375,15 +445,13 @@ if ($version -lt $installedVersion) {
 }
 
 if ($version -eq $installedVersion) {
-    $answer = Read-Host `
-        "Installed version is already $version. Bump the version? (y/n)"
-    if ($answer -ne 'y') {
+    $selectedVersion = Select-MsixVersionIncrement -CurrentVersion $version
+    if ($null -eq $selectedVersion) {
         Write-Output 'Build cancelled.'
         return
     }
 
-    $newVersionValue = Read-Host 'Enter a new version (x.x.x.x)'
-    $version = ConvertTo-MsixVersion $newVersionValue
+    $version = $selectedVersion
     Set-DotEnvValue -Path $envPath -Name 'MSIX_VERSION' `
         -Value $version.ToString()
     Write-Output "Updated MSIX_VERSION to $version."
