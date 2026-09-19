@@ -98,19 +98,6 @@ class _RbpComicatState extends State<RbpComicatWidget>
 
           return Stack(
             children: [
-              GridView.builder(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  mainAxisExtent: mainAxisExtent,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                ),
-                itemCount: rssItems.length,
-                itemBuilder: (context, index) {
-                  return RssComicatCardFluent(item: rssItems[index]);
-                },
-              ),
               Positioned(
                 bottom: 16,
                 right: 16,
@@ -123,6 +110,19 @@ class _RbpComicatState extends State<RbpComicatWidget>
                     ),
                   ),
                 ),
+              ),
+              GridView.builder(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  mainAxisExtent: mainAxisExtent,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: rssItems.length,
+                itemBuilder: (context, index) {
+                  return RssComicatCardFluent(item: rssItems[index]);
+                },
               ),
             ],
           );
