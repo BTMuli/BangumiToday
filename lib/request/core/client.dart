@@ -102,7 +102,13 @@ class BtrClient {
     required bool enabled,
     required SystemProxyConfig config,
   }) {
+    var unchanged =
+        SystemProxyController.enabled == enabled &&
+        SystemProxyController.config == config;
     SystemProxyController.configure(enabled: enabled, config: config);
+    // 启动阶段 main 与 AppStore 会先后下发同一份配置，
+    // 无变化时保留现有连接池，避免打断仍在进行中的请求。
+    if (unchanged) return;
     for (var client in List<BtrClient>.of(_clients)) {
       client._refreshHttpClientAdapter();
     }
@@ -128,6 +134,9 @@ class BtrClient {
   void _refreshHttpClientAdapter() {
     var oldAdapter = _dio.httpClientAdapter;
     _dio.httpClientAdapter = _createHttpClientAdapter();
-    oldAdapter.close(force: true);
+    // 优雅关闭旧连接池：已发出的请求继续使用旧连接，仅回收空闲连接。
+    // 强制关闭会让启动阶段等正在进行的请求报
+    // HttpException: Connection closed before full header was received。
+    oldAdapter.close();
   }
 }

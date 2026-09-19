@@ -217,6 +217,9 @@ class SystemProxyController {
   /// 当前是否启用系统代理。
   static bool get enabled => _enabled;
 
+  /// 当前生效的系统代理配置。
+  static SystemProxyConfig get config => _config;
+
   /// 当前配置对应的下载引擎运行期代理对象。
   static Map<String, dynamic> get engineProxyConfig =>
       _config.toEngineJson(enabled: _enabled);
