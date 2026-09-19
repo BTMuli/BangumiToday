@@ -22,22 +22,33 @@ BTResponse<T> handleBangumiDioException<T>(
   }
 
   var responseData = exception.response?.data;
-  var message = _readErrorMessage(responseData);
+  var statusCode = exception.response?.statusCode;
+  var responseMessage = _readJsonErrorMessage(responseData);
+  var message = responseMessage;
   var networkFailure = _isNetworkFailure(exception);
   if (message == null && networkFailure) {
     message = '网络连接失败，请稍后重试';
   }
+  message ??= _readHtmlTitle(responseData);
   message ??= exception.error?.toString();
   message ??= exception.message;
   message ??= fallbackMessage;
 
+  // 5xx 多为上游 / 反向代理故障（如 nginx 的 502 错误页），
+  // 换成中文提示，上游原始内容只留在日志里。
+  var statusMessage = _bangumiStatusMessage(statusCode);
+  if (statusMessage != null && responseMessage == null) {
+    message = statusMessage;
+  }
+
   var uri = exception.requestOptions.uri;
   try {
-    BTLogTool.error('$fallbackMessage [$uri]: $message');
+    BTLogTool.error(
+      '$fallbackMessage [$uri]: ${_logMessage(message, responseData)}',
+    );
   } catch (_) {
     // Error handling must not fail when logging is not initialized yet.
   }
-  var statusCode = exception.response?.statusCode;
   // Keep transport failures separate from real HTTP 5xx responses. The UI
   // uses 666 as the application's network-error code; mapping these failures
   // to 503 incorrectly reports proxy, DNS, TLS, and timeout errors as server
@@ -50,14 +61,27 @@ BTResponse<T> handleBangumiUnexpectedResponse<T>(
   Response response, {
   required String fallbackMessage,
 }) {
-  var message = _readErrorMessage(response.data);
+  var responseMessage = _readJsonErrorMessage(response.data);
+  var statusCode = response.statusCode ?? 502;
+  if (statusCode >= 200 && statusCode < 300) {
+    // mirrox 类镜像会把上游故障包成 2xx + HTML 错误页，
+    // 真实状态码只能从错误页标题里取。
+    statusCode = _readHtmlStatus(response.data) ?? 502;
+  }
+  var message = responseMessage;
   message ??= _readHtmlTitle(response.data);
   message ??= '$fallbackMessage: Unexpected response format';
-  var statusCode = response.statusCode ?? 502;
-  if (statusCode >= 200 && statusCode < 300) statusCode = 502;
+
+  var statusMessage = _bangumiStatusMessage(statusCode);
+  if (statusMessage != null && responseMessage == null) {
+    message = statusMessage;
+  }
 
   try {
-    BTLogTool.error('$fallbackMessage [${response.realUri}]: $message');
+    BTLogTool.error(
+      '$fallbackMessage [${response.realUri}]: '
+      '${_logMessage(message, response.data)}',
+    );
   } catch (_) {
     // Error handling must not fail when logging is not initialized yet.
   }
@@ -88,6 +112,25 @@ BTResponse<T>? readBangumiWriteFailure<T>(
     response,
     fallbackMessage: fallbackMessage,
   );
+}
+
+/// 上游错误的中文提示，返回 null 表示保留原始信息。
+String? _bangumiStatusMessage(int? statusCode) {
+  if (statusCode == null) return null;
+  if (statusCode == 405) {
+    return '当前 Bangumi 线路不支持该操作，请在设置中切换线路后重试';
+  }
+  if (statusCode >= 500) {
+    return 'Bangumi 服务器暂时不可用（$statusCode），请稍后重试';
+  }
+  return null;
+}
+
+/// 日志里保留上游返回的原始信息（如 nginx 的 502 页面标题）便于排查。
+String _logMessage(String message, dynamic responseData) {
+  var detail = _readHtmlTitle(responseData);
+  if (detail == null || detail == message) return message;
+  return '$message ($detail)';
 }
 
 /// Bangumi OAuth 常以 HTTP 200 返回 `{"error":"app_nonexistence",...}`。
@@ -140,6 +183,17 @@ String? _readErrorMessage(dynamic data) {
   return null;
 }
 
+/// 只认 JSON 载荷里的语义化错误。HTML / 纯文本错误页返回 null，
+/// 便于区分“服务端给出了明确原因”与“反代返回了错误页”。
+String? _readJsonErrorMessage(dynamic data) {
+  if (data is String) {
+    var decoded = bangumiJsonMap(data);
+    return decoded == null ? null : _readErrorMessage(decoded);
+  }
+  if (data is! Map) return null;
+  return _readErrorMessage(data);
+}
+
 /// 写操作回包里的错误字段。Bangumi 的错误体为 `title` + `description`，
 /// 只命中其一不足以判定失败，避免把正常的回写对象误判成错误。
 String? _readWriteErrorMessage(Map data) {
@@ -163,6 +217,16 @@ String? _readHtmlTitle(dynamic data) {
   var title = match?.group(1)?.trim();
   if (title == null || title.isEmpty) return null;
   return title;
+}
+
+/// 从错误页标题里取回被镜像包装掉的状态码，如 `502 Bad Gateway · mirrox`。
+int? _readHtmlStatus(dynamic data) {
+  var title = _readHtmlTitle(data);
+  if (title == null) return null;
+  var match = RegExp(r'\b([1-5]\d{2})\b').firstMatch(title);
+  var status = match == null ? null : int.tryParse(match.group(1)!);
+  if (status == null || status < 400) return null;
+  return status;
 }
 
 /// 把 OAuth / API 响应当成 JSON 对象；HTML 或纯文本返回 null。

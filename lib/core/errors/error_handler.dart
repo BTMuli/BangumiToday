@@ -58,7 +58,7 @@ class AppError {
         break;
       case >= 500:
         type = AppErrorType.serverError;
-        userMessage = '服务器错误，请稍后再试';
+        userMessage = '服务器暂时不可用（${response.code}），请稍后重试';
         break;
       default:
         type = AppErrorType.unknown;
