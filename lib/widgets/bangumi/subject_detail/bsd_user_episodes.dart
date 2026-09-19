@@ -72,6 +72,9 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
   /// offset
   int offset = 0;
 
+  /// 章节列表加载失败的原因，null 表示没有失败
+  String? _loadError;
+
   bool _gridExpanded = false;
 
   late bool _loading = widget.subject.type == BangumiSubjectType.anime;
@@ -250,8 +253,16 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
     if (ep1Resp.code == 0 && ep1Resp.data != null) {
       episodes.addAll(ep1Resp.data!.data);
       pageLen = ep1Resp.data!.data.length;
-    } else if (reportError && mounted) {
-      await showRespErr(ep1Resp, context, title: '获取章节列表失败');
+      _loadError = null;
+    } else {
+      _loadError = ep1Resp.message;
+      // 先把内联错误态渲染出来（含结束 loading），再弹窗，
+      // 否则提示要等弹窗关闭后才出现。
+      if (isFirst) _loading = false;
+      if (mounted) setState(() {});
+      if (reportError && mounted) {
+        await showRespErr(ep1Resp, context, title: '获取章节列表失败');
+      }
     }
     if (userEpFuture == null && user != null && widget.provider.collected) {
       isCollection = true;
@@ -283,6 +294,35 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
       child: Text(
         '${type.label} →',
         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      ),
+    );
+  }
+
+  /// 加载失败：左侧刷新按钮 + 异常描述
+  Widget _buildLoadError(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        key: const ValueKey('subject-episodes-error'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Tooltip(
+            message: '重新加载剧集',
+            child: IconButton(
+              icon: const Icon(FluentIcons.refresh, size: 14),
+              onPressed: () async {
+                await load(reportError: true);
+              },
+            ),
+          ),
+          SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              '剧集加载失败：$_loadError',
+              style: BTTypography.caption(context),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -340,6 +380,7 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
           ),
         );
       }
+      if (_loadError != null) return _buildLoadError(context);
       if (!widget.showSummary) return const SizedBox.shrink();
       return Text('暂无剧集', style: BTTypography.caption(context));
     }
