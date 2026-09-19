@@ -45,6 +45,8 @@ class _SdpRateChartWidgetState extends ConsumerState<SdpRateChartWidget> {
   Widget getTiles(double value, TitleMeta meta) {
     var style = TextStyle(fontWeight: FontWeight.bold, fontSize: 16);
     return SideTitleWidget(
+      // 默认 8 会把刻度行挤到贴边，向上收紧 2px 留出字高余量
+      space: 6,
       meta: meta,
       child: Text(value.toInt().toString(), style: style),
     );
