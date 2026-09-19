@@ -64,6 +64,32 @@ BTResponse<T> handleBangumiUnexpectedResponse<T>(
   return BTResponse.error(code: statusCode, message: message, data: null);
 }
 
+/// 写操作（POST / PATCH / PUT）成功时通常返回空响应体，
+/// 但镜像可能把上游故障包成 2xx + HTML 错误页，因此写请求必须校验响应体，
+/// 否则会把失败当成成功写回本地状态。
+///
+/// 返回 null 表示响应正常；否则返回可直接上抛的错误响应。
+BTResponse<T>? readBangumiWriteFailure<T>(
+  Response response, {
+  required String fallbackMessage,
+}) {
+  var data = response.data;
+  if (data == null) return null;
+  var map = bangumiJsonMap(data);
+  if (map != null) {
+    // 正常的回写对象：只要不含错误字段就当作成功。
+    if (_readWriteErrorMessage(map) == null) return null;
+  } else if (data is List) {
+    return null;
+  } else if (data is String && data.trim().isEmpty) {
+    return null;
+  }
+  return handleBangumiUnexpectedResponse(
+    response,
+    fallbackMessage: fallbackMessage,
+  );
+}
+
 /// Bangumi OAuth 常以 HTTP 200 返回 `{"error":"app_nonexistence",...}`。
 BTResponse<T>? readBangumiOauthError<T>(
   Map<String, dynamic> data, {
@@ -112,6 +138,20 @@ String? _readErrorMessage(dynamic data) {
     if (value != null && value.toString().isNotEmpty) return value.toString();
   }
   return null;
+}
+
+/// 写操作回包里的错误字段。Bangumi 的错误体为 `title` + `description`，
+/// 只命中其一不足以判定失败，避免把正常的回写对象误判成错误。
+String? _readWriteErrorMessage(Map data) {
+  for (var key in ['error', 'error_description']) {
+    var value = data[key];
+    if (value != null && value.toString().isNotEmpty) return value.toString();
+  }
+  var title = data['title'];
+  var description = data['description'];
+  if (title == null || description == null) return null;
+  var text = description.toString();
+  return text.isEmpty ? title.toString() : text;
 }
 
 String? _readHtmlTitle(dynamic data) {

@@ -456,22 +456,25 @@ class BtrBangumiApi {
 
   /// 新增用户单个条目的收藏
   Future<BTResponse> addCollectionSubject(int subjectId) async {
+    const fallbackMessage = 'Failed to add user collection item';
     try {
-      await client.dio.post(
+      var resp = await client.dio.post(
         '/v0/users/-/collections/$subjectId',
         data: {'type': BangumiCollectionType.wish.value},
         options: Options(contentType: 'application/json'),
       );
+      var failure = readBangumiWriteFailure(
+        resp,
+        fallbackMessage: fallbackMessage,
+      );
+      if (failure != null) return failure;
       return BTResponse.success(data: null);
     } on DioException catch (e) {
-      return handleBangumiDioException(
-        e,
-        fallbackMessage: 'Failed to add user collection item',
-      );
+      return handleBangumiDioException(e, fallbackMessage: fallbackMessage);
     } catch (e) {
       return BTResponse.error(
         code: 666,
-        message: 'Failed to add user collection item',
+        message: fallbackMessage,
         data: e.toString(),
       );
     }
@@ -498,23 +501,26 @@ class BtrBangumiApi {
     if (comment != null) data['comment'] = comment;
     if (private != null) data['private'] = private;
     if (tags != null) data['tags'] = tags;
+    const fallbackMessage = 'Failed to update user collection item';
     try {
       var resp = await client.dio.patch(
         '/v0/users/-/collections/$subjectId',
         data: data,
         options: Options(contentType: 'application/json'),
       );
+      var failure = readBangumiWriteFailure(
+        resp,
+        fallbackMessage: fallbackMessage,
+      );
+      if (failure != null) return failure;
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
-      return handleBangumiDioException(
-        e,
-        fallbackMessage: 'Failed to update user collection item',
-      );
+      return handleBangumiDioException(e, fallbackMessage: fallbackMessage);
     } catch (e) {
-      BTLogTool.error('Failed to update user collection item: $e');
+      BTLogTool.error('$fallbackMessage: $e');
       return BTResponse.error(
         code: 666,
-        message: 'Failed to update user collection item',
+        message: fallbackMessage,
         data: e.toString(),
       );
     }
@@ -605,6 +611,7 @@ class BtrBangumiApi {
     required BangumiEpisodeCollectionType type,
     required int episode,
   }) async {
+    const fallbackMessage = 'Failed to update user collection episode item';
     try {
       var resp = await client.dio.put(
         '/v0/users/-/collections/-/episodes/$episode',
@@ -612,17 +619,19 @@ class BtrBangumiApi {
         data: {'type': type.value},
         options: Options(contentType: 'application/json'),
       );
+      var failure = readBangumiWriteFailure(
+        resp,
+        fallbackMessage: fallbackMessage,
+      );
+      if (failure != null) return failure;
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
-      return handleBangumiDioException(
-        e,
-        fallbackMessage: 'Failed to update user collection episode item',
-      );
+      return handleBangumiDioException(e, fallbackMessage: fallbackMessage);
     } catch (e) {
-      BTLogTool.error('Failed to update user collection episode item: $e');
+      BTLogTool.error('$fallbackMessage: $e');
       return BTResponse.error(
         code: 666,
-        message: 'Failed to update user collection episode item',
+        message: fallbackMessage,
         data: e.toString(),
       );
     }
