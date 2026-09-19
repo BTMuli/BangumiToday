@@ -86,6 +86,18 @@ class _BsdEpisodeState extends ConsumerState<BsdEpisode> {
     return text;
   }
 
+  /// 父组件重新拉取用户章节状态后，同步到已挂载的章节按钮上。
+  ///
+  /// [userEpisode] 是本地可变副本（快捷切换会就地改 type），
+  /// 只在父组件换了新的数据实例时才覆盖，避免丢掉本地刚写入的状态。
+  @override
+  void didUpdateWidget(BsdEpisode oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.user, widget.user)) {
+      userEpisode = widget.user;
+    }
+  }
+
   /// 构建Flyout
   void buildFlyout() {
     controller.showFlyout(
