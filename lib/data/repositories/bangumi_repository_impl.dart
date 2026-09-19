@@ -99,20 +99,11 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     );
     if (remote.code == 0 && remote.data != null) {
       await _localDataSource.writeList(remote.data!.data);
-      return remote;
     }
-    var local = collectionType == null
-        ? await _localDataSource.getCollections()
-        : await _localDataSource.getByType(collectionType);
-    if (local.isEmpty) return remote;
-    return BTResponse.success(
-      data: BangumiPageT(
-        total: local.length,
-        limit: local.length,
-        offset: 0,
-        data: local,
-      ),
-    );
+    // 远程失败时不能回退成本地缓存的“成功”响应：刷新流程只判断 code，
+    // 回退会让 5xx（如 502）被当成“收藏写入完成”。本地缓存由
+    // getLocalCollections 直接提供给展示层，这里的失败照常上抛。
+    return remote;
   }
 
   @override
