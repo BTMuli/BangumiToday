@@ -31,6 +31,7 @@ import 'database/bt_sqlite.dart';
 import 'plugins/mikan/mikan_api.dart';
 import 'request/bangumi/bangumi_api.dart';
 import 'request/core/client.dart';
+import 'store/bt_download_store.dart';
 import 'store/nav_store.dart';
 import 'store/tracker_hive.dart';
 import 'tools/download_tool.dart';
@@ -209,6 +210,13 @@ Future<void> _initBackgroundServices() async {
               enabled: useDownloadSystemProxy,
             ),
           );
+          // 引擎退出时进行中的任务会被标成暂停，启动时统一继续未完成的任务。
+          var resumed = await globalContainer
+              .read(btDownloadStoreProvider)
+              .resumeUnfinishedTasks();
+          if (resumed > 0) {
+            BTLogTool.info('启动时自动继续 $resumed 个未完成的下载任务');
+          }
         }),
     ]),
   );

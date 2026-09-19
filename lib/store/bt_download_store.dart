@@ -322,6 +322,40 @@ class BtDownloadStore extends ChangeNotifier {
     await _runTask(id, () => _client.remove(id, deleteData: false));
   }
 
+  /// 应用启动后自动继续「已暂停且未下载完成」的任务，返回恢复的数量。
+  ///
+  /// 引擎退出时会把进行中的任务改写成 `paused`，重启后引擎不会自动继续，
+  /// 因此由客户端在启动时统一恢复，避免用户逐条手动恢复。已完成（文件
+  /// 可用）、已停止和出错的任务不在处理范围内，单个任务恢复失败也不影响
+  /// 其余任务。
+  Future<int> resumeUnfinishedTasks() async {
+    if (!_client.isReady) return 0;
+    var targets = _tasks
+        .where((task) => task.state == 'paused' && !_isFileAvailable(task))
+        .map((task) => task.id)
+        .toList(growable: false);
+    if (targets.isEmpty) return 0;
+
+    var resumed = 0;
+    for (var id in targets) {
+      try {
+        await _client.resume(id);
+        resumed++;
+      } catch (error) {
+        BTLogTool.warn('自动继续暂停中的下载任务失败（$id）：$error');
+      }
+    }
+    if (resumed > 0) {
+      // 恢复结果以引擎快照为准，避免 UI 停留在旧的暂停状态。
+      try {
+        await _client.refreshTasks();
+      } catch (error) {
+        BTLogTool.warn('自动继续下载任务后刷新任务列表失败：$error');
+      }
+    }
+    return resumed;
+  }
+
   bool canBatchAct(BtTaskSnapshot task, BtBatchAction action) {
     if (isTaskBusy(task.id)) return false;
     return switch (action) {
