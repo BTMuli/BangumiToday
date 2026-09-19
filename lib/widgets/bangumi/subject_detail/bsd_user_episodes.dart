@@ -13,6 +13,7 @@ import '../../../pages/subject-detail/sdp_refreshable.dart';
 import '../../../pages/subject-detail/subject_stat_providers.dart';
 import '../../../providers/app_providers.dart';
 import '../../../tools/log_tool.dart';
+import '../../../ui/bt_dialog.dart';
 import 'bsd_episode.dart';
 
 /// SubjectDetail页面的章节模块，负责显示/操作章节信息
@@ -90,7 +91,7 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
     isCollection = widget.provider.collected;
     Future.microtask(() async {
       if (widget.subject.type == BangumiSubjectType.anime) {
-        await load();
+        await load(reportError: true);
       }
     });
     _listenToProvider();
@@ -160,7 +161,7 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
     _userEpById.clear();
     _userEpisodesInFlight = null;
     offset = 0;
-    await load();
+    await load(reportError: true);
     // 接口失败（如 502）时保留刷新前的章节，避免整块被清空。
     if (episodes.isEmpty && episodeBackup.isNotEmpty) {
       episodes.addAll(episodeBackup);
@@ -174,11 +175,17 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
   Future<List<BangumiUserEpisodeCollection>?> _fetchUserEpisodePage({
     required int offset,
     required int limit,
+    bool reportError = false,
   }) async {
     var resp = await ref
         .read(bangumiRepositoryProvider)
         .getCollectionEpisodes(subjectId, offset: offset, limit: limit);
-    if (resp.code != 0 || resp.data == null) return null;
+    if (resp.code != 0 || resp.data == null) {
+      if (reportError && mounted) {
+        await showRespErr(resp, context, title: '获取章节进度失败');
+      }
+      return null;
+    }
     _mergeUserEpisodes(resp.data!.data);
     return resp.data!.data;
   }
@@ -216,7 +223,10 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
   }
 
   /// 加载更多
-  Future<void> load() async {
+  ///
+  /// [reportError] 用于区分「用户明确要数据」（首次挂载、点刷新、加载更多）
+  /// 与后台状态同步：前者失败要弹提示，后者保持静默。
+  Future<void> load({bool reportError = false}) async {
     var isFirst = episodes.isEmpty;
     if (isFirst) _loading = true;
     var repository = ref.read(bangumiRepositoryProvider);
@@ -228,7 +238,11 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
     );
     var userEpFuture = _userEpisodesInFlight;
     if (userEpFuture == null && user != null && isCollection) {
-      userEpFuture = _fetchUserEpisodePage(offset: offset, limit: _pageSize);
+      userEpFuture = _fetchUserEpisodePage(
+        offset: offset,
+        limit: _pageSize,
+        reportError: reportError,
+      );
       _userEpisodesInFlight = userEpFuture;
     }
     var ep1Resp = await epFuture;
@@ -236,11 +250,17 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
     if (ep1Resp.code == 0 && ep1Resp.data != null) {
       episodes.addAll(ep1Resp.data!.data);
       pageLen = ep1Resp.data!.data.length;
+    } else if (reportError && mounted) {
+      await showRespErr(ep1Resp, context, title: '获取章节列表失败');
     }
     if (userEpFuture == null && user != null && widget.provider.collected) {
       isCollection = true;
       userEpFuture = _userEpisodesInFlight;
-      userEpFuture ??= _fetchUserEpisodePage(offset: offset, limit: _pageSize);
+      userEpFuture ??= _fetchUserEpisodePage(
+        offset: offset,
+        limit: _pageSize,
+        reportError: reportError,
+      );
       _userEpisodesInFlight = userEpFuture;
     }
     if (userEpFuture != null) {
@@ -296,7 +316,7 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
       res.add(
         Button(
           onPressed: () async {
-            await load();
+            await load(reportError: true);
           },
           child: const Text('加载更多'),
         ),
