@@ -281,7 +281,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
         BtBatchAction.resume => '恢复',
         BtBatchAction.stop => '停止',
       };
-      if (mounted) await BtInfobar.success(context, '已$label $count 个任务');
+      if (!mounted) return;
+      _exitSelection();
+      await BtInfobar.success(context, '已$label $count 个任务');
     } catch (error) {
       if (mounted) await BtInfobar.error(context, error.toString());
     } finally {
