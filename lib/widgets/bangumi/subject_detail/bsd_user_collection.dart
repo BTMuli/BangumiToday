@@ -563,11 +563,19 @@ class _BsdUserCollectionState extends ConsumerState<BsdUserCollection>
   Widget build(BuildContext context) {
     super.build(context);
     if (!_loaded) {
+      // 占位盒与加载完成后的操作行等高，并让圆环保持正方形：
+      // 直接放 SizedBox 时会被外层 Expanded 拉宽，圆环会被压成椭圆。
       return const SizedBox(
         key: ValueKey('subject-collect-loading'),
-        width: 24,
-        height: 24,
-        child: ProgressRing(strokeWidth: 2),
+        height: 32,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          widthFactor: 1,
+          child: SizedBox.square(
+            dimension: 20,
+            child: ProgressRing(strokeWidth: 2),
+          ),
+        ),
       );
     }
     return collectionType == BangumiCollectionType.unknown
