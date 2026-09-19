@@ -47,11 +47,17 @@ extension _SubjectDetailHeader on _SubjectDetailPageState {
           ),
           SizedBox(width: PageHeader.horizontalPadding(context)),
           Tooltip(
-            message: '刷新页面',
-            child: IconButton(
-              icon: const Icon(FluentIcons.refresh),
-              onPressed: init,
-            ),
+            message: _refreshing ? '正在刷新' : '刷新页面',
+            child: _refreshing
+                ? const SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: Center(child: ProgressRing(strokeWidth: 2)),
+                  )
+                : IconButton(
+                    icon: const Icon(FluentIcons.refresh),
+                    onPressed: refresh,
+                  ),
           ),
           SizedBox(width: 8),
           const SdpLayoutSwitcher(),

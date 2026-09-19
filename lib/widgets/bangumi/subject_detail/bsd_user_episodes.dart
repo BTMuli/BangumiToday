@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/bt_theme.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
+import '../../../pages/subject-detail/sdp_refreshable.dart';
 import '../../../pages/subject-detail/subject_stat_providers.dart';
 import '../../../providers/app_providers.dart';
 import '../../../tools/log_tool.dart';
@@ -47,7 +48,7 @@ class BsdUserEpisodes extends ConsumerStatefulWidget {
 
 // todo，当条目章节数量过多时，需要分页加载，比如名侦探柯南(id:899)
 class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, SdpRefreshable {
   /// subject_id
   int get subjectId => widget.subject.id;
 
@@ -142,6 +143,32 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
       if (page.length < limit) break;
     }
     if (mounted) setState(() {});
+  }
+
+  /// 重新拉取章节列表与用户章节状态（由详情页刷新按钮触发）
+  @override
+  Future<void> refresh() async {
+    if (widget.subject.type != BangumiSubjectType.anime) return;
+    var episodeBackup = List<BangumiEpisode>.of(episodes);
+    var userEpisodeBackup = List<BangumiUserEpisodeCollection>.of(userEpisodes);
+    var userEpMapBackup = Map<int, BangumiUserEpisodeCollection>.of(
+      _userEpById,
+    );
+    var offsetBackup = offset;
+    episodes.clear();
+    userEpisodes.clear();
+    _userEpById.clear();
+    _userEpisodesInFlight = null;
+    offset = 0;
+    await load();
+    // 接口失败（如 502）时保留刷新前的章节，避免整块被清空。
+    if (episodes.isEmpty && episodeBackup.isNotEmpty) {
+      episodes.addAll(episodeBackup);
+      userEpisodes.addAll(userEpisodeBackup);
+      _userEpById.addAll(userEpMapBackup);
+      offset = offsetBackup;
+      if (mounted) setState(() {});
+    }
   }
 
   Future<List<BangumiUserEpisodeCollection>?> _fetchUserEpisodePage({

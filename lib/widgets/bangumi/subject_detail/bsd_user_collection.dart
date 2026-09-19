@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../../core/theme/bt_theme.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
+import '../../../pages/subject-detail/sdp_refreshable.dart';
 import '../../../pages/subject-detail/subject_stat_providers.dart';
 import '../../../providers/app_providers.dart';
 import '../../../request/bangumi/bangumi_api.dart';
@@ -165,7 +166,7 @@ class _SubjectRatingSelectorState extends State<SubjectRatingSelector> {
 
 /// State
 class _BsdUserCollectionState extends ConsumerState<BsdUserCollection>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, SdpRefreshable {
   /// subjectInfo
   BangumiSubject get subject => widget.subject;
 
@@ -245,6 +246,10 @@ class _BsdUserCollectionState extends ConsumerState<BsdUserCollection>
     widget.provider.set(true, type: collectionType, epStatus: data.epStatus);
     setState(() {});
   }
+
+  /// 刷新收藏状态（由详情页刷新按钮触发）
+  @override
+  Future<void> refresh() => init();
 
   /// 更新条目收藏状态
   Future<void> updateType(BangumiCollectionType type) async {

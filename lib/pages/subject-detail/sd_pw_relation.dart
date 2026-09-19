@@ -12,6 +12,7 @@ import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../utils/tool_func.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
+import 'sdp_refreshable.dart';
 
 class SdpRelationWidget extends ConsumerStatefulWidget {
   final int subjectId;
@@ -23,7 +24,7 @@ class SdpRelationWidget extends ConsumerStatefulWidget {
 }
 
 class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, SdpRefreshable {
   int get subjectId => widget.subjectId;
 
   List<BangumiSubjectRelation> relations = [];
@@ -49,6 +50,10 @@ class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
     relations = resp.data!;
     setState(() {});
   }
+
+  /// 重新拉取关联条目（由详情页刷新按钮触发）
+  @override
+  Future<void> refresh() => load();
 
   Widget buildCardInfo(BangumiSubjectRelation data) {
     return Padding(

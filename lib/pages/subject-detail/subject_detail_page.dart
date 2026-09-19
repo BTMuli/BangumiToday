@@ -24,6 +24,7 @@ import 'sdp_action_bar.dart';
 import 'sdp_layout_a.dart';
 import 'sdp_layout_current.dart';
 import 'sdp_layout_switcher.dart';
+import 'sdp_refreshable.dart';
 import 'sdp_view_data.dart';
 import 'subject_layout_mode.dart';
 import 'subject_stat_providers.dart';
@@ -68,6 +69,10 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
 
   /// 是否显示错误组件
   bool showError = false;
+
+  /// 刷新按钮进行中
+  bool _refreshing = false;
+
   int _loadGeneration = 0;
   final GlobalKey _collectionKey = GlobalKey();
   final GlobalKey _episodesKey = GlobalKey();
@@ -109,6 +114,44 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
       return;
     }
     setState(() => data = result.data);
+  }
+
+  /// 刷新页面：保留当前内容，重新拉取条目详情与各子模块接口。
+  ///
+  /// 与 [init] 的区别是不清空 [data]，避免内容树被卸载重建：
+  /// 子模块的展开状态、滚动位置得以保留，接口刷新也由这里显式触发，
+  /// 不再依赖「组件是否被重建」这种时序副作用。
+  Future<void> refresh() async {
+    if (!mounted || _refreshing) return;
+    var generation = _loadGeneration;
+    setState(() => _refreshing = true);
+    try {
+      var result = await ref
+          .read(bangumiRepositoryProvider)
+          .getSubjectDetail(widget.id);
+      if (!mounted || generation != _loadGeneration) return;
+      if (result.code != 0 || result.data == null) {
+        await showRespErr(result, context);
+        return;
+      }
+      setState(() => data = result.data);
+      await _refreshSubModules();
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
+  /// 重新拉取收藏 / 章节 / 关联三个子模块的接口数据。
+  ///
+  /// 未挂载的子模块（例如方案 A 里没展开过的折叠节）会被跳过，
+  /// 它们本来就还没有数据，首次展开时才会请求。
+  Future<void> _refreshSubModules() async {
+    for (var key in [_collectionKey, _episodesKey, _relationsKey]) {
+      var state = key.currentState;
+      if (state is! SdpRefreshable) continue;
+      // State 与 mixin 无继承关系，`is` 不会做类型提升，这里显式转换。
+      await (state as SdpRefreshable).refresh();
+    }
   }
 
   bool _subjectHasBmf(int subjectId) {
