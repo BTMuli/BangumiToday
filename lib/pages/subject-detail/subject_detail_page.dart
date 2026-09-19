@@ -334,7 +334,21 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     super.build(context);
     return ScaffoldPage(
       header: buildHeader(),
-      content: BTContentFrame(child: buildContent()),
+      content: Stack(
+        fit: StackFit.expand,
+        children: [
+          BTContentFrame(child: buildContent()),
+          // 手动刷新不会卸载内容树，接口数据没变化时页面看不出动静，
+          // 用顶部进度条让刷新过程在两种布局下都可见。
+          if (_refreshing)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(child: ProgressBar(strokeWidth: 3)),
+            ),
+        ],
+      ),
     );
   }
 }
