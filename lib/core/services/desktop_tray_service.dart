@@ -14,52 +14,85 @@ import '../../tools/log_tool.dart';
 
 /// 托盘原生能力抽象。
 abstract interface class BTTrayAdapter {
-  /// 注册托盘事件监听器。
-  void addListener(TrayListener listener);
-
-  /// 移除托盘事件监听器。
-  void removeListener(TrayListener listener);
-
-  /// 设置托盘图标。
-  Future<void> setIcon(String iconPath);
-
-  /// 设置托盘提示文本。
-  Future<void> setToolTip(String toolTip);
-
-  /// 设置托盘右键菜单。
-  Future<void> setContextMenu(Menu menu);
+  /// 创建托盘图标，并注册图标事件与右键菜单。
+  ///
+  /// 只有图标、菜单和监听器全部就绪后才返回，失败时抛出异常。
+  void initialize({
+    required String iconPath,
+    required String toolTip,
+    required Menu menu,
+    required void Function(TrayIconEvent event) onEvent,
+  });
 
   /// 弹出托盘右键菜单。
-  Future<void> popUpContextMenu();
+  ///
+  /// Windows 上是 `TrackPopupMenu` 的模态循环，会阻塞到菜单关闭。
+  void popUpContextMenu();
 
   /// 销毁托盘图标。
-  Future<void> destroy();
+  void destroy();
 }
 
 /// [tray_manager] 的默认适配器。
 class _TrayManagerAdapter implements BTTrayAdapter {
-  @override
-  void addListener(TrayListener listener) => trayManager.addListener(listener);
+  TrayIcon? _trayIcon;
+  Image? _icon;
+  ListenerId? _listenerId;
 
   @override
-  void removeListener(TrayListener listener) {
-    trayManager.removeListener(listener);
+  void initialize({
+    required String iconPath,
+    required String toolTip,
+    required Menu menu,
+    required void Function(TrayIconEvent event) onEvent,
+  }) {
+    var trayIcon = TrayIcon.create();
+    if (trayIcon == null) {
+      throw StateError('创建系统托盘图标失败');
+    }
+    try {
+      var icon = ImageAsset.fromAsset(iconPath) ?? Image.fromFile(iconPath);
+      if (icon == null) {
+        throw ArgumentError.value(iconPath, 'iconPath', '无法加载托盘图标');
+      }
+      trayIcon
+        ..icon = icon
+        ..setTooltip(toolTip)
+        ..setContextMenu(menu);
+      _listenerId = trayIcon.addListener(onEvent);
+      _trayIcon = trayIcon;
+      _icon = icon;
+      // 图标配置完成后再交给系统，避免托盘短暂显示默认图标。
+      trayIcon.setVisible(true);
+    } catch (_) {
+      // 图标已经创建，后续任一环节失败都要把它收回去，避免留下无人
+      // 销毁的托盘图标。
+      _trayIcon = trayIcon;
+      destroy();
+      rethrow;
+    }
   }
 
   @override
-  Future<void> setIcon(String iconPath) => trayManager.setIcon(iconPath);
+  void popUpContextMenu() {
+    _trayIcon?.openContextMenu();
+  }
 
   @override
-  Future<void> setToolTip(String toolTip) => trayManager.setToolTip(toolTip);
-
-  @override
-  Future<void> setContextMenu(Menu menu) => trayManager.setContextMenu(menu);
-
-  @override
-  Future<void> popUpContextMenu() => trayManager.popUpContextMenu();
-
-  @override
-  Future<void> destroy() => trayManager.destroy();
+  void destroy() {
+    var trayIcon = _trayIcon;
+    if (trayIcon != null) {
+      var listenerId = _listenerId;
+      if (listenerId != null) {
+        trayIcon.removeListener(listenerId);
+        _listenerId = null;
+      }
+      trayIcon.dispose();
+      _trayIcon = null;
+    }
+    _icon?.dispose();
+    _icon = null;
+  }
 }
 
 /// 窗口原生能力抽象，便于在单元测试中替换 [windowManager]。
@@ -112,7 +145,7 @@ class _WindowManagerAdapter implements BTWindowAdapter {
 ///
 /// 托盘监听器只在本服务中注册，页面通过初始化时注入的回调完成导航，避免
 /// 原生生命周期与 Flutter 页面互相持有。
-class BTDesktopTrayService with TrayListener, WindowListener {
+class BTDesktopTrayService with WindowListener {
   /// 创建默认的桌面托盘服务。
   BTDesktopTrayService()
     : _tray = _TrayManagerAdapter(),
@@ -151,6 +184,7 @@ class BTDesktopTrayService with TrayListener, WindowListener {
   bool _closeActionInProgress = false;
   bool _exitRequested = false;
   DateTime? _lastLeftClick;
+  DateTime? _ignoreClicksUntil;
   Menu? _menu;
   Future<void>? _contextMenuFuture;
 
@@ -183,17 +217,20 @@ class BTDesktopTrayService with TrayListener, WindowListener {
     _onOpenDownload = onOpenDownload;
     _onExit = onExit;
     _lastLeftClick = null;
+    _ignoreClicksUntil = null;
     _contextMenuFuture = null;
     _exitRequested = false;
 
     try {
-      await _tray.setIcon(_isWindows ? windowsIconPath : macIconPath);
-      _trayCreated = true;
-      await _tray.setToolTip('BangumiToday');
       _menu = _buildMenu();
-      await _tray.setContextMenu(_menu!);
+      _tray.initialize(
+        iconPath: _isWindows ? windowsIconPath : macIconPath,
+        toolTip: 'BangumiToday',
+        menu: _menu!,
+        onEvent: _onTrayIconEvent,
+      );
+      _trayCreated = true;
 
-      _tray.addListener(this);
       _window.addListener(this);
       _listenersRegistered = true;
       await _window.setPreventClose(true);
@@ -208,24 +245,35 @@ class BTDesktopTrayService with TrayListener, WindowListener {
   }
 
   Menu _buildMenu() {
-    var items = <MenuItem>[
-      MenuItem(key: showMainKey, label: '打开主界面'),
-      MenuItem.separator(),
-      MenuItem(key: openBmfKey, label: 'BMF'),
-    ];
-    if (_isWindows) {
-      items.add(MenuItem(key: openDownloadKey, label: '下载'));
+    var menu = Menu.create();
+    if (menu == null) {
+      throw StateError('创建系统托盘菜单失败');
     }
-    items.addAll([
-      MenuItem.separator(),
-      MenuItem(key: exitAppKey, label: '退出应用'),
-    ]);
-    return Menu(items: items);
+    menu.addItem(_buildMenuItem(showMainKey, '打开主界面'));
+    menu.addSeparator();
+    menu.addItem(_buildMenuItem(openBmfKey, 'BMF'));
+    if (_isWindows) {
+      menu.addItem(_buildMenuItem(openDownloadKey, '下载'));
+    }
+    menu.addSeparator();
+    menu.addItem(_buildMenuItem(exitAppKey, '退出应用'));
+    return menu;
+  }
+
+  /// 创建菜单项，点击后按 [key] 路由回本服务。
+  MenuItem _buildMenuItem(String key, String label) {
+    var item = MenuItem.createWithLabelAndType(label, MenuItemType.normal);
+    if (item == null) {
+      throw StateError('创建系统托盘菜单项 $label 失败');
+    }
+    item.addListener((event) {
+      if (event is MenuItemClickedEvent) _onTrayMenuItemClick(key);
+    });
+    return item;
   }
 
   Future<void> _cleanupAfterFailedInitialize() async {
     if (_listenersRegistered) {
-      _tray.removeListener(this);
       _window.removeListener(this);
       _listenersRegistered = false;
     }
@@ -243,10 +291,10 @@ class BTDesktopTrayService with TrayListener, WindowListener {
   /// 注销监听器、关闭关闭拦截并销毁托盘图标。
   Future<void> dispose() async {
     _lastLeftClick = null;
+    _ignoreClicksUntil = null;
     _contextMenuFuture = null;
     _initialized = false;
     if (_listenersRegistered) {
-      _tray.removeListener(this);
       _window.removeListener(this);
       _listenersRegistered = false;
     }
@@ -276,16 +324,36 @@ class BTDesktopTrayService with TrayListener, WindowListener {
 
   Future<void> _destroyTraySafely() async {
     try {
-      await _tray.destroy();
+      _tray.destroy();
     } catch (error, stackTrace) {
       BTLogTool.warn(['销毁系统托盘失败', error.toString(), stackTrace.toString()]);
     }
   }
 
-  @override
-  void onTrayIconMouseDown() {
+  /// 处理托盘图标事件。
+  ///
+  /// 左键单击不做事，左键双击打开主窗口，右键弹出菜单。
+  void _onTrayIconEvent(TrayIconEvent event) {
+    switch (event) {
+      case TrayIconClickedEvent():
+        _onTrayIconClicked();
+      case TrayIconDoubleClickedEvent():
+        _onTrayIconDoubleClicked();
+      case TrayIconRightClickedEvent():
+        _onTrayIconRightClicked();
+    }
+  }
+
+  /// 左键单击：两次单击落在 [_doubleClickWindow] 内视为双击。
+  ///
+  /// Windows 在原生双击事件之后还会补发一次单击事件，落在
+  /// [_ignoreClicksUntil] 内的单击直接忽略，避免重复判定成双击。
+  void _onTrayIconClicked() {
     if (!_initialized || _exitRequested) return;
     var now = _now();
+    var ignoreClicksUntil = _ignoreClicksUntil;
+    if (ignoreClicksUntil != null && !now.isAfter(ignoreClicksUntil)) return;
+    _ignoreClicksUntil = null;
     var previous = _lastLeftClick;
     if (previous != null &&
         now.difference(previous) >= Duration.zero &&
@@ -297,10 +365,21 @@ class BTDesktopTrayService with TrayListener, WindowListener {
     _lastLeftClick = now;
   }
 
-  @override
-  void onTrayIconRightMouseDown() {
+  /// 左键双击：打开主窗口。
+  ///
+  /// macOS 只会送达该事件，Windows 上还会伴随两次单击事件。
+  void _onTrayIconDoubleClicked() {
     if (!_initialized || _exitRequested) return;
     _lastLeftClick = null;
+    _ignoreClicksUntil = _now().add(_doubleClickWindow);
+    unawaited(_showMainWindow());
+  }
+
+  /// 右键单击：弹出托盘菜单。
+  void _onTrayIconRightClicked() {
+    if (!_initialized || _exitRequested) return;
+    _lastLeftClick = null;
+    _ignoreClicksUntil = null;
     var menuFuture = _showContextMenu();
     _contextMenuFuture = menuFuture;
     unawaited(menuFuture);
@@ -308,17 +387,17 @@ class BTDesktopTrayService with TrayListener, WindowListener {
 
   Future<void> _showContextMenu() async {
     try {
-      await _tray.popUpContextMenu();
+      _tray.popUpContextMenu();
     } catch (error, stackTrace) {
       BTLogTool.warn(['打开系统托盘菜单失败', error.toString(), stackTrace.toString()]);
     }
   }
 
-  @override
-  void onTrayMenuItemClick(MenuItem menuItem) {
+  void _onTrayMenuItemClick(String key) {
     if (!_initialized || _exitRequested) return;
     _lastLeftClick = null;
-    switch (menuItem.key) {
+    _ignoreClicksUntil = null;
+    switch (key) {
       case showMainKey:
         unawaited(_showMainWindow());
         return;
