@@ -67,6 +67,7 @@ dependencies:
   windows_taskbar: ^1.1.2
   xml: ^7.0.1
   tray_manager: ^0.7.0
+  win32: ^6.4.0
   win32_registry: ^3.0.3
 
 dev_dependencies:

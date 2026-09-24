@@ -1,16 +1,54 @@
 // Dart imports:
 import 'dart:async';
+import 'dart:ffi';
 import 'dart:io';
 
 // Flutter imports:
 import 'package:flutter/foundation.dart';
 
 // Package imports:
+import 'package:ffi/ffi.dart';
 import 'package:tray_manager/tray_manager.dart';
+import 'package:win32/win32.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Project imports:
 import '../../tools/log_tool.dart';
+
+/// 在 Dart 所在线程上派发 Win32 消息。
+///
+/// `windows/runner` 显式让 Dart 跑在独立的 UI 线程上（避免原生模态对话框阻塞
+/// 界面），而托盘图标的消息窗口是在 Dart 里创建的，于是它属于这个没有 Win32
+/// 消息循环的线程。Shell 投递的图标鼠标消息只会由该线程的消息循环派发，没有
+/// 循环就永远到不了 Dart（nativeapi 用 isolateLocal 回调，必须在本线程派发），
+/// 表现就是托盘左右键都没反应。这里按帧频率手动取出并派发消息。
+class _TrayMessagePump {
+  /// 创建消息泵，预分配复用同一条消息结构。
+  _TrayMessagePump() : _message = calloc<MSG>();
+
+  final Pointer<MSG> _message;
+
+  Timer? _timer;
+
+  /// 启动消息泵；重复调用不会叠加定时器。
+  void start() {
+    _timer ??= Timer.periodic(const Duration(milliseconds: 16), (_) => _pump());
+  }
+
+  /// 停止消息泵并释放消息结构。
+  void dispose() {
+    _timer?.cancel();
+    _timer = null;
+    free(_message);
+  }
+
+  void _pump() {
+    while (PeekMessage(_message, null, 0, 0, PM_REMOVE)) {
+      TranslateMessage(_message);
+      DispatchMessage(_message);
+    }
+  }
+}
 
 /// 托盘原生能力抽象。
 abstract interface class BTTrayAdapter {
@@ -187,6 +225,7 @@ class BTDesktopTrayService with WindowListener {
   DateTime? _ignoreClicksUntil;
   Menu? _menu;
   Future<void>? _contextMenuFuture;
+  _TrayMessagePump? _messagePump;
 
   /// 服务是否已完成托盘初始化。
   bool get isInitialized => _initialized;
@@ -237,6 +276,9 @@ class BTDesktopTrayService with WindowListener {
       _closePrevented = true;
       _initialized = true;
       BTLogTool.info('系统托盘初始化完成');
+      if (_isWindows) {
+        _messagePump = _TrayMessagePump()..start();
+      }
     } catch (error, stackTrace) {
       await _cleanupAfterFailedInitialize();
       BTLogTool.error(['系统托盘初始化失败', error.toString(), stackTrace.toString()]);
@@ -273,6 +315,7 @@ class BTDesktopTrayService with WindowListener {
   }
 
   Future<void> _cleanupAfterFailedInitialize() async {
+    _stopMessagePump();
     if (_listenersRegistered) {
       _window.removeListener(this);
       _listenersRegistered = false;
@@ -294,6 +337,7 @@ class BTDesktopTrayService with WindowListener {
     _ignoreClicksUntil = null;
     _contextMenuFuture = null;
     _initialized = false;
+    _stopMessagePump();
     if (_listenersRegistered) {
       _window.removeListener(this);
       _listenersRegistered = false;
@@ -328,6 +372,11 @@ class BTDesktopTrayService with WindowListener {
     } catch (error, stackTrace) {
       BTLogTool.warn(['销毁系统托盘失败', error.toString(), stackTrace.toString()]);
     }
+  }
+
+  void _stopMessagePump() {
+    _messagePump?.dispose();
+    _messagePump = null;
   }
 
   /// 处理托盘图标事件。
