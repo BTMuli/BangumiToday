@@ -52,6 +52,7 @@ class BtTaskSnapshot {
     required this.seedRatioLimit,
     required this.seedTimeLimitMinutes,
     required this.seedStopReason,
+    required this.pauseReason,
     required this.progress,
     required this.downloadRate,
     required this.uploadRate,
@@ -80,6 +81,7 @@ class BtTaskSnapshot {
       seedTimeLimitMinutes:
           (json['seedTimeLimitMinutes'] as num?)?.toInt() ?? 60,
       seedStopReason: json['seedStopReason'] as String?,
+      pauseReason: json['pauseReason'] as String?,
       progress: (json['progress'] as num?)?.toDouble() ?? 0,
       downloadRate: (json['downloadRate'] as num?)?.toInt() ?? 0,
       uploadRate: (json['uploadRate'] as num?)?.toInt() ?? 0,
@@ -110,6 +112,7 @@ class BtTaskSnapshot {
   final double seedRatioLimit;
   final int seedTimeLimitMinutes;
   final String? seedStopReason;
+  final String? pauseReason;
   final double progress;
   final int downloadRate;
   final int uploadRate;
@@ -154,6 +157,7 @@ class BtTaskSnapshot {
         seedRatioLimit == other.seedRatioLimit &&
         seedTimeLimitMinutes == other.seedTimeLimitMinutes &&
         seedStopReason == other.seedStopReason &&
+        pauseReason == other.pauseReason &&
         progress == other.progress &&
         downloadRate == other.downloadRate &&
         uploadRate == other.uploadRate &&
@@ -182,6 +186,7 @@ class BtTaskSnapshot {
       seedRatioLimit,
       seedTimeLimitMinutes,
       seedStopReason,
+      pauseReason,
       progress,
       downloadRate,
       uploadRate,

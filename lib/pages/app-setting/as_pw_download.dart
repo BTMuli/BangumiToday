@@ -447,6 +447,65 @@ class _AppConfigDownloadWidgetState
             ),
           ),
         ]),
+        SizedBox(height: 12),
+        _gridRow([
+          _SettingGridCell(
+            title: '按流量计费或节能时节省上传',
+            description: '下载完成即停止做种，并限制下载期间上传',
+            control: ToggleSwitch(
+              checked: _config.conserveOnMeteredOrLowPower,
+              onChanged: _saving
+                  ? null
+                  : (value) => setState(
+                      () => _config = _config.copyWith(
+                        conserveOnMeteredOrLowPower: value,
+                      ),
+                    ),
+            ),
+          ),
+          _SettingGridCell(
+            title: '受限时上传限速（MiB/s）',
+            description: '全局限速；0 表示不限速',
+            control: NumberBox<int>(
+              value: _config.constrainedUploadRateLimitMiB,
+              min: 0,
+              max: 2047,
+              mode: SpinButtonPlacementMode.none,
+              onChanged: _saving
+                  ? null
+                  : (value) {
+                      if (value != null) {
+                        setState(
+                          () => _config = _config.copyWith(
+                            constrainedUploadRateLimit: value * 1024 * 1024,
+                          ),
+                        );
+                      }
+                    },
+            ),
+          ),
+          _SettingGridCell(
+            title: '受限时单任务累计上传（MiB）',
+            description: '达到上限暂停下载；0 表示不限量',
+            control: NumberBox<int>(
+              value: _config.constrainedUploadTotalLimitMiB,
+              min: 0,
+              max: 1048576,
+              mode: SpinButtonPlacementMode.none,
+              onChanged: _saving
+                  ? null
+                  : (value) {
+                      if (value != null) {
+                        setState(
+                          () => _config = _config.copyWith(
+                            constrainedUploadTotalLimit: value * 1024 * 1024,
+                          ),
+                        );
+                      }
+                    },
+            ),
+          ),
+        ]),
       ],
     );
   }

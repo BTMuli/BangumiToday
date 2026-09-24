@@ -11,6 +11,9 @@ class BtDownloadConfig {
     this.seedRatioLimit = 2,
     this.seedTimeLimitMinutes = 60,
     this.seedingDisclosureAccepted = true,
+    this.conserveOnMeteredOrLowPower = true,
+    this.constrainedUploadRateLimit = 4 * 1024 * 1024,
+    this.constrainedUploadTotalLimit = 200 * 1024 * 1024,
   });
 
   const BtDownloadConfig.freshInstall()
@@ -24,7 +27,10 @@ class BtDownloadConfig {
       seedingEnabled = true,
       seedRatioLimit = 2,
       seedTimeLimitMinutes = 60,
-      seedingDisclosureAccepted = true;
+      seedingDisclosureAccepted = true,
+      conserveOnMeteredOrLowPower = true,
+      constrainedUploadRateLimit = 4 * 1024 * 1024,
+      constrainedUploadTotalLimit = 200 * 1024 * 1024;
 
   factory BtDownloadConfig.fromJson(Map<String, dynamic> json) {
     var config = BtDownloadConfig(
@@ -40,6 +46,18 @@ class BtDownloadConfig {
       seedTimeLimitMinutes: _readInt(json, 'seedTimeLimitMinutes', 60),
       seedingDisclosureAccepted:
           json['seedingDisclosureAccepted'] as bool? ?? false,
+      conserveOnMeteredOrLowPower:
+          json['conserveOnMeteredOrLowPower'] as bool? ?? true,
+      constrainedUploadRateLimit: _readInt(
+        json,
+        'constrainedUploadRateLimit',
+        4 * 1024 * 1024,
+      ),
+      constrainedUploadTotalLimit: _readInt(
+        json,
+        'constrainedUploadTotalLimit',
+        200 * 1024 * 1024,
+      ),
     );
     config.validate();
     return config;
@@ -58,9 +76,16 @@ class BtDownloadConfig {
   final double seedRatioLimit;
   final int seedTimeLimitMinutes;
   final bool seedingDisclosureAccepted;
+  final bool conserveOnMeteredOrLowPower;
+  final int constrainedUploadRateLimit;
+  final int constrainedUploadTotalLimit;
 
   int get downloadRateLimitKiB => downloadRateLimit ~/ 1024;
   int get uploadRateLimitKiB => uploadRateLimit ~/ 1024;
+  int get constrainedUploadRateLimitMiB =>
+      constrainedUploadRateLimit ~/ (1024 * 1024);
+  int get constrainedUploadTotalLimitMiB =>
+      constrainedUploadTotalLimit ~/ (1024 * 1024);
 
   Map<String, dynamic> toJson() {
     return {
@@ -75,6 +100,9 @@ class BtDownloadConfig {
       'seedRatioLimit': seedRatioLimit,
       'seedTimeLimitMinutes': seedTimeLimitMinutes,
       'seedingDisclosureAccepted': seedingDisclosureAccepted,
+      'conserveOnMeteredOrLowPower': conserveOnMeteredOrLowPower,
+      'constrainedUploadRateLimit': constrainedUploadRateLimit,
+      'constrainedUploadTotalLimit': constrainedUploadTotalLimit,
     };
   }
 
@@ -101,6 +129,9 @@ class BtDownloadConfig {
     double? seedRatioLimit,
     int? seedTimeLimitMinutes,
     bool? seedingDisclosureAccepted,
+    bool? conserveOnMeteredOrLowPower,
+    int? constrainedUploadRateLimit,
+    int? constrainedUploadTotalLimit,
   }) {
     return BtDownloadConfig(
       engineEnabled: engineEnabled ?? this.engineEnabled,
@@ -116,6 +147,12 @@ class BtDownloadConfig {
       seedTimeLimitMinutes: seedTimeLimitMinutes ?? this.seedTimeLimitMinutes,
       seedingDisclosureAccepted:
           seedingDisclosureAccepted ?? this.seedingDisclosureAccepted,
+      conserveOnMeteredOrLowPower:
+          conserveOnMeteredOrLowPower ?? this.conserveOnMeteredOrLowPower,
+      constrainedUploadRateLimit:
+          constrainedUploadRateLimit ?? this.constrainedUploadRateLimit,
+      constrainedUploadTotalLimit:
+          constrainedUploadTotalLimit ?? this.constrainedUploadTotalLimit,
     );
   }
 
@@ -139,6 +176,14 @@ class BtDownloadConfig {
     }
     if (uploadRateLimit < 0 || uploadRateLimit > maxRateLimit) {
       throw const FormatException('uploadRateLimit is invalid');
+    }
+    if (constrainedUploadRateLimit < 0 ||
+        constrainedUploadRateLimit > maxRateLimit) {
+      throw const FormatException('constrainedUploadRateLimit is invalid');
+    }
+    if (constrainedUploadTotalLimit < 0 ||
+        constrainedUploadTotalLimit > 1024 * 1024 * 1024 * 1024) {
+      throw const FormatException('constrainedUploadTotalLimit is invalid');
     }
     if (metadataTimeoutSeconds < 1 || metadataTimeoutSeconds > 86400) {
       throw const FormatException(

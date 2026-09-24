@@ -584,6 +584,7 @@ String _seedStopReasonLabel(String reason) {
     'disabled' => '未启用做种',
     'ratio' => '达到分享率',
     'time' => '达到时间限制',
+    'constrained' => '按流量计费或节能模式',
     _ => reason,
   };
 }

@@ -208,6 +208,13 @@ class _DownloadTaskCard extends StatelessWidget {
                           value: _seedStopReasonLabel(task.seedStopReason!),
                           color: BTColors.textSecondary(context),
                         ),
+                      if (task.pauseReason == 'constrainedUploadTotalLimit')
+                        _TaskMetric(
+                          icon: FluentIcons.pause,
+                          label: '暂停',
+                          value: '已达到受限时累计上传上限',
+                          color: BTColors.textSecondary(context),
+                        ),
                     ],
                   ),
                   if (task.lastError != null) ...[
