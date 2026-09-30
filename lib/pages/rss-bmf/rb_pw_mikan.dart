@@ -34,16 +34,22 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
   final BtrMikanApi mikanAPI = BtrMikanApi();
 
   /// RSS 数据
-  late List<RssItem> rssItems = [];
+  List<RssItem> rssItems = [];
 
   /// RSS 数据
-  late List<RssItem> userItems = [];
+  List<RssItem> userItems = [];
 
   /// 用户订阅的 token
   late String token = '';
 
   /// 是否使用用户订阅
   late bool useUserRSS = false;
+
+  bool _initialized = false;
+  bool _refreshing = false;
+  bool _mikanLoaded = false;
+  bool _userLoaded = false;
+  bool _loadFailed = false;
 
   /// mikan 镜像
   String get mikanRss => ref.watch(appStoreProvider).mikanRss;
@@ -63,49 +69,57 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
   }
 
   /// 刷新
-  Future<void> refreshMikanRSS() async {
-    if (!mounted) return;
-    rssItems.clear();
-    setState(() {});
-    var resGet = await mikanAPI.getClassicRSS();
-    if (resGet.code != 0 || resGet.data == null) {
-      if (mounted) await showRespErr(resGet, context);
-      return;
-    }
-    rssItems = resGet.data!;
-    if (!mounted) return;
-    setState(() {});
-    if (mounted) await BtInfobar.success(context, '已刷新Mikan列表');
-  }
+  Future<void> refreshMikanRSS() => _refreshRSS(personal: false);
 
   /// 刷新
-  Future<void> refreshUserRSS() async {
+  Future<void> refreshUserRSS() => _refreshRSS(personal: true);
+
+  Future<void> _refreshRSS({required bool personal, bool notify = true}) async {
+    if (!mounted || _refreshing) return;
+    setState(() {
+      _refreshing = true;
+      _loadFailed = false;
+    });
+    var resGet = personal
+        ? await mikanAPI.getUserRSS(token)
+        : await mikanAPI.getClassicRSS();
     if (!mounted) return;
-    userItems.clear();
-    setState(() {});
-    var resGet = await mikanAPI.getUserRSS(token);
-    if (resGet.code != 0 || resGet.data == null) {
-      if (mounted) await showRespErr(resGet, context);
+    var success = resGet.code == 0 && resGet.data != null;
+    setState(() {
+      _refreshing = false;
+      _loadFailed = !success;
+      if (success) {
+        if (personal) {
+          userItems = resGet.data!;
+          _userLoaded = true;
+        } else {
+          rssItems = resGet.data!;
+          _mikanLoaded = true;
+        }
+      }
+    });
+    if (!success) {
+      await showRespErr(resGet, context);
       return;
     }
-    userItems = resGet.data!;
-    if (!mounted) return;
-    setState(() {});
-    if (mounted) await BtInfobar.success(context, '已刷新用户列表');
+    if (notify) {
+      await BtInfobar.success(context, personal ? '已刷新用户列表' : '已刷新 Mikan 列表');
+    }
   }
 
   /// 初始化
   Future<void> init() async {
     var mikan = await BtsMikanCredential().readToken();
     if (!mounted) return;
+    _initialized = true;
     if (mikan == null || mikan.isEmpty) {
       useUserRSS = false;
-      await refreshMikanRSS();
+      await _refreshRSS(personal: false, notify: false);
       return;
     }
     token = mikan;
     useUserRSS = true;
-    await refreshUserRSS();
+    await _refreshRSS(personal: true, notify: false);
   }
 
   /// 解析 token
@@ -132,26 +146,33 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
       if (mounted) await BtInfobar.warn(context, 'Token 未变更');
       return;
     }
-    token = parsed;
-    await BtsMikanCredential().writeToken(token);
-    if (mounted) await BtInfobar.success(context, 'Token 已保存');
-    useUserRSS = true;
-    if (mounted) setState(() {});
+    await BtsMikanCredential().writeToken(parsed);
+    if (!mounted) return;
+    setState(() {
+      token = parsed;
+      userItems = [];
+      _userLoaded = false;
+      useUserRSS = true;
+    });
+    await BtInfobar.success(context, 'Token 已保存');
+    await refreshUserRSS();
   }
 
   /// 构建刷新按钮
   Widget buildAct() {
     return Tooltip(
-      message: '刷新',
+      message: '刷新 Mikan',
       child: IconButton(
-        icon: const Icon(FluentIcons.refresh),
-        onPressed: () async {
-          if (useUserRSS) {
-            await refreshUserRSS();
-          } else {
-            await refreshMikanRSS();
-          }
-        },
+        icon: _refreshing
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: ProgressRing(strokeWidth: 2),
+              )
+            : const Icon(FluentIcons.refresh, size: 15),
+        onPressed: _refreshing || !_initialized
+            ? null
+            : (useUserRSS ? refreshUserRSS : refreshMikanRSS),
       ),
     );
   }
@@ -182,10 +203,7 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
           SizedBox(width: 10),
           const MikanMirrorCombo(),
           SizedBox(width: 10),
-          IconButton(
-            icon: Icon(FluentIcons.refresh, size: 15),
-            onPressed: useUserRSS ? refreshUserRSS : refreshMikanRSS,
-          ),
+          buildAct(),
           SizedBox(width: 10),
           ...buildTokenBar(),
         ],
@@ -198,32 +216,42 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
     return [
       ToggleSwitch(
         checked: useUserRSS,
-        onChanged: (v) async {
-          var old = useUserRSS;
-          useUserRSS = v;
-          if (token == '' && v) {
-            useUserRSS = false;
-            await BtInfobar.warn(context, '未设置 Token');
-            return;
-          } else if (!v && rssItems.isEmpty) {
-            await refreshMikanRSS();
-          } else if (v && userItems.isEmpty) {
-            await refreshUserRSS();
-          }
-          if (v != old) {
-            if (v) {
-              if (mounted) await BtInfobar.success(context, '已切换到用户列表');
-            } else {
-              if (mounted) await BtInfobar.success(context, '已切换到Mikan列表');
-            }
-          }
-          if (mounted) setState(() {});
-        },
+        onChanged: _refreshing || !_initialized
+            ? null
+            : (v) async {
+                var old = useUserRSS;
+                if (token == '' && v) {
+                  await BtInfobar.warn(context, '未设置 Token');
+                  return;
+                }
+                setState(() {
+                  useUserRSS = v;
+                  _loadFailed = false;
+                });
+                if (!v && !_mikanLoaded) {
+                  await refreshMikanRSS();
+                } else if (v && !_userLoaded) {
+                  await refreshUserRSS();
+                }
+                if (v != old) {
+                  if (v) {
+                    if (mounted) await BtInfobar.success(context, '已切换到用户列表');
+                  } else {
+                    if (mounted) {
+                      await BtInfobar.success(context, '已切换到Mikan列表');
+                    }
+                  }
+                }
+                if (mounted) setState(() {});
+              },
       ),
       SizedBox(width: 10),
       FilledButton(onPressed: null, child: Text('Token: $maskedToken')),
       SizedBox(width: 10),
-      Button(onPressed: tryEditToken, child: const Text('编辑Token')),
+      Button(
+        onPressed: _refreshing || !_initialized ? null : tryEditToken,
+        child: const Text('编辑Token'),
+      ),
     ];
   }
 
@@ -234,9 +262,12 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const ProgressRing(),
-            SizedBox(height: 20),
-            const Text('正在加载数据...'),
+            if (_refreshing || !_initialized) ...[
+              const ProgressRing(),
+              SizedBox(height: 20),
+              const Text('正在加载数据...'),
+            ] else
+              Text(_loadFailed ? '加载失败，请点击刷新重试' : '暂无 RSS 数据'),
           ],
         ),
       );

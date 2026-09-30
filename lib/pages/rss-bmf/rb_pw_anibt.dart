@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:async';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -6,6 +9,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../models/rss/rss.dart';
 import '../../request/rss/anibt_api.dart';
 import '../../ui/bt_dialog.dart';
+import '../../ui/bt_infobar.dart';
 import '../../widgets/rss/rss_anibt_card_fluent.dart';
 
 class RbpAnibtWidget extends StatefulWidget {
@@ -18,7 +22,10 @@ class RbpAnibtWidget extends StatefulWidget {
 class _RbpAnibtState extends State<RbpAnibtWidget>
     with AutomaticKeepAliveClientMixin {
   final AnibtAPI anibtAPI = AnibtAPI();
-  late List<RssItem> rssItems = [];
+  List<RssItem> rssItems = [];
+  bool _refreshing = false;
+  bool _loaded = false;
+  bool _loadFailed = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -26,19 +33,28 @@ class _RbpAnibtState extends State<RbpAnibtWidget>
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration.zero, () async {
-      await refresh();
-    });
+    unawaited(
+      Future<void>.delayed(Duration.zero, () => refresh(notify: false)),
+    );
   }
 
-  Future<void> refresh() async {
-    setState(rssItems.clear);
+  Future<void> refresh({bool notify = true}) async {
+    if (!mounted || _refreshing) return;
+    setState(() => _refreshing = true);
     var resGet = await anibtAPI.getMagnetsRSS();
-    if (resGet.code != 0 || resGet.data == null) {
-      if (mounted) await showRespErr(resGet, context);
+    if (!mounted) return;
+    var success = resGet.code == 0 && resGet.data != null;
+    setState(() {
+      _refreshing = false;
+      _loaded = true;
+      _loadFailed = !success;
+      if (success) rssItems = resGet.data!;
+    });
+    if (!success) {
+      await showRespErr(resGet, context);
       return;
     }
-    setState(() => rssItems = resGet.data!);
+    if (notify) await BtInfobar.success(context, '已刷新 AniBT 列表');
   }
 
   Widget buildTitle() {
@@ -55,7 +71,19 @@ class _RbpAnibtState extends State<RbpAnibtWidget>
         SizedBox(width: 10),
         const Text('AniBT'),
         SizedBox(width: 10),
-        IconButton(icon: const Icon(FluentIcons.refresh), onPressed: refresh),
+        Tooltip(
+          message: '刷新 AniBT',
+          child: IconButton(
+            icon: _refreshing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: ProgressRing(strokeWidth: 2),
+                  )
+                : const Icon(FluentIcons.refresh),
+            onPressed: _refreshing ? null : refresh,
+          ),
+        ),
       ],
     );
   }
@@ -66,9 +94,12 @@ class _RbpAnibtState extends State<RbpAnibtWidget>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const ProgressRing(),
-            SizedBox(height: 20),
-            const Text('正在加载数据...'),
+            if (_refreshing || !_loaded) ...[
+              const ProgressRing(),
+              SizedBox(height: 20),
+              const Text('正在加载数据...'),
+            ] else
+              Text(_loadFailed ? '加载失败，请点击刷新重试' : '暂无 RSS 数据'),
           ],
         ),
       );
