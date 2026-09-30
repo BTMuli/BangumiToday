@@ -210,12 +210,12 @@ Future<void> _initBackgroundServices() async {
               enabled: useDownloadSystemProxy,
             ),
           );
-          // 引擎退出时进行中的任务会被标成暂停，启动时统一继续未完成的任务。
+          // 引擎退出时任务会被标成暂停，启动时继续下载或做种未完成的任务。
           var resumed = await globalContainer
               .read(btDownloadStoreProvider)
               .resumeUnfinishedTasks();
           if (resumed > 0) {
-            BTLogTool.info('启动时自动继续 $resumed 个未完成的下载任务');
+            BTLogTool.info('启动时自动继续 $resumed 个下载或做种未完成的任务');
           }
         }),
     ]),

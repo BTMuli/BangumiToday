@@ -322,16 +322,17 @@ class BtDownloadStore extends ChangeNotifier {
     await _runTask(id, () => _client.remove(id, deleteData: false));
   }
 
-  /// 应用启动后自动继续「已暂停且未下载完成」的任务，返回恢复的数量。
+  /// 应用启动后自动继续下载或做种未完成的暂停任务，返回恢复的数量。
   ///
   /// 引擎退出时会把进行中的任务改写成 `paused`，重启后引擎不会自动继续，
-  /// 因此由客户端在启动时统一恢复，避免用户逐条手动恢复。已完成（文件
-  /// 可用）、已停止和出错的任务不在处理范围内，单个任务恢复失败也不影响
-  /// 其余任务。
+  /// 因此由客户端在启动时统一恢复，避免用户逐条手动恢复。文件可用但尚未
+  /// 达到做种停止条件的 BT 任务也会继续；已完成做种、已停止和出错的任务
+  /// 不在处理范围内，单个任务恢复失败也不影响其余任务。
   Future<int> resumeUnfinishedTasks() async {
     if (!_client.isReady) return 0;
+    var config = await _readConfig();
     var targets = _tasks
-        .where((task) => task.state == 'paused' && !_isFileAvailable(task))
+        .where((task) => _shouldResumeOnStartup(task, config))
         .map((task) => task.id)
         .toList(growable: false);
     if (targets.isEmpty) return 0;
@@ -354,6 +355,31 @@ class BtDownloadStore extends ChangeNotifier {
       }
     }
     return resumed;
+  }
+
+  static bool _shouldResumeOnStartup(
+    BtTaskSnapshot task,
+    BtDownloadConfig config,
+  ) {
+    if (task.state != 'paused') return false;
+    if (!_isFileAvailable(task)) return true;
+    if (task.sourceKind == 'http' ||
+        !config.seedingEnabled ||
+        !config.seedingDisclosureAccepted ||
+        task.seedStopReason != null) {
+      return false;
+    }
+    if (config.seedRatioLimit > 0 &&
+        task.totalBytes > 0 &&
+        task.uploadedBytes >= task.totalBytes * config.seedRatioLimit) {
+      return false;
+    }
+    if (config.seedTimeLimitMinutes > 0 &&
+        task.seedingSeconds >= config.seedTimeLimitMinutes * 60) {
+      return false;
+    }
+    // 计费或节能状态等运行时限制仍由引擎在恢复时判定。
+    return true;
   }
 
   bool canBatchAct(BtTaskSnapshot task, BtBatchAction action) {
