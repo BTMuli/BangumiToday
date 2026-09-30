@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../providers/app_providers.dart';
-import '../../widgets/common/bt_lazy_tab_body.dart';
 import 'rb_pw_anibt.dart';
 import 'rb_pw_bmf.dart';
 import 'rb_pw_comicat.dart';
@@ -29,7 +28,8 @@ class _RssBmfPageState extends ConsumerState<RssBmfPage>
   /// tabIndex
   int currentIndex = 0;
   int _handledNavigationRequest = 0;
-  final Set<int> _visitedTabs = {0};
+  // TabView 按 Tab 对象身份保留页体，必须在重建时复用同一组 Tab。
+  late final List<Tab> _tabs = _createTabs();
 
   /// 构建页面
   @override
@@ -43,67 +43,58 @@ class _RssBmfPageState extends ConsumerState<RssBmfPage>
     return TabView(
       currentIndex: currentIndex,
       onChanged: (index) {
-        _visitedTabs.add(index);
         currentIndex = index;
         setState(() {});
       },
-      tabs: [
-        Tab(
-          icon: Image.asset('assets/images/logo.png', height: 16, width: 16),
-          text: const Text('BMF'),
-          body: BtLazyTabBody(
-            visited: _visitedTabs.contains(0),
-            child: const RbpBmfWidget(),
-          ),
-          semanticLabel: 'BMF',
-          selectedBackgroundColor: WidgetStateColor.resolveWith(
-            (_) => FluentTheme.of(context).accentColor.withAlpha(80),
-          ),
-        ),
-        Tab(
-          icon: Image.asset(
-            'assets/images/platforms/mikan-favicon.ico',
-            height: 16,
-          ),
-          text: const Text('Mikan'),
-          body: BtLazyTabBody(
-            visited: _visitedTabs.contains(1),
-            child: const RbpMikanWidget(),
-          ),
-          semanticLabel: 'Mikan',
-          selectedBackgroundColor: WidgetStateColor.resolveWith(
-            (_) => FluentTheme.of(context).accentColor.withAlpha(80),
-          ),
-        ),
-        Tab(
-          icon: Image.asset('assets/images/platforms/comicat-favicon.ico'),
-          text: const Text('Comicat'),
-          body: BtLazyTabBody(
-            visited: _visitedTabs.contains(2),
-            child: const RbpComicatWidget(),
-          ),
-          semanticLabel: 'Comicat',
-          selectedBackgroundColor: WidgetStateColor.resolveWith(
-            (_) => FluentTheme.of(context).accentColor.withAlpha(80),
-          ),
-        ),
-        Tab(
-          icon: const Icon(FluentIcons.play_solid, size: 16),
-          text: const Text('AniBT'),
-          body: BtLazyTabBody(
-            visited: _visitedTabs.contains(3),
-            child: const RbpAnibtWidget(),
-          ),
-          semanticLabel: 'AniBT',
-          selectedBackgroundColor: WidgetStateColor.resolveWith(
-            (_) => FluentTheme.of(context).accentColor.withAlpha(80),
-          ),
-        ),
-      ],
+      tabs: _tabs,
       closeButtonVisibility: CloseButtonVisibilityMode.never,
       tabWidthBehavior: TabWidthBehavior.equal,
       minTabWidth: 80,
       maxTabWidth: 120,
     );
+  }
+
+  List<Tab> _createTabs() {
+    return [
+      Tab(
+        icon: Image.asset('assets/images/logo.png', height: 16, width: 16),
+        text: const Text('BMF'),
+        body: const RbpBmfWidget(),
+        semanticLabel: 'BMF',
+        selectedBackgroundColor: WidgetStateColor.resolveWith(
+          (_) => FluentTheme.of(context).accentColor.withAlpha(80),
+        ),
+      ),
+      Tab(
+        icon: Image.asset(
+          'assets/images/platforms/mikan-favicon.ico',
+          height: 16,
+        ),
+        text: const Text('Mikan'),
+        body: const RbpMikanWidget(),
+        semanticLabel: 'Mikan',
+        selectedBackgroundColor: WidgetStateColor.resolveWith(
+          (_) => FluentTheme.of(context).accentColor.withAlpha(80),
+        ),
+      ),
+      Tab(
+        icon: Image.asset('assets/images/platforms/comicat-favicon.ico'),
+        text: const Text('Comicat'),
+        body: const RbpComicatWidget(),
+        semanticLabel: 'Comicat',
+        selectedBackgroundColor: WidgetStateColor.resolveWith(
+          (_) => FluentTheme.of(context).accentColor.withAlpha(80),
+        ),
+      ),
+      Tab(
+        icon: const Icon(FluentIcons.play_solid, size: 16),
+        text: const Text('AniBT'),
+        body: const RbpAnibtWidget(),
+        semanticLabel: 'AniBT',
+        selectedBackgroundColor: WidgetStateColor.resolveWith(
+          (_) => FluentTheme.of(context).accentColor.withAlpha(80),
+        ),
+      ),
+    ];
   }
 }

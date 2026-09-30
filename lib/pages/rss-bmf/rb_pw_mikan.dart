@@ -282,6 +282,7 @@ class _RbpMikanState extends ConsumerState<RbpMikanWidget>
           var mainAxisExtent = 180.0;
 
           return GridView.builder(
+            key: PageStorageKey(useUserRSS ? 'mikan-user-rss' : 'mikan-rss'),
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,

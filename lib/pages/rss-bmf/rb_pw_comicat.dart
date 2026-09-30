@@ -143,6 +143,7 @@ class _RbpComicatState extends State<RbpComicatWidget>
                 ),
               ),
               GridView.builder(
+                key: const PageStorageKey('comicat-rss'),
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: crossAxisCount,

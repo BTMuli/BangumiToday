@@ -114,6 +114,7 @@ class _RbpAnibtState extends State<RbpAnibtWidget>
           var mainAxisExtent = 200.0;
 
           return GridView.builder(
+            key: const PageStorageKey('anibt-rss'),
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
