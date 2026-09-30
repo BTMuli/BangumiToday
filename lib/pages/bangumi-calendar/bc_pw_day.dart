@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:math' as math;
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 
@@ -39,11 +42,19 @@ class BcpDayWidget extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         var columns = BTBreakpoints.getGridColumns(constraints.maxWidth);
+        var cardWidth =
+            (constraints.maxWidth - 16 - (columns - 1) * 8) / columns;
+        var minimumHeight = BcpCardWidget.minimumHeight(
+          context,
+          hasAirTime: data.any(
+            (item) => airTimes[item.name]?.isNotEmpty ?? false,
+          ),
+        );
         return GridView.builder(
           padding: EdgeInsets.all(8),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
-            childAspectRatio: 10 / 7,
+            mainAxisExtent: math.max(cardWidth * 7 / 10, minimumHeight),
             mainAxisSpacing: 8,
             crossAxisSpacing: 8,
           ),

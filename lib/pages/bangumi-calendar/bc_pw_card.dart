@@ -1,4 +1,5 @@
 // Dart imports:
+import 'dart:math' as math;
 import 'dart:ui';
 
 // Flutter imports:
@@ -21,10 +22,59 @@ import '../../utils/bangumi_utils.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 
 class BcpCardWidget extends ConsumerStatefulWidget {
+  static const _padding = 10.0;
+  static const _borderWidth = 1.0;
+  static const _actionPadding = 8.0;
+  static const _actionIconSize = 18.0;
+  static const _titleMaxLines = 4;
+  static const _subTitleMaxLines = 2;
+
   final BangumiLegacySubjectSmall data;
   final String? airTime;
 
   const BcpCardWidget({super.key, required this.data, this.airTime});
+
+  /// 为完整文字行、放送时间和操作按钮预留高度。
+  static double minimumHeight(
+    BuildContext context, {
+    required bool hasAirTime,
+  }) {
+    var defaultTextStyle = DefaultTextStyle.of(context);
+    double textHeight(String text, TextStyle style) {
+      var painter = TextPainter(
+        text: TextSpan(text: text, style: defaultTextStyle.style.merge(style)),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+        locale: Localizations.maybeLocaleOf(context),
+        textHeightBehavior:
+            defaultTextStyle.textHeightBehavior ??
+            DefaultTextHeightBehavior.maybeOf(context),
+      )..layout();
+      var height = painter.height;
+      painter.dispose();
+      return height;
+    }
+
+    var titleHeight = textHeight(
+      List.filled(_titleMaxLines, '国').join('\n'),
+      BTTypography.subtitle(context),
+    );
+    var subTitleHeight = textHeight(
+      List.filled(_subTitleMaxLines, '国').join('\n'),
+      BTTypography.caption(context),
+    );
+    var airTimeHeight = hasAirTime
+        ? 6 + math.max(12.0, textHeight('00:00', BTTypography.caption(context)))
+        : 0.0;
+    return 2 * (_padding + _borderWidth) +
+        titleHeight +
+        4 +
+        subTitleHeight +
+        airTimeHeight +
+        8 +
+        _actionIconSize +
+        2 * _actionPadding;
+  }
 
   @override
   ConsumerState<BcpCardWidget> createState() => _BcpCardState();
@@ -111,7 +161,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
           onLongPress: onLongPress,
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
-            padding: EdgeInsets.all(8),
+            padding: EdgeInsets.all(BcpCardWidget._actionPadding),
             decoration: BoxDecoration(
               color: _isHovered
                   ? FluentTheme.of(context).accentColor.withValues(alpha: 0.1)
@@ -120,7 +170,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
             ),
             child: Icon(
               icon,
-              size: 18,
+              size: BcpCardWidget._actionIconSize,
               color: FluentTheme.of(context).accentColor,
             ),
           ),
@@ -319,22 +369,20 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
               style: BTTypography.subtitle(
                 context,
               ).copyWith(fontWeight: FontWeight.w600),
-              maxLines: 4,
+              maxLines: BcpCardWidget._titleMaxLines,
               overflow: TextOverflow.ellipsis,
             ),
           ),
         ),
         if (subTitle.isNotEmpty) ...[
           SizedBox(height: 4),
-          Flexible(
-            child: Tooltip(
-              message: subTitle,
-              child: Text(
-                subTitle,
-                style: BTTypography.caption(context),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+          Tooltip(
+            message: subTitle,
+            child: Text(
+              subTitle,
+              style: BTTypography.caption(context),
+              maxLines: BcpCardWidget._subTitleMaxLines,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -385,7 +433,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
                     : (isDark
                           ? Colors.white.withValues(alpha: 0.06)
                           : Colors.black.withValues(alpha: 0.04)),
-                width: 1,
+                width: BcpCardWidget._borderWidth,
               ),
               boxShadow: _isHovered
                   ? [
@@ -400,7 +448,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
                     ]
                   : BTTheme.shadow(context, level: BTShadowLevel.subtle),
             ),
-            padding: EdgeInsets.all(10),
+            padding: EdgeInsets.all(BcpCardWidget._padding),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisAlignment: MainAxisAlignment.start,
