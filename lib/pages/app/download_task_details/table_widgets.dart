@@ -457,10 +457,14 @@ class _HeaderCellButtonState extends State<_HeaderCellButton> {
                     ).copyWith(fontWeight: FontWeight.w600),
                   ),
                 ),
-                if (widget.active) ...[
-                  SizedBox(width: 4),
-                  Icon(widget.activeIcon, size: 12, color: accent),
-                ],
+                // 预留图标位置，切换排序或筛选时不挤占文字宽度。
+                SizedBox(width: 4),
+                SizedBox(
+                  width: 12,
+                  child: widget.active
+                      ? Icon(widget.activeIcon, size: 12, color: accent)
+                      : null,
+                ),
               ],
             ),
           ),

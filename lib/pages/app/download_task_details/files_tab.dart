@@ -26,6 +26,9 @@ class _FilesTab extends ConsumerStatefulWidget {
 }
 
 class _FilesTabState extends ConsumerState<_FilesTab> {
+  // 类型列需容纳表头文字、排序图标和按钮内边距。
+  static const _columnFlexes = [6, 2, 2, 2, 2];
+
   late List<BtTaskFileDetail> _files;
   final Set<int> _busyIndices = {};
   var _sortIndex = -1;
@@ -223,7 +226,7 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
             footer: footerParts.isEmpty ? null : footerParts.join(' · '),
             header: _TableHeader(
               columns: ['文件名', '类型', '进度', '已完成', '大小'],
-              flexes: const [7, 1, 2, 2, 2],
+              flexes: _columnFlexes,
               sortIndex: _sortIndex,
               ascending: _ascending,
               onSort: _toggleSort,
@@ -236,7 +239,7 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
               var extension = path.extension(file.path);
               var progress = (file.progress * 100).clamp(0, 100).toDouble();
               return _TableRow(
-                flexes: const [7, 1, 2, 2, 2],
+                flexes: _columnFlexes,
                 columns: [
                   Row(
                     children: [
