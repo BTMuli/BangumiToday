@@ -19,15 +19,22 @@ class BtEngineClient implements BtEngineGateway {
     BtEngineProcessStarter? processStarter,
     void Function(String message)? diagnosticSink,
     Duration requestTimeout = const Duration(seconds: 10),
+    Duration shutdownTimeout = const Duration(seconds: 20),
+    Duration terminationTimeout = const Duration(seconds: 2),
   }) : _processStarter = processStarter ?? startBtEngineProcess,
        _diagnosticSink = diagnosticSink ?? BTLogTool.warn,
-       _requestTimeout = requestTimeout;
+       _requestTimeout = requestTimeout,
+       _shutdownTimeout = shutdownTimeout,
+       _terminationTimeout = terminationTimeout;
 
   static final BtEngineClient instance = BtEngineClient();
 
   final BtEngineProcessStarter _processStarter;
   final void Function(String message) _diagnosticSink;
   final Duration _requestTimeout;
+  // 引擎最多等待 10 秒保存断点，随后还需关闭网络会话。
+  final Duration _shutdownTimeout;
+  final Duration _terminationTimeout;
   final StreamController<BtEngineEvent> _eventController =
       StreamController<BtEngineEvent>.broadcast();
   final StreamController<List<BtTaskSnapshot>> _taskController =
@@ -43,6 +50,7 @@ class BtEngineClient implements BtEngineGateway {
   StreamSubscription<String>? _stderrSubscription;
   Completer<Map<String, dynamic>>? _readyCompleter;
   Future<void>? _taskRefresh;
+  Future<void>? _shutdownFuture;
   var _nextRequestId = 0;
   Future<void> _sendQueue = Future.value();
   int? _sequence;
@@ -173,10 +181,20 @@ class BtEngineClient implements BtEngineGateway {
   Future<Map<String, dynamic>> request(
     String method, [
     Map<String, dynamic> params = const {},
-  ]) async {
+  ]) => _request(method, params);
+
+  Future<Map<String, dynamic>> _request(
+    String method,
+    Map<String, dynamic> params, {
+    Duration? timeout,
+    bool allowWhileStopping = false,
+  }) async {
     var process = _process;
     if (process == null) {
       throw const BtEngineClientException('download engine is not running');
+    }
+    if (_state == BtEngineClientState.stopping && !allowWhileStopping) {
+      throw const BtEngineClientException('download engine is stopping');
     }
 
     var id = (++_nextRequestId).toString();
@@ -194,34 +212,35 @@ class BtEngineClient implements BtEngineGateway {
     }
 
     try {
-      await _enqueueSend(frame);
-    } catch (error) {
-      _pendingRequests.remove(id);
-      throw BtEngineClientException(
-        'failed to send download engine request: $error',
-      );
-    }
-    try {
-      return await completer.future.timeout(_requestTimeout);
+      // 同时监听响应错误，并将排队和 flush 计入超时预算。
+      var result = await Future.wait<Object?>([
+        _enqueueSend(process, frame).catchError((Object error) {
+          throw BtEngineClientException(
+            'failed to send download engine request: $error',
+          );
+        }),
+        completer.future,
+      ], eagerError: true).timeout(timeout ?? _requestTimeout);
+      return result.last as Map<String, dynamic>;
     } on TimeoutException {
-      _pendingRequests.remove(id);
       throw BtEngineClientException(
         'download engine request timed out: $method',
       );
+    } finally {
+      _pendingRequests.remove(id);
     }
   }
 
   /// 串行化 stdin 写入：`IOSink.flush()` 在途时再次写入会抛错，
   /// 并发 RPC（如详情页按 Tab 请求）必须排队发送。
-  Future<void> _enqueueSend(String frame) {
-    var next = _sendQueue.then((_) => _writeFrame(frame));
+  Future<void> _enqueueSend(BtEngineProcess process, String frame) {
+    var next = _sendQueue.then((_) => _writeFrame(process, frame));
     _sendQueue = next.catchError((_) {});
     return next;
   }
 
-  Future<void> _writeFrame(String frame) {
-    var process = _process;
-    if (process == null) {
+  Future<void> _writeFrame(BtEngineProcess process, String frame) {
+    if (!identical(_process, process)) {
       throw const BtEngineClientException('download engine is not running');
     }
     process.stdin.writeln(frame);
@@ -330,27 +349,38 @@ class BtEngineClient implements BtEngineGateway {
   }
 
   @override
-  Future<void> shutdown() async {
+  Future<void> shutdown() {
+    return _shutdownFuture ??= _shutdown().whenComplete(() {
+      _shutdownFuture = null;
+    });
+  }
+
+  Future<void> _shutdown() async {
     var process = _process;
     if (process == null) return;
     _setState(BtEngineClientState.stopping);
 
     try {
-      await request('engine.shutdown');
+      await _shutdownGracefully(process).timeout(_shutdownTimeout);
     } catch (error) {
       _diagnosticSink('BT 下载引擎无法优雅退出：$error');
-    }
-
-    await process.stdin.close();
-    try {
-      await process.exitCode.timeout(const Duration(seconds: 5));
-    } on TimeoutException {
       process.kill();
-      await process.exitCode.timeout(const Duration(seconds: 2));
+      await process.exitCode.timeout(_terminationTimeout);
     } finally {
       await _resetProcess();
       _setState(BtEngineClientState.stopped);
     }
+  }
+
+  Future<void> _shutdownGracefully(BtEngineProcess process) async {
+    await _request(
+      'engine.shutdown',
+      const {},
+      timeout: _shutdownTimeout,
+      allowWhileStopping: true,
+    );
+    await process.stdin.close();
+    await process.exitCode;
   }
 
   Future<BtTaskSnapshot> _addTask({
@@ -398,9 +428,13 @@ class BtEngineClient implements BtEngineGateway {
         );
     unawaited(
       process.exitCode.then(
-        _handleProcessExit,
+        (exitCode) {
+          if (identical(_process, process)) _handleProcessExit(exitCode);
+        },
         onError: (Object error, StackTrace stackTrace) {
-          _handleProtocolError(error, stackTrace);
+          if (identical(_process, process)) {
+            _handleProtocolError(error, stackTrace);
+          }
         },
       ),
     );
@@ -500,7 +534,11 @@ class BtEngineClient implements BtEngineGateway {
   }
 
   void _scheduleTaskRefresh() {
-    if (_taskRefresh != null || _process == null) return;
+    if (_taskRefresh != null ||
+        _process == null ||
+        _state == BtEngineClientState.stopping) {
+      return;
+    }
     late Future<void> refresh;
     refresh = _loadTasks().whenComplete(() {
       if (identical(_taskRefresh, refresh)) _taskRefresh = null;

@@ -128,7 +128,8 @@ Future<void> _exitApplication() async {
   await _runExitStep(
     'BT 下载引擎',
     BtEngineClient.instance.shutdown,
-    timeout: const Duration(seconds: 8),
+    // shutdown 自己控制完整的退出预算，并在超时后终止、回收进程。
+    timeout: null,
   );
   await _runExitStep('主窗口', windowManager.destroy);
 }
@@ -136,10 +137,11 @@ Future<void> _exitApplication() async {
 Future<void> _runExitStep(
   String name,
   Future<void> Function() action, {
-  Duration timeout = const Duration(seconds: 5),
+  Duration? timeout = const Duration(seconds: 5),
 }) async {
   try {
-    await action().timeout(timeout);
+    var step = action();
+    await (timeout == null ? step : step.timeout(timeout));
   } on TimeoutException {
     BTLogTool.warn('$name 退出清理超时');
   } catch (error, stackTrace) {
