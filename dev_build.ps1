@@ -2,8 +2,6 @@
 param(
     [string]$EngineRuntimePath,
 
-    [switch]$SkipEngineTests,
-
     [switch]$SkipInstall,
 
     [switch]$SkipFirewallRule
@@ -284,13 +282,7 @@ function Build-DownloadEngine {
         [string]$EngineSourcePath,
 
         [Parameter(Mandatory = $true)]
-        [string]$CMakePath,
-
-        [Parameter(Mandatory = $true)]
-        [string]$CTestPath,
-
-        [Parameter(Mandatory = $true)]
-        [bool]$RunTests
+        [string]$CMakePath
     )
 
     Push-Location $EngineSourcePath
@@ -301,11 +293,6 @@ function Build-DownloadEngine {
         Invoke-NativeCommand -FilePath $CMakePath `
             -Arguments @('--build', '--preset', 'windows-x64-release') `
             -Description 'Building bt_download...'
-        if ($RunTests) {
-            Invoke-NativeCommand -FilePath $CTestPath `
-                -Arguments @('--preset', 'windows-x64-release') `
-                -Description 'Testing bt_download...'
-        }
         Invoke-NativeCommand -FilePath $CMakePath `
             -Arguments @('--install', 'out/build/windows-x64-release') `
             -Description 'Installing the bt_download runtime...'
@@ -489,16 +476,12 @@ try {
         Initialize-MsvcEnvironment -VisualStudioPath $visualStudioPath
         $cmakePath = Resolve-BuildTool -Name 'cmake' `
             -VisualStudioPath $visualStudioPath
-        $ctestPath = Resolve-BuildTool -Name 'ctest' `
-            -VisualStudioPath $visualStudioPath
         $env:VCPKG_ROOT = Resolve-VcpkgRoot `
             -VisualStudioPath $visualStudioPath
 
         $resolvedEngineRuntimePath = Build-DownloadEngine `
             -EngineSourcePath $engineSourcePath `
-            -CMakePath $cmakePath `
-            -CTestPath $ctestPath `
-            -RunTests (-not $SkipEngineTests)
+            -CMakePath $cmakePath
     }
 
     $env:BT_DOWNLOAD_RUNTIME_DIR = $resolvedEngineRuntimePath

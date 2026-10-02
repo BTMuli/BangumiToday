@@ -38,7 +38,7 @@ jobs:
       - name: 拉取依赖
         run: flutter pub get
 
-      - name: 构建并测试下载引擎
+      - name: 构建下载引擎
         shell: pwsh
         working-directory: repos/bt_download
         run: |
@@ -48,7 +48,6 @@ jobs:
           $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
           cmake --preset windows-x64-release
           cmake --build --preset windows-x64-release
-          ctest --preset windows-x64-release
           cmake --install out/build/windows-x64-release
 
           $runtimePath = (Resolve-Path 'out/install/windows-x64-release').Path

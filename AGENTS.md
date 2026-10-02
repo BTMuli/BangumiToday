@@ -15,7 +15,7 @@
 - If test files were already staged, unstage and delete them before committing.
 - Unless explicitly told otherwise, do not write tests that require UI interaction (widget/page interaction, taps, navigation, dialogs, screenshots, and the like). The developer triggers those flows by hand.
 - Only test functional behavior (pure logic, parsing, data transformations, protocol handling, persistence queries, and similar non-UI code). Do not go out of your way to build UI verification harnesses.
-- Do not spend time verifying compilation (full builds, `flutter analyze`, `analyze_files`, and similar compile checks). The only exception is `bt_download`, which is still tested by hand by the developer.
+- Do not spend time verifying compilation (full builds, `flutter analyze`, `analyze_files`, and similar compile checks). The only exception is `bt_download`, which is still tested by hand by the developer. Its test suite is opt-in: inside `repos/bt_download` run `cmake --preset windows-x64-debug-tests`, `cmake --build --preset windows-x64-debug-tests`, then `ctest --preset windows-x64-debug-tests`. Neither `dev_build.ps1` nor the release workflow may build or run it.
 - Do not start the app, drive it through MCP tooling, or run manual UI verification unless the user explicitly asks for it.
 
 ## AniBT integration

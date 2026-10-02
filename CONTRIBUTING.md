@@ -72,6 +72,16 @@ Do not point `BT_DOWNLOAD_RUNTIME_DIR` at the engine build directory or copy onl
 SPDX SBOM. CMake rejects an incomplete runtime, and the verification script compares every bundled
 file with the source runtime by SHA-256 when `EngineRuntimePath` is provided.
 
+The engine's test targets are opt-in and are never built by `dev_build.ps1` or
+`.github/workflows/release.yml` (`windows-x64-debug` / `windows-x64-release` force
+`BT_DOWNLOAD_BUILD_TESTS=OFF`). To run them by hand inside `repos/bt_download`:
+
+```powershell
+cmake --preset windows-x64-debug-tests
+cmake --build --preset windows-x64-debug-tests
+ctest --preset windows-x64-debug-tests
+```
+
 ### Local checks
 
 There is no PR / `main` quality workflow. Tag releases use
