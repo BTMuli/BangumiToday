@@ -128,29 +128,32 @@ class BtsBangumiData {
     return BangumiDataItem.fromSqlJson(result.first);
   }
 
-  /// 按标题批量读取条目，查询次数与标题数量解耦。
-  Future<Map<String, BangumiDataItem>> readItemsByTitles(
-    Iterable<String> titles,
-  ) async {
+  /// 读取当前仍在放送的条目，供首页日历使用。
+  ///
+  /// `begin`/`end` 都是定长 ISO 8601 UTC 字符串，可直接按字符串比较：
+  /// 已开播（`begin <= at`）且未结束（`end` 为空视为长期放送）。
+  /// 剧场版没有固定放送时段，不进日历。
+  Future<List<BangumiDataItem>> readItemsOnAir({DateTime? at}) async {
     await _instance.preCheckItem();
-    var unique = titles.where((title) => title.isNotEmpty).toSet().toList();
-    if (unique.isEmpty) return {};
-    var map = <String, BangumiDataItem>{};
-    const chunkSize = 400;
-    for (var start = 0; start < unique.length; start += chunkSize) {
-      var end = start + chunkSize;
-      if (end > unique.length) end = unique.length;
-      var chunk = unique.sublist(start, end);
-      var placeholders = List.filled(chunk.length, '?').join(',');
-      var result = await _instance.sqlite.db.query(
-        _tableNameItem,
-        where: 'title IN ($placeholders)',
-        whereArgs: chunk,
-      );
-      for (var row in result) {
-        var item = BangumiDataItem.fromSqlJson(row);
-        map[item.title] = item;
-      }
+    var now = (at ?? DateTime.now()).toUtc().toIso8601String();
+    var result = await _instance.sqlite.db.query(
+      _tableNameItem,
+      where:
+          "type != 'movie' AND begin != '' AND begin <= ? "
+          "AND (end IS NULL OR end = '' OR end >= ?)",
+      whereArgs: [now, now],
+    );
+    return result.map(BangumiDataItem.fromSqlJson).toList();
+  }
+
+  /// 读取站点元数据映射，键为站点 key（如 `bangumi`）。
+  Future<Map<String, BangumiDataSite>> readSiteMap() async {
+    await _instance.preCheckSite();
+    var result = await _instance.sqlite.db.query(_tableNameSite);
+    var map = <String, BangumiDataSite>{};
+    for (var row in result) {
+      var site = BangumiDataSiteFull.fromSqlJson(row);
+      map[site.key] = site;
     }
     return map;
   }

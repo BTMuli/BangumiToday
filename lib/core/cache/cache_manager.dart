@@ -325,6 +325,8 @@ class CacheKeys {
   static const String bangumiCalendar = 'bangumi_calendar';
   static const String bangumiSubject = 'bangumi_subject';
   static const String bangumiEpisodes = 'bangumi_episodes';
+  static const String bangumiAiring = 'bangumi_airing';
+  static const String bangumiSubjectMiss = 'bangumi_subject_miss';
   static const String userCollection = 'user_collection';
   static const String userCollections = 'user_collections';
   static const String searchResult = 'search_result';
@@ -332,6 +334,8 @@ class CacheKeys {
 
   static String subject(int id) => '${bangumiSubject}_$id';
   static String episodes(int id) => '${bangumiEpisodes}_$id';
+  static String airing(int id) => '${bangumiAiring}_$id';
+  static String subjectMiss(int id) => '${bangumiSubjectMiss}_$id';
   static String collection(String username, int subjectId) =>
       '${userCollection}_${username}_$subjectId';
   static String collections(String username) => '${userCollections}_$username';

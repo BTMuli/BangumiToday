@@ -7,19 +7,24 @@ import 'package:flutter/foundation.dart';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:html_unescape/html_unescape.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
+import '../../database/app/app_bmf.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../store/bmf_store.dart';
 import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/bangumi_utils.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
+import '../../widgets/bangumi/subject_detail/bsd_bmf_drawer.dart';
+import '../../widgets/common/bt_drawer.dart';
 
 class BcpCardWidget extends ConsumerStatefulWidget {
   static const _padding = 10.0;
@@ -30,14 +35,32 @@ class BcpCardWidget extends ConsumerStatefulWidget {
   static const _subTitleMaxLines = 2;
 
   final BangumiLegacySubjectSmall data;
+
+  /// 放送时刻（本地时间 `HH:mm`）
   final String? airTime;
 
-  const BcpCardWidget({super.key, required this.data, this.airTime});
+  /// 当天放送的话数
+  final int? episode;
 
-  /// 为完整文字行、放送时间和操作按钮预留高度。
+  /// 是否已在本地收藏里标记为看过
+  final bool watched;
+
+  /// 是否在 BMF 订阅列表里
+  final bool inBmf;
+
+  const BcpCardWidget({
+    super.key,
+    required this.data,
+    this.airTime,
+    this.episode,
+    this.watched = false,
+    this.inBmf = false,
+  });
+
+  /// 为完整文字行、放送信息（时刻/话数）和操作按钮预留高度。
   static double minimumHeight(
     BuildContext context, {
-    required bool hasAirTime,
+    required bool hasAirInfo,
   }) {
     var defaultTextStyle = DefaultTextStyle.of(context);
     double textHeight(String text, TextStyle style) {
@@ -63,7 +86,7 @@ class BcpCardWidget extends ConsumerStatefulWidget {
       List.filled(_subTitleMaxLines, '国').join('\n'),
       BTTypography.caption(context),
     );
-    var airTimeHeight = hasAirTime
+    var airTimeHeight = hasAirInfo
         ? 6 + math.max(12.0, textHeight('00:00', BTTypography.caption(context)))
         : 0.0;
     return 2 * (_padding + _borderWidth) +
@@ -86,6 +109,12 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
 
   bool _isHovered = false;
 
+  /// 当前是否在 BMF 订阅列表里，抽屉里改动后即时更新
+  late bool _inBmf = widget.inBmf;
+
+  /// RSS 操作菜单
+  final FlyoutController _rssFlyout = FlyoutController();
+
   late AnimationController _animationController;
   late Animation<double> _elevationAnimation;
 
@@ -103,8 +132,65 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
 
   @override
   void dispose() {
+    _rssFlyout.dispose();
     _animationController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(BcpCardWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 父级重新读了订阅状态（例如在别处加了订阅）时同步过来
+    if (oldWidget.inBmf != widget.inBmf) _inBmf = widget.inBmf;
+  }
+
+  /// 标题：优先中文名
+  String get displayTitle => data.nameCn == '' ? data.name : data.nameCn;
+
+  /// 弹出 RSS 操作菜单
+  void showRssMenu(BuildContext context) {
+    _rssFlyout.showFlyout(
+      barrierDismissible: true,
+      dismissOnPointerMoveAway: false,
+      dismissWithEsc: true,
+      builder: (context) => MenuFlyout(
+        items: [
+          MenuFlyoutItem(
+            leading: const Icon(MdiIcons.rss),
+            text: const Text('编辑 RSS'),
+            onPressed: openBmfDrawer,
+          ),
+          MenuFlyoutItem(
+            leading: const Icon(FluentIcons.list),
+            text: const Text('查看订阅情况'),
+            onPressed: openBmfWorkspace,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 打开订阅抽屉，编辑 RSS 或下载目录
+  Future<void> openBmfDrawer() async {
+    await showBTDrawer(
+      context: context,
+      width: 420,
+      child: BsdBmfDrawer(
+        subjectId: data.id,
+        title: displayTitle,
+        airDate: data.airDate,
+      ),
+    );
+    if (!mounted) return;
+    var bmf = await BtsAppBmf().read(data.id);
+    if (!mounted) return;
+    if ((bmf != null) != _inBmf) setState(() => _inBmf = bmf != null);
+  }
+
+  /// 跳到 RSS & BMF 页面并定位到该订阅
+  void openBmfWorkspace() {
+    ref.read(bmfNavigationProvider).selectSubject(data.id);
+    ref.read(navStoreProvider).goToBmf();
   }
 
   Widget buildCoverError(BuildContext context, {String? err}) {
@@ -184,6 +270,17 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        if (_inBmf)
+          FlyoutTarget(
+            controller: _rssFlyout,
+            child: buildActionButton(
+              context: context,
+              icon: MdiIcons.rss,
+              tooltip: 'RSS 订阅',
+              onPressed: () => showRssMenu(context),
+            ),
+          ),
+        if (_inBmf) SizedBox(width: 4),
         buildActionButton(
           context: context,
           icon: FluentIcons.edge_logo,
@@ -314,12 +411,33 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
     );
   }
 
+  /// 构建封面上的状态标记
+  Widget buildCoverChip(BuildContext context, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: BTColors.surfacePrimary(context).withValues(alpha: 0.85),
+        borderRadius: BTRadius.smallBR,
+      ),
+      child: Text(
+        text,
+        style: BTTypography.caption(context).copyWith(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: BTColors.textSecondary(context),
+        ),
+      ),
+    );
+  }
+
   Widget buildCover(BuildContext context) {
     return ClipRRect(
       borderRadius: BTRadius.mediumBR,
       child: Stack(
         children: [
           Positioned.fill(child: buildCoverImage(context)),
+          if (widget.watched)
+            Positioned(left: 6, top: 6, child: buildCoverChip(context, '看过')),
           if (data.rating != null || data.collection?.doing != null)
             Positioned(
               left: 0,
@@ -356,6 +474,8 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
     var subTitle = data.nameCn == '' ? '' : data.name;
     title = unescape.convert(title);
     subTitle = unescape.convert(subTitle);
+    var hasAirTime = widget.airTime != null && widget.airTime!.isNotEmpty;
+    var hasAirInfo = hasAirTime || widget.episode != null;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
@@ -386,23 +506,42 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
             ),
           ),
         ],
-        if (widget.airTime != null && widget.airTime!.isNotEmpty) ...[
+        if (hasAirInfo) ...[
           SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(
-                FluentIcons.clock,
-                size: 12,
-                color: FluentTheme.of(context).accentColor,
-              ),
-              SizedBox(width: 4),
-              Text(
-                widget.airTime!,
-                style: BTTypography.caption(
-                  context,
-                ).copyWith(color: FluentTheme.of(context).accentColor),
-              ),
-            ],
+          Tooltip(
+            message: '放送时刻为本地时间，星期与话数按日本放送日推算',
+            child: Row(
+              children: [
+                if (hasAirTime) ...[
+                  Icon(
+                    FluentIcons.clock,
+                    size: 12,
+                    color: FluentTheme.of(context).accentColor,
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    widget.airTime!,
+                    style: BTTypography.caption(
+                      context,
+                    ).copyWith(color: FluentTheme.of(context).accentColor),
+                  ),
+                ],
+                if (widget.episode != null) ...[
+                  if (hasAirTime) SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      '第${widget.episode}话',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: BTTypography.caption(context).copyWith(
+                        color: FluentTheme.of(context).accentColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
         SizedBox(height: 8),
@@ -415,56 +554,62 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
   Widget build(BuildContext context) {
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedBuilder(
-        animation: _elevationAnimation,
-        builder: (context, child) {
-          return AnimatedContainer(
-            duration: BTTheme.animationDurationNormal,
-            curve: BTTheme.animationCurve,
-            decoration: BoxDecoration(
-              color: BTColors.surfacePrimary(context),
-              borderRadius: BTRadius.largeBR,
-              border: Border.all(
-                color: _isHovered
-                    ? FluentTheme.of(context).accentColor.withValues(alpha: 0.3)
-                    : (isDark
-                          ? Colors.white.withValues(alpha: 0.06)
-                          : Colors.black.withValues(alpha: 0.04)),
-                width: BcpCardWidget._borderWidth,
-              ),
-              boxShadow: _isHovered
-                  ? [
-                      BoxShadow(
-                        color: FluentTheme.of(
+    return Opacity(
+      // 看过的条目弱化，配合排序靠后一起降权
+      opacity: widget.watched ? 0.55 : 1,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedBuilder(
+          animation: _elevationAnimation,
+          builder: (context, child) {
+            return AnimatedContainer(
+              duration: BTTheme.animationDurationNormal,
+              curve: BTTheme.animationCurve,
+              decoration: BoxDecoration(
+                color: BTColors.surfacePrimary(context),
+                borderRadius: BTRadius.largeBR,
+                border: Border.all(
+                  color: _isHovered
+                      ? FluentTheme.of(
                           context,
-                        ).accentColor.withValues(alpha: 0.1),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                      ...BTTheme.shadow(context, level: BTShadowLevel.medium),
-                    ]
-                  : BTTheme.shadow(context, level: BTShadowLevel.subtle),
-            ),
-            padding: EdgeInsets.all(BcpCardWidget._padding),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BTRadius.mediumBR,
-                    child: buildCover(context),
-                  ),
+                        ).accentColor.withValues(alpha: 0.3)
+                      : (isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : Colors.black.withValues(alpha: 0.04)),
+                  width: BcpCardWidget._borderWidth,
                 ),
-                SizedBox(width: 12),
-                Expanded(child: buildInfo(context)),
-              ],
-            ),
-          );
-        },
+                boxShadow: _isHovered
+                    ? [
+                        BoxShadow(
+                          color: FluentTheme.of(
+                            context,
+                          ).accentColor.withValues(alpha: 0.1),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                        ...BTTheme.shadow(context, level: BTShadowLevel.medium),
+                      ]
+                    : BTTheme.shadow(context, level: BTShadowLevel.subtle),
+              ),
+              padding: EdgeInsets.all(BcpCardWidget._padding),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BTRadius.mediumBR,
+                      child: buildCover(context),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(child: buildInfo(context)),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

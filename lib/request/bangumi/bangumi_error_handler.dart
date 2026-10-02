@@ -120,6 +120,9 @@ String? _bangumiStatusMessage(int? statusCode) {
   if (statusCode == 405) {
     return '当前 Bangumi 线路不支持该操作，请在设置中切换线路后重试';
   }
+  if (statusCode == 429) {
+    return '请求过于频繁，已被 Bangumi 限流（429），请稍后再试';
+  }
   if (statusCode >= 500) {
     return 'Bangumi 服务器暂时不可用（$statusCode），请稍后重试';
   }
