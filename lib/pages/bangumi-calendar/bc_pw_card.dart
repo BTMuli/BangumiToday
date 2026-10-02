@@ -15,15 +15,17 @@ import 'package:url_launcher/url_launcher_string.dart';
 // Project imports:
 import '../../core/theme/bt_theme.dart';
 import '../../database/app/app_bmf.dart';
+import '../../database/app/app_rss.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
-import '../../store/bmf_store.dart';
-import '../../store/nav_store.dart';
+import '../../models/database/app_bmf_model.dart';
+import '../../providers/app_providers.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../utils/bangumi_utils.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/bangumi/subject_detail/bsd_bmf_drawer.dart';
+import '../../widgets/bangumi/subject_detail/bsd_rss_search_dialog.dart';
 import '../../widgets/common/bt_drawer.dart';
 
 class BcpCardWidget extends ConsumerStatefulWidget {
@@ -158,19 +160,75 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
           MenuFlyoutItem(
             leading: const Icon(MdiIcons.rss),
             text: const Text('编辑 RSS'),
-            onPressed: openBmfDrawer,
+            onPressed: searchRss,
           ),
           MenuFlyoutItem(
             leading: const Icon(FluentIcons.list),
-            text: const Text('查看订阅情况'),
-            onPressed: openBmfWorkspace,
+            text: const Text('订阅详情'),
+            onPressed: openBmfDrawer,
           ),
         ],
       ),
     );
   }
 
-  /// 打开订阅抽屉，编辑 RSS 或下载目录
+  /// 重新读取该条目的 BMF 状态，订阅被建出来或删掉后同步卡片上的 RSS 按钮。
+  Future<void> syncBmfState() async {
+    var bmf = await BtsAppBmf().read(data.id);
+    if (!mounted) return;
+    if ((bmf != null) != _inBmf) setState(() => _inBmf = bmf != null);
+  }
+
+  /// 打开 RSS 搜索弹窗，选中字幕组后写回该条目的 BMF 订阅。
+  Future<void> searchRss() async {
+    var repo = ref.read(bmfRepositoryProvider);
+    var current = await repo.read(data.id);
+    if (!mounted) return;
+    var title = displayTitle;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      dismissWithEsc: true,
+      builder: (_) => BsdRssSearchDialog(
+        subjectId: data.id,
+        title: title,
+        currentRss: current?.rss,
+        onSubscribe: (dialogContext, rss) async {
+          var check = await repo.checkRss(rss, excludeSubject: data.id);
+          if (!dialogContext.mounted || !mounted) return false;
+          if (check) {
+            await BtInfobar.error(dialogContext, '该RSS已经被其他BMF使用');
+            return false;
+          }
+          var bmf = await repo.read(data.id);
+          if (bmf == null) {
+            bmf = AppBmfModel(
+              subject: data.id,
+              title: title,
+              airDate: data.airDate,
+              rss: rss,
+            );
+          } else {
+            // 旧 RSS 的缓存数据跟着订阅一起换掉，避免留下过期条目
+            if (bmf.rss != null && bmf.rss!.isNotEmpty && bmf.rss != rss) {
+              await BtsAppRss().delete(bmf.rss!);
+            }
+            bmf = bmf.copyWith(rss: rss);
+          }
+          await repo.write(bmf);
+          await repo.refreshRss(bmf);
+          if (dialogContext.mounted) {
+            await BtInfobar.success(dialogContext, '成功设置 RSS');
+          }
+          return true;
+        },
+      ),
+    );
+    if (!mounted) return;
+    await syncBmfState();
+  }
+
+  /// 打开订阅详情侧边栏：订阅里的 RSS 与下载目录都在这里改动
   Future<void> openBmfDrawer() async {
     await showBTDrawer(
       context: context,
@@ -182,15 +240,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
       ),
     );
     if (!mounted) return;
-    var bmf = await BtsAppBmf().read(data.id);
-    if (!mounted) return;
-    if ((bmf != null) != _inBmf) setState(() => _inBmf = bmf != null);
-  }
-
-  /// 跳到 RSS & BMF 页面并定位到该订阅
-  void openBmfWorkspace() {
-    ref.read(bmfNavigationProvider).selectSubject(data.id);
-    ref.read(navStoreProvider).goToBmf();
+    await syncBmfState();
   }
 
   Widget buildCoverError(BuildContext context, {String? err}) {
