@@ -6,6 +6,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:intl/intl.dart';
 
 // Project imports:
+import '../../../core/constants/app_constants.dart';
 import '../../../models/rss/anibt_filters.dart';
 import '../../../models/rss/anibt_search.dart';
 import '../../../plugins/mikan/mikan_api.dart';
@@ -91,7 +92,13 @@ class _BsdRssSearchDialogState extends State<BsdRssSearchDialog> {
         if (response.code != 0) {
           _error = 'Mikan 搜索失败，请重试或切换搜索源';
         } else {
-          _mikanItems = response.data as List<MikanSearchItemModel>;
+          var items = response.data as List<MikanSearchItemModel>;
+          // 当前订阅的番剧排在首位，其余保持站点排序。
+          var current = _currentMikanId();
+          _mikanItems = [
+            ...items.where((item) => item.id == current),
+            ...items.where((item) => item.id != current),
+          ];
         }
       });
     } else {
@@ -111,6 +118,13 @@ class _BsdRssSearchDialogState extends State<BsdRssSearchDialog> {
         }
       });
     }
+  }
+
+  /// 当前 RSS 对应的蜜柑番剧 ID
+  String? _currentMikanId() {
+    var uri = Uri.tryParse(widget.currentRss ?? '');
+    if (uri == null || !BTAppConstants.isMikanHost(uri.host)) return null;
+    return uri.queryParameters['bangumiId'];
   }
 
   void _changeSource(_RssSearchSource source) {
@@ -171,10 +185,15 @@ class _BsdRssSearchDialogState extends State<BsdRssSearchDialog> {
           );
         }
         var item = _mikanItems[index];
-        return ListTile(
-          title: Text(item.title),
-          subtitle: Text(item.link),
-          onPressed: _saving ? null : () => _subscribe(item.rss, item.title),
+        return _MikanAnimeResult(
+          key: ValueKey(item.id),
+          item: item,
+          api: _mikanApi,
+          subjectId: widget.subjectId,
+          currentRss: widget.currentRss,
+          selectOnly: widget.selectOnly,
+          enabled: !_saving,
+          onSubscribe: _subscribe,
         );
       },
     );
@@ -233,10 +252,8 @@ class _BsdRssSearchDialogState extends State<BsdRssSearchDialog> {
                 ],
               ),
               const SizedBox(height: 12),
-              if (_source == _RssSearchSource.anibt) ...[
-                const Text('展开番剧选择 RSS，展开字幕组查看资源详情。'),
-                const SizedBox(height: 12),
-              ],
+              const Text('展开番剧选择 RSS，展开字幕组查看资源详情。'),
+              const SizedBox(height: 12),
               Expanded(child: _results()),
               if (_saving) ...[const SizedBox(height: 8), const ProgressBar()],
             ],
@@ -543,6 +560,282 @@ class _AnibtReleasePreview extends StatelessWidget {
                 label: _anibtUpdatedAt(item.publishedAt),
                 maxWidth: constraints.maxWidth,
               ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MikanAnimeResult extends StatefulWidget {
+  final MikanSearchItemModel item;
+  final BtrMikanApi api;
+  final int subjectId;
+  final String? currentRss;
+  final bool selectOnly;
+  final bool enabled;
+  final Future<void> Function(String rss, String label) onSubscribe;
+
+  const _MikanAnimeResult({
+    super.key,
+    required this.item,
+    required this.api,
+    required this.subjectId,
+    required this.currentRss,
+    required this.selectOnly,
+    required this.enabled,
+    required this.onSubscribe,
+  });
+
+  @override
+  State<_MikanAnimeResult> createState() => _MikanAnimeResultState();
+}
+
+class _MikanAnimeResultState extends State<_MikanAnimeResult>
+    with AutomaticKeepAliveClientMixin {
+  MikanBangumiDetailModel? _detail;
+  String? _selectedGroupId;
+  bool _loading = false;
+  bool _loaded = false;
+  String? _error;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    var rss = Uri.tryParse(widget.currentRss ?? '');
+    if (rss == null) return;
+    if (rss.queryParameters['bangumiId'] != widget.item.id) return;
+    _selectedGroupId = rss.queryParameters['subgroupid'];
+  }
+
+  Future<void> _loadDetail() async {
+    if (_loading || _loaded) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    var response = await widget.api.getBangumiDetail(widget.item.id);
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      var detail = response.data;
+      if (response.code != 0 || detail == null) {
+        _error = '字幕组加载失败，请重试';
+        return;
+      }
+      _detail = detail;
+      _loaded = true;
+      if (!detail.groups.any((group) => group.id == _selectedGroupId)) {
+        _selectedGroupId = null;
+      }
+    });
+  }
+
+  /// 当前选中的字幕组，未选中时订阅整个番剧
+  String get _rssUrl {
+    return BtrMikanApi.bangumiRssUrl(
+      bangumiId: widget.item.id,
+      groupId: _selectedGroupId,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    var item = widget.item;
+    var detail = _detail;
+    var groups = detail?.groups ?? const <MikanGroupModel>[];
+    var selected = groups
+        .where((group) => group.id == _selectedGroupId)
+        .firstOrNull;
+    var canSubscribe =
+        widget.enabled && (_selectedGroupId == null || selected != null);
+    return Expander(
+      onStateChanged: (expanded) {
+        if (expanded) unawaited(_loadDetail());
+      },
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(item.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(
+            [
+              'Mikan ${item.id}',
+              if (detail != null && detail.bgmId == widget.subjectId) '当前条目',
+              if (_selectedGroupId != null && selected != null)
+                '已选 ${selected.name}',
+            ].join(' · '),
+            style: const TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Checkbox(
+            checked: _selectedGroupId == null,
+            onChanged: widget.enabled
+                ? (_) => setState(() => _selectedGroupId = null)
+                : null,
+            content: const Text('整个番剧（全部字幕组）'),
+          ),
+          const SizedBox(height: 12),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Center(child: ProgressRing()),
+            )
+          else if (_error != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_error!),
+                const SizedBox(height: 8),
+                Button(onPressed: _loadDetail, child: const Text('重试字幕组')),
+              ],
+            )
+          else if (_loaded && groups.isEmpty)
+            const Text('该番剧暂无字幕组资源，可以订阅番剧 RSS 等待更新。')
+          else
+            ...groups.map((group) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _MikanGroupResult(
+                  key: ValueKey(group.id),
+                  group: group,
+                  selected: _selectedGroupId == group.id,
+                  onSelected: widget.enabled
+                      ? (selected) => setState(() {
+                          _selectedGroupId = selected ? group.id : null;
+                        })
+                      : null,
+                ),
+              );
+            }),
+          const SizedBox(height: 12),
+          Text(_rssUrl, style: const TextStyle(fontSize: 12)),
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: canSubscribe
+                ? () => widget.onSubscribe(
+                    _rssUrl,
+                    selected == null
+                        ? item.title
+                        : '${item.title} / ${selected.name}',
+                  )
+                : null,
+            child: Text(
+              '${widget.selectOnly ? '使用' : '订阅'}'
+              '${_selectedGroupId == null ? '番剧' : '字幕组'} RSS',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MikanGroupResult extends StatelessWidget {
+  final MikanGroupModel group;
+  final bool selected;
+  final ValueChanged<bool>? onSelected;
+
+  const _MikanGroupResult({
+    super.key,
+    required this.group,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    var count = group.items.length;
+    return Expander(
+      header: Row(
+        children: [
+          Checkbox(
+            checked: selected,
+            onChanged: onSelected == null
+                ? null
+                : (checked) => onSelected!(checked ?? false),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  count == 0 ? group.name : '${group.name} · 最近 $count 个资源',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                if (group.updatedAt != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '更新 ${group.updatedAt}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+      content: group.items.isEmpty
+          ? const Text('暂无资源')
+          : ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 300),
+              child: ListView.separated(
+                shrinkWrap: true,
+                primary: false,
+                itemCount: group.items.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                itemBuilder: (_, index) =>
+                    _MikanEpisodePreview(item: group.items[index]),
+              ),
+            ),
+    );
+  }
+}
+
+class _MikanEpisodePreview extends StatelessWidget {
+  final MikanEpisodeModel item;
+
+  const _MikanEpisodePreview({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    var size = item.size;
+    var updatedAt = item.updatedAt;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Tooltip(
+          message: item.title,
+          child: Text(
+            item.title,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+        const SizedBox(height: 6),
+        LayoutBuilder(
+          builder: (_, constraints) => Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              if (size != null)
+                AnibtTagChip(label: size, maxWidth: constraints.maxWidth),
+              if (updatedAt != null)
+                AnibtTagChip(
+                  label: '更新 $updatedAt',
+                  maxWidth: constraints.maxWidth,
+                ),
             ],
           ),
         ),

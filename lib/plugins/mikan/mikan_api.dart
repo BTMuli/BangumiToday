@@ -8,6 +8,7 @@ import '../../models/rss/rss.dart';
 import '../../request/core/client.dart';
 import '../../tools/log_tool.dart';
 import 'mikan_utils.dart';
+import 'models/mikan_model.dart';
 
 /// 蜜柑计划的API，主要是 rss 订阅
 /// 站点：https://mikanani.kas.pub
@@ -28,6 +29,15 @@ class BtrMikanApi {
   /// 更新基础 URL
   static void setBaseUrl(String value) {
     _baseUrl = BTAppConstants.normalizeMikanUrl(value);
+  }
+
+  /// 番剧 RSS 地址，可按字幕组过滤
+  static String bangumiRssUrl({required String bangumiId, String? groupId}) {
+    return mikanBangumiRssUrl(
+      baseUrl: baseUrl,
+      bangumiId: bangumiId,
+      groupId: groupId,
+    );
   }
 
   /// 构造函数
@@ -122,6 +132,59 @@ class BtrMikanApi {
         code: 666,
         message: 'Failed to search bgm',
         data: e.toString(),
+      );
+    }
+  }
+
+  /// 获取番剧详情，包含字幕组列表与各字幕组的最近资源
+  Future<BTResponse<MikanBangumiDetailModel>> getBangumiDetail(
+    String bangumiId, {
+    Duration? connectTimeout,
+    Duration? receiveTimeout,
+  }) async {
+    try {
+      var resp = await client.dio.get(
+        '/Home/Bangumi/$bangumiId',
+        options: Options(
+          connectTimeout: connectTimeout,
+          receiveTimeout: receiveTimeout,
+        ),
+      );
+      var status = resp.statusCode ?? 0;
+      if (status < 200 || status >= 300) {
+        BTLogTool.error([
+          "Fail to load mikan bangumi $bangumiId",
+          "HTTP: $status",
+        ]);
+        return BTResponse.error(
+          code: status,
+          message: 'Failed to load mikan bangumi detail',
+          data: null,
+        );
+      }
+      var detail = parseBangumiDetail(resp.data.toString(), baseUrl, bangumiId);
+      return BTResponse.success(data: detail);
+    } on DioException catch (e) {
+      var errInfo = [
+        "Fail to load mikan bangumi $bangumiId",
+        "DioErr: ${e.error}",
+      ];
+      BTLogTool.error(errInfo);
+      return BTResponse.error(
+        code: e.response?.statusCode ?? 666,
+        message: 'Failed to load mikan bangumi detail',
+        data: null,
+      );
+    } on Exception catch (e) {
+      var errInfo = [
+        "Fail to load mikan bangumi $bangumiId",
+        "Err: ${e.toString()}",
+      ];
+      BTLogTool.error(errInfo);
+      return BTResponse.error(
+        code: 666,
+        message: 'Failed to load mikan bangumi detail',
+        data: null,
       );
     }
   }
