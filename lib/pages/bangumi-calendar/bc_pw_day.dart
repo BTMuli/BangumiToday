@@ -28,7 +28,7 @@ class BcpDayWidget extends StatelessWidget {
   /// 数据
   final List<BcpCalendarItem> data;
 
-  /// 是否在加载中
+  /// 分组是否还在准备中（准备完成前数据是置空的）
   final bool loading;
 
   /// 空状态最小高度，保证滚动距离稳定
@@ -101,13 +101,15 @@ class BcpDayWidget extends StatelessWidget {
           ),
           if (isToday) ...[const SizedBox(width: 8), buildTodayBadge(context)],
           const Spacer(),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 3),
-            child: Text(
-              '$monthDay · ${data.length} 部',
-              style: BTTypography.caption(context),
+          // 还在准备时条目是置空的，数量不做数，先不显示
+          if (!loading)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Text(
+                '$monthDay · ${data.length} 部',
+                style: BTTypography.caption(context),
+              ),
             ),
-          ),
         ],
       ),
     );

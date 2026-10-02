@@ -1,9 +1,15 @@
+// Dart imports:
+import 'dart:async';
+
 // Project imports:
 import '../../core/cache/cache_manager.dart';
 import '../../core/utils/async_pool.dart';
 import '../../domain/repositories/bangumi_repository.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
+
+/// 一次条目详情请求的结果：`rateLimited` 表示被接口限流，本轮收工。
+typedef _SubjectFetch = ({BangumiSubject? subject, bool rateLimited});
 
 /// 首页日历的 bgm 条目补全
 ///
@@ -28,11 +34,17 @@ class BcpEnricher {
   /// 单条失败后的冷却时间，冷却期内不再重试，避免反复撞限流
   static const Duration failureCooldown = Duration(minutes: 10);
 
-  /// 缓存有效期：封面与评分变化慢，一周足够
-  static const Duration maxAge = CacheDuration.veryLong;
+  /// 缓存有效期：封面与评分几乎不变，缓存长一点，别每次启动都重新拉
+  static const Duration maxAge = CacheDuration.extended;
 
   /// 每补齐多少条回调一次，避免每个条目都重建一次日历
   static const int flushSize = 6;
+
+  /// 正在请求中的条目详情，按 subject id 合并。
+  ///
+  /// 首页刷新、滚动补全与过滤重算可能同时要同一个 bgmId（例如刚换完数据就
+  /// 滚到新分组），没有合并就会对同一条目重复请求。
+  final Map<int, Future<_SubjectFetch>> _pending = {};
 
   /// 读取仍然有效的缓存，返回 subject id -> bgm 条目。
   Future<Map<int, BangumiLegacySubjectSmall>> readCache(
@@ -59,7 +71,8 @@ class BcpEnricher {
   /// 拉取 [ids]（缓存里缺失的 subject，顺序即优先级），边拉边按批回调。
   ///
   /// 单条失败会进冷却期，冷却期内不再重试；一旦被限流（429）就本轮收工，
-  /// 免得越撞越限。[isActive] 返回 false 时提前收工。
+  /// 免得越撞越限。同一个 id 的请求会被多个调用方复用，见 [_fetchSubject]。
+  /// [isActive] 返回 false 时本轮不再收集结果（在途请求照常完成并写缓存）。
   Future<void> fetchMissing({
     required Iterable<int> ids,
     required BTBangumiRepository repository,
@@ -76,39 +89,68 @@ class BcpEnricher {
         if (stopped) return;
         if (isActive != null && !isActive()) return;
         if (await _inCooldown(cache, id)) return;
-        try {
-          await Future<void>.delayed(requestGap);
-          if (stopped) return;
-          var response = await repository.getSubjectDetail('$id');
-          if (response.code == 429) {
-            // 被限流：本轮不再继续，等冷却后再补
-            stopped = true;
-            await _markFailed(cache, id);
-            return;
-          }
-          var subject = response.data;
-          if (response.code != 0 || subject == null) {
-            await _markFailed(cache, id);
-            return;
-          }
-          if (isActive != null && !isActive()) return;
-          await cache.setJson<BangumiSubject>(
-            CacheKeys.subject(id),
-            subject,
-            toJson: (value) => value.toJson(),
-            fromJson: BangumiSubject.fromJson,
-          );
-          batch[id] = toLegacySubject(subject);
-          if (batch.length >= flushSize) {
-            onFilled(Map.of(batch));
-            batch.clear();
-          }
-        } catch (_) {
-          await _markFailed(cache, id);
+        var result = await _fetchSubject(id, repository);
+        if (result.rateLimited) {
+          // 被限流：本轮不再继续，等冷却后再补
+          stopped = true;
+          return;
+        }
+        var subject = result.subject;
+        if (subject == null) return;
+        if (isActive != null && !isActive()) return;
+        batch[id] = toLegacySubject(subject);
+        if (batch.length >= flushSize) {
+          onFilled(Map.of(batch));
+          batch.clear();
         }
       },
     );
     if (batch.isNotEmpty) onFilled(Map.of(batch));
+  }
+
+  /// 取单个条目详情：同一个 id 的并发调用复用同一次请求。
+  Future<_SubjectFetch> _fetchSubject(int id, BTBangumiRepository repository) {
+    var pending = _pending[id];
+    if (pending != null) return pending;
+    var future = _requestSubject(id, repository);
+    _pending[id] = future;
+    unawaited(
+      future.whenComplete(() {
+        if (identical(_pending[id], future)) _pending.remove(id);
+      }),
+    );
+    return future;
+  }
+
+  /// 实际发起一次条目详情请求，成功时写入持久缓存。
+  Future<_SubjectFetch> _requestSubject(
+    int id,
+    BTBangumiRepository repository,
+  ) async {
+    var cache = BTCacheManager.instance;
+    try {
+      await Future<void>.delayed(requestGap);
+      var response = await repository.getSubjectDetail('$id');
+      if (response.code == 429) {
+        await _markFailed(cache, id);
+        return (subject: null, rateLimited: true);
+      }
+      var subject = response.data;
+      if (response.code != 0 || subject == null) {
+        await _markFailed(cache, id);
+        return (subject: null, rateLimited: false);
+      }
+      await cache.setJson<BangumiSubject>(
+        CacheKeys.subject(id),
+        subject,
+        toJson: (value) => value.toJson(),
+        fromJson: BangumiSubject.fromJson,
+      );
+      return (subject: subject, rateLimited: false);
+    } catch (_) {
+      await _markFailed(cache, id);
+      return (subject: null, rateLimited: false);
+    }
   }
 
   /// 该条目是否处于失败冷却期。

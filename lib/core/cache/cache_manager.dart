@@ -48,6 +48,9 @@ class BTCacheManager {
 
   Future<void>? _initialization;
 
+  /// 缓存箱打不开（Hive 初始化失败等），不再反复重试
+  bool _initFailed = false;
+
   final Map<String, dynamic> _memoryCache = {};
 
   final int _maxMemoryCacheSize = 100;
@@ -72,12 +75,27 @@ class BTCacheManager {
     _box = await Hive.openBox(_boxName);
   }
 
+  /// 保证缓存箱已经打开。
+  ///
+  /// 启动阶段 `init` 是并发跑的，谁先读缓存谁就可能读到空值、写缓存也只落在
+  /// 内存里，于是每次启动都重新请求一遍。所有读写都先在这里等一下初始化；
+  /// 打不开就退回纯内存缓存，读写照常，只是不落盘。
+  Future<void> _ensureReady() async {
+    if ((_box?.isOpen ?? false) || _initFailed) return;
+    try {
+      await init();
+    } catch (_) {
+      _initFailed = true;
+    }
+  }
+
   Future<T?> get<T>(
     String key, {
     Duration? maxAge,
     bool checkMemory = true,
     bool checkDisk = true,
   }) async {
+    if (checkDisk) await _ensureReady();
     if (checkMemory) {
       var memData = _memoryCache[key];
       if (memData != null && memData is CacheEntry<T>) {
@@ -123,8 +141,11 @@ class BTCacheManager {
       _setMemoryCache(key, entry);
     }
 
-    if (saveToDisk && _box != null) {
-      await _box!.put(key, jsonEncode(entry.toJson((d) => d)));
+    if (saveToDisk) {
+      await _ensureReady();
+      if (_box != null) {
+        await _box!.put(key, jsonEncode(entry.toJson((d) => d)));
+      }
     }
   }
 
@@ -143,13 +164,16 @@ class BTCacheManager {
       _setMemoryCache(key, entry);
     }
 
-    if (saveToDisk && _box != null) {
-      var jsonData = {
-        'data': toJson(data),
-        'timestamp': entry.timestamp.toIso8601String(),
-        'etag': etag,
-      };
-      await _box!.put(key, jsonEncode(jsonData));
+    if (saveToDisk) {
+      await _ensureReady();
+      if (_box != null) {
+        var jsonData = {
+          'data': toJson(data),
+          'timestamp': entry.timestamp.toIso8601String(),
+          'etag': etag,
+        };
+        await _box!.put(key, jsonEncode(jsonData));
+      }
     }
   }
 
@@ -160,6 +184,7 @@ class BTCacheManager {
     bool checkMemory = true,
     bool checkDisk = true,
   }) async {
+    if (checkDisk) await _ensureReady();
     if (checkMemory) {
       var memData = _memoryCache[key];
       if (memData != null && memData is CacheEntry<T>) {
@@ -207,14 +232,17 @@ class BTCacheManager {
       _setMemoryCache(key, entry);
     }
 
-    if (saveToDisk && _box != null) {
-      await _box!.put(
-        key,
-        jsonEncode({
-          'data': data,
-          'timestamp': entry.timestamp.toIso8601String(),
-        }),
-      );
+    if (saveToDisk) {
+      await _ensureReady();
+      if (_box != null) {
+        await _box!.put(
+          key,
+          jsonEncode({
+            'data': data,
+            'timestamp': entry.timestamp.toIso8601String(),
+          }),
+        );
+      }
     }
   }
 
@@ -224,6 +252,7 @@ class BTCacheManager {
     bool checkMemory = true,
     bool checkDisk = true,
   }) async {
+    if (checkDisk) await _ensureReady();
     if (checkMemory) {
       var memData = _memoryCache[key];
       if (memData != null && memData is CacheEntry<List<T>>) {
@@ -260,6 +289,7 @@ class BTCacheManager {
 
   Future<void> delete(String key) async {
     _memoryCache.remove(key);
+    await _ensureReady();
     if (_box != null) {
       await _box!.delete(key);
     }
@@ -267,6 +297,7 @@ class BTCacheManager {
 
   Future<void> clear() async {
     _memoryCache.clear();
+    await _ensureReady();
     if (_box != null) {
       await _box!.clear();
     }
@@ -282,6 +313,7 @@ class BTCacheManager {
       return false;
     });
 
+    await _ensureReady();
     if (_box != null) {
       var keysToDelete = <dynamic>[];
       for (var key in _box!.keys) {
@@ -349,4 +381,7 @@ class CacheDuration {
   static const Duration medium = Duration(hours: 6);
   static const Duration long = Duration(days: 1);
   static const Duration veryLong = Duration(days: 7);
+
+  /// 30 天：条目详情这类几乎不变的数据，避免每次启动重新拉一遍
+  static const Duration extended = Duration(days: 30);
 }

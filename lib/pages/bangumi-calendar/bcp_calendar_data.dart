@@ -130,9 +130,13 @@ class BcpCalendarData {
   /// 留在日历里。这里先筛出可疑项：排期已经放完 bgm 登记的最后一话，且落后
   /// 不超过 [maxLag] 个周期（落后太多说明该条目长期停播，话数推算不可信，
   /// 不要动它）。筛出来的再用 bgm 章节数据确认，见 `BcpEnricher.confirmFinished`。
+  ///
+  /// [weekday] 只统计这一天要展示的条目（1=周一 ... 7=周日），为空则统计全部；
+  /// 首页按分组准备数据时只确认该分组里的条目。
   static Map<int, Duration> pendingFinished({
     required List<BangumiDataItem> items,
     required Map<int, BangumiLegacySubjectSmall> enrich,
+    int? weekday,
     int maxLag = 8,
   }) {
     var pending = <int, Duration>{};
@@ -149,6 +153,10 @@ class BcpCalendarData {
       if (total == null) continue;
       var firstAir = DateTime.tryParse(item.begin);
       if (firstAir == null) continue;
+      if (weekday != null) {
+        var anchor = parseBangumiBroadcastStart(item.broadcast) ?? firstAir;
+        if (bangumiJstWeekday(anchor) != weekday) continue;
+      }
       var period =
           parseBangumiBroadcastPeriod(item.broadcast) ??
           const Duration(days: 7);
