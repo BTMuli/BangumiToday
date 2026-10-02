@@ -60,6 +60,25 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
     );
   }
 
+  Future<void> _searchRss() async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      dismissWithEsc: true,
+      builder: (_) => BsdRssSearchDialog(
+        subjectId: widget.bmf.subject,
+        title: _titleController.text.trim(),
+        currentRss: _rssController.text.trim(),
+        selectOnly: true,
+        onSubscribe: (_, rss) async {
+          if (!mounted) return false;
+          setState(() => _rssController.text = rss);
+          return true;
+        },
+      ),
+    );
+  }
+
   Future<void> _refreshNow() async {
     if (_refreshing) return;
     if (widget.bmf.rss == null || widget.bmf.rss!.isEmpty) {
@@ -103,10 +122,25 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
             _buildLabel(context, '显示标题'),
             TextBox(controller: _titleController, placeholder: '番剧标题'),
             SizedBox(height: 14),
-            _buildLabel(context, 'RSS 订阅'),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Text('RSS 订阅', style: BTTypography.bodyStrong(context)),
+                  const SizedBox(width: 6),
+                  Tooltip(
+                    message: '搜索 RSS（AniBT / Mikan）',
+                    child: IconButton(
+                      icon: const Icon(FluentIcons.search, size: 14),
+                      onPressed: _searchRss,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             TextBox(
               controller: _rssController,
-              placeholder: 'Mikan RSS 或其他兼容订阅地址',
+              placeholder: 'AniBT、Mikan 或其他兼容 RSS 订阅地址',
             ),
             SizedBox(height: 14),
             ListTile(

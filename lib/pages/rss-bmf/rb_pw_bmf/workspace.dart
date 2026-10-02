@@ -77,121 +77,137 @@ mixin _RbpBmfWorkspace on _RbpBmfStateBase {
         children: [
           Padding(
             padding: EdgeInsets.fromLTRB(18, 16, 14, 14),
-            child: Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (showBackButton) ...[
-                  IconButton(
-                    icon: BtIcon(FluentIcons.back, size: 15),
-                    onPressed: () => setState(() => _showCompactDetail = false),
-                  ),
-                  SizedBox(width: 6),
-                ],
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: FluentTheme.of(
-                      context,
-                    ).accentColor.withValues(alpha: 0.14),
-                    borderRadius: BTRadius.mediumBR,
-                  ),
-                  child: Icon(
-                    FluentIcons.media,
-                    size: 18,
-                    color: FluentTheme.of(context).accentColor,
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
+                // 第一行：图标与标题
+                Row(
+                  children: [
+                    if (showBackButton) ...[
+                      IconButton(
+                        icon: BtIcon(FluentIcons.back, size: 15),
+                        onPressed: () =>
+                            setState(() => _showCompactDetail = false),
+                      ),
+                      SizedBox(width: 6),
+                    ],
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: FluentTheme.of(
+                          context,
+                        ).accentColor.withValues(alpha: 0.14),
+                        borderRadius: BTRadius.mediumBR,
+                      ),
+                      child: Icon(
+                        FluentIcons.media,
+                        size: 18,
+                        color: FluentTheme.of(context).accentColor,
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
                         bmf.title ?? '未命名番剧',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: BTTypography.title(context),
                       ),
-                      SizedBox(height: 5),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                    ),
+                  ],
+                ),
+                SizedBox(height: 10),
+                // 第二行：条目信息与状态标签
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'Bangumi #${bmf.subject}',
+                      style: BTTypography.caption(context),
+                    ),
+                    if (bmf.airDate != null && bmf.airDate!.isNotEmpty)
+                      Text(
+                        '首播 ${bmf.airDate}',
+                        style: BTTypography.caption(context),
+                      ),
+                    if (pendingCount > 0)
+                      _buildStatusBadge(
+                        context,
+                        label: '$pendingCount 条更新',
+                        active: true,
+                      ),
+                    _buildStatusBadge(
+                      context,
+                      label: bmf.autoUpdate ? 'RSS 自动更新' : 'RSS 手动更新',
+                      active: bmf.autoUpdate,
+                    ),
+                    _buildStatusBadge(
+                      context,
+                      label: hasRss ? 'RSS 已关联' : '缺少 RSS',
+                      active: hasRss,
+                    ),
+                    _buildStatusBadge(
+                      context,
+                      label: hasDirectory ? '目录已关联' : '缺少目录',
+                      active: hasDirectory,
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                // 第三行：操作按钮
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    FilledButton(
+                      onPressed: () => _editConfiguration(bmf),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            'Bangumi #${bmf.subject}',
-                            style: BTTypography.caption(context),
-                          ),
-                          if (bmf.airDate != null && bmf.airDate!.isNotEmpty)
-                            Text(
-                              '首播 ${bmf.airDate}',
-                              style: BTTypography.caption(context),
-                            ),
-                          if (pendingCount > 0)
-                            _buildStatusBadge(
-                              context,
-                              label: '$pendingCount 条更新',
-                              active: true,
-                            ),
-                          _buildStatusBadge(
-                            context,
-                            label: bmf.autoUpdate ? 'RSS 自动更新' : 'RSS 手动更新',
-                            active: bmf.autoUpdate,
-                          ),
-                          _buildStatusBadge(
-                            context,
-                            label: hasRss ? 'RSS 已关联' : '缺少 RSS',
-                            active: hasRss,
-                          ),
-                          _buildStatusBadge(
-                            context,
-                            label: hasDirectory ? '目录已关联' : '缺少目录',
-                            active: hasDirectory,
-                          ),
+                          Icon(FluentIcons.edit, size: 13),
+                          SizedBox(width: 6),
+                          const Text('编辑关联'),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                SizedBox(width: 10),
-                FilledButton(
-                  onPressed: () => _editConfiguration(bmf),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(FluentIcons.edit, size: 13),
-                      SizedBox(width: 6),
-                      const Text('编辑关联'),
-                    ],
-                  ),
-                ),
-                SizedBox(width: 6),
-                Tooltip(
-                  message: '复制标题',
-                  child: IconButton(
-                    icon: BtIcon(FluentIcons.copy, size: 14),
-                    onPressed: () => _copyTitle(bmf),
-                  ),
-                ),
-                Tooltip(
-                  message: '打开番剧详情',
-                  child: IconButton(
-                    icon: BtIcon(FluentIcons.open_in_new_tab, size: 14),
-                    onPressed: () => _navigateToDetail(bmf),
-                    onLongPress: () => _addToNavOnly(bmf),
-                  ),
-                ),
-                Tooltip(
-                  message: '删除 BMF 关联',
-                  child: IconButton(
-                    icon: Icon(
-                      FluentIcons.delete,
-                      size: 14,
-                      color: BTColors.errorLight(context),
                     ),
-                    onPressed: () => _deleteBmf(bmf),
-                  ),
+                    SizedBox(width: 6),
+                    Tooltip(
+                      message: '搜索番剧 RSS（AniBT / Mikan）',
+                      child: IconButton(
+                        icon: BtIcon(FluentIcons.search, size: 14),
+                        onPressed: () => _searchRss(bmf),
+                      ),
+                    ),
+                    SizedBox(width: 6),
+                    Tooltip(
+                      message: '复制标题',
+                      child: IconButton(
+                        icon: BtIcon(FluentIcons.copy, size: 14),
+                        onPressed: () => _copyTitle(bmf),
+                      ),
+                    ),
+                    Tooltip(
+                      message: '打开番剧详情',
+                      child: IconButton(
+                        icon: BtIcon(FluentIcons.open_in_new_tab, size: 14),
+                        onPressed: () => _navigateToDetail(bmf),
+                        onLongPress: () => _addToNavOnly(bmf),
+                      ),
+                    ),
+                    Tooltip(
+                      message: '删除 BMF 关联',
+                      child: IconButton(
+                        icon: Icon(
+                          FluentIcons.delete,
+                          size: 14,
+                          color: BTColors.errorLight(context),
+                        ),
+                        onPressed: () => _deleteBmf(bmf),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

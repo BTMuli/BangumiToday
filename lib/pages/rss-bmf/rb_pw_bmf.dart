@@ -23,6 +23,7 @@ import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_detail/bmf_card.dart';
 import '../../widgets/bangumi/subject_detail/bmf_expander.dart';
+import '../../widgets/bangumi/subject_detail/bsd_rss_search_dialog.dart';
 import 'bmf_filter_model.dart';
 
 part 'rb_pw_bmf/config_dialog.dart';
@@ -184,6 +185,8 @@ abstract class _RbpBmfStateBase extends ConsumerState<RbpBmfWidget>
   Future<void> _editConfiguration(AppBmfModel bmf) async {
     var draft = await showDialog<_BmfConfigDraft>(
       context: context,
+      barrierDismissible: true,
+      dismissWithEsc: true,
       builder: (context) => _BmfConfigDialog(bmf: bmf),
     );
     if (draft == null || !mounted) return;
@@ -231,6 +234,47 @@ abstract class _RbpBmfStateBase extends ConsumerState<RbpBmfWidget>
     );
     await repo.updateModel(updated);
     if (mounted) await BtInfobar.success(context, 'BMF 配置已保存');
+  }
+
+  /// 打开番剧 RSS 搜索，选中的 RSS 直接写回当前关联。
+  Future<void> _searchRss(AppBmfModel bmf) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      dismissWithEsc: true,
+      builder: (_) => BsdRssSearchDialog(
+        subjectId: bmf.subject,
+        title: bmf.title ?? '未命名番剧',
+        currentRss: bmf.rss,
+        selectOnly: true,
+        onSubscribe: (dialogContext, rssUrl) async {
+          var repo = ref.read(bmfRepositoryProvider);
+          var duplicated = await repo.checkRss(
+            rssUrl,
+            excludeSubject: bmf.subject,
+          );
+          if (!dialogContext.mounted) return false;
+          if (duplicated) {
+            await BtInfobar.error(dialogContext, '该 RSS 已经被其他 BMF 使用');
+            return false;
+          }
+          if (bmf.rss != null && bmf.rss!.isNotEmpty && bmf.rss != rssUrl) {
+            if (bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty) {
+              await rss.deleteByMkId(bmf.mkBgmId!);
+            } else {
+              await rss.delete(bmf.rss!);
+            }
+          }
+          await repo.updateModel(
+            bmf.copyWith(rss: rssUrl, mkBgmId: null, mkGroupId: null),
+          );
+          if (dialogContext.mounted) {
+            await BtInfobar.success(dialogContext, 'RSS 关联已更新');
+          }
+          return true;
+        },
+      ),
+    );
   }
 
   Future<void> _deleteBmf(
