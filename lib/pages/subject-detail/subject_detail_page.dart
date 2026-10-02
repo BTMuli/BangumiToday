@@ -6,17 +6,15 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
-import '../../controller/progress_controller.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../models/hive/nav_model.dart';
-import '../../plugins/mikan/mikan_api.dart';
-import '../../plugins/mikan/models/mikan_model.dart';
 import '../../providers/app_providers.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/subject_detail/bsd_bmf_drawer.dart';
+import '../../widgets/bangumi/subject_detail/bsd_rss_search_dialog.dart';
 import '../../widgets/common/bt_content_frame.dart';
 import '../../widgets/common/bt_drawer.dart';
 import '../subject-search/subject_search_page.dart';
@@ -51,18 +49,12 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   /// 番剧数据
   BangumiSubject? data;
 
-  /// mikanApi
-  final BtrMikanApi mikanApi = BtrMikanApi();
-
   /// collect provider
   final SubjectCollectStatProvider collectProvider =
       SubjectCollectStatProvider();
 
   /// rss provider
   final SubjectRssStatProvider rssProvider = SubjectRssStatProvider();
-
-  /// progress
-  late ProgressController progress = ProgressController();
 
   @override
   bool get wantKeepAlive => true;
@@ -200,43 +192,49 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     super.dispose();
   }
 
-  Future<void> searchBangumi() async {
+  Future<void> searchRss() async {
     if (data == null) {
       await BtInfobar.error(context, '数据为空');
       return;
     }
-    var name = data?.nameCn == '' ? data?.name : data?.nameCn;
-    if (name == null) {
-      await BtInfobar.error(context, '数据为空');
-      return;
-    }
-    var nameCheck = await showInput(
-      context,
-      title: '搜索番剧',
-      content: '请输入番剧名称',
-      value: name,
+    var subject = data!;
+    var repo = ref.read(bmfRepositoryProvider);
+    var currentBmf = await repo.read(subject.id);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      dismissWithEsc: true,
+      builder: (_) => BsdRssSearchDialog(
+        subjectId: subject.id,
+        title: subject.nameCn.isEmpty ? subject.name : subject.nameCn,
+        currentRss: currentBmf?.rss,
+        onSubscribe: (dialogContext, rss) async {
+          var check = await repo.checkRss(rss, excludeSubject: subject.id);
+          if (!dialogContext.mounted || !mounted) return false;
+          if (check) {
+            await BtInfobar.error(dialogContext, '该RSS已经被其他BMF使用');
+            return false;
+          }
+          var bmf = await repo.read(subject.id);
+          bmf = bmf == null
+              ? AppBmfModel(
+                  subject: subject.id,
+                  title: subject.nameCn.isEmpty ? subject.name : subject.nameCn,
+                  airDate: subject.date,
+                  rss: rss,
+                )
+              : bmf.copyWith(rss: rss);
+          await repo.write(bmf);
+          await repo.refreshRss(bmf);
+          if (mounted) rssProvider.set(rss);
+          if (dialogContext.mounted) {
+            await BtInfobar.success(dialogContext, '成功设置 RSS');
+          }
+          return true;
+        },
+      ),
     );
-    if (nameCheck == null) return;
-    if (mounted) {
-      progress = ProgressWidget.show(
-        context,
-        title: '搜索中',
-        text: '正在搜索番剧: $nameCheck',
-        progress: null,
-      );
-    }
-    var resp = await mikanApi.searchBgm(nameCheck);
-    progress.end();
-    if (resp.code != 0) {
-      if (mounted) await showRespErr(resp, context);
-      return;
-    }
-    var items = resp.data as List<MikanSearchItemModel>;
-    if (items.isEmpty) {
-      if (mounted) await BtInfobar.error(context, '没有找到相关条目，请尝试更换搜索词');
-      return;
-    }
-    if (mounted) await showSearchResult(context, items);
   }
 
   /// 根据标签搜索动画
@@ -255,78 +253,6 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
           ),
           title,
         );
-  }
-
-  /// 显示搜索结果
-  Future<void> showSearchResult(
-    BuildContext context,
-    List<MikanSearchItemModel> items,
-  ) async {
-    var result = await showDialog(
-      context: context,
-      barrierDismissible: true,
-      dismissWithEsc: true,
-      builder: (context) {
-        return ContentDialog(
-          title: const Text('搜索结果'),
-          content: ListView.builder(
-            shrinkWrap: true,
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              var item = items[index];
-              return ListTile(
-                title: Text(item.title),
-                subtitle: Text(item.link),
-                onPressed: () async {
-                  var confirm = await showConfirm(
-                    context,
-                    title: '确认匹配？',
-                    content: '将该结果设为BMF的RSS',
-                  );
-                  if (!confirm) return;
-                  var repo = ref.read(bmfRepositoryProvider);
-                  var check = await repo.checkRss(
-                    item.rss,
-                    excludeSubject: data!.id,
-                  );
-                  if (check) {
-                    if (context.mounted) {
-                      await BtInfobar.error(context, '该RSS已经被其他BMF使用');
-                    }
-                    return;
-                  }
-                  var bmf = await repo.read(data!.id);
-                  if (bmf == null) {
-                    bmf = AppBmfModel(
-                      subject: data!.id,
-                      title: data!.nameCn.isEmpty ? data!.name : data!.nameCn,
-                      airDate: data!.date,
-                      rss: item.rss,
-                    );
-                  } else {
-                    bmf = bmf.copyWith(rss: item.rss);
-                  }
-                  await repo.write(bmf);
-                  await repo.refreshRss(bmf);
-                  rssProvider.set(item.rss);
-                  if (context.mounted) {
-                    await BtInfobar.success(context, '成功设置RSS');
-                  }
-                  if (context.mounted) Navigator.of(context).pop();
-                },
-              );
-            },
-          ),
-          actions: [
-            Button(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
-            ),
-          ],
-        );
-      },
-    );
-    if (result == null) return;
   }
 
   @override

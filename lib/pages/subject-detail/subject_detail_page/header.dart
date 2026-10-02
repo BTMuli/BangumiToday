@@ -47,6 +47,14 @@ extension _SubjectDetailHeader on _SubjectDetailPageState {
           ),
           SizedBox(width: PageHeader.horizontalPadding(context)),
           Tooltip(
+            message: '搜索 RSS（AniBT / Mikan）',
+            child: IconButton(
+              icon: const Icon(FluentIcons.search, size: 16),
+              onPressed: data == null ? null : searchRss,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Tooltip(
             message: _refreshing ? '正在刷新' : '刷新页面',
             child: IconButton(
               icon: _refreshing

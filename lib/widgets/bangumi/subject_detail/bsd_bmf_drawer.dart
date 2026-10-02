@@ -29,7 +29,6 @@ class BsdBmfDrawer extends ConsumerStatefulWidget {
   final String title;
   final String? airDate;
   final SubjectRssStatProvider? rssProvider;
-  final VoidCallback? onSearchMikan;
 
   const BsdBmfDrawer({
     super.key,
@@ -37,7 +36,6 @@ class BsdBmfDrawer extends ConsumerStatefulWidget {
     required this.title,
     required this.airDate,
     this.rssProvider,
-    this.onSearchMikan,
   });
 
   @override
@@ -177,7 +175,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
   Future<void> updateRss(String? newRss) async {
     if (newRss == null) return;
     if (newRss == bmf.rss) {
-      if (mounted) await BtInfobar.error(context, '未修改 MikanRSS');
+      if (mounted) await BtInfobar.error(context, '未修改 RSS');
       return;
     }
     var repo = ref.read(bmfRepositoryProvider);
@@ -197,7 +195,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
     var read = await repo.read(bmf.subject);
     if (read != null) bmf = read;
     setState(() {});
-    if (mounted) await BtInfobar.success(context, '成功设置 MikanRSS');
+    if (mounted) await BtInfobar.success(context, '成功设置 RSS');
   }
 
   Future<void> updateFolder() async {
@@ -329,7 +327,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
                         ),
                         SizedBox(height: 8),
                         Text(
-                          '搜索字幕组、粘贴 RSS 或选择下载目录',
+                          '粘贴 RSS 或选择下载目录',
                           style: BTTypography.caption(context),
                         ),
                         SizedBox(height: 16),
@@ -338,18 +336,12 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
                           runSpacing: 8,
                           alignment: WrapAlignment.center,
                           children: [
-                            if (widget.onSearchMikan != null)
-                              FilledButton(
-                                key: const ValueKey('bmf-empty-search'),
-                                onPressed: widget.onSearchMikan,
-                                child: const Text('搜索 Mikan'),
-                              ),
                             Button(
                               key: const ValueKey('bmf-empty-rss'),
                               onPressed: () async {
                                 var input = await showInput(
                                   context,
-                                  title: '设置 MikanRSS',
+                                  title: '设置 RSS',
                                   content: '建议精准到字幕组',
                                 );
                                 await updateRss(input);
@@ -416,19 +408,13 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
             tooltip: '设置标题',
             onPressed: bmf.id != -1 ? updateTitle : null,
           ),
-          if (widget.onSearchMikan != null)
-            _buildTitleBarButton(
-              icon: FluentIcons.search,
-              tooltip: '搜索 RSS(Mikan)',
-              onPressed: widget.onSearchMikan,
-            ),
           _buildTitleBarButton(
             icon: MdiIcons.rss,
             tooltip: '设置 RSS',
             onPressed: () async {
               var input = await showInput(
                 context,
-                title: '设置 MikanRSS',
+                title: '设置 RSS',
                 content: '建议精准到字幕组',
               );
               await updateRss(input);

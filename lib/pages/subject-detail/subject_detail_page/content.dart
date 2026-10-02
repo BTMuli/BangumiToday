@@ -27,7 +27,6 @@ extension _SubjectDetailContent on _SubjectDetailPageState {
         title: title,
         airDate: subject.date,
         rssProvider: rssProvider,
-        onSearchMikan: searchBangumi,
       ),
     );
   }
