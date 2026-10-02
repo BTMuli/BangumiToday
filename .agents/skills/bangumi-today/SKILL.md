@@ -82,6 +82,7 @@ Follow the pattern in `lib/database/app/app_bmf.dart`: singleton accessor, `preC
 
 ## Git & commits
 
+- Do not commit on your own initiative: finish the change, clean up throwaway files, and report; only commit when the user explicitly asks. See AGENTS.md.
 - Commit messages use Gitmoji (`<emoji> <description>`), e.g. `🐛` fix, `✨` feature, `♻️` refactor, `💄` UI. No Conventional Commit prefixes. See AGENTS.md.
 - `lint-staged` runs on commit; committing many files at once spawns heavy processes that can freeze the machine - keep each commit to at most ~10 files and use `amend` for the remainder.
 

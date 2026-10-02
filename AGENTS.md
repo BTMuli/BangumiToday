@@ -2,7 +2,9 @@
 
 ## Git commits
 
-- Commit messages must use the repository's Gitmoji format: `<emoji> <description>`.
+- Never commit on your own initiative. After finishing a change, stop at the working tree and report it; only run `git commit` (or any other history-changing command such as `amend`, `rebase`, `cherry-pick`, `revert`, or `push`) when the user explicitly asks you to commit in that request.
+- Deleting throwaway test files and other cleanup is still expected before you report the change as done.
+- When you are asked to commit, commit messages must use the repository's Gitmoji format: `<emoji> <description>`.
 - Choose a Gitmoji that matches the change type, following recent repository history (for example: `🐛` for fixes, `✨` for features, `♻️` for refactors, and `💄` for UI or style changes).
 - Do not use Conventional Commit prefixes such as `fix:` or `feat:` without a Gitmoji.
 
