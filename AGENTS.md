@@ -11,3 +11,9 @@
 - Test files written while implementing a change are throwaway verification aids. After the feature or fix has been verified, delete them before creating the commit that delivers the change.
 - Do not commit test files, test fixtures, or test-only helper scripts unless the user explicitly asks for them to be committed.
 - If test files were already staged, unstage and delete them before committing.
+
+## AniBT integration
+
+- For AniBT RSS, Open API, release metadata, subscriptions, downloads, or AniBT UI changes, read the project [anibt skill](.agents/skills/anibt/SKILL.md).
+- Verify API behavior against the current official Markdown or OpenAPI documents linked by the skill before changing endpoints, parameters, authentication, or parsing.
+- Use the [bangumi-today skill](.agents/skills/bangumi-today/SKILL.md) for repository architecture and the [flutter-mcp skill](.agents/skills/flutter-mcp/SKILL.md) for Flutter tooling alongside the AniBT skill.

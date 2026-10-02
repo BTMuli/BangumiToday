@@ -1,0 +1,4 @@
+interface:
+  display_name: "AniBT Integration"
+  short_description: "AniBT RSS, metadata, and Open API integration"
+  default_prompt: "Use $anibt to integrate AniBT RSS or Open API in BangumiToday using the current official machine-readable documentation."
