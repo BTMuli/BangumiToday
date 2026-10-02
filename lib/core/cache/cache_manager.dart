@@ -381,7 +381,4 @@ class CacheDuration {
   static const Duration medium = Duration(hours: 6);
   static const Duration long = Duration(days: 1);
   static const Duration veryLong = Duration(days: 7);
-
-  /// 30 天：条目详情这类几乎不变的数据，避免每次启动重新拉一遍
-  static const Duration extended = Duration(days: 30);
 }

@@ -226,8 +226,9 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       _enrichGeneration++;
       await rebuildDays();
 
-      // 整周一次性补齐（后台进行，不挡住提示）：缓存命中的直接落地
-      unawaited(prepareDays());
+      // 整周一次性补齐（后台进行，不挡住提示）：缓存命中的直接落地，
+      // 已有记录的条目也重读一遍，吸收条目详情页刷新的数据
+      unawaited(prepareDays(refreshKnown: true));
       if (!mounted) return;
       await BtInfobar.success(context, '成功刷新放送数据');
     } catch (error) {
@@ -304,7 +305,9 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   ///
   /// 不再按天分别请求：本地缓存有效期足够长，整周合并成一轮吃的就是同一份
   /// 缓存。某个分组补齐后立刻确认完结状态并填充，先补完的先出现。
-  Future<void> prepareDays() async {
+  /// [refreshKnown] 为 true 时连已有记录的条目也重读一遍缓存，用来吸收条目
+  /// 详情页刷新的数据。
+  Future<void> prepareDays({bool refreshKnown = false}) async {
     if (_isPreparing) {
       _preparePending = true;
       return;
@@ -313,7 +316,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     try {
       do {
         _preparePending = false;
-        await prepareRound();
+        await prepareRound(refreshKnown: refreshKnown);
       } while (_preparePending && mounted);
     } catch (error, stackTrace) {
       BTLogTool.warn(['补全日历条目失败', error.toString(), stackTrace.toString()]);
@@ -328,7 +331,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   ///
   /// 中途换了数据轮次（用户又刷新了一次）就置 [_preparePending] 交给外层按新
   /// 数据重来，不能在旧轮次上收工。
-  Future<void> prepareRound() async {
+  Future<void> prepareRound({bool refreshKnown = false}) async {
     var generation = _enrichGeneration;
     var enricher = BcpEnricher();
     var repository = ref.read(bangumiRepositoryProvider);
@@ -340,6 +343,21 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
         if (seen.add(item.subject.id)) ids.add(item.subject.id);
       }
     }
+    var wanted = refreshKnown
+        ? ids
+        : ids.where((id) => !_enrich.containsKey(id)).toList();
+    if (wanted.isNotEmpty) {
+      var cached = await enricher.readCache(wanted);
+      if (!mounted) return;
+      if (generation != _enrichGeneration) {
+        _preparePending = true;
+        return;
+      }
+      if (cached.isNotEmpty) {
+        _enrich.addAll(cached);
+        _enrichDirty = true;
+      }
+    }
     var missing = ids.where((id) => !_enrich.containsKey(id)).toList();
     if (missing.isEmpty) {
       // 全部命中缓存，直接落地
@@ -347,20 +365,10 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       if (generation != _enrichGeneration) _preparePending = true;
       return;
     }
-    var cached = await enricher.readCache(missing);
-    if (!mounted) return;
-    if (generation != _enrichGeneration) {
-      _preparePending = true;
-      return;
-    }
-    if (cached.isNotEmpty) {
-      _enrich.addAll(cached);
-      _enrichDirty = true;
-    }
     // 缓存补上的部分先落地，剩下的合并成一轮请求
     await settleSlots(enricher, repository, generation);
     await enricher.fetchMissing(
-      ids: missing.where((id) => !_enrich.containsKey(id)),
+      ids: missing,
       repository: repository,
       // 换了一轮数据就收工：在途请求由 BcpEnricher 合并后交给新一轮复用，
       // 不会再对同一个 bgmId 发第二次。

@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 
 // Project imports:
 import '../../core/cache/cache_manager.dart';
+import '../../core/cache/subject_cache.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/bangumi_token_service.dart';
 import '../../models/app/response.dart';
@@ -218,6 +219,9 @@ class BtrBangumiApi {
   }
 
   /// 获取番剧详情
+  ///
+  /// 拿到数据后顺手刷新条目详情缓存（见 [BgmSubjectCache]）：首页日历按
+  /// subject id 用同一份缓存补封面与评分，这里刷新后首页就不用再拉一次。
   Future<BTResponse> getSubjectDetail(
     String id, {
     bool deduplicate = true,
@@ -240,9 +244,9 @@ class BtrBangumiApi {
           fallbackMessage: 'Failed to load subject detail',
         );
       }
-      return BangumiSubjectResp.success(
-        data: BangumiSubject.fromJson(result.data),
-      );
+      var subject = BangumiSubject.fromJson(result.data);
+      await _cacheSubject(subject);
+      return BangumiSubjectResp.success(data: subject);
     } on DioException catch (e) {
       return handleBangumiDioException(
         e,
@@ -255,6 +259,17 @@ class BtrBangumiApi {
         message: 'Failed to load subject detail',
         data: null,
       );
+    }
+  }
+
+  /// 刷新条目详情缓存。
+  ///
+  /// 缓存只是加速首页补全，写失败不能影响详情本身。
+  Future<void> _cacheSubject(BangumiSubject subject) async {
+    try {
+      await BgmSubjectCache().write(subject);
+    } catch (error) {
+      BTLogTool.warn('Failed to cache subject ${subject.id}: $error');
     }
   }
 

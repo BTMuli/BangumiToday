@@ -3,10 +3,12 @@ import 'dart:async';
 
 // Project imports:
 import '../../core/cache/cache_manager.dart';
+import '../../core/cache/subject_cache.dart';
 import '../../core/utils/async_pool.dart';
 import '../../domain/repositories/bangumi_repository.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../request/bangumi/bangumi_api.dart';
 
 /// 一次条目详情请求的结果：`rateLimited` 表示被接口限流，本轮收工。
 typedef _SubjectFetch = ({BangumiSubject? subject, bool rateLimited});
@@ -15,7 +17,7 @@ typedef _SubjectFetch = ({BangumiSubject? subject, bool rateLimited});
 ///
 /// bangumi-data 只有排期，没有封面、评分、收藏数；bgm 的 `/calendar` 只覆盖
 /// 当季新番（实测 128 个在播条目里只命中 9 个），所以这里按 subject id 逐个
-/// 取条目详情来补展示字段。结果写进持久缓存，之后直接读缓存。
+/// 取条目详情来补展示字段。结果由请求层写进 [BgmSubjectCache]，之后直接读缓存。
 class BcpEnricher {
   BcpEnricher._();
 
@@ -33,9 +35,6 @@ class BcpEnricher {
 
   /// 单条失败后的冷却时间，冷却期内不再重试，避免反复撞限流
   static const Duration failureCooldown = Duration(minutes: 10);
-
-  /// 缓存有效期：封面与评分几乎不变，缓存长一点，别每次启动都重新拉
-  static const Duration maxAge = CacheDuration.extended;
 
   /// 每补齐多少条回调一次，避免每个条目都重建一次日历
   static const int flushSize = 6;
@@ -60,12 +59,11 @@ class BcpEnricher {
   }
 
   /// 读取单条缓存，过期或不存在时返回 null。
+  ///
+  /// 缓存与条目详情页共用，写入在请求层完成（见 [BtrBangumiApi]）：详情页
+  /// 每次加载都会刷新对应条目，首页只负责补没有记录的。
   Future<BangumiSubject?> readSubject(int id) {
-    return BTCacheManager.instance.getJson<BangumiSubject>(
-      CacheKeys.subject(id),
-      fromJson: BangumiSubject.fromJson,
-      maxAge: maxAge,
-    );
+    return BgmSubjectCache().read(id);
   }
 
   /// 拉取 [ids]（缓存里缺失的 subject，顺序即优先级），边拉边按批回调。
@@ -122,7 +120,7 @@ class BcpEnricher {
     return future;
   }
 
-  /// 实际发起一次条目详情请求，成功时写入持久缓存。
+  /// 实际发起一次条目详情请求；成功后由请求层顺手写入缓存。
   Future<_SubjectFetch> _requestSubject(
     int id,
     BTBangumiRepository repository,
@@ -140,12 +138,6 @@ class BcpEnricher {
         await _markFailed(cache, id);
         return (subject: null, rateLimited: false);
       }
-      await cache.setJson<BangumiSubject>(
-        CacheKeys.subject(id),
-        subject,
-        toJson: (value) => value.toJson(),
-        fromJson: BangumiSubject.fromJson,
-      );
       return (subject: subject, rateLimited: false);
     } catch (_) {
       await _markFailed(cache, id);
@@ -225,14 +217,6 @@ class BcpEnricher {
         return null;
       }
       subject = detail.data;
-      if (subject != null) {
-        await cache.setJson<BangumiSubject>(
-          CacheKeys.subject(id),
-          subject,
-          toJson: (value) => value.toJson(),
-          fromJson: BangumiSubject.fromJson,
-        );
-      }
     }
     var total = subject?.totalEpisodes ?? 0;
     if (total <= 0) return null;
