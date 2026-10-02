@@ -67,6 +67,20 @@ class _RssBmfPageState extends ConsumerState<RssBmfPage>
       ),
       Tab(
         icon: Image.asset(
+          'assets/images/platforms/anibt-favicon.ico',
+          height: 16,
+          width: 16,
+          fit: BoxFit.contain,
+        ),
+        text: const Text('AniBT'),
+        body: const RbpAnibtWidget(),
+        semanticLabel: 'AniBT',
+        selectedBackgroundColor: WidgetStateColor.resolveWith(
+          (_) => FluentTheme.of(context).accentColor.withAlpha(80),
+        ),
+      ),
+      Tab(
+        icon: Image.asset(
           'assets/images/platforms/mikan-favicon.ico',
           height: 16,
         ),
@@ -82,15 +96,6 @@ class _RssBmfPageState extends ConsumerState<RssBmfPage>
         text: const Text('Comicat'),
         body: const RbpComicatWidget(),
         semanticLabel: 'Comicat',
-        selectedBackgroundColor: WidgetStateColor.resolveWith(
-          (_) => FluentTheme.of(context).accentColor.withAlpha(80),
-        ),
-      ),
-      Tab(
-        icon: const Icon(FluentIcons.play_solid, size: 16),
-        text: const Text('AniBT'),
-        body: const RbpAnibtWidget(),
-        semanticLabel: 'AniBT',
         selectedBackgroundColor: WidgetStateColor.resolveWith(
           (_) => FluentTheme.of(context).accentColor.withAlpha(80),
         ),

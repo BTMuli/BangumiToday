@@ -67,6 +67,9 @@ class RssItem {
   /// Custom `<torrent>` extension used by BT sites such as AniBT.
   final RssItemTorrent? torrent;
 
+  /// Structured release metadata from the AniBT RSS namespace.
+  final RssAnibtMetadata? anibt;
+
   const RssItem({
     this.title,
     this.description,
@@ -78,6 +81,7 @@ class RssItem {
     this.enclosure,
     this.dc,
     this.torrent,
+    this.anibt,
   });
 
   factory RssItem.parse(XmlElement element) {
@@ -98,6 +102,97 @@ class RssItem {
       enclosure: _enclosure(element),
       dc: _dublinCore(element),
       torrent: torrent,
+      anibt: RssAnibtMetadata.parse(element),
+    );
+  }
+}
+
+/// AniBT's namespaced release fields, separate from generic RSS metadata.
+class RssAnibtMetadata {
+  static const namespaceUri = 'https://anibt.net/xmlns/rss/1.0/';
+
+  final String? releasePageUrl;
+  final String? torrentUrl;
+  final int? bgmId;
+  final String? animeTitle;
+  final String? animeTitleEnglish;
+  final String? releaseTitle;
+  final String? episode;
+  final String? episodeKey;
+  final String? version;
+  final String? groupName;
+  final String? groupSlug;
+  final String? resolution;
+  final List<String> languages;
+  final String? subtitle;
+  final String? format;
+  final int? fileSize;
+  final List<String> customTags;
+
+  const RssAnibtMetadata({
+    this.releasePageUrl,
+    this.torrentUrl,
+    this.bgmId,
+    this.animeTitle,
+    this.animeTitleEnglish,
+    this.releaseTitle,
+    this.episode,
+    this.episodeKey,
+    this.version,
+    this.groupName,
+    this.groupSlug,
+    this.resolution,
+    this.languages = const [],
+    this.subtitle,
+    this.format,
+    this.fileSize,
+    this.customTags = const [],
+  });
+
+  /// Display keys can describe batches or specials as well as numeric episodes.
+  String? get episodeLabel {
+    var key = episodeKey ?? episode;
+    if (key == null || key.trim().isEmpty) return null;
+    key = key.trim();
+    if (key.toUpperCase() == 'BATCH') return '合集';
+    if (RegExp(r'^\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?$').hasMatch(key)) {
+      return '第 $key 集';
+    }
+    return key;
+  }
+
+  static RssAnibtMetadata? parse(XmlElement itemElement) {
+    var fields = itemElement.childElements
+        .where((element) => element.namespaceUri == namespaceUri)
+        .toList(growable: false);
+    if (fields.isEmpty) return null;
+
+    List<String> values(String name) => fields
+        .where((element) => element.localName == name)
+        .map((element) => element.innerText.trim())
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+
+    String? value(String name) => values(name).firstOrNull;
+
+    return RssAnibtMetadata(
+      releasePageUrl: value('releasePageUrl'),
+      torrentUrl: value('torrentUrl'),
+      bgmId: int.tryParse(value('bgmId') ?? ''),
+      animeTitle: value('animeTitle'),
+      animeTitleEnglish: value('animeTitleEnglish'),
+      releaseTitle: value('releaseTitle'),
+      episode: value('episode'),
+      episodeKey: value('episodeKey'),
+      version: value('version'),
+      groupName: value('groupName'),
+      groupSlug: value('groupSlug'),
+      resolution: value('resolution'),
+      languages: values('language'),
+      subtitle: value('subtitle'),
+      format: value('format'),
+      fileSize: int.tryParse(value('fileSize') ?? ''),
+      customTags: values('customTag'),
     );
   }
 }
