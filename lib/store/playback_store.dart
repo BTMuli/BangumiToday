@@ -22,6 +22,7 @@ import '../domain/repositories/playback_library.dart';
 import '../domain/repositories/playback_settings.dart';
 import '../domain/repositories/playback_subjects.dart';
 import '../models/playback/playback_fit.dart';
+import '../models/playback/playback_completion.dart';
 import '../models/playback/playback_item.dart';
 import '../models/playback/playback_rate.dart';
 import '../providers/bangumi_providers.dart';
@@ -93,6 +94,11 @@ class PlaybackStore extends ChangeNotifier {
   bool _closed = false;
   bool _disposed = false;
   Future<void>? _shutdownFuture;
+  final _session = PlaybackSession();
+  final _completions = StreamController<PlaybackCompletion>.broadcast();
+
+  Stream<PlaybackCompletion> get completions => _completions.stream;
+  bool get isClosed => _closed;
 
   Player? get player => _player;
   VideoController? get video => _video;
@@ -170,12 +176,13 @@ class PlaybackStore extends ChangeNotifier {
     _video = VideoController(player);
     _subscriptions.addAll([
       player.stream.position.listen((value) {
-        if (!loading) position = value;
+        if (!_closed && !loading) position = value;
       }),
       player.stream.duration.listen((value) {
-        if (!loading && value > Duration.zero) duration = value;
+        if (!_closed && !loading && value > Duration.zero) duration = value;
       }),
       player.stream.videoParams.listen((value) {
+        if (_closed) return;
         var ratio = playbackAspectRatio(
           aspect: value.aspect,
           width: value.dw ?? value.w,
@@ -187,19 +194,26 @@ class PlaybackStore extends ChangeNotifier {
         _notify();
       }),
       player.stream.error.listen((value) {
+        if (_closed) return;
         error = value;
         _notify();
       }),
       player.stream.completed.listen((value) {
-        if (loading || current == null) return;
+        if (_closed || loading || current == null) return;
         completed = value;
         if (!value) return;
-        var finishedKey = current!.key;
+        var snapshot = _session.finish(position: position, duration: duration);
+        if (snapshot == null) return;
         unawaited(
           _serial(() async {
-            if (current?.key != finishedKey) return;
-            await _save();
+            if (_session.id != snapshot.sessionId) return;
+            await historyStore.write(snapshot.historyItem);
+            if (_closed) return;
+            // Broadcast asynchronously; UI/network work must never join the
+            // playback queue or delay the next episode.
+            _completions.add(snapshot);
             if (index + 1 < playlist.length) await _openIndex(index + 1);
+            await refreshHistory();
             _notify();
           }).catchError((Object _) {}),
         );
@@ -212,7 +226,10 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> refreshHistory() async {
     await _loadPreferences();
-    history = await historyStore.readAll();
+    if (_closed) return;
+    var result = await historyStore.readAll();
+    if (_closed) return;
+    history = result;
     _notify();
   }
 
@@ -245,6 +262,7 @@ class PlaybackStore extends ChangeNotifier {
     if (selectedIndex < 0) {
       throw const PlaybackUnavailable('所选视频尚未就绪');
     }
+    if (current?.key == selected && !completed) return;
     await library.ensureReady(items[selectedIndex].filePath);
     if (_closed) return;
     await _save();
@@ -303,6 +321,7 @@ class PlaybackStore extends ChangeNotifier {
       if (_closed) return;
       playlist = nextPlaylist;
       index = nextIndex;
+      _session.begin(item);
       position = previous?.resumePosition ?? Duration.zero;
       duration = Duration(milliseconds: previous?.durationMs ?? 0);
       completed = false;
@@ -310,8 +329,10 @@ class PlaybackStore extends ChangeNotifier {
       // auto-advancing between episodes (usually the same ratio) does not make
       // the playback surface size jump.
       await _player!.open(Media(item.filePath, start: position));
+      if (_closed) return;
     } catch (e) {
       index = -1;
+      _session.clear();
       rethrow;
     } finally {
       loading = false;
@@ -369,6 +390,7 @@ class PlaybackStore extends ChangeNotifier {
     loading = true;
     try {
       await _player?.stop();
+      _session.clear();
       index = -1;
       playlist = [];
       position = Duration.zero;
@@ -411,6 +433,7 @@ class PlaybackStore extends ChangeNotifier {
       loading = true;
       try {
         await _player?.stop();
+        _session.clear();
         index = -1;
         playlist = [];
       } finally {
@@ -426,14 +449,38 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _shutdown() async {
     // Refuse newly queued work before waiting for the current operation.
     _closed = true;
+    _session.close();
     _saveTimer?.cancel();
     var pending = _operation;
-    await _shutdownStep('等待播放操作', () => pending, const Duration(seconds: 2));
-    await _shutdownStep(
-      '保存播放位置',
-      () => _save(refreshHistory: false),
+    var drained = await _shutdownStep(
+      '等待播放操作',
+      () => pending,
       const Duration(seconds: 2),
     );
+    // Future.timeout does not cancel the pending operation. If it is still
+    // using mpv, detach the UI now but release native resources only after it
+    // settles. Global process exit remains bounded by the existing budgets.
+    var finalItem = current;
+    var finalRecord = finalItem == null
+        ? null
+        : PlaybackItem(
+            filePath: finalItem.filePath,
+            title: finalItem.title,
+            subject: finalItem.subject,
+            positionMs: completed
+                ? duration.inMilliseconds
+                : position.inMilliseconds,
+            durationMs: duration.inMilliseconds,
+            completed: completed,
+            updatedAt: DateTime.now().millisecondsSinceEpoch,
+          );
+    if (drained && finalRecord != null) {
+      await _shutdownStep(
+        '保存播放位置',
+        () => historyStore.write(finalRecord),
+        const Duration(seconds: 2),
+      );
+    }
     var detach = beforeVideoDispose;
     beforeVideoDispose = null;
     if (detach != null) {
@@ -462,27 +509,50 @@ class PlaybackStore extends ChangeNotifier {
     await _shutdownStep('取消播放监听', () async {
       await Future.wait(subscriptions.map((s) => s.cancel()));
     }, const Duration(seconds: 1));
-    if (player != null) {
+    unawaited(_completions.close());
+    if (player != null && drained) {
       await _shutdownStep(
         '释放原生播放器',
         player.dispose,
         const Duration(seconds: 2),
       );
+    } else if (player != null) {
+      unawaited(() async {
+        try {
+          await pending;
+        } catch (_) {
+          // The queue already records operation errors.
+        }
+        if (finalRecord != null) {
+          await _shutdownStep(
+            '迟到播放位置保存',
+            () => historyStore.write(finalRecord),
+            const Duration(seconds: 2),
+          );
+        }
+        await _shutdownStep(
+          '迟到原生播放器释放',
+          player.dispose,
+          const Duration(seconds: 2),
+        );
+      }());
     }
   }
 
-  Future<void> _shutdownStep(
+  Future<bool> _shutdownStep(
     String name,
     Future<void> Function() action,
     Duration timeout,
   ) async {
     try {
       await action().timeout(timeout);
+      return true;
     } on TimeoutException {
       BTLogTool.warn('播放器清理超时：$name');
     } catch (error) {
       BTLogTool.warn('播放器清理失败：$name，$error');
     }
+    return false;
   }
 
   @override
