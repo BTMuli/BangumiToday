@@ -28,7 +28,11 @@ final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
 });
 
 class BTNavStore extends ChangeNotifier {
-  final int topNavCount = Platform.isWindows ? 4 : 3;
+  final int topNavCount = Platform.isWindows ? 5 : 4;
+
+  int get playbackIndex => Platform.isWindows ? 4 : 3;
+
+  void goToPlayback() => goIndex(playbackIndex);
 
   /// 动态条目上限：超出后按最近使用顺序淘汰最旧的条目。
   static const int maxDynamicItems = 50;

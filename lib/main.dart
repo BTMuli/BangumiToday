@@ -33,6 +33,7 @@ import 'request/bangumi/bangumi_api.dart';
 import 'request/core/client.dart';
 import 'store/bt_download_store.dart';
 import 'store/nav_store.dart';
+import 'store/playback_store.dart';
 import 'store/tracker_hive.dart';
 import 'tools/download_tool.dart';
 import 'tools/hive_tool.dart';
@@ -119,6 +120,10 @@ Future<void> _exitApplication() async {
   // 先藏窗、再拆托盘，避免协议还原 / 引擎 shutdown 期间主窗体假死。
   await _runExitStep('隐藏主窗口', windowManager.hide);
   await _runExitStep('系统托盘', BTDesktopTrayService.instance.dispose);
+  await _runExitStep(
+    '播放器',
+    globalContainer.read(playbackStoreProvider).shutdown,
+  );
   await _runExitStep('系统代理监听', SystemProxyWatchService.instance.stop);
   await _runExitStep('Windows 协议还原', restoreWindowsAppProtocol);
   await _runExitStep('BMF RSS 服务', () async {

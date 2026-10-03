@@ -16,6 +16,7 @@ import '../../core/services/bangumi_oauth_coordinator.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../pages/app-setting/app_setting_page.dart';
 import '../../pages/app/download_page.dart';
+import '../../pages/playback/playback_page.dart';
 import '../../pages/bangumi-calendar/bangumi_calendar_page.dart';
 import '../../pages/rss-bmf/rss_bmf_page.dart';
 import '../../pages/user-collection/user_collection_page.dart';
@@ -265,6 +266,11 @@ class _AppNavWidgetState extends ConsumerState<AppNavWidget>
           title: const Text('下载管理'),
           body: const DownloadPage(),
         ),
+      PaneItem(
+        icon: const Icon(FluentIcons.play),
+        title: const Text('播放'),
+        body: const PlaybackPage(),
+      ),
     ];
   }
 
