@@ -17,7 +17,7 @@ Future<void> openLocalPlayback(
   try {
     var store = ref.read(playbackStoreProvider);
     await store.openLocalFile(filePath, subject: subject);
-    ref.read(navStoreProvider).goToPlayback();
+    ref.read(navStoreProvider.notifier).goToPlayback();
   } catch (error) {
     if (context.mounted) await BtInfobar.error(context, error.toString());
   }

@@ -25,7 +25,7 @@ extension _SubjectDetailHeader on _SubjectDetailPageState {
                 return;
               }
               ref
-                  .read(navStoreProvider)
+                  .read(navStoreProvider.notifier)
                   .removeNavItem(
                     '${data!.type.label}详情 ${widget.id}',
                     type: BtmAppNavItemType.subject,

@@ -102,10 +102,11 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
   }
 
   void _listenToProvider() {
-    _removeProviderListener = widget.provider.addListener(_onProviderChanged);
+    _removeProviderListener = widget.provider.listen(_onProviderChanged);
   }
 
-  void _onProviderChanged(bool value) async {
+  void _onProviderChanged() async {
+    var value = widget.provider.collected;
     if (user == null) return;
     if (widget.subject.type != BangumiSubjectType.anime) return;
     if (!value) {

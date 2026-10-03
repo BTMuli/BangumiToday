@@ -7,7 +7,7 @@ mixin _SubjectSearchFilters on _SubjectSearchPageStateBase {
       leading: IconButton(
         icon: const Icon(FluentIcons.back),
         onPressed: () {
-          ref.read(navStoreProvider).removeNavItem(pageTitle);
+          ref.read(navStoreProvider.notifier).removeNavItem(pageTitle);
         },
       ),
       title: Text(

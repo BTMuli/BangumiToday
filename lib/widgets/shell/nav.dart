@@ -24,7 +24,6 @@ import '../../pages/user_collection/user_collection_page.dart';
 import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
-import '../../store/bgm_user_hive.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import 'nav_page_stack.dart';
@@ -48,13 +47,13 @@ class _NavWidgetState extends ConsumerState<NavWidget>
   ThemeMode get _curThemeMode => ref.watch(appStoreProvider).themeMode;
 
   /// 侧边动态组件
-  List<PaneItem> get _navItems => ref.watch(navStoreProvider).navItems;
+  List<PaneItem> get _navItems => ref.watch(navStoreProvider).paneItems;
 
   /// moreFlyoutController
   final FlyoutController flyoutMore = FlyoutController();
 
-  /// bangumi用户Hive
-  final BgmUserHive hive = BgmUserHive();
+  /// 当前登录用户
+  BgmUserState get _user => ref.watch(bgmUserStoreProvider);
 
   /// 认证相关客户端
   final BtrBangumiOauth apiOauth = BtrBangumiOauth();
@@ -87,7 +86,9 @@ class _NavWidgetState extends ConsumerState<NavWidget>
       if (subjectId != null) {
         var id = int.tryParse(subjectId);
         if (id != null) {
-          ref.read(navStoreProvider).addNavItemB(type: '条目', subject: id);
+          ref
+              .read(navStoreProvider.notifier)
+              .addNavItemB(type: '条目', subject: id);
         }
       }
     }
@@ -114,7 +115,7 @@ class _NavWidgetState extends ConsumerState<NavWidget>
 
   /// 退出登录
   Future<void> logoutUser() async {
-    await hive.deleteUser();
+    await ref.read(bgmUserStoreProvider.notifier).deleteUser();
     if (mounted) {
       await BtInfobar.success(context, '已成功退出登录');
       setState(() {});
@@ -128,7 +129,7 @@ class _NavWidgetState extends ConsumerState<NavWidget>
     } else {
       progress = ProgressWidget.show(context, title: '获取用户信息');
     }
-    if (hive.tokenAC == null) {
+    if (ref.read(bgmUserStoreProvider).accessToken == null) {
       progress.end();
       if (mounted) await BtInfobar.error(context, '未找到访问令牌');
       return;
@@ -139,17 +140,17 @@ class _NavWidgetState extends ConsumerState<NavWidget>
       if (mounted) await showRespErr(userResp, context);
       return;
     }
-    await hive.updateUser(userResp.data!);
+    await ref.read(bgmUserStoreProvider.notifier).updateUser(userResp.data!);
     if (!mounted) {
       progress.end();
       return;
     }
-    progress.update(title: '获取用户信息成功', text: '用户信息：${hive.user!.nickname}');
+    progress.update(title: '获取用户信息成功', text: '用户信息：${_user.user!.nickname}');
     progress.end();
     if (mounted) {
       await BtInfobar.success(
         context,
-        '成功获取[${hive.user!.id}]${hive.user!.nickname}信息',
+        '成功获取[${_user.user!.id}]${_user.user!.nickname}信息',
       );
     }
     if (mounted) setState(() {});
@@ -178,11 +179,13 @@ class _NavWidgetState extends ConsumerState<NavWidget>
     }
     progress.update(text: '保存授权信息');
     var at = res.data as BangumiOauthTokenGetData;
-    await hive.updateTokenSet(
-      accessToken: at.accessToken,
-      refreshToken: at.refreshToken,
-      expiresIn: at.expiresIn,
-    );
+    await ref
+        .read(bgmUserStoreProvider.notifier)
+        .updateTokenSet(
+          accessToken: at.accessToken,
+          refreshToken: at.refreshToken,
+          expiresIn: at.expiresIn,
+        );
     await freshUserInfo();
   }
 
@@ -225,7 +228,7 @@ class _NavWidgetState extends ConsumerState<NavWidget>
       icon: Icon(config.icon),
       title: Text(config.label),
       onTap: () async {
-        await ref.read(appStoreProvider).setThemeMode(config.next);
+        await ref.read(appStoreProvider.notifier).setThemeMode(config.next);
       },
     );
   }
@@ -243,7 +246,7 @@ class _NavWidgetState extends ConsumerState<NavWidget>
         title: const Text('RSS & BMF'),
         body: const RssBmfPage(),
       ),
-      hive.user == null
+      _user.user == null
           ? PaneItemAction(
               icon: const Icon(FluentIcons.account_management),
               title: const Text('未登录'),
@@ -251,13 +254,13 @@ class _NavWidgetState extends ConsumerState<NavWidget>
             )
           : PaneItem(
               icon: CachedNetworkImage(
-                imageUrl: BtrBangumiApi.rewriteUrl(hive.user!.avatar.small),
+                imageUrl: BtrBangumiApi.rewriteUrl(_user.user!.avatar.small),
                 width: 18,
                 height: 18,
                 placeholder: (_, _) => const ProgressRing(),
                 errorWidget: (_, _, _) => const Icon(FluentIcons.error),
               ),
-              title: Text(hive.user!.nickname),
+              title: Text(_user.user!.nickname),
               body: const UserCollectionPage(),
             ),
       if (Platform.isWindows)
@@ -290,7 +293,8 @@ class _NavWidgetState extends ConsumerState<NavWidget>
       },
       pane: NavigationPane(
         selected: curIndex,
-        onChanged: (index) => ref.read(navStoreProvider).setCurIndex(index),
+        onChanged: (index) =>
+            ref.read(navStoreProvider.notifier).setCurIndex(index),
         displayMode: PaneDisplayMode.compact,
         items: [...constItems, ..._navItems],
         footerItems: [
@@ -314,11 +318,11 @@ class _NavWidgetState extends ConsumerState<NavWidget>
   }
 
   List<NavPageEntry> _stackPages(
-    BTNavStore store,
+    BTNavState store,
     List<PaneItem> constItems,
     String selectedKey,
   ) {
-    var alive = store.alivePageKeys;
+    var alive = store.aliveKeys;
     var entries = <NavPageEntry>[];
     for (var i = 0; i < constItems.length; i++) {
       var item = constItems[i];
@@ -336,7 +340,7 @@ class _NavWidgetState extends ConsumerState<NavWidget>
         entries.add(NavPageEntry(pageKey: key, body: body));
       }
     }
-    const settingsKey = BTNavStore.settingsPageKey;
+    const settingsKey = BTNavNotifier.settingsPageKey;
     if (alive.contains(settingsKey) || selectedKey == settingsKey) {
       entries.add(
         const NavPageEntry(pageKey: settingsKey, body: SettingPage()),

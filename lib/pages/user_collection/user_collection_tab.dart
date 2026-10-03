@@ -12,7 +12,6 @@ import '../../core/layout/responsive.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
-import '../../store/bgm_user_hive.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/common/empty_state.dart';
@@ -46,7 +45,6 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
   final int limit = 12;
 
   /// 用户Hive
-  final BgmUserHive hive = BgmUserHive();
 
   /// page controller
   BtcPageController pageController = BtcPageController.defaultInit();
@@ -102,7 +100,7 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
 
   /// 跳转
   void jump(BangumiUserSubjectCollection subject) => ref
-      .read(navStoreProvider)
+      .read(navStoreProvider.notifier)
       .addNavItemB(
         type: subject.subjectType.label,
         subject: subject.subjectId,
@@ -119,7 +117,7 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
       text: '正在刷新 ${type.label} 收藏信息',
       onTaskbar: true,
     );
-    if (hive.user == null) {
+    if (ref.read(bgmUserStoreProvider).user == null) {
       progress.end();
       if (mounted) await BtInfobar.error(context, '用户信息为空');
       return;
@@ -128,7 +126,7 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
     var offsetC = 0;
     var repository = ref.read(bangumiRepositoryProvider);
     var resp = await repository.getCollectionSubjects(
-      username: hive.user!.id.toString(),
+      username: ref.read(bgmUserStoreProvider).user!.id.toString(),
       limit: limitC,
       offset: offsetC,
       collectionType: type,
@@ -162,7 +160,7 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
         progress: (cnt / total) * 100,
       );
       resp = await repository.getCollectionSubjects(
-        username: hive.user!.id.toString(),
+        username: ref.read(bgmUserStoreProvider).user!.id.toString(),
         limit: limitC,
         offset: offsetC,
         collectionType: type,
@@ -272,8 +270,9 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
     if (showData.isEmpty) {
       return BTEmptyState.noCollection(
         actionText: '浏览今日放送',
-        onAction: () =>
-            ref.read(navStoreProvider).addNavItemB(type: '动画', subject: 0),
+        onAction: () => ref
+            .read(navStoreProvider.notifier)
+            .addNavItemB(type: '动画', subject: 0),
       );
     }
     return LayoutBuilder(

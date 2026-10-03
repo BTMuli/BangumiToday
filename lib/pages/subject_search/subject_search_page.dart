@@ -112,7 +112,7 @@ abstract class _SubjectSearchPageStateBase
 
     var title = SubjectSearchPage.titleForTag(normalizedTag);
     ref
-        .read(navStoreProvider)
+        .read(navStoreProvider.notifier)
         .addNavItem(
           PaneItem(
             icon: const Icon(FluentIcons.search),

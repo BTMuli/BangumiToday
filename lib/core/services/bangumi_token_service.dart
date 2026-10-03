@@ -66,20 +66,11 @@ class BangumiTokenService {
 
   BangumiTokenService._default()
     : this._(
-        readAccessToken: () => BgmUserHive().tokenAC,
-        readRefreshToken: () => BgmUserHive().tokenRF,
-        readExpireTime: () => BgmUserHive().expireTime,
+        readAccessToken: () => BgmUserHive.tokenAC,
+        readRefreshToken: () => BgmUserHive.tokenRF,
+        readExpireTime: () => BgmUserHive.expireTime,
         refreshToken: BtrBangumiOauth().refreshToken,
-        writeTokenSet:
-            ({
-              required accessToken,
-              required refreshToken,
-              required expiresIn,
-            }) => BgmUserHive().updateTokenSet(
-              accessToken: accessToken,
-              refreshToken: refreshToken,
-              expiresIn: expiresIn,
-            ),
+        writeTokenSet: BgmUserHive.updateTokenSet,
         now: DateTime.now,
       );
 

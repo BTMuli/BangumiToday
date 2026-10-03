@@ -56,7 +56,7 @@ class _RssMikanCardFluentState extends ConsumerState<RssMikanCardFluent> {
       if (savePath.isNotEmpty) {
         try {
           await ref
-              .read(btDownloadStoreProvider)
+              .read(btDownloadStoreProvider.notifier)
               .addTorrentFile(
                 torrentPath: savePath,
                 savePath: saveDir,

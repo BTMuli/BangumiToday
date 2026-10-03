@@ -116,7 +116,7 @@ class _SubjectDetailActionBarBodyState
   }
 
   void _listen() {
-    _removeCollectListener = collect.addListener((_) {
+    _removeCollectListener = collect.listen(() {
       if (mounted) setState(() {});
     });
   }

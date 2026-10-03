@@ -2,6 +2,7 @@
 import 'package:hive/hive.dart';
 
 // Project imports:
+import '../core/container.dart';
 import '../core/services/file_service.dart';
 import '../models/hive/bgm_user_model.dart';
 import '../models/hive/nav_model.dart';
@@ -45,8 +46,8 @@ class BTHiveTool {
       Hive.openBox<BgmUserHiveModel>('bgmUser'),
       Hive.openBox<TrackerHiveModel>('tracker'),
     ]);
-    await BgmUserHive().initUser();
-    await TrackerHive().init();
+    await BgmUserHive.initUser();
+    await globalContainer.read(trackerStoreProvider.notifier).init();
   }
 
   /// 初始化 navHiveBox
@@ -63,7 +64,7 @@ class BTHiveTool {
       Hive.registerAdapter(BgmUserHiveAdapter());
     }
     await Hive.openBox<BgmUserHiveModel>('bgmUser');
-    await BgmUserHive().initUser();
+    await BgmUserHive.initUser();
   }
 
   /// 初始化 trackerHiveBox
@@ -72,6 +73,6 @@ class BTHiveTool {
       Hive.registerAdapter(TrackerHiveAdapter());
     }
     await Hive.openBox<TrackerHiveModel>('tracker');
-    await TrackerHive().init();
+    await globalContainer.read(trackerStoreProvider.notifier).init();
   }
 }

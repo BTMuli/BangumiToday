@@ -89,7 +89,7 @@ class _SubjectDetailRelationState extends ConsumerState<SubjectDetailRelation>
                     color: FluentTheme.of(context).accentColor,
                   ),
                   onPressed: () => ref
-                      .read(navStoreProvider)
+                      .read(navStoreProvider.notifier)
                       .addNavItemB(
                         type: data.type.label,
                         subject: data.id,

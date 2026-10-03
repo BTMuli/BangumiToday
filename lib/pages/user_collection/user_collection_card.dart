@@ -239,7 +239,7 @@ class _UserCollectionCardState extends ConsumerState<UserCollectionCard>
           icon: FluentIcons.info,
           tooltip: '查看详情',
           onPressed: () => ref
-              .read(navStoreProvider)
+              .read(navStoreProvider.notifier)
               .addNavItemB(
                 type: data.type.label,
                 subject: data.id,
@@ -248,7 +248,7 @@ class _UserCollectionCardState extends ConsumerState<UserCollectionCard>
           onLongPress: () async {
             var name = data.nameCn == '' ? data.name : data.nameCn;
             ref
-                .read(navStoreProvider)
+                .read(navStoreProvider.notifier)
                 .addNavItemB(
                   type: data.type.label,
                   subject: data.id,

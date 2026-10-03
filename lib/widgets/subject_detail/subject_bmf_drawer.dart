@@ -61,7 +61,7 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
     super.initState();
     Future.microtask(() async => await init());
     if (widget.rssProvider != null) {
-      _removeRssListener = widget.rssProvider!.addListener(_onRssChanged);
+      _removeRssListener = widget.rssProvider!.listen(_onRssChanged);
     }
   }
 
@@ -70,7 +70,7 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.rssProvider, widget.rssProvider)) {
       _removeRssListener?.call();
-      _removeRssListener = widget.rssProvider?.addListener(_onRssChanged);
+      _removeRssListener = widget.rssProvider?.listen(_onRssChanged);
     }
   }
 
@@ -80,7 +80,8 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
     super.dispose();
   }
 
-  void _onRssChanged(String? val) async {
+  void _onRssChanged() async {
+    var val = widget.rssProvider?.state;
     if (!_initialized) return;
     try {
       await updateRss(val);

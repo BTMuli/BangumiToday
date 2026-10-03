@@ -44,7 +44,8 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
   ThemeMode get curThemeMode => ref.watch(appStoreProvider).themeMode;
 
   /// 当前主题色
-  AccentColor get curAccentColor => ref.watch(appStoreProvider).accentColor;
+  AccentColor get curAccentColor =>
+      ref.watch(appStoreProvider).effectiveAccentColor;
 
   /// 关闭主窗口后是否隐藏到托盘
   bool get minimizeToTray => ref.watch(appStoreProvider).minimizeToTray;
@@ -231,7 +232,7 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
       trailing: ToggleSwitch(
         checked: minimizeToTray,
         onChanged: (value) async {
-          await ref.read(appStoreProvider).setMinimizeToTray(value);
+          await ref.read(appStoreProvider.notifier).setMinimizeToTray(value);
         },
       ),
     );

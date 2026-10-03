@@ -52,7 +52,7 @@ class _AppConfigDownloadWidgetState
   Future<void> _load() async {
     try {
       var config = await BtsAppConfig().readBtDownloadConfig();
-      var trackerConfig = TrackerHive().config;
+      var trackerConfig = ref.read(trackerStoreProvider).config;
       if (!mounted) return;
       setState(() {
         _config = config;
@@ -90,10 +90,10 @@ class _AppConfigDownloadWidgetState
       await BtsAppConfig().writeBtDownloadConfig(_config);
       try {
         await ref
-            .read(btDownloadStoreProvider)
+            .read(btDownloadStoreProvider.notifier)
             .configure(
               _config.toEngineJson(
-                additionalTrackers: TrackerHive().effectiveTrackers,
+                additionalTrackers: ref.read(trackerStoreProvider).trackerList,
               ),
             );
       } catch (_) {
@@ -125,8 +125,8 @@ class _AppConfigDownloadWidgetState
       sources: sources,
       manualTrackers: manualTrackers,
     );
-    await TrackerHive().updateConfig(next);
-    _trackerConfig = TrackerHive().config;
+    await ref.read(trackerStoreProvider.notifier).updateConfig(next);
+    _trackerConfig = ref.read(trackerStoreProvider).config;
   }
 
   Future<void> _toggleEngine(bool enabled) async {
@@ -144,7 +144,7 @@ class _AppConfigDownloadWidgetState
     );
     if (!confirmed) return;
     try {
-      await ref.read(btDownloadStoreProvider).disableEngine();
+      await ref.read(btDownloadStoreProvider.notifier).disableEngine();
       await _reloadConfig();
       if (!mounted) return;
       await BtInfobar.success(context, '下载引擎已关闭');
@@ -163,9 +163,9 @@ class _AppConfigDownloadWidgetState
     setState(() => _refreshingTrackers = true);
     try {
       await _saveTrackerDraft();
-      await TrackerHive().refresh(force: true);
+      await ref.read(trackerStoreProvider.notifier).refresh(force: true);
       if (!mounted) return;
-      setState(() => _trackerConfig = TrackerHive().config);
+      setState(() => _trackerConfig = ref.read(trackerStoreProvider).config);
       var error = _trackerConfig.lastUpdateError;
       if (error == null) {
         await BtInfobar.success(context, 'Tracker 列表已更新');
@@ -661,7 +661,7 @@ class _AppConfigDownloadWidgetState
     var prefix = success == null
         ? '尚未成功更新'
         : '上次成功：${success.toLocal().toString().substring(0, 19)}';
-    var count = TrackerHive().effectiveTrackers.length;
+    var count = ref.read(trackerStoreProvider).trackerList.length;
     var error = _trackerConfig.lastUpdateError;
     return '$prefix · 当前 $count 条${error == null ? '' : ' · $error'}';
   }

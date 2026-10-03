@@ -160,7 +160,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     var subjectId = int.tryParse(widget.id);
     if (subjectId == null) return;
     var repository = ref.read(bangumiRepositoryProvider);
-    var user = ref.read(bgmUserHiveProvider).user;
+    var user = ref.read(bgmUserStoreProvider).user;
     var layoutA =
         ref.read(subjectDetailLayoutModeProvider) == SubjectDetailLayoutMode.a;
     var hasBmf = _subjectHasBmf(subjectId);
@@ -245,7 +245,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
 
     var title = SubjectSearchPage.titleForTag(normalizedTag);
     ref
-        .read(navStoreProvider)
+        .read(navStoreProvider.notifier)
         .addNavItem(
           PaneItem(
             icon: const Icon(FluentIcons.search),

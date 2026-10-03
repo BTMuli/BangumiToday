@@ -35,7 +35,7 @@ class _SubjectDetailRateChartState
   bool get empty => rating == null || rating!.total == 0;
 
   /// 颜色
-  AccentColor get color => ref.read(appStoreProvider).accentColor;
+  AccentColor get color => ref.read(appStoreProvider).effectiveAccentColor;
 
   /// 初始化
   @override

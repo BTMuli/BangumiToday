@@ -6,17 +6,17 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 // Package imports:
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 
 // Project imports:
+import '../core/container.dart';
 import '../core/network/system_proxy.dart';
 import '../core/services/bt_engine_client.dart';
 import '../core/services/file_service.dart';
 import '../core/services/notification_service.dart';
 import '../core/services/windows_firewall_rule.dart';
 import '../database/app/app_config.dart';
-import '../main.dart';
 import '../models/app/bt_download_config.dart';
 import '../models/database/app_bmf_model.dart';
 import '../providers/bmf_providers.dart';
@@ -34,13 +34,118 @@ typedef BtDownloadProxySettingWriter = Future<void> Function(bool value);
 typedef BtDownloadProxyConfigBuilder =
     Future<Map<String, dynamic>> Function({required bool enabled});
 
-final btDownloadStoreProvider = ChangeNotifierProvider<BtDownloadStore>((ref) {
-  return BtDownloadStore();
-});
+final btDownloadStoreProvider =
+    NotifierProvider<BtDownloadStore, BtDownloadState>(BtDownloadStore.new);
 
 enum BtBatchAction { pause, resume, stop }
 
-class BtDownloadStore extends ChangeNotifier {
+/// 下载页可见的任务快照。
+///
+/// 只保存可比较的数据：任务列表、引擎状态、错误与忙碌标记。引擎客户端、
+/// 订阅、定时刷新等留在 [BtDownloadStore] 私有字段，不进入状态。
+class BtDownloadState {
+  /// 构造函数
+  const BtDownloadState({
+    this.tasks = const [],
+    this.activeTasks = const [],
+    this.stoppedTasks = const [],
+    this.taskBaseStates = const {},
+    this.busyTaskIds = const {},
+    this.engineState = BtEngineClientState.stopped,
+    this.lastError,
+    this.refreshing = false,
+    this.useSystemProxy = false,
+  });
+
+  /// 全部任务
+  final List<BtTaskSnapshot> tasks;
+
+  /// 进行中任务，按 正在下载 > 未下载 > 正在做种 > 已暂停 排序。
+  final List<BtTaskSnapshot> activeTasks;
+
+  /// 已停止任务（下载出错 / 已完成做种）。
+  final List<BtTaskSnapshot> stoppedTasks;
+
+  /// 每个任务进入“校验中”之前的稳定状态。
+  final Map<String, String> taskBaseStates;
+
+  /// 正在执行命令的任务 id。
+  final Set<String> busyTaskIds;
+
+  /// 下载引擎状态
+  final BtEngineClientState engineState;
+
+  /// 最近一次错误
+  final String? lastError;
+
+  /// 是否正在刷新任务列表
+  final bool refreshing;
+
+  /// 下载引擎是否使用 Windows 系统代理。
+  final bool useSystemProxy;
+
+  /// 任务是否已停止：下载出错或已完成做种，不再参与下载与上传。
+  ///
+  /// 校验中（`checking`）沿用进入校验前的分类，避免“重新校验”让任务在
+  /// 进行中/已停止两个标签页之间跳转。
+  bool isStoppedTask(BtTaskSnapshot task) {
+    var base = taskBaseStates[task.id] ?? task.state;
+    return base == 'completed' || base == 'error' || base == 'stopped';
+  }
+
+  /// 任务是否正在执行命令。
+  bool isTaskBusy(String id) => busyTaskIds.contains(id);
+
+  /// 是否可批量操作
+  bool canBatchAct(BtTaskSnapshot task, BtBatchAction action) {
+    if (busyTaskIds.contains(task.id)) return false;
+    return switch (action) {
+      BtBatchAction.pause => BtDownloadStore.shouldPauseBeforeRemove(
+        task.state,
+      ),
+      BtBatchAction.resume => {'paused', 'stopped'}.contains(task.state),
+      BtBatchAction.stop =>
+        BtDownloadStore.shouldPauseBeforeRemove(task.state) ||
+            task.state == 'paused',
+    };
+  }
+
+  /// 总下载速率
+  int get totalDownloadRate =>
+      tasks.fold(0, (total, task) => total + task.downloadRate);
+
+  /// 总上传速率
+  int get totalUploadRate =>
+      tasks.fold(0, (total, task) => total + task.uploadRate);
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! BtDownloadState) return false;
+    return engineState == other.engineState &&
+        lastError == other.lastError &&
+        refreshing == other.refreshing &&
+        useSystemProxy == other.useSystemProxy &&
+        BtDownloadStore.sameTaskSnapshots(activeTasks, other.activeTasks) &&
+        BtDownloadStore.sameTaskSnapshots(stoppedTasks, other.stoppedTasks) &&
+        BtDownloadStore.sameTaskSnapshots(tasks, other.tasks) &&
+        mapEquals(taskBaseStates, other.taskBaseStates) &&
+        setEquals(busyTaskIds, other.busyTaskIds);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    engineState,
+    lastError,
+    refreshing,
+    useSystemProxy,
+    activeTasks.length,
+    stoppedTasks.length,
+    tasks.length,
+  );
+}
+
+class BtDownloadStore extends Notifier<BtDownloadState> {
   BtDownloadStore({
     BtEngineGateway? client,
     BtTaskCompletionNotifier? completionNotifier,
@@ -53,6 +158,8 @@ class BtDownloadStore extends ChangeNotifier {
     BtDownloadProxySettingWriter? writeProxySetting,
     BtDownloadProxyConfigBuilder? buildProxyConfig,
   }) : _client = client ?? BtEngineClient.instance,
+       _injected = client != null,
+       _useProxy = useSystemProxy,
        _completionNotifier = completionNotifier ?? _showCompletionNotification,
        _startConfigProvider =
            startConfigProvider ??
@@ -74,37 +181,10 @@ class BtDownloadStore extends ChangeNotifier {
                : (_) async {}),
        _buildProxyConfig =
            buildProxyConfig ??
-           (client == null ? WindowsSystemProxy.engineConfig : _directProxy),
-       _useSystemProxy = useSystemProxy,
-       _engineState = (client ?? BtEngineClient.instance).state,
-       _tasks = List.of((client ?? BtEngineClient.instance).tasks) {
-    if (client == null) _proxyInit = _initProxySetting();
-    _taskStates.addEntries(_tasks.map((task) => MapEntry(task.id, task.state)));
-    _availableTaskIds.addAll(
-      _tasks.where(_isFileAvailable).map((task) => task.id),
-    );
-    _updateTaskBaseStates(_tasks);
-    _rebuildTaskLists();
-    _taskSubscription = _client.taskSnapshots.listen((tasks) {
-      var unchanged = _sameTaskSnapshots(_tasks, tasks);
-      _updateTaskBaseStates(tasks);
-      _notifyNewCompletions(tasks);
-      if (unchanged) return;
-      _tasks = List.of(tasks);
-      _rebuildTaskLists();
-      notifyListeners();
-    });
-    _stateSubscription = _client.states.listen((state) {
-      var ready = state == BtEngineClientState.ready;
-      var errorCleared = ready && _lastError != null;
-      if (_engineState == state && !errorCleared) return;
-      _engineState = state;
-      if (ready) _lastError = null;
-      notifyListeners();
-    });
-  }
+           (client == null ? WindowsSystemProxy.engineConfig : _directProxy);
 
   final BtEngineGateway _client;
+  final bool _injected;
   final BtTaskCompletionNotifier _completionNotifier;
   final BtEngineStartConfigProvider _startConfigProvider;
   final BtEngineConfigReader _readConfig;
@@ -119,25 +199,90 @@ class BtDownloadStore extends ChangeNotifier {
   final Map<String, String> _taskStates = {};
   final Map<String, String> _taskBaseStates = {};
   final Set<String> _availableTaskIds = {};
-  List<BtTaskSnapshot> _tasks;
-  List<BtTaskSnapshot> _activeTasks = const [];
-  List<BtTaskSnapshot> _stoppedTasks = const [];
-  BtEngineClientState _engineState;
-  String? _lastError;
-  var _refreshing = false;
-  bool _useSystemProxy;
+  late bool _useProxy;
+  late BtEngineClientState _engineState;
+  String? _lastStoreError;
+  bool _refreshing = false;
   Future<void>? _proxyInit;
 
-  List<BtTaskSnapshot> get tasks => List.unmodifiable(_tasks);
+  @override
+  BtDownloadState build() {
+    var initialTasks = List<BtTaskSnapshot>.of(_client.tasks);
+    _engineState = _client.state;
+    // 关闭引擎或 provider 销毁时取消订阅，避免流继续向已释放的对象推送。
+    ref.onDispose(() {
+      unawaited(_taskSubscription.cancel());
+      unawaited(_stateSubscription.cancel());
+    });
+    _taskStates.addEntries(
+      initialTasks.map((task) => MapEntry(task.id, task.state)),
+    );
+    _availableTaskIds.addAll(
+      initialTasks.where(_isFileAvailable).map((task) => task.id),
+    );
+    _updateTaskBaseStates(initialTasks);
+    _taskSubscription = _client.taskSnapshots.listen(_onTaskSnapshots);
+    _stateSubscription = _client.states.listen(_onEngineState);
+    if (!_injected) _proxyInit = _initProxySetting();
+    return _buildState(initialTasks);
+  }
 
-  /// 进行中任务，按 正在下载 > 未下载 > 正在做种 > 已暂停 排序。
+  /// 组装对外可见的状态快照。
   ///
-  /// 仅在该分组快照变化时替换列表实例，方便 Riverpod `select` 用
-  /// 引用相等跳过无关重建。
-  List<BtTaskSnapshot> get activeTasks => _activeTasks;
+  /// 列表在内容一致时复用上一个实例，让 Riverpod 的 `select` 可以按引用
+  /// 相等跳过无关重建（引擎快照按字节高频刷新）。
+  BtDownloadState _buildState([List<BtTaskSnapshot>? tasks]) {
+    var previous = state;
+    var all = List<BtTaskSnapshot>.of(tasks ?? previous.tasks);
+    var next = BtDownloadState(
+      tasks: _reuseSnapshots(previous.tasks, all),
+      activeTasks: _reuseSnapshots(
+        previous.activeTasks,
+        _sortTasks(all.where((task) => !isStoppedTask(task))),
+      ),
+      stoppedTasks: _reuseSnapshots(
+        previous.stoppedTasks,
+        _sortTasks(all.where(isStoppedTask)),
+      ),
+      taskBaseStates: Map.unmodifiable(_taskBaseStates),
+      busyTaskIds: Set.unmodifiable(_busyTaskIds),
+      engineState: _engineState,
+      lastError: _lastStoreError,
+      refreshing: _refreshing,
+      useSystemProxy: _useProxy,
+    );
+    // 内容完全一致时保留原实例，避免向监听者推送无意义的新状态。
+    return next == previous ? previous : next;
+  }
 
-  /// 已停止任务（下载出错 / 已完成做种）。
-  List<BtTaskSnapshot> get stoppedTasks => _stoppedTasks;
+  static List<BtTaskSnapshot> _reuseSnapshots(
+    List<BtTaskSnapshot> previous,
+    List<BtTaskSnapshot> next,
+  ) {
+    if (_sameTaskSnapshots(previous, next)) return previous;
+    return List.unmodifiable(next);
+  }
+
+  void _publish([List<BtTaskSnapshot>? tasks]) {
+    state = _buildState(tasks);
+  }
+
+  void _onTaskSnapshots(List<BtTaskSnapshot> tasks) {
+    var unchanged = _sameTaskSnapshots(state.tasks, tasks);
+    _updateTaskBaseStates(tasks);
+    _notifyNewCompletions(tasks);
+    if (unchanged) return;
+    _publish(List.of(tasks));
+  }
+
+  void _onEngineState(BtEngineClientState next) {
+    var ready = next == BtEngineClientState.ready;
+    var errorCleared = ready && _lastStoreError != null;
+    if (_engineState == next && !errorCleared) return;
+    _engineState = next;
+    if (ready) _lastStoreError = null;
+    _publish();
+  }
 
   /// 任务是否已停止：下载出错或已完成做种，不再参与下载与上传。
   ///
@@ -148,28 +293,33 @@ class BtDownloadStore extends ChangeNotifier {
     return base == 'completed' || base == 'error' || base == 'stopped';
   }
 
-  BtEngineClientState get engineState => _engineState;
-  String? get lastError => _lastError;
-  bool get refreshing => _refreshing;
+  /// 当前任务快照
+  List<BtTaskSnapshot> get tasks => state.tasks;
 
-  /// 下载引擎是否使用 Windows 系统代理。与应用网络代理相互独立，默认关闭。
-  bool get useSystemProxy => _useSystemProxy;
-  int get totalDownloadRate =>
-      _tasks.fold(0, (total, task) => total + task.downloadRate);
-  int get totalUploadRate =>
-      _tasks.fold(0, (total, task) => total + task.uploadRate);
-  bool isTaskBusy(String id) => _busyTaskIds.contains(id);
+  /// 进行中任务
+  List<BtTaskSnapshot> get activeTasks => state.activeTasks;
 
-  void _rebuildTaskLists() {
-    var nextActive = _sortTasks(_tasks.where((task) => !isStoppedTask(task)));
-    var nextStopped = _sortTasks(_tasks.where(isStoppedTask));
-    if (!_sameTaskSnapshots(_activeTasks, nextActive)) {
-      _activeTasks = nextActive;
-    }
-    if (!_sameTaskSnapshots(_stoppedTasks, nextStopped)) {
-      _stoppedTasks = nextStopped;
-    }
-  }
+  /// 已停止任务
+  List<BtTaskSnapshot> get stoppedTasks => state.stoppedTasks;
+
+  /// 下载引擎状态
+  BtEngineClientState get engineState => state.engineState;
+
+  /// 最近一次错误
+  String? get lastError => state.lastError;
+
+  /// 是否正在刷新任务列表
+  bool get refreshing => state.refreshing;
+
+  /// 下载引擎是否使用 Windows 系统代理。
+  bool get useSystemProxy => state.useSystemProxy;
+
+  /// 任务是否正在执行命令
+  bool isTaskBusy(String id) => state.isTaskBusy(id);
+
+  /// 是否可对该任务执行批量操作
+  bool canBatchAct(BtTaskSnapshot task, BtBatchAction action) =>
+      state.canBatchAct(task, action);
 
   static bool sameTaskSnapshots(
     List<BtTaskSnapshot> current,
@@ -221,8 +371,8 @@ class BtDownloadStore extends ChangeNotifier {
   Future<void> refresh() async {
     if (_refreshing) return;
     _refreshing = true;
-    _lastError = null;
-    notifyListeners();
+    _lastStoreError = null;
+    _publish();
     try {
       if (_client.isReady) {
         await _client.refreshTasks();
@@ -230,11 +380,11 @@ class BtDownloadStore extends ChangeNotifier {
         await _startEngine();
       }
     } catch (error) {
-      _lastError = error.toString();
+      _lastStoreError = error.toString();
       rethrow;
     } finally {
       _refreshing = false;
-      notifyListeners();
+      _publish();
     }
   }
 
@@ -244,8 +394,8 @@ class BtDownloadStore extends ChangeNotifier {
     String? displayName,
     bool manual = false,
   }) async {
-    _lastError = null;
-    notifyListeners();
+    _lastStoreError = null;
+    _publish();
     try {
       if (!_client.isReady) await _startEngine();
       var task = await _client.addTorrentFile(
@@ -257,8 +407,8 @@ class BtDownloadStore extends ChangeNotifier {
       await _client.refreshTasks();
       return task;
     } catch (error) {
-      _lastError = error.toString();
-      notifyListeners();
+      _lastStoreError = error.toString();
+      _publish();
       rethrow;
     }
   }
@@ -269,8 +419,8 @@ class BtDownloadStore extends ChangeNotifier {
     String? displayName,
     bool manual = false,
   }) async {
-    _lastError = null;
-    notifyListeners();
+    _lastStoreError = null;
+    _publish();
     try {
       if (!_client.isReady) await _startEngine();
       var task = await _client.addMagnet(
@@ -282,8 +432,8 @@ class BtDownloadStore extends ChangeNotifier {
       await _client.refreshTasks();
       return task;
     } catch (error) {
-      _lastError = error.toString();
-      notifyListeners();
+      _lastStoreError = error.toString();
+      _publish();
       rethrow;
     }
   }
@@ -294,8 +444,8 @@ class BtDownloadStore extends ChangeNotifier {
     String? displayName,
     bool manual = false,
   }) async {
-    _lastError = null;
-    notifyListeners();
+    _lastStoreError = null;
+    _publish();
     try {
       if (!_client.isReady) await _startEngine();
       var task = await _client.addHttp(
@@ -307,8 +457,8 @@ class BtDownloadStore extends ChangeNotifier {
       await _client.refreshTasks();
       return task;
     } catch (error) {
-      _lastError = error.toString();
-      notifyListeners();
+      _lastStoreError = error.toString();
+      _publish();
       rethrow;
     }
   }
@@ -331,7 +481,7 @@ class BtDownloadStore extends ChangeNotifier {
   Future<int> resumeUnfinishedTasks() async {
     if (!_client.isReady) return 0;
     var config = await _readConfig();
-    var targets = _tasks
+    var targets = state.tasks
         .where((task) => _shouldResumeOnStartup(task, config))
         .map((task) => task.id)
         .toList(growable: false);
@@ -382,23 +532,13 @@ class BtDownloadStore extends ChangeNotifier {
     return true;
   }
 
-  bool canBatchAct(BtTaskSnapshot task, BtBatchAction action) {
-    if (isTaskBusy(task.id)) return false;
-    return switch (action) {
-      BtBatchAction.pause => _shouldPauseBeforeRemove(task.state),
-      BtBatchAction.resume => {'paused', 'stopped'}.contains(task.state),
-      BtBatchAction.stop =>
-        _shouldPauseBeforeRemove(task.state) || task.state == 'paused',
-    };
-  }
-
   /// Recheck eligibility for each task; one failure does not abort the batch.
   Future<int> batchAct(Iterable<String> ids, BtBatchAction action) async {
     var succeeded = 0;
     var failures = <String>[];
     for (var id in ids.toSet()) {
       var task = _taskById(id);
-      if (task == null || !canBatchAct(task, action)) continue;
+      if (task == null || !state.canBatchAct(task, action)) continue;
       try {
         switch (action) {
           case BtBatchAction.pause:
@@ -425,13 +565,13 @@ class BtDownloadStore extends ChangeNotifier {
   Future<void> removeAll(Iterable<String> ids) async {
     var targets = ids.toList();
     if (targets.isEmpty) return;
-    _lastError = null;
+    _lastStoreError = null;
     _busyTaskIds.addAll(targets);
-    notifyListeners();
+    _publish();
     try {
       for (var id in targets) {
         var task = _taskById(id);
-        if (task != null && _shouldPauseBeforeRemove(task.state)) {
+        if (task != null && shouldPauseBeforeRemove(task.state)) {
           try {
             await _client.pause(id);
           } catch (_) {
@@ -441,33 +581,33 @@ class BtDownloadStore extends ChangeNotifier {
         await _client.remove(id, deleteData: false);
       }
     } catch (error) {
-      _lastError = error.toString();
+      _lastStoreError = error.toString();
       rethrow;
     } finally {
       _busyTaskIds.removeAll(targets);
-      notifyListeners();
+      _publish();
     }
   }
 
   Future<void> configure(Map<String, dynamic> config) async {
-    _lastError = null;
-    notifyListeners();
+    _lastStoreError = null;
+    _publish();
     try {
       if (!_client.isReady) {
         throw const BtEngineClientException('download engine is not ready');
       }
       await _client.configure(config);
     } catch (error) {
-      _lastError = error.toString();
-      notifyListeners();
+      _lastStoreError = error.toString();
+      _publish();
       rethrow;
     }
   }
 
   void clearError() {
-    if (_lastError == null) return;
-    _lastError = null;
-    notifyListeners();
+    if (_lastStoreError == null) return;
+    _lastStoreError = null;
+    _publish();
   }
 
   /// 手动开启下载引擎：启动引擎、持久化开启状态，并自动注册防火墙规则。
@@ -475,8 +615,8 @@ class BtDownloadStore extends ChangeNotifier {
   /// 引擎已开启时重复调用不会重复启动。返回非空字符串表示引擎已运行但
   /// 防火墙规则注册失败（例如用户取消了管理员授权），调用方可作为警告展示。
   Future<String?> enableEngine() async {
-    _lastError = null;
-    notifyListeners();
+    _lastStoreError = null;
+    _publish();
     var config = await _readConfig();
     try {
       if (!_client.isReady) {
@@ -486,8 +626,8 @@ class BtDownloadStore extends ChangeNotifier {
         await _writeConfig(config.copyWith(engineEnabled: true));
       }
     } catch (error) {
-      _lastError = error.toString();
-      notifyListeners();
+      _lastStoreError = error.toString();
+      _publish();
       rethrow;
     }
 
@@ -497,14 +637,14 @@ class BtDownloadStore extends ChangeNotifier {
     } catch (error) {
       warning = '下载引擎已开启，但防火墙规则注册失败：$error';
     }
-    notifyListeners();
+    _publish();
     return warning;
   }
 
   /// 手动关闭下载引擎：停止引擎进程并持久化关闭状态。
   Future<void> disableEngine() async {
-    _lastError = null;
-    notifyListeners();
+    _lastStoreError = null;
+    _publish();
     var config = await _readConfig();
     try {
       if (config.engineEnabled) {
@@ -514,15 +654,15 @@ class BtDownloadStore extends ChangeNotifier {
         await _client.shutdown();
       }
     } catch (error) {
-      _lastError = error.toString();
-      notifyListeners();
+      _lastStoreError = error.toString();
+      _publish();
       rethrow;
     }
-    notifyListeners();
+    _publish();
   }
 
   BtTaskSnapshot? _taskById(String id) {
-    for (var task in _tasks) {
+    for (var task in state.tasks) {
       if (task.id == id) return task;
     }
     return null;
@@ -560,7 +700,7 @@ class BtDownloadStore extends ChangeNotifier {
     };
   }
 
-  static bool _shouldPauseBeforeRemove(String state) {
+  static bool shouldPauseBeforeRemove(String state) {
     return state == 'seeding' ||
         {'metadata', 'checking', 'queued', 'downloading'}.contains(state);
   }
@@ -568,16 +708,16 @@ class BtDownloadStore extends ChangeNotifier {
   Future<void> _runTask(String id, Future<Object?> Function() action) async {
     if (_busyTaskIds.contains(id)) return;
     _busyTaskIds.add(id);
-    _lastError = null;
-    notifyListeners();
+    _lastStoreError = null;
+    _publish();
     try {
       await action();
     } catch (error) {
-      _lastError = error.toString();
+      _lastStoreError = error.toString();
       rethrow;
     } finally {
       _busyTaskIds.remove(id);
-      notifyListeners();
+      _publish();
     }
   }
 
@@ -622,7 +762,7 @@ class BtDownloadStore extends ChangeNotifier {
     var bmf = await _findMatchingBmf(task.savePath);
     if (bmf != null) {
       globalContainer
-          .read(navStoreProvider)
+          .read(navStoreProvider.notifier)
           .addNavItemB(subject: bmf.subject, paneTitle: bmf.title, type: '动画');
       return;
     }
@@ -656,7 +796,7 @@ class BtDownloadStore extends ChangeNotifier {
   Future<void> _startClient() async {
     await _ensureProxyReady();
     var config = await _startConfigProvider();
-    var proxy = await _buildProxyConfig(enabled: _useSystemProxy);
+    var proxy = await _buildProxyConfig(enabled: _useProxy);
     var client = _client;
     if (client is BtEngineClient) {
       await client.start(config: config, proxy: proxy);
@@ -667,9 +807,9 @@ class BtDownloadStore extends ChangeNotifier {
 
   Future<void> _initProxySetting() async {
     var value = await _readProxySetting();
-    if (_useSystemProxy == value) return;
-    _useSystemProxy = value;
-    notifyListeners();
+    if (_useProxy == value) return;
+    _useProxy = value;
+    _publish();
   }
 
   Future<void> _ensureProxyReady() async {
@@ -687,7 +827,7 @@ class BtDownloadStore extends ChangeNotifier {
   /// 设置下载引擎是否使用系统代理，并在引擎已运行时热更新。
   Future<void> setUseSystemProxy(bool value) async {
     await _ensureProxyReady();
-    var previous = _useSystemProxy;
+    var previous = _useProxy;
     try {
       var proxy = await _buildProxyConfig(enabled: value);
       await _applyEngineProxy(proxy);
@@ -700,14 +840,16 @@ class BtDownloadStore extends ChangeNotifier {
       }
       Error.throwWithStackTrace(error, stackTrace);
     }
-    _useSystemProxy = value;
-    notifyListeners();
+    _useProxy = value;
+    _publish();
   }
 
   static Future<Map<String, dynamic>> _loadStartConfig() async {
     var config = await BtsAppConfig().readBtDownloadConfig();
     return config.toEngineJson(
-      additionalTrackers: TrackerHive().effectiveTrackers,
+      additionalTrackers: globalContainer
+          .read(trackerStoreProvider.notifier)
+          .effectiveTrackers,
     );
   }
 
@@ -738,12 +880,5 @@ class BtDownloadStore extends ChangeNotifier {
     var status = await service.status(enginePath);
     if (status == EngineFirewallRuleStatus.registered) return;
     await service.register(enginePath);
-  }
-
-  @override
-  void dispose() {
-    unawaited(_taskSubscription.cancel());
-    unawaited(_stateSubscription.cancel());
-    super.dispose();
   }
 }

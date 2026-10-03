@@ -117,7 +117,7 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
 
       if (magnet != null) {
         await ref
-            .read(btDownloadStoreProvider)
+            .read(btDownloadStoreProvider.notifier)
             .addMagnet(
               uri: magnet,
               savePath: saveDir,
@@ -131,7 +131,7 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
         );
         if (!mounted || torrentPath.isEmpty) return;
         await ref
-            .read(btDownloadStoreProvider)
+            .read(btDownloadStoreProvider.notifier)
             .addTorrentFile(
               torrentPath: torrentPath,
               savePath: saveDir,
@@ -255,7 +255,7 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
     var id = metadata?.bgmId;
     if (id == null || id <= 0) return;
     ref
-        .read(navStoreProvider)
+        .read(navStoreProvider.notifier)
         .addNavItemB(subject: id, paneTitle: metadata?.animeTitle, type: '动画');
   }
 

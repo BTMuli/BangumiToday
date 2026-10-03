@@ -356,7 +356,7 @@ class _BangumiCalendarCardState extends ConsumerState<BangumiCalendarCard>
           icon: FluentIcons.info,
           tooltip: '查看详情',
           onPressed: () => ref
-              .read(navStoreProvider)
+              .read(navStoreProvider.notifier)
               .addNavItemB(
                 type: '动画',
                 subject: data.id,
@@ -365,7 +365,7 @@ class _BangumiCalendarCardState extends ConsumerState<BangumiCalendarCard>
           onLongPress: () async {
             var name = data.nameCn == '' ? data.name : data.nameCn;
             ref
-                .read(navStoreProvider)
+                .read(navStoreProvider.notifier)
                 .addNavItemB(
                   type: '动画',
                   subject: data.id,

@@ -1,12 +1,8 @@
 // Dart imports:
 import 'dart:async';
 
-// Flutter imports:
-import 'package:flutter/foundation.dart';
-
 // Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 // Project imports:
 import '../core/utils/async_pool.dart';
@@ -21,24 +17,44 @@ final bmfListProvider =
       return BmfListNotifier();
     });
 
-final bmfNavigationProvider = ChangeNotifierProvider<BmfNavigationStore>((ref) {
-  return BmfNavigationStore();
-});
+final bmfNavigationProvider =
+    NotifierProvider<BmfNavigationNotifier, BmfNavigationState>(
+      BmfNavigationNotifier.new,
+    );
 
-class BmfNavigationStore extends ChangeNotifier {
-  int? targetSubject;
-  int requestId = 0;
+/// BMF 工作区的导航意图：打开工作区或定位到某个条目。
+///
+/// 每次意图都递增 [requestId]，消费者据此判断是否为新请求，因此该状态必须
+/// 可比较且不可变；[targetSubject] 为空表示回到工作区默认视图。
+class BmfNavigationState {
+  /// 构造函数
+  const BmfNavigationState({this.targetSubject, this.requestId = 0});
 
-  void openWorkspace() {
-    targetSubject = null;
-    requestId++;
-    notifyListeners();
+  /// 需要定位的条目；为空表示工作区默认视图。
+  final int? targetSubject;
+
+  /// 意图序号，递增即代表产生了新请求。
+  final int requestId;
+
+  /// 产生下一个导航意图。
+  BmfNavigationState next({int? targetSubject}) {
+    return BmfNavigationState(
+      targetSubject: targetSubject,
+      requestId: requestId + 1,
+    );
   }
+}
 
+class BmfNavigationNotifier extends Notifier<BmfNavigationState> {
+  @override
+  BmfNavigationState build() => const BmfNavigationState();
+
+  /// 回到工作区默认视图。
+  void openWorkspace() => state = state.next();
+
+  /// 定位到指定条目。
   void selectSubject(int subject) {
-    targetSubject = subject;
-    requestId++;
-    notifyListeners();
+    state = state.next(targetSubject: subject);
   }
 }
 

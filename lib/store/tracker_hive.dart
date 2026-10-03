@@ -2,9 +2,12 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
 // Package imports:
 import 'package:dio/dio.dart';
-import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 
 // Project imports:
@@ -101,22 +104,65 @@ List<String> mergeTrackers(
   return result;
 }
 
-class TrackerHive extends ChangeNotifier {
-  TrackerHive._();
+final trackerStoreProvider = NotifierProvider<TrackerStore, TrackerState>(
+  TrackerStore.new,
+);
 
-  static final TrackerHive instance = TrackerHive._();
+/// Tracker 配置与刷新状态的只读快照。
+///
+/// 配置本身已是不可变值；[trackerList] 是合并后的去重列表，作为状态的一部分
+/// 只在内容变化时替换实例。
+@immutable
+class TrackerState {
+  /// 构造函数
+  const TrackerState({
+    this.config = const BtTrackerConfig(),
+    this.trackerList = const [],
+    this.refreshing = false,
+  });
 
-  factory TrackerHive() => instance;
+  /// 当前配置
+  final BtTrackerConfig config;
 
+  /// 生效的 tracker 列表（手工 + 各来源快照合并去重）。
+  final List<String> trackerList;
+
+  /// 是否正在刷新来源
+  final bool refreshing;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! TrackerState) return false;
+    return refreshing == other.refreshing &&
+        identical(config, other.config) &&
+        listEquals(trackerList, other.trackerList);
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(refreshing, identityHashCode(config), trackerList.length);
+}
+
+/// Tracker 来源配置、快照与下载引擎的配置应用。
+///
+/// 数据库读写、HTTP 请求与快照 box 留在私有字段/方法里；对外只发布不可变
+/// 快照。`config` 是权威来源，[TrackerState] 是它的镜像，避免 await 后读到
+/// 过期状态。
+class TrackerStore extends Notifier<TrackerState> {
   static Box<TrackerHiveModel> get box => Hive.box<TrackerHiveModel>('tracker');
 
   final Dio client = Dio();
   BtTrackerConfig _config = const BtTrackerConfig();
   Future<void>? _refreshOperation;
 
+  /// 当前配置
   BtTrackerConfig get config => _config;
+
+  /// 是否正在刷新来源
   bool get refreshing => _refreshOperation != null;
 
+  /// 生效的 tracker 列表。
   List<String> get effectiveTrackers {
     var snapshots = _config.sources.map(
       (source) => box.get(source)?.trackerList ?? const <String>[],
@@ -128,8 +174,19 @@ class TrackerHive extends ChangeNotifier {
     return effectiveTrackers.map(Uri.parse).toList(growable: false);
   }
 
+  @override
+  TrackerState build() => const TrackerState();
+
+  /// 从数据库读取配置，并为新增来源准备空快照。
+  ///
+  /// 由 `BTHiveTool.init()` 在 box 打开后调用；重复调用是幂等的。
   Future<void> init() async {
     _config = await BtsAppConfig().readBtTrackerConfig();
+    await _ensureSourceSnapshots();
+    _publish();
+  }
+
+  Future<void> _ensureSourceSnapshots() async {
     for (var source in _config.sources) {
       if (box.get(source) == null) {
         await box.put(
@@ -140,21 +197,22 @@ class TrackerHive extends ChangeNotifier {
     }
   }
 
+  void _publish() {
+    state = TrackerState(
+      config: _config,
+      trackerList: effectiveTrackers,
+      refreshing: refreshing,
+    );
+  }
+
   Future<void> updateConfig(BtTrackerConfig config) async {
     config.validate();
     var normalizedManual = mergeTrackers(config.manualTrackers, const []);
     _config = config.copyWith(manualTrackers: normalizedManual);
-    for (var source in _config.sources) {
-      if (box.get(source) == null) {
-        await box.put(
-          source,
-          TrackerHiveModel(url: source, updateTime: '', trackerList: []),
-        );
-      }
-    }
+    await _ensureSourceSnapshots();
     await BtsAppConfig().writeBtTrackerConfig(_config);
     await _applyToEngine();
-    notifyListeners();
+    _publish();
   }
 
   Future<void> checkUpdate() => refresh();
@@ -169,10 +227,10 @@ class TrackerHive extends ChangeNotifier {
     if (running != null) return running;
     var operation = _refresh(force: force, sources: sources);
     _refreshOperation = operation;
-    notifyListeners();
+    _publish();
     return operation.whenComplete(() {
       _refreshOperation = null;
-      notifyListeners();
+      _publish();
     });
   }
 
@@ -235,7 +293,7 @@ class TrackerHive extends ChangeNotifier {
       'Tracker 更新完成：$successes 个来源成功，$failures 个来源失败，'
       '合并 ${effectiveTrackers.length} 条',
     );
-    notifyListeners();
+    _publish();
   }
 
   Future<_TrackerFetchResult> _fetchSource(String source) async {

@@ -110,7 +110,7 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     }
   }
 
-  void _applyNavigationIntent(BmfNavigationStore navigation) {
+  void _applyNavigationIntent(BmfNavigationState navigation) {
     if (navigation.requestId == _handledNavigationRequest) return;
     _handledNavigationRequest = navigation.requestId;
     selectedSubject = navigation.targetSubject;

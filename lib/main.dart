@@ -9,13 +9,14 @@ import 'package:flutter/foundation.dart';
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Project imports:
 import 'app.dart';
 import 'core/cache/cache_manager.dart';
+import 'core/container.dart';
 import 'core/network/system_proxy.dart';
 import 'core/services/app_link_service.dart';
 import 'core/services/bangumi_oauth_coordinator.dart';
@@ -41,7 +42,6 @@ import 'store/tracker_hive.dart';
 import 'tools/log_tool.dart';
 import 'widgets/shell/splash.dart';
 
-final globalContainer = ProviderContainer();
 bool _applicationExitStarted = false;
 
 Future<void> main() async {
@@ -102,11 +102,11 @@ Future<void> _initDesktopTray() async {
       readMinimizeToTray: BtsAppConfig().readMinimizeToTray,
       onOpenMain: () async {},
       onOpenBmf: () async {
-        globalContainer.read(navStoreProvider).goToBmf();
+        globalContainer.read(navStoreProvider.notifier).goToBmf();
       },
       onOpenDownload: Platform.isWindows
           ? () async {
-              globalContainer.read(navStoreProvider).goToDownload();
+              globalContainer.read(navStoreProvider.notifier).goToDownload();
             }
           : null,
       onExit: _exitApplication,
@@ -188,7 +188,7 @@ Future<void> _initBackgroundServices() async {
   var btDownloadConfig = await appConfig.readBtDownloadConfig();
   var useDownloadSystemProxy = await appConfig.readUseDownloadSystemProxy();
   var themeMode = await appConfig.readThemeMode();
-  var trackerStore = TrackerHive();
+  var trackerStore = globalContainer.read(trackerStoreProvider.notifier);
 
   if (Platform.isWindows) {
     await _runOptionalService('系统代理监听', () async {
@@ -222,7 +222,7 @@ Future<void> _initBackgroundServices() async {
           );
           // 引擎退出时任务会被标成暂停，启动时继续下载或做种未完成的任务。
           var resumed = await globalContainer
-              .read(btDownloadStoreProvider)
+              .read(btDownloadStoreProvider.notifier)
               .resumeUnfinishedTasks();
           if (resumed > 0) {
             BTLogTool.info('启动时自动继续 $resumed 个下载或做种未完成的任务');

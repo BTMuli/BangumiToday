@@ -14,7 +14,6 @@ import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
 import '../../store/app_store.dart' as app_store;
-import '../../store/bgm_user_hive.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
@@ -34,8 +33,8 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
   /// 当前 Bangumi API 镜像地址
   String get bangumiUrl => ref.watch(app_store.appStoreProvider).bangumiUrl;
 
-  /// 用户 hive
-  final BgmUserHive hive = BgmUserHive();
+  /// 当前登录用户
+  BgmUserState get _user => ref.watch(bgmUserStoreProvider);
 
   /// 认证相关客户端
   final BtrBangumiOauth apiOauth = BtrBangumiOauth();
@@ -46,23 +45,6 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
   /// 是否正在刷新授权
   bool _refreshingAuth = false;
 
-  @override
-  void initState() {
-    super.initState();
-    hive.addListener(_onHiveChanged);
-  }
-
-  @override
-  void dispose() {
-    hive.removeListener(_onHiveChanged);
-    super.dispose();
-  }
-
-  /// hive 数据变化时刷新界面
-  void _onHiveChanged() {
-    if (mounted) setState(() {});
-  }
-
   /// 刷新用户信息
   Future<void> freshUserInfo() async {
     if (progress.isShow) {
@@ -70,7 +52,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     } else {
       progress = ProgressWidget.show(context, title: '获取用户信息');
     }
-    if (hive.tokenAC == null) {
+    if (_user.accessToken == null) {
       progress.end();
       if (mounted) await BtInfobar.error(context, '未找到访问令牌');
       return;
@@ -82,24 +64,24 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       if (mounted) await showRespErr(userResp, context);
       return;
     }
-    await hive.updateUser(userResp.data!);
+    await ref.read(bgmUserStoreProvider.notifier).updateUser(userResp.data!);
     if (!mounted) {
       progress.end();
       return;
     }
-    progress.update(title: '获取用户信息成功', text: '用户信息：${hive.user!.nickname}');
+    progress.update(title: '获取用户信息成功', text: '用户信息：${_user.user!.nickname}');
     progress.end();
     if (mounted) {
       await BtInfobar.success(
         context,
-        '成功获取[${hive.user!.id}]${hive.user!.nickname}信息',
+        '成功获取[${_user.user!.id}]${_user.user!.nickname}信息',
       );
     }
   }
 
   /// 是否已有可用于刷新的 refresh token
   bool get _canRefreshAuth {
-    var token = hive.tokenRF;
+    var token = _user.refreshToken;
     return token != null && token.isNotEmpty;
   }
 
@@ -151,17 +133,19 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     }
     progress.update(text: '保存授权信息');
     var at = res.data as BangumiOauthTokenGetData;
-    await hive.updateTokenSet(
-      accessToken: at.accessToken,
-      refreshToken: at.refreshToken,
-      expiresIn: at.expiresIn,
-    );
+    await ref
+        .read(bgmUserStoreProvider.notifier)
+        .updateTokenSet(
+          accessToken: at.accessToken,
+          refreshToken: at.refreshToken,
+          expiresIn: at.expiresIn,
+        );
     await freshUserInfo();
   }
 
   /// 尝试删除用户信息
   Future<void> tryDeleteUserInfo() async {
-    if (hive.user == null) {
+    if (_user.user == null) {
       await BtInfobar.error(context, '未找到用户信息');
       return;
     }
@@ -171,13 +155,13 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       content: '是否删除用户信息？',
     );
     if (!deleteConfirm) return;
-    await hive.deleteUser();
+    await ref.read(bgmUserStoreProvider.notifier).deleteUser();
     if (mounted) setState(() {});
   }
 
   /// 构建用户信息与授权信息（合并展示）
   Widget buildUserAuth() {
-    var user = hive.user;
+    var user = _user.user;
     Widget leading;
     if (user == null) {
       leading = const BtIcon(FluentIcons.user_sync);
@@ -212,7 +196,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
         children: [
           if (user != null) Text('ID: ${user.id}(${user.userGroup.label})'),
           Text(
-            hive.expireTime == null ? '未找到授权信息' : '授权过期时间：${hive.expireTime}',
+            _user.expireTime == null ? '未找到授权信息' : '授权过期时间：${_user.expireTime}',
           ),
         ],
       ),

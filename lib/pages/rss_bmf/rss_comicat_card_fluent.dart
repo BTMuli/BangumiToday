@@ -48,7 +48,7 @@ class _RssComicatCardFluentState extends ConsumerState<RssComicatCardFluent> {
     if (savePath.isNotEmpty) {
       try {
         await ref
-            .read(btDownloadStoreProvider)
+            .read(btDownloadStoreProvider.notifier)
             .addTorrentFile(
               torrentPath: savePath,
               savePath: saveDir,

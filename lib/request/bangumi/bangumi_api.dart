@@ -17,7 +17,6 @@ import '../../models/bangumi/request_episode.dart';
 import '../../models/bangumi/request_search.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../models/bangumi/request_user.dart';
-import '../../store/bgm_user_hive.dart';
 import '../../tools/log_tool.dart';
 import '../core/client.dart';
 import 'bangumi_error_handler.dart';
@@ -76,9 +75,6 @@ class BtrBangumiApi {
         ? BTAppConstants.bangumiApiBaseUrl
         : normalized;
   }
-
-  /// 用户Hive
-  final BgmUserHive hive = BgmUserHive();
 
   /// 请求管理器
   final RequestManager _requestManager = RequestManager();

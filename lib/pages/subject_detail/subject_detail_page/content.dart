@@ -4,7 +4,7 @@ extension _SubjectDetailContent on _SubjectDetailPageState {
   SubjectDetailViewData _viewData() {
     return SubjectDetailViewData(
       subject: data!,
-      user: ref.watch(bgmUserHiveProvider).user,
+      user: ref.watch(bgmUserStoreProvider).user,
       collectProvider: collectProvider,
       onTagTap: searchByTag,
       contextMenuBuilder: buildContextMenu,

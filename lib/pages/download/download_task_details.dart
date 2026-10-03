@@ -13,8 +13,8 @@ import 'package:path/path.dart' as path;
 // Project imports:
 import '../../core/services/bt_engine_client.dart';
 import '../../core/services/file_service.dart';
-import '../../core/utils/playback_paths.dart';
 import '../../core/theme/bt_theme.dart';
+import '../../core/utils/playback_paths.dart';
 import '../../store/bt_download_store.dart';
 import '../../store/nav_store.dart';
 import '../../ui/bt_infobar.dart';

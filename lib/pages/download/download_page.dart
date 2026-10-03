@@ -174,7 +174,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
     );
   }
 
-  void _pruneSelection(BtDownloadStore store) {
+  void _pruneSelection(BtDownloadState store) {
     if (_selectedIds.isEmpty) return;
     var knownIds = store.tasks.map((task) => task.id).toSet();
     var stale = _selectedIds.difference(knownIds);
@@ -190,7 +190,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
 
   Future<void> _refresh(BuildContext context) async {
     try {
-      await ref.read(btDownloadStoreProvider).refresh();
+      await ref.read(btDownloadStoreProvider.notifier).refresh();
       if (context.mounted) {
         await BtInfobar.success(context, '下载任务已刷新');
       }
@@ -211,7 +211,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
     if (draft == null || !mounted || !context.mounted) return;
 
     try {
-      var store = ref.read(btDownloadStoreProvider);
+      var store = ref.read(btDownloadStoreProvider.notifier);
       var uri = Uri.parse(draft.uri);
       if (uri.scheme.toLowerCase() == 'magnet') {
         await store.addMagnet(
@@ -263,7 +263,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
     });
   }
 
-  bool _hasBatchTargets(BtDownloadStore store, BtBatchAction action) =>
+  bool _hasBatchTargets(BtDownloadState store, BtBatchAction action) =>
       _selecting &&
       store.tasks.any(
         (task) =>
@@ -275,7 +275,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
     var ids = _selectedIds.toList();
     setState(() => _batchBusy = true);
     try {
-      var count = await ref.read(btDownloadStoreProvider).batchAct(ids, action);
+      var count = await ref
+          .read(btDownloadStoreProvider.notifier)
+          .batchAct(ids, action);
       var label = switch (action) {
         BtBatchAction.pause => '暂停',
         BtBatchAction.resume => '恢复',
@@ -293,7 +295,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
 
   Future<void> _confirmBatchDelete() async {
     var knownIds = ref
-        .read(btDownloadStoreProvider)
+        .read(btDownloadStoreProvider.notifier)
         .tasks
         .map((task) => task.id)
         .toSet();
@@ -307,7 +309,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
     if (!confirmed || !mounted) return;
     setState(() => _batchBusy = true);
     try {
-      await ref.read(btDownloadStoreProvider).removeAll(targets);
+      await ref.read(btDownloadStoreProvider.notifier).removeAll(targets);
       if (!mounted) return;
       _exitSelection();
       await BtInfobar.success(context, '已删除 ${targets.length} 个任务');
@@ -510,7 +512,7 @@ class _DownloadTaskTile extends ConsumerWidget {
       onSelect: onSelect,
       onAction: (action) async {
         try {
-          await action(ref.read(btDownloadStoreProvider));
+          await action(ref.read(btDownloadStoreProvider.notifier));
         } catch (error) {
           if (context.mounted) {
             await BtInfobar.error(context, error.toString());

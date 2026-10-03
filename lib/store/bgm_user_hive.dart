@@ -1,8 +1,12 @@
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
 // Package imports:
-import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 
 // Project imports:
+import '../core/container.dart';
 import '../database/bangumi/bangumi_user.dart';
 import '../models/app/response.dart';
 import '../models/bangumi/bangumi_model.dart';
@@ -10,16 +14,63 @@ import '../models/bangumi/bangumi_oauth_model.dart';
 import '../models/hive/bgm_user_model.dart';
 import '../request/bangumi/bangumi_oauth.dart';
 
-/// Bangumi用户状态
-class BgmUserHive extends ChangeNotifier {
-  /// 单实例
-  BgmUserHive._();
+final bgmUserStoreProvider = NotifierProvider<BgmUserStore, BgmUserState>(
+  BgmUserStore.new,
+);
 
-  static final BgmUserHive instance = BgmUserHive._();
+/// 登录用户与授权凭据的内存快照。
+///
+/// 凭据只保存在内存与系统安全存储中；[BgmUserHiveModel] 的旧 token 槽位仅
+/// 用于读取历史记录，不写回。
+@immutable
+class BgmUserState {
+  /// 构造函数
+  const BgmUserState({
+    this.user,
+    this.accessToken,
+    this.refreshToken,
+    this.expireTime,
+  });
 
-  /// 获取实例
-  factory BgmUserHive() => instance;
+  /// 当前登录用户
+  final BangumiUser? user;
 
+  /// accessToken
+  final String? accessToken;
+
+  /// refreshToken
+  final String? refreshToken;
+
+  /// expireTime
+  final DateTime? expireTime;
+
+  /// 是否已登录
+  bool get loggedIn => user != null;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! BgmUserState) return false;
+    return identical(user, other.user) &&
+        accessToken == other.accessToken &&
+        refreshToken == other.refreshToken &&
+        expireTime == other.expireTime;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    identityHashCode(user),
+    accessToken,
+    refreshToken,
+    expireTime,
+  );
+}
+
+/// Bangumi 用户与授权凭据状态。
+///
+/// 表、Hive box 与 OAuth 客户端留在实现内部，对外只发布不可变快照。写入顺序
+/// 统一为“先持久化、再替换内存状态”，避免请求在刷新过程中读到半套凭据。
+class BgmUserStore extends Notifier<BgmUserState> {
   /// 相关数据库
   final BtsBangumiUser sqlite = BtsBangumiUser();
 
@@ -29,33 +80,26 @@ class BgmUserHive extends ChangeNotifier {
   /// 获取box
   static Box<BgmUserHiveModel> get box => Hive.box<BgmUserHiveModel>('bgmUser');
 
-  /// 获取模型
-  BgmUserHiveModel get model =>
-      BgmUserHiveModel(user: _user, expireTime: _expireTime);
-
-  /// 用户
-  BangumiUser? _user;
-
-  /// accessToken
-  String? _accessToken;
-
-  /// refreshToken
-  String? _refreshToken;
-
-  /// expireTime
-  DateTime? _expireTime;
+  /// 当前状态
+  BgmUserState get data => state;
 
   /// 获取用户
-  BangumiUser? get user => _user;
+  BangumiUser? get user => state.user;
 
   /// 获取accessToken
-  String? get tokenAC => _accessToken;
+  String? get tokenAC => state.accessToken;
 
   /// 获取refreshToken
-  String? get tokenRF => _refreshToken;
+  String? get tokenRF => state.refreshToken;
 
   /// 获取expireTime
-  DateTime? get expireTime => _expireTime;
+  DateTime? get expireTime => state.expireTime;
+
+  @override
+  BgmUserState build() => const BgmUserState();
+
+  BgmUserHiveModel _model() =>
+      BgmUserHiveModel(user: state.user, expireTime: state.expireTime);
 
   /// 初始化用户
   Future<void> initUser() async {
@@ -64,89 +108,52 @@ class BgmUserHive extends ChangeNotifier {
     // the record, so upgrading cannot silently log the user out.
     var legacyModel = box.get('user');
     var user = await sqlite.readUser();
-    if (user != null) {
-      _user = user;
-    }
     var accessToken = await sqlite.readAccessToken();
     if (accessToken == null && legacyModel?.accessToken != null) {
       await sqlite.writeAccessToken(legacyModel!.accessToken!);
       accessToken = await sqlite.readAccessToken();
-    }
-    if (accessToken != null) {
-      _accessToken = accessToken;
     }
     var refreshToken = await sqlite.readRefreshToken();
     if (refreshToken == null && legacyModel?.refreshToken != null) {
       await sqlite.writeRefreshToken(legacyModel!.refreshToken!);
       refreshToken = await sqlite.readRefreshToken();
     }
-    if (refreshToken != null) {
-      _refreshToken = refreshToken;
-    }
     var expireTime = await sqlite.readExpireTime();
-    if (expireTime != null) {
-      _expireTime = expireTime;
-    }
-    await box.put('user', model);
-    notifyListeners();
+    state = BgmUserState(
+      user: user,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      expireTime: expireTime,
+    );
+    await box.put('user', _model());
   }
 
   /// 删除用户
   Future<void> deleteUser() async {
-    _user = null;
-    _accessToken = null;
-    _refreshToken = null;
-    _expireTime = null;
+    state = const BgmUserState();
     await sqlite.deleteUser();
     await sqlite.deleteAccessToken();
     await sqlite.deleteRefreshToken();
     await sqlite.deleteExpireTime();
-    await box.put('user', model);
-    notifyListeners();
-  }
-
-  /// 更新数据
-  Future<void> updateBox() async {
-    await box.put('user', model);
+    await box.put('user', _model());
   }
 
   /// 更新用户数据
-  Future<void> updateUser(BangumiUser user, {bool update = true}) async {
-    _user = user;
+  Future<void> updateUser(BangumiUser user) async {
     await sqlite.writeUser(user);
-    await box.put('user', model);
-    if (update) await updateBox();
-    notifyListeners();
-  }
-
-  /// 更新accessToken
-  Future<void> updateAccessToken(String token, {bool update = true}) async {
-    _accessToken = token;
-    await sqlite.writeAccessToken(token);
-    if (update) await updateBox();
-    notifyListeners();
-  }
-
-  /// 更新refreshToken
-  Future<void> updateRefreshToken(String token, {bool update = true}) async {
-    _refreshToken = token;
-    await sqlite.writeRefreshToken(token);
-    if (update) await updateBox();
-    notifyListeners();
-  }
-
-  /// 更新expireTime
-  Future<void> updateExpireTime(int ts, {bool update = true}) async {
-    await sqlite.writeExpireTime(ts);
-    _expireTime = await sqlite.readExpireTime();
-    if (update) await updateBox();
-    notifyListeners();
+    state = BgmUserState(
+      user: user,
+      accessToken: state.accessToken,
+      refreshToken: state.refreshToken,
+      expireTime: state.expireTime,
+    );
+    await box.put('user', _model());
   }
 
   /// 一次性更新一组授权信息。
   ///
   /// 安全存储的多个 key 没有跨 key 事务，因此先完成所有持久化写入，再替换
-  /// 内存状态并通知监听者，避免请求在刷新过程中读到半套凭据。
+  /// 内存状态，避免请求在刷新过程中读到半套凭据。
   Future<void> updateTokenSet({
     required String accessToken,
     required String refreshToken,
@@ -156,11 +163,13 @@ class BgmUserHive extends ChangeNotifier {
     await sqlite.writeRefreshToken(refreshToken);
     await sqlite.writeExpireTime(expiresIn);
 
-    _accessToken = accessToken;
-    _refreshToken = refreshToken;
-    _expireTime = await sqlite.readExpireTime();
-    await updateBox();
-    notifyListeners();
+    state = BgmUserState(
+      user: state.user,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      expireTime: await sqlite.readExpireTime(),
+    );
+    await box.put('user', _model());
   }
 
   /// 更新授权
@@ -169,12 +178,13 @@ class BgmUserHive extends ChangeNotifier {
     Future<void> Function(BTResponse)? onErr,
     bool force = false,
   }) async {
-    if (_refreshToken == null || _refreshToken!.isEmpty) return false;
+    var refreshToken = state.refreshToken;
+    if (refreshToken == null || refreshToken.isEmpty) return false;
     if (!force) {
       var shouldRefresh = await checkExpired();
       if (shouldRefresh != true) return null;
     }
-    var resp = await api.refreshToken(_refreshToken!);
+    var resp = await api.refreshToken(refreshToken);
     if (resp.code != 0 || resp.data == null) {
       if (onErr != null) await onErr(resp);
       return false;
@@ -190,11 +200,48 @@ class BgmUserHive extends ChangeNotifier {
 
   /// 检测是否过期，为null表示无法刷新
   Future<bool?> checkExpired() async {
-    if (_refreshToken == null || _refreshToken!.isEmpty) return null;
-    if (_expireTime != null) {
-      var refreshAt = _expireTime!.subtract(const Duration(days: 1));
+    var refreshToken = state.refreshToken;
+    if (refreshToken == null || refreshToken.isEmpty) return null;
+    var expireTime = state.expireTime;
+    if (expireTime != null) {
+      var refreshAt = expireTime.subtract(const Duration(days: 1));
       return !DateTime.now().isBefore(refreshAt);
     }
     return true;
   }
+}
+
+/// Widget 树之外的调用方（数据库初始化、Token 刷新服务）通过该访问器读写同一个
+/// notifier，不复制第二份用户状态。
+class BgmUserHive {
+  BgmUserHive._();
+
+  static BgmUserStore get _store =>
+      globalContainer.read(bgmUserStoreProvider.notifier);
+
+  /// 当前登录用户
+  static BangumiUser? get user => _store.user;
+
+  /// accessToken
+  static String? get tokenAC => _store.tokenAC;
+
+  /// refreshToken
+  static String? get tokenRF => _store.tokenRF;
+
+  /// expireTime
+  static DateTime? get expireTime => _store.expireTime;
+
+  /// 初始化用户
+  static Future<void> initUser() => _store.initUser();
+
+  /// 更新token集合
+  static Future<void> updateTokenSet({
+    required String accessToken,
+    required String refreshToken,
+    required int expiresIn,
+  }) => _store.updateTokenSet(
+    accessToken: accessToken,
+    refreshToken: refreshToken,
+    expiresIn: expiresIn,
+  );
 }

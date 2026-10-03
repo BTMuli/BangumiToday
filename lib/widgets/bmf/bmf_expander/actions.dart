@@ -125,7 +125,7 @@ class _RssItemActions extends ConsumerWidget {
     if (savePath == null) return;
     try {
       await ref
-          .read(btDownloadStoreProvider)
+          .read(btDownloadStoreProvider.notifier)
           .addTorrentFile(
             torrentPath: savePath,
             savePath: saveDir,

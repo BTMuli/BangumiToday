@@ -163,7 +163,7 @@ class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
 
     void openDetail({bool jump = true}) {
       ref
-          .read(navStoreProvider)
+          .read(navStoreProvider.notifier)
           .addNavItemB(
             type: label,
             subject: subject.id,

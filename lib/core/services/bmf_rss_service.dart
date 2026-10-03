@@ -6,7 +6,6 @@ import 'dart:math';
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_config.dart';
 import '../../database/app/app_rss.dart';
-import '../../main.dart';
 import '../../models/app/response.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../models/database/app_rss_model.dart';
@@ -16,6 +15,7 @@ import '../../store/bmf_store.dart';
 import '../../store/nav_store.dart';
 import '../../tools/log_tool.dart';
 import '../constants/app_constants.dart';
+import '../container.dart';
 import '../utils/async_pool.dart';
 import 'notification_service.dart';
 import 'rss_freshness.dart';
@@ -548,8 +548,8 @@ class BmfRssService {
       (total, update) => total + update.newItems.length,
     );
     void onClick() {
-      globalContainer.read(bmfNavigationProvider).openWorkspace();
-      globalContainer.read(navStoreProvider).setCurIndex(1);
+      globalContainer.read(bmfNavigationProvider.notifier).openWorkspace();
+      globalContainer.read(navStoreProvider.notifier).setCurIndex(1);
     }
 
     var body = updates.length == 1

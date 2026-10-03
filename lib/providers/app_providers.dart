@@ -1,36 +1,29 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 // Project imports:
 import '../store/app_store.dart';
 import '../store/bgm_user_hive.dart';
-import '../store/tracker_hive.dart';
 
-export '../store/app_store.dart' show BTAppStore, appStoreProvider;
+export '../store/app_store.dart'
+    show BTAppSettings, BTAppStore, appStoreProvider;
+export '../store/bgm_user_hive.dart'
+    show BgmUserState, BgmUserStore, bgmUserStoreProvider;
+export '../store/tracker_hive.dart'
+    show TrackerState, TrackerStore, trackerStoreProvider;
 export '../domain/repositories/bmf_repository.dart';
 export '../store/bmf_store.dart';
 export '../store/nav_store.dart';
 export 'bangumi_providers.dart';
 export 'bmf_providers.dart';
 
-final bgmUserHiveProvider = ChangeNotifierProvider<BgmUserHive>((ref) {
-  return BgmUserHive();
-});
-
-final trackerHiveProvider = ChangeNotifierProvider<TrackerHive>((ref) {
-  return TrackerHive();
-});
-
 final isLoggedInProvider = Provider<bool>((ref) {
-  var user = ref.watch(bgmUserHiveProvider).user;
-  return user != null;
+  return ref.watch(bgmUserStoreProvider).loggedIn;
 });
 
 final currentUsernameProvider = Provider<String?>((ref) {
-  var user = ref.watch(bgmUserHiveProvider).user;
-  return user?.nickname;
+  return ref.watch(bgmUserStoreProvider).user?.nickname;
 });
 
 final themeModeProvider = Provider<ThemeMode>((ref) {
@@ -38,5 +31,5 @@ final themeModeProvider = Provider<ThemeMode>((ref) {
 });
 
 final accentColorProvider = Provider<Color>((ref) {
-  return ref.watch(appStoreProvider).accentColor;
+  return ref.watch(appStoreProvider).effectiveAccentColor;
 });

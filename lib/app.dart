@@ -21,7 +21,7 @@ class _BTAppState extends ConsumerState<BTApp> {
   bool? _appliedWindowDark;
 
   /// 获取主题配置
-  FluentThemeData getTheme(BuildContext context, BTAppStore appStore) {
+  FluentThemeData getTheme(BuildContext context, BTAppSettings appStore) {
     Brightness brightness;
     switch (appStore.themeMode) {
       case ThemeMode.system:
@@ -36,7 +36,7 @@ class _BTAppState extends ConsumerState<BTApp> {
     }
     return FluentThemeData(
       brightness: brightness,
-      accentColor: appStore.accentColor,
+      accentColor: appStore.effectiveAccentColor,
       fontFamily: 'SMonoSC',
     );
   }

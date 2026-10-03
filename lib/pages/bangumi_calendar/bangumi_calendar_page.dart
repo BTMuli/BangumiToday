@@ -20,7 +20,6 @@ import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_data.dart';
-import '../../store/bgm_user_hive.dart';
 import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
@@ -59,9 +58,6 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
   /// bangumiData数据库
   final BtsBangumiData sqliteBd = BtsBangumiData();
-
-  /// 用户hive
-  final BgmUserHive hive = BgmUserHive();
 
   /// bangumiData版本号
   late String version = 'unknown';
@@ -153,7 +149,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   @override
   void initState() {
     super.initState();
-    if (hive.user != null) {
+    if (ref.read(bgmUserStoreProvider).user != null) {
       isShowCollection = true;
       setState(() {});
     }
@@ -503,7 +499,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   ///
   /// 未登录时本地收藏不可信，直接当作没有。
   Future<Set<int>> loadWatchedIds(BTBangumiRepository repository) async {
-    if (hive.user == null) return {};
+    if (ref.read(bgmUserStoreProvider).user == null) return {};
     try {
       var collections = await repository.getLocalCollections();
       return {
@@ -946,7 +942,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
         child: const Icon(FluentIcons.search, color: Colors.white),
         onPressed: () {
           ref
-              .read(navStoreProvider)
+              .read(navStoreProvider.notifier)
               .addNavItem(
                 PaneItem(
                   icon: const Icon(FluentIcons.search),

@@ -34,7 +34,9 @@ class AppConfigNetworkWidget extends ConsumerWidget {
             checked: useSystemProxy,
             onChanged: (value) async {
               try {
-                await ref.read(appStoreProvider).setUseSystemProxy(value);
+                await ref
+                    .read(appStoreProvider.notifier)
+                    .setUseSystemProxy(value);
                 if (context.mounted) {
                   await BtInfobar.success(
                     context,
@@ -58,7 +60,7 @@ class AppConfigNetworkWidget extends ConsumerWidget {
             onChanged: (value) async {
               try {
                 await ref
-                    .read(btDownloadStoreProvider)
+                    .read(btDownloadStoreProvider.notifier)
                     .setUseSystemProxy(value);
                 if (context.mounted) {
                   await BtInfobar.success(

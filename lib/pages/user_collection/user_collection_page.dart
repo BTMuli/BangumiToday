@@ -9,7 +9,6 @@ import '../../core/services/bangumi_token_service.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
-import '../../store/bgm_user_hive.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_lazy_tab_body.dart';
@@ -36,8 +35,8 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
   /// 用户菜单 flyout 控制器
   final FlyoutController flyoutUser = FlyoutController();
 
-  /// 用户 hive
-  final BgmUserHive hive = BgmUserHive();
+  /// 当前登录用户
+  BgmUserState get _user => ref.watch(bgmUserStoreProvider);
 
   /// 进度条
   late ProgressController progress = ProgressController();
@@ -137,7 +136,7 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
 
   /// 刷新用户信息
   Future<void> refreshUserInfo() async {
-    if (hive.tokenAC == null) {
+    if (_user.accessToken == null || _user.accessToken!.isEmpty) {
       if (mounted) await BtInfobar.error(context, '未找到访问令牌');
       return;
     }
@@ -153,13 +152,13 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
       if (mounted) await showRespErr(userResp, context);
       return;
     }
-    await hive.updateUser(userResp.data!);
-    progress.update(title: '获取用户信息成功', text: '用户信息：${hive.user!.nickname}');
+    await ref.read(bgmUserStoreProvider.notifier).updateUser(userResp.data!);
+    progress.update(title: '获取用户信息成功', text: '用户信息：${_user.user!.nickname}');
     progress.end();
     if (mounted) {
       await BtInfobar.success(
         context,
-        '成功获取[${hive.user!.id}]${hive.user!.nickname}信息',
+        '成功获取[${_user.user!.id}]${_user.user!.nickname}信息',
       );
     }
     setState(() {});
@@ -167,7 +166,7 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
 
   /// 刷新用户收藏
   Future<void> refreshCollection() async {
-    if (hive.user == null) {
+    if (_user.user == null) {
       if (mounted) await BtInfobar.error(context, '未找到用户信息');
       return;
     }
@@ -181,7 +180,7 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
     var offset = 0;
     var repository = ref.read(bangumiRepositoryProvider);
     var resp = await repository.getCollectionSubjects(
-      username: hive.user!.id.toString(),
+      username: ref.read(bgmUserStoreProvider).user!.id.toString(),
       limit: limit,
       offset: offset,
     );
@@ -214,7 +213,7 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
         progress: count * 100 / total,
       );
       resp = await repository.getCollectionSubjects(
-        username: hive.user!.id.toString(),
+        username: ref.read(bgmUserStoreProvider).user!.id.toString(),
         limit: limit,
         offset: offset,
       );
@@ -229,7 +228,7 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
 
   /// 退出登录
   Future<void> logoutUser() async {
-    await hive.deleteUser();
+    await ref.read(bgmUserStoreProvider.notifier).deleteUser();
     if (mounted) {
       await BtInfobar.success(context, '已成功退出登录');
     }
@@ -238,11 +237,11 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
 
   /// 构建用户图标（根据登录状态）
   Widget buildUserIcon() {
-    if (hive.user == null) {
+    if (_user.user == null) {
       return const Icon(FluentIcons.account_management);
     }
     return CachedNetworkImage(
-      imageUrl: BtrBangumiApi.rewriteUrl(hive.user!.avatar.small),
+      imageUrl: BtrBangumiApi.rewriteUrl(_user.user!.avatar.small),
       width: 24,
       height: 24,
       placeholder: (_, _) => const ProgressRing(),
