@@ -4,22 +4,22 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
-import '../../../controller/progress_controller.dart';
-import '../../../core/constants/app_constants.dart';
-import '../../../core/services/bangumi_oauth_coordinator.dart';
-import '../../../core/services/bangumi_token_service.dart';
-import '../../../models/bangumi/bangumi_enum.dart';
-import '../../../models/bangumi/bangumi_oauth_model.dart';
-import '../../../providers/app_providers.dart';
-import '../../../request/bangumi/bangumi_api.dart';
-import '../../../request/bangumi/bangumi_oauth.dart';
-import '../../../store/app_store.dart' as app_store;
-import '../../../store/bgm_user_hive.dart';
-import '../../../ui/bt_dialog.dart';
-import '../../../ui/bt_icon.dart';
-import '../../../ui/bt_infobar.dart';
-import '../../../widgets/common/bt_buttons.dart';
-import '../../../widgets/common/bt_setting_section.dart';
+import '../../controller/progress_controller.dart';
+import '../../core/constants/app_constants.dart';
+import '../../core/services/bangumi_oauth_coordinator.dart';
+import '../../core/services/bangumi_token_service.dart';
+import '../../models/bangumi/bangumi_enum.dart';
+import '../../models/bangumi/bangumi_oauth_model.dart';
+import '../../providers/app_providers.dart';
+import '../../request/bangumi/bangumi_api.dart';
+import '../../request/bangumi/bangumi_oauth.dart';
+import '../../store/app_store.dart' as app_store;
+import '../../store/bgm_user_hive.dart';
+import '../../ui/bt_dialog.dart';
+import '../../ui/bt_icon.dart';
+import '../../ui/bt_infobar.dart';
+import '../../widgets/common/bt_buttons.dart';
+import '../../widgets/common/bt_setting_section.dart';
 
 /// 设置页BangumiUserInfo
 class AppConfigBgmWidget extends ConsumerStatefulWidget {
