@@ -9,12 +9,18 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path/path.dart' as path;
 
 // Project imports:
-import '../core/services/playback_cover.dart';
-import '../core/services/playback_history.dart';
-import '../core/services/playback_library.dart';
-import '../core/services/playback_settings.dart';
-import '../core/services/playback_subjects.dart';
+import '../core/errors/playback_unavailable.dart';
 import '../core/services/playback_subtitles.dart';
+import '../data/repositories/playback_cover_impl.dart';
+import '../data/repositories/playback_history_impl.dart';
+import '../data/repositories/playback_library_impl.dart';
+import '../data/repositories/playback_settings_impl.dart';
+import '../data/repositories/playback_subjects_impl.dart';
+import '../domain/repositories/playback_cover.dart';
+import '../domain/repositories/playback_history.dart';
+import '../domain/repositories/playback_library.dart';
+import '../domain/repositories/playback_settings.dart';
+import '../domain/repositories/playback_subjects.dart';
 import '../models/playback/playback_fit.dart';
 import '../models/playback/playback_item.dart';
 import '../models/playback/playback_rate.dart';
@@ -24,13 +30,14 @@ import '../tools/log_tool.dart';
 import 'bt_download_store.dart';
 
 final playbackStoreProvider = ChangeNotifierProvider<PlaybackStore>((ref) {
-  var downloads = ref.read(btDownloadStoreProvider);
+  // 资源校验需要任务列表，文件详情通过命令接口按需拉取。
+  var downloads = ref.read(btDownloadStoreProvider.notifier);
   return PlaybackStore(
-    library: PlaybackLibrary(
+    library: PlaybackLibraryImpl(
       tasks: () => downloads.tasks,
       taskFiles: (id, offset) => downloads.taskFiles(id, offset: offset),
     ),
-    cover: PlaybackCover(ref.read(bangumiRepositoryProvider)),
+    cover: BangumiPlaybackCoverResolver(ref.read(bangumiRepositoryProvider)),
     historyStore: AppPlaybackHistoryStore(),
     settingsStore: AppPlaybackSettingsStore(),
     subjectResolver: BmfPlaybackSubjectResolver(
@@ -52,7 +59,7 @@ class PlaybackStore extends ChangeNotifier {
   });
 
   final PlaybackLibrary library;
-  final PlaybackCover cover;
+  final PlaybackCoverResolver cover;
   final PlaybackHistoryStore historyStore;
   final PlaybackSettingsStore settingsStore;
   final PlaybackSubjectResolver subjectResolver;

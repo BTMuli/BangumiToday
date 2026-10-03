@@ -3,15 +3,8 @@ import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../../domain/repositories/bmf_repository.dart';
+import '../../domain/repositories/playback_subjects.dart';
 import '../../models/playback/playback_item.dart';
-
-/// 本地视频与 Bangumi 条目的归属解析接口。
-///
-/// 播放入口只依赖该契约，不再直接查询 BMF 表。
-abstract class PlaybackSubjectResolver {
-  /// 视频路径所属订阅的 Bangumi 条目 ID，未匹配时为 null。
-  Future<int?> subjectForFile(String filePath);
-}
 
 /// 按 BMF 订阅的下载目录解析归属，取匹配到的最长目录。
 class BmfPlaybackSubjectResolver implements PlaybackSubjectResolver {

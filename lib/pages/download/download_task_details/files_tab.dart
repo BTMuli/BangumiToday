@@ -121,7 +121,7 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
     });
     try {
       var applied = await ref
-          .read(btDownloadStoreProvider)
+          .read(btDownloadStoreProvider.notifier)
           .setFilePriorities(taskId, changes);
       if (!mounted) return;
       setState(() {
@@ -267,7 +267,7 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                           child: Text(_fileName(file.path), softWrap: true),
                         ),
                       ),
-                      if (PlaybackLibrary.isVideo(file.path))
+                      if (PlaybackPaths.isVideo(file.path))
                         Tooltip(
                           message: '应用内播放',
                           child: IconButton(
@@ -279,11 +279,10 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                                     widget.task.state != 'checking'
                                 ? () async {
                                     try {
-                                      var local =
-                                          PlaybackLibrary.resolveTaskPath(
-                                            widget.task.savePath,
-                                            file.path,
-                                          );
+                                      var local = PlaybackPaths.resolveTaskPath(
+                                        widget.task.savePath,
+                                        file.path,
+                                      );
                                       await openLocalPlayback(
                                         context,
                                         ref,

@@ -5,65 +5,24 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 // Project imports:
+import '../../core/errors/playback_unavailable.dart';
+import '../../core/services/bt_engine/protocol.dart';
+import '../../core/utils/playback_paths.dart';
+import '../../domain/repositories/playback_library.dart';
 import '../../models/playback/playback_item.dart';
-import 'bt_engine/protocol.dart';
 
-class PlaybackUnavailable implements Exception {
-  const PlaybackUnavailable(this.message);
-  final String message;
-  @override
-  String toString() => message;
-}
+/// 基于下载引擎任务快照的本地资源实现。
+///
+/// 不把预分配的磁盘空间当作已下载数据：文件必须存在、非空、没有 `.aria2`
+/// 残留，且在有对应任务时该条目的所有文件都已完成。
+class PlaybackLibraryImpl implements PlaybackLibrary {
+  PlaybackLibraryImpl({required this.tasks, required this.taskFiles});
 
-/// Resolves files without treating preallocated disk space as downloaded data.
-class PlaybackLibrary {
-  PlaybackLibrary({required this.tasks, required this.taskFiles});
-
+  /// 当前引擎任务快照读取器。
   final List<BtTaskSnapshot> Function() tasks;
+
+  /// 任务文件详情分页读取器。
   final Future<BtTaskFilesResult> Function(String id, int offset) taskFiles;
-
-  static bool isVideo(String value) => const {
-    '.mp4',
-    '.mkv',
-    '.avi',
-    '.mov',
-    '.webm',
-    '.m4v',
-    '.ts',
-    '.m2ts',
-    '.wmv',
-    '.flv',
-    '.mpg',
-    '.mpeg',
-    '.ogv',
-  }.contains(path.extension(value).toLowerCase());
-
-  static String resolveTaskPath(String root, String relative) {
-    // Torrent paths use either separator on Windows.
-    var value = Platform.isWindows ? relative.replaceAll('/', '\\') : relative;
-    var resolved = path.normalize(path.join(path.absolute(root), value));
-    if (path.isAbsolute(value) ||
-        !path.isWithin(path.absolute(root), resolved)) {
-      throw const PlaybackUnavailable('文件路径超出下载目录');
-    }
-    return resolved;
-  }
-
-  static int naturalCompare(String a, String b) {
-    var pattern = RegExp(r'\d+|\D+');
-    var left = pattern.allMatches(a.toLowerCase()).map((m) => m[0]!).toList();
-    var right = pattern.allMatches(b.toLowerCase()).map((m) => m[0]!).toList();
-    for (var i = 0; i < left.length && i < right.length; i++) {
-      var ln = int.tryParse(left[i]);
-      var rn = int.tryParse(right[i]);
-      var comparison = ln != null && rn != null
-          ? ln.compareTo(rn)
-          : left[i].compareTo(right[i]);
-      if (comparison != 0) return comparison;
-    }
-    var comparison = left.length.compareTo(right.length);
-    return comparison != 0 ? comparison : a.compareTo(b);
-  }
 
   Future<List<BtTaskFileDetail>> _allFiles(String id) async {
     var result = <BtTaskFileDetail>[];
@@ -80,13 +39,14 @@ class PlaybackLibrary {
     }
   }
 
+  @override
   Future<void> ensureReady(String filePath) => _ensureReady(filePath, {});
 
   Future<void> _ensureReady(
     String filePath,
     Map<String, List<BtTaskFileDetail>> cachedFiles,
   ) async {
-    if (!isVideo(filePath)) {
+    if (!PlaybackPaths.isVideo(filePath)) {
       throw const PlaybackUnavailable('请选择支持的视频文件');
     }
     var file = File(filePath);
@@ -107,7 +67,7 @@ class PlaybackLibrary {
       }
       for (var entry in files) {
         if (entry.path.isEmpty) continue;
-        var resolved = resolveTaskPath(task.savePath, entry.path);
+        var resolved = PlaybackPaths.resolveTaskPath(task.savePath, entry.path);
         if (PlaybackItem.pathKey(resolved) != key) continue;
         if (entry.isPadding ||
             task.state == 'checking' ||
@@ -121,6 +81,7 @@ class PlaybackLibrary {
     }
   }
 
+  @override
   Future<List<PlaybackItem>> discover(String dir, {int? subject}) async {
     var directory = Directory(dir);
     if (!await directory.exists()) return [];
@@ -130,7 +91,7 @@ class PlaybackLibrary {
       recursive: true,
       followLinks: false,
     )) {
-      if (entity is! File || !isVideo(entity.path)) continue;
+      if (entity is! File || !PlaybackPaths.isVideo(entity.path)) continue;
       try {
         await _ensureReady(entity.path, cachedFiles);
         items.add(
@@ -144,7 +105,7 @@ class PlaybackLibrary {
         // Pending downloads are omitted until a subsequent refresh.
       }
     }
-    items.sort((a, b) => naturalCompare(a.filePath, b.filePath));
+    items.sort((a, b) => PlaybackPaths.naturalCompare(a.filePath, b.filePath));
     return items;
   }
 }

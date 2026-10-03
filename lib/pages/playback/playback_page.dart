@@ -18,7 +18,7 @@ import 'package:super_clipboard/super_clipboard.dart' as clipboard;
 import 'package:url_launcher/url_launcher.dart';
 
 // Project imports:
-import '../../core/services/playback_library.dart';
+import '../../core/errors/playback_unavailable.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../models/playback/playback_fit.dart';
 import '../../models/playback/playback_item.dart';
@@ -44,7 +44,6 @@ class PlaybackPage extends ConsumerStatefulWidget {
 
 class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   late final PlaybackStore _store;
-  late final BTNavStore _nav;
   final _playlistScroll = ScrollController();
   final _historyScroll = ScrollController();
   final _videoKey = GlobalKey<VideoState>();
@@ -61,17 +60,21 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   void initState() {
     super.initState();
     _store = ref.read(playbackStoreProvider);
-    _nav = ref.read(navStoreProvider);
     _showHistory = _store.playlist.isEmpty;
-    _wasActive = _nav.curIndex == _nav.playbackIndex;
-    _nav.addListener(_onNavigation);
+    _wasActive = _isPlaybackActive;
     _store.beforeVideoDispose = _exitVideoFullscreen;
     _onPlaybackChanged();
     unawaited(_run(_store.refreshHistory));
   }
 
+  /// 播放页是否为当前页
+  bool get _isPlaybackActive {
+    var nav = ref.read(navStoreProvider);
+    return nav.curIndex == nav.playbackIndex;
+  }
+
   void _onNavigation() {
-    var active = _nav.curIndex == _nav.playbackIndex;
+    var active = _isPlaybackActive;
     if (_wasActive && !active) unawaited(_run(_store.pause));
     _wasActive = active;
   }
@@ -133,7 +136,6 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
 
   @override
   void dispose() {
-    _nav.removeListener(_onNavigation);
     if (_store.beforeVideoDispose == _exitVideoFullscreen) {
       _store.beforeVideoDispose = null;
     }
@@ -233,7 +235,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     if (!mounted) return;
     var name = _store.nameFor(subject);
     ref
-        .read(navStoreProvider)
+        .read(navStoreProvider.notifier)
         .addNavItemB(
           subject: subject,
           paneTitle: (name == null || name.isEmpty) ? null : name,
@@ -243,6 +245,11 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   @override
   Widget build(BuildContext context) {
     var store = ref.watch(playbackStoreProvider);
+    // 离开播放页时暂停播放，替代原先对导航 store 的 addListener。
+    ref.listen<int>(
+      navStoreProvider.select((state) => state.curIndex),
+      (_, _) => _onNavigation(),
+    );
     _onPlaybackChanged();
     return ScaffoldPage(
       padding: EdgeInsets.zero,

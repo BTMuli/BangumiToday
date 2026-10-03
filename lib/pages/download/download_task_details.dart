@@ -13,7 +13,7 @@ import 'package:path/path.dart' as path;
 // Project imports:
 import '../../core/services/bt_engine_client.dart';
 import '../../core/services/file_service.dart';
-import '../../core/services/playback_library.dart';
+import '../../core/utils/playback_paths.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../store/bt_download_store.dart';
 import '../../store/nav_store.dart';
@@ -106,7 +106,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
 
   Future<void> _refresh({bool silent = false}) async {
     if (!_routeActive || !_engineReady) return;
-    var store = ref.read(btDownloadStoreProvider);
+    var store = ref.read(btDownloadStoreProvider.notifier);
     // 当前可见 Tab 各自拉取，互不等待，避免切 Tab 被 overview 请求堵住。
     switch (_tabIndex) {
       case _peerTabIndex:
@@ -253,7 +253,9 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
                         loading: _peers == null,
                         error: _tabIndex == _peerTabIndex ? _tabError : null,
                         onRetry: () => unawaited(
-                          _loadPeers(ref.read(btDownloadStoreProvider)),
+                          _loadPeers(
+                            ref.read(btDownloadStoreProvider.notifier),
+                          ),
                         ),
                       ),
                       _FilesTab(
@@ -267,7 +269,9 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
                         loading: _files == null,
                         error: _tabIndex == _filesTabIndex ? _tabError : null,
                         onRetry: () => unawaited(
-                          _loadFiles(ref.read(btDownloadStoreProvider)),
+                          _loadFiles(
+                            ref.read(btDownloadStoreProvider.notifier),
+                          ),
                         ),
                       ),
                     ],

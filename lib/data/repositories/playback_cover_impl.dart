@@ -1,25 +1,23 @@
 // Project imports:
 import '../../domain/repositories/bangumi_repository.dart';
+import '../../domain/repositories/playback_cover.dart';
 import '../../models/bangumi/bangumi_model.dart';
 
-/// Resolves a Bangumi subject id to its cover image URL and name, cached in
-/// memory.
+/// 通过 Bangumi 仓储解析条目信息的封面实现，结果缓存在内存。
 ///
-/// Only the resolved fields are retained here; the image bytes are cached
-/// separately by `CachedNetworkImage`. A failed lookup is recorded as `null`
-/// so it is not repeated.
-class PlaybackCover {
-  PlaybackCover(this._repository);
+/// 只保留解析出的字段，图片字节由 `CachedNetworkImage` 另行缓存；查询失败记
+/// 为 `null`，避免重复请求。
+class BangumiPlaybackCoverResolver implements PlaybackCoverResolver {
+  BangumiPlaybackCoverResolver(this._repository);
 
   final BTBangumiRepository _repository;
   final Map<int, BangumiSubject?> _subjects = {};
   final Set<int> _inFlight = {};
 
-  /// Whether [subject] has already been resolved (with data or a miss).
+  @override
   bool contains(int subject) => _subjects.containsKey(subject);
 
-  /// The cached cover URL for [subject], or `null` when it is not yet
-  /// resolved or the subject has no usable cover.
+  @override
   String? coverOf(int subject) {
     var data = _subjects[subject];
     if (data == null) return null;
@@ -31,17 +29,14 @@ class PlaybackCover {
     ]);
   }
 
-  /// The cached display name for [subject], or `null` when unknown.
+  @override
   String? nameOf(int subject) {
     var data = _subjects[subject];
     if (data == null) return null;
     return data.nameCn.isNotEmpty ? data.nameCn : data.name;
   }
 
-  /// Resolves and caches the subject detail for [subject].
-  ///
-  /// Concurrent requests for the same subject share a single lookup. Returns
-  /// the cached cover URL (or `null` when there is no cover).
+  @override
   Future<String?> resolve(int subject) async {
     if (_subjects.containsKey(subject)) return coverOf(subject);
     if (!_inFlight.add(subject)) return null;

@@ -4,7 +4,7 @@ extension _BmfFileList on _BmfFileExpanderState {
   Widget buildFileItem(BuildContext context, String file) {
     var fileState = _dirState?.stateFor(file);
     var isIncomplete = fileState?.isIncomplete ?? aria2Files.contains(file);
-    var isVideo = PlaybackLibrary.isVideo(file);
+    var isVideo = PlaybackPaths.isVideo(file);
     var isTorrent = file.endsWith('.torrent');
     var statusLabel = fileState?.statusLabel ?? '下载中';
 
