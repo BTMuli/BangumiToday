@@ -39,7 +39,7 @@ import 'store/nav_store.dart';
 import 'store/playback_store.dart';
 import 'store/tracker_hive.dart';
 import 'tools/log_tool.dart';
-import 'widgets/shell/app_splash.dart';
+import 'widgets/shell/splash.dart';
 
 final globalContainer = ProviderContainer();
 bool _applicationExitStarted = false;

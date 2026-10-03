@@ -17,7 +17,7 @@ import 'subject_episode.dart';
 import 'subject_stat_providers.dart';
 
 /// SubjectDetail页面的章节模块，负责显示/操作章节信息
-class BsdUserEpisodes extends ConsumerStatefulWidget {
+class SubjectUserEpisodes extends ConsumerStatefulWidget {
   /// subjectInfo
   final BangumiSubject subject;
 
@@ -34,7 +34,7 @@ class BsdUserEpisodes extends ConsumerStatefulWidget {
   final bool showGrid;
 
   /// 构造函数
-  const BsdUserEpisodes(
+  const SubjectUserEpisodes(
     this.subject,
     this.user,
     this.provider, {
@@ -44,12 +44,13 @@ class BsdUserEpisodes extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<BsdUserEpisodes> createState() => _BsdUserEpisodesState();
+  ConsumerState<SubjectUserEpisodes> createState() =>
+      _SubjectUserEpisodesState();
 }
 
 // todo，当条目章节数量过多时，需要分页加载，比如名侦探柯南(id:899)
-class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
-    with AutomaticKeepAliveClientMixin, SdpRefreshable {
+class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
+    with AutomaticKeepAliveClientMixin, SubjectDetailRefreshable {
   /// subject_id
   int get subjectId => widget.subject.id;
 
@@ -208,7 +209,7 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
   }
 
   @override
-  void didUpdateWidget(BsdUserEpisodes oldWidget) {
+  void didUpdateWidget(SubjectUserEpisodes oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.provider, widget.provider)) {
       _removeProviderListener?.call();
@@ -347,9 +348,9 @@ class _BsdUserEpisodesState extends ConsumerState<BsdUserEpisodes>
       }
       var userEp = _userEpById[ordered[i].id];
       if (userEp != null) {
-        res.add(BsdEpisode(ordered[i], user: userEp));
+        res.add(SubjectEpisode(ordered[i], user: userEp));
       } else {
-        res.add(BsdEpisode(ordered[i]));
+        res.add(SubjectEpisode(ordered[i]));
       }
     }
     if (episodes.length < widget.subject.totalEpisodes) {

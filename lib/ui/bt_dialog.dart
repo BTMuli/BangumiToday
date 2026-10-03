@@ -10,7 +10,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 // Project imports:
 import '../core/theme/bt_theme.dart';
 import '../models/app/response.dart';
-import '../widgets/shell/app_resp_err.dart';
+import '../widgets/shell/resp_err.dart';
 
 class _KeyboardListenerWrapper extends StatefulWidget {
   final Widget child;
@@ -155,7 +155,7 @@ Future<void> showRespErr(
     context: context,
     builder: (_) => _BTContentDialog(
       title: title ?? (resp.code == 0 ? '请求成功' : '请求失败'),
-      content: AppRespErrWidget(resp),
+      content: RespErrWidget(resp),
       icon: resp.code == 0 ? FluentIcons.check_mark : FluentIcons.error_badge,
       iconColor: resp.code == 0 ? BTColors.success : BTColors.error,
       actions: [

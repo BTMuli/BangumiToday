@@ -10,24 +10,24 @@ import '../../providers/app_providers.dart';
 import 'subject_detail_view_data.dart';
 import 'subject_stat_providers.dart';
 
-enum SdpPrimaryAction { subscribe, collect, progress, openBmf }
+enum SubjectDetailPrimaryAction { subscribe, collect, progress, openBmf }
 
-SdpPrimaryAction sdpResolvePrimaryAction({
+SubjectDetailPrimaryAction subjectDetailResolvePrimaryAction({
   required bool loggedIn,
   required bool collected,
   required BangumiCollectionType type,
   required bool hasBmf,
 }) {
   if (hasBmf && type == BangumiCollectionType.doing) {
-    return SdpPrimaryAction.progress;
+    return SubjectDetailPrimaryAction.progress;
   }
-  if (hasBmf) return SdpPrimaryAction.openBmf;
-  if (loggedIn && !collected) return SdpPrimaryAction.collect;
-  if (!loggedIn) return SdpPrimaryAction.subscribe;
-  return SdpPrimaryAction.subscribe;
+  if (hasBmf) return SubjectDetailPrimaryAction.openBmf;
+  if (loggedIn && !collected) return SubjectDetailPrimaryAction.collect;
+  if (!loggedIn) return SubjectDetailPrimaryAction.subscribe;
+  return SubjectDetailPrimaryAction.subscribe;
 }
 
-bool sdpBmfConfigured(AppBmfModel? bmf) {
+bool subjectDetailBmfConfigured(AppBmfModel? bmf) {
   if (bmf == null || bmf.id == -1) return false;
   var hasRss = bmf.rss != null && bmf.rss!.isNotEmpty;
   var hasDir = bmf.download != null && bmf.download!.isNotEmpty;
@@ -35,8 +35,8 @@ bool sdpBmfConfigured(AppBmfModel? bmf) {
 }
 
 /// 收藏 / 进度 / BMF，按状态只强调一个主操作。
-class SdpActionBar extends StatelessWidget {
-  const SdpActionBar({
+class SubjectDetailActionBar extends StatelessWidget {
+  const SubjectDetailActionBar({
     super.key,
     required this.view,
     required this.hasBmf,
@@ -53,7 +53,7 @@ class SdpActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _SdpActionBarBody(
+    return _SubjectDetailActionBarBody(
       view: view,
       hasBmf: hasBmf,
       pendingCount: pendingCount,
@@ -63,8 +63,8 @@ class SdpActionBar extends StatelessWidget {
   }
 }
 
-class _SdpActionBarBody extends StatefulWidget {
-  const _SdpActionBarBody({
+class _SubjectDetailActionBarBody extends StatefulWidget {
+  const _SubjectDetailActionBarBody({
     required this.view,
     required this.hasBmf,
     required this.pendingCount,
@@ -79,10 +79,12 @@ class _SdpActionBarBody extends StatefulWidget {
   final VoidCallback onOpenBmf;
 
   @override
-  State<_SdpActionBarBody> createState() => _SdpActionBarBodyState();
+  State<_SubjectDetailActionBarBody> createState() =>
+      _SubjectDetailActionBarBodyState();
 }
 
-class _SdpActionBarBodyState extends State<_SdpActionBarBody> {
+class _SubjectDetailActionBarBodyState
+    extends State<_SubjectDetailActionBarBody> {
   VoidCallback? _removeCollectListener;
 
   SubjectDetailViewData get view => widget.view;
@@ -96,7 +98,7 @@ class _SdpActionBarBodyState extends State<_SdpActionBarBody> {
   }
 
   @override
-  void didUpdateWidget(covariant _SdpActionBarBody oldWidget) {
+  void didUpdateWidget(covariant _SubjectDetailActionBarBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(
       oldWidget.view.collectProvider,
@@ -124,7 +126,7 @@ class _SdpActionBarBodyState extends State<_SdpActionBarBody> {
     var loggedIn = view.user != null;
     var collected = collect.collected;
     var type = collect.type;
-    var primary = sdpResolvePrimaryAction(
+    var primary = subjectDetailResolvePrimaryAction(
       loggedIn: loggedIn,
       collected: collected,
       type: type,
@@ -151,7 +153,7 @@ class _SdpActionBarBodyState extends State<_SdpActionBarBody> {
           else
             view.buildCollection(
               compact: true,
-              filled: primary == SdpPrimaryAction.collect,
+              filled: primary == SubjectDetailPrimaryAction.collect,
             ),
           if (collected) _buildProgressChip(context, primary),
           _buildBmfButton(context, primary),
@@ -160,12 +162,15 @@ class _SdpActionBarBodyState extends State<_SdpActionBarBody> {
     );
   }
 
-  Widget _buildProgressChip(BuildContext context, SdpPrimaryAction primary) {
+  Widget _buildProgressChip(
+    BuildContext context,
+    SubjectDetailPrimaryAction primary,
+  ) {
     var total = view.subject.totalEpisodes;
     if (total <= 0) total = view.subject.eps;
     var done = collect.epStatus;
     var label = total > 0 ? '$done/$total' : '$done';
-    var isPrimary = primary == SdpPrimaryAction.progress;
+    var isPrimary = primary == SubjectDetailPrimaryAction.progress;
     return _ActionButton(
       label: '进度 $label',
       isPrimary: isPrimary,
@@ -173,10 +178,13 @@ class _SdpActionBarBodyState extends State<_SdpActionBarBody> {
     );
   }
 
-  Widget _buildBmfButton(BuildContext context, SdpPrimaryAction primary) {
+  Widget _buildBmfButton(
+    BuildContext context,
+    SubjectDetailPrimaryAction primary,
+  ) {
     var isPrimary =
-        primary == SdpPrimaryAction.openBmf ||
-        primary == SdpPrimaryAction.subscribe;
+        primary == SubjectDetailPrimaryAction.openBmf ||
+        primary == SubjectDetailPrimaryAction.subscribe;
     String label;
     if (!widget.hasBmf) {
       label = '订阅下载';
@@ -215,8 +223,8 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-class SdpBmfStatusBar extends ConsumerWidget {
-  const SdpBmfStatusBar({
+class SubjectDetailBmfStatusBar extends ConsumerWidget {
+  const SubjectDetailBmfStatusBar({
     super.key,
     required this.subjectId,
     required this.child,
@@ -237,6 +245,6 @@ class SdpBmfStatusBar extends ConsumerWidget {
         break;
       }
     }
-    return child(sdpBmfConfigured(match));
+    return child(subjectDetailBmfConfigured(match));
   }
 }

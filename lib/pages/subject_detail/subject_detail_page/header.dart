@@ -67,7 +67,7 @@ extension _SubjectDetailHeader on _SubjectDetailPageState {
             ),
           ),
           SizedBox(width: 8),
-          const SdpLayoutSwitcher(),
+          const SubjectDetailLayoutSwitcher(),
         ],
       ),
     );

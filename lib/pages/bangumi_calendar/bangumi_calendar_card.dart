@@ -27,7 +27,7 @@ import '../../widgets/common/bt_drawer.dart';
 import '../../widgets/subject_detail/subject_bmf_drawer.dart';
 import '../../widgets/subject_detail/subject_rss_search_dialog.dart';
 
-class BcpCardWidget extends ConsumerStatefulWidget {
+class BangumiCalendarCard extends ConsumerStatefulWidget {
   static const _padding = 10.0;
   static const _borderWidth = 1.0;
   static const _actionPadding = 8.0;
@@ -49,7 +49,7 @@ class BcpCardWidget extends ConsumerStatefulWidget {
   /// 是否在 BMF 订阅列表里
   final bool inBmf;
 
-  const BcpCardWidget({
+  const BangumiCalendarCard({
     super.key,
     required this.data,
     this.airTime,
@@ -101,10 +101,11 @@ class BcpCardWidget extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<BcpCardWidget> createState() => _BcpCardState();
+  ConsumerState<BangumiCalendarCard> createState() =>
+      _BangumiCalendarCardState();
 }
 
-class _BcpCardState extends ConsumerState<BcpCardWidget>
+class _BangumiCalendarCardState extends ConsumerState<BangumiCalendarCard>
     with SingleTickerProviderStateMixin {
   BangumiLegacySubjectSmall get data => widget.data;
 
@@ -139,7 +140,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
   }
 
   @override
-  void didUpdateWidget(BcpCardWidget oldWidget) {
+  void didUpdateWidget(BangumiCalendarCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     // 父级重新读了订阅状态（例如在别处加了订阅）时同步过来
     if (oldWidget.inBmf != widget.inBmf) _inBmf = widget.inBmf;
@@ -188,7 +189,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
       context: context,
       barrierDismissible: true,
       dismissWithEsc: true,
-      builder: (_) => BsdRssSearchDialog(
+      builder: (_) => SubjectRssSearchDialog(
         subjectId: data.id,
         title: title,
         currentRss: current?.rss,
@@ -233,7 +234,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
     await showBTDrawer(
       context: context,
       width: 420,
-      child: BsdBmfDrawer(
+      child: SubjectBmfDrawer(
         subjectId: data.id,
         title: displayTitle,
         airDate: data.airDate,
@@ -297,7 +298,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
           onLongPress: onLongPress,
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
-            padding: EdgeInsets.all(BcpCardWidget._actionPadding),
+            padding: EdgeInsets.all(BangumiCalendarCard._actionPadding),
             decoration: BoxDecoration(
               color: _isHovered
                   ? FluentTheme.of(context).accentColor.withValues(alpha: 0.1)
@@ -306,7 +307,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
             ),
             child: Icon(
               icon,
-              size: BcpCardWidget._actionIconSize,
+              size: BangumiCalendarCard._actionIconSize,
               color: FluentTheme.of(context).accentColor,
             ),
           ),
@@ -539,7 +540,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
               style: BTTypography.subtitle(
                 context,
               ).copyWith(fontWeight: FontWeight.w600),
-              maxLines: BcpCardWidget._titleMaxLines,
+              maxLines: BangumiCalendarCard._titleMaxLines,
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -551,7 +552,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
             child: Text(
               subTitle,
               style: BTTypography.caption(context),
-              maxLines: BcpCardWidget._subTitleMaxLines,
+              maxLines: BangumiCalendarCard._subTitleMaxLines,
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -627,7 +628,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
                       : (isDark
                             ? Colors.white.withValues(alpha: 0.06)
                             : Colors.black.withValues(alpha: 0.04)),
-                  width: BcpCardWidget._borderWidth,
+                  width: BangumiCalendarCard._borderWidth,
                 ),
                 boxShadow: _isHovered
                     ? [
@@ -642,7 +643,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
                       ]
                     : BTTheme.shadow(context, level: BTShadowLevel.subtle),
               ),
-              padding: EdgeInsets.all(BcpCardWidget._padding),
+              padding: EdgeInsets.all(BangumiCalendarCard._padding),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisAlignment: MainAxisAlignment.start,

@@ -24,17 +24,17 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `hooks_riverpod` (st
 | `lib/main.dart` | Startup sequence, background service bootstrap, global ProviderContainer |
 | `lib/app.dart` | FluentApp shell, theme / window material sync |
 | `lib/controller/` | Page-scoped controllers (nav index, progress) |
-| `lib/core/` | Cross-cutting: constants, cache, layout, theme, services, errors, window effects, stateless utils |
-| `lib/data/` + `lib/domain/` | Bangumi/BMF repositories：远程 API + 本地源；`data/parsers/` 放无状态解析器 |
-| `lib/database/` | SQLite access: `app/` (AppConfig, AppBmf, AppRss, Mikan credential) and `bangumi/` (user, collection, data)；`bt_hive.dart` 负责 Hive 初始化 |
+| `lib/core/` | Cross-cutting: constants, cache, layout, theme, services, errors, utils |
+| `lib/data/` + `lib/domain/` | Bangumi/BMF repositories；`data/parsers/` 为无状态解析器 |
+| `lib/database/` | SQLite access: `app/` (AppConfig, AppBmf, AppRss, Mikan credential) and `bangumi/` (user, collection, data); `bt_hive.dart` opens Hive boxes |
 | `lib/models/` | JSON / Hive / database models with generated `.g.dart`（含 `mikan/`） |
-| `lib/pages/` | Feature pages (`download`, `app_setting`, `bangumi_calendar`, `rss_bmf`, `subject_detail`, `subject_search`, `user_collection`) — page entry plus components used only by that page |
+| `lib/pages/` | Feature pages (`download`, `app_setting`, `bangumi_calendar`, `rss_bmf`, `subject_detail`, `subject_search`, `user_collection`) + 仅该页使用的组件 |
 | `lib/providers/` | Riverpod provider exports；`bangumi_providers.dart` / `bmf_providers.dart` 组装仓储 |
 | `lib/request/` | dio clients: `bangumi/`, `rss/`, `mikan/`, `core/` (BtrClient, RequestManager) |
 | `lib/store/` | ChangeNotifier stores (app, nav, bmf, download) + Hive boxes |
 | `lib/tools/` | 过渡目录，目前只剩日志工具 |
 | `lib/ui/` | Shared dialogs, infobars, icons, engine switch |
-| `lib/widgets/` | Shared widgets: `common/` (generic), `shell/` (app shell + nav), `bangumi/`, `subject_detail/`, `bmf/`, `rss/` — a component moves here only when ≥2 pages use it |
+| `lib/widgets/` | 共享组件（`common/`、`shell/`、`bangumi/`、`subject_detail/`、`bmf/`、`rss/`）；仅 ≥2 页复用时放这里 |
 | `repos/bt_download` | C++ download engine submodule (CMake/vcpkg, libtorrent) |
 
 ### BangumiToday 与 bt_download 的协议对齐
@@ -46,7 +46,7 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `hooks_riverpod` (st
 
 ### Decide where a change belongs
 
-- UI page: add under `lib/pages/<feature>/`; a component used by only that page also lives there, while ≥2 pages share it through `lib/widgets/<feature>/`. Register as a constant `PaneItem` in `lib/widgets/shell/app_nav.dart` or add dynamically via `BTNavStore.addNavItemB(subject: id)` (subject detail tabs).
+- UI page: add under `lib/pages/<feature>/`; page-only components stay there, shared ones go to `lib/widgets/<feature>/`. Register as a constant `PaneItem` in `lib/widgets/shell/nav.dart` or add dynamically via `BTNavStore.addNavItemB(subject: id)` (subject detail tabs).
 - Data model: add under `lib/models/` with `@JsonSerializable()` and regenerate `.g.dart`.
 - Database table / column: add or alter in `lib/database/<domain>/`, following the `preCheck()` + `PRAGMA table_info` migration pattern - never assume a column exists on old installs.
 - Network call: extend `BtrBangumiApi`, `BtrMikanApi`, or the RSS clients; wrap with `RequestManager` (dedup/cancel) and cache via `BTCacheManager`.

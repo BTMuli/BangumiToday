@@ -19,8 +19,12 @@ import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/common/bt_card.dart';
 
 /// 方案 A 身份带：封面左侧，标题评分标签贴在封面右侧。
-class SdpIdentityBand extends StatelessWidget {
-  const SdpIdentityBand({super.key, required this.subject, this.onTagTap});
+class SubjectDetailIdentityBand extends StatelessWidget {
+  const SubjectDetailIdentityBand({
+    super.key,
+    required this.subject,
+    this.onTagTap,
+  });
 
   static const double coverWidth = 200;
   static const double coverHeight = 280;

@@ -10,8 +10,8 @@ import 'subject_detail_rate_chart.dart';
 import 'subject_detail_sections.dart';
 
 /// 评分柱状图 + 社区收藏数，供折叠节使用。
-class SdpScoreHeatSection extends StatelessWidget {
-  const SdpScoreHeatSection({super.key, required this.subject});
+class SubjectDetailScoreHeatSection extends StatelessWidget {
+  const SubjectDetailScoreHeatSection({super.key, required this.subject});
 
   final BangumiSubject subject;
 
@@ -55,7 +55,7 @@ class SdpScoreHeatSection extends StatelessWidget {
         if (subject.rating.count.isEmpty)
           Text('暂无评分分布', style: BTTypography.caption(context))
         else
-          SdpRateChartWidget(subject.rating),
+          SubjectDetailRateChart(subject.rating),
       ],
     );
   }
@@ -84,8 +84,8 @@ class SdpScoreHeatSection extends StatelessWidget {
   }
 }
 
-class SdpScoreHeatExpander extends StatelessWidget {
-  const SdpScoreHeatExpander({
+class SubjectDetailScoreHeatExpander extends StatelessWidget {
+  const SubjectDetailScoreHeatExpander({
     super.key,
     required this.subject,
     this.initiallyExpanded = false,
@@ -96,11 +96,11 @@ class SdpScoreHeatExpander extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SdpSection(
+    return SubjectDetailSection(
       icon: FluentIcons.chart,
       title: '评分与热度',
       initiallyExpanded: initiallyExpanded,
-      content: SdpScoreHeatSection(subject: subject),
+      content: SubjectDetailScoreHeatSection(subject: subject),
     );
   }
 }

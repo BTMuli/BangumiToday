@@ -3,7 +3,7 @@
 /// 详情页按 GlobalKey 遍历收藏 / 章节 / 关联三个模块，
 /// 对实现了本 mixin 的 State 调用 [refresh]，
 /// 让子模块的接口随页面一起重新请求，而不是只在挂载时拉一次。
-mixin SdpRefreshable {
+mixin SubjectDetailRefreshable {
   /// 重新拉取本模块数据。
   Future<void> refresh();
 }

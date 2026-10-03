@@ -1,6 +1,6 @@
 part of '../rss_bmf_workspace.dart';
 
-mixin _RbpBmfWorkspace on _RbpBmfStateBase {
+mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
   Widget _buildWorkspace(BuildContext context) {
     if (_filterModel.filteredList.isEmpty) return _buildEmptyState(context);
 

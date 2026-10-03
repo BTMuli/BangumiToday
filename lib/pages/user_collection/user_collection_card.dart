@@ -22,19 +22,19 @@ import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 
 /// 收藏卡片
-class UcpCardWidget extends ConsumerStatefulWidget {
+class UserCollectionCard extends ConsumerStatefulWidget {
   /// 数据
   final BangumiUserSubjectCollection data;
 
   /// 构造函数
-  const UcpCardWidget({super.key, required this.data});
+  const UserCollectionCard({super.key, required this.data});
 
   @override
-  ConsumerState<UcpCardWidget> createState() => _UcpCardState();
+  ConsumerState<UserCollectionCard> createState() => _UserCollectionCardState();
 }
 
 /// 收藏卡片状态
-class _UcpCardState extends ConsumerState<UcpCardWidget>
+class _UserCollectionCardState extends ConsumerState<UserCollectionCard>
     with SingleTickerProviderStateMixin {
   /// 数据
   BangumiSlimSubject get data => widget.data.subject;

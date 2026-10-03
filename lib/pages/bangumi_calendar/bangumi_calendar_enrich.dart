@@ -18,14 +18,14 @@ typedef _SubjectFetch = ({BangumiSubject? subject, bool rateLimited});
 /// bangumi-data 只有排期，没有封面、评分、收藏数；bgm 的 `/calendar` 只覆盖
 /// 当季新番（实测 128 个在播条目里只命中 9 个），所以这里按 subject id 逐个
 /// 取条目详情来补展示字段。结果由请求层写进 [BgmSubjectCache]，之后直接读缓存。
-class BcpEnricher {
-  BcpEnricher._();
+class BangumiCalendarEnricher {
+  BangumiCalendarEnricher._();
 
   /// 实例
-  static final BcpEnricher _instance = BcpEnricher._();
+  static final BangumiCalendarEnricher _instance = BangumiCalendarEnricher._();
 
   /// 获取实例
-  factory BcpEnricher() => _instance;
+  factory BangumiCalendarEnricher() => _instance;
 
   /// 同时进行的条目详情请求数
   static const int maxConcurrent = 3;
@@ -167,7 +167,7 @@ class BcpEnricher {
 
   /// 确认哪些条目其实已经放完。
   ///
-  /// [pending] 为可疑项（id -> 放送周期），来自 `BcpCalendarData.pendingFinished`。
+  /// [pending] 为可疑项（id -> 放送周期），来自 `BangumiCalendarData.pendingFinished`。
   /// 判据是 bgm 登记的最新一话放送日期已经过去一个周期：还在放送的条目上一话
   /// 不会隔这么久，而长期停播又是推算不出来的情况，所以拿不到日期时保守保留。
   Future<Set<int>> confirmFinished({

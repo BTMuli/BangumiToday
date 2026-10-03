@@ -19,19 +19,19 @@ import '../../widgets/common/empty_state.dart';
 import 'user_collection_card.dart';
 
 /// 用户收藏 tab
-class UcpTabWidget extends ConsumerStatefulWidget {
+class UserCollectionTab extends ConsumerStatefulWidget {
   /// 收藏类型
   final BangumiCollectionType type;
 
   /// 构造
-  const UcpTabWidget(this.type, {super.key});
+  const UserCollectionTab(this.type, {super.key});
 
   @override
-  ConsumerState<UcpTabWidget> createState() => _UcpTabState();
+  ConsumerState<UserCollectionTab> createState() => _UserCollectionTabState();
 }
 
 /// 用户收藏 tab 状态
-class _UcpTabState extends ConsumerState<UcpTabWidget>
+class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
     with AutomaticKeepAliveClientMixin {
   /// 收藏类型
   BangumiCollectionType get type => widget.type;
@@ -293,7 +293,7 @@ class _UcpTabState extends ConsumerState<UcpTabWidget>
             scrollCacheExtent: const ScrollCacheExtent.pixels(500),
             itemBuilder: (context, index) => RepaintBoundary(
               key: ValueKey(showData[index].subjectId),
-              child: UcpCardWidget(data: showData[index]),
+              child: UserCollectionCard(data: showData[index]),
             ),
           ),
         );

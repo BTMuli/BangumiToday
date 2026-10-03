@@ -30,16 +30,16 @@ import '../../ui/bt_infobar.dart';
 import 'nav_page_stack.dart';
 
 /// 应用导航
-class AppNavWidget extends ConsumerStatefulWidget {
+class NavWidget extends ConsumerStatefulWidget {
   /// 构造函数
-  const AppNavWidget({super.key});
+  const NavWidget({super.key});
 
   @override
-  ConsumerState<AppNavWidget> createState() => _AppNavWidgetState();
+  ConsumerState<NavWidget> createState() => _NavWidgetState();
 }
 
 /// 导航状态
-class _AppNavWidgetState extends ConsumerState<AppNavWidget>
+class _NavWidgetState extends ConsumerState<NavWidget>
     with AutomaticKeepAliveClientMixin {
   /// 当前索引
   int get curIndex => ref.watch(navStoreProvider).curIndex;

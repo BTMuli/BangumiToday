@@ -14,18 +14,20 @@ import '../../store/app_store.dart';
 /// 代码：https://github.com/imaNNeo/fl_chart/blob/main/example/lib/presentation/samples/bar/bar_chart_sample8.dart
 /// 动画部分参考同类型下的 sample1
 /// 代码：https://github.com/imaNNeo/fl_chart/blob/main/example/lib/presentation/samples/bar/bar_chart_sample1.dart
-class SdpRateChartWidget extends ConsumerStatefulWidget {
+class SubjectDetailRateChart extends ConsumerStatefulWidget {
   /// 评分数据
   final BangumiPatchRating? rating;
 
   /// 构造函数
-  const SdpRateChartWidget(this.rating, {super.key});
+  const SubjectDetailRateChart(this.rating, {super.key});
 
   @override
-  ConsumerState<SdpRateChartWidget> createState() => _SdpRateChartWidgetState();
+  ConsumerState<SubjectDetailRateChart> createState() =>
+      _SubjectDetailRateChartState();
 }
 
-class _SdpRateChartWidgetState extends ConsumerState<SdpRateChartWidget> {
+class _SubjectDetailRateChartState
+    extends ConsumerState<SubjectDetailRateChart> {
   /// 数据
   BangumiPatchRating? get rating => widget.rating;
 

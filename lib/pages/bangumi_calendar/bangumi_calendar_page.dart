@@ -49,7 +49,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   bool isRequesting = false;
 
   /// 请求数据，索引 0=周一 ... 6=周日，按日本放送日归属
-  List<List<BcpCalendarItem>> calendarData = List.generate(7, (_) => []);
+  List<List<BangumiCalendarItem>> calendarData = List.generate(7, (_) => []);
 
   /// 是否只显示收藏
   bool isShowCollection = false;
@@ -118,7 +118,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   final Map<int, BangumiLegacySubjectSmall> _enrich = {};
 
   /// 候选分组（索引 0=周一 … 6=周日），由本地数据组装，不做就绪与收藏过滤
-  List<List<BcpCalendarItem>> _rawDays = List.generate(7, (_) => []);
+  List<List<BangumiCalendarItem>> _rawDays = List.generate(7, (_) => []);
 
   /// 已经补全并确认完结状态、可以填充展示的分组
   final Set<int> _readySlots = {};
@@ -258,7 +258,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       await applyDisplay();
       return;
     }
-    _rawDays = BcpCalendarData.buildDays(
+    _rawDays = BangumiCalendarData.buildDays(
       items: _items,
       siteMeta: _siteMeta,
       enrich: _enrich,
@@ -281,14 +281,14 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
         if (_readySlots.contains(slot))
           filterDay(_rawDays[weekdayIndexAt(slot)])
         else
-          const <BcpCalendarItem>[],
+          const <BangumiCalendarItem>[],
     ];
     if (mounted) setState(() {});
     realignActiveSlot(anchor);
   }
 
   /// 按当前过滤条件筛出一天要展示的条目；未开启过滤时原样返回。
-  List<BcpCalendarItem> filterDay(List<BcpCalendarItem> day) {
+  List<BangumiCalendarItem> filterDay(List<BangumiCalendarItem> day) {
     var collected = _collectedIds;
     if (collected == null) return day;
     return [
@@ -329,7 +329,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 数据重来，不能在旧轮次上收工。
   Future<void> prepareRound({bool refreshKnown = false}) async {
     var generation = _enrichGeneration;
-    var enricher = BcpEnricher();
+    var enricher = BangumiCalendarEnricher();
     var repository = ref.read(bangumiRepositoryProvider);
     // 按展示顺序收集整周要展示的条目：今天在最前，先完成的分组先填充
     var ids = <int>[];
@@ -366,7 +366,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     await enricher.fetchMissing(
       ids: missing,
       repository: repository,
-      // 换了一轮数据就收工：在途请求由 BcpEnricher 合并后交给新一轮复用，
+      // 换了一轮数据就收工：在途请求由 BangumiCalendarEnricher 合并后交给新一轮复用，
       // 不会再对同一个 bgmId 发第二次。
       isActive: () => mounted && generation == _enrichGeneration,
       onFilled: (filled) {
@@ -391,7 +391,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 走 [_settleQueue] 串起来：请求回调会一批批地触发，重叠着跑会把同一个
   /// 分组的完结判定重复做一遍。
   Future<void> settleSlots(
-    BcpEnricher enricher,
+    BangumiCalendarEnricher enricher,
     BTBangumiRepository repository,
     int generation, {
     bool force = false,
@@ -404,7 +404,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
   /// 实际的落地流程，由 [settleSlots] 串行调用。
   Future<void> settleSlotsNow(
-    BcpEnricher enricher,
+    BangumiCalendarEnricher enricher,
     BTBangumiRepository repository,
     int generation, {
     bool force = false,
@@ -442,11 +442,11 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 按 bgm 章节数据确认后就不排进日历。只对已经拿到详情的条目生效。
   Future<void> confirmFinishedForSlot(
     int slot,
-    BcpEnricher enricher,
+    BangumiCalendarEnricher enricher,
     BTBangumiRepository repository,
     int generation,
   ) async {
-    var pending = BcpCalendarData.pendingFinished(
+    var pending = BangumiCalendarData.pendingFinished(
       items: _items,
       enrich: _enrich,
       weekday: weekdayIndexAt(slot) + 1,
@@ -537,7 +537,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       await BTErrorHandler.handle(context, remote, title: '获取放送数据失败');
       return;
     }
-    _rawDays = BcpCalendarData.buildDaysFromRemote(
+    _rawDays = BangumiCalendarData.buildDaysFromRemote(
       remote.data!,
       watchedIds: _watchedIds,
       bmfIds: _bmfIds,
@@ -578,7 +578,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   }
 
   /// 获取第 [slot] 个展示分组要渲染的条目，未准备好的分组为空。
-  List<BcpCalendarItem> getTabData(int slot) {
+  List<BangumiCalendarItem> getTabData(int slot) {
     if (slot < 0 || slot >= calendarData.length) return [];
     return calendarData[slot];
   }
@@ -586,7 +586,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 获取第 [slot] 个展示分组的候选条目（不受就绪状态影响）。
   ///
   /// 准备分组时用它取 subject id：分组还没填充，展示数据是空的。
-  List<BcpCalendarItem> candidateItems(int slot) {
+  List<BangumiCalendarItem> candidateItems(int slot) {
     var index = weekdayIndexAt(slot);
     if (index >= _rawDays.length) return [];
     return _rawDays[index];
@@ -910,7 +910,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
         var index = weekdayIndexAt(slot);
         return KeyedSubtree(
           key: _dayKeys[slot],
-          child: BcpDayWidget(
+          child: BangumiCalendarDay(
             weekday: '周${weekday[index]}',
             date: dateAt(slot),
             isToday: slot == 0,

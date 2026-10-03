@@ -20,14 +20,13 @@ Contents:
 
 - Riverpod 3; store providers import `package:flutter_riverpod/legacy.dart` and use `ChangeNotifierProvider` / `AsyncNotifierProvider` (`appStoreProvider`, `navStoreProvider`, `bmfListProvider`, `bmfNavigationProvider`, `btDownloadStoreProvider`). `lib/providers/providers.dart` re-exports the stores.
 - Bangumi reads/writes go through `bangumiRepositoryProvider` (`lib/providers/bangumi_providers.dart`): remote API plus SQLite collections. Remote collection failures other than 404 fall back to local rows; 404 deletes the local row.
-- BMF subscriptions go through `bmfRepositoryProvider` (`lib/providers/bmf_providers.dart`, interface in `lib/domain/repositories/bmf_repository.dart`, implementation in `lib/data/repositories/bmf_repository_impl.dart`); the implementation is the only owner of the RSS refresh triggered by a write, and it publishes `BmfChange` events that `bmfListProvider` subscribes to.
+- BMF subscriptions: `bmfRepositoryProvider` (`lib/providers/bmf_providers.dart`; interface `lib/domain/repositories/bmf_repository.dart`, impl `lib/data/repositories/bmf_repository_impl.dart`). Only the impl triggers the post-write RSS refresh, and it publishes `BmfChange` events that `bmfListProvider` consumes.
 - Store classes in `lib/store/` are `ChangeNotifier`s: write to SQLite/Hive, then `notifyListeners()`.
-- `lib/core/services/` classes are stateless singletons (`BTLogTool` stays in `lib/tools/`; `BTFileTool`, `BTDownloadTool`, `BTNotifierTool` live here now) and are called without Riverpod. Hive box opening lives in `lib/database/bt_hive.dart` (`BTHiveTool`).
-- `lib/core/services/` singletons expose `instance` (see `BmfRssService`, `BangumiOAuthCoordinator`, `BtEngineClient`).
+- `lib/core/services/` singletons expose `instance` (`BmfRssService`, `BangumiOAuthCoordinator`, `BtEngineClient`) and are used without Riverpod; `BTFileTool` / `BTDownloadTool` / `BTNotifierTool` live here, `BTLogTool` in `lib/tools/`, `BTHiveTool` in `lib/database/bt_hive.dart`.
 
 ## Navigation model
 
-- `AppNavWidget` builds a `NavigationPane` in compact display mode.
+- `NavWidget` (`lib/widgets/shell/nav.dart`) builds a `NavigationPane` in compact display mode.
 - Constant items (`topNavCount` = 4 on Windows, else 3): Bangumi-今日放送 (0), RSS & BMF (1), user page (2), 下载管理 (3, Windows only). Footer: 更多设置 flyout, theme toggle, 应用设置.
 - Dynamic subject tabs: `BTNavStore.addNavItemB(subject: id)` creates a `SubjectDetailPage` tab, persists it to Hive box `nav`, and caps at `maxDynamicItems = 50`, evicting the least recently used. `curIndex = topNavCount + navIndex`.
 - App links (`AppLinkService`): `bangumitoday://subject/<id>` opens a subject tab; `bangumitoday://oauth?...` is the OAuth callback consumed by `BangumiOAuthCoordinator`.

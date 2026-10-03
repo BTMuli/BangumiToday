@@ -22,7 +22,7 @@ extension _SubjectDetailContent on _SubjectDetailPageState {
     showBTDrawer(
       context: context,
       width: 420,
-      child: BsdBmfDrawer(
+      child: SubjectBmfDrawer(
         subjectId: subject.id,
         title: title,
         airDate: subject.date,
@@ -36,8 +36,8 @@ extension _SubjectDetailContent on _SubjectDetailPageState {
     var view = _viewData();
     var mode = ref.watch(subjectDetailLayoutModeProvider);
     return switch (mode) {
-      SubjectDetailLayoutMode.current => SdpLayoutCurrent(view: view),
-      SubjectDetailLayoutMode.a => SdpLayoutA(view: view),
+      SubjectDetailLayoutMode.current => SubjectDetailLayoutCurrent(view: view),
+      SubjectDetailLayoutMode.a => SubjectDetailLayoutA(view: view),
     };
   }
 }

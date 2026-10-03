@@ -15,14 +15,14 @@ import '../../ui/bt_infobar.dart';
 import 'anibt_filter_dialog.dart';
 import 'rss_anibt_card_fluent.dart';
 
-class RbpAnibtWidget extends StatefulWidget {
-  const RbpAnibtWidget({super.key});
+class RssBmfAnibt extends StatefulWidget {
+  const RssBmfAnibt({super.key});
 
   @override
-  State<RbpAnibtWidget> createState() => _RbpAnibtState();
+  State<RssBmfAnibt> createState() => _RssBmfAnibtState();
 }
 
-class _RbpAnibtState extends State<RbpAnibtWidget>
+class _RssBmfAnibtState extends State<RssBmfAnibt>
     with AutomaticKeepAliveClientMixin {
   final AnibtAPI anibtAPI = AnibtAPI();
   final TextEditingController _searchController = TextEditingController();

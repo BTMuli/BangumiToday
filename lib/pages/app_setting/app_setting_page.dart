@@ -227,7 +227,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
   /// 构建配置项
   List<Widget> buildConfigList() {
     return [
-      AspInfoWidget(),
+      AppConfigInfoWidget(),
       if (Platform.isWindows) AppConfigNetworkWidget(),
       if (Platform.isWindows) AppConfigDownloadWidget(),
       AppConfigDeviceWidget(),

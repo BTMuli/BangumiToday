@@ -11,8 +11,8 @@ import 'subject_detail_sections.dart';
 import 'subject_detail_view_data.dart';
 
 /// 方案 A：身份带 + 操作条 + 按状态展开一节。
-class SdpLayoutA extends StatelessWidget {
-  const SdpLayoutA({super.key, required this.view, this.hasBmf});
+class SubjectDetailLayoutA extends StatelessWidget {
+  const SubjectDetailLayoutA({super.key, required this.view, this.hasBmf});
 
   final SubjectDetailViewData view;
   final bool? hasBmf;
@@ -20,7 +20,7 @@ class SdpLayoutA extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (hasBmf != null) return _buildBody(context, hasBmf!);
-    return SdpBmfStatusBar(
+    return SubjectDetailBmfStatusBar(
       subjectId: view.subject.id,
       child: (configured) => _buildBody(context, configured),
     );
@@ -37,11 +37,14 @@ class SdpLayoutA extends StatelessWidget {
       builder: (context, constraints) {
         var watching = _watching(configured);
         var split = constraints.maxWidth >= BTBreakpoints.desktop;
-        var identity = sdpSurfaceCard(
+        var identity = subjectDetailSurfaceCard(
           context,
-          SdpIdentityBand(subject: view.subject, onTagTap: view.onTagTap),
+          SubjectDetailIdentityBand(
+            subject: view.subject,
+            onTagTap: view.onTagTap,
+          ),
         );
-        var actions = SdpActionBar(view: view, hasBmf: configured);
+        var actions = SubjectDetailActionBar(view: view, hasBmf: configured);
         var sections = _buildSections(watching);
         if (!split) {
           return SingleChildScrollView(
@@ -90,28 +93,28 @@ class SdpLayoutA extends StatelessWidget {
 
   List<Widget> _buildSections(bool watching) {
     return [
-      SdpSection(
+      SubjectDetailSection(
         icon: FluentIcons.info,
         title: '简介',
         initiallyExpanded: !watching,
-        content: SdpSummaryBody(view: view),
+        content: SubjectDetailSummaryBody(view: view),
       ),
-      SdpSection(
+      SubjectDetailSection(
         icon: FluentIcons.video,
         title: '剧集进度',
         initiallyExpanded: watching,
         content: view.buildEpisodes(showSummary: true, showGrid: false),
       ),
-      SdpScoreHeatExpander(subject: view.subject),
-      SdpSection(
+      SubjectDetailScoreHeatExpander(subject: view.subject),
+      SubjectDetailSection(
         icon: FluentIcons.link,
         title: '关联条目',
         content: view.buildRelations(),
       ),
-      SdpSection(
+      SubjectDetailSection(
         icon: FluentIcons.settings,
         title: '详细信息',
-        content: SdpInfoboxBody(view: view),
+        content: SubjectDetailInfoboxBody(view: view),
       ),
     ];
   }

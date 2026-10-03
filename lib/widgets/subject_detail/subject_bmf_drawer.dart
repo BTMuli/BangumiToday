@@ -24,13 +24,13 @@ import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../bmf/bmf_expander.dart';
 
-class BsdBmfDrawer extends ConsumerStatefulWidget {
+class SubjectBmfDrawer extends ConsumerStatefulWidget {
   final int subjectId;
   final String title;
   final String? airDate;
   final SubjectRssStatProvider? rssProvider;
 
-  const BsdBmfDrawer({
+  const SubjectBmfDrawer({
     super.key,
     required this.subjectId,
     required this.title,
@@ -39,10 +39,10 @@ class BsdBmfDrawer extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<BsdBmfDrawer> createState() => _BsdBmfDrawerState();
+  ConsumerState<SubjectBmfDrawer> createState() => _SubjectBmfDrawerState();
 }
 
-class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
+class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
   final BtsAppRss sqliteRss = BtsAppRss();
   late ProgressController progress = ProgressController();
   final BTFileTool fileTool = BTFileTool();
@@ -66,7 +66,7 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
   }
 
   @override
-  void didUpdateWidget(BsdBmfDrawer oldWidget) {
+  void didUpdateWidget(SubjectBmfDrawer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.rssProvider, widget.rssProvider)) {
       _removeRssListener?.call();

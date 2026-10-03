@@ -15,7 +15,7 @@ import 'bangumi_calendar_data.dart';
 ///
 /// 滚动列表里的一天：日期头 + 卡片网格。空状态用固定高度，
 /// 免得空分组把滚动距离拉得忽长忽短。
-class BcpDayWidget extends StatelessWidget {
+class BangumiCalendarDay extends StatelessWidget {
   /// 星期标签，如 `周六`
   final String weekday;
 
@@ -26,7 +26,7 @@ class BcpDayWidget extends StatelessWidget {
   final bool isToday;
 
   /// 数据
-  final List<BcpCalendarItem> data;
+  final List<BangumiCalendarItem> data;
 
   /// 分组是否还在准备中（准备完成前数据是置空的）
   final bool loading;
@@ -35,7 +35,7 @@ class BcpDayWidget extends StatelessWidget {
   static const double _emptyHeight = 180;
 
   /// 构造函数
-  const BcpDayWidget({
+  const BangumiCalendarDay({
     super.key,
     required this.weekday,
     required this.date,
@@ -122,7 +122,7 @@ class BcpDayWidget extends StatelessWidget {
         var columns = BTBreakpoints.getGridColumns(constraints.maxWidth);
         var cardWidth =
             (constraints.maxWidth - 16 - (columns - 1) * 8) / columns;
-        var minimumHeight = BcpCardWidget.minimumHeight(
+        var minimumHeight = BangumiCalendarCard.minimumHeight(
           context,
           hasAirInfo: data.any(
             (item) => (item.airClock ?? '').isNotEmpty || item.episode != null,
@@ -143,7 +143,7 @@ class BcpDayWidget extends StatelessWidget {
             var item = data[index];
             return RepaintBoundary(
               key: ValueKey(item.subject.id),
-              child: BcpCardWidget(
+              child: BangumiCalendarCard(
                 data: item.subject,
                 airTime: item.airClock,
                 episode: item.episode,

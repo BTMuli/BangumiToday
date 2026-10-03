@@ -19,16 +19,16 @@ import 'rss_mikan_card_fluent.dart';
 /// 负责 MikanProject RSS 页面的显示
 /// 包括 RSSClassic 和 RSSPersonal
 /// 前者是列表模式显示站点的RSS更新，后者是个人订阅的RSS更新
-class RbpMikanWidget extends ConsumerStatefulWidget {
+class RssBmfMikan extends ConsumerStatefulWidget {
   /// 构造函数
-  const RbpMikanWidget({super.key});
+  const RssBmfMikan({super.key});
 
   @override
-  ConsumerState<RbpMikanWidget> createState() => _RbpMikanState();
+  ConsumerState<RssBmfMikan> createState() => _RssBmfMikanState();
 }
 
 /// MikanRSS 页面状态
-class _RbpMikanState extends ConsumerState<RbpMikanWidget>
+class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
     with AutomaticKeepAliveClientMixin {
   /// 请求客户端
   final BtrMikanApi mikanAPI = BtrMikanApi();

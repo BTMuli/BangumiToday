@@ -9,8 +9,8 @@ import 'subject_detail_sections.dart';
 import 'subject_detail_view_data.dart';
 
 /// 当前条目详情布局（单列滚动）。
-class SdpLayoutCurrent extends StatelessWidget {
-  const SdpLayoutCurrent({super.key, required this.view});
+class SubjectDetailLayoutCurrent extends StatelessWidget {
+  const SubjectDetailLayoutCurrent({super.key, required this.view});
 
   final SubjectDetailViewData view;
 
@@ -23,9 +23,9 @@ class SdpLayoutCurrent extends StatelessWidget {
         children: [
           BTFadeSlideIn(
             duration: const Duration(milliseconds: 300),
-            child: sdpSurfaceCard(
+            child: subjectDetailSurfaceCard(
               context,
-              SdpOverviewWidget(view.subject, onTagTap: view.onTagTap),
+              SubjectDetailOverview(view.subject, onTagTap: view.onTagTap),
             ),
           ),
           SizedBox(height: 12),
@@ -61,7 +61,7 @@ class SdpLayoutCurrent extends StatelessWidget {
           BTFadeSlideIn(
             duration: const Duration(milliseconds: 400),
             delay: const Duration(milliseconds: 100),
-            child: SdpSection(
+            child: SubjectDetailSection(
               icon: FluentIcons.video,
               title: '剧集列表',
               initiallyExpanded: true,
@@ -71,7 +71,7 @@ class SdpLayoutCurrent extends StatelessWidget {
           BTFadeSlideIn(
             duration: const Duration(milliseconds: 450),
             delay: const Duration(milliseconds: 150),
-            child: SdpSection(
+            child: SubjectDetailSection(
               icon: FluentIcons.link,
               title: '关联条目',
               content: view.buildRelations(),
@@ -80,20 +80,20 @@ class SdpLayoutCurrent extends StatelessWidget {
           BTFadeSlideIn(
             duration: const Duration(milliseconds: 500),
             delay: const Duration(milliseconds: 200),
-            child: SdpSection(
+            child: SubjectDetailSection(
               icon: FluentIcons.info,
               title: '简介',
               initiallyExpanded: true,
-              content: SdpSummaryBody(view: view),
+              content: SubjectDetailSummaryBody(view: view),
             ),
           ),
           BTFadeSlideIn(
             duration: const Duration(milliseconds: 550),
             delay: const Duration(milliseconds: 250),
-            child: SdpSection(
+            child: SubjectDetailSection(
               icon: FluentIcons.settings,
               title: '详细信息',
-              content: SdpInfoboxBody(view: view),
+              content: SubjectDetailInfoboxBody(view: view),
             ),
           ),
         ],

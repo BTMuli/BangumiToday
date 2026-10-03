@@ -8,7 +8,7 @@ import 'subject_stat_providers.dart';
 import 'subject_user_collection.dart';
 import 'subject_user_episodes.dart';
 
-typedef SdpContextMenuBuilder =
+typedef SubjectDetailContextMenuBuilder =
     Widget Function(BuildContext context, EditableTextState state);
 
 /// 详情页布局共用的数据和入口。
@@ -29,7 +29,7 @@ class SubjectDetailViewData {
   final BangumiUser? user;
   final SubjectCollectStatProvider collectProvider;
   final ValueChanged<String> onTagTap;
-  final SdpContextMenuBuilder contextMenuBuilder;
+  final SubjectDetailContextMenuBuilder contextMenuBuilder;
   final VoidCallback openBmfDrawer;
   final Key? collectionKey;
   final Key? episodesKey;
@@ -37,7 +37,7 @@ class SubjectDetailViewData {
 
   Widget buildCollection({bool compact = false, bool filled = true}) {
     if (user == null) return const SizedBox.shrink();
-    return BsdUserCollection(
+    return SubjectUserCollection(
       subject,
       user!,
       collectProvider,
@@ -48,7 +48,7 @@ class SubjectDetailViewData {
   }
 
   Widget buildEpisodes({bool showSummary = false, bool showGrid = true}) {
-    return BsdUserEpisodes(
+    return SubjectUserEpisodes(
       subject,
       user,
       collectProvider,
@@ -59,6 +59,6 @@ class SubjectDetailViewData {
   }
 
   Widget buildRelations() {
-    return SdpRelationWidget(subject.id, key: relationsKey);
+    return SubjectDetailRelation(subject.id, key: relationsKey);
   }
 }

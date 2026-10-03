@@ -1,6 +1,6 @@
 part of '../rss_bmf_workspace.dart';
 
-mixin _RbpBmfHeader on _RbpBmfStateBase {
+mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
   Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(18, 12, 18, 8),

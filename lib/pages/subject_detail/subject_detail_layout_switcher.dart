@@ -6,8 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'subject_layout_mode.dart';
 
 /// 条目详情页头的原版 / 新布局切换。
-class SdpLayoutSwitcher extends ConsumerWidget {
-  const SdpLayoutSwitcher({super.key});
+class SubjectDetailLayoutSwitcher extends ConsumerWidget {
+  const SubjectDetailLayoutSwitcher({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

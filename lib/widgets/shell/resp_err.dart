@@ -7,12 +7,12 @@ import 'package:fluent_ui/fluent_ui.dart';
 // Project imports:
 import '../../models/app/response.dart';
 
-class AppRespErrWidget extends StatelessWidget {
+class RespErrWidget extends StatelessWidget {
   /// 错误信息
   final BTResponse response;
 
   /// 构造函数
-  const AppRespErrWidget(this.response, {super.key});
+  const RespErrWidget(this.response, {super.key});
 
   /// 构建标题
   Widget buildTitle(String prefix, String data) {

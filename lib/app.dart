@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import 'core/utils/window_effect.dart';
 import 'store/app_store.dart';
-import 'widgets/shell/app_nav.dart';
+import 'widgets/shell/nav.dart';
 
 /// 应用入口
 class BTApp extends ConsumerStatefulWidget {
@@ -68,7 +68,7 @@ class _BTAppState extends ConsumerState<BTApp> {
       title: 'BangumiToday',
       themeMode: appStore.themeMode,
       theme: getTheme(context, appStore),
-      home: const AppNavWidget(),
+      home: const NavWidget(),
       debugShowCheckedModeBanner: false,
     );
   }

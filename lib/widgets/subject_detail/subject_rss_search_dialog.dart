@@ -19,14 +19,14 @@ import '../rss/anibt_tag_chip.dart';
 
 enum _RssSearchSource { mikan, anibt }
 
-class BsdRssSearchDialog extends StatefulWidget {
+class SubjectRssSearchDialog extends StatefulWidget {
   final int subjectId;
   final String title;
   final String? currentRss;
   final bool selectOnly;
   final Future<bool> Function(BuildContext context, String rss) onSubscribe;
 
-  const BsdRssSearchDialog({
+  const SubjectRssSearchDialog({
     super.key,
     required this.subjectId,
     required this.title,
@@ -36,10 +36,10 @@ class BsdRssSearchDialog extends StatefulWidget {
   });
 
   @override
-  State<BsdRssSearchDialog> createState() => _BsdRssSearchDialogState();
+  State<SubjectRssSearchDialog> createState() => _SubjectRssSearchDialogState();
 }
 
-class _BsdRssSearchDialogState extends State<BsdRssSearchDialog> {
+class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
   final _mikanApi = BtrMikanApi();
   final _anibtApi = AnibtAPI();
   late final TextEditingController _query;

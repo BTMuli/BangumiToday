@@ -67,7 +67,7 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
           text: Text(type.label),
           body: BtLazyTabBody(
             visited: _visitedTabs.contains(i),
-            child: UcpTabWidget(type),
+            child: UserCollectionTab(type),
           ),
         ),
       );

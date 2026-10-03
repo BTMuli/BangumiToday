@@ -6,7 +6,7 @@ import '../../models/bangumi/bangumi_model_legacy.dart';
 import '../../models/bangumi/request_subject.dart';
 
 /// 首页日历条目：bgm 条目 + 本地时间的放送时刻
-class BcpCalendarItem {
+class BangumiCalendarItem {
   /// bgm 条目，供卡片展示与条目详情跳转
   final BangumiLegacySubjectSmall subject;
 
@@ -23,7 +23,7 @@ class BcpCalendarItem {
   final bool inBmf;
 
   /// 构造函数
-  const BcpCalendarItem({
+  const BangumiCalendarItem({
     required this.subject,
     required this.airClock,
     required this.episode,
@@ -36,8 +36,8 @@ class BcpCalendarItem {
 ///
 /// 以本地 bangumi-data 为主：条目集合、星期归属与放送时刻全部由它决定；
 /// bgm 只作为辅助，按 subject id 补全封面、评分、收藏数等展示字段。
-class BcpCalendarData {
-  BcpCalendarData._();
+class BangumiCalendarData {
+  BangumiCalendarData._();
 
   /// 组装一周日历，索引 0=周一 ... 6=周日，按日本放送日归属。
   ///
@@ -48,7 +48,7 @@ class BcpCalendarData {
   ///
   /// 缺少 bgm subject id、放送时刻无法解析的条目会被丢弃：它们既无法
   /// 打开条目详情，也无法放进某一天的排期。
-  static List<List<BcpCalendarItem>> buildDays({
+  static List<List<BangumiCalendarItem>> buildDays({
     required List<BangumiDataItem> items,
     required Map<String, BangumiDataSite> siteMeta,
     required Map<int, BangumiLegacySubjectSmall> enrich,
@@ -56,7 +56,7 @@ class BcpCalendarData {
     Set<int> bmfIds = const {},
     Set<int> finishedIds = const {},
   }) {
-    var days = List.generate(7, (_) => <BcpCalendarItem>[]);
+    var days = List.generate(7, (_) => <BangumiCalendarItem>[]);
     var dayStarts = _dayStarts();
     var seen = <int>{};
     for (var item in items) {
@@ -74,7 +74,7 @@ class BcpCalendarData {
       // 星期与时刻按当季排期，话数从首播日期（放送日期）算起
       var firstAir = DateTime.tryParse(item.begin) ?? anchor;
       days[weekday - 1].add(
-        BcpCalendarItem(
+        BangumiCalendarItem(
           subject: _buildSubject(
             item: item,
             id: id,
@@ -129,7 +129,7 @@ class BcpCalendarData {
   /// bangumi-data 的 `end` 更新滞后，季度刚完结的作品常常还是空值，于是会一直
   /// 留在日历里。这里先筛出可疑项：排期已经放完 bgm 登记的最后一话，且落后
   /// 不超过 [maxLag] 个周期（落后太多说明该条目长期停播，话数推算不可信，
-  /// 不要动它）。筛出来的再用 bgm 章节数据确认，见 `BcpEnricher.confirmFinished`。
+  /// 不要动它）。筛出来的再用 bgm 章节数据确认，见 `BangumiCalendarEnricher.confirmFinished`。
   ///
   /// [weekday] 只统计这一天要展示的条目（1=周一 ... 7=周日），为空则统计全部；
   /// 首页按分组准备数据时只确认该分组里的条目。
@@ -171,18 +171,18 @@ class BcpCalendarData {
 
   /// 用 bgm 日历兜底：本地 bangumi-data 为空（首次安装或尚未同步）时，
   /// 直接用 bgm 的星期分组渲染，保证页面不空白；放送时刻未知。
-  static List<List<BcpCalendarItem>> buildDaysFromRemote(
+  static List<List<BangumiCalendarItem>> buildDaysFromRemote(
     List<BangumiCalendarRespData> remote, {
     Set<int> watchedIds = const {},
     Set<int> bmfIds = const {},
   }) {
-    var days = List.generate(7, (_) => <BcpCalendarItem>[]);
+    var days = List.generate(7, (_) => <BangumiCalendarItem>[]);
     for (var data in remote) {
       var index = data.weekday.id - 1;
       if (index < 0 || index > 6) continue;
       for (var item in data.items) {
         days[index].add(
-          BcpCalendarItem(
+          BangumiCalendarItem(
             subject: item,
             airClock: null,
             episode: null,
@@ -199,7 +199,7 @@ class BcpCalendarData {
   }
 
   /// 按放送时刻排序：看过的排该天最后，再看时刻未知的，同刻按 subject id。
-  static int compareItem(BcpCalendarItem a, BcpCalendarItem b) {
+  static int compareItem(BangumiCalendarItem a, BangumiCalendarItem b) {
     if (a.watched != b.watched) return a.watched ? 1 : -1;
     var left = a.airClock;
     var right = b.airClock;

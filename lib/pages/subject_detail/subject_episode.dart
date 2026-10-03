@@ -12,7 +12,7 @@ import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 
 /// Subject的单个Episode组件
-class BsdEpisode extends ConsumerStatefulWidget {
+class SubjectEpisode extends ConsumerStatefulWidget {
   /// 章节信息
   final BangumiEpisode episode;
 
@@ -20,14 +20,14 @@ class BsdEpisode extends ConsumerStatefulWidget {
   final BangumiUserEpisodeCollection? user;
 
   /// 构造函数
-  const BsdEpisode(this.episode, {this.user, super.key});
+  const SubjectEpisode(this.episode, {this.user, super.key});
 
   @override
-  ConsumerState<BsdEpisode> createState() => _BsdEpisodeState();
+  ConsumerState<SubjectEpisode> createState() => _SubjectEpisodeState();
 }
 
 /// State
-class _BsdEpisodeState extends ConsumerState<BsdEpisode> {
+class _SubjectEpisodeState extends ConsumerState<SubjectEpisode> {
   /// 章节信息
   BangumiEpisode get episode => widget.episode;
 
@@ -91,7 +91,7 @@ class _BsdEpisodeState extends ConsumerState<BsdEpisode> {
   /// [userEpisode] 是本地可变副本（快捷切换会就地改 type），
   /// 只在父组件换了新的数据实例时才覆盖，避免丢掉本地刚写入的状态。
   @override
-  void didUpdateWidget(BsdEpisode oldWidget) {
+  void didUpdateWidget(SubjectEpisode oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.user, widget.user)) {
       userEpisode = widget.user;

@@ -13,7 +13,7 @@ import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/common/bt_card.dart';
 
 /// Bangumi 条目卡片-搜索结果
-class BscSearch extends ConsumerStatefulWidget {
+class SubjectCardSearch extends ConsumerStatefulWidget {
   /// 结果
   final BangumiSubjectSearchData data;
 
@@ -21,14 +21,14 @@ class BscSearch extends ConsumerStatefulWidget {
   final ValueChanged<String>? onTagTap;
 
   /// 构造
-  const BscSearch(this.data, {super.key, this.onTagTap});
+  const SubjectCardSearch(this.data, {super.key, this.onTagTap});
 
   @override
-  ConsumerState<BscSearch> createState() => _BscSearchState();
+  ConsumerState<SubjectCardSearch> createState() => _SubjectCardSearchState();
 }
 
 /// Bangumi 条目卡片-搜索结果状态
-class _BscSearchState extends ConsumerState<BscSearch> {
+class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
   /// 数据
   BangumiSubjectSearchData get subject => widget.data;
 

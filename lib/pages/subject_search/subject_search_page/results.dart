@@ -76,7 +76,7 @@ mixin _SubjectSearchResults on _SubjectSearchPageStateBase {
           duration: const Duration(milliseconds: 300),
           delay: Duration(milliseconds: index * 50),
           offset: const Offset(0, 0.05),
-          child: BscSearch(result[index], onTagTap: _searchByTag),
+          child: SubjectCardSearch(result[index], onTagTap: _searchByTag),
         );
       },
     );

@@ -19,11 +19,11 @@ import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/common/bt_card.dart';
 import 'subject_detail_rate_chart.dart';
 
-class SdpOverviewWidget extends StatelessWidget {
+class SubjectDetailOverview extends StatelessWidget {
   final BangumiSubject item;
   final ValueChanged<String>? onTagTap;
 
-  const SdpOverviewWidget(this.item, {super.key, this.onTagTap});
+  const SubjectDetailOverview(this.item, {super.key, this.onTagTap});
 
   Widget buildCoverError(BuildContext context, {String? err}) {
     return Container(
@@ -293,7 +293,7 @@ class SdpOverviewWidget extends StatelessWidget {
             alignment: Alignment.topRight,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 500),
-              child: SdpRateChartWidget(item.rating),
+              child: SubjectDetailRateChart(item.rating),
             ),
           ),
         ),

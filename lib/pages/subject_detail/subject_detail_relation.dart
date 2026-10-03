@@ -14,17 +14,18 @@ import '../../ui/bt_dialog.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import 'subject_detail_refreshable.dart';
 
-class SdpRelationWidget extends ConsumerStatefulWidget {
+class SubjectDetailRelation extends ConsumerStatefulWidget {
   final int subjectId;
 
-  const SdpRelationWidget(this.subjectId, {super.key});
+  const SubjectDetailRelation(this.subjectId, {super.key});
 
   @override
-  ConsumerState<SdpRelationWidget> createState() => _SdpRelationWidgetState();
+  ConsumerState<SubjectDetailRelation> createState() =>
+      _SubjectDetailRelationState();
 }
 
-class _SdpRelationWidgetState extends ConsumerState<SdpRelationWidget>
-    with AutomaticKeepAliveClientMixin, SdpRefreshable {
+class _SubjectDetailRelationState extends ConsumerState<SubjectDetailRelation>
+    with AutomaticKeepAliveClientMixin, SubjectDetailRefreshable {
   int get subjectId => widget.subjectId;
 
   List<BangumiSubjectRelation> relations = [];

@@ -65,7 +65,7 @@ class _BmfConfigDialogState extends ConsumerState<_BmfConfigDialog> {
       context: context,
       barrierDismissible: true,
       dismissWithEsc: true,
-      builder: (_) => BsdRssSearchDialog(
+      builder: (_) => SubjectRssSearchDialog(
         subjectId: widget.bmf.subject,
         title: _titleController.text.trim(),
         currentRss: _rssController.text.trim(),

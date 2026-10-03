@@ -140,9 +140,9 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   Future<void> _refreshSubModules() async {
     for (var key in [_collectionKey, _episodesKey, _relationsKey]) {
       var state = key.currentState;
-      if (state is! SdpRefreshable) continue;
+      if (state is! SubjectDetailRefreshable) continue;
       // State 与 mixin 无继承关系，`is` 不会做类型提升，这里显式转换。
-      await (state as SdpRefreshable).refresh();
+      await (state as SubjectDetailRefreshable).refresh();
     }
   }
 
@@ -151,7 +151,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
         .read(bmfListProvider)
         .maybeWhen(data: (items) => items, orElse: () => const <AppBmfModel>[]);
     for (var item in list) {
-      if (item.subject == subjectId) return sdpBmfConfigured(item);
+      if (item.subject == subjectId) return subjectDetailBmfConfigured(item);
     }
     return false;
   }
@@ -205,7 +205,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
       context: context,
       barrierDismissible: true,
       dismissWithEsc: true,
-      builder: (_) => BsdRssSearchDialog(
+      builder: (_) => SubjectRssSearchDialog(
         subjectId: subject.id,
         title: subject.nameCn.isEmpty ? subject.name : subject.nameCn,
         currentRss: currentBmf?.rss,

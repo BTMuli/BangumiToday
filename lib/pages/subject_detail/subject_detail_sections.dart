@@ -7,7 +7,7 @@ import '../../core/utils/tool_func.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import 'subject_detail_view_data.dart';
 
-Widget sdpSurfaceCard(BuildContext context, Widget child) {
+Widget subjectDetailSurfaceCard(BuildContext context, Widget child) {
   var isDark = FluentTheme.of(context).brightness == Brightness.dark;
   return Container(
     padding: EdgeInsets.all(16),
@@ -27,8 +27,8 @@ Widget sdpSurfaceCard(BuildContext context, Widget child) {
   );
 }
 
-class SdpSection extends StatefulWidget {
-  const SdpSection({
+class SubjectDetailSection extends StatefulWidget {
+  const SubjectDetailSection({
     super.key,
     required this.icon,
     required this.title,
@@ -42,10 +42,10 @@ class SdpSection extends StatefulWidget {
   final bool initiallyExpanded;
 
   @override
-  State<SdpSection> createState() => _SdpSectionState();
+  State<SubjectDetailSection> createState() => _SubjectDetailSectionState();
 }
 
-class _SdpSectionState extends State<SdpSection> {
+class _SubjectDetailSectionState extends State<SubjectDetailSection> {
   /// Fluent [Expander] still builds [content] when collapsed; keep the
   /// heavy children (剧集 / 关联 / 图表) out of the tree until first open.
   late bool _contentMounted = widget.initiallyExpanded;
@@ -70,8 +70,8 @@ class _SdpSectionState extends State<SdpSection> {
   }
 }
 
-class SdpSummaryBody extends StatelessWidget {
-  const SdpSummaryBody({super.key, required this.view});
+class SubjectDetailSummaryBody extends StatelessWidget {
+  const SubjectDetailSummaryBody({super.key, required this.view});
 
   final SubjectDetailViewData view;
 
@@ -105,8 +105,8 @@ class SdpSummaryBody extends StatelessWidget {
   }
 }
 
-class SdpInfoboxBody extends StatelessWidget {
-  const SdpInfoboxBody({super.key, required this.view});
+class SubjectDetailInfoboxBody extends StatelessWidget {
+  const SubjectDetailInfoboxBody({super.key, required this.view});
 
   final SubjectDetailViewData view;
 

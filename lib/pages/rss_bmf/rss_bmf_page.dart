@@ -59,7 +59,7 @@ class _RssBmfPageState extends ConsumerState<RssBmfPage>
       Tab(
         icon: Image.asset('assets/images/logo.png', height: 16, width: 16),
         text: const Text('BMF'),
-        body: const RbpBmfWidget(),
+        body: const RssBmfWorkspace(),
         semanticLabel: 'BMF',
         selectedBackgroundColor: WidgetStateColor.resolveWith(
           (_) => FluentTheme.of(context).accentColor.withAlpha(80),
@@ -73,7 +73,7 @@ class _RssBmfPageState extends ConsumerState<RssBmfPage>
           fit: BoxFit.contain,
         ),
         text: const Text('AniBT'),
-        body: const RbpAnibtWidget(),
+        body: const RssBmfAnibt(),
         semanticLabel: 'AniBT',
         selectedBackgroundColor: WidgetStateColor.resolveWith(
           (_) => FluentTheme.of(context).accentColor.withAlpha(80),
@@ -85,7 +85,7 @@ class _RssBmfPageState extends ConsumerState<RssBmfPage>
           height: 16,
         ),
         text: const Text('Mikan'),
-        body: const RbpMikanWidget(),
+        body: const RssBmfMikan(),
         semanticLabel: 'Mikan',
         selectedBackgroundColor: WidgetStateColor.resolveWith(
           (_) => FluentTheme.of(context).accentColor.withAlpha(80),
@@ -94,7 +94,7 @@ class _RssBmfPageState extends ConsumerState<RssBmfPage>
       Tab(
         icon: Image.asset('assets/images/platforms/comicat-favicon.ico'),
         text: const Text('Comicat'),
-        body: const RbpComicatWidget(),
+        body: const RssBmfComicat(),
         semanticLabel: 'Comicat',
         selectedBackgroundColor: WidgetStateColor.resolveWith(
           (_) => FluentTheme.of(context).accentColor.withAlpha(80),

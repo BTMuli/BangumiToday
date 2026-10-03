@@ -17,7 +17,7 @@ import 'subject_detail_refreshable.dart';
 import 'subject_stat_providers.dart';
 
 /// SubjectDetail的收藏模块，负责整个Subject的收藏信息
-class BsdUserCollection extends ConsumerStatefulWidget {
+class SubjectUserCollection extends ConsumerStatefulWidget {
   /// subjectInfo
   final BangumiSubject subject;
 
@@ -34,7 +34,7 @@ class BsdUserCollection extends ConsumerStatefulWidget {
   final bool filled;
 
   /// 构造函数
-  const BsdUserCollection(
+  const SubjectUserCollection(
     this.subject,
     this.user,
     this.provider, {
@@ -44,7 +44,8 @@ class BsdUserCollection extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<BsdUserCollection> createState() => _BsdUserCollectionState();
+  ConsumerState<SubjectUserCollection> createState() =>
+      _SubjectUserCollectionState();
 }
 
 /// 条目评分选择器，以分片进度块的形式展示 0 到 10 分。
@@ -165,8 +166,8 @@ class _SubjectRatingSelectorState extends State<SubjectRatingSelector> {
 }
 
 /// State
-class _BsdUserCollectionState extends ConsumerState<BsdUserCollection>
-    with AutomaticKeepAliveClientMixin, SdpRefreshable {
+class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
+    with AutomaticKeepAliveClientMixin, SubjectDetailRefreshable {
   /// subjectInfo
   BangumiSubject get subject => widget.subject;
 

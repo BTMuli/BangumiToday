@@ -30,14 +30,14 @@ part 'rss_bmf_workspace/config_dialog.dart';
 part 'rss_bmf_workspace/header.dart';
 part 'rss_bmf_workspace/workspace.dart';
 
-class RbpBmfWidget extends ConsumerStatefulWidget {
-  const RbpBmfWidget({super.key});
+class RssBmfWorkspace extends ConsumerStatefulWidget {
+  const RssBmfWorkspace({super.key});
 
   @override
-  ConsumerState<RbpBmfWidget> createState() => _RbpBmfState();
+  ConsumerState<RssBmfWorkspace> createState() => _RssBmfWorkspaceState();
 }
 
-abstract class _RbpBmfStateBase extends ConsumerState<RbpBmfWidget>
+abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     with AutomaticKeepAliveClientMixin {
   final BtsAppRss rss = BtsAppRss();
   final BTFileTool fileTool = BTFileTool();
@@ -242,7 +242,7 @@ abstract class _RbpBmfStateBase extends ConsumerState<RbpBmfWidget>
       context: context,
       barrierDismissible: true,
       dismissWithEsc: true,
-      builder: (_) => BsdRssSearchDialog(
+      builder: (_) => SubjectRssSearchDialog(
         subjectId: bmf.subject,
         title: bmf.title ?? '未命名番剧',
         currentRss: bmf.rss,
@@ -334,8 +334,8 @@ abstract class _RbpBmfStateBase extends ConsumerState<RbpBmfWidget>
   }
 }
 
-class _RbpBmfState extends _RbpBmfStateBase
-    with _RbpBmfHeader, _RbpBmfWorkspace {
+class _RssBmfWorkspaceState extends _RssBmfWorkspaceStateBase
+    with _RssBmfWorkspaceHeader, _RssBmfWorkspacePane {
   @override
   Widget build(BuildContext context) {
     super.build(context);

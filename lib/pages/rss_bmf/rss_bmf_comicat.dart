@@ -13,16 +13,16 @@ import '../../ui/bt_infobar.dart';
 import 'rss_comicat_card_fluent.dart';
 
 /// 负责 ComicatProject RSS 页面的显示
-class RbpComicatWidget extends StatefulWidget {
+class RssBmfComicat extends StatefulWidget {
   /// 构造函数
-  const RbpComicatWidget({super.key});
+  const RssBmfComicat({super.key});
 
   @override
-  State<RbpComicatWidget> createState() => _RbpComicatState();
+  State<RssBmfComicat> createState() => _RssBmfComicatState();
 }
 
 /// ComicatRSS 页面状态
-class _RbpComicatState extends State<RbpComicatWidget>
+class _RssBmfComicatState extends State<RssBmfComicat>
     with AutomaticKeepAliveClientMixin {
   /// 请求客户端
   final ComicatAPI comicatAPI = ComicatAPI();

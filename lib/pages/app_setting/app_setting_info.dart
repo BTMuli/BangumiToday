@@ -23,14 +23,15 @@ import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_buttons.dart';
 import '../../widgets/common/bt_setting_section.dart';
 
-class AspInfoWidget extends ConsumerStatefulWidget {
-  const AspInfoWidget({super.key});
+class AppConfigInfoWidget extends ConsumerStatefulWidget {
+  const AppConfigInfoWidget({super.key});
 
   @override
-  ConsumerState<AspInfoWidget> createState() => _AspInfoWidgetState();
+  ConsumerState<AppConfigInfoWidget> createState() =>
+      _AppConfigInfoWidgetState();
 }
 
-class _AspInfoWidgetState extends ConsumerState<AspInfoWidget> {
+class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
   /// fileTool
   final BTFileTool fileTool = BTFileTool();
 
