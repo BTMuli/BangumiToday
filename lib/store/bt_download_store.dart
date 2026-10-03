@@ -224,15 +224,18 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
     _taskSubscription = _client.taskSnapshots.listen(_onTaskSnapshots);
     _stateSubscription = _client.states.listen(_onEngineState);
     if (!_injected) _proxyInit = _initProxySetting();
-    return _buildState(initialTasks);
+    // build 尚未发布初始状态，不能读取 Notifier.state。
+    return _buildState(const BtDownloadState(), initialTasks);
   }
 
   /// 组装对外可见的状态快照。
   ///
   /// 列表在内容一致时复用上一个实例，让 Riverpod 的 `select` 可以按引用
   /// 相等跳过无关重建（引擎快照按字节高频刷新）。
-  BtDownloadState _buildState([List<BtTaskSnapshot>? tasks]) {
-    var previous = state;
+  BtDownloadState _buildState(
+    BtDownloadState previous, [
+    List<BtTaskSnapshot>? tasks,
+  ]) {
     var all = List<BtTaskSnapshot>.of(tasks ?? previous.tasks);
     var next = BtDownloadState(
       tasks: _reuseSnapshots(previous.tasks, all),
@@ -264,7 +267,7 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
   }
 
   void _publish([List<BtTaskSnapshot>? tasks]) {
-    state = _buildState(tasks);
+    state = _buildState(state, tasks);
   }
 
   void _onTaskSnapshots(List<BtTaskSnapshot> tasks) {
