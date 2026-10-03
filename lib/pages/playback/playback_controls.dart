@@ -34,6 +34,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
   bool _chromeVisible = true;
   bool _barHovered = false;
   bool _seeking = false;
+  bool _takingScreenshot = false;
 
   @override
   void initState() {
@@ -253,6 +254,43 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
       case _PlaybackCommand.info:
       case _PlaybackCommand.help:
         return;
+      case _PlaybackCommand.screenshot:
+        await _copyScreenshot();
+    }
+  }
+
+  Future<void> _copyScreenshot() async {
+    if (_takingScreenshot) return;
+    _takingScreenshot = true;
+    var player = widget.player;
+    var itemKey = widget.store.current!.key;
+    var position = player.state.position;
+    try {
+      var image = await player.screenshot(
+        format: 'image/png',
+        includeLibassSubtitles: true,
+      );
+      if (!mounted ||
+          widget.store.player != player ||
+          widget.store.current?.key != itemKey) {
+        return;
+      }
+      if (image == null || image.isEmpty) {
+        throw const PlaybackUnavailable('当前没有可截取的视频画面');
+      }
+      var systemClipboard = clipboard.SystemClipboard.instance;
+      if (systemClipboard == null) {
+        throw const PlaybackUnavailable('当前平台不支持复制图片到剪贴板');
+      }
+      var item = clipboard.DataWriterItem()..add(clipboard.Formats.png(image));
+      await systemClipboard.write([item]);
+      widget.overlay.show(
+        '截图已复制到剪贴板',
+        material.Icons.photo_camera_outlined,
+        detail: _playbackTime(position),
+      );
+    } finally {
+      _takingScreenshot = false;
     }
   }
 
@@ -516,6 +554,12 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           widget.pickSubtitle,
           _setFit,
           _execute,
+        ),
+        const MenuFlyoutSeparator(),
+        MenuFlyoutItem(
+          text: const Text('截屏并复制到剪贴板'),
+          trailing: const _PlaybackMenuShortcut('S'),
+          onPressed: () => _execute(_PlaybackCommand.screenshot),
         ),
         const MenuFlyoutSeparator(),
         MenuFlyoutItem(

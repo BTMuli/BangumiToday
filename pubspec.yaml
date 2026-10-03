@@ -72,6 +72,7 @@ dependencies:
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
+  super_clipboard: 0.10.0-dev.2
 
 dev_dependencies:
   # The "flutter_lints" package below contains a set of recommended lints to
