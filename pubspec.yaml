@@ -35,6 +35,7 @@ dependencies:
   crypto: ^3.0.7
   device_info_plus: ^13.2.0
   dio: ^5.11.0
+  drift: ^2.35.1
   ffi: ^2.2.0
   file_selector: ^1.1.0
   fl_chart: ^1.2.0
@@ -59,8 +60,8 @@ dependencies:
   package_info_plus: ^10.2.1
   path: ^1.9.1
   path_provider: ^2.1.6
-  sqflite_common_ffi: ^2.4.2
   system_theme: ^3.3.0
+  sqflite_common_ffi: ^2.4.2
   url_launcher: ^6.3.2
   window_manager: ^0.5.2
   windows_taskbar: ^1.1.2
@@ -80,6 +81,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   build_runner: ^2.15.1
+  drift_dev: ^2.35.1
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
