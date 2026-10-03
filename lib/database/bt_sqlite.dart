@@ -1,12 +1,15 @@
 // Package imports:
 import 'package:path/path.dart' as path;
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Project imports:
 import '../core/services/file_service.dart';
 import '../tools/log_tool.dart';
+import 'drift/bt_database.dart';
 
 /// SQLite 数据库
+///
+/// 应用只从这里拿连接：建表、补列与后续的版本迁移全部由
+/// `BtDatabase.migration` 拥有，各个访问器不再自己探测表结构。
 class BTSqlite {
   BTSqlite._();
 
@@ -14,7 +17,7 @@ class BTSqlite {
   static final BTSqlite _instance = BTSqlite._();
 
   /// 数据库
-  late Database db;
+  late BtDatabase db;
 
   static bool _isInitialized = false;
   static Future<void>? _initFuture;
@@ -22,15 +25,8 @@ class BTSqlite {
   /// 获取实例
   factory BTSqlite() => _instance;
 
-  /// 已完成初始化且连接可用（含测试注入的已打开数据库）。
-  static bool get isInitialized {
-    if (_isInitialized) return true;
-    try {
-      return _instance.db.isOpen;
-    } catch (_) {
-      return false;
-    }
-  }
+  /// 已完成初始化且连接可用。
+  static bool get isInitialized => _isInitialized;
 
   /// 获取数据库路径
   static Future<String> getDbPath() async {
@@ -45,8 +41,7 @@ class BTSqlite {
 
   /// 初始化
   static Future<void> init() {
-    if (isInitialized) {
-      _isInitialized = true;
+    if (_isInitialized) {
       return Future.value();
     }
     return _initFuture ??= _open().whenComplete(() {
@@ -55,34 +50,13 @@ class BTSqlite {
   }
 
   static Future<void> _open() async {
-    var ffi = databaseFactoryFfi;
-    sqfliteFfiInit();
-    var path = await getDbPath();
-    _instance.db = await ffi.openDatabase(
-      path,
-      options: OpenDatabaseOptions(version: 1),
-    );
+    var dbPath = await getDbPath();
+    _instance.db = BtDatabase.open(dbPath);
+    // Drift 在首个查询时才真正打开连接并执行 `migration.beforeOpen`
+    // （逐表补列）。先跑一次空查询，把结构补齐挡在业务读写之前。
+    await _instance.db.customSelect('SELECT 1').get();
     _isInitialized = true;
     BTLogTool.info('SQLite init success');
-    BTLogTool.info('Database path: $path');
-  }
-
-  /// 检测表是否存在
-  Future<bool> isTableExist(String table) async {
-    var sql =
-        '''
-      SELECT COUNT(*) AS count
-      FROM sqlite_master
-      WHERE type='table' AND name='$table';
-    ''';
-    var result = await _instance.db.rawQuery(sql);
-    var exist = result.first['count'] == 1;
-    return exist;
-  }
-
-  /// 删除表
-  Future<void> dropTable(String table) async {
-    BTLogTool.info('Drop table: $table');
-    await _instance.db.execute('DROP TABLE IF EXISTS $table;');
+    BTLogTool.info('Database path: $dbPath');
   }
 }

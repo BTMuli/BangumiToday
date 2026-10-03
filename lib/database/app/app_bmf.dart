@@ -1,257 +1,124 @@
+// Package imports:
+import 'package:drift/drift.dart';
+
 // Project imports:
 import '../../models/database/app_bmf_model.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
+import '../drift/bt_database.dart';
 
 /// Bangumi-Mikan-File Map
 /// 用于存储特定条目对应的MikanRSS及下载目录
 ///
 /// 只负责表存取：写入/删除后的 RSS 调度由 `BmfRepositoryImpl` 统一触发，
-/// 保证每次成功写入恰好刷新一次。
+/// 保证每次成功写入恰好刷新一次。建表与补列由 `BtDatabase` 拥有。
 class BtsAppBmf {
   BtsAppBmf._();
 
   /// 实例
   static final BtsAppBmf _instance = BtsAppBmf._();
 
-  /// 是否有title字段
-  static bool hasTitle = false;
-
-  /// 是否有mk字段
-  static bool hasMk = false;
-
-  /// Whether the table has the airDate column.
-  static bool hasAirDate = false;
-
-  /// Whether the table has the autoUpdate column.
-  static bool hasAutoUpdate = false;
-
   /// 获取实例
   factory BtsAppBmf() => _instance;
 
   /// 数据库
-  final BTSqlite sqlite = BTSqlite();
+  BtDatabase get _db => BTSqlite().db;
 
-  /// 表名
-  final String _tableName = 'AppBmf';
-
-  /// 前置检查
-  Future<void> preCheck() async {
-    var check = await _instance.sqlite.isTableExist(_instance._tableName);
-    if (!check) {
-      await _instance.sqlite.db.execute('''
-        CREATE TABLE $_tableName (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          subject INTEGER NOT NULL,
-          title TEXT DEFAULT '',
-          airDate TEXT DEFAULT '',
-          rss TEXT,
-          download TEXT,
-          autoUpdate INTEGER NOT NULL DEFAULT 1,
-          UNIQUE(subject)
-        );
-      ''');
-      BTLogTool.info('Create table $_tableName');
-      hasTitle = true;
-    }
-
-    /// 为了兼容旧版本，这里需要检查是否有title字段
-    if (!hasTitle) await checkUpdate();
-
-    /// 为了兼容旧版本，这里需要检查是否有mk字段
-    if (!hasMk) await checkMkUpdate();
-
-    if (!hasAirDate) await checkAirDateUpdate();
-
-    if (!hasAutoUpdate) await checkAutoUpdateUpdate();
-  }
-
-  /// 检查是否有title字段
-  Future<void> checkUpdate() async {
-    var check = await _instance.sqlite.db.rawQuery(
-      'PRAGMA table_info($_tableName)',
-    );
-    hasTitle = check.any((element) => element['name'] == 'title');
-    if (!hasTitle) {
-      await _instance.sqlite.db.execute('''
-        ALTER TABLE $_tableName ADD COLUMN title TEXT DEFAULT '';
-      ''');
-      BTLogTool.info('Update table $_tableName add title');
-    }
-  }
-
-  /// 检查是否有mk字段
-  Future<void> checkMkUpdate() async {
-    var check = await _instance.sqlite.db.rawQuery(
-      'PRAGMA table_info($_tableName)',
-    );
-    hasMk = check.any((element) => element['name'] == 'mkBgmId');
-    if (!hasMk) {
-      await _instance.sqlite.db.execute('''
-        ALTER TABLE $_tableName ADD COLUMN mkBgmId TEXT DEFAULT '';
-        ALTER TABLE $_tableName ADD COLUMN mkGroupId TEXT DEFAULT '';
-      ''');
-      BTLogTool.info('Update table $_tableName add mk');
-    }
-  }
-
-  Future<void> checkAirDateUpdate() async {
-    var check = await _instance.sqlite.db.rawQuery(
-      'PRAGMA table_info($_tableName)',
-    );
-    hasAirDate = check.any((element) => element['name'] == 'airDate');
-    if (!hasAirDate) {
-      await _instance.sqlite.db.execute(
-        "ALTER TABLE $_tableName ADD COLUMN airDate TEXT DEFAULT '';",
-      );
-      hasAirDate = true;
-      BTLogTool.info('Update table $_tableName add airDate');
-    }
-  }
-
-  Future<void> checkAutoUpdateUpdate() async {
-    var check = await _instance.sqlite.db.rawQuery(
-      'PRAGMA table_info($_tableName)',
-    );
-    hasAutoUpdate = check.any((element) => element['name'] == 'autoUpdate');
-    if (!hasAutoUpdate) {
-      await _instance.sqlite.db.execute(
-        'ALTER TABLE $_tableName ADD COLUMN autoUpdate '
-        'INTEGER NOT NULL DEFAULT 1;',
-      );
-      hasAutoUpdate = true;
-      BTLogTool.info('Update table $_tableName add autoUpdate');
-    }
-  }
-
-  /// 读取全部配置
+  /// 读取全部配置，按条目 ID 降序
   Future<List<AppBmfModel>> readAll() async {
-    await _instance.preCheck();
-    var result = await _instance.sqlite.db.query(_tableName);
-    if (result.isEmpty) return [];
-    var list = result.map(AppBmfModel.fromJson).toList();
-    list.sort((a, b) => b.subject.compareTo(a.subject));
-    return list;
+    var query = _db.select(_db.appBmf)
+      ..orderBy([(table) => OrderingTerm.desc(table.subject)]);
+    var rows = await query.get();
+    return rows.map((row) => AppBmfModel.fromJson(row.toJson())).toList();
   }
 
   /// 读取配置
   Future<AppBmfModel?> read(int subject) async {
-    await _instance.preCheck();
-    var result = await _instance.sqlite.db.query(
-      _tableName,
-      where: 'subject = ?',
-      whereArgs: [subject],
-    );
-    if (result.isEmpty) return null;
-    var value = result.first;
-    return AppBmfModel.fromJson(value);
+    var row = await _findBySubject(subject);
+    if (row == null) return null;
+    return AppBmfModel.fromJson(row.toJson());
   }
 
   /// 写入/更新配置
+  ///
+  /// `subject` 是唯一约束而不是主键（主键是自增 `id`），所以先按 subject
+  /// 查一次再决定 INSERT / UPDATE，让既有行的 id 保持不变。
   Future<void> write(AppBmfModel model) async {
-    await _instance.preCheck();
     if (model.rss != null && model.rss!.isNotEmpty) {
       var url = Uri.parse(model.rss!);
       model.mkBgmId = url.queryParameters['bangumiId'];
       model.mkGroupId = url.queryParameters['subgroupid'];
     }
-    var result = await _instance.sqlite.db.query(
-      _tableName,
-      where: 'subject = ?',
-      whereArgs: [model.subject],
-    );
-    // 因为这边有个自增ID, 所以不能直接 toJson及调用insert
-    if (result.isEmpty) {
-      await _instance.sqlite.db.rawInsert(
-        'INSERT INTO $_tableName '
-        '(subject, rss, download, title, airDate, mkBgmId, mkGroupId, '
-        'autoUpdate) '
-        'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          model.subject,
-          model.rss,
-          model.download,
-          model.title,
-          model.airDate,
-          model.mkBgmId,
-          model.mkGroupId,
-          model.autoUpdate ? 1 : 0,
-        ],
-      );
+    var existing = await _findBySubject(model.subject);
+    if (existing == null) {
+      await _db.into(_db.appBmf).insert(_companion(model));
     } else {
-      await _instance.sqlite.db.rawUpdate(
-        'UPDATE $_tableName SET '
-        'rss = ?, download = ?, title = ?, airDate = ?, '
-        'mkBgmId = ?, mkGroupId = ?, autoUpdate = ? '
-        'WHERE subject = ?',
-        [
-          model.rss,
-          model.download,
-          model.title,
-          model.airDate,
-          model.mkBgmId,
-          model.mkGroupId,
-          model.autoUpdate ? 1 : 0,
-          model.subject,
-        ],
-      );
+      var update = _db.update(_db.appBmf)
+        ..where((table) => table.id.equals(existing.id));
+      await update.write(_companion(model));
     }
-    BTLogTool.info('Write $_tableName subject: ${model.subject}');
+    BTLogTool.info('Write AppBmf subject: ${model.subject}');
   }
 
   /// Updates only the subject air date while backfilling old records.
   Future<void> updateAirDate(int subject, String airDate) async {
-    await _instance.preCheck();
-    await _instance.sqlite.db.update(
-      _tableName,
-      {'airDate': airDate},
-      where: 'subject = ?',
-      whereArgs: [subject],
-    );
+    var update = _db.update(_db.appBmf)
+      ..where((table) => table.subject.equals(subject));
+    await update.write(AppBmfCompanion(airDate: Value(airDate)));
   }
 
   /// 删除配置
   Future<void> delete(int subject) async {
-    await _instance.preCheck();
-    await _instance.sqlite.db.delete(
-      _tableName,
-      where: 'subject = ?',
-      whereArgs: [subject],
-    );
-    BTLogTool.info('Delete $_tableName subject: $subject');
+    var delete = _db.delete(_db.appBmf)
+      ..where((table) => table.subject.equals(subject));
+    await delete.go();
+    BTLogTool.info('Delete AppBmf subject: $subject');
   }
 
   /// 检测RSS链接是否存在
   /// [excludeSubject] 排除的条目ID，用于修改时排除自身
   Future<bool> checkRss(String input, {int? excludeSubject}) async {
-    String where = 'rss = ?';
-    List<dynamic> whereArgs = [input];
-    if (excludeSubject != null) {
-      where += ' AND subject != ?';
-      whereArgs.add(excludeSubject);
-    }
-    var res = await _instance.sqlite.db.query(
-      _tableName,
-      where: where,
-      whereArgs: whereArgs,
-    );
-    return res.isNotEmpty;
+    var query = _db.select(_db.appBmf)
+      ..where(
+        (table) => excludeSubject == null
+            ? table.rss.equals(input)
+            : table.rss.equals(input) &
+                  table.subject.equals(excludeSubject).not(),
+      );
+    var rows = await query.get();
+    return rows.isNotEmpty;
   }
 
   /// 检测下载目录是否存在
   /// [excludeSubject] 排除的条目ID，用于修改时排除自身
   Future<bool> checkDir(String dir, {int? excludeSubject}) async {
-    String where = 'download = ?';
-    List<dynamic> whereArgs = [dir];
-    if (excludeSubject != null) {
-      where += ' AND subject != ?';
-      whereArgs.add(excludeSubject);
-    }
-    var res = await _instance.sqlite.db.query(
-      _tableName,
-      where: where,
-      whereArgs: whereArgs,
+    var query = _db.select(_db.appBmf)
+      ..where(
+        (table) => excludeSubject == null
+            ? table.download.equals(dir)
+            : table.download.equals(dir) &
+                  table.subject.equals(excludeSubject).not(),
+      );
+    var rows = await query.get();
+    return rows.isNotEmpty;
+  }
+
+  Future<BmfRow?> _findBySubject(int subject) {
+    var query = _db.select(_db.appBmf)
+      ..where((table) => table.subject.equals(subject));
+    return query.getSingleOrNull();
+  }
+
+  AppBmfCompanion _companion(AppBmfModel model) {
+    return AppBmfCompanion(
+      subject: Value(model.subject),
+      title: Value(model.title),
+      airDate: Value(model.airDate),
+      rss: Value(model.rss),
+      download: Value(model.download),
+      mkBgmId: Value(model.mkBgmId),
+      mkGroupId: Value(model.mkGroupId),
+      autoUpdate: Value(model.autoUpdate ? 1 : 0),
     );
-    return res.isNotEmpty;
   }
 }

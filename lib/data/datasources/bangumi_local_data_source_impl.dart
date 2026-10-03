@@ -11,11 +11,6 @@ class BTBangumiLocalDataSourceImpl implements BTBangumiLocalDataSource {
     : _db = db ?? BtsBangumiCollection();
 
   @override
-  Future<void> init() async {
-    await _db.preCheck();
-  }
-
-  @override
   Future<List<BangumiUserSubjectCollection>> getCollections() async {
     return await _db.getAll();
   }

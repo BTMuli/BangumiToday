@@ -1,13 +1,19 @@
+// Package imports:
+import 'package:drift/drift.dart';
+
 // Project imports:
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
+import '../drift/bt_database.dart';
 
 /// 负责 bangumi.tv 用户收藏相关处理
 /// 首先将用户所有收藏的条目信息存储到数据库中
 /// 然后每次用户打开条目时，若用户收藏了该条目，则在打开条目时，更新数据库中的条目信息
 /// 若用户未收藏该条目，当用户收藏该条目时，进行数据库的更新
+///
+/// 建表与补列由 `BtDatabase` 拥有，这里只做表存取。
 class BtsBangumiCollection {
   BtsBangumiCollection._();
 
@@ -18,170 +24,123 @@ class BtsBangumiCollection {
   factory BtsBangumiCollection() => _instance;
 
   /// 数据库
-  final BTSqlite sqlite = BTSqlite();
-
-  /// 表名
-  final String _tableName = 'BangumiCollection';
-
-  /// 初始化
-  Future<void> init() async {
-    await _instance.sqlite.db.execute('''
-        CREATE TABLE IF NOT EXISTS $_tableName (
-          subjectId INTEGER PRIMARY KEY,
-          subjectType INTEGER NOT NULL,
-          rate INTEGER NOT NULL,
-          collectionType INTEGER NOT NULL,
-          comment TEXT,
-          tags TEXT NOT NULL,
-          epStat INTEGER NOT NULL,
-          volStat INTEGER NOT NULL,
-          updatedAt TEXT NOT NULL,
-          private INTEGER NOT NULL,
-          subject TEXT
-        );
-      ''');
-    BTLogTool.info('Ensure table $_tableName exists');
-  }
-
-  /// 前置检查
-  Future<void> preCheck() async {
-    var check = await _instance.sqlite.isTableExist(_tableName);
-    if (!check) {
-      BTLogTool.warn('Table $_tableName not exists');
-      await _instance.init();
-    }
-  }
+  BtDatabase get _db => BTSqlite().db;
 
   /// 获取全部收藏
   Future<List<BangumiUserSubjectCollection>> getAll() async {
-    await _instance.preCheck();
-    var resp = await _instance.sqlite.db.query(_tableName);
-    return resp.map(BangumiUserSubjectCollection.fromSqlJson).toList();
+    var rows = await _db.select(_db.bangumiCollection).get();
+    return rows.map(_fromRow).toList();
   }
 
   /// 获取全部收藏条目 ID
   Future<Set<int>> getAllSubjectIds() async {
-    await _instance.preCheck();
-    var response = await _instance.sqlite.db.query(
-      _tableName,
-      columns: ['subjectId'],
-    );
-    return response.map((row) => row['subjectId']).whereType<int>().toSet();
+    var subjectId = _db.bangumiCollection.subjectId;
+    var query = _db.selectOnly(_db.bangumiCollection)..addColumns([subjectId]);
+    var rows = await query.get();
+    return rows.map((row) => row.read(subjectId)).whereType<int>().toSet();
   }
 
   /// 获取收藏数量
-  Future<int> getCount() async {
-    await _instance.preCheck();
-    var resp = await _instance.sqlite.db.query(_tableName);
-    return resp.length;
+  Future<int> getCount() {
+    return _db.bangumiCollection.count().getSingle();
   }
 
   /// 获取指定收藏类型的收藏
   Future<List<BangumiUserSubjectCollection>> getByType(
     BangumiCollectionType type,
   ) async {
-    await _instance.preCheck();
-    var resp = await _instance.sqlite.db.query(
-      _tableName,
-      where: 'collectionType = ?',
-      whereArgs: [type.value],
-    );
-    return resp.map(BangumiUserSubjectCollection.fromSqlJson).toList();
+    var query = _db.select(_db.bangumiCollection)
+      ..where((table) => table.collectionType.equals(type.value));
+    var rows = await query.get();
+    return rows.map(_fromRow).toList();
   }
 
   /// 搜索收藏
   Future<List<BangumiUserSubjectCollection>> search(
     String keyword, {
-    bool check = true,
     BangumiCollectionType? type,
   }) async {
-    if (check) {
-      await _instance.preCheck();
-    }
-    if (type != null) {
-      var resp = await _instance.sqlite.db.query(
-        _tableName,
-        where: 'subject LIKE ? AND collectionType = ?',
-        whereArgs: ['%$keyword%', type.value],
+    var query = _db.select(_db.bangumiCollection)
+      ..where(
+        (table) => type == null
+            ? table.subject.like('%$keyword%')
+            : table.subject.like('%$keyword%') &
+                  table.collectionType.equals(type.value),
       );
-      return resp.map(BangumiUserSubjectCollection.fromSqlJson).toList();
-    }
-    var resp = await _instance.sqlite.db.query(
-      _tableName,
-      where: 'subject LIKE ?',
-      whereArgs: ['%$keyword%'],
-    );
-    return resp.map(BangumiUserSubjectCollection.fromSqlJson).toList();
+    var rows = await query.get();
+    return rows.map(_fromRow).toList();
   }
 
   /// 判断是否在收藏列表中
   Future<bool> isCollected(int subjectId) async {
-    await _instance.preCheck();
-    var resp = await _instance.sqlite.db.query(
-      _tableName,
-      where: 'subjectId = ?',
-      whereArgs: [subjectId],
-    );
-    return resp.isNotEmpty;
+    var row = await _firstById(subjectId);
+    return row != null;
   }
 
   /// 读取收藏
   Future<BangumiUserSubjectCollection?> read(int subjectId) async {
-    await _instance.preCheck();
-    var resp = await _instance.sqlite.db.query(
-      _tableName,
-      where: 'subjectId = ?',
-      whereArgs: [subjectId],
-    );
-    if (resp.isEmpty) {
+    var row = await _firstById(subjectId);
+    if (row == null) {
       return null;
     }
-    return BangumiUserSubjectCollection.fromSqlJson(resp.first);
+    return _fromRow(row);
   }
 
   /// 添加/更新收藏
-  Future<void> write(
-    BangumiUserSubjectCollection collection, {
-    bool check = true,
-  }) async {
-    if (check) {
-      await _instance.preCheck();
-    }
-    var checkT = await _instance.sqlite.db.query(
-      _tableName,
-      where: 'subjectId = ?',
-      whereArgs: [collection.subjectId],
-    );
-    if (checkT.isEmpty) {
-      await _instance.sqlite.db.insert(_tableName, collection.toSqlJson());
+  Future<void> write(BangumiUserSubjectCollection collection) async {
+    var existing = await _firstById(collection.subjectId);
+    if (existing == null) {
+      await _db.into(_db.bangumiCollection).insert(_companion(collection));
       BTLogTool.info('Add collection: ${collection.subjectId}');
-    } else {
-      await _instance.sqlite.db.update(
-        _tableName,
-        collection.toSqlJson(),
-        where: 'subjectId = ?',
-        whereArgs: [collection.subjectId],
-      );
-      BTLogTool.info('Update collection: ${collection.subjectId}');
+      return;
     }
+    var update = _db.update(_db.bangumiCollection)
+      ..where((table) => table.subjectId.equals(collection.subjectId));
+    await update.write(_companion(collection));
+    BTLogTool.info('Update collection: ${collection.subjectId}');
   }
 
   /// 写入/更新收藏列表
   Future<void> writeList(List<BangumiUserSubjectCollection> collections) async {
-    await _instance.preCheck();
     for (var collection in collections) {
-      await write(collection, check: false);
+      await write(collection);
     }
   }
 
   /// 删除收藏
   Future<void> delete(int subjectId) async {
-    await _instance.preCheck();
-    await _instance.sqlite.db.delete(
-      _tableName,
-      where: 'subjectId = ?',
-      whereArgs: [subjectId],
-    );
+    var delete = _db.delete(_db.bangumiCollection)
+      ..where((table) => table.subjectId.equals(subjectId));
+    await delete.go();
     BTLogTool.info('Delete collection: $subjectId');
+  }
+
+  Future<CollectionRow?> _firstById(int subjectId) {
+    var query = _db.select(_db.bangumiCollection)
+      ..where((table) => table.subjectId.equals(subjectId));
+    return query.getSingleOrNull();
+  }
+
+  BangumiUserSubjectCollection _fromRow(CollectionRow row) {
+    return BangumiUserSubjectCollection.fromSqlJson(row.toJson());
+  }
+
+  BangumiCollectionCompanion _companion(
+    BangumiUserSubjectCollection collection,
+  ) {
+    var values = collection.toSqlJson();
+    return BangumiCollectionCompanion(
+      subjectId: Value(values['subjectId'] as int),
+      subjectType: Value(values['subjectType'] as int),
+      rate: Value(values['rate'] as int),
+      collectionType: Value(values['collectionType'] as int),
+      comment: Value(values['comment'] as String?),
+      tags: Value(values['tags'] as String),
+      epStat: Value(values['epStat'] as int),
+      volStat: Value(values['volStat'] as int),
+      updatedAt: Value(values['updatedAt'] as String),
+      private: Value(values['private'] as int),
+      subject: Value(values['subject'] as String),
+    );
   }
 }

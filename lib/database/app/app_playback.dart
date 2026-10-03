@@ -1,72 +1,56 @@
 // Package imports:
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:drift/drift.dart';
 
 // Project imports:
 import '../../models/playback/playback_item.dart';
 import '../bt_sqlite.dart';
+import '../drift/bt_database.dart';
 
 /// Independent of the obsolete feat-vod-play Hive adapter IDs.
+///
+/// 表结构由 `BtDatabase` 拥有，这里不再自己建表。
 class BtsAppPlayback {
-  final Database db;
-  Future<void>? _ready;
+  BtsAppPlayback({BtDatabase? database}) : _database = database;
 
-  BtsAppPlayback({Database? database}) : db = database ?? BTSqlite().db;
+  final BtDatabase? _database;
 
-  Future<void> preCheck() => _ready ??= _createTable().catchError((
-    Object error,
-    StackTrace stackTrace,
-  ) {
-    _ready = null;
-    Error.throwWithStackTrace(error, stackTrace);
-  });
-
-  Future<void> _createTable() async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS AppPlayback (
-        pathKey TEXT PRIMARY KEY,
-        filePath TEXT NOT NULL,
-        title TEXT NOT NULL,
-        subject INTEGER,
-        positionMs INTEGER NOT NULL DEFAULT 0,
-        durationMs INTEGER NOT NULL DEFAULT 0,
-        completed INTEGER NOT NULL DEFAULT 0,
-        updatedAt INTEGER NOT NULL DEFAULT 0
-      )
-    ''');
-  }
+  /// 数据库
+  BtDatabase get db => _database ?? BTSqlite().db;
 
   Future<List<PlaybackItem>> readAll() async {
-    await preCheck();
-    var rows = await db.query('AppPlayback', orderBy: 'updatedAt DESC');
-    return rows.map(PlaybackItem.fromRow).toList();
+    var query = db.select(db.appPlayback)
+      ..orderBy([(table) => OrderingTerm.desc(table.updatedAt)]);
+    var rows = await query.get();
+    return rows.map((row) => PlaybackItem.fromRow(row.toJson())).toList();
   }
 
   Future<PlaybackItem?> read(String filePath) async {
-    await preCheck();
-    var rows = await db.query(
-      'AppPlayback',
-      where: 'pathKey = ?',
-      whereArgs: [PlaybackItem.pathKey(filePath)],
-      limit: 1,
-    );
-    return rows.isEmpty ? null : PlaybackItem.fromRow(rows.first);
+    var query = db.select(db.appPlayback)
+      ..where((table) => table.pathKey.equals(PlaybackItem.pathKey(filePath)));
+    var row = await query.getSingleOrNull();
+    return row == null ? null : PlaybackItem.fromRow(row.toJson());
   }
 
   Future<void> write(PlaybackItem item) async {
-    await preCheck();
-    await db.insert(
-      'AppPlayback',
-      item.toRow(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.into(db.appPlayback).insertOnConflictUpdate(_companion(item));
   }
 
   Future<void> delete(String filePath) async {
-    await preCheck();
-    await db.delete(
-      'AppPlayback',
-      where: 'pathKey = ?',
-      whereArgs: [PlaybackItem.pathKey(filePath)],
+    var delete = db.delete(db.appPlayback)
+      ..where((table) => table.pathKey.equals(PlaybackItem.pathKey(filePath)));
+    await delete.go();
+  }
+
+  AppPlaybackCompanion _companion(PlaybackItem item) {
+    return AppPlaybackCompanion(
+      pathKey: Value(item.key),
+      filePath: Value(item.filePath),
+      title: Value(item.title),
+      subject: Value(item.subject),
+      positionMs: Value(item.positionMs),
+      durationMs: Value(item.durationMs),
+      completed: Value(item.completed ? 1 : 0),
+      updatedAt: Value(item.updatedAt),
     );
   }
 }

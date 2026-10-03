@@ -8,10 +8,13 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
+import '../drift/bt_database.dart';
 
 /// bangumi.tv 用户相关数据
 /// 目前只有用户信息跟 token 信息
 /// 详细文档请参考 https://bangumi.github.io/api
+///
+/// 建表与补列由 `BtDatabase` 拥有，这里只做表存取。
 class BtsBangumiUser {
   BtsBangumiUser._();
 
@@ -22,10 +25,7 @@ class BtsBangumiUser {
   factory BtsBangumiUser() => _instance;
 
   /// 数据库
-  final BTSqlite sqlite = BTSqlite();
-
-  /// 表名-用户
-  final String _tableNameUser = 'BangumiUser';
+  BtDatabase get _db => BTSqlite().db;
 
   /// 系统安全存储。旧版 SQLite 凭据会在首次读取时迁移到这里。
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
@@ -34,71 +34,22 @@ class BtsBangumiUser {
 
   static String _secureKey(String key) => 'bangumi.$key';
 
-  /// 初始化用户表
-  /// 数据类型参考：lib/models/bangumi/user_request.dart
-  Future<void> initUser() async {
-    await _instance.sqlite.db.execute('''
-        CREATE TABLE IF NOT EXISTS $_tableNameUser (
-          key TEXT NOT NULL PRIMARY KEY,
-          value TEXT NOT NULL
-        );
-      ''');
-    BTLogTool.info('Ensure table $_tableNameUser exists');
-  }
-
-  /// 前置检查
-  Future<void> preCheck() async {
-    var check = await _instance.sqlite.isTableExist(_tableNameUser);
-    if (!check) {
-      await _instance.initUser();
-    }
-  }
-
   /// 读取用户信息
   Future<BangumiUser?> readUser() async {
-    await _instance.preCheck();
-    var result = await _instance.sqlite.db.query(
-      _tableNameUser,
-      where: 'key = ?',
-      whereArgs: ['user'],
-    );
-    if (result.isEmpty) return null;
-    var value = result.first['value'];
-    if (value == null || value == '') return null;
-    return BangumiUser.fromJson(jsonDecode(value as String));
+    var row = await _readRow('user');
+    if (row == null) return null;
+    if (row.value.isEmpty) return null;
+    return BangumiUser.fromJson(jsonDecode(row.value));
   }
 
   /// 写入/更新用户信息
   Future<void> writeUser(BangumiUser user) async {
-    await _instance.preCheck();
-    var result = await _instance.sqlite.db.query(
-      _tableNameUser,
-      where: 'key = ?',
-      whereArgs: ['user'],
-    );
-    if (result.isEmpty) {
-      await _instance.sqlite.db.insert(_tableNameUser, {
-        'key': 'user',
-        'value': jsonEncode(user),
-      });
-    } else {
-      await _instance.sqlite.db.update(
-        _tableNameUser,
-        {'value': jsonEncode(user)},
-        where: 'key = ?',
-        whereArgs: ['user'],
-      );
-    }
+    await _writeRow('user', jsonEncode(user));
   }
 
   /// 删除用户信息
   Future<void> deleteUser() async {
-    await _instance.preCheck();
-    await _instance.sqlite.db.delete(
-      _tableNameUser,
-      where: 'key = ?',
-      whereArgs: ['user'],
-    );
+    await _deleteRow('user');
   }
 
   /// 判断有没有登录
@@ -150,25 +101,15 @@ class BtsBangumiUser {
       }
     }
 
-    await _instance.preCheck();
-    var result = await _instance.sqlite.db.query(
-      _tableNameUser,
-      where: 'key = ?',
-      whereArgs: [key],
-    );
-    if (result.isEmpty) return null;
-    var value = result.first['value'];
-    var legacyValue = value?.toString();
-    if (legacyValue == null || legacyValue.isEmpty) return legacyValue;
+    var row = await _readRow(key);
+    if (row == null) return null;
+    var legacyValue = row.value;
+    if (legacyValue.isEmpty) return legacyValue;
 
     if (_secureTokenKeys.contains(key)) {
       try {
         await _secureStorage.write(key: _secureKey(key), value: legacyValue);
-        await _instance.sqlite.db.delete(
-          _tableNameUser,
-          where: 'key = ?',
-          whereArgs: [key],
-        );
+        await _deleteRow(key);
       } catch (error) {
         BTLogTool.warn('迁移旧用户凭据失败：$error');
       }
@@ -181,12 +122,7 @@ class BtsBangumiUser {
     if (_secureTokenKeys.contains(key)) {
       try {
         await _secureStorage.write(key: _secureKey(key), value: value);
-        await _instance.preCheck();
-        await _instance.sqlite.db.delete(
-          _tableNameUser,
-          where: 'key = ?',
-          whereArgs: [key],
-        );
+        await _deleteRow(key);
         BTLogTool.info('Write user credential: $key');
         return;
       } catch (error) {
@@ -194,25 +130,10 @@ class BtsBangumiUser {
       }
     }
 
-    await _instance.preCheck();
-    var result = await _instance.sqlite.db.query(
-      _tableNameUser,
-      where: 'key = ?',
-      whereArgs: [key],
-    );
-    if (result.isEmpty) {
-      await _instance.sqlite.db.insert(_tableNameUser, {
-        'key': key,
-        'value': value,
-      });
+    var existing = await _readRow(key);
+    await _writeRow(key, value);
+    if (existing == null) {
       BTLogTool.info('Write user credential: $key');
-    } else {
-      await _instance.sqlite.db.update(
-        _tableNameUser,
-        {'value': value},
-        where: 'key = ?',
-        whereArgs: [key],
-      );
     }
   }
 
@@ -225,12 +146,7 @@ class BtsBangumiUser {
         BTLogTool.warn('删除系统安全存储凭据失败：$error');
       }
     }
-    await _instance.preCheck();
-    await _instance.sqlite.db.delete(
-      _tableNameUser,
-      where: 'key = ?',
-      whereArgs: [key],
-    );
+    await _deleteRow(key);
   }
 
   /// 读取过期时间
@@ -269,5 +185,25 @@ class BtsBangumiUser {
     if (expireTime == null) return true;
     var now = DateTime.now().millisecondsSinceEpoch;
     return now > int.parse(expireTime);
+  }
+
+  Future<UserRow?> _readRow(String key) {
+    var query = _db.select(_db.bangumiUser)
+      ..where((table) => table.key.equals(key));
+    return query.getSingleOrNull();
+  }
+
+  Future<void> _writeRow(String key, String value) {
+    return _db
+        .into(_db.bangumiUser)
+        .insertOnConflictUpdate(
+          BangumiUserCompanion.insert(key: key, value: value),
+        );
+  }
+
+  Future<void> _deleteRow(String key) {
+    var delete = _db.delete(_db.bangumiUser)
+      ..where((table) => table.key.equals(key));
+    return delete.go();
   }
 }

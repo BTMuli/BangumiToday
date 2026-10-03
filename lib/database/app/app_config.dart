@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 // Package imports:
+import 'package:drift/drift.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
 // Project imports:
@@ -10,6 +11,7 @@ import '../../models/app/bt_download_config.dart';
 import '../../models/app/bt_tracker_config.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
+import '../drift/bt_database.dart';
 
 /// 应用配置
 class BtsAppConfig {
@@ -22,72 +24,41 @@ class BtsAppConfig {
   factory BtsAppConfig() => _instance;
 
   /// 数据库
-  final BTSqlite sqlite = BTSqlite();
-
-  /// 表名
-  final String _tableName = 'AppConfig';
-
-  /// 前置检查-通用
-  Future<void> preCheck() async {
-    var check = await _instance.sqlite.isTableExist(_instance._tableName);
-    if (!check) {
-      await _instance.sqlite.db.execute('''
-        CREATE TABLE $_tableName (
-          key TEXT NOT NULL PRIMARY KEY,
-          value TEXT NOT NULL
-        );
-      ''');
-      BTLogTool.info('Create table $_tableName');
-    }
-  }
+  BtDatabase get _db => BTSqlite().db;
 
   /// 读取配置-通用
   Future<String?> read(String key) async {
-    await _instance.preCheck();
-    var result = await _instance.sqlite.db.query(
-      _tableName,
-      where: 'key = ?',
-      whereArgs: [key],
-    );
-    if (result.isEmpty) return '';
-    var value = result.first['value'];
+    var query = _db.select(_db.appConfig)
+      ..where((table) => table.key.equals(key));
+    var row = await query.getSingleOrNull();
+    if (row == null) return '';
     BTLogTool.info('Read config: $key');
-    return value.toString();
+    return row.value;
   }
 
   /// 写入/更新配置-通用
   Future<void> write(String key, String value) async {
-    await _instance.preCheck();
-    var result = await _instance.sqlite.db.query(
-      _tableName,
-      where: 'key = ?',
-      whereArgs: [key],
-    );
-    if (result.isEmpty) {
-      await _instance.sqlite.db.insert(_tableName, {
-        'key': key,
-        'value': value,
-      });
+    var query = _db.select(_db.appConfig)
+      ..where((table) => table.key.equals(key));
+    var existing = await query.getSingleOrNull();
+    if (existing == null) {
+      await _db
+          .into(_db.appConfig)
+          .insert(AppConfigCompanion.insert(key: key, value: value));
       BTLogTool.info('Write config: $key');
     } else {
-      await _instance.sqlite.db.update(
-        _tableName,
-        {'value': value},
-        where: 'key = ?',
-        whereArgs: [key],
-      );
+      var update = _db.update(_db.appConfig)
+        ..where((table) => table.key.equals(key));
+      await update.write(AppConfigCompanion(value: Value(value)));
     }
     BTLogTool.info('Update config: $key');
   }
 
   /// 删除配置-通用
   Future<void> delete(String key) async {
-    await _instance.preCheck();
-    await _instance.sqlite.db.delete(
-      _tableName,
-      where: 'key = ?',
-      whereArgs: [key],
-    );
+    var delete = _db.delete(_db.appConfig)
+      ..where((table) => table.key.equals(key));
+    await delete.go();
     BTLogTool.info('Delete config: $key');
   }
 
