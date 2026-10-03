@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../core/constants/app_constants.dart';
-import '../../domain/repositories/bmf_repository.dart';
+import '../../providers/bmf_providers.dart';
 import '../../store/app_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
