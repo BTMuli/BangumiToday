@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import 'core/utils/window_effect.dart';
 import 'store/app_store.dart';
-import 'widgets/app/app_nav.dart';
+import 'widgets/shell/app_nav.dart';
 
 /// 应用入口
 class BTApp extends ConsumerStatefulWidget {

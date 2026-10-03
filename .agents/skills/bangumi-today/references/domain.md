@@ -30,7 +30,7 @@ Contents:
 - Mikan (`BtrMikanApi`, default base https://mikanani.kas.pub; official https://mikanani.me is a selectable preset): `/RSS/Classic`, `/RSS/MyBangumi?token=...`, `/RSS/Bangumi?bangumiId=<id>&subgroupid=<gid>`, `/Home/Search?searchstr=...`, plus arbitrary custom RSS fetch. Token is stored in secure storage.
 - AniBT (`AnibtAPI`): `https://anibt.net/rss/magnets.xml`.
 - Comicat (`ComicatAPI`): `https://www.comicat.org/rss.xml`.
-- RSS pages: `lib/pages/rss-bmf/` (`rb_pw_mikan`, `rb_pw_anibt`, `rb_pw_comicat`); cards in `lib/widgets/rss/`.
+- RSS pages: `lib/pages/rss_bmf/` (`rss_bmf_mikan`, `rss_bmf_anibt`, `rss_bmf_comicat`, `rss_bmf_workspace`) plus that page's own source cards and filter dialog; shared BMF components in `lib/widgets/bmf/`.
 
 ## BMF subscriptions
 
@@ -50,4 +50,4 @@ Contents:
 - Snapshots: `BtTaskSnapshot` (state, `sourceKind`, `savePath`, progress, rates, peers/seeds, `isPrivate`, seed limits, `lastError`), `BtTaskFileDetail` (priority 0 = skip), `BtTaskPeerDetail`, and paged `BtTaskFilesResult` / `BtTaskPeersResult` (offset/limit windows with `truncated` + `nextOffset`).
 - `BtEngineClient` spawns `<host>/bt_download/bt_download.exe`, sends requests with a 10s timeout, and exposes event / task snapshot / state streams.
 - Windows firewall rule `BangumiToday bt_download engine` (inbound allow) is registered at build/install time.
-- Download UI: `lib/pages/app/download_page.dart` (task list) and `download_task_details.dart` (tabs: overview, progress, files, peers).
+- Download UI: `lib/pages/download/download_page.dart` (task list) and `download_task_details.dart` (tabs: overview, progress, files, peers).

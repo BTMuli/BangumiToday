@@ -10,7 +10,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 // Project imports:
 import '../core/theme/bt_theme.dart';
 import '../models/app/response.dart';
-import '../widgets/app/app_resp_err.dart';
+import '../widgets/shell/app_resp_err.dart';
 
 class _KeyboardListenerWrapper extends StatefulWidget {
   final Widget child;

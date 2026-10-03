@@ -1,0 +1,323 @@
+// Dart imports:
+import 'dart:math';
+
+// Package imports:
+import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Project imports:
+import '../../controller/page_controller.dart';
+import '../../controller/progress_controller.dart';
+import '../../core/layout/responsive.dart';
+import '../../models/bangumi/bangumi_enum.dart';
+import '../../models/bangumi/bangumi_model.dart';
+import '../../providers/app_providers.dart';
+import '../../store/bgm_user_hive.dart';
+import '../../ui/bt_dialog.dart';
+import '../../ui/bt_infobar.dart';
+import '../../widgets/common/empty_state.dart';
+import 'user_collection_card.dart';
+
+/// 用户收藏 tab
+class UcpTabWidget extends ConsumerStatefulWidget {
+  /// 收藏类型
+  final BangumiCollectionType type;
+
+  /// 构造
+  const UcpTabWidget(this.type, {super.key});
+
+  @override
+  ConsumerState<UcpTabWidget> createState() => _UcpTabState();
+}
+
+/// 用户收藏 tab 状态
+class _UcpTabState extends ConsumerState<UcpTabWidget>
+    with AutomaticKeepAliveClientMixin {
+  /// 收藏类型
+  BangumiCollectionType get type => widget.type;
+
+  /// progress controller
+  late ProgressController progress = ProgressController();
+
+  /// 查找
+  final TextEditingController searchController = TextEditingController();
+
+  /// 每页展示数量
+  final int limit = 12;
+
+  /// 用户Hive
+  final BgmUserHive hive = BgmUserHive();
+
+  /// page controller
+  BtcPageController pageController = BtcPageController.defaultInit();
+
+  /// 数据
+  List<BangumiUserSubjectCollection> data = [];
+
+  /// 展示数据
+  List<BangumiUserSubjectCollection> get showData {
+    if (pageController.cur == 0) {
+      return [];
+    }
+    var start = (pageController.cur - 1) * limit;
+    var end = min(start + limit, data.length);
+    return data.sublist(start, end);
+  }
+
+  /// 保存状态
+  @override
+  bool get wantKeepAlive => false;
+
+  /// 初始化
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration.zero, () async => await loadData());
+  }
+
+  /// dispose
+  @override
+  void dispose() {
+    searchController.dispose();
+    pageController.dispose();
+    super.dispose();
+  }
+
+  /// 获取数据
+  Future<void> loadData() async {
+    var list = await ref
+        .read(bangumiRepositoryProvider)
+        .getLocalCollections(type: type);
+    list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    if (list.isNotEmpty) {
+      data = list;
+      setState(() {});
+    }
+    pageController = BtcPageController(
+      total: (list.length / limit).ceil(),
+      cur: 1,
+      onChanged: (page) async => setState(() {}),
+    );
+  }
+
+  /// 跳转
+  void jump(BangumiUserSubjectCollection subject) => ref
+      .read(navStoreProvider)
+      .addNavItemB(
+        type: subject.subjectType.label,
+        subject: subject.subjectId,
+        paneTitle: subject.subject.nameCn == ''
+            ? subject.subject.name
+            : subject.subject.nameCn,
+      );
+
+  /// 刷新收藏
+  Future<void> freshCollection() async {
+    progress = ProgressWidget.show(
+      context,
+      title: '刷新收藏信息',
+      text: '正在刷新 ${type.label} 收藏信息',
+      onTaskbar: true,
+    );
+    if (hive.user == null) {
+      progress.end();
+      if (mounted) await BtInfobar.error(context, '用户信息为空');
+      return;
+    }
+    const limitC = 50;
+    var offsetC = 0;
+    var repository = ref.read(bangumiRepositoryProvider);
+    var resp = await repository.getCollectionSubjects(
+      username: hive.user!.id.toString(),
+      limit: limitC,
+      offset: offsetC,
+      collectionType: type,
+    );
+    if (resp.code != 0 || resp.data == null) {
+      progress.end();
+      if (mounted) await showRespErr(resp, context);
+      return;
+    }
+    var checkFlag = true;
+    var pageResp = resp.data!;
+    var total = pageResp.total;
+    var cnt = 0;
+    while (checkFlag) {
+      offsetC += pageResp.data.length;
+      for (var item in pageResp.data) {
+        progress.update(
+          text: '[${item.subject.id}] ${item.subject.name}',
+          progress: (cnt / total) * 100,
+        );
+        cnt++;
+      }
+      if (offsetC >= total) {
+        checkFlag = false;
+        progress.end();
+        if (mounted) await BtInfobar.success(context, '收藏信息写入完成');
+        break;
+      }
+      progress.update(
+        text: '偏移：$offsetC，总计：$total',
+        progress: (cnt / total) * 100,
+      );
+      resp = await repository.getCollectionSubjects(
+        username: hive.user!.id.toString(),
+        limit: limitC,
+        offset: offsetC,
+        collectionType: type,
+      );
+      if (resp.code != 0 || resp.data == null) {
+        progress.end();
+        if (mounted) await showRespErr(resp, context);
+        return;
+      }
+      pageResp = resp.data!;
+    }
+  }
+
+  /// 构建 item
+  AutoSuggestBoxItem<BangumiUserSubjectCollection> buildItem(
+    BangumiUserSubjectCollection item,
+  ) {
+    var label = item.subject.nameCn;
+    if (label.isEmpty) label = item.subject.name;
+    return AutoSuggestBoxItem<BangumiUserSubjectCollection>(
+      value: item,
+      label: label,
+      child: SizedBox(
+        width: 400,
+        child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
+    );
+  }
+
+  /// 构建搜索框
+  Widget buildJump(BuildContext context) {
+    return AutoSuggestBox<BangumiUserSubjectCollection>(
+      items: data.map(buildItem).toList(),
+      onSelected: (item) async {
+        if (item.value == null) {
+          await BtInfobar.warn(context, '没有找到数据');
+          return;
+        }
+        jump(item.value!);
+      },
+      placeholder: '搜索',
+    );
+  }
+
+  /// 构建刷新按钮
+  Widget buildRefresh(BuildContext context) {
+    return Tooltip(
+      message: '刷新数据 (长按从API刷新)',
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(4)),
+        child: IconButton(
+          icon: const Icon(FluentIcons.refresh),
+          onPressed: () async {
+            data.clear();
+            pageController.cur = 1;
+            await loadData();
+            if (context.mounted) await BtInfobar.success(context, '刷新成功');
+          },
+          onLongPress: () async {
+            var check = await showConfirm(
+              context,
+              title: '是否从API刷新数据',
+              content: '将从 bangumi.tv 获取数据',
+            );
+            if (!check) return;
+            await freshCollection();
+          },
+        ),
+      ),
+    );
+  }
+
+  /// 构建顶部
+  Widget buildTop(BuildContext context) {
+    var titleStyle = FluentTheme.of(context).typography.subtitle;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: FluentTheme.of(context).micaBackgroundColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(type.icon, size: 20, color: FluentTheme.of(context).accentColor),
+          SizedBox(width: 8),
+          Text('共 ${data.length} 部', style: titleStyle),
+          SizedBox(width: 12),
+          buildRefresh(context),
+          SizedBox(width: 12),
+          Expanded(
+            child: Container(
+              constraints: BoxConstraints(maxWidth: 450),
+              child: buildJump(context),
+            ),
+          ),
+          SizedBox(width: 12),
+          PageWidget(pageController),
+        ],
+      ),
+    );
+  }
+
+  /// 构建列表
+  Widget buildList(BuildContext context) {
+    if (showData.isEmpty) {
+      return BTEmptyState.noCollection(
+        actionText: '浏览今日放送',
+        onAction: () =>
+            ref.read(navStoreProvider).addNavItemB(type: '动画', subject: 0),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        var columns = BTBreakpoints.getGridColumns(constraints.maxWidth);
+        return Container(
+          margin: EdgeInsets.all(8),
+          child: GridView.builder(
+            padding: EdgeInsets.all(8),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              childAspectRatio: 10 / 7,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+            ),
+            itemCount: showData.length,
+            scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+            itemBuilder: (context, index) => RepaintBoundary(
+              key: ValueKey(showData[index].subjectId),
+              child: UcpCardWidget(data: showData[index]),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 构建
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return Container(
+      color: FluentTheme.of(context).scaffoldBackgroundColor,
+      child: Column(
+        children: [
+          SizedBox(height: 12),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            child: buildTop(context),
+          ),
+          SizedBox(height: 12),
+          Expanded(child: buildList(context)),
+        ],
+      ),
+    );
+  }
+}

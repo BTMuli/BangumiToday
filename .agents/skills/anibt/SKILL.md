@@ -24,13 +24,13 @@ Paths below are relative to the repository root. Use `$bangumi-today` for archit
 | --- | --- |
 | AniBT feed request and base URL | `lib/request/rss/anibt_api.dart` |
 | Shared RSS models and namespace-aware parser | `lib/data/parsers/rss_parser.dart` (exported by `lib/models/rss/rss.dart`) |
-| AniBT feed page, search, refresh, lazy list, and website link | `lib/pages/rss-bmf/rb_pw_anibt.dart` |
+| AniBT feed page, search, refresh, lazy list, and website link | `lib/pages/rss_bmf/rss_bmf_anibt.dart` |
 | RSS query filters, local filtering, and sort rules | `lib/models/rss/anibt_filters.dart` |
-| Filter panel and shared metadata chips | `lib/widgets/rss/anibt_filter_dialog.dart`, `lib/widgets/rss/anibt_tag_chip.dart` |
-| RSS/BMF tab order and tab icon | `lib/pages/rss-bmf/rss_bmf_page.dart` |
-| Release title, metadata, subject navigation, download actions | `lib/widgets/rss/rss_anibt_card_fluent.dart` |
+| Filter panel and shared metadata chips | `lib/pages/rss_bmf/anibt_filter_dialog.dart`, `lib/widgets/rss/anibt_tag_chip.dart` |
+| RSS/BMF tab order and tab icon | `lib/pages/rss_bmf/rss_bmf_page.dart` |
+| Release title, metadata, subject navigation, download actions | `lib/pages/rss_bmf/rss_anibt_card_fluent.dart` |
 | Background BMF subscriptions | `lib/core/services/bmf_rss_service.dart` |
-| Subject RSS integration and persisted subscriptions | `lib/widgets/bangumi/subject_detail/bmf_rss_data.dart`, `lib/database/app/app_rss.dart` |
+| Subject RSS integration and persisted subscriptions | `lib/widgets/bmf/bmf_rss_data.dart`, `lib/database/app/app_rss.dart` |
 | AniBT branding | `assets/images/platforms/anibt-logo.png`, `assets/images/platforms/anibt-favicon.ico` |
 
 The feed fetch uses `/rss/magnets.xml`; the page's website action opens `/magnets`. The current tab order is BMF, AniBT, Mikan, Comicat. The card uses the anime name as its main title and allows three lines for the release subtitle. Follow these existing conventions when extending the integration.

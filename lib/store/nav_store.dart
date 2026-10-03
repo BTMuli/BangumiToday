@@ -9,8 +9,8 @@ import 'package:hive/hive.dart';
 
 // Project imports:
 import '../models/hive/nav_model.dart';
-import '../pages/subject-detail/subject_detail_page.dart';
-import '../widgets/app/nav_item_icon.dart';
+import '../pages/subject_detail/subject_detail_page.dart';
+import '../widgets/shell/nav_item_icon.dart';
 
 final navStoreProvider = ChangeNotifierProvider<BTNavStore>((ref) {
   var store = BTNavStore();
