@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import '../../core/services/episode_mark_service.dart';
 import '../../providers/episode_mark_providers.dart';
-import '../../store/nav_store.dart';
+import '../../providers/playback_window_providers.dart';
 import '../../store/playback_store.dart';
 import '../../ui/bt_infobar.dart';
 
@@ -21,8 +21,19 @@ class PlaybackEpisodeMarkPrompt extends ConsumerWidget {
     EpisodeMarkPrompt prompt,
   ) async {
     var controller = ref.read(episodeMarkProvider.notifier);
-    var candidate = controller.beginConfirmation(prompt);
-    if (candidate == null) return;
+    EpisodeMarkCandidate? resolved;
+    try {
+      resolved = await controller.beginConfirmation(prompt);
+    } catch (error) {
+      if (context.mounted) await BtInfobar.error(context, error.toString());
+      return;
+    }
+    if (resolved == null) return;
+    final EpisodeMarkCandidate candidate = resolved;
+    if (!context.mounted) {
+      controller.dismiss(prompt.id);
+      return;
+    }
     var name = ref.read(playbackStoreProvider).nameFor(candidate.subject);
     var confirmed = await showDialog<bool>(
       context: context,
@@ -123,10 +134,11 @@ class PlaybackEpisodeMarkPrompt extends ConsumerWidget {
                   : () async {
                       var subject = prompt.completion.item.subject;
                       if (subject == null) return;
-                      var navigation = ref.read(navStoreProvider.notifier);
                       controller.dismiss(prompt.id);
                       await beforeOpenSubject?.call();
-                      navigation.addNavItemB(subject: subject);
+                      await ref.read(playbackSubjectNavigationProvider)(
+                        subject,
+                      );
                     },
               child: const Text('打开章节'),
             ),

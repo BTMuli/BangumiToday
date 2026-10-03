@@ -8,9 +8,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/episode_mark_service.dart';
 import '../data/repositories/episode_mark_gateway_impl.dart';
 import '../models/playback/playback_completion.dart';
+import '../models/playback/episode_mark_state.dart';
 import '../store/bgm_user_hive.dart';
 import '../store/playback_store.dart';
 import 'bangumi_providers.dart';
+
+export '../models/playback/episode_mark_state.dart';
 
 final episodeMarkProvider =
     NotifierProvider<EpisodeMarkController, EpisodeMarkState>(
@@ -25,38 +28,6 @@ final episodeMarkRefreshProvider =
           .refreshes
           .where((event) => event.subject == subject);
     });
-
-class EpisodeMarkPrompt {
-  const EpisodeMarkPrompt({
-    required this.completion,
-    required this.account,
-    this.candidate,
-    this.message,
-    this.loading = true,
-    this.retryable = false,
-  });
-
-  final PlaybackCompletion completion;
-  final String account;
-  final EpisodeMarkCandidate? candidate;
-  final String? message;
-  final bool loading;
-  final bool retryable;
-
-  String get id => completion.eventId;
-}
-
-class EpisodeMarkState {
-  const EpisodeMarkState({
-    this.enabled = false,
-    this.prompts = const [],
-    this.confirmingId,
-  });
-
-  final bool enabled;
-  final List<EpisodeMarkPrompt> prompts;
-  final String? confirmingId;
-}
 
 /// In-memory prompts only. Account changes, disabling and shutdown discard
 /// unconfirmed work; periodic saves and auto-advance do not wait for this queue.
@@ -159,6 +130,14 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
     state = EpisodeMarkState(enabled: state.enabled);
   }
 
+  void acceptCompletion(PlaybackCompletion completion) =>
+      _onCompletion(completion);
+
+  void discardWindowPrompts() {
+    _accountGeneration++;
+    _clear();
+  }
+
   void _onCompletion(PlaybackCompletion completion) {
     var account = currentAccount();
     if (account == null ||
@@ -242,7 +221,9 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
     unawaited(_resolve(prompt));
   }
 
-  EpisodeMarkCandidate? beginConfirmation(EpisodeMarkPrompt prompt) {
+  Future<EpisodeMarkCandidate?> beginConfirmation(
+    EpisodeMarkPrompt prompt,
+  ) async {
     if (!_valid(prompt) || state.confirmingId != null) return null;
     var candidate = prompt.candidate;
     if (candidate == null) return null;
