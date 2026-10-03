@@ -201,6 +201,7 @@ class PlaybackStore extends ChangeNotifier {
   }
 
   Future<void> jump(int nextIndex) => _serial(() async {
+    if (nextIndex == index) return;
     await _save();
     await _openIndex(nextIndex);
   });

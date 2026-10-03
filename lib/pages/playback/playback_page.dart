@@ -1,5 +1,6 @@
 // Dart imports:
 import 'dart:async';
+import 'dart:io';
 
 // Package imports:
 import 'package:file_selector/file_selector.dart';
@@ -10,7 +11,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:path/path.dart' as path;
 import 'package:super_clipboard/super_clipboard.dart' as clipboard;
+import 'package:url_launcher/url_launcher.dart';
 
 // Project imports:
 import '../../core/services/playback_library.dart';
@@ -173,6 +176,29 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     );
     if (file != null) {
       await _store.player?.setSubtitleTrack(SubtitleTrack.uri(file.path));
+    }
+  }
+
+  Future<void> _openExternalPlayer(PlaybackItem item) async {
+    await _store.library.ensureReady(item.filePath);
+    if (!await launchUrl(
+      Uri.file(item.filePath),
+      mode: LaunchMode.externalApplication,
+    )) {
+      throw const PlaybackUnavailable('无法用系统默认播放器打开视频');
+    }
+  }
+
+  Future<void> _openVideoDirectory(PlaybackItem item) async {
+    var directory = path.dirname(item.filePath);
+    if (!await Directory(directory).exists()) {
+      throw const PlaybackUnavailable('视频所在目录不存在');
+    }
+    if (!await launchUrl(
+      Uri.directory(directory),
+      mode: LaunchMode.externalApplication,
+    )) {
+      throw const PlaybackUnavailable('无法打开视频所在目录');
     }
   }
 
@@ -525,15 +551,18 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     PlaybackLabel label,
     bool sameSeries,
   ) {
+    var item = store.playlist[index];
     var selected = store.index == index;
     var accent = FluentTheme.of(context).accentColor;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       child: Tooltip(
-        message: store.playlist[index].title,
+        message: item.title,
         child: HoverButton(
           key: ValueKey('playback-item-$index'),
-          onPressed: store.loading ? null : () => _run(() => store.jump(index)),
+          onPressed: store.loading || selected
+              ? null
+              : () => _run(() => store.jump(index)),
           builder: (context, states) => Container(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
@@ -594,6 +623,21 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                         ).copyWith(height: 1.2),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: '用外部播放器打开',
+                  child: IconButton(
+                    icon: const Icon(FluentIcons.open_file, size: 14),
+                    onPressed: () => _run(() => _openExternalPlayer(item)),
+                  ),
+                ),
+                Tooltip(
+                  message: '打开所在目录',
+                  child: IconButton(
+                    icon: const Icon(FluentIcons.folder_open, size: 14),
+                    onPressed: () => _run(() => _openVideoDirectory(item)),
                   ),
                 ),
               ],
