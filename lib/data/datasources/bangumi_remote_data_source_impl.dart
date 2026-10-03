@@ -212,10 +212,12 @@ class BTBangumiRemoteDataSourceImpl implements BTBangumiRemoteDataSource {
   Future<BTResponse<void>> updateCollectionEpisode({
     required BangumiEpisodeCollectionType type,
     required int episode,
+    bool Function()? authScope,
   }) async {
     var response = await _api.updateCollectionEpisode(
       type: type,
       episode: episode,
+      authScope: authScope,
     );
     return BTResponse(
       code: response.code,

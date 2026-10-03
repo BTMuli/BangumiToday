@@ -75,5 +75,6 @@ abstract class BTBangumiRemoteDataSource {
   Future<BTResponse<void>> updateCollectionEpisode({
     required BangumiEpisodeCollectionType type,
     required int episode,
+    bool Function()? authScope,
   });
 }

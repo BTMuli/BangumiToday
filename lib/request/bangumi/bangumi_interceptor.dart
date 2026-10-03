@@ -24,9 +24,11 @@ class AuthInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     try {
+      _checkScope(options);
       var token = options.extra['authRetried'] == true
           ? _tokenService.currentAccessToken
           : await _tokenService.accessTokenForRequest();
+      _checkScope(options);
       if (token != null && token.isNotEmpty) {
         options.headers['Authorization'] = 'Bearer $token';
       }
@@ -52,6 +54,11 @@ class AuthInterceptor extends Interceptor {
       return;
     }
 
+    if (!_scopeValid(err.requestOptions)) {
+      handler.next(err);
+      return;
+    }
+
     var requestToken = err.requestOptions.headers['Authorization']?.toString();
     var currentToken = _tokenService.currentAccessToken;
     var tokenAlreadyRotated =
@@ -68,7 +75,23 @@ class AuthInterceptor extends Interceptor {
       return;
     }
 
+    if (!_scopeValid(err.requestOptions)) {
+      handler.next(err);
+      return;
+    }
+
     await _retry(err, handler);
+  }
+
+  static bool _scopeValid(RequestOptions options) {
+    var scope = options.extra['authScope'] as bool Function()?;
+    return scope == null || scope();
+  }
+
+  static void _checkScope(RequestOptions options) {
+    if (!_scopeValid(options)) {
+      throw StateError('账户会话已变化，章节写入已取消');
+    }
   }
 
   /// 用新 token 重试原请求

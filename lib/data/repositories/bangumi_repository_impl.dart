@@ -222,10 +222,12 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   Future<BTResponse<void>> updateCollectionEpisode({
     required BangumiEpisodeCollectionType type,
     required int episode,
+    bool Function()? authScope,
   }) async {
     return await _remoteDataSource.updateCollectionEpisode(
       type: type,
       episode: episode,
+      authScope: authScope,
     );
   }
 

@@ -621,6 +621,7 @@ class BtrBangumiApi {
   Future<BTResponse> updateCollectionEpisode({
     required BangumiEpisodeCollectionType type,
     required int episode,
+    bool Function()? authScope,
   }) async {
     const fallbackMessage = 'Failed to update user collection episode item';
     try {
@@ -628,7 +629,10 @@ class BtrBangumiApi {
         '/v0/users/-/collections/-/episodes/$episode',
         queryParameters: {'episode_id': episode},
         data: {'type': type.value},
-        options: Options(contentType: 'application/json'),
+        options: Options(
+          contentType: 'application/json',
+          extra: {if (authScope != null) 'authScope': authScope},
+        ),
       );
       var failure = readBangumiWriteFailure(
         resp,

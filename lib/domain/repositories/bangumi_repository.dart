@@ -75,6 +75,7 @@ abstract class BTBangumiRepository {
   Future<BTResponse<void>> updateCollectionEpisode({
     required BangumiEpisodeCollectionType type,
     required int episode,
+    bool Function()? authScope,
   });
 
   /// 本地收藏条目 ID，供日历筛选。
