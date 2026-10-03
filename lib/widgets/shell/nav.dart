@@ -19,6 +19,7 @@ import '../../pages/app_setting/app_setting_page.dart';
 import '../../pages/bangumi_calendar/bangumi_calendar_page.dart';
 import '../../pages/download/download_page.dart';
 import '../../pages/playback/playback_page.dart';
+import '../../pages/playback/playback_entrance_page.dart';
 import '../../pages/rss_bmf/rss_bmf_page.dart';
 import '../../pages/user_collection/user_collection_page.dart';
 import '../../providers/app_providers.dart';
@@ -272,7 +273,9 @@ class _NavWidgetState extends ConsumerState<NavWidget>
       PaneItem(
         icon: const Icon(FluentIcons.play),
         title: const Text('播放'),
-        body: const PlaybackPage(),
+        body: Platform.isWindows
+            ? const PlaybackEntrancePage()
+            : const PlaybackPage(),
       ),
     ];
   }

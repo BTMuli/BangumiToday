@@ -30,6 +30,7 @@ class PlaybackWindowDataHost {
   final PlaybackCoverResolver cover;
   final void Function() onHistoryChanged;
   static const allowedSettings = {
+    'playbackFit',
     'playbackRememberedRate',
     'playbackPromptMarkWatched',
     'playbackWindowBounds',

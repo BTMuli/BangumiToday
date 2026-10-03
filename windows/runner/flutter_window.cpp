@@ -2,7 +2,9 @@
 
 #include <optional>
 
-#include "flutter/generated_plugin_registrant.h"
+#include <desktop_multi_window/desktop_multi_window_plugin.h>
+
+#include "playback_plugin_registrant.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -24,7 +26,11 @@ bool FlutterWindow::OnCreate() {
   if (!flutter_controller_->engine() || !flutter_controller_->view()) {
     return false;
   }
-  RegisterPlugins(flutter_controller_->engine());
+  DesktopMultiWindowSetWindowCreatedCallback([](void* controller) {
+    auto* view = static_cast<flutter::FlutterViewController*>(controller);
+    RegisterPlaybackPlugins(view->engine());
+  });
+  RegisterMainPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {

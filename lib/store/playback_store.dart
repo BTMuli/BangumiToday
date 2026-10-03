@@ -1,5 +1,6 @@
 // Dart imports:
 import 'dart:async';
+import 'dart:io';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
@@ -34,6 +35,7 @@ final playbackStoreProvider = ChangeNotifierProvider<PlaybackStore>((ref) {
   // 资源校验需要任务列表，文件详情通过命令接口按需拉取。
   var downloads = ref.read(btDownloadStoreProvider.notifier);
   return PlaybackStore(
+    playerAllowed: !Platform.isWindows,
     library: PlaybackLibraryImpl(
       tasks: () => downloads.tasks,
       taskFiles: (id, offset) => downloads.taskFiles(id, offset: offset),
@@ -57,6 +59,8 @@ class PlaybackStore extends ChangeNotifier {
     required this.historyStore,
     required this.settingsStore,
     required this.subjectResolver,
+    this.playerAllowed = true,
+    this.waitForNativeDestroy = false,
   });
 
   final PlaybackLibrary library;
@@ -64,6 +68,8 @@ class PlaybackStore extends ChangeNotifier {
   final PlaybackHistoryStore historyStore;
   final PlaybackSettingsStore settingsStore;
   final PlaybackSubjectResolver subjectResolver;
+  final bool playerAllowed;
+  final bool waitForNativeDestroy;
 
   /// Directory and subject used to (re)discover the playlist for a refresh.
   String? _sourceDir;
@@ -94,6 +100,10 @@ class PlaybackStore extends ChangeNotifier {
   bool _closed = false;
   bool _disposed = false;
   Future<void>? _shutdownFuture;
+  Future<void>? _settlementFuture;
+  final _shutdownWork = <Future<void>>[];
+  final _nativeDestructions = <Future<void>>[];
+  final _shutdownFailures = <Object>[];
   final _session = PlaybackSession();
   final _completions = StreamController<PlaybackCompletion>.broadcast();
 
@@ -158,6 +168,7 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> _initializePlayer() async {
     if (_player != null) return;
+    if (!playerAllowed) throw StateError('主窗口不能创建原生播放器');
     MediaKit.ensureInitialized();
     // Render subtitles with mpv/libass so ASS styling and embedded fonts are
     // preserved instead of reducing every subtitle track to Flutter text.
@@ -165,11 +176,11 @@ class PlaybackStore extends ChangeNotifier {
     try {
       await PlaybackSubtitles.configure(player);
     } catch (_) {
-      await player.dispose();
+      await _disposePlayer(player);
       rethrow;
     }
     if (_closed) {
-      await player.dispose();
+      await _disposePlayer(player);
       return;
     }
     _player = player;
@@ -352,11 +363,24 @@ class PlaybackStore extends ChangeNotifier {
     await _save();
   });
 
-  Future<void> _loadPreferences() => _preferencesFuture ??= (() async {
-    await _rateMemory.load();
-    _fit = PlaybackFit.parse(await settingsStore.read('playbackFit'));
-    _notify();
-  })();
+  Future<void> _loadPreferences() {
+    var pending = _preferencesFuture;
+    if (pending != null) return pending;
+    var operation = () async {
+      await _rateMemory.load();
+      _fit = PlaybackFit.parse(await settingsStore.read('playbackFit'));
+      _notify();
+    }();
+    _preferencesFuture = operation;
+    unawaited(
+      operation.catchError((Object _) {
+        // A transport/storage failure must allow the next explicit open/refresh
+        // to retry, instead of caching a failed preference Future for this session.
+        if (identical(_preferencesFuture, operation)) _preferencesFuture = null;
+      }),
+    );
+    return operation;
+  }
 
   Future<void> setRate(double rate) => _serial(() async {
     await _player?.setRate(PlaybackRateMemory.normalize(rate));
@@ -446,6 +470,38 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> shutdown() => _shutdownFuture ??= _shutdown();
 
+  /// Closing a child engine must not cancel timed-out writes or mpv's delayed
+  /// destruction. Keep the engine alive until every accepted operation settles.
+  Future<void> waitForShutdownSettlement() =>
+      _settlementFuture ??= _waitForShutdownSettlement();
+
+  Future<void> _waitForShutdownSettlement() async {
+    await shutdown();
+    await Future.wait(_shutdownWork);
+    await Future.wait(_nativeDestructions);
+    if (_shutdownFailures.isNotEmpty) {
+      throw StateError('播放器未能完成保存或清理：${_shutdownFailures.first}');
+    }
+  }
+
+  Future<void> _disposePlayer(Player player) {
+    var disposal = Future<void>.sync(player.dispose);
+    // media_kit 1.2.6 schedules mpv_terminate_destroy 5 seconds after dispose.
+    // Do not destroy the child isolate before that timer runs, or call the
+    // native destructor ourselves (which would double-free the same handle).
+    var destruction = disposal
+        .then((_) async {
+          if (waitForNativeDestroy) {
+            await Future<void>.delayed(const Duration(milliseconds: 5200));
+          }
+        })
+        .catchError((Object error) {
+          _shutdownFailures.add(error);
+        });
+    _nativeDestructions.add(destruction);
+    return disposal;
+  }
+
   Future<void> _shutdown() async {
     // Refuse newly queued work before waiting for the current operation.
     _closed = true;
@@ -513,29 +569,32 @@ class PlaybackStore extends ChangeNotifier {
     if (player != null && drained) {
       await _shutdownStep(
         '释放原生播放器',
-        player.dispose,
+        () => _disposePlayer(player),
         const Duration(seconds: 2),
       );
     } else if (player != null) {
-      unawaited(() async {
+      var cleanup = () async {
         try {
           await pending;
         } catch (_) {
           // The queue already records operation errors.
         }
         if (finalRecord != null) {
-          await _shutdownStep(
-            '迟到播放位置保存',
-            () => historyStore.write(finalRecord),
-            const Duration(seconds: 2),
-          );
+          try {
+            await historyStore.write(finalRecord);
+          } catch (error) {
+            _shutdownFailures.add(error);
+            BTLogTool.warn('迟到播放位置保存失败：$error');
+          }
         }
-        await _shutdownStep(
-          '迟到原生播放器释放',
-          player.dispose,
-          const Duration(seconds: 2),
-        );
-      }());
+        await _disposePlayer(player);
+      }();
+      _shutdownWork.add(
+        cleanup.catchError((Object error) {
+          _shutdownFailures.add(error);
+          BTLogTool.warn('迟到原生播放器释放失败：$error');
+        }),
+      );
     }
   }
 
@@ -544,8 +603,14 @@ class PlaybackStore extends ChangeNotifier {
     Future<void> Function() action,
     Duration timeout,
   ) async {
+    var work = Future<void>.sync(action);
+    _shutdownWork.add(
+      work.catchError((Object error) {
+        _shutdownFailures.add(error);
+      }),
+    );
     try {
-      await action().timeout(timeout);
+      await work.timeout(timeout);
       return true;
     } on TimeoutException {
       BTLogTool.warn('播放器清理超时：$name');

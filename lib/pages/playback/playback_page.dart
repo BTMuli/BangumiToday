@@ -24,6 +24,7 @@ import '../../models/playback/playback_fit.dart';
 import '../../models/playback/playback_item.dart';
 import '../../models/playback/playback_rate.dart';
 import '../../providers/episode_mark_providers.dart';
+import '../../providers/playback_window_providers.dart';
 import '../../store/nav_store.dart';
 import '../../store/playback_store.dart';
 import '../../ui/bt_infobar.dart';
@@ -38,7 +39,8 @@ part 'playback_seek_bar.dart';
 part 'playback_video_info.dart';
 
 class PlaybackPage extends ConsumerStatefulWidget {
-  const PlaybackPage({super.key});
+  const PlaybackPage({super.key, this.independent = false});
+  final bool independent;
 
   @override
   ConsumerState<PlaybackPage> createState() => _PlaybackPageState();
@@ -71,6 +73,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
 
   /// 播放页是否为当前页
   bool get _isPlaybackActive {
+    if (widget.independent) return true;
     var nav = ref.read(navStoreProvider);
     return nav.curIndex == nav.playbackIndex;
   }
@@ -144,7 +147,9 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     _playlistScroll.dispose();
     _historyScroll.dispose();
     _overlay.dispose();
-    unawaited(_store.pause().catchError((Object _) {}));
+    if (!widget.independent) {
+      unawaited(_store.pause().catchError((Object _) {}));
+    }
     super.dispose();
   }
 
@@ -168,28 +173,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   }
 
   Future<void> _pickFile() async {
-    var file = await openFile(
-      acceptedTypeGroups: [
-        const XTypeGroup(
-          label: '视频',
-          extensions: [
-            'mp4',
-            'mkv',
-            'avi',
-            'mov',
-            'webm',
-            'm4v',
-            'ts',
-            'm2ts',
-            'wmv',
-            'flv',
-            'mpg',
-            'mpeg',
-            'ogv',
-          ],
-        ),
-      ],
-    );
+    var file = await pickPlaybackFile();
     if (file != null && mounted) {
       await openLocalPlayback(context, ref, file.path);
     }
@@ -235,23 +219,20 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   Future<void> _openSubject(int subject) async {
     await _run(() => _store.resolveCover(subject));
     if (!mounted) return;
-    var name = _store.nameFor(subject);
-    ref
-        .read(navStoreProvider.notifier)
-        .addNavItemB(
-          subject: subject,
-          paneTitle: (name == null || name.isEmpty) ? null : name,
-        );
+    await _exitVideoFullscreen();
+    await ref.read(playbackSubjectNavigationProvider)(subject);
   }
 
   @override
   Widget build(BuildContext context) {
     var store = ref.watch(playbackStoreProvider);
     // 离开播放页时暂停播放，替代原先对导航 store 的 addListener。
-    ref.listen<int>(
-      navStoreProvider.select((state) => state.curIndex),
-      (_, _) => _onNavigation(),
-    );
+    if (!widget.independent) {
+      ref.listen<int>(
+        navStoreProvider.select((state) => state.curIndex),
+        (_, _) => _onNavigation(),
+      );
+    }
     _onPlaybackChanged();
     return ScaffoldPage(
       padding: EdgeInsets.zero,

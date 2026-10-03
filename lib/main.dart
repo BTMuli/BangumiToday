@@ -7,6 +7,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 
 // Package imports:
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,12 +27,14 @@ import 'core/services/bt_engine_client.dart';
 import 'core/services/desktop_tray_service.dart';
 import 'core/services/download_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/playback_window_service.dart';
 import 'core/services/system_proxy_watch_service.dart';
 import 'core/services/windows_app_protocol.dart';
 import 'core/utils/window_effect.dart';
 import 'database/app/app_config.dart';
 import 'database/bt_hive.dart';
 import 'database/bt_sqlite.dart';
+import 'pages/playback/playback_window.dart';
 import 'request/bangumi/bangumi_api.dart';
 import 'request/core/client.dart';
 import 'request/mikan/mikan_api.dart';
@@ -46,6 +49,13 @@ bool _applicationExitStarted = false;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (Platform.isWindows) {
+    var window = await WindowController.fromCurrentEngine();
+    if (window.arguments.isNotEmpty) {
+      await startPlaybackWindow(window);
+      return;
+    }
+  }
   _configureErrorHandling();
   AppLifecycleListener(
     onExitRequested: () async {
@@ -86,6 +96,7 @@ Future<void> main() async {
 
   try {
     await _initBackgroundServices();
+    if (Platform.isWindows) globalContainer.read(playbackWindowServiceProvider);
     await _initDesktopTray();
     _runApp(const BTApp());
   } catch (error, stackTrace) {
@@ -120,7 +131,9 @@ Future<void> _exitApplication() async {
   // 先移除视频与控制条，使其取消流监听；隐藏窗口后可能不再绘制帧。
   await _runExitStep(
     '播放器',
-    globalContainer.read(playbackStoreProvider).shutdown,
+    Platform.isWindows
+        ? globalContainer.read(playbackWindowServiceProvider).shutdown
+        : globalContainer.read(playbackStoreProvider).shutdown,
     // 播放器为队列、存储、界面与原生释放分别控制退出预算。
     timeout: null,
   );
