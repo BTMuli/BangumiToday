@@ -8,6 +8,8 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_acrylic
   flutter_secure_storage_windows
   local_notifier
+  media_kit_libs_windows_video
+  media_kit_video
   screen_retriever_windows
   system_theme
   url_launcher_windows

@@ -69,6 +69,9 @@ dependencies:
   tray_manager: ^0.7.0
   win32: ^6.4.0
   win32_registry: ^3.0.3
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.7
 
 dev_dependencies:
   # The "flutter_lints" package below contains a set of recommended lints to
