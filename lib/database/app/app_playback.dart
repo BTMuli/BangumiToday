@@ -6,10 +6,19 @@ import '../bt_sqlite.dart';
 /// Independent of the obsolete feat-vod-play Hive adapter IDs.
 class BtsAppPlayback {
   final Database db;
+  Future<void>? _ready;
 
   BtsAppPlayback({Database? database}) : db = database ?? BTSqlite().db;
 
-  Future<void> preCheck() async {
+  Future<void> preCheck() => _ready ??= _createTable().catchError((
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    _ready = null;
+    Error.throwWithStackTrace(error, stackTrace);
+  });
+
+  Future<void> _createTable() async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS AppPlayback (
         pathKey TEXT PRIMARY KEY,

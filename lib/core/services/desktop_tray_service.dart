@@ -539,7 +539,8 @@ class BTDesktopTrayService with WindowListener {
       // 平台线程直到菜单关闭。菜单点击回调会在这段嵌套消息循环里送达，
       // 此时若立刻 hide/destroy 窗口或托盘，主窗体会无响应直到菜单返回。
       await _waitForContextMenuToClose();
-      await _hideWindowSafely();
+      // main.dart hides the window after playback has saved and unmounted.
+      // Hiding here can prevent the frames needed to detach the video surface.
       await _onExit?.call();
     } catch (error, stackTrace) {
       _exitRequested = false;
@@ -555,13 +556,5 @@ class BTDesktopTrayService with WindowListener {
     } on TimeoutException {
       BTLogTool.warn('等待系统托盘菜单关闭超时，继续退出');
     } catch (_) {}
-  }
-
-  Future<void> _hideWindowSafely() async {
-    try {
-      await _window.hide();
-    } catch (error, stackTrace) {
-      BTLogTool.warn(['退出前隐藏主窗口失败', error.toString(), stackTrace.toString()]);
-    }
   }
 }

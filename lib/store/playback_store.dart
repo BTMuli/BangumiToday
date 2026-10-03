@@ -260,7 +260,7 @@ class PlaybackStore extends ChangeNotifier {
     }
   });
 
-  Future<void> _save() async {
+  Future<void> _save({bool refreshHistory = true}) async {
     var item = current;
     if (item == null || loading) return;
     await _history.write(
@@ -276,7 +276,12 @@ class PlaybackStore extends ChangeNotifier {
         updatedAt: DateTime.now().millisecondsSinceEpoch,
       ),
     );
-    history = await _history.readAll();
+    // Closing only needs the durable write. Don't query the entire history or
+    // rebuild the page while native resources are being released.
+    if (!refreshHistory || _closed) return;
+    var savedHistory = await _history.readAll();
+    if (_closed) return;
+    history = savedHistory;
     _notify();
   }
 
@@ -304,7 +309,11 @@ class PlaybackStore extends ChangeNotifier {
     _saveTimer?.cancel();
     var pending = _operation;
     await _shutdownStep('等待播放操作', () => pending, const Duration(seconds: 2));
-    await _shutdownStep('保存播放位置', _save, const Duration(seconds: 2));
+    await _shutdownStep(
+      '保存播放位置',
+      () => _save(refreshHistory: false),
+      const Duration(seconds: 2),
+    );
     var detach = beforeVideoDispose;
     beforeVideoDispose = null;
     if (detach != null) {
