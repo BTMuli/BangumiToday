@@ -26,6 +26,9 @@ class PlaybackStore extends ChangeNotifier {
   PlaybackStore({required this.library});
 
   final PlaybackLibrary library;
+
+  /// The mounted video surface can leave fullscreen before native teardown.
+  Future<void> Function()? beforeVideoDispose;
   final BtsAppPlayback _history = BtsAppPlayback();
   Player? _player;
   VideoController? _video;
@@ -42,6 +45,7 @@ class PlaybackStore extends ChangeNotifier {
   bool completed = false;
   bool _closed = false;
   bool _disposed = false;
+  Future<void>? _shutdownFuture;
 
   Player? get player => _player;
   VideoController? get video => _video;
@@ -115,22 +119,28 @@ class PlaybackStore extends ChangeNotifier {
           throw const PlaybackUnavailable('所选视频尚未就绪');
         }
         await library.ensureReady(items[selectedIndex].filePath);
+        if (_closed) return;
         await _save();
+        if (_closed) return;
         await _openIndex(selectedIndex, items: List.unmodifiable(items));
       });
 
   Future<void> _openIndex(int nextIndex, {List<PlaybackItem>? items}) async {
+    if (_closed) return;
     var nextPlaylist = items ?? playlist;
     if (nextIndex < 0 || nextIndex >= nextPlaylist.length) return;
     var item = nextPlaylist[nextIndex];
     await library.ensureReady(item.filePath);
+    if (_closed) return;
     var previous = await _history.read(item.filePath);
+    if (_closed) return;
     _initializePlayer();
     loading = true;
     error = null;
     _notify();
     try {
       await _player!.stop();
+      if (_closed) return;
       playlist = nextPlaylist;
       index = nextIndex;
       position = previous?.resumePosition ?? Duration.zero;
@@ -209,19 +219,64 @@ class PlaybackStore extends ChangeNotifier {
     await refreshHistory();
   });
 
-  Future<void> shutdown() async {
-    if (_closed) return;
-    _saveTimer?.cancel();
-    await _operation;
+  Future<void> shutdown() => _shutdownFuture ??= _shutdown();
+
+  Future<void> _shutdown() async {
+    // Refuse newly queued work before waiting for the current operation.
     _closed = true;
-    await _save();
-    for (var subscription in _subscriptions) {
-      await subscription.cancel();
+    _saveTimer?.cancel();
+    var pending = _operation;
+    await _shutdownStep('等待播放操作', () => pending, const Duration(seconds: 2));
+    await _shutdownStep('保存播放位置', _save, const Duration(seconds: 2));
+    var detach = beforeVideoDispose;
+    beforeVideoDispose = null;
+    if (detach != null) {
+      await _shutdownStep('退出视频全屏', detach, const Duration(seconds: 1));
     }
-    _subscriptions.clear();
-    await _player?.dispose();
+
+    // StreamController.close can wait on widget subscriptions. Unmount Video
+    // and its controls while the window can still render, then dispose mpv.
+    var player = _player;
     _player = null;
     _video = null;
+    index = -1;
+    playlist = [];
+    loading = false;
+    _notify();
+    if (!_disposed && player != null) {
+      await _shutdownStep(
+        '移除视频界面',
+        () => WidgetsBinding.instance.endOfFrame,
+        const Duration(seconds: 1),
+      );
+    }
+
+    var subscriptions = List<StreamSubscription<dynamic>>.of(_subscriptions);
+    _subscriptions.clear();
+    await _shutdownStep('取消播放监听', () async {
+      await Future.wait(subscriptions.map((s) => s.cancel()));
+    }, const Duration(seconds: 1));
+    if (player != null) {
+      await _shutdownStep(
+        '释放原生播放器',
+        player.dispose,
+        const Duration(seconds: 2),
+      );
+    }
+  }
+
+  Future<void> _shutdownStep(
+    String name,
+    Future<void> Function() action,
+    Duration timeout,
+  ) async {
+    try {
+      await action().timeout(timeout);
+    } on TimeoutException {
+      BTLogTool.warn('播放器清理超时：$name');
+    } catch (error) {
+      BTLogTool.warn('播放器清理失败：$name，$error');
+    }
   }
 
   @override

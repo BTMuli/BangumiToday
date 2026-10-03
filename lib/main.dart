@@ -117,13 +117,16 @@ Future<void> _initDesktopTray() async {
 Future<void> _exitApplication() async {
   if (_applicationExitStarted) return;
   _applicationExitStarted = true;
-  // 先藏窗、再拆托盘，避免协议还原 / 引擎 shutdown 期间主窗体假死。
-  await _runExitStep('隐藏主窗口', windowManager.hide);
-  await _runExitStep('系统托盘', BTDesktopTrayService.instance.dispose);
+  // 先移除视频与控制条，使其取消流监听；隐藏窗口后可能不再绘制帧。
   await _runExitStep(
     '播放器',
     globalContainer.read(playbackStoreProvider).shutdown,
+    // 播放器为队列、存储、界面与原生释放分别控制退出预算。
+    timeout: null,
   );
+  // 再藏窗、拆托盘，避免协议还原 / 引擎 shutdown 期间主窗体假死。
+  await _runExitStep('隐藏主窗口', windowManager.hide);
+  await _runExitStep('系统托盘', BTDesktopTrayService.instance.dispose);
   await _runExitStep('系统代理监听', SystemProxyWatchService.instance.stop);
   await _runExitStep('Windows 协议还原', restoreWindowsAppProtocol);
   await _runExitStep('BMF RSS 服务', () async {

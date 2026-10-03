@@ -24,6 +24,7 @@ class PlaybackPage extends ConsumerStatefulWidget {
 class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   late final PlaybackStore _store;
   late final BTNavStore _nav;
+  final _videoKey = GlobalKey<VideoState>();
   bool _wasActive = true;
 
   @override
@@ -32,6 +33,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     _store = ref.read(playbackStoreProvider);
     _nav = ref.read(navStoreProvider);
     _nav.addListener(_onNavigation);
+    _store.beforeVideoDispose = _exitVideoFullscreen;
     unawaited(_run(_store.refreshHistory));
   }
 
@@ -44,8 +46,16 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   @override
   void dispose() {
     _nav.removeListener(_onNavigation);
+    if (_store.beforeVideoDispose == _exitVideoFullscreen) {
+      _store.beforeVideoDispose = null;
+    }
     unawaited(_store.pause().catchError((Object _) {}));
     super.dispose();
+  }
+
+  Future<void> _exitVideoFullscreen() async {
+    var video = _videoKey.currentState;
+    if (video != null && video.isFullscreen()) await video.exitFullscreen();
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -149,6 +159,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                         child: material.Material(
                           color: material.Colors.black,
                           child: Video(
+                            key: _videoKey,
                             controller: store.video!,
                             controls: MaterialDesktopVideoControls,
                           ),
