@@ -12,10 +12,13 @@ import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../../core/services/bt_engine_client.dart';
+import '../../core/services/playback_library.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../store/bt_download_store.dart';
+import '../../store/nav_store.dart';
 import '../../tools/file_tool.dart';
 import '../../ui/bt_infobar.dart';
+import '../playback/playback_actions.dart';
 
 part 'download_task_details/empty_state.dart';
 part 'download_task_details/files_tab.dart';

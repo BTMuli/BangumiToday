@@ -95,7 +95,8 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     var downloadDir = widget.downloadDir;
     var subject = widget.subject;
     try {
-      var filesGet = await fileTool.getFileNames(downloadDir);
+      var filesGet = await fileTool.getFileNames(downloadDir, recursive: true);
+      filesGet.sort(PlaybackLibrary.naturalCompare);
       if (!mounted || generation != _refreshGeneration) return;
       var aria2FilesGet = filesGet
           .where((element) => element.endsWith('.aria2'))
@@ -153,7 +154,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     }
   }
 
-  /// 刷新该目录下引擎任务的文件详情缓存（非完成任务）。
+  /// 刷新该目录下引擎任务的文件详情缓存。
   ///
   /// 文件详情同时提供单文件完成状态和单文件进度；限制拉取频率，避免
   /// 引擎快照高频更新时重复请求同一任务的文件列表。
@@ -170,7 +171,8 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
         continue;
       }
       matchedIds.add(task.id);
-      if (!isTaskAvailable(task)) refreshIds.add(task.id);
+      // 完成状态转换时也刷新，避免一直使用最后一次未完成的字节快照。
+      refreshIds.add(task.id);
     }
     _taskFileDetails.removeWhere((id, _) => !matchedIds.contains(id));
     _taskFileDetailsFetchedAt.removeWhere((id, _) => !matchedIds.contains(id));
@@ -182,8 +184,19 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
         continue;
       }
       try {
-        var result = await store.taskFiles(id);
-        _taskFileDetails[id] = List.of(result.files);
+        var details = <BtTaskFileDetail>[];
+        var offset = 0;
+        while (true) {
+          var result = await store.taskFiles(id, offset: offset);
+          details.addAll(result.files);
+          if (!result.truncated) break;
+          var next = result.nextOffset;
+          if (next == null || next <= offset) {
+            throw StateError('下载文件列表分页未就绪');
+          }
+          offset = next;
+        }
+        _taskFileDetails[id] = details;
         _taskFileDetailsFetchedAt[id] = DateTime.now();
       } catch (error) {
         _taskFileDetails.remove(id);

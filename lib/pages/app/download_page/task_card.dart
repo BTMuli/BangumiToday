@@ -354,25 +354,6 @@ class _TaskActions extends StatelessWidget {
           FluentIcons.info,
           '任务详情',
           () async {
-            if (task.manual && task.state == 'completed') {
-              await showDialog<void>(
-                context: context,
-                builder: (context) => ContentDialog(
-                  title: Text(_taskTitle(task)),
-                  content: Text(
-                    '手动任务已完成并归档，不再跟踪文件存在性。\n'
-                    '保存目录：${task.savePath}',
-                  ),
-                  actions: [
-                    Button(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('关闭'),
-                    ),
-                  ],
-                ),
-              );
-              return;
-            }
             await showBTDrawer(
               context: context,
               width: 760,

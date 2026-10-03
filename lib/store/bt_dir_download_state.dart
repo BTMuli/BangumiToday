@@ -76,6 +76,7 @@ class BtDirDownloadState {
 ///
 /// 语义与 `BtDownloadStore` 的“文件可用”判定保持一致。
 bool isTaskAvailable(BtTaskSnapshot task) {
+  if (task.state == 'checking') return false;
   return task.state == 'seeding' ||
       task.state == 'completed' ||
       (task.totalBytes > 0 && task.verifiedBytes >= task.totalBytes);
@@ -114,8 +115,8 @@ BtDirDownloadState computeDirDownloadState({
       continue;
     }
     for (var file in files) {
-      if (file.isPadding || file.isSkipped || file.path.isEmpty) continue;
-      var name = path.basename(file.path);
+      if (file.isPadding || file.path.isEmpty) continue;
+      var name = path.normalize(file.path);
       if (name.isEmpty) continue;
       _mergeFileState(byName, name, _fileStateForFile(task, file));
     }
@@ -149,15 +150,27 @@ void _markCompleteFiles(
   List<BtTaskFileDetail> files,
 ) {
   for (var file in files) {
-    if (file.isPadding || file.isSkipped || file.path.isEmpty) continue;
-    var name = path.basename(file.path);
+    if (file.isPadding || file.path.isEmpty) continue;
+    var name = path.normalize(file.path);
     if (name.isEmpty) continue;
-    byName[name] = const BtFileDownloadState(
-      isActive: false,
-      isPaused: false,
-      isFailed: false,
-      isComplete: true,
-      statusLabel: '已完成',
+    if (file.isSkipped || file.size <= 0 || file.completedBytes < file.size) {
+      _mergeFileState(
+        byName,
+        name,
+        const BtFileDownloadState(statusLabel: '未下载完成'),
+      );
+      continue;
+    }
+    _mergeFileState(
+      byName,
+      name,
+      const BtFileDownloadState(
+        isActive: false,
+        isPaused: false,
+        isFailed: false,
+        isComplete: true,
+        statusLabel: '已完成',
+      ),
     );
   }
 }
@@ -184,7 +197,10 @@ BtFileDownloadState _fileStateForFile(
   BtTaskSnapshot task,
   BtTaskFileDetail file,
 ) {
-  if (file.size > 0 && file.progress >= 1.0) {
+  if (file.isSkipped) {
+    return BtFileDownloadState(progress: file.progress, statusLabel: '已跳过');
+  }
+  if (task.state != 'checking' && file.size > 0 && file.progress >= 1.0) {
     return const BtFileDownloadState(
       isActive: false,
       isPaused: false,

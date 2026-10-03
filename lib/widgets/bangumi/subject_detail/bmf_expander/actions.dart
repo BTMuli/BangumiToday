@@ -1,7 +1,8 @@
 part of '../bmf_expander.dart';
 
-class _FileItemActions extends StatelessWidget {
+class _FileItemActions extends ConsumerWidget {
   final String file;
+  final int subject;
   final String dir;
   final bool isVideo;
   final bool isTorrent;
@@ -12,6 +13,7 @@ class _FileItemActions extends StatelessWidget {
 
   _FileItemActions({
     required this.file,
+    required this.subject,
     required this.dir,
     required this.isVideo,
     required this.isTorrent,
@@ -30,10 +32,23 @@ class _FileItemActions extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (isVideo && canOpen)
+          Tooltip(
+            message: '应用内播放',
+            child: IconButton(
+              icon: BtIcon(FluentIcons.play, size: 14),
+              onPressed: () => openLocalPlayback(
+                context,
+                ref,
+                path.join(dir, file),
+                subject: subject,
+              ),
+            ),
+          ),
         if (isVideo && canOpen)
           Tooltip(
             message: '打开文件',

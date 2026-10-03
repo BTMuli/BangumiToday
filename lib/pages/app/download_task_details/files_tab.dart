@@ -267,6 +267,47 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                           child: Text(_fileName(file.path), softWrap: true),
                         ),
                       ),
+                      if (PlaybackLibrary.isVideo(file.path))
+                        Tooltip(
+                          message: '应用内播放',
+                          child: IconButton(
+                            icon: const Icon(FluentIcons.play, size: 14),
+                            onPressed:
+                                file.size > 0 &&
+                                    file.completedBytes >= file.size &&
+                                    !file.isSkipped &&
+                                    widget.task.state != 'checking'
+                                ? () async {
+                                    try {
+                                      var local =
+                                          PlaybackLibrary.resolveTaskPath(
+                                            widget.task.savePath,
+                                            file.path,
+                                          );
+                                      await openLocalPlayback(
+                                        context,
+                                        ref,
+                                        local,
+                                      );
+                                      if (context.mounted &&
+                                          ref.read(navStoreProvider).curIndex ==
+                                              ref
+                                                  .read(navStoreProvider)
+                                                  .playbackIndex) {
+                                        Navigator.of(context).pop();
+                                      }
+                                    } catch (error) {
+                                      if (context.mounted) {
+                                        await BtInfobar.error(
+                                          context,
+                                          error.toString(),
+                                        );
+                                      }
+                                    }
+                                  }
+                                : null,
+                          ),
+                        ),
                     ],
                   ),
                   Text(
