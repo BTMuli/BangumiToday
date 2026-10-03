@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 
 // Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive_ce.dart';
 
 // Project imports:
 import '../core/container.dart';

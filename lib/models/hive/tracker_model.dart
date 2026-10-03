@@ -1,5 +1,5 @@
 // Package imports:
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive_ce.dart';
 
 /// torrent tracker的HiVe模型
 class TrackerHiveModel {

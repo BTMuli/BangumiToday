@@ -4,7 +4,7 @@ import 'dart:io';
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive_ce.dart';
 
 // Project imports:
 import '../models/hive/nav_model.dart';

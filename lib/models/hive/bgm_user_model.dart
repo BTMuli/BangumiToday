@@ -2,7 +2,7 @@
 import 'dart:convert';
 
 // Package imports:
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive_ce.dart';
 
 // Project imports:
 import '../bangumi/bangumi_model.dart';

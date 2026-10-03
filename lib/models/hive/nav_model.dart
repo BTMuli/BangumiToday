@@ -1,6 +1,6 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive_ce.dart';
 
 /// 侧边栏项的类型枚举
 enum BtmAppNavItemType {
