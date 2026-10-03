@@ -1,0 +1,2 @@
+# Keep upstream shader bytes stable for the bundled integrity manifest.
+assets/shaders/anime4k/**/*.glsl -text -whitespace
