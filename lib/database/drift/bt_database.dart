@@ -4,9 +4,9 @@ import 'dart:io';
 // Package imports:
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:path/path.dart' as path;
 
 // Project imports:
-import '../../tools/log_tool.dart';
 import 'tables/app_bmf.dart';
 import 'tables/app_config.dart';
 import 'tables/app_playback.dart';
@@ -43,11 +43,24 @@ part 'bt_database.g.dart';
 )
 class BtDatabase extends _$BtDatabase {
   /// 构造函数
-  BtDatabase(super.executor);
+  BtDatabase(super.executor, {String? databasePath, this.onMigration})
+    : _databasePath = databasePath;
+
+  final String? _databasePath;
+
+  /// Optional application logging, without coupling schema logic to Flutter.
+  final void Function(String message)? onMigration;
 
   /// 打开指定路径的数据库文件。
-  factory BtDatabase.open(String path) {
-    return BtDatabase(_openConnection(File(path)));
+  factory BtDatabase.open(
+    String databasePath, {
+    void Function(String message)? onMigration,
+  }) {
+    return BtDatabase(
+      _openConnection(File(databasePath)),
+      databasePath: databasePath,
+      onMigration: onMigration,
+    );
   }
 
   static QueryExecutor _openConnection(File file) {
@@ -59,15 +72,14 @@ class BtDatabase extends _$BtDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) async {
-      // 只有全新安装才会走到这里：一次性建出全部表。
-      await m.createAll();
-    },
+    // A version-zero database can also contain legacy tables. Inspect actual
+    // structure instead of treating every onCreate as an empty installation.
+    onCreate: (_) => _ensureSchema(),
     beforeOpen: (details) async {
       // 旧库由 sqflite 建立，可能缺少后加的列。版本号相同不代表结构一致，
       // 所以每次打开都按目标结构补齐一次，替代原来的 static bool 缓存。
       await _ensureSchema();
-      BTLogTool.info(
+      onMigration?.call(
         'SQLite opened: ${details.wasCreated ? "created" : "existing"}',
       );
     },
@@ -82,53 +94,76 @@ class BtDatabase extends _$BtDatabase {
   /// `mk_bgm_id`），本项目的列名是 camelCase，所以比对必须用
   /// `$name`（SQL 列名）而不是 getter 名，否则会误判缺失列并重复 ALTER。
   Future<void> _ensureSchema() async {
+    var missingTables = <TableInfo>[];
+    var missingColumns = <(TableInfo, GeneratedColumn)>[];
     for (var table in allTables) {
       var actual = await customSelect(
         'PRAGMA table_info(${table.actualTableName})',
       ).get();
       var existing = actual.map((row) => row.read<String>('name')).toSet();
+      if (existing.isEmpty) {
+        missingTables.add(table);
+        continue;
+      }
+      for (var key in table.$primaryKey) {
+        if (!actual.any(
+          (row) =>
+              row.read<String>('name') == key.$name && row.read<int>('pk') > 0,
+        )) {
+          throw StateError(
+            '数据库结构异常：${table.actualTableName}.${key.$name} 主键缺失；'
+            '请关闭应用并从备份恢复，不能自动重建',
+          );
+        }
+      }
       for (var column in table.$columns) {
         if (existing.contains(column.$name)) continue;
-        await customStatement(
-          'ALTER TABLE ${table.actualTableName} '
-          'ADD COLUMN ${column.$name} ${_columnDefinition(column)}',
-        );
-        BTLogTool.info(
-          'Update table ${table.actualTableName} add ${column.$name}',
-        );
+        if (!column.$nullable && column.defaultValue == null) {
+          throw StateError(
+            '数据库结构异常：${table.actualTableName}.${column.$name} '
+            '缺失且没有安全默认值；请关闭应用并从备份恢复',
+          );
+        }
+        missingColumns.add((table, column));
       }
     }
+    if (missingTables.isEmpty && missingColumns.isEmpty) return;
+    await _backupBeforeMigration();
+    await transaction(() async {
+      var migrator = Migrator(this);
+      for (var table in missingTables) {
+        await migrator.createTable(table);
+      }
+      for (var (table, column) in missingColumns) {
+        // Drift renders the real SQL type, nullability and default expression.
+        // Do not derive DDL from a Dart expression's toString().
+        await migrator.addColumn(table, column);
+      }
+    });
+    onMigration?.call(
+      'SQLite schema updated: ${missingTables.length} tables, '
+      '${missingColumns.length} columns',
+    );
   }
 
-  /// 拼出 `ALTER TABLE ... ADD COLUMN` 需要的类型片段。
-  ///
-  /// 新列只在结构补齐时使用：非空列必须带缺省值，否则既有行无法填充。
-  static String _columnDefinition(GeneratedColumn column) {
-    var type = switch (column.type) {
-      DriftSqlType.int || DriftSqlType.bool => 'INTEGER',
-      DriftSqlType.string || DriftSqlType.dateTime => 'TEXT',
-      DriftSqlType.double => 'REAL',
-      DriftSqlType.blob => 'BLOB',
-      _ => 'TEXT',
-    };
-    if (column.defaultValue != null) {
-      var literal = _sqlLiteral(column.defaultValue!.toString());
-      return '$type DEFAULT $literal';
-    }
-    return column.$nullable ? type : '$type NOT NULL DEFAULT 0';
-  }
-
-  /// 把 Drift 的缺省值表达式转成 SQL 字面量。
-  ///
-  /// `Constant(1)` 要变成 `1`，`Constant('[]')` 要变成 `'[]'`；无法识别的
-  /// 表达式原样返回，避免把 Dart 对象 toString 写进 DDL。
-  static String _sqlLiteral(String value) {
-    var match = RegExp(r'^Constant\((.*)\)$').firstMatch(value.trim());
-    var inner = match?.group(1) ?? value;
-    if (num.tryParse(inner) != null) return inner;
-    if (inner == 'true') return '1';
-    if (inner == 'false') return '0';
-    if (inner.startsWith("'") && inner.endsWith("'")) return inner;
-    return "'${inner.replaceAll("'", "''")}'";
+  /// VACUUM INTO reads a consistent SQLite snapshot, including committed WAL
+  /// content. Run before the schema transaction; a failed backup blocks changes.
+  Future<void> _backupBeforeMigration() async {
+    var databasePath = _databasePath;
+    if (databasePath == null) return;
+    var tables = await customSelect(
+      "SELECT name FROM sqlite_master WHERE type = 'table' "
+      "AND name NOT LIKE 'sqlite_%'",
+    ).get();
+    if (tables.isEmpty) return;
+    var directory = Directory(path.join(path.dirname(databasePath), 'backups'));
+    await directory.create(recursive: true);
+    var backup = path.join(
+      directory.path,
+      'BangumiToday.pre-migration-'
+      '${DateTime.now().microsecondsSinceEpoch}.db',
+    );
+    await customStatement('VACUUM INTO ?', [backup]);
+    onMigration?.call('SQLite migration backup: $backup');
   }
 }

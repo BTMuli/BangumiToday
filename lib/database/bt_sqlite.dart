@@ -51,10 +51,22 @@ class BTSqlite {
 
   static Future<void> _open() async {
     var dbPath = await getDbPath();
-    _instance.db = BtDatabase.open(dbPath);
+    var database = BtDatabase.open(dbPath, onMigration: BTLogTool.info);
     // Drift 在首个查询时才真正打开连接并执行 `migration.beforeOpen`
     // （逐表补列）。先跑一次空查询，把结构补齐挡在业务读写之前。
-    await _instance.db.customSelect('SELECT 1').get();
+    try {
+      await database.customSelect('SELECT 1').get();
+    } catch (error, stackTrace) {
+      // A failed lazy open still owns an executor/isolate. Release it before
+      // clearing the initialization future, so retries do not leak connections.
+      try {
+        await database.close();
+      } catch (closeError) {
+        BTLogTool.warn('关闭失败的数据库连接：$closeError');
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+    _instance.db = database;
     _isInitialized = true;
     BTLogTool.info('SQLite init success');
     BTLogTool.info('Database path: $dbPath');
