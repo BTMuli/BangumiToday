@@ -52,7 +52,6 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     if (!mounted) return;
     if (!_chromeVisible) {
       setState(() => _chromeVisible = true);
-      _syncSubtitlePadding();
     }
     _scheduleHide();
   }
@@ -73,25 +72,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         return;
       }
       setState(() => _chromeVisible = false);
-      _syncSubtitlePadding();
     });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncSubtitlePadding());
-  }
-
-  void _syncSubtitlePadding() {
-    if (!mounted ||
-        !TickerMode.valuesOf(context).enabled ||
-        ModalRoute.of(context)?.isCurrent == false)
-      return;
-    widget.video.setSubtitleViewPadding(
-      widget.video.widget.subtitleViewConfiguration.padding +
-          EdgeInsets.only(bottom: _chromeVisible ? 72 : 0),
-    );
   }
 
   void _hoverBar(bool value) {

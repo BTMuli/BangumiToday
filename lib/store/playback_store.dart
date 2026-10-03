@@ -6,6 +6,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../core/services/playback_library.dart';
+import '../core/services/playback_subtitles.dart';
 import '../database/app/app_config.dart';
 import '../database/app/app_playback.dart';
 import '../models/playback/playback_fit.dart';
@@ -83,10 +84,23 @@ class PlaybackStore extends ChangeNotifier {
     return next;
   }
 
-  void _initializePlayer() {
+  Future<void> _initializePlayer() async {
     if (_player != null) return;
     MediaKit.ensureInitialized();
-    var player = _player = Player();
+    // Render subtitles with mpv/libass so ASS styling and embedded fonts are
+    // preserved instead of reducing every subtitle track to Flutter text.
+    var player = Player(configuration: const PlayerConfiguration(libass: true));
+    try {
+      await PlaybackSubtitles.configure(player);
+    } catch (_) {
+      await player.dispose();
+      rethrow;
+    }
+    if (_closed) {
+      await player.dispose();
+      return;
+    }
+    _player = player;
     _video = VideoController(player);
     _subscriptions.addAll([
       player.stream.position.listen((value) {
@@ -161,7 +175,8 @@ class PlaybackStore extends ChangeNotifier {
     var previous = await _history.read(item.filePath);
     await _loadPreferences();
     if (_closed) return;
-    _initializePlayer();
+    await _initializePlayer();
+    if (_closed) return;
     loading = true;
     error = null;
     _notify();

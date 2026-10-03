@@ -106,6 +106,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/fonts/
+    - assets/licenses/Sarasa-Gothic.txt
     - assets/images/logo.png
     - assets/images/platforms/
     - assets/images/tray/
@@ -125,6 +126,14 @@ flutter:
     - family: SMonoSC
       fonts:
         - asset: assets/fonts/SarasaMonoSC-Regular.ttf
+          style: normal
+    - family: SMonoTC
+      fonts:
+        - asset: assets/fonts/SarasaMonoTC-Regular.ttf
+          style: normal
+    - family: SMonoJ
+      fonts:
+        - asset: assets/fonts/SarasaMonoJ-Regular.ttf
           style: normal
 
   # For details regarding fonts from package dependencies,
