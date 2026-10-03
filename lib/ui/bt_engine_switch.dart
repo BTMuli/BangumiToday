@@ -17,7 +17,7 @@ import 'bt_infobar.dart';
 Future<bool> enableDownloadEngine(WidgetRef ref, BuildContext context) async {
   String? warning;
   try {
-    warning = await ref.read(btDownloadStoreProvider).enableEngine();
+    warning = await ref.read(btDownloadStoreProvider.notifier).enableEngine();
   } catch (error) {
     if (context.mounted) {
       await BtInfobar.error(context, '开启下载引擎失败：$error');
@@ -48,7 +48,7 @@ Future<bool> enableDownloadEngine(WidgetRef ref, BuildContext context) async {
   }
 
   try {
-    await ref.read(btDownloadStoreProvider).disableEngine();
+    await ref.read(btDownloadStoreProvider.notifier).disableEngine();
     if (context.mounted) {
       await BtInfobar.warn(context, '已关闭下载引擎');
     }
