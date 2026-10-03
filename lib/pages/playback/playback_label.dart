@@ -1,3 +1,4 @@
+// Package imports:
 import 'package:path/path.dart' as path;
 
 /// Display labels only; the original filename remains available in tooltips.

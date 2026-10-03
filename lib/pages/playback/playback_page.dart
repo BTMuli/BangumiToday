@@ -2,12 +2,14 @@
 import 'dart:async';
 import 'dart:io';
 
-// Package imports:
-import 'package:file_selector/file_selector.dart';
-import 'package:fluent_ui/fluent_ui.dart';
+// Flutter imports:
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart' as material;
 import 'package:flutter/services.dart';
+
+// Package imports:
+import 'package:file_selector/file_selector.dart';
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -24,6 +26,7 @@ import '../../models/playback/playback_rate.dart';
 import '../../store/nav_store.dart';
 import '../../store/playback_store.dart';
 import '../../ui/bt_infobar.dart';
+import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import 'playback_actions.dart';
 import 'playback_label.dart';
 
@@ -51,6 +54,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   bool _showHistory = false;
   String? _lastPlayingKey;
   int _lastPlayingIndex = -1;
+  int? _posterSubject;
   static const _playlistRowHeight = 48.0;
 
   @override
@@ -79,7 +83,29 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     if (key == null && _lastPlayingKey != null) _showHistory = true;
     _lastPlayingKey = key;
     _lastPlayingIndex = _store.index;
+    var subject = _store.current?.subject ?? _firstPlaylistSubject(_store);
+    if (subject != null) _posterSubject = subject;
+    _ensureCovers(_store);
     _revealCurrent();
+  }
+
+  int? _firstPlaylistSubject(PlaybackStore store) {
+    for (var item in store.playlist) {
+      if (item.subject != null) return item.subject;
+    }
+    return null;
+  }
+
+  void _ensureCovers(PlaybackStore store) {
+    var subjects = <int>{};
+    for (var item in store.playlist) {
+      if (item.subject != null) subjects.add(item.subject!);
+    }
+    if (store.current?.subject != null) subjects.add(store.current!.subject!);
+    if (_posterSubject != null) subjects.add(_posterSubject!);
+    for (var subject in subjects) {
+      unawaited(store.resolveCover(subject));
+    }
   }
 
   void _revealCurrent() {
@@ -202,6 +228,18 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     }
   }
 
+  Future<void> _openSubject(int subject) async {
+    await _run(() => _store.resolveCover(subject));
+    if (!mounted) return;
+    var name = _store.nameFor(subject);
+    ref
+        .read(navStoreProvider)
+        .addNavItemB(
+          subject: subject,
+          paneTitle: (name == null || name.isEmpty) ? null : name,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     var store = ref.watch(playbackStoreProvider);
@@ -214,14 +252,6 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
           children: [
             _buildHeader(store),
             const SizedBox(height: 16),
-            if (store.error != null) ...[
-              InfoBar(
-                title: const Text('无法播放'),
-                content: Text(store.error!),
-                severity: InfoBarSeverity.error,
-              ),
-              const SizedBox(height: 12),
-            ],
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -314,7 +344,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
           Tooltip(
             message: '打开本地视频',
             child: IconButton(
-              icon: const Icon(FluentIcons.open_file, size: 18),
+              icon: const Icon(FluentIcons.video, size: 18),
               onPressed: () => _run(_pickFile),
             ),
           ),
@@ -322,7 +352,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
             Tooltip(
               message: '停止播放',
               child: IconButton(
-                icon: const Icon(FluentIcons.stop, size: 18),
+                icon: const Icon(FluentIcons.stop_solid, size: 18),
                 onPressed: () => _run(_stopPlayback),
               ),
             ),
@@ -332,7 +362,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
             child: IconButton(
               key: const ValueKey('playback-sidebar-toggle'),
               icon: Icon(
-                material.Icons.view_sidebar_outlined,
+                FluentIcons.side_panel,
                 size: 19,
                 color: _sidebarVisible
                     ? FluentTheme.of(context).accentColor
@@ -358,40 +388,58 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
             ? store.aspectRatio
             : null,
       );
+      var posterUrl = store.coverFor(_posterSubject);
       return Align(
         child: SizedBox(
           width: size.width,
           height: size.height,
           child: ClipRRect(
             borderRadius: BTRadius.largeBR,
-            child: ColoredBox(
-              color: Colors.black,
-              child: store.current == null || store.video == null
-                  ? _buildEmptyStage()
-                  : material.Theme(
-                      data: material.ThemeData.dark().copyWith(
-                        colorScheme: material.ColorScheme.fromSeed(
-                          seedColor: FluentTheme.of(context).accentColor,
-                          brightness: material.Brightness.dark,
-                        ),
-                      ),
-                      child: material.Material(
-                        color: Colors.black,
-                        child: Video(
-                          key: _videoKey,
-                          controller: store.video!,
-                          fit: _playbackBoxFit(store.fit),
-                          controls: (video) => _PlaybackVideoControls(
-                            video: video,
-                            store: store,
-                            player: store.player!,
-                            overlay: _overlay,
-                            run: _run,
-                            pickSubtitle: _pickSubtitle,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ColoredBox(
+                  color: Colors.black,
+                  child: store.current == null || store.video == null
+                      ? _buildEmptyStage(posterUrl)
+                      : material.Theme(
+                          data: material.ThemeData.dark().copyWith(
+                            colorScheme: material.ColorScheme.fromSeed(
+                              seedColor: FluentTheme.of(context).accentColor,
+                              brightness: material.Brightness.dark,
+                            ),
+                          ),
+                          child: material.Material(
+                            color: Colors.black,
+                            child: Video(
+                              key: _videoKey,
+                              controller: store.video!,
+                              fit: _playbackBoxFit(store.fit),
+                              controls: (video) => _PlaybackVideoControls(
+                                video: video,
+                                store: store,
+                                player: store.player!,
+                                overlay: _overlay,
+                                run: _run,
+                                pickSubtitle: _pickSubtitle,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                ),
+                if (store.error != null)
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: InfoBar(
+                      title: const Text('无法播放'),
+                      content: Text(store.error!),
+                      severity: InfoBarSeverity.error,
+                      onClose: store.clearError,
                     ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -399,40 +447,81 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     },
   );
 
-  Widget _buildEmptyStage() => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            material.Icons.play_circle_outline_rounded,
-            color: Colors.white.withValues(alpha: 0.35),
-            size: 64,
+  Widget _buildEmptyStage(String? posterUrl) {
+    var hasPoster = posterUrl != null && posterUrl.isNotEmpty;
+    if (!hasPoster) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                material.Icons.play_circle_outline_rounded,
+                color: Colors.white.withValues(alpha: 0.35),
+                size: 64,
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                '选择视频，开始观看',
+                style: TextStyle(color: Colors.white, fontSize: 18),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '从 BMF、已完成下载或最近播放中打开',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: () => _run(_pickFile),
+                child: const Text('打开本地视频'),
+              ),
+            ],
           ),
-          const SizedBox(height: 18),
-          const Text(
-            '选择视频，开始观看',
-            style: TextStyle(color: Colors.white, fontSize: 18),
+        ),
+      );
+    }
+    // The poster keeps its natural size, centered on a black stage; the image
+    // is only scaled down when it does not fit.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: Colors.black),
+        Center(
+          child: BtBangumiCover(
+            imageUrl: posterUrl,
+            fit: BoxFit.contain,
+            maxRequestEdge: BangumiCoverUrl.detailMaxEdge,
+            errorBuilder: (context, {err}) => const SizedBox.shrink(),
           ),
-          const SizedBox(height: 8),
-          Text(
-            '从 BMF、已完成下载或最近播放中打开',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 12,
+        ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '选择视频，开始观看',
+                  style: TextStyle(color: Colors.white, fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () => _run(_pickFile),
+                  child: const Text('打开本地视频'),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 20),
-          FilledButton(
-            onPressed: () => _run(_pickFile),
-            child: const Text('打开本地视频'),
-          ),
-        ],
-      ),
-    ),
-  );
+        ),
+      ],
+    );
+  }
 
   Widget _buildSidebar(PlaybackStore store) {
     var labels = store.playlist
@@ -456,6 +545,19 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                 _sidebarTab('播放列表', false, store.playlist.length),
                 const SizedBox(width: 4),
                 _sidebarTab('最近播放', true, store.history.length),
+                if (!_showHistory) ...[
+                  const SizedBox(width: 4),
+                  Tooltip(
+                    message: '刷新播放列表',
+                    child: IconButton(
+                      key: const ValueKey('playback-refresh'),
+                      icon: const Icon(FluentIcons.refresh, size: 15),
+                      onPressed: store.canRefresh
+                          ? () => _run(store.refresh)
+                          : null,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -580,6 +682,10 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
             ),
             child: Row(
               children: [
+                if (item.subject != null) ...[
+                  _playbackThumb(item, store, selected),
+                  const SizedBox(width: 8),
+                ],
                 SizedBox(
                   width: 22,
                   child: selected
@@ -645,6 +751,33 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _playbackThumb(PlaybackItem item, PlaybackStore store, bool selected) {
+    var coverUrl = store.coverFor(item.subject);
+    var accent = FluentTheme.of(context).accentColor;
+    Widget placeholder() => Container(
+      color: BTColors.surfaceTertiary(context),
+      child: Icon(
+        FluentIcons.video,
+        size: 14,
+        color: selected ? accent : BTColors.textTertiary(context),
+      ),
+    );
+    var child = coverUrl == null || coverUrl.isEmpty
+        ? placeholder()
+        : BtBangumiCover(
+            imageUrl: coverUrl,
+            fit: BoxFit.cover,
+            width: 26,
+            height: 38,
+            maxRequestEdge: BangumiCoverUrl.thumbMaxEdge,
+            errorBuilder: (context, {err}) => placeholder(),
+          );
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(width: 26, height: 38, child: child),
     );
   }
 
@@ -747,9 +880,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                     message: '查看条目',
                     child: IconButton(
                       icon: const Icon(FluentIcons.info, size: 14),
-                      onPressed: () => ref
-                          .read(navStoreProvider)
-                          .addNavItemB(subject: item.subject!),
+                      onPressed: () => _openSubject(item.subject!),
                     ),
                   ),
               ],

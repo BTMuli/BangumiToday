@@ -1,10 +1,15 @@
+// Dart imports:
 import 'dart:async';
 
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:path/path.dart' as path;
 
+// Project imports:
+import '../core/services/playback_cover.dart';
 import '../core/services/playback_library.dart';
 import '../core/services/playback_subtitles.dart';
 import '../database/app/app_config.dart';
@@ -12,6 +17,7 @@ import '../database/app/app_playback.dart';
 import '../models/playback/playback_fit.dart';
 import '../models/playback/playback_item.dart';
 import '../models/playback/playback_rate.dart';
+import '../providers/bangumi_providers.dart';
 import '../tools/log_tool.dart';
 import 'bt_download_store.dart';
 
@@ -22,14 +28,20 @@ final playbackStoreProvider = ChangeNotifierProvider<PlaybackStore>((ref) {
       tasks: () => downloads.tasks,
       taskFiles: (id, offset) => downloads.taskFiles(id, offset: offset),
     ),
+    cover: PlaybackCover(ref.read(bangumiRepositoryProvider)),
   );
 });
 
 /// One mpv session. Serial operations keep progress attributed to its file.
 class PlaybackStore extends ChangeNotifier {
-  PlaybackStore({required this.library});
+  PlaybackStore({required this.library, required this.cover});
 
   final PlaybackLibrary library;
+  final PlaybackCover cover;
+
+  /// Directory and subject used to (re)discover the playlist for a refresh.
+  String? _sourceDir;
+  int? _sourceSubject;
 
   /// The mounted video surface can leave fullscreen before native teardown.
   Future<void> Function()? beforeVideoDispose;
@@ -66,6 +78,37 @@ class PlaybackStore extends ChangeNotifier {
   double? get rememberedRate => _rateMemory.remembered;
   PlaybackItem? get current =>
       index >= 0 && index < playlist.length ? playlist[index] : null;
+
+  /// Whether a playlist source directory is known and can be re-scanned.
+  bool get canRefresh => _sourceDir != null;
+
+  /// The cached cover URL for a subject, or `null` when unknown.
+  String? coverFor(int? subject) =>
+      subject == null ? null : cover.coverOf(subject);
+
+  /// The cached subject name, or `null` when unknown.
+  String? nameFor(int? subject) =>
+      subject == null ? null : cover.nameOf(subject);
+
+  void clearError() {
+    if (error == null) return;
+    error = null;
+    _notify();
+  }
+
+  Future<void> resolveCover(int subject) async {
+    if (cover.contains(subject)) return;
+    var before = cover.coverOf(subject);
+    var after = await cover.resolve(subject);
+    if (before != after && !_disposed) _notify();
+  }
+
+  static int? _firstSubject(List<PlaybackItem> items) {
+    for (var item in items) {
+      if (item.subject != null) return item.subject;
+    }
+    return null;
+  }
 
   void _notify() {
     if (!_disposed) notifyListeners();
@@ -162,8 +205,39 @@ class PlaybackStore extends ChangeNotifier {
         if (_closed) return;
         await _save();
         if (_closed) return;
+        _sourceDir = path.dirname(selectedPath);
+        _sourceSubject = _firstSubject(items);
         await _openIndex(selectedIndex, items: List.unmodifiable(items));
       });
+
+  /// Re-scans the source directory to pick up newly completed files, keeping
+  /// the currently playing item when it is still present.
+  Future<void> refresh() => _serial(() async {
+    var dir = _sourceDir;
+    if (dir == null) return;
+    var discovered = await library.discover(dir, subject: _sourceSubject);
+    if (_closed) return;
+    if (discovered.isEmpty) {
+      error = '没有可播放的视频';
+      _notify();
+      return;
+    }
+    var currentKey = current?.key;
+    if (currentKey == null) {
+      playlist = List.unmodifiable(discovered);
+      index = -1;
+      _notify();
+      return;
+    }
+    var nextIndex = discovered.indexWhere((item) => item.key == currentKey);
+    if (nextIndex < 0) {
+      await _openIndex(0, items: List.unmodifiable(discovered));
+      return;
+    }
+    playlist = List.unmodifiable(discovered);
+    index = nextIndex;
+    _notify();
+  });
 
   Future<void> _openIndex(int nextIndex, {List<PlaybackItem>? items}) async {
     if (_closed) return;
@@ -188,7 +262,9 @@ class PlaybackStore extends ChangeNotifier {
       position = previous?.resumePosition ?? Duration.zero;
       duration = Duration(milliseconds: previous?.durationMs ?? 0);
       completed = false;
-      _aspectRatio = null;
+      // Keep the previous aspect ratio until the new stream reports its own, so
+      // auto-advancing between episodes (usually the same ratio) does not make
+      // the playback surface size jump.
       await _player!.open(Media(item.filePath, start: position));
     } catch (e) {
       index = -1;
