@@ -211,16 +211,13 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
     const blue = Color(0xFF8FB6FF);
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Hug the content: grow with the longest line instead of wrapping at a
-        // fixed narrow width, but cap it so the panel never sprawls.
-        var panelWidth = (constraints.maxWidth * 0.9)
-            .clamp(420.0, 900.0)
-            .toDouble();
+        // Grow to the longest line, using all available space before wrapping.
+        // IntrinsicWidth keeps shorter content from stretching across the video.
         return Align(
           alignment: Alignment.topLeft,
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: panelWidth,
+              maxWidth: constraints.maxWidth,
               maxHeight: constraints.maxHeight,
             ),
             child: IntrinsicWidth(

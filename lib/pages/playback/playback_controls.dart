@@ -483,12 +483,14 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     var box = navigator.context.findRenderObject() as RenderBox;
     var player = widget.player;
     var overlay = widget.overlay;
+    var canPrevious = widget.store.index > 0;
+    var canNext = widget.store.index + 1 < widget.store.playlist.length;
     _showMenu(
       box.globalToLocal(details.globalPosition),
       () => [
         MenuFlyoutItem(
           text: Text(player.state.playing ? '暂停' : '继续播放'),
-          trailing: const Text('Space'),
+          trailing: const _PlaybackMenuShortcut('Space / K'),
           onPressed: () => _execute(_PlaybackCommand.toggle),
         ),
         MenuFlyoutSubItem(
@@ -496,34 +498,32 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           items: (_) => [
             MenuFlyoutItem(
               text: const Text('后退 10 秒'),
-              trailing: const Text('J'),
+              trailing: const _PlaybackMenuShortcut('J'),
               onPressed: () => _execute(_PlaybackCommand.back10),
             ),
             MenuFlyoutItem(
               text: const Text('前进 10 秒'),
-              trailing: const Text('L'),
+              trailing: const _PlaybackMenuShortcut('L'),
               onPressed: () => _execute(_PlaybackCommand.forward10),
             ),
             const MenuFlyoutSeparator(),
             MenuFlyoutItem(
               text: const Text('上一个视频'),
-              trailing: const Text('Page Up'),
-              onPressed: widget.store.index > 0
+              trailing: _PlaybackMenuShortcut('Page Up', enabled: canPrevious),
+              onPressed: canPrevious
                   ? () => _execute(_PlaybackCommand.previous)
                   : null,
             ),
             MenuFlyoutItem(
               text: const Text('下一个视频'),
-              trailing: const Text('Page Down'),
-              onPressed: widget.store.index + 1 < widget.store.playlist.length
-                  ? () => _execute(_PlaybackCommand.next)
-                  : null,
+              trailing: _PlaybackMenuShortcut('Page Down', enabled: canNext),
+              onPressed: canNext ? () => _execute(_PlaybackCommand.next) : null,
             ),
           ],
         ),
         ToggleMenuFlyoutItem(
           text: const Text('静音'),
-          trailing: const Text('M'),
+          trailing: const _PlaybackMenuShortcut('M'),
           value: player.state.volume == 0,
           onChanged: (_) => _execute(_PlaybackCommand.mute),
         ),
@@ -539,18 +539,18 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         const MenuFlyoutSeparator(),
         MenuFlyoutItem(
           text: Text(isFullscreen(context) ? '退出全屏' : '进入全屏'),
-          trailing: const Text('F / Enter'),
+          trailing: const _PlaybackMenuShortcut('F / Enter'),
           onPressed: () => _execute(_PlaybackCommand.fullscreen),
         ),
         ToggleMenuFlyoutItem(
           text: const Text('视频信息覆盖层'),
-          trailing: const Text('Tab'),
+          trailing: const _PlaybackMenuShortcut('Tab'),
           value: overlay.showInfo,
           onChanged: (_) => _execute(_PlaybackCommand.info),
         ),
         MenuFlyoutItem(
           text: const Text('查看快捷键'),
-          trailing: const Text('F1'),
+          trailing: const _PlaybackMenuShortcut('F1'),
           onPressed: () => _execute(_PlaybackCommand.help),
         ),
       ],
@@ -765,6 +765,30 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
   );
 }
 
+/// Shortcut hints follow the flyout's text colors, including disabled items.
+class _PlaybackMenuShortcut extends StatelessWidget {
+  const _PlaybackMenuShortcut(this.label, {this.enabled = true});
+
+  final String label;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    var colors = FluentTheme.of(context).resources;
+    return Text(
+      label,
+      style: TextStyle(
+        color: enabled
+            ? colors.textFillColorSecondary
+            : colors.textFillColorDisabled,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        height: 1.2,
+      ),
+    );
+  }
+}
+
 /// The surface owns the menu so hiding this button does not orphan the flyout.
 class _PlaybackSettingsButton extends StatelessWidget {
   const _PlaybackSettingsButton({
@@ -822,17 +846,17 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
               ? '1× / 记忆倍速切换'
               : '1× / ${PlaybackRateMemory.label(store.rememberedRate!)}× 切换',
         ),
-        trailing: const Text('Z'),
+        trailing: const _PlaybackMenuShortcut('Z'),
         onPressed: () => execute(_PlaybackCommand.toggleRate),
       ),
       MenuFlyoutItem(
         text: const Text('放慢 0.1×'),
-        trailing: const Text('X'),
+        trailing: const _PlaybackMenuShortcut('X'),
         onPressed: () => execute(_PlaybackCommand.slower),
       ),
       MenuFlyoutItem(
         text: const Text('加速 0.1×'),
-        trailing: const Text('C'),
+        trailing: const _PlaybackMenuShortcut('C'),
         onPressed: () => execute(_PlaybackCommand.faster),
       ),
       const MenuFlyoutSeparator(),
