@@ -13,6 +13,7 @@ enum _PlaybackCommand {
   mute,
   slower,
   faster,
+  toggleRate,
   previous,
   next,
   fullscreen,
@@ -51,9 +52,8 @@ const _playbackShortcuts = [
   _PlaybackShortcut(_PlaybackCommand.back10, 'J', '后退 10 秒', [
     SingleActivator(LogicalKeyboardKey.keyJ),
   ]),
-  _PlaybackShortcut(_PlaybackCommand.forward10, 'L / I', '前进 10 秒', [
+  _PlaybackShortcut(_PlaybackCommand.forward10, 'L', '前进 10 秒', [
     SingleActivator(LogicalKeyboardKey.keyL),
-    SingleActivator(LogicalKeyboardKey.keyI),
   ]),
   _PlaybackShortcut(_PlaybackCommand.volumeUp, '↑', '音量增加 5%', [
     SingleActivator(LogicalKeyboardKey.arrowUp),
@@ -64,11 +64,14 @@ const _playbackShortcuts = [
   _PlaybackShortcut(_PlaybackCommand.mute, 'M', '静音 / 恢复音量', [
     SingleActivator(LogicalKeyboardKey.keyM, includeRepeats: false),
   ]),
-  _PlaybackShortcut(_PlaybackCommand.slower, '[', '播放速度减少 0.25×', [
-    SingleActivator(LogicalKeyboardKey.bracketLeft),
+  _PlaybackShortcut(_PlaybackCommand.toggleRate, 'Z', '1× / 记忆倍速切换', [
+    SingleActivator(LogicalKeyboardKey.keyZ, includeRepeats: false),
   ]),
-  _PlaybackShortcut(_PlaybackCommand.faster, ']', '播放速度增加 0.25×', [
-    SingleActivator(LogicalKeyboardKey.bracketRight),
+  _PlaybackShortcut(_PlaybackCommand.slower, 'X', '播放速度减少 0.1×', [
+    SingleActivator(LogicalKeyboardKey.keyX),
+  ]),
+  _PlaybackShortcut(_PlaybackCommand.faster, 'C', '播放速度增加 0.1×', [
+    SingleActivator(LogicalKeyboardKey.keyC),
   ]),
   _PlaybackShortcut(_PlaybackCommand.previous, 'Page Up', '上一个视频', [
     SingleActivator(LogicalKeyboardKey.pageUp, includeRepeats: false),
@@ -350,6 +353,14 @@ class _PlaybackShortcutHelp extends StatelessWidget {
                         fontSize: 11,
                       ),
                     ),
+                    const SizedBox(height: 5),
+                    const Text(
+                      'Z 会记住切回 1× 前的倍速，重启后仍可恢复',
+                      style: TextStyle(
+                        color: material.Colors.white54,
+                        fontSize: 11,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -366,7 +377,6 @@ String _playbackTime(Duration value, {bool milliseconds = false}) {
   var minutes = value.inMinutes.remainder(60).toString().padLeft(2, '0');
   var seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
   var time = hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
-  return milliseconds
-      ? '$time.${value.inMilliseconds.remainder(1000).toString().padLeft(3, '0')}'
-      : time;
+  var millis = value.inMilliseconds.remainder(1000).toString().padLeft(3, '0');
+  return milliseconds ? '$time.$millis' : time;
 }

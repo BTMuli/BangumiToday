@@ -1,6 +1,6 @@
 part of 'playback_page.dart';
 
-/// A read-only OSD: pointer input passes through to the video controls.
+/// A read-only OSD with scrolling when its content exceeds the video height.
 class _PlaybackVideoInfo extends StatefulWidget {
   const _PlaybackVideoInfo({
     super.key,
@@ -59,7 +59,9 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
   }
 
   Future<void> _read() async {
-    if (!mounted || _reading || !TickerMode.of(context)) return;
+    if (!mounted || _reading || !TickerMode.valuesOf(context).enabled) {
+      return;
+    }
     // The windowed surface stays mounted beneath the fullscreen route.
     if (ModalRoute.of(context)?.isCurrent == false) return;
     var native = widget.player.platform;
@@ -189,6 +191,13 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
         ? '—'
         : '${(sync * 1000).toStringAsFixed(1)} ms';
     var audioBitrate = _bitrate(state.audioBitrate ?? audioTrack.bitrate);
+    var positionText = _playbackTime(state.position, milliseconds: true);
+    var durationText = _playbackTime(state.duration, milliseconds: true);
+    var outputSize = _resolution(video.dw ?? video.w, video.dh ?? video.h);
+    var audioFormatText = _value(audio.format);
+    var audioSampleRateText = _value(audio.sampleRate);
+    var audioChannelCountText = _value(audio.channelCount);
+    var audioChannelsText = _value(audio.channels);
     var now = DateTime.now();
     var clock = [
       now.hour,
@@ -201,153 +210,164 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
     const green = Color(0xFF8FE6A1);
     const blue = Color(0xFF8FB6FF);
     return LayoutBuilder(
-      builder: (context, constraints) => Align(
-        alignment: Alignment.topLeft,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
+      builder: (context, constraints) {
+        // Hug the content: grow with the longest line instead of wrapping at a
+        // fixed narrow width, but cap it so the panel never sprawls.
+        var panelWidth = (constraints.maxWidth * 0.9)
+            .clamp(420.0, 900.0)
+            .toDouble();
+        return Align(
           alignment: Alignment.topLeft,
-          child: Container(
-            width: constraints.maxWidth,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(6),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: panelWidth,
+              maxHeight: constraints.maxHeight,
             ),
-            child: DefaultTextStyle(
-              style: TextStyle(
-                fontFamily: 'Consolas',
-                fontFamilyFallback: const ['Cascadia Mono', 'monospace'],
-                fontSize: constraints.maxWidth >= 1000 ? 16 : 13,
-                height: 1.5,
-                color: Colors.white,
-                shadows: const [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 4,
-                    offset: Offset(1, 1),
+            child: IntrinsicWidth(
+              child: SingleChildScrollView(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 2,
-                    offset: Offset(-1, -1),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _line('文件名', widget.item.title, yellow, maxLines: 2),
-                  _line(
-                    '时间轴',
-                    '${_playbackTime(state.position, milliseconds: true)} / '
-                        '${_playbackTime(state.duration, milliseconds: true)} '
-                        '($percentage%)   当前时间：$clock',
-                    cyan,
-                  ),
-                  _line(
-                    '状态',
-                    '${state.buffering
-                            ? '正在缓冲'
-                            : state.playing
-                            ? '播放中'
-                            : '已暂停'}'
-                        '   速度：${state.rate}×   音量：${state.volume.round()}%'
-                        '   文件：${_property('file-format')} / '
-                        '${_size(_properties['file-size'])}',
-                    green,
-                  ),
-                  const SizedBox(height: 10),
-                  _line(
-                    '视频解码器',
-                    '${_property('current-tracks/video/decoder-desc')}'
-                        '   硬件解码：$hwdec',
-                    pink,
-                  ),
-                  _line(
-                    '视频输入',
-                    '${_value(videoCodec)}   '
-                        '$sourceSize   '
-                        '帧率：$fps fps   位率：${_bitrate(videoBitrate)}',
-                    yellow,
-                  ),
-                  _line(
-                    '像素与色彩',
-                    '${_value(video.pixelformat)}'
-                        '$hardwarePixelText'
-                        '   ${_value(video.colormatrix)}'
-                        ' / ${_value(video.primaries)}'
-                        ' / ${_value(video.gamma)}'
-                        ' / ${_value(video.colorlevels)}',
-                    blue,
-                  ),
-                  _line(
-                    '视频输出',
-                    '${_resolution(video.dw ?? video.w, video.dh ?? video.h)}'
-                        '   渲染帧率：$outputFps fps'
-                        '   渲染器：${_property('current-vo')}',
-                    pink,
-                  ),
-                  _line(
-                    '帧统计',
-                    '估算帧：${_property('estimated-frame-number')} / '
-                        '${_property('estimated-frame-count')}'
-                        '   渲染丢帧：${_property('frame-drop-count')}'
-                        '   解码丢帧：${_property('decoder-frame-drop-count')}'
-                        '   A/V：$syncText',
-                    green,
-                  ),
-                  const SizedBox(height: 10),
-                  _line(
-                    '音频解码器',
-                    '${_property('current-tracks/audio/decoder-desc')}'
-                        ' / ${_value(audioCodec)}',
-                    pink,
-                  ),
-                  _line(
-                    '音频输入',
-                    '${_value(audio.format)}   ${_value(audio.sampleRate)} Hz'
-                        '   ${_value(audio.channelCount)} 声道'
-                        ' (${_value(audio.channels)})   位率：$audioBitrate',
-                    yellow,
-                  ),
-                  _line(
-                    '音频输出',
-                    '${_property('audio-out-params/format')}   '
-                        '${_property('audio-out-params/samplerate')} Hz   '
-                        '${_property('audio-out-params/channel-count')} 声道'
-                        '   渲染器：${_property('current-ao')}',
-                    pink,
-                  ),
-                  _line(
-                    '字幕',
-                    _playbackTrackLabel(
-                      subtitle.id,
-                      subtitle.title,
-                      subtitle.language,
-                    ),
-                    blue,
-                  ),
-                  const SizedBox(height: 10),
-                  _line(
-                    '播放器',
-                    '${_property('mpv-version')}   '
-                        '显示刷新率：${_property('display-fps')} Hz',
-                    cyan,
-                  ),
-                  const Text(
-                    'Tab 或右键菜单关闭 · — 表示当前媒体未提供数据',
+                  child: DefaultTextStyle(
                     style: TextStyle(
-                      color: material.Colors.white70,
-                      fontSize: 11,
+                      fontFamily: 'Consolas',
+                      fontFamilyFallback: const ['Cascadia Mono', 'monospace'],
+                      fontSize: constraints.maxWidth >= 1000 ? 16 : 13,
+                      height: 1.5,
+                      color: Colors.white,
+                      shadows: const [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 4,
+                          offset: Offset(1, 1),
+                        ),
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 2,
+                          offset: Offset(-1, -1),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _line('文件名', widget.item.title, yellow, maxLines: 2),
+                        _line(
+                          '时间轴',
+                          '$positionText / $durationText '
+                              '($percentage%)   当前时间：$clock',
+                          cyan,
+                        ),
+                        _line(
+                          '状态',
+                          '${state.buffering
+                                  ? '正在缓冲'
+                                  : state.playing
+                                  ? '播放中'
+                                  : '已暂停'}'
+                              '   速度：${PlaybackRateMemory.label(state.rate)}×'
+                              '   音量：${state.volume.round()}%'
+                              '   文件：${_property('file-format')} / '
+                              '${_size(_properties['file-size'])}',
+                          green,
+                        ),
+                        const SizedBox(height: 10),
+                        _line(
+                          '视频解码器',
+                          '${_property('current-tracks/video/decoder-desc')}'
+                              '   硬件解码：$hwdec',
+                          pink,
+                        ),
+                        _line(
+                          '视频输入',
+                          '${_value(videoCodec)}   '
+                              '$sourceSize   '
+                              '帧率：$fps fps   位率：${_bitrate(videoBitrate)}',
+                          yellow,
+                        ),
+                        _line(
+                          '像素与色彩',
+                          '${_value(video.pixelformat)}'
+                              '$hardwarePixelText'
+                              '   ${_value(video.colormatrix)}'
+                              ' / ${_value(video.primaries)}'
+                              ' / ${_value(video.gamma)}'
+                              ' / ${_value(video.colorlevels)}',
+                          blue,
+                        ),
+                        _line(
+                          '视频输出',
+                          '$outputSize   渲染帧率：$outputFps fps'
+                              '   渲染器：${_property('current-vo')}',
+                          pink,
+                        ),
+                        _line(
+                          '帧统计',
+                          '估算帧：${_property('estimated-frame-number')} / '
+                              '${_property('estimated-frame-count')}'
+                              '   渲染丢帧：${_property('frame-drop-count')}'
+                              '   解码丢帧：${_property('decoder-frame-drop-count')}'
+                              '   A/V：$syncText',
+                          green,
+                        ),
+                        const SizedBox(height: 10),
+                        _line(
+                          '音频解码器',
+                          '${_property('current-tracks/audio/decoder-desc')}'
+                              ' / ${_value(audioCodec)}',
+                          pink,
+                        ),
+                        _line(
+                          '音频输入',
+                          '$audioFormatText   $audioSampleRateText Hz '
+                              '$audioChannelCountText 声道 '
+                              '($audioChannelsText)   位率：$audioBitrate',
+                          yellow,
+                        ),
+                        _line(
+                          '音频输出',
+                          '${_property('audio-out-params/format')}   '
+                              '${_property('audio-out-params/samplerate')} Hz   '
+                              '${_property('audio-out-params/channel-count')} 声道'
+                              '   渲染器：${_property('current-ao')}',
+                          pink,
+                        ),
+                        _line(
+                          '字幕',
+                          _playbackTrackLabel(
+                            subtitle.id,
+                            subtitle.title,
+                            subtitle.language,
+                          ),
+                          blue,
+                        ),
+                        const SizedBox(height: 10),
+                        _line(
+                          '播放器',
+                          '${_property('mpv-version')}   '
+                              '显示刷新率：${_property('display-fps')} Hz',
+                          cyan,
+                        ),
+                        const Text(
+                          'Tab 或右键菜单关闭 · — 表示当前媒体未提供数据',
+                          style: TextStyle(
+                            color: material.Colors.white70,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

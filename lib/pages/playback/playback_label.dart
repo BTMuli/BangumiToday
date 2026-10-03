@@ -62,10 +62,7 @@ class PlaybackLabel {
     return PlaybackLabel(
       title: title,
       episode: episode,
-      details: [
-        if (resolution != null) resolution,
-        if (extension.isNotEmpty) extension,
-      ].join(' · '),
+      details: [?resolution, if (extension.isNotEmpty) extension].join(' · '),
     );
   }
 }

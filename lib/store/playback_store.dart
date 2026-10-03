@@ -6,8 +6,11 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../core/services/playback_library.dart';
+import '../database/app/app_config.dart';
 import '../database/app/app_playback.dart';
+import '../models/playback/playback_fit.dart';
 import '../models/playback/playback_item.dart';
+import '../models/playback/playback_rate.dart';
 import '../tools/log_tool.dart';
 import 'bt_download_store.dart';
 
@@ -30,6 +33,14 @@ class PlaybackStore extends ChangeNotifier {
   /// The mounted video surface can leave fullscreen before native teardown.
   Future<void> Function()? beforeVideoDispose;
   final BtsAppPlayback _history = BtsAppPlayback();
+  final BtsAppConfig _config = BtsAppConfig();
+  late final _rateMemory = PlaybackRateMemory(
+    read: () => _config.read('playbackRememberedRate'),
+    write: (value) => _config.write('playbackRememberedRate', value),
+  );
+  Future<void>? _preferencesFuture;
+  PlaybackFit _fit = PlaybackFit.fit;
+  double? _aspectRatio;
   Player? _player;
   VideoController? _video;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
@@ -49,6 +60,9 @@ class PlaybackStore extends ChangeNotifier {
 
   Player? get player => _player;
   VideoController? get video => _video;
+  PlaybackFit get fit => _fit;
+  double? get aspectRatio => _aspectRatio;
+  double? get rememberedRate => _rateMemory.remembered;
   PlaybackItem? get current =>
       index >= 0 && index < playlist.length ? playlist[index] : null;
 
@@ -81,6 +95,17 @@ class PlaybackStore extends ChangeNotifier {
       player.stream.duration.listen((value) {
         if (!loading && value > Duration.zero) duration = value;
       }),
+      player.stream.videoParams.listen((value) {
+        var ratio = playbackAspectRatio(
+          aspect: value.aspect,
+          width: value.dw ?? value.w,
+          height: value.dh ?? value.h,
+          rotation: value.rotate,
+        );
+        if (ratio == _aspectRatio) return;
+        _aspectRatio = ratio;
+        _notify();
+      }),
       player.stream.error.listen((value) {
         error = value;
         _notify();
@@ -106,6 +131,7 @@ class PlaybackStore extends ChangeNotifier {
   }
 
   Future<void> refreshHistory() async {
+    await _loadPreferences();
     history = await _history.readAll();
     _notify();
   }
@@ -133,6 +159,7 @@ class PlaybackStore extends ChangeNotifier {
     await library.ensureReady(item.filePath);
     if (_closed) return;
     var previous = await _history.read(item.filePath);
+    await _loadPreferences();
     if (_closed) return;
     _initializePlayer();
     loading = true;
@@ -146,6 +173,7 @@ class PlaybackStore extends ChangeNotifier {
       position = previous?.resumePosition ?? Duration.zero;
       duration = Duration(milliseconds: previous?.durationMs ?? 0);
       completed = false;
+      _aspectRatio = null;
       await _player!.open(Media(item.filePath, start: position));
     } catch (e) {
       index = -1;
@@ -165,6 +193,39 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> pause() => _serial(() async {
     await _player?.pause();
     await _save();
+  });
+
+  Future<void> _loadPreferences() => _preferencesFuture ??= (() async {
+    await _rateMemory.load();
+    _fit = PlaybackFit.parse(await _config.read('playbackFit'));
+    _notify();
+  })();
+
+  Future<void> setRate(double rate) => _serial(() async {
+    await _player?.setRate(PlaybackRateMemory.normalize(rate));
+  });
+
+  Future<void> stepRate(double delta) => _serial(() async {
+    var player = _player;
+    if (player == null) return;
+    await player.setRate(PlaybackRateMemory.step(player.state.rate, delta));
+  });
+
+  Future<void> toggleRate() => _serial(() async {
+    var player = _player;
+    if (player == null) return;
+    var rate = await _rateMemory.toggle(player.state.rate);
+    if (_closed) return;
+    await player.setRate(rate);
+  });
+
+  Future<void> setFit(PlaybackFit mode) => _serial(() async {
+    await _loadPreferences();
+    if (_closed || _fit == mode) return;
+    await _config.write('playbackFit', mode.name);
+    if (_closed) return;
+    _fit = mode;
+    _notify();
   });
 
   Future<void> stop() => _serial(() async {

@@ -4,6 +4,7 @@ import 'dart:async';
 // Package imports:
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart' as material;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +13,9 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
+import '../../models/playback/playback_fit.dart';
 import '../../models/playback/playback_item.dart';
+import '../../models/playback/playback_rate.dart';
 import '../../store/nav_store.dart';
 import '../../store/playback_store.dart';
 import '../../ui/bt_infobar.dart';
@@ -21,6 +24,7 @@ import 'playback_label.dart';
 
 part 'playback_controls.dart';
 part 'playback_overlay.dart';
+part 'playback_seek_bar.dart';
 part 'playback_video_info.dart';
 
 class PlaybackPage extends ConsumerStatefulWidget {
@@ -36,7 +40,6 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   final _playlistScroll = ScrollController();
   final _historyScroll = ScrollController();
   final _videoKey = GlobalKey<VideoState>();
-  final _videoFocus = FocusNode(debugLabel: 'playback-video');
   final _overlay = _PlaybackOverlayController();
   bool _wasActive = true;
   bool _sidebarVisible = true;
@@ -106,7 +109,6 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     _playlistScroll.dispose();
     _historyScroll.dispose();
     _overlay.dispose();
-    _videoFocus.dispose();
     unawaited(_store.pause().catchError((Object _) {}));
     super.dispose();
   }
@@ -319,39 +321,54 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     );
   }
 
-  Widget _buildStage(PlaybackStore store) => ClipRRect(
-    borderRadius: BTRadius.largeBR,
-    child: ColoredBox(
-      color: Colors.black,
-      child: store.current == null || store.video == null
-          ? _buildEmptyStage()
-          : LayoutBuilder(
-              builder: (context, constraints) => material.Theme(
-                data: material.ThemeData.dark().copyWith(
-                  colorScheme: material.ColorScheme.fromSeed(
-                    seedColor: FluentTheme.of(context).accentColor,
-                    brightness: material.Brightness.dark,
-                  ),
-                ),
-                child: material.Material(
-                  color: Colors.black,
-                  child: Video(
-                    key: _videoKey,
-                    focusNode: _videoFocus,
-                    controller: store.video!,
-                    controls: (video) => _PlaybackVideoControls(
-                      video: video,
-                      store: store,
-                      player: store.player!,
-                      overlay: _overlay,
-                      run: _run,
-                      pickSubtitle: _pickSubtitle,
+  Widget _buildStage(PlaybackStore store) => LayoutBuilder(
+    builder: (context, constraints) {
+      var size = playbackSurfaceSize(
+        constraints.maxWidth,
+        constraints.maxHeight,
+        store.current != null && store.fit == PlaybackFit.fit
+            ? store.aspectRatio
+            : null,
+      );
+      return Align(
+        child: SizedBox(
+          width: size.width,
+          height: size.height,
+          child: ClipRRect(
+            borderRadius: BTRadius.largeBR,
+            child: ColoredBox(
+              color: Colors.black,
+              child: store.current == null || store.video == null
+                  ? _buildEmptyStage()
+                  : material.Theme(
+                      data: material.ThemeData.dark().copyWith(
+                        colorScheme: material.ColorScheme.fromSeed(
+                          seedColor: FluentTheme.of(context).accentColor,
+                          brightness: material.Brightness.dark,
+                        ),
+                      ),
+                      child: material.Material(
+                        color: Colors.black,
+                        child: Video(
+                          key: _videoKey,
+                          controller: store.video!,
+                          fit: _playbackBoxFit(store.fit),
+                          controls: (video) => _PlaybackVideoControls(
+                            video: video,
+                            store: store,
+                            player: store.player!,
+                            overlay: _overlay,
+                            run: _run,
+                            pickSubtitle: _pickSubtitle,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
             ),
-    ),
+          ),
+        ),
+      );
+    },
   );
 
   Widget _buildEmptyStage() => Center(

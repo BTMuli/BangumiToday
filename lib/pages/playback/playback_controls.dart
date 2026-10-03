@@ -23,7 +23,17 @@ class _PlaybackVideoControls extends StatefulWidget {
 
 class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
   final _contextMenu = FlyoutController();
+
+  /// One node per controls instance. media_kit builds a second control set for
+  /// the fullscreen route while the windowed one stays mounted; sharing a node
+  /// makes the fullscreen attach detach the windowed one, which Flutter never
+  /// re-attaches, so keyboard shortcuts die after leaving fullscreen.
+  final _focus = FocusNode(debugLabel: 'playback-video-controls');
   StreamSubscription<double>? _volumeSubscription;
+  Timer? _hideTimer;
+  bool _chromeVisible = true;
+  bool _barHovered = false;
+  bool _seeking = false;
 
   @override
   void initState() {
@@ -34,6 +44,64 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     _volumeSubscription = widget.player.stream.volume.listen((value) {
       if (value > 0) widget.overlay.audibleVolume = value;
     });
+    _scheduleHide();
+    _focusVideo();
+  }
+
+  void _showChrome() {
+    if (!mounted) return;
+    if (!_chromeVisible) {
+      setState(() => _chromeVisible = true);
+      _syncSubtitlePadding();
+    }
+    _scheduleHide();
+  }
+
+  void _scheduleHide() {
+    _hideTimer?.cancel();
+    if (_barHovered ||
+        _seeking ||
+        _contextMenu.isOpen ||
+        widget.overlay.showHelp) {
+      return;
+    }
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted ||
+          _seeking ||
+          _contextMenu.isOpen ||
+          widget.overlay.showHelp) {
+        return;
+      }
+      setState(() => _chromeVisible = false);
+      _syncSubtitlePadding();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncSubtitlePadding());
+  }
+
+  void _syncSubtitlePadding() {
+    if (!mounted ||
+        !TickerMode.valuesOf(context).enabled ||
+        ModalRoute.of(context)?.isCurrent == false)
+      return;
+    widget.video.setSubtitleViewPadding(
+      widget.video.widget.subtitleViewConfiguration.padding +
+          EdgeInsets.only(bottom: _chromeVisible ? 72 : 0),
+    );
+  }
+
+  void _hoverBar(bool value) {
+    _barHovered = value;
+    _showChrome();
+  }
+
+  void _seekInteraction(bool value) {
+    _seeking = value;
+    _showChrome();
   }
 
   bool _closeMenu() {
@@ -44,9 +112,11 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
 
   @override
   void dispose() {
+    _hideTimer?.cancel();
     widget.overlay.menuClosers.remove(_closeMenu);
     unawaited(_volumeSubscription?.cancel());
     _contextMenu.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -59,12 +129,14 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     var player = widget.player;
     var overlay = widget.overlay;
     if (!mounted || store.player != player || store.current == null) return;
+    _showChrome();
     if (command == _PlaybackCommand.info) {
       overlay.toggleInfo();
       return;
     }
     if (command == _PlaybackCommand.help) {
       overlay.toggleHelp();
+      _scheduleHide();
       if (!overlay.showHelp) _focusVideo();
       return;
     }
@@ -72,6 +144,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
       if (overlay.showHelp) {
         overlay.toggleHelp();
         _focusVideo();
+        _scheduleHide();
       } else if (isFullscreen(context)) {
         overlay.closeMenus();
         await exitFullscreen(context);
@@ -160,12 +233,20 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         );
       case _PlaybackCommand.slower:
       case _PlaybackCommand.faster:
-        var rate =
-            (player.state.rate +
-                    (command == _PlaybackCommand.faster ? 0.25 : -0.25))
-                .clamp(0.25, 3.0);
-        await player.setRate(rate);
-        overlay.show('播放速度 $rate×', material.Icons.speed_rounded);
+        await store.stepRate(command == _PlaybackCommand.faster ? 0.1 : -0.1);
+        overlay.show(
+          '播放速度 ${PlaybackRateMemory.label(player.state.rate)}×',
+          material.Icons.speed_rounded,
+        );
+      case _PlaybackCommand.toggleRate:
+        await store.toggleRate();
+        overlay.show(
+          '播放速度 ${PlaybackRateMemory.label(player.state.rate)}×',
+          material.Icons.speed_rounded,
+          detail: store.rememberedRate == null
+              ? '先调整倍速，再按 Z 记录并切回 1×'
+              : 'Z 可切换 1× / ${PlaybackRateMemory.label(store.rememberedRate!)}×',
+        );
       case _PlaybackCommand.previous:
       case _PlaybackCommand.next:
         var nextIndex =
@@ -196,7 +277,12 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
 
   void _focusVideo() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.video.widget.focusNode?.requestFocus();
+      if (mounted &&
+          !widget.overlay.showHelp &&
+          TickerMode.valuesOf(context).enabled &&
+          ModalRoute.of(context)?.isCurrent != false) {
+        _focus.requestFocus();
+      }
     });
   }
 
@@ -207,16 +293,8 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     var label = PlaybackLabel.fromName(item.title);
     var accent = FluentTheme.of(context).accentColor;
     return MaterialDesktopVideoControlsThemeData(
-      // The outer shortcut scope also contains our overlay panels.
-      keyboardShortcuts: const {},
-      visibleOnMount: true,
-      hideMouseOnControlsRemoval: true,
       buttonBarHeight: 48,
       buttonBarButtonSize: 20,
-      bottomButtonBarMargin: const EdgeInsets.symmetric(horizontal: 12),
-      seekBarMargin: const EdgeInsets.symmetric(horizontal: 16),
-      seekBarPositionColor: accent,
-      seekBarThumbColor: accent,
       volumeBarActiveColor: accent,
       volumeBarThumbColor: accent,
       topButtonBar: [
@@ -354,17 +432,49 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     var navigatorBox =
         Navigator.of(context).context.findRenderObject() as RenderBox;
     var buttonBox = buttonContext.findRenderObject() as RenderBox;
-    unawaited(
-      _contextMenu.showFlyout<void>(
-        position: buttonBox.localToGlobal(Offset.zero, ancestor: navigatorBox),
-        builder: (_) => MenuFlyout(
-          items: _playbackSettingsItems(
-            widget.player,
-            widget.run,
-            widget.pickSubtitle,
-          ),
-        ),
+    _showMenu(
+      buttonBox.localToGlobal(Offset.zero, ancestor: navigatorBox),
+      () => _playbackSettingsItems(
+        widget.player,
+        widget.store,
+        widget.run,
+        widget.pickSubtitle,
+        _setFit,
+        _execute,
       ),
+    );
+  }
+
+  void _showMenu(Offset position, List<MenuFlyoutItemBase> Function() items) {
+    _showChrome();
+    _hideTimer?.cancel();
+    unawaited(
+      widget.run(() async {
+        try {
+          await _contextMenu.showFlyout<void>(
+            position: position,
+            builder: (_) => MenuFlyout(items: items()),
+          );
+        } finally {
+          if (mounted) {
+            _barHovered = false;
+            _showChrome();
+            _focusVideo();
+          }
+        }
+      }),
+    );
+  }
+
+  Future<void> _setFit(PlaybackFit mode) async {
+    await widget.store.setFit(mode);
+    if (!mounted) return;
+    // Fullscreen shares these parameters with the windowed Video surface.
+    widget.video.update(fit: _playbackBoxFit(widget.store.fit));
+    widget.overlay.show(
+      mode.label,
+      material.Icons.aspect_ratio_rounded,
+      detail: mode.description,
     );
   }
 
@@ -373,77 +483,177 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     var box = navigator.context.findRenderObject() as RenderBox;
     var player = widget.player;
     var overlay = widget.overlay;
-    unawaited(
-      _contextMenu.showFlyout<void>(
-        position: box.globalToLocal(details.globalPosition),
-        builder: (_) => MenuFlyout(
-          items: [
+    _showMenu(
+      box.globalToLocal(details.globalPosition),
+      () => [
+        MenuFlyoutItem(
+          text: Text(player.state.playing ? '暂停' : '继续播放'),
+          trailing: const Text('Space'),
+          onPressed: () => _execute(_PlaybackCommand.toggle),
+        ),
+        MenuFlyoutSubItem(
+          text: const Text('播放与跳转'),
+          items: (_) => [
             MenuFlyoutItem(
-              text: Text(player.state.playing ? '暂停' : '继续播放'),
-              trailing: const Text('Space'),
-              onPressed: () => _execute(_PlaybackCommand.toggle),
+              text: const Text('后退 10 秒'),
+              trailing: const Text('J'),
+              onPressed: () => _execute(_PlaybackCommand.back10),
             ),
-            MenuFlyoutSubItem(
-              text: const Text('播放与跳转'),
-              items: (_) => [
-                MenuFlyoutItem(
-                  text: const Text('后退 10 秒'),
-                  trailing: const Text('J'),
-                  onPressed: () => _execute(_PlaybackCommand.back10),
-                ),
-                MenuFlyoutItem(
-                  text: const Text('前进 10 秒'),
-                  trailing: const Text('L / I'),
-                  onPressed: () => _execute(_PlaybackCommand.forward10),
-                ),
-                const MenuFlyoutSeparator(),
-                MenuFlyoutItem(
-                  text: const Text('上一个视频'),
-                  trailing: const Text('Page Up'),
-                  onPressed: widget.store.index > 0
-                      ? () => _execute(_PlaybackCommand.previous)
-                      : null,
-                ),
-                MenuFlyoutItem(
-                  text: const Text('下一个视频'),
-                  trailing: const Text('Page Down'),
-                  onPressed:
-                      widget.store.index + 1 < widget.store.playlist.length
-                      ? () => _execute(_PlaybackCommand.next)
-                      : null,
-                ),
-              ],
-            ),
-            ToggleMenuFlyoutItem(
-              text: const Text('静音'),
-              trailing: const Text('M'),
-              value: player.state.volume == 0,
-              onChanged: (_) => _execute(_PlaybackCommand.mute),
+            MenuFlyoutItem(
+              text: const Text('前进 10 秒'),
+              trailing: const Text('L'),
+              onPressed: () => _execute(_PlaybackCommand.forward10),
             ),
             const MenuFlyoutSeparator(),
-            ..._playbackSettingsItems(player, widget.run, widget.pickSubtitle),
-            const MenuFlyoutSeparator(),
             MenuFlyoutItem(
-              text: Text(isFullscreen(context) ? '退出全屏' : '进入全屏'),
-              trailing: const Text('F / Enter'),
-              onPressed: () => _execute(_PlaybackCommand.fullscreen),
-            ),
-            ToggleMenuFlyoutItem(
-              text: const Text('视频信息覆盖层'),
-              trailing: const Text('Tab'),
-              value: overlay.showInfo,
-              onChanged: (_) => _execute(_PlaybackCommand.info),
+              text: const Text('上一个视频'),
+              trailing: const Text('Page Up'),
+              onPressed: widget.store.index > 0
+                  ? () => _execute(_PlaybackCommand.previous)
+                  : null,
             ),
             MenuFlyoutItem(
-              text: const Text('查看快捷键'),
-              trailing: const Text('F1'),
-              onPressed: () => _execute(_PlaybackCommand.help),
+              text: const Text('下一个视频'),
+              trailing: const Text('Page Down'),
+              onPressed: widget.store.index + 1 < widget.store.playlist.length
+                  ? () => _execute(_PlaybackCommand.next)
+                  : null,
             ),
           ],
         ),
-      ),
+        ToggleMenuFlyoutItem(
+          text: const Text('静音'),
+          trailing: const Text('M'),
+          value: player.state.volume == 0,
+          onChanged: (_) => _execute(_PlaybackCommand.mute),
+        ),
+        const MenuFlyoutSeparator(),
+        ..._playbackSettingsItems(
+          player,
+          widget.store,
+          widget.run,
+          widget.pickSubtitle,
+          _setFit,
+          _execute,
+        ),
+        const MenuFlyoutSeparator(),
+        MenuFlyoutItem(
+          text: Text(isFullscreen(context) ? '退出全屏' : '进入全屏'),
+          trailing: const Text('F / Enter'),
+          onPressed: () => _execute(_PlaybackCommand.fullscreen),
+        ),
+        ToggleMenuFlyoutItem(
+          text: const Text('视频信息覆盖层'),
+          trailing: const Text('Tab'),
+          value: overlay.showInfo,
+          onChanged: (_) => _execute(_PlaybackCommand.info),
+        ),
+        MenuFlyoutItem(
+          text: const Text('查看快捷键'),
+          trailing: const Text('F1'),
+          onPressed: () => _execute(_PlaybackCommand.help),
+        ),
+      ],
     );
   }
+
+  Widget _buildChrome(MaterialDesktopVideoControlsThemeData theme) => Stack(
+    fit: StackFit.expand,
+    children: [
+      IgnorePointer(
+        ignoring: !_chromeVisible,
+        child: AnimatedOpacity(
+          opacity: _chromeVisible ? 1 : 0,
+          duration: const Duration(milliseconds: 150),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              for (var top in [true, false])
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: top ? 0 : null,
+                  bottom: top ? null : 0,
+                  height: top ? 90 : 100,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: top
+                              ? Alignment.topCenter
+                              : Alignment.bottomCenter,
+                          end: top
+                              ? Alignment.bottomCenter
+                              : Alignment.topCenter,
+                          colors: const [Color(0x99000000), Color(0x00000000)],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              SafeArea(
+                child: Column(
+                  children: [
+                    MouseRegion(
+                      onEnter: (_) => _hoverBar(true),
+                      onExit: (_) => _hoverBar(false),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: SizedBox(
+                          height: 48,
+                          child: Row(children: theme.topButtonBar),
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    MouseRegion(
+                      onEnter: (_) => _hoverBar(true),
+                      onExit: (_) => _hoverBar(false),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _PlaybackSeekBar(
+                            key: ValueKey(widget.store.current!.key),
+                            player: widget.player,
+                            run: widget.run,
+                            onInteraction: _seekInteraction,
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: SizedBox(
+                              height: 48,
+                              child: Row(children: theme.bottomButtonBar),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      IgnorePointer(
+        child: StreamBuilder<bool>(
+          stream: widget.player.stream.buffering,
+          initialData: widget.player.state.buffering,
+          builder: (_, snapshot) => snapshot.data == true
+              ? const Center(
+                  child: SizedBox.square(
+                    dimension: 32,
+                    child: material.CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -464,55 +674,84 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                   for (var activator in shortcut.activators)
                     activator: () => _execute(shortcut.command),
               },
-              child: material.Theme(
-                data: material.ThemeData.dark(),
-                child: FlyoutTarget(
-                  controller: _contextMenu,
-                  child: Listener(
-                    onPointerDown: (_) {
-                      if (!widget.overlay.showHelp) {
-                        widget.video.widget.focusNode?.requestFocus();
-                      }
-                    },
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onSecondaryTapUp: _showContextMenu,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          MaterialDesktopVideoControlsTheme(
-                            normal: theme,
-                            fullscreen: theme,
-                            child: MaterialDesktopVideoControls(widget.video),
-                          ),
-                          if (widget.overlay.showInfo)
-                            Positioned.fill(
-                              left: 16,
-                              right: 16,
-                              top: constraints.maxHeight >= 300 ? 64 : 8,
-                              bottom: constraints.maxHeight >= 300 ? 92 : 8,
-                              child: IgnorePointer(
-                                child: _PlaybackVideoInfo(
-                                  key: ValueKey(item.key),
-                                  player: widget.player,
-                                  item: item,
+              child: Focus(
+                focusNode: _focus,
+                autofocus: true,
+                child: material.Theme(
+                  data: material.ThemeData.dark(),
+                  child: FlyoutTarget(
+                    controller: _contextMenu,
+                    child: Listener(
+                      onPointerDown: (_) {
+                        _focusVideo();
+                      },
+                      onPointerSignal: (event) {
+                        if (event is PointerScrollEvent &&
+                            !widget.overlay.showHelp &&
+                            !_contextMenu.isOpen) {
+                          GestureBinding.instance.pointerSignalResolver
+                              .register(
+                                event,
+                                (_) => _execute(
+                                  event.scrollDelta.dy > 0
+                                      ? _PlaybackCommand.volumeDown
+                                      : _PlaybackCommand.volumeUp,
+                                ),
+                              );
+                        }
+                      },
+                      child: MouseRegion(
+                        cursor: _chromeVisible || widget.overlay.showHelp
+                            ? SystemMouseCursors.basic
+                            : SystemMouseCursors.none,
+                        onHover: (_) => _showChrome(),
+                        onEnter: (_) => _showChrome(),
+                        onExit: (_) {
+                          _barHovered = false;
+                          _scheduleHide();
+                        },
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onSecondaryTapUp: _showContextMenu,
+                          onDoubleTap: () =>
+                              _execute(_PlaybackCommand.fullscreen),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              MaterialDesktopVideoControlsTheme(
+                                normal: theme,
+                                fullscreen: theme,
+                                child: _buildChrome(theme),
+                              ),
+                              if (widget.overlay.showInfo)
+                                Positioned.fill(
+                                  left: 16,
+                                  right: 16,
+                                  top: constraints.maxHeight >= 300 ? 64 : 8,
+                                  bottom: constraints.maxHeight >= 300 ? 92 : 8,
+                                  child: _PlaybackVideoInfo(
+                                    key: ValueKey(item.key),
+                                    player: widget.player,
+                                    item: item,
+                                  ),
+                                ),
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: _PlaybackFeedbackView(
+                                    feedback: widget.overlay.feedback,
+                                  ),
                                 ),
                               ),
-                            ),
-                          Positioned.fill(
-                            child: IgnorePointer(
-                              child: _PlaybackFeedbackView(
-                                feedback: widget.overlay.feedback,
-                              ),
-                            ),
+                              if (widget.overlay.showHelp)
+                                Positioned.fill(
+                                  child: _PlaybackShortcutHelp(
+                                    onClose: () =>
+                                        _execute(_PlaybackCommand.help),
+                                  ),
+                                ),
+                            ],
                           ),
-                          if (widget.overlay.showHelp)
-                            Positioned.fill(
-                              child: _PlaybackShortcutHelp(
-                                onClose: () => _execute(_PlaybackCommand.help),
-                              ),
-                            ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -538,7 +777,7 @@ class _PlaybackSettingsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: '播放设置：倍速、音轨和字幕',
+    message: '播放设置：倍速、画幅、音轨和字幕',
     child: material.TextButton(
       key: const ValueKey('playback-settings'),
       style: material.TextButton.styleFrom(
@@ -553,7 +792,10 @@ class _PlaybackSettingsButton extends StatelessWidget {
         builder: (_, rate) => Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('${rate.data ?? 1.0}×', style: const TextStyle(fontSize: 12)),
+            Text(
+              '${PlaybackRateMemory.label(rate.data ?? 1.0)}×',
+              style: const TextStyle(fontSize: 12),
+            ),
             const SizedBox(width: 5),
             const Icon(material.Icons.settings_outlined, size: 18),
           ],
@@ -565,17 +807,51 @@ class _PlaybackSettingsButton extends StatelessWidget {
 
 List<MenuFlyoutItemBase> _playbackSettingsItems(
   Player player,
+  PlaybackStore store,
   Future<void> Function(Future<void> Function()) run,
   Future<void> Function() pickSubtitle,
+  Future<void> Function(PlaybackFit) setFit,
+  ValueChanged<_PlaybackCommand> execute,
 ) => [
   MenuFlyoutSubItem(
-    text: Text('播放速度 · ${player.state.rate}×'),
+    text: Text('播放速度 · ${PlaybackRateMemory.label(player.state.rate)}×'),
     items: (_) => [
+      MenuFlyoutItem(
+        text: Text(
+          store.rememberedRate == null
+              ? '1× / 记忆倍速切换'
+              : '1× / ${PlaybackRateMemory.label(store.rememberedRate!)}× 切换',
+        ),
+        trailing: const Text('Z'),
+        onPressed: () => execute(_PlaybackCommand.toggleRate),
+      ),
+      MenuFlyoutItem(
+        text: const Text('放慢 0.1×'),
+        trailing: const Text('X'),
+        onPressed: () => execute(_PlaybackCommand.slower),
+      ),
+      MenuFlyoutItem(
+        text: const Text('加速 0.1×'),
+        trailing: const Text('C'),
+        onPressed: () => execute(_PlaybackCommand.faster),
+      ),
+      const MenuFlyoutSeparator(),
       for (var rate in [0.5, 0.75, 1.0, 1.25, 1.5, 2.0])
         ToggleMenuFlyoutItem(
-          text: Text('$rate×'),
+          text: Text('${PlaybackRateMemory.label(rate)}×'),
           value: player.state.rate == rate,
-          onChanged: (_) => unawaited(run(() => player.setRate(rate))),
+          onChanged: (_) => unawaited(run(() => store.setRate(rate))),
+        ),
+    ],
+  ),
+  MenuFlyoutSubItem(
+    text: Text('视频画幅 · ${store.fit.label}'),
+    items: (_) => [
+      for (var mode in PlaybackFit.values)
+        ToggleMenuFlyoutItem(
+          text: Text('${mode.label} · ${mode.description}'),
+          value: store.fit == mode,
+          onChanged: (_) => unawaited(run(() => setFit(mode))),
         ),
     ],
   ),
@@ -613,6 +889,12 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
     onPressed: () => unawaited(run(pickSubtitle)),
   ),
 ];
+
+BoxFit _playbackBoxFit(PlaybackFit mode) => switch (mode) {
+  PlaybackFit.stretch => BoxFit.fill,
+  PlaybackFit.tile => BoxFit.cover,
+  PlaybackFit.fit => BoxFit.contain,
+};
 
 String _playbackTrackLabel(String id, String? title, String? language) {
   if (id == 'auto') return '自动选择';
