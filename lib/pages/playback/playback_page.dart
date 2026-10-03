@@ -23,12 +23,14 @@ import '../../core/theme/bt_theme.dart';
 import '../../models/playback/playback_fit.dart';
 import '../../models/playback/playback_item.dart';
 import '../../models/playback/playback_rate.dart';
+import '../../providers/episode_mark_providers.dart';
 import '../../store/nav_store.dart';
 import '../../store/playback_store.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import 'playback_actions.dart';
 import 'playback_label.dart';
+import 'playback_episode_mark.dart';
 
 part 'playback_controls.dart';
 part 'playback_overlay.dart';
@@ -258,6 +260,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
         child: Column(
           children: [
             _buildHeader(store),
+            if (store.video == null) const PlaybackEpisodeMarkPrompt(),
             const SizedBox(height: 16),
             Expanded(
               child: LayoutBuilder(
@@ -298,6 +301,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   }
 
   Widget _buildHeader(PlaybackStore store) {
+    var marking = ref.watch(episodeMarkProvider);
     var current = store.current;
     var label = current == null ? null : PlaybackLabel.fromName(current.title);
     return SizedBox(
@@ -345,6 +349,14 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          ToggleSwitch(
+            checked: marking.enabled,
+            content: const Text('结束后提示标记看过'),
+            onChanged: (value) => _run(
+              () => ref.read(episodeMarkProvider.notifier).setEnabled(value),
             ),
           ),
           const SizedBox(width: 12),

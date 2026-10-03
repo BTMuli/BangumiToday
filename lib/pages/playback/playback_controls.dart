@@ -748,6 +748,21 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                                 fullscreen: theme,
                                 child: _buildChrome(theme),
                               ),
+                              if ((ModalRoute.of(context)?.isCurrent ?? true) &&
+                                  !widget.overlay.showInfo &&
+                                  !widget.overlay.showHelp)
+                                Positioned(
+                                  left: 12,
+                                  right: 12,
+                                  top: 64,
+                                  child: PlaybackEpisodeMarkPrompt(
+                                    beforeOpenSubject: () async {
+                                      if (widget.video.isFullscreen()) {
+                                        await widget.video.exitFullscreen();
+                                      }
+                                    },
+                                  ),
+                                ),
                               if (widget.overlay.showInfo)
                                 Positioned.fill(
                                   left: 16,

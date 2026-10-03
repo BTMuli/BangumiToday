@@ -11,6 +11,8 @@ import '../../models/bangumi/bangumi_model.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../models/hive/nav_model.dart';
 import '../../providers/app_providers.dart';
+import '../../providers/episode_mark_providers.dart';
+import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_content_frame.dart';
@@ -259,6 +261,15 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    var subject = int.tryParse(widget.id);
+    if (subject != null) {
+      ref.listen(episodeMarkRefreshProvider(subject), (_, value) {
+        var event = value.asData?.value;
+        var account = ref.read(bgmUserStoreProvider).user?.id.toString();
+        if (event == null || event.account.split(':').first != account) return;
+        unawaited(_refreshAfterEpisodeMark());
+      });
+    }
     return ScaffoldPage(
       header: buildHeader(),
       content: Stack(
@@ -277,5 +288,19 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
         ],
       ),
     );
+  }
+
+  Future<void> _refreshAfterEpisodeMark() async {
+    try {
+      for (var key in [_collectionKey, _episodesKey]) {
+        if (!mounted) return;
+        var child = key.currentState;
+        if (child is SubjectDetailRefreshable) {
+          await (child as SubjectDetailRefreshable).refresh();
+        }
+      }
+    } catch (error) {
+      BTLogTool.warn('标记看过后刷新详情失败：$error');
+    }
   }
 }
