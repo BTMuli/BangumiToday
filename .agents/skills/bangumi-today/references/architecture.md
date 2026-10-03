@@ -33,11 +33,11 @@ Contents:
 
 ## Persistence
 
-### SQLite (`BTSqlite`)
+### SQLite (`BTSqlite` / `BtDatabase`)
 
-- DB file: `<appData>/app/BangumiToday.db`, opened with `sqflite_common_ffi` at version 1.
-- Tables: `AppConfig` (key-value settings), `AppBmf` (subject -> Mikan RSS + download dir; columns `subject, title, airDate, rss, download, autoUpdate, mkBgmId, mkGroupId`), `AppRss` (cached raw RSS XML per URL/mkId, with `ttl`, `updated`, `pendingItemKeys`), `BangumiCollection`, `BangumiUser`, `BangumiDataSite` / `BangumiDataItem` (bangumi-data schedule).
-- Every table class has `preCheck()` with `PRAGMA table_info` guarded `ALTER TABLE` migrations for old installs; always run `preCheck()` before queries.
+- DB file: `<appData>/app/BangumiToday.db`, owned by `BtDatabase` (`lib/database/drift/bt_database.dart`) and opened with `NativeDatabase.createInBackground` at `schemaVersion` 1. `BTSqlite.init()` opens it once and runs a `SELECT 1` so `migration.beforeOpen` (per-table column backfill) finishes before business reads.
+- Tables: `AppConfig` (key-value settings), `AppBmf` (subject -> Mikan RSS + download dir; columns `subject, title, airDate, rss, download, autoUpdate, mkBgmId, mkGroupId`), `AppRss` (cached raw RSS XML per URL/mkId, with `ttl`, `updated`, `pendingItems`, `cacheVersion`, `lastFailed`), `AppPlayback` (local playback history), `BangumiCollection`, `BangumiUser`, `BangumiDataSite` / `BangumiDataItem` (bangumi-data schedule).
+- Schema evolution lives only in `BtDatabase.migration`; accessors go through `BTSqlite().db` and Drift's typed queries (`select`/`into`/`update`/`delete`), then map rows into the existing models. There is no `preCheck()` / `ALTER TABLE` in accessors anymore.
 - Secrets: Mikan token in `flutter_secure_storage` (`BtsMikanCredential`); Bangumi user tokens in secure storage + Hive `bgmUser`.
 
 ### Hive
@@ -69,7 +69,8 @@ Contents:
 | `BtrMikanApi` | `lib/request/mikan/mikan_api.dart` | Mikan RSS/search client |
 | `BmfRssService` | `lib/core/services/bmf_rss_service.dart` | Background RSS refresh + notifications |
 | `BtEngineClient` | `lib/core/services/bt_engine/client.dart` | bt_download process client |
-| `BTSqlite` | `lib/database/bt_sqlite.dart` | SQLite singleton |
+| `BTSqlite` | `lib/database/bt_sqlite.dart` | SQLite singleton holding the single `BtDatabase` connection |
+| `BtDatabase` | `lib/database/drift/bt_database.dart` | Drift schema owner (8 tables, `migration.beforeOpen`) |
 | `BTHiveTool` | `lib/database/bt_hive.dart` | Opens Hive boxes |
 | `BTLogTool` | `lib/tools/log_tool.dart` | Structured logging with `sanitize` |
 | `BTCacheManager` / `LRUCacheManager` | `lib/core/cache/` | App cache and LRU cache |

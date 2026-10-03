@@ -9,7 +9,7 @@ description: "Navigate, analyze, and modify the BangumiToday Flutter codebase: i
 
 BangumiToday is a desktop-only Flutter app (Windows/macOS) that aggregates Bangumi.tv data with Mikan / AniBT / Comicat RSS feeds. Features: today calendar, subject search & detail, user collection, "RSS & BMF" subscriptions (with torrent download), and a BitTorrent download manager backed by the bundled `bt_download` engine.
 
-Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `hooks_riverpod` (state), SQLite via `sqflite_common_ffi` + Hive (storage), `dio` (network), `json_serializable` (codegen).
+Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `flutter_riverpod` (state), SQLite via `drift` + Hive CE (storage), `dio` (network), `json_serializable` (codegen).
 
 ## Skill boundaries
 
@@ -26,7 +26,7 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `hooks_riverpod` (st
 | `lib/controller/` | Page-scoped controllers (nav index, progress) |
 | `lib/core/` | Cross-cutting: constants, cache, layout, theme, services, errors, utils |
 | `lib/data/` + `lib/domain/` | Bangumi/BMF repositories；`data/parsers/` 为无状态解析器 |
-| `lib/database/` | SQLite access: `app/` (AppConfig, AppBmf, AppRss, Mikan credential) and `bangumi/` (user, collection, data); `bt_hive.dart` opens Hive boxes |
+| `lib/database/` | SQLite access: `drift/`（`BtDatabase` + 8 张表的 schema 与生成代码）、`app/` (AppConfig, AppBmf, AppRss, playback, Mikan credential) and `bangumi/` (user, collection, data); `bt_hive.dart` opens Hive boxes |
 | `lib/models/` | JSON / Hive / database models with generated `.g.dart`（含 `mikan/`） |
 | `lib/pages/` | Feature pages (`download`, `app_setting`, `bangumi_calendar`, `rss_bmf`, `subject_detail`, `subject_search`, `user_collection`) + 仅该页使用的组件 |
 | `lib/providers/` | Riverpod provider exports；`bangumi_providers.dart` / `bmf_providers.dart` 组装仓储 |
@@ -58,9 +58,11 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `hooks_riverpod` (st
 2. Run `dart run build_runner build --delete-conflicting-outputs`.
 3. Commit the generated `.g.dart` files (they are checked in; formatting excludes them).
 
-### Add a SQLite table
+### Add a SQLite table or column
 
-Follow the pattern in `lib/database/app/app_bmf.dart`: singleton accessor, `preCheck()` creating the table, `PRAGMA table_info` guarded `ALTER TABLE` migrations for backward compatibility, and `read/write/delete` helpers that call the relevant service hooks (e.g. `BmfRssService.onBmfWritten` / `onBmfDeleted`).
+Tables live in `lib/database/drift/tables/` (`@DataClassName(...)`, explicit `.named()` for camelCase columns) and are registered in `@DriftDatabase(tables: [...])` in `lib/database/drift/bt_database.dart`. Regenerate with `dart run build_runner build --delete-conflicting-outputs` and commit `bt_database.g.dart` / `drift_schema` artifacts as the project already does.
+
+Accessors (`lib/database/app/*.dart`, `lib/database/bangumi/*.dart`) hold no DDL: they get the connection from `BTSqlite().db` and use Drift's typed API, converting rows to models with `row.toJson()` plus the model's `fromJson` / `fromSqlJson`. Structure changes are owned by `BtDatabase.migration` (`beforeOpen` backfills missing columns for old installs), so never re-add `preCheck()` / `ALTER TABLE` in an accessor.
 
 ### Code quality (local, before commit)
 

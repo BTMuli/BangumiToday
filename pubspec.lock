@@ -1369,14 +1369,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.5.13"
-  sqflite_common_ffi:
-    dependency: "direct main"
-    description:
-      name: sqflite_common_ffi
-      sha256: "4ec920a01788641fa1c9922e757c108427e7f8634cce3ce8a1073d573060f4a3"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "2.4.3"
   sqflite_darwin:
     dependency: transitive
     description:
