@@ -13,6 +13,7 @@ import '../../controller/progress_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/app_link_service.dart';
 import '../../core/services/bangumi_oauth_coordinator.dart';
+import '../../core/utils/get_theme_label.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../pages/app-setting/app_setting_page.dart';
 import '../../pages/app/download_page.dart';
@@ -26,7 +27,6 @@ import '../../request/bangumi/bangumi_oauth.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
-import '../../utils/get_theme_label.dart';
 import 'nav_page_stack.dart';
 
 /// 应用导航

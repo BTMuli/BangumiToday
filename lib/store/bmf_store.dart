@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:async';
+
 // Flutter imports:
 import 'package:flutter/foundation.dart';
 
@@ -7,9 +10,10 @@ import 'package:flutter_riverpod/legacy.dart';
 
 // Project imports:
 import '../core/utils/async_pool.dart';
-import '../database/app/app_bmf.dart';
+import '../domain/repositories/bmf_repository.dart';
 import '../models/database/app_bmf_model.dart';
 import '../providers/bangumi_providers.dart';
+import '../providers/bmf_providers.dart';
 import '../tools/log_tool.dart';
 
 final bmfListProvider =
@@ -41,21 +45,43 @@ class BmfNavigationStore extends ChangeNotifier {
 class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
   static const int _airDateLookupConcurrency = 4;
 
-  final BtsAppBmf _sqlite = BtsAppBmf();
   final Map<int, AppBmfModel> _bmfMap = {};
+  StreamSubscription<BmfChange>? _changes;
 
   Map<int, AppBmfModel> get bmfMap => Map.unmodifiable(_bmfMap);
 
   @override
   Future<List<AppBmfModel>> build() async {
-    var list = await _readAllWithAirDates();
+    var repository = ref.watch(bmfRepositoryProvider);
+    // 由状态层订阅仓储变更，而不是让数据层反向持有 notifier。
+    _changes = repository.changes.listen(_onChange);
+    ref.onDispose(() {
+      unawaited(_changes?.cancel());
+      _changes = null;
+    });
+    var list = await _readAllWithAirDates(repository);
     _syncMap(list);
     list.sort((a, b) => b.subject.compareTo(a.subject));
     return list;
   }
 
-  Future<List<AppBmfModel>> _readAllWithAirDates() async {
-    var list = await _sqlite.readAll();
+  void _onChange(BmfChange change) {
+    var model = change.model;
+    if (model == null) {
+      if (change.kind == BmfChangeKind.removed) removeItem(change.subject);
+      return;
+    }
+    if (change.kind == BmfChangeKind.added) {
+      addItem(model);
+    } else {
+      updateItem(model);
+    }
+  }
+
+  Future<List<AppBmfModel>> _readAllWithAirDates(
+    BmfRepository repository,
+  ) async {
+    var list = await repository.readAll();
     var missing = list
         .where((item) => item.airDate == null || item.airDate!.isEmpty)
         .toList();
@@ -73,7 +99,7 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
           var airDate = response.data!.date;
           if (airDate == null || airDate.isEmpty) return;
           item.airDate = airDate;
-          await _sqlite.updateAirDate(item.subject, airDate);
+          await repository.updateAirDate(item.subject, airDate);
         } catch (error, stackTrace) {
           BTLogTool.warn([
             '补全 BMF 放送日期失败: subject=${item.subject}',
@@ -96,7 +122,7 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
   Future<void> refresh() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      var list = await _readAllWithAirDates();
+      var list = await _readAllWithAirDates(ref.read(bmfRepositoryProvider));
       _syncMap(list);
       list.sort((a, b) => b.subject.compareTo(a.subject));
       return list;

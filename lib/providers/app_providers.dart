@@ -13,6 +13,7 @@ export '../domain/repositories/bmf_repository.dart';
 export '../store/bmf_store.dart';
 export '../store/nav_store.dart';
 export 'bangumi_providers.dart';
+export 'bmf_providers.dart';
 
 final bgmUserHiveProvider = ChangeNotifierProvider<BgmUserHive>((ref) {
   return BgmUserHive();

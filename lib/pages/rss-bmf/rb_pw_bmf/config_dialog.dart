@@ -14,16 +14,16 @@ class _BmfConfigDraft {
   });
 }
 
-class _BmfConfigDialog extends StatefulWidget {
+class _BmfConfigDialog extends ConsumerStatefulWidget {
   final AppBmfModel bmf;
 
   const _BmfConfigDialog({required this.bmf});
 
   @override
-  State<_BmfConfigDialog> createState() => _BmfConfigDialogState();
+  ConsumerState<_BmfConfigDialog> createState() => _BmfConfigDialogState();
 }
 
-class _BmfConfigDialogState extends State<_BmfConfigDialog> {
+class _BmfConfigDialogState extends ConsumerState<_BmfConfigDialog> {
   late final TextEditingController _titleController;
   late final TextEditingController _rssController;
   late final TextEditingController _downloadController;
@@ -87,7 +87,7 @@ class _BmfConfigDialogState extends State<_BmfConfigDialog> {
     }
 
     setState(() => _refreshing = true);
-    var result = await BmfRssService.instance.refreshBmf(widget.bmf);
+    var result = await ref.read(bmfRepositoryProvider).refreshRss(widget.bmf);
     if (!mounted) return;
     setState(() => _refreshing = false);
     if (result) {

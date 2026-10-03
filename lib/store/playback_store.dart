@@ -10,14 +10,16 @@ import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../core/services/playback_cover.dart';
+import '../core/services/playback_history.dart';
 import '../core/services/playback_library.dart';
+import '../core/services/playback_settings.dart';
+import '../core/services/playback_subjects.dart';
 import '../core/services/playback_subtitles.dart';
-import '../database/app/app_config.dart';
-import '../database/app/app_playback.dart';
 import '../models/playback/playback_fit.dart';
 import '../models/playback/playback_item.dart';
 import '../models/playback/playback_rate.dart';
 import '../providers/bangumi_providers.dart';
+import '../providers/bmf_providers.dart';
 import '../tools/log_tool.dart';
 import 'bt_download_store.dart';
 
@@ -29,15 +31,31 @@ final playbackStoreProvider = ChangeNotifierProvider<PlaybackStore>((ref) {
       taskFiles: (id, offset) => downloads.taskFiles(id, offset: offset),
     ),
     cover: PlaybackCover(ref.read(bangumiRepositoryProvider)),
+    historyStore: AppPlaybackHistoryStore(),
+    settingsStore: AppPlaybackSettingsStore(),
+    subjectResolver: BmfPlaybackSubjectResolver(
+      ref.read(bmfRepositoryProvider),
+    ),
   );
 });
 
 /// One mpv session. Serial operations keep progress attributed to its file.
+///
+/// 会话只依赖注入的资源校验、历史、配置与条目归属接口，不自己构造存储访问器。
 class PlaybackStore extends ChangeNotifier {
-  PlaybackStore({required this.library, required this.cover});
+  PlaybackStore({
+    required this.library,
+    required this.cover,
+    required this.historyStore,
+    required this.settingsStore,
+    required this.subjectResolver,
+  });
 
   final PlaybackLibrary library;
   final PlaybackCover cover;
+  final PlaybackHistoryStore historyStore;
+  final PlaybackSettingsStore settingsStore;
+  final PlaybackSubjectResolver subjectResolver;
 
   /// Directory and subject used to (re)discover the playlist for a refresh.
   String? _sourceDir;
@@ -45,11 +63,9 @@ class PlaybackStore extends ChangeNotifier {
 
   /// The mounted video surface can leave fullscreen before native teardown.
   Future<void> Function()? beforeVideoDispose;
-  final BtsAppPlayback _history = BtsAppPlayback();
-  final BtsAppConfig _config = BtsAppConfig();
   late final _rateMemory = PlaybackRateMemory(
-    read: () => _config.read('playbackRememberedRate'),
-    write: (value) => _config.write('playbackRememberedRate', value),
+    read: () => settingsStore.read('playbackRememberedRate'),
+    write: (value) => settingsStore.write('playbackRememberedRate', value),
   );
   Future<void>? _preferencesFuture;
   PlaybackFit _fit = PlaybackFit.fit;
@@ -189,26 +205,47 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> refreshHistory() async {
     await _loadPreferences();
-    history = await _history.readAll();
+    history = await historyStore.readAll();
     _notify();
   }
 
+  /// Opens a single local file, resolving its Bangumi subject when the caller
+  /// does not know it, and rebuilds the playlist from the file's directory.
+  Future<void> openLocalFile(String filePath, {int? subject}) => _serial(
+    () async {
+      var resolved = subject ?? await subjectResolver.subjectForFile(filePath);
+      await library.ensureReady(filePath);
+      if (_closed) return;
+      var discovered = await library.discover(
+        path.dirname(filePath),
+        subject: resolved,
+      );
+      if (_closed) return;
+      await _openSelection(discovered, filePath);
+    },
+  );
+
   Future<void> open(List<PlaybackItem> items, String selectedPath) =>
-      _serial(() async {
-        if (items.isEmpty) throw const PlaybackUnavailable('没有可播放的视频');
-        var selected = PlaybackItem.pathKey(selectedPath);
-        var selectedIndex = items.indexWhere((item) => item.key == selected);
-        if (selectedIndex < 0) {
-          throw const PlaybackUnavailable('所选视频尚未就绪');
-        }
-        await library.ensureReady(items[selectedIndex].filePath);
-        if (_closed) return;
-        await _save();
-        if (_closed) return;
-        _sourceDir = path.dirname(selectedPath);
-        _sourceSubject = _firstSubject(items);
-        await _openIndex(selectedIndex, items: List.unmodifiable(items));
-      });
+      _serial(() => _openSelection(items, selectedPath));
+
+  Future<void> _openSelection(
+    List<PlaybackItem> items,
+    String selectedPath,
+  ) async {
+    if (items.isEmpty) throw const PlaybackUnavailable('没有可播放的视频');
+    var selected = PlaybackItem.pathKey(selectedPath);
+    var selectedIndex = items.indexWhere((item) => item.key == selected);
+    if (selectedIndex < 0) {
+      throw const PlaybackUnavailable('所选视频尚未就绪');
+    }
+    await library.ensureReady(items[selectedIndex].filePath);
+    if (_closed) return;
+    await _save();
+    if (_closed) return;
+    _sourceDir = path.dirname(selectedPath);
+    _sourceSubject = _firstSubject(items);
+    await _openIndex(selectedIndex, items: List.unmodifiable(items));
+  }
 
   /// Re-scans the source directory to pick up newly completed files, keeping
   /// the currently playing item when it is still present.
@@ -246,7 +283,7 @@ class PlaybackStore extends ChangeNotifier {
     var item = nextPlaylist[nextIndex];
     await library.ensureReady(item.filePath);
     if (_closed) return;
-    var previous = await _history.read(item.filePath);
+    var previous = await historyStore.read(item.filePath);
     await _loadPreferences();
     if (_closed) return;
     await _initializePlayer();
@@ -289,7 +326,7 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> _loadPreferences() => _preferencesFuture ??= (() async {
     await _rateMemory.load();
-    _fit = PlaybackFit.parse(await _config.read('playbackFit'));
+    _fit = PlaybackFit.parse(await settingsStore.read('playbackFit'));
     _notify();
   })();
 
@@ -314,7 +351,7 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> setFit(PlaybackFit mode) => _serial(() async {
     await _loadPreferences();
     if (_closed || _fit == mode) return;
-    await _config.write('playbackFit', mode.name);
+    await settingsStore.write('playbackFit', mode.name);
     if (_closed) return;
     _fit = mode;
     _notify();
@@ -339,7 +376,7 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _save({bool refreshHistory = true}) async {
     var item = current;
     if (item == null || loading) return;
-    await _history.write(
+    await historyStore.write(
       PlaybackItem(
         filePath: item.filePath,
         title: item.title,
@@ -355,7 +392,7 @@ class PlaybackStore extends ChangeNotifier {
     // Closing only needs the durable write. Don't query the entire history or
     // rebuild the page while native resources are being released.
     if (!refreshHistory || _closed) return;
-    var savedHistory = await _history.readAll();
+    var savedHistory = await historyStore.readAll();
     if (_closed) return;
     history = savedHistory;
     _notify();
@@ -373,7 +410,7 @@ class PlaybackStore extends ChangeNotifier {
         loading = false;
       }
     }
-    await _history.delete(filePath);
+    await historyStore.delete(filePath);
     await refreshHistory();
   });
 

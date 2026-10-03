@@ -14,7 +14,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
-import '../../database/app/app_bmf.dart';
+import '../../core/utils/bangumi_utils.dart';
 import '../../database/app/app_rss.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
@@ -22,7 +22,6 @@ import '../../models/database/app_bmf_model.dart';
 import '../../providers/app_providers.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
-import '../../utils/bangumi_utils.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/bangumi/subject_detail/bsd_bmf_drawer.dart';
 import '../../widgets/bangumi/subject_detail/bsd_rss_search_dialog.dart';
@@ -174,7 +173,7 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
 
   /// 重新读取该条目的 BMF 状态，订阅被建出来或删掉后同步卡片上的 RSS 按钮。
   Future<void> syncBmfState() async {
-    var bmf = await BtsAppBmf().read(data.id);
+    var bmf = await ref.read(bmfRepositoryProvider).read(data.id);
     if (!mounted) return;
     if ((bmf != null) != _inBmf) setState(() => _inBmf = bmf != null);
   }
@@ -215,8 +214,9 @@ class _BcpCardState extends ConsumerState<BcpCardWidget>
             }
             bmf = bmf.copyWith(rss: rss);
           }
-          await repo.write(bmf);
-          await repo.refreshRss(bmf);
+          var scheduled = await repo.write(bmf);
+          // 写入已按自动更新设置发起过一次拉取，只为关闭自动更新的订阅补一次。
+          if (!scheduled) await repo.refreshRss(bmf);
           if (dialogContext.mounted) {
             await BtInfobar.success(dialogContext, '成功设置 RSS');
           }

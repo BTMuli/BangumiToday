@@ -9,7 +9,7 @@ import 'package:logger/logger.dart';
 import 'package:path/path.dart' as path;
 
 // Project imports:
-import 'file_tool.dart';
+import '../core/services/file_service.dart';
 
 /// 因为Release模式下，日志文件是限制的
 /// 详见：https://github.com/SourceHorizon/logger?tab=readme-ov-file#logfilter

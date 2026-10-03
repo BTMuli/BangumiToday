@@ -9,12 +9,12 @@ import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../core/services/download_service.dart';
+import '../../core/utils/tool_func.dart';
 import '../../models/rss/rss.dart';
-import '../../plugins/mikan/mikan_api.dart';
+import '../../request/mikan/mikan_api.dart';
 import '../../store/bt_download_store.dart';
-import '../../tools/download_tool.dart';
 import '../../ui/bt_infobar.dart';
-import '../../utils/tool_func.dart';
 
 class RssMikanCardFluent extends ConsumerStatefulWidget {
   final RssItem item;

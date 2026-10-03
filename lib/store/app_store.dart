@@ -6,9 +6,9 @@ import 'package:system_theme/system_theme.dart';
 // Project imports:
 import '../core/constants/app_constants.dart';
 import '../database/app/app_config.dart';
-import '../plugins/mikan/mikan_api.dart';
 import '../request/bangumi/bangumi_api.dart';
 import '../request/core/client.dart';
+import '../request/mikan/mikan_api.dart';
 import '../tools/log_tool.dart';
 
 /// 应用状态提供者

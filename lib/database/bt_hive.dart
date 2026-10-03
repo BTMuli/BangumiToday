@@ -2,12 +2,12 @@
 import 'package:hive/hive.dart';
 
 // Project imports:
+import '../core/services/file_service.dart';
 import '../models/hive/bgm_user_model.dart';
 import '../models/hive/nav_model.dart';
 import '../models/hive/tracker_model.dart';
 import '../store/bgm_user_hive.dart';
 import '../store/tracker_hive.dart';
-import 'file_tool.dart';
 
 /// 采用Hive来存储本地数据
 class BTHiveTool {

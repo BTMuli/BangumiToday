@@ -3,12 +3,12 @@ import 'package:dio/dio.dart';
 
 // Project imports:
 import '../../core/constants/app_constants.dart';
+import '../../data/parsers/mikan_parser.dart';
 import '../../models/app/response.dart';
+import '../../models/mikan/mikan_model.dart';
 import '../../models/rss/rss.dart';
-import '../../request/core/client.dart';
 import '../../tools/log_tool.dart';
-import 'mikan_utils.dart';
-import 'models/mikan_model.dart';
+import '../core/client.dart';
 
 /// 蜜柑计划的API，主要是 rss 订阅
 /// 站点：https://mikanani.kas.pub

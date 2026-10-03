@@ -12,12 +12,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../../controller/progress_controller.dart';
+import '../../../core/services/file_service.dart';
 import '../../../core/theme/bt_theme.dart';
 import '../../../database/app/app_rss.dart';
 import '../../../models/database/app_bmf_model.dart';
 import '../../../pages/subject-detail/subject_stat_providers.dart';
 import '../../../providers/app_providers.dart';
-import '../../../tools/file_tool.dart';
 import '../../../tools/log_tool.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_icon.dart';
@@ -124,6 +124,10 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
     return data.nameCn;
   }
 
+  /// 补齐空标题。
+  ///
+  /// 只更新内存里的 [bmf]，由调用方随后的写库一起落盘，避免一次用户操作触发两次
+  /// 写入与两次 RSS 调度。
   Future<void> titleCheck() async {
     if (bmf.title != null && bmf.title!.isNotEmpty) return;
     if (bmf.id != -1) {
@@ -137,8 +141,6 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
     var title = await getTitle();
     if (title != null) bmf.title = title;
     setState(() {});
-    var repo = ref.read(bmfRepositoryProvider);
-    await repo.write(bmf);
     if (mounted && bmf.id != -1) {
       await BtInfobar.success(context, '[${bmf.subject}]已设置标题：${bmf.title}');
     }
@@ -190,8 +192,9 @@ class _BsdBmfDrawerState extends ConsumerState<BsdBmfDrawer> {
     }
     bmf = bmf.copyWith(rss: newRss);
     await titleCheck();
-    await repo.write(bmf);
-    await repo.refreshRss(bmf);
+    var scheduled = await repo.write(bmf);
+    // 写入已按自动更新设置发起过一次拉取，只为关闭自动更新的订阅补一次。
+    if (!scheduled) await repo.refreshRss(bmf);
     var read = await repo.read(bmf.subject);
     if (read != null) bmf = read;
     setState(() {});

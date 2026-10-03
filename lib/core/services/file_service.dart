@@ -9,8 +9,8 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 // Project imports:
-import '../ui/bt_infobar.dart';
-import 'log_tool.dart';
+import '../../tools/log_tool.dart';
+import '../../ui/bt_infobar.dart';
 
 /// 文件工具
 class BTFileTool {

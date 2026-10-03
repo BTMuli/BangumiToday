@@ -23,7 +23,7 @@ Paths below are relative to the repository root. Use `$bangumi-today` for archit
 | Responsibility | File |
 | --- | --- |
 | AniBT feed request and base URL | `lib/request/rss/anibt_api.dart` |
-| Shared RSS models and namespace-aware parser | `lib/plugins/rss/rss_parser.dart` (exported by `lib/models/rss/rss.dart`) |
+| Shared RSS models and namespace-aware parser | `lib/data/parsers/rss_parser.dart` (exported by `lib/models/rss/rss.dart`) |
 | AniBT feed page, search, refresh, lazy list, and website link | `lib/pages/rss-bmf/rb_pw_anibt.dart` |
 | RSS query filters, local filtering, and sort rules | `lib/models/rss/anibt_filters.dart` |
 | Filter panel and shared metadata chips | `lib/widgets/rss/anibt_filter_dialog.dart`, `lib/widgets/rss/anibt_tag_chip.dart` |

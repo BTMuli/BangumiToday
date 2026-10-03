@@ -11,7 +11,7 @@ import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
-import '../core/constants/app_constants.dart';
+import '../constants/app_constants.dart';
 
 //// 通知队列，changeNotifier
 class BTNotifierQueue extends ChangeNotifier {

@@ -4,11 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../../core/theme/bt_theme.dart';
+import '../../../core/utils/bangumi_utils.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/request_subject.dart';
 import '../../../store/nav_store.dart';
 import '../../../ui/bt_icon.dart';
-import '../../../utils/bangumi_utils.dart';
 import '../../common/bt_card.dart';
 import '../bt_bangumi_cover.dart';
 

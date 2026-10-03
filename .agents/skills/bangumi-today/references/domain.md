@@ -26,7 +26,7 @@ Contents:
 
 ## RSS sources & parsing
 
-- Self-built parser `lib/plugins/rss/rss_parser.dart` (`RssFeed` / `RssItem`) on `package:xml`. It supports standard RSS 2.0 plus the `<torrent>` extension (AniBT) and Mikan's pubDate inside `<torrent>` (fallback when `<item><pubDate>` is absent); `SafeParseDateTime` handles RFC-822 dates.
+- Self-built parser `lib/data/parsers/rss_parser.dart` (`RssFeed` / `RssItem`, re-exported by `lib/models/rss/rss.dart`) on `package:xml`. It supports standard RSS 2.0 plus the `<torrent>` extension (AniBT) and Mikan's pubDate inside `<torrent>` (fallback when `<item><pubDate>` is absent); `SafeParseDateTime` handles RFC-822 dates.
 - Mikan (`BtrMikanApi`, default base https://mikanani.kas.pub; official https://mikanani.me is a selectable preset): `/RSS/Classic`, `/RSS/MyBangumi?token=...`, `/RSS/Bangumi?bangumiId=<id>&subgroupid=<gid>`, `/Home/Search?searchstr=...`, plus arbitrary custom RSS fetch. Token is stored in secure storage.
 - AniBT (`AnibtAPI`): `https://anibt.net/rss/magnets.xml`.
 - Comicat (`ComicatAPI`): `https://www.comicat.org/rss.xml`.

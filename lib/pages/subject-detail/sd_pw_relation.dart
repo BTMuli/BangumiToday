@@ -5,12 +5,12 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
+import '../../core/utils/tool_func.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
-import '../../utils/tool_func.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import 'sdp_refreshable.dart';
 

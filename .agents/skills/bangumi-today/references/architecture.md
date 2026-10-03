@@ -20,8 +20,9 @@ Contents:
 
 - Riverpod 3; store providers import `package:flutter_riverpod/legacy.dart` and use `ChangeNotifierProvider` / `AsyncNotifierProvider` (`appStoreProvider`, `navStoreProvider`, `bmfListProvider`, `bmfNavigationProvider`, `btDownloadStoreProvider`). `lib/providers/providers.dart` re-exports the stores.
 - Bangumi reads/writes go through `bangumiRepositoryProvider` (`lib/providers/bangumi_providers.dart`): remote API plus SQLite collections. Remote collection failures other than 404 fall back to local rows; 404 deletes the local row.
+- BMF subscriptions go through `bmfRepositoryProvider` (`lib/providers/bmf_providers.dart`, interface in `lib/domain/repositories/bmf_repository.dart`, implementation in `lib/data/repositories/bmf_repository_impl.dart`); the implementation is the only owner of the RSS refresh triggered by a write, and it publishes `BmfChange` events that `bmfListProvider` subscribes to.
 - Store classes in `lib/store/` are `ChangeNotifier`s: write to SQLite/Hive, then `notifyListeners()`.
-- `lib/tools/` classes are stateless singletons (`BTLogTool`, `BTHiveTool`, `BTFileTool`, `BTDownloadTool`, `BTNotifierTool`); call them without Riverpod.
+- `lib/core/services/` classes are stateless singletons (`BTLogTool` stays in `lib/tools/`; `BTFileTool`, `BTDownloadTool`, `BTNotifierTool` live here now) and are called without Riverpod. Hive box opening lives in `lib/database/bt_hive.dart` (`BTHiveTool`).
 - `lib/core/services/` singletons expose `instance` (see `BmfRssService`, `BangumiOAuthCoordinator`, `BtEngineClient`).
 
 ## Navigation model
@@ -66,10 +67,10 @@ Contents:
 | `globalContainer` | `lib/main.dart` | Root ProviderContainer used by services for navigation |
 | `BTBangumiRepository` | `lib/data/repositories/bangumi_repository_impl.dart` | Bangumi API + local collection cache |
 | `BtrBangumiApi` | `lib/request/bangumi/bangumi_api.dart` | Bangumi API client (static base URL) |
-| `BtrMikanApi` | `lib/plugins/mikan/mikan_api.dart` | Mikan RSS/search client |
+| `BtrMikanApi` | `lib/request/mikan/mikan_api.dart` | Mikan RSS/search client |
 | `BmfRssService` | `lib/core/services/bmf_rss_service.dart` | Background RSS refresh + notifications |
 | `BtEngineClient` | `lib/core/services/bt_engine/client.dart` | bt_download process client |
 | `BTSqlite` | `lib/database/bt_sqlite.dart` | SQLite singleton |
-| `BTHiveTool` | `lib/tools/hive_tool.dart` | Opens Hive boxes |
+| `BTHiveTool` | `lib/database/bt_hive.dart` | Opens Hive boxes |
 | `BTLogTool` | `lib/tools/log_tool.dart` | Structured logging with `sanitize` |
 | `BTCacheManager` / `LRUCacheManager` | `lib/core/cache/` | App cache and LRU cache |

@@ -12,15 +12,15 @@ import 'package:path/path.dart' as path;
 // Project imports:
 import '../core/network/system_proxy.dart';
 import '../core/services/bt_engine_client.dart';
+import '../core/services/file_service.dart';
+import '../core/services/notification_service.dart';
 import '../core/services/windows_firewall_rule.dart';
-import '../database/app/app_bmf.dart';
 import '../database/app/app_config.dart';
 import '../main.dart';
 import '../models/app/bt_download_config.dart';
 import '../models/database/app_bmf_model.dart';
-import '../tools/file_tool.dart';
+import '../providers/bmf_providers.dart';
 import '../tools/log_tool.dart';
-import '../tools/notifier_tool.dart';
 import 'nav_store.dart';
 import 'tracker_hive.dart';
 
@@ -632,7 +632,7 @@ class BtDownloadStore extends ChangeNotifier {
   static Future<AppBmfModel?> _findMatchingBmf(String savePath) async {
     if (savePath.isEmpty) return null;
     try {
-      var bmfList = await BtsAppBmf().readAll();
+      var bmfList = await globalContainer.read(bmfRepositoryProvider).readAll();
       var target = path.normalize(savePath).toLowerCase();
       for (var bmf in bmfList) {
         var downloadDir = bmf.download;

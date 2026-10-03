@@ -323,7 +323,9 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
           child: IconButton(
             icon: BtIcon(FluentIcons.refresh, size: 14),
             onPressed: () async {
-              var result = await BmfRssService.instance.refreshBmf(widget.bmf);
+              var result = await ref
+                  .read(bmfRepositoryProvider)
+                  .refreshRss(widget.bmf);
               if (!context.mounted) return;
               if (result) {
                 await BtInfobar.success(context, 'RSS 刷新成功');

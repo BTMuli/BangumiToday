@@ -8,9 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import '../../controller/progress_controller.dart';
 import '../../core/errors/error_handler.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/async_pool.dart';
-import '../../database/app/app_bmf.dart';
+import '../../core/utils/bangumi_utils.dart';
 import '../../database/app/app_config.dart';
 import '../../database/bangumi/bangumi_data.dart';
 import '../../domain/repositories/bangumi_repository.dart';
@@ -21,10 +22,8 @@ import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_data.dart';
 import '../../store/bgm_user_hive.dart';
 import '../../tools/log_tool.dart';
-import '../../tools/notifier_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
-import '../../utils/bangumi_utils.dart';
 import '../subject-search/subject_search_page.dart';
 import 'bc_pw_day.dart';
 import 'bcp_calendar_data.dart';
@@ -60,9 +59,6 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
   /// bangumiData数据库
   final BtsBangumiData sqliteBd = BtsBangumiData();
-
-  /// BMF 数据库
-  final BtsAppBmf sqliteBmf = BtsAppBmf();
 
   /// 用户hive
   final BgmUserHive hive = BgmUserHive();
@@ -522,7 +518,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// BMF 订阅列表里的 subject id。
   Future<Set<int>> loadBmfIds() async {
     try {
-      var list = await sqliteBmf.readAll();
+      var list = await ref.read(bmfRepositoryProvider).readAll();
       return {for (var item in list) item.subject};
     } catch (_) {
       return {};

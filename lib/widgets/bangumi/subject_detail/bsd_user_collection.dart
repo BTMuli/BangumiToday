@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../../core/theme/bt_theme.dart';
+import '../../../core/utils/bangumi_utils.dart';
 import '../../../models/bangumi/bangumi_enum.dart';
 import '../../../models/bangumi/bangumi_model.dart';
 import '../../../pages/subject-detail/sdp_refreshable.dart';
@@ -14,7 +15,6 @@ import '../../../providers/app_providers.dart';
 import '../../../request/bangumi/bangumi_api.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_infobar.dart';
-import '../../../utils/bangumi_utils.dart';
 
 /// SubjectDetail的收藏模块，负责整个Subject的收藏信息
 class BsdUserCollection extends ConsumerStatefulWidget {

@@ -3,7 +3,7 @@ import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Project imports:
-import '../tools/file_tool.dart';
+import '../core/services/file_service.dart';
 import '../tools/log_tool.dart';
 
 /// SQLite 数据库

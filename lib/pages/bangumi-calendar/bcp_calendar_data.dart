@@ -1,9 +1,9 @@
 // Project imports:
+import '../../core/utils/bangumi_utils.dart';
 import '../../models/bangumi/bangumi_data_model.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model_legacy.dart';
 import '../../models/bangumi/request_subject.dart';
-import '../../utils/bangumi_utils.dart';
 
 /// 首页日历条目：bgm 条目 + 本地时间的放送时刻
 class BcpCalendarItem {

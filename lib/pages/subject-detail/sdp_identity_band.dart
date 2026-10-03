@@ -8,13 +8,13 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
+import '../../core/utils/bangumi_utils.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
-import '../../utils/bangumi_utils.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/common/bt_card.dart';
 

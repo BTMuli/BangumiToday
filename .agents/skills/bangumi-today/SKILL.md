@@ -24,18 +24,16 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `hooks_riverpod` (st
 | `lib/main.dart` | Startup sequence, background service bootstrap, global ProviderContainer |
 | `lib/app.dart` | FluentApp shell, theme / window material sync |
 | `lib/controller/` | Page-scoped controllers (nav index, progress) |
-| `lib/core/` | Cross-cutting: constants, cache, layout, theme, services, errors, window effects |
-| `lib/data/` + `lib/domain/` | Bangumi repository：远程 API + 收藏 SQLite 本地源 |
-| `lib/database/` | SQLite access: `app/` (AppConfig, AppBmf, AppRss, Mikan credential) and `bangumi/` (user, collection, data) |
-| `lib/models/` | JSON / Hive / database models with generated `.g.dart` |
+| `lib/core/` | Cross-cutting: constants, cache, layout, theme, services, errors, window effects, stateless utils |
+| `lib/data/` + `lib/domain/` | Bangumi/BMF repositories：远程 API + 本地源；`data/parsers/` 放无状态解析器 |
+| `lib/database/` | SQLite access: `app/` (AppConfig, AppBmf, AppRss, Mikan credential) and `bangumi/` (user, collection, data)；`bt_hive.dart` 负责 Hive 初始化 |
+| `lib/models/` | JSON / Hive / database models with generated `.g.dart`（含 `mikan/`） |
 | `lib/pages/` | Feature pages (`app`, `app-setting`, `bangumi-calendar`, `rss-bmf`, `subject-detail`, `subject-search`, `user-collection`) |
-| `lib/plugins/` | Mikan API + self-built RSS parser |
-| `lib/providers/` | Riverpod provider exports；`bangumi_providers.dart` 组装 Bangumi 仓储 |
-| `lib/request/` | dio clients: `bangumi/`, `rss/`, `core/` (BtrClient, RequestManager) |
+| `lib/providers/` | Riverpod provider exports；`bangumi_providers.dart` / `bmf_providers.dart` 组装仓储 |
+| `lib/request/` | dio clients: `bangumi/`, `rss/`, `mikan/`, `core/` (BtrClient, RequestManager) |
 | `lib/store/` | ChangeNotifier stores (app, nav, bmf, download) + Hive boxes |
-| `lib/tools/` | Stateless utility singletons (log, hive, download, file, notifier) |
+| `lib/tools/` | 过渡目录，目前只剩日志工具 |
 | `lib/ui/` | Shared dialogs, infobars, icons, engine switch |
-| `lib/utils/` | Small helpers (Bangumi URL / rating utils) |
 | `lib/widgets/` | Reusable widgets grouped by domain |
 | `repos/bt_download` | C++ download engine submodule (CMake/vcpkg, libtorrent) |
 

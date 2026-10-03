@@ -3,8 +3,8 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
+import '../../core/utils/tool_func.dart';
 import '../../models/bangumi/bangumi_model.dart';
-import '../../utils/tool_func.dart';
 import 'sdp_view_data.dart';
 
 Widget sdpSurfaceCard(BuildContext context, Widget child) {

@@ -1,11 +1,13 @@
 // Project imports:
-import '../../core/services/bmf_rss_service.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
 
 /// Bangumi-Mikan-File Map
 /// 用于存储特定条目对应的MikanRSS及下载目录
+///
+/// 只负责表存取：写入/删除后的 RSS 调度由 `BmfRepositoryImpl` 统一触发，
+/// 保证每次成功写入恰好刷新一次。
 class BtsAppBmf {
   BtsAppBmf._();
 
@@ -195,7 +197,6 @@ class BtsAppBmf {
       );
     }
     BTLogTool.info('Write $_tableName subject: ${model.subject}');
-    await BmfRssService.instance.onBmfWritten(model);
   }
 
   /// Updates only the subject air date while backfilling old records.
@@ -212,20 +213,12 @@ class BtsAppBmf {
   /// 删除配置
   Future<void> delete(int subject) async {
     await _instance.preCheck();
-    var existing = await read(subject);
     await _instance.sqlite.db.delete(
       _tableName,
       where: 'subject = ?',
       whereArgs: [subject],
     );
     BTLogTool.info('Delete $_tableName subject: $subject');
-    if (existing != null) {
-      await BmfRssService.instance.onBmfDeleted(
-        subject,
-        existing.mkBgmId,
-        existing.rss,
-      );
-    }
   }
 
   /// 检测RSS链接是否存在

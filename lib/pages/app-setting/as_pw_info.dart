@@ -11,15 +11,15 @@ import 'package:path_provider/path_provider.dart';
 // Project imports:
 import '../../controller/progress_controller.dart';
 import '../../core/cache/cache_manager.dart';
+import '../../core/services/download_service.dart';
+import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
+import '../../core/utils/get_theme_label.dart';
 import '../../store/app_store.dart';
-import '../../tools/download_tool.dart';
-import '../../tools/file_tool.dart';
 import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
-import '../../utils/get_theme_label.dart';
 import '../../widgets/common/bt_buttons.dart';
 import '../../widgets/common/bt_setting_section.dart';
 

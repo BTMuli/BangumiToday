@@ -3,7 +3,7 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart';
 
 // Project imports:
-import 'models/mikan_model.dart';
+import '../../models/mikan/mikan_model.dart';
 
 /// 解析搜索结果返回的 html，获取搜索结果列表
 List<MikanSearchItemModel> parseSearchResult(String html, String baseUrl) {

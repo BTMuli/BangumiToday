@@ -225,8 +225,9 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
                   rss: rss,
                 )
               : bmf.copyWith(rss: rss);
-          await repo.write(bmf);
-          await repo.refreshRss(bmf);
+          var scheduled = await repo.write(bmf);
+          // 写入已按自动更新设置发起过一次拉取，只为关闭自动更新的订阅补一次。
+          if (!scheduled) await repo.refreshRss(bmf);
           if (mounted) rssProvider.set(rss);
           if (dialogContext.mounted) {
             await BtInfobar.success(dialogContext, '成功设置 RSS');

@@ -4,10 +4,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 // Project imports:
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/bangumi_utils.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../tools/log_tool.dart';
-import '../../utils/bangumi_utils.dart';
 import '../core/client.dart';
 import 'bangumi_api.dart';
 import 'bangumi_error_handler.dart';

@@ -11,13 +11,13 @@ import '../../models/app/response.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../models/database/app_rss_model.dart';
 import '../../models/rss/rss.dart';
-import '../../plugins/mikan/mikan_api.dart';
+import '../../request/mikan/mikan_api.dart';
 import '../../store/bmf_store.dart';
 import '../../store/nav_store.dart';
 import '../../tools/log_tool.dart';
-import '../../tools/notifier_tool.dart';
 import '../constants/app_constants.dart';
 import '../utils/async_pool.dart';
+import 'notification_service.dart';
 import 'rss_freshness.dart';
 
 class BmfRssUpdateEvent {
@@ -586,9 +586,18 @@ class BmfRssService {
     );
   }
 
-  Future<bool> onBmfWritten(AppBmfModel bmf) async {
+  /// 写入该订阅后是否会顺带发起一次刷新。
+  ///
+  /// 仓储据此判断调用方是否还需要自行 [refreshBmf]；只有服务未启动、关闭了自动
+  /// 更新或没有 RSS 地址时才返回 false。
+  bool willRefreshOnWrite(AppBmfModel bmf) {
     if (!_isInitialized) return false;
-    if (!bmf.autoUpdate || bmf.rss == null || bmf.rss!.isEmpty) return false;
+    if (!bmf.autoUpdate) return false;
+    return bmf.rss != null && bmf.rss!.isNotEmpty;
+  }
+
+  Future<bool> onBmfWritten(AppBmfModel bmf) async {
+    if (!willRefreshOnWrite(bmf)) return false;
 
     var mikanUrl = await _configDb.readMikanUrl();
 

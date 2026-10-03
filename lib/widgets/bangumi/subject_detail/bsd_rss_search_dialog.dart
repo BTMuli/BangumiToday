@@ -7,14 +7,14 @@ import 'package:intl/intl.dart';
 
 // Project imports:
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/tool_func.dart';
+import '../../../models/mikan/mikan_model.dart';
 import '../../../models/rss/anibt_filters.dart';
 import '../../../models/rss/anibt_search.dart';
-import '../../../plugins/mikan/mikan_api.dart';
-import '../../../plugins/mikan/models/mikan_model.dart';
+import '../../../request/mikan/mikan_api.dart';
 import '../../../request/rss/anibt_api.dart';
 import '../../../ui/bt_dialog.dart';
 import '../../../ui/bt_infobar.dart';
-import '../../../utils/tool_func.dart';
 import '../../rss/anibt_tag_chip.dart';
 
 enum _RssSearchSource { mikan, anibt }
