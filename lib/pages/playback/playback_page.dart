@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/material.dart' as material;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -19,6 +20,8 @@ import 'playback_actions.dart';
 import 'playback_label.dart';
 
 part 'playback_controls.dart';
+part 'playback_overlay.dart';
+part 'playback_video_info.dart';
 
 class PlaybackPage extends ConsumerStatefulWidget {
   const PlaybackPage({super.key});
@@ -33,6 +36,8 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   final _playlistScroll = ScrollController();
   final _historyScroll = ScrollController();
   final _videoKey = GlobalKey<VideoState>();
+  final _videoFocus = FocusNode(debugLabel: 'playback-video');
+  final _overlay = _PlaybackOverlayController();
   bool _wasActive = true;
   bool _sidebarVisible = true;
   bool _showHistory = false;
@@ -100,13 +105,21 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     }
     _playlistScroll.dispose();
     _historyScroll.dispose();
+    _overlay.dispose();
+    _videoFocus.dispose();
     unawaited(_store.pause().catchError((Object _) {}));
     super.dispose();
   }
 
   Future<void> _exitVideoFullscreen() async {
+    if (_overlay.closeMenus()) await WidgetsBinding.instance.endOfFrame;
     var video = _videoKey.currentState;
     if (video != null && video.isFullscreen()) await video.exitFullscreen();
+  }
+
+  Future<void> _stopPlayback() async {
+    await _exitVideoFullscreen();
+    await _store.stop();
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -280,7 +293,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
               message: '停止播放',
               child: IconButton(
                 icon: const Icon(FluentIcons.stop, size: 18),
-                onPressed: () => _run(store.stop),
+                onPressed: () => _run(_stopPlayback),
               ),
             ),
           const SizedBox(width: 4),
@@ -322,13 +335,17 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                 ),
                 child: material.Material(
                   color: Colors.black,
-                  child: MaterialDesktopVideoControlsTheme(
-                    normal: _controlsTheme(store, constraints.maxWidth),
-                    fullscreen: _controlsTheme(store, double.infinity),
-                    child: Video(
-                      key: _videoKey,
-                      controller: store.video!,
-                      controls: MaterialDesktopVideoControls,
+                  child: Video(
+                    key: _videoKey,
+                    focusNode: _videoFocus,
+                    controller: store.video!,
+                    controls: (video) => _PlaybackVideoControls(
+                      video: video,
+                      store: store,
+                      player: store.player!,
+                      overlay: _overlay,
+                      run: _run,
+                      pickSubtitle: _pickSubtitle,
                     ),
                   ),
                 ),
