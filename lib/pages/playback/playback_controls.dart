@@ -927,7 +927,9 @@ class _PlaybackSettingsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: Platform.isWindows ? '播放设置：倍速、画幅、超分、音轨和字幕' : '播放设置：倍速、画幅、音轨和字幕',
+    message: Platform.isWindows
+        ? '播放设置：倍速、画幅、超分、响度均衡、音轨和字幕'
+        : '播放设置：倍速、画幅、音轨和字幕',
     child: material.TextButton(
       key: const ValueKey('playback-settings'),
       style: material.TextButton.styleFrom(
@@ -1020,6 +1022,13 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
             onChanged: (_) => unawaited(run(() => store.setUpscaleMode(mode))),
           ),
       ],
+    ),
+  if (Platform.isWindows)
+    ToggleMenuFlyoutItem(
+      text: const Text('响度均衡'),
+      value: store.loudnessEnabled,
+      onChanged: (enabled) =>
+          unawaited(run(() => store.setLoudnessEnabled(enabled))),
     ),
   MenuFlyoutSubItem(
     text: const Text('音轨'),

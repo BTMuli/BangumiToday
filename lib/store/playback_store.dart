@@ -13,6 +13,7 @@ import 'package:path/path.dart' as path;
 import '../core/errors/playback_unavailable.dart';
 import '../core/services/native_playback_upscale_backend.dart';
 import '../core/services/playback_assets.dart';
+import '../core/services/playback_loudness.dart';
 import '../core/services/playback_subtitles.dart';
 import '../core/services/playback_upscaler.dart';
 import '../data/repositories/playback_cover_impl.dart';
@@ -25,8 +26,8 @@ import '../domain/repositories/playback_history.dart';
 import '../domain/repositories/playback_library.dart';
 import '../domain/repositories/playback_settings.dart';
 import '../domain/repositories/playback_subjects.dart';
-import '../models/playback/playback_fit.dart';
 import '../models/playback/playback_completion.dart';
+import '../models/playback/playback_fit.dart';
 import '../models/playback/playback_history_group.dart';
 import '../models/playback/playback_item.dart';
 import '../models/playback/playback_rate.dart';
@@ -87,6 +88,7 @@ class PlaybackStore extends ChangeNotifier {
     write: (value) => settingsStore.write('playbackRememberedRate', value),
   );
   Future<void>? _preferencesFuture;
+  bool _loudnessEnabled = Platform.isWindows;
   PlaybackFit _fit = PlaybackFit.fit;
   double? _aspectRatio;
   Player? _player;
@@ -126,6 +128,7 @@ class PlaybackStore extends ChangeNotifier {
   VideoController? get video => _video;
   PlaybackUpscaler? get upscaler => _upscaler;
   PlaybackUpscaleMode get upscaleMode => _upscaleMode;
+  bool get loudnessEnabled => _loudnessEnabled;
   PlaybackFit get fit => _fit;
   double? get aspectRatio => _aspectRatio;
   double? get rememberedRate => _rateMemory.remembered;
@@ -256,6 +259,9 @@ class PlaybackStore extends ChangeNotifier {
     });
     try {
       await PlaybackSubtitles.configure(player);
+      if (Platform.isWindows) {
+        await PlaybackLoudness.apply(player, _loudnessEnabled);
+      }
     } catch (_) {
       await logs.cancel();
       await _disposePlayer(player);
@@ -267,7 +273,14 @@ class PlaybackStore extends ChangeNotifier {
       return;
     }
     _player = player;
-    _video = VideoController(player);
+    // The full libmpv build adds decoders to hwdec=auto. Keep the original
+    // D3D11 copy-back path for media_kit_video's ANGLE texture output.
+    _video = VideoController(
+      player,
+      configuration: VideoControllerConfiguration(
+        hwdec: Platform.isWindows ? 'd3d11va-copy' : null,
+      ),
+    );
     if (Platform.isWindows) {
       var video = _video!;
       var assets = PlaybackAnime4kAssets(
@@ -487,6 +500,9 @@ class PlaybackStore extends ChangeNotifier {
       await _rateMemory.load();
       _fit = PlaybackFit.parse(await settingsStore.read('playbackFit'));
       if (Platform.isWindows) {
+        _loudnessEnabled = PlaybackLoudness.parse(
+          await settingsStore.read(PlaybackLoudness.settingKey),
+        );
         _upscaleMode = PlaybackUpscaleMode.parse(
           await settingsStore.read('playbackUpscaleMode'),
         );
@@ -497,12 +513,31 @@ class PlaybackStore extends ChangeNotifier {
     unawaited(
       operation.catchError((Object _) {
         // A transport/storage failure must allow the next explicit open/refresh
-        // to retry, instead of caching a failed preference Future for this session.
+        // to retry instead of caching a failed preference Future.
         if (identical(_preferencesFuture, operation)) _preferencesFuture = null;
       }),
     );
     return operation;
   }
+
+  Future<void> setLoudnessEnabled(bool enabled) => _serial(() async {
+    await _loadPreferences();
+    if (_closed || _loudnessEnabled == enabled || !Platform.isWindows) return;
+    var player = _player;
+    if (player != null) await PlaybackLoudness.apply(player, enabled);
+    if (_closed) return;
+    try {
+      await settingsStore.write(PlaybackLoudness.settingKey, '$enabled');
+    } catch (_) {
+      if (!_closed && player != null) {
+        await PlaybackLoudness.apply(player, _loudnessEnabled);
+      }
+      rethrow;
+    }
+    if (_closed) return;
+    _loudnessEnabled = enabled;
+    _notify();
+  });
 
   Future<void> setRate(double rate) => _serial(() async {
     await _player?.setRate(PlaybackRateMemory.normalize(rate));
@@ -662,9 +697,7 @@ class PlaybackStore extends ChangeNotifier {
             await Future<void>.delayed(const Duration(milliseconds: 5200));
           }
         })
-        .catchError((Object error) {
-          _shutdownFailures.add(error);
-        });
+        .catchError(_shutdownFailures.add);
     _nativeDestructions.add(destruction);
     return disposal;
   }
@@ -782,11 +815,7 @@ class PlaybackStore extends ChangeNotifier {
     Duration timeout,
   ) async {
     var work = Future<void>.sync(action);
-    _shutdownWork.add(
-      work.catchError((Object error) {
-        _shutdownFailures.add(error);
-      }),
-    );
+    _shutdownWork.add(work.catchError(_shutdownFailures.add));
     try {
       await work.timeout(timeout);
       return true;

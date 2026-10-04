@@ -33,6 +33,7 @@ class PlaybackWindowDataHost {
     'playbackFit',
     'playbackUpscaleMode',
     'playbackRememberedRate',
+    'playbackLoudnessEnabled',
     'playbackWindowBounds',
   };
   final _requests = <int, (String, String, Future<Object?>)>{};

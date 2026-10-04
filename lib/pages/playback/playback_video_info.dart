@@ -199,6 +199,8 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
     var upscale = widget.store.upscaler;
     var requested = upscale?.plan.output;
     var texture = upscale?.actualOutput;
+    var requestedSize = _resolution(requested?.width, requested?.height);
+    var textureSize = _resolution(texture?.width, texture?.height);
     var audioFormatText = _value(audio.format);
     var audioSampleRateText = _value(audio.sampleRate);
     var audioChannelCountText = _value(audio.channelCount);
@@ -217,7 +219,7 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
     return LayoutBuilder(
       builder: (context, constraints) {
         // Grow to the longest line, using all available space before wrapping.
-        // IntrinsicWidth keeps shorter content from stretching across the video.
+        // IntrinsicWidth keeps short content from stretching across the video.
         return Align(
           alignment: Alignment.topLeft,
           child: ConstrainedBox(
@@ -316,8 +318,7 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
                           ),
                           _line(
                             '纹理输出',
-                            '请求：${_resolution(requested?.width, requested?.height)}'
-                                '   实际：${_resolution(texture?.width, texture?.height)}',
+                            '请求：$requestedSize   实际：$textureSize',
                             pink,
                           ),
                           _line(
@@ -353,11 +354,19 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
                         _line(
                           '音频输出',
                           '${_property('audio-out-params/format')}   '
-                              '${_property('audio-out-params/samplerate')} Hz   '
-                              '${_property('audio-out-params/channel-count')} 声道'
+                              '${_property('audio-out-params/samplerate')}'
+                              ' Hz   '
+                              '${_property('audio-out-params/channel-count')}'
+                              ' 声道'
                               '   渲染器：${_property('current-ao')}',
                           pink,
                         ),
+                        if (Platform.isWindows)
+                          _line(
+                            '响度均衡',
+                            widget.store.loudnessEnabled ? '开启' : '关闭',
+                            green,
+                          ),
                         _line(
                           '字幕',
                           _playbackTrackLabel(
