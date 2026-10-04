@@ -108,24 +108,54 @@ class BgmUserStore extends Notifier<BgmUserState> {
     // the record, so upgrading cannot silently log the user out.
     var legacyModel = box.get('user');
     var user = await sqlite.readUser();
+    var legacyAccessToken = legacyModel?.accessToken;
+    // A restored Hive snapshot can belong to a different account from SQLite
+    // or secure storage. Never combine credentials from those two identities.
+    var legacyMatchesUser = user == null || user.id == legacyModel?.user?.id;
     var accessToken = await sqlite.readAccessToken();
-    if (accessToken == null && legacyModel?.accessToken != null) {
-      await sqlite.writeAccessToken(legacyModel!.accessToken!);
+    if (accessToken == null &&
+        legacyMatchesUser &&
+        legacyAccessToken != null &&
+        legacyAccessToken.isNotEmpty) {
+      await sqlite.writeAccessToken(legacyAccessToken);
       accessToken = await sqlite.readAccessToken();
     }
+    var usingLegacyAccount =
+        legacyMatchesUser &&
+        legacyAccessToken != null &&
+        legacyAccessToken.isNotEmpty &&
+        accessToken == legacyAccessToken;
     var refreshToken = await sqlite.readRefreshToken();
-    if (refreshToken == null && legacyModel?.refreshToken != null) {
+    if (refreshToken == null &&
+        usingLegacyAccount &&
+        legacyModel?.refreshToken != null) {
       await sqlite.writeRefreshToken(legacyModel!.refreshToken!);
       refreshToken = await sqlite.readRefreshToken();
     }
     var expireTime = await sqlite.readExpireTime();
-    state = BgmUserState(
+    if (usingLegacyAccount) {
+      // Restore the complete legacy snapshot before clearing its old slots.
+      // Its expiry already includes the old five-minute safety margin.
+      if (user == null && legacyModel?.user != null) {
+        user = legacyModel!.user!;
+        await sqlite.writeUser(user);
+      }
+      if (expireTime == null && legacyModel?.expireTime != null) {
+        expireTime = legacyModel!.expireTime!;
+        await sqlite.writeToken(
+          'expireTime',
+          expireTime.millisecondsSinceEpoch.toString(),
+        );
+      }
+    }
+    var recovered = BgmUserState(
       user: user,
       accessToken: accessToken,
       refreshToken: refreshToken,
       expireTime: expireTime,
     );
-    await box.put('user', _model());
+    await box.put('user', BgmUserHiveModel(user: user, expireTime: expireTime));
+    state = recovered;
   }
 
   /// 删除用户
