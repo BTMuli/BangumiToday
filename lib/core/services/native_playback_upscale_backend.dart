@@ -22,6 +22,10 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
   Future<Object?> read(String property) => adapter.read(property);
 
   @override
+  Future<void> shaders(List<String> paths) =>
+      adapter.setStringList('glsl-shaders', paths);
+
+  @override
   Future<void> resize(PlaybackPixels? size) =>
       video.setSize(width: size?.width, height: size?.height);
 

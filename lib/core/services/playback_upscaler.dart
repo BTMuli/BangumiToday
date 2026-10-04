@@ -8,6 +8,7 @@ import '../../models/playback/playback_upscale.dart';
 abstract class PlaybackUpscaleBackend {
   Future<void> command(List<String> arguments);
   Future<Object?> read(String property);
+  Future<void> shaders(List<String> paths);
   Future<void> resize(PlaybackPixels? size);
   Future<void> redraw();
   void close();
@@ -48,9 +49,13 @@ class PlaybackUpscaler {
   bool _restorationFailed = false;
   bool _unsupported = false;
   String? _baselineDumbMode;
+  String? _baselineTimingOffset;
+  bool _resizeInvalidated = false;
+  PlaybackPixels? _fixedOutput;
   List<String> _paths = [];
   int _generation = 0;
   PlaybackUpscalePlan? _applied;
+  PlaybackUpscalePlan? _applying;
   PlaybackUpscalePlan? _pending;
   bool _pendingReady = false;
   Future<void>? _flight;
@@ -76,11 +81,16 @@ class PlaybackUpscaler {
 
   void source(PlaybackVideoSource? value) {
     if (_closed || !_mediaReady || _source == value) return;
+    var dimensionsChanged =
+        _source?.width != value?.width || _source?.height != value?.height;
     _source = value;
     // media_kit_video resets the texture when display parameters change. Its
     // cached fixed dimensions must be invalidated before applying the new plan.
-    _applied = null;
-    _schedule();
+    if (dimensionsChanged) {
+      _resizeInvalidated = true;
+      _applied = null;
+    }
+    _schedule(invalidate: dimensionsChanged);
   }
 
   void viewport(PlaybackViewport? value) {
@@ -120,6 +130,7 @@ class PlaybackUpscaler {
     if (_closed) return;
     _source = null;
     _applied = null;
+    _resizeInvalidated = false;
     actualOutput = null;
     _failed = false;
     _restorationFailed = false;
@@ -137,7 +148,7 @@ class PlaybackUpscaler {
     _schedule(immediate: true);
   }
 
-  void _schedule({bool immediate = false}) {
+  void _schedule({bool immediate = false, bool invalidate = false}) {
     if (_closed || !_mediaReady || _restorationFailed) return;
     var next = _failed && mode != PlaybackUpscaleMode.off
         ? const PlaybackUpscalePlan('暂不可用，已恢复普通播放')
@@ -151,6 +162,17 @@ class PlaybackUpscaler {
             renderer: renderer,
             previouslyEnabled: _pending?.enabled ?? _applied?.enabled ?? false,
           );
+    // Equivalent layouts must not cancel an in-flight application or its
+    // output confirmation, nor notify/rebuild the playback page again.
+    if (!invalidate &&
+        (next == _pending ||
+            (next == _applying && _pending == null) ||
+            (next == _applied &&
+                _pending == null &&
+                _flight == null &&
+                !_resizeInvalidated))) {
+      return;
+    }
     _pending = next;
     _pendingReady = immediate;
     _generation++;
@@ -180,6 +202,7 @@ class PlaybackUpscaler {
     unawaited(
       work.whenComplete(() {
         _flight = null;
+        _applying = null;
         if (!_closed && _pending != null) _start();
       }),
     );
@@ -192,6 +215,7 @@ class PlaybackUpscaler {
     while (!_closed && _mediaReady && _pendingReady && _pending != null) {
       var next = _pending!;
       _pending = null;
+      _applying = next;
       var generation = _generation;
       if (next == _applied) {
         plan = next;
@@ -216,6 +240,12 @@ class PlaybackUpscaler {
             if (original is! List || original.isNotEmpty) {
               throw StateError('当前渲染器已有其他着色器');
             }
+            var timing = await backend.read('video-timing-offset');
+            if (!_current(generation)) continue;
+            if (timing is! num || !timing.isFinite || timing < 0) {
+              throw StateError('无法确认渲染器的帧调度配置');
+            }
+            _baselineTimingOffset = timing.toString();
             _baselineDumbMode = baseline;
           }
           if (_loadedMode != next.mode) {
@@ -229,17 +259,13 @@ class PlaybackUpscaler {
             _applied = null;
             await backend.command(['set', 'gpu-dumb-mode', 'no']);
             if (!_current(generation)) continue;
-            await backend.command(['change-list', 'glsl-shaders', 'clr', '']);
+            // media_kit_video sets this to zero. Give CNN rendering 10 ms of
+            // headroom while retaining libmpv's wait for the audio target time.
+            // A full frame of waiting would hold ANGLE's shared-surface lock
+            // too long and delay Flutter's texture reads.
+            await backend.command(['set', 'video-timing-offset', '0.010']);
             if (!_current(generation)) continue;
-            for (var shader in shaders) {
-              await backend.command([
-                'change-list',
-                'glsl-shaders',
-                'append',
-                shader,
-              ]);
-              if (!_current(generation)) break;
-            }
+            await backend.shaders(shaders);
             if (!_current(generation)) continue;
             var configured = await backend.read('glsl-shaders');
             if (!_current(generation)) continue;
@@ -253,12 +279,21 @@ class PlaybackUpscaler {
             }
             _loadedMode = next.mode;
           }
-          // Clear cached fixed dimensions even when a new source happens to
-          // calculate the same output as the previous source.
-          await backend.resize(null);
-          if (!_current(generation)) continue;
-          await backend.resize(next.output);
-          if (!_current(generation)) continue;
+          // Only a source-size change invalidates media_kit's fixed-size cache.
+          // Quality switches reuse the texture; layout changes resize directly.
+          if (_resizeInvalidated) {
+            _applied = null;
+            await backend.resize(null);
+            _fixedOutput = null;
+            if (!_current(generation)) continue;
+          }
+          if (_fixedOutput != next.output) {
+            _applied = null;
+            await backend.resize(next.output);
+            _fixedOutput = next.output;
+            if (!_current(generation)) continue;
+          }
+          _resizeInvalidated = false;
           await backend.redraw();
           if (!_current(generation)) continue;
         }
@@ -294,10 +329,20 @@ class PlaybackUpscaler {
     // Try every part of recovery even when clearing the shader list fails.
     Object? failure;
     for (var action in <Future<void> Function()>[
-      () => backend.command(['change-list', 'glsl-shaders', 'clr', '']),
-      () => backend.resize(null),
+      () => backend.shaders(const []),
+      () async {
+        await backend.resize(null);
+        _fixedOutput = null;
+        _resizeInvalidated = false;
+      },
       if (_baselineDumbMode != null)
         () => backend.command(['set', 'gpu-dumb-mode', _baselineDumbMode!]),
+      if (_baselineTimingOffset != null)
+        () => backend.command([
+          'set',
+          'video-timing-offset',
+          _baselineTimingOffset!,
+        ]),
       backend.redraw,
     ]) {
       try {

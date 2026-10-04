@@ -369,7 +369,12 @@ class PlaybackStore extends ChangeNotifier {
       }),
     ]);
     _saveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      unawaited(_serial(_save).catchError((Object _) {}));
+      if (_closed || loading || !player.state.playing || completed) return;
+      // Persist progress without fetching/grouping the entire library or
+      // rebuilding the video surface every five seconds during playback.
+      unawaited(
+        _serial(() => _save(refreshHistory: false)).catchError((Object _) {}),
+      );
     });
   }
 

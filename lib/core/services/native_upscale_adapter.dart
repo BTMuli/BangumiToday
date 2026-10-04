@@ -87,6 +87,53 @@ class NativeUpscaleAdapter {
     });
   }
 
+  /// Replace the complete list in one native mutation. MPV_FORMAT_NODE avoids
+  /// path-list escaping and keeps the renderer from seeing partial presets.
+  Future<void> setStringList(String property, List<String> values) {
+    if (property.isEmpty ||
+        property.contains('\u0000') ||
+        values.any((value) => value.contains('\u0000'))) {
+      throw ArgumentError('Invalid mpv string list');
+    }
+    var entries = List<String>.of(values);
+    return _withPlayer(() {
+      var name = property.toNativeUtf8();
+      var node = calloc<mpv.mpv_node>();
+      var list = calloc<mpv.mpv_node_list>();
+      var items = calloc<mpv.mpv_node>(entries.length);
+      var strings = <Pointer<Utf8>>[];
+      try {
+        for (var index = 0; index < entries.length; index++) {
+          var value = entries[index].toNativeUtf8();
+          strings.add(value);
+          items[index].format = mpv.mpv_format.MPV_FORMAT_STRING;
+          items[index].u.string = value.cast();
+        }
+        list.ref.num = entries.length;
+        list.ref.values = items;
+        node.ref.format = mpv.mpv_format.MPV_FORMAT_NODE_ARRAY;
+        node.ref.u.list = list;
+        _checkResult(
+          'set $property',
+          _player.mpv.mpv_set_property(
+            _player.ctx,
+            name.cast(),
+            mpv.mpv_format.MPV_FORMAT_NODE,
+            node.cast(),
+          ),
+        );
+      } finally {
+        for (var value in strings) {
+          calloc.free(value);
+        }
+        calloc.free(items);
+        calloc.free(list);
+        calloc.free(node);
+        calloc.free(name);
+      }
+    });
+  }
+
   /// Copies a native property into Dart values before freeing mpv-owned data.
   Future<Object?> read(String property) {
     if (property.isEmpty || property.contains('\u0000')) {
