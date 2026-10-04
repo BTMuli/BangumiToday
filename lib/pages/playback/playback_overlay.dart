@@ -17,11 +17,13 @@ enum _PlaybackCommand {
   previous,
   next,
   fullscreen,
-  windowFullscreen,
   screenshot,
   escape,
   info,
   help,
+  scaleHalf,
+  scaleOriginal,
+  scaleOneHalf,
 }
 
 class _PlaybackShortcut {
@@ -90,8 +92,17 @@ const _playbackShortcuts = [
     SingleActivator(LogicalKeyboardKey.keyF, includeRepeats: false),
     SingleActivator(LogicalKeyboardKey.enter, includeRepeats: false),
   ]),
-  _PlaybackShortcut(_PlaybackCommand.windowFullscreen, 'W', '进入 / 退出窗口全屏', [
-    SingleActivator(LogicalKeyboardKey.keyW, includeRepeats: false),
+  _PlaybackShortcut(_PlaybackCommand.scaleHalf, '1', '窗口尺寸 · 0.5 倍', [
+    SingleActivator(LogicalKeyboardKey.digit1),
+    SingleActivator(LogicalKeyboardKey.numpad1),
+  ]),
+  _PlaybackShortcut(_PlaybackCommand.scaleOriginal, '2', '窗口尺寸 · 原始像素', [
+    SingleActivator(LogicalKeyboardKey.digit2),
+    SingleActivator(LogicalKeyboardKey.numpad2),
+  ]),
+  _PlaybackShortcut(_PlaybackCommand.scaleOneHalf, '3', '窗口尺寸 · 1.5 倍', [
+    SingleActivator(LogicalKeyboardKey.digit3),
+    SingleActivator(LogicalKeyboardKey.numpad3),
   ]),
   _PlaybackShortcut(_PlaybackCommand.screenshot, 'S', '截屏并复制到剪贴板（含字幕）', [
     SingleActivator(LogicalKeyboardKey.keyS, includeRepeats: false),

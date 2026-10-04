@@ -20,9 +20,11 @@ import 'package:url_launcher/url_launcher.dart';
 // Project imports:
 import '../../core/errors/playback_unavailable.dart';
 import '../../core/theme/bt_theme.dart';
+import '../../models/playback/playback_episode_layout.dart';
 import '../../models/playback/playback_fit.dart';
 import '../../models/playback/playback_history_group.dart';
 import '../../models/playback/playback_item.dart';
+import '../../models/playback/playback_on_top.dart';
 import '../../models/playback/playback_rate.dart';
 import '../../models/playback/playback_upscale.dart';
 import '../../providers/episode_mark_providers.dart';
@@ -58,6 +60,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   final _stageKey = GlobalKey();
   final _videoKey = GlobalKey<VideoState>();
   final _overlay = _PlaybackOverlayController();
+  final _libraryFlyout = FlyoutController();
   bool _wasActive = true;
   bool _sidebarVisible = true;
   bool _noticeFramePending = false;
@@ -80,12 +83,26 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _toggleWindowFullscreen() async {
-    var mode = widget.windowMode;
-    if (mode == null || _store.current == null) return;
-    await _exitVideoFullscreen();
-    var box = _stageKey.currentContext?.findRenderObject() as RenderBox?;
-    await mode.toggleVideoOnly(box?.size ?? const Size(960, 540));
+  /// 未载入视频时也能查看播放记录：无边框窗口没有侧栏，浮出同一个记录面板。
+  void _showLibraryFlyout(BuildContext buttonContext) {
+    var navigatorBox =
+        Navigator.of(context).context.findRenderObject() as RenderBox;
+    var size = _playbackLibraryFlyoutSize(MediaQuery.sizeOf(context));
+    unawaited(
+      _run(() async {
+        await _libraryFlyout.showFlyout<void>(
+          position: _playbackLibraryFlyoutPosition(
+            buttonContext: buttonContext,
+            navigatorBox: navigatorBox,
+            size: size,
+          ),
+          builder: (_) => _playbackLibraryFlyout(
+            _buildLibraryPanel(section: _PlaybackLibrarySection.history),
+            size,
+          ),
+        );
+      }),
+    );
   }
 
   /// 播放页是否为当前页
@@ -130,19 +147,6 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     if (key == _lastPlayingKey && _store.index == _lastPlayingIndex) return;
     _lastPlayingKey = key;
     _lastPlayingIndex = _store.index;
-    if (key == null &&
-        !_store.isClosed &&
-        (widget.windowMode?.videoOnly ?? false)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _store.isClosed || _store.current != null) return;
-        unawaited(
-          _run(() async {
-            await _exitVideoFullscreen();
-            await widget.windowMode?.exitVideoOnly();
-          }),
-        );
-      });
-    }
     var subject = _store.current?.subject ?? _firstPlaylistSubject(_store);
     if (subject != null) _posterSubject = subject;
     _ensureCovers(_store);
@@ -179,6 +183,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     }
     widget.windowMode?.removeListener(_onWindowModeChanged);
     _overlay.dispose();
+    _libraryFlyout.dispose();
     if (!widget.independent) {
       unawaited(_store.pause().catchError((Object _) {}));
     }
@@ -193,9 +198,6 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
 
   Future<void> _stopPlayback() async {
     await _exitVideoFullscreen();
-    if (widget.windowMode?.videoOnly ?? false) {
-      await widget.windowMode!.exitVideoOnly();
-    }
     await _store.stop();
   }
 
@@ -270,8 +272,17 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     }
     _onPlaybackChanged();
     _schedulePlaybackNotices();
-    if (widget.windowMode?.videoOnly ?? false) {
-      return PlaybackWindowResizeFrame(child: _buildStage(store));
+    // 独立播放器窗口只有视频画面；主窗口保留内嵌播放页与侧栏。
+    if (widget.windowMode != null) {
+      var mode = widget.windowMode!;
+      return FlyoutTarget(
+        controller: _libraryFlyout,
+        child: PlaybackWindowResizeFrame(
+          onResizeStart: (edge) =>
+              unawaited(_run(() => mode.beginResize(edge))),
+          child: _buildStage(store),
+        ),
+      );
     }
     return ScaffoldPage(
       padding: EdgeInsets.zero,
@@ -373,7 +384,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
           Tooltip(
             message: '打开本地视频',
             child: IconButton(
-              icon: const Icon(FluentIcons.video, size: 18),
+              icon: const Icon(material.Icons.video_file_outlined, size: 19),
               onPressed: () => _run(_pickFile),
             ),
           ),
@@ -381,18 +392,8 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
             Tooltip(
               message: '停止播放',
               child: IconButton(
-                icon: const Icon(FluentIcons.stop_solid, size: 18),
+                icon: const Icon(material.Icons.stop_circle_outlined, size: 19),
                 onPressed: () => _run(_stopPlayback),
-              ),
-            ),
-          if (current != null && widget.windowMode != null)
-            Tooltip(
-              message: '窗口全屏（W）',
-              child: IconButton(
-                icon: const Icon(material.Icons.fit_screen_rounded, size: 19),
-                onPressed: widget.windowMode!.transitioning
-                    ? null
-                    : () => _run(_toggleWindowFullscreen),
               ),
             ),
           const SizedBox(width: 4),
@@ -400,12 +401,15 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
             message: _sidebarVisible ? '收起播放侧栏' : '展开播放侧栏',
             child: IconButton(
               key: const ValueKey('playback-sidebar-toggle'),
-              icon: Icon(
-                FluentIcons.side_panel,
-                size: 19,
-                color: _sidebarVisible
-                    ? FluentTheme.of(context).accentColor
-                    : BTColors.textSecondary(context),
+              icon: Transform.flip(
+                flipX: true,
+                child: Icon(
+                  material.Icons.view_sidebar_outlined,
+                  size: 19,
+                  color: _sidebarVisible
+                      ? FluentTheme.of(context).accentColor
+                      : BTColors.textSecondary(context),
+                ),
               ),
               onPressed: () {
                 setState(() => _sidebarVisible = !_sidebarVisible);
@@ -420,10 +424,12 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
 
   Widget _buildStage(PlaybackStore store) => LayoutBuilder(
     builder: (context, constraints) {
+      // 独立播放器窗口本身保持视频比例，视口直接铺满；内嵌播放页让画布跟随
+      // 视频比例，避免黑边占用侧栏空间。
       var size = playbackSurfaceSize(
         constraints.maxWidth,
         constraints.maxHeight,
-        widget.windowMode?.videoOnly != true &&
+        widget.windowMode == null &&
                 store.current != null &&
                 store.fit == PlaybackFit.fit
             ? store.aspectRatio
@@ -436,9 +442,9 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
           width: size.width,
           height: size.height,
           child: ClipRRect(
-            borderRadius: widget.windowMode?.videoOnly == true
-                ? BorderRadius.zero
-                : BTRadius.largeBR,
+            borderRadius: widget.windowMode == null
+                ? BTRadius.largeBR
+                : BorderRadius.zero,
             child: ColoredBox(
               color: Colors.black,
               child: store.current == null || store.video == null
@@ -470,10 +476,15 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                               player: store.player!,
                               overlay: _overlay,
                               run: _run,
+                              pickFile: _pickFile,
+                              stopPlayback: _stopPlayback,
                               pickSubtitle: _pickSubtitle,
                               windowMode: widget.windowMode,
-                              toggleWindowFullscreen: _toggleWindowFullscreen,
-                              buildLibraryPanel: _buildLibraryPanel,
+                              // 只有内嵌播放页会显示侧栏；独立窗口始终用浮出层。
+                              sidebarVisible:
+                                  widget.windowMode == null && _sidebarVisible,
+                              buildLibraryPanel: (section) =>
+                                  _buildLibraryPanel(section: section),
                             ),
                           ),
                         ),
@@ -487,88 +498,168 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   );
 
   Widget _buildEmptyStage(String? posterUrl) {
+    var mode = widget.windowMode;
     var hasPoster = posterUrl != null && posterUrl.isNotEmpty;
-    if (!hasPoster) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                material.Icons.play_circle_outline_rounded,
-                color: Colors.white.withValues(alpha: 0.35),
-                size: 64,
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                '选择视频，开始观看',
-                style: TextStyle(color: Colors.white, fontSize: 18),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '从 BMF、已完成下载或最近播放中打开',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 20),
-              FilledButton(
-                onPressed: () => _run(_pickFile),
-                child: const Text('打开本地视频'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    // The poster keeps its natural size, centered on a black stage; the image
-    // is only scaled down when it does not fit.
+    var content = hasPoster ? _buildPosterStage(posterUrl) : _buildBlankStage();
+    if (mode == null) return content;
+    // 无边框窗口没有标题栏：空态仍要能拖动、置顶、最小化和关闭。
     return Stack(
       fit: StackFit.expand,
       children: [
-        ColoredBox(color: Colors.black),
-        Center(
-          child: BtBangumiCover(
-            imageUrl: posterUrl,
-            fit: BoxFit.contain,
-            maxRequestEdge: BangumiCoverUrl.detailMaxEdge,
-            errorBuilder: (context, {err}) => const SizedBox.shrink(),
-          ),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: (_) => unawaited(_run(mode.beginDrag)),
+          onPanUpdate: (_) => unawaited(mode.updateDrag()),
+          onPanEnd: (_) => unawaited(_run(mode.endDrag)),
+          onPanCancel: () => unawaited(_run(mode.endDrag)),
+          child: content,
         ),
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  '选择视频，开始观看',
-                  style: TextStyle(color: Colors.white, fontSize: 14),
+        Positioned(
+          top: 8,
+          right: 8,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Tooltip(
+                message: _playbackOnTopTooltip(mode.onTop),
+                child: material.IconButton(
+                  color: Colors.white,
+                  icon: _PlaybackOnTopIcon(
+                    onTop: mode.onTop,
+                    size: 20,
+                    color: Colors.white,
+                  ),
+                  onPressed: () => _run(() => mode.setOnTop(mode.onTop.next)),
                 ),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () => _run(_pickFile),
-                  child: const Text('打开本地视频'),
+              ),
+              Tooltip(
+                message: '最小化',
+                child: material.IconButton(
+                  color: Colors.white,
+                  icon: const Icon(material.Icons.remove_rounded, size: 20),
+                  onPressed: () => unawaited(_run(mode.minimize)),
                 ),
-              ],
-            ),
+              ),
+              Tooltip(
+                message: '关闭播放器',
+                child: material.IconButton(
+                  color: Colors.white,
+                  icon: const Icon(material.Icons.close_rounded, size: 20),
+                  onPressed: () => unawaited(_run(mode.closeWindow)),
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildLibraryPanel({Key? key}) => _PlaybackLibraryPanel(
-    key: key,
-    run: _run,
-    openExternalPlayer: _openExternalPlayer,
-    openVideoDirectory: _openVideoDirectory,
-    openSubject: _openSubject,
+  Widget _buildBlankStage() => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            material.Icons.play_circle_outline_rounded,
+            color: Colors.white.withValues(alpha: 0.35),
+            size: 64,
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            '选择视频，开始观看',
+            style: TextStyle(color: Colors.white, fontSize: 18),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '从 BMF、已完成下载或最近播放中打开',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _buildEmptyStageActions(),
+        ],
+      ),
+    ),
   );
+
+  /// 空态操作：打开本地视频；独立窗口另外提供播放记录入口。
+  Widget _buildEmptyStageActions() => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      FilledButton(
+        onPressed: () => _run(_pickFile),
+        child: const Text('打开本地视频'),
+      ),
+      if (widget.windowMode != null) ...[
+        const SizedBox(width: 8),
+        Builder(
+          builder: (buttonContext) => Button(
+            onPressed: () => _showLibraryFlyout(buttonContext),
+            child: const Text('播放记录'),
+          ),
+        ),
+      ],
+    ],
+  );
+
+  /// The poster keeps its natural size, centered on a black stage; the image
+  /// is only scaled down when it does not fit.
+  Widget _buildPosterStage(String posterUrl) => Stack(
+    fit: StackFit.expand,
+    children: [
+      ColoredBox(color: Colors.black),
+      Center(
+        child: BtBangumiCover(
+          imageUrl: posterUrl,
+          fit: BoxFit.contain,
+          maxRequestEdge: BangumiCoverUrl.detailMaxEdge,
+          errorBuilder: (context, {err}) => const SizedBox.shrink(),
+        ),
+      ),
+      Positioned(
+        left: 0,
+        right: 0,
+        bottom: 0,
+        child: Container(
+          // 底部文案压在封面图上，用整宽渐变压暗保证可读。
+          padding: const EdgeInsets.fromLTRB(24, 56, 24, 28),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0x00000000), Color(0xCC000000)],
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '选择视频，开始观看',
+                style: TextStyle(color: Colors.white, fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              _buildEmptyStageActions(),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildLibraryPanel({Key? key, _PlaybackLibrarySection? section}) =>
+      _PlaybackLibraryPanel(
+        key: key,
+        section: section,
+        run: _run,
+        openExternalPlayer: _openExternalPlayer,
+        openVideoDirectory: _openVideoDirectory,
+        openSubject: _openSubject,
+      );
 
   static String _time(int milliseconds) {
     var seconds = milliseconds ~/ 1000;

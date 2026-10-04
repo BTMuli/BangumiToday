@@ -9,12 +9,14 @@ import 'package:flutter/services.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Project imports:
 import '../../core/services/playback_window_protocol.dart';
 import '../../data/repositories/playback_window_remote.dart';
+import '../../models/playback/playback_on_top.dart';
 import '../../providers/episode_mark_providers.dart';
 import '../../providers/playback_window_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
@@ -62,6 +64,8 @@ class _PlaybackWindow with WindowListener {
   bool _closing = false;
   Timer? _boundsTimer;
   Rect? _normalBounds;
+  StreamSubscription<bool>? _playing;
+  Player? _observedPlayer;
 
   Future<Object?> call(String method, Map<String, Object?> body) {
     return host.invokeMethod<Object?>(
@@ -80,7 +84,10 @@ class _PlaybackWindow with WindowListener {
       waitForNativeDestroy: true,
     );
     marking = RemoteEpisodeMarkController(call);
-    mode = PlaybackWindowMode();
+    mode = PlaybackWindowMode(
+      persistOnTop: (value) =>
+          store.settingsStore.write('playbackOnTop', value.name),
+    );
     store.addListener(_onVideoChanged);
     container = ProviderContainer(
       overrides: [
@@ -96,17 +103,20 @@ class _PlaybackWindow with WindowListener {
     await window.setWindowMethodHandler(_handle);
     windowManager.addListener(this);
     await windowManager.setPreventClose(true);
+    // 播放器窗口只有视频画面：显示前去掉标题栏与边框，避免先闪出一帧普通窗口。
+    await mode.applyFramelessWindow();
     await windowManager.waitUntilReadyToShow(
       const WindowOptions(
         title: 'BangumiToday · 播放器',
         size: Size(1120, 720),
-        minimumSize: Size(720, 480),
+        minimumSize: PlaybackWindowMode.minimumSize,
         center: true,
       ),
     );
     try {
       _receive(await call('bootstrap', {'windowId': window.windowId}));
-      await _restoreBounds();
+      await _restoreSize();
+      await _restoreOnTop();
       runApp(
         UncontrolledProviderScope(
           container: container,
@@ -146,7 +156,24 @@ class _PlaybackWindow with WindowListener {
   }
 
   void _onVideoChanged() {
-    if (!_closing) mode.updateAspectRatio(store.aspectRatio);
+    if (_closing) return;
+    _observePlaying();
+    mode.updateVideo(store.aspectRatio, store.videoSize);
+  }
+
+  /// “播放时置顶”跟随 Player 的播放流；Player 被替换时旧订阅必须释放。
+  void _observePlaying() {
+    var player = store.player;
+    if (identical(player, _observedPlayer)) return;
+    _observedPlayer = player;
+    unawaited(_playing?.cancel());
+    _playing = null;
+    if (player == null) {
+      mode.updatePlaying(false);
+      return;
+    }
+    _playing = player.stream.playing.listen(mode.updatePlaying);
+    mode.updatePlaying(player.state.playing);
   }
 
   Future<Object?> _handle(MethodCall call) async {
@@ -200,7 +227,7 @@ class _PlaybackWindow with WindowListener {
       // The mounted PlaybackPage exits fullscreen and removes Video while this
       // window can still draw; the strict wait includes final durable writes.
       await store.shutdown();
-      var savedBounds = mode.videoOnly ? mode.restoreBounds : _normalBounds;
+      var savedBounds = await _savedBounds();
       if (savedBounds != null) {
         var bounds = savedBounds;
         await store.settingsStore.write(
@@ -232,6 +259,8 @@ class _PlaybackWindow with WindowListener {
 
   Future<void> _nativeClose() async {
     store.removeListener(_onVideoChanged);
+    await _playing?.cancel();
+    _playing = null;
     mode.dispose();
     windowManager.removeListener(this);
     await windowManager.setPreventClose(false);
@@ -240,13 +269,19 @@ class _PlaybackWindow with WindowListener {
   }
 
   @override
-  void onWindowMoved() => _scheduleBounds();
+  void onWindowMoved() => _scheduleBounds(movedByUser: true);
   @override
-  void onWindowResized() => _scheduleBounds();
+  void onWindowResized() => _scheduleBounds(movedByUser: true);
   @override
   void onWindowLeaveFullScreen() => _scheduleBounds();
-  void _scheduleBounds() {
+
+  /// 拖动、缩放或吸附后的尺寸由用户决定，不再按视频分辨率自动开窗。
+  void _scheduleBounds({bool movedByUser = false}) {
     if (_closing) return;
+    if (movedByUser) {
+      mode.markUserSized();
+      unawaited(mode.settleAfterUserBoundsChange().catchError((Object _) {}));
+    }
     _boundsTimer?.cancel();
     _boundsTimer = Timer(const Duration(milliseconds: 250), () {
       unawaited(
@@ -259,7 +294,6 @@ class _PlaybackWindow with WindowListener {
 
   Future<void> _rememberBounds() async {
     if (_closing ||
-        mode.videoOnly ||
         mode.transitioning ||
         mode.screenFullscreen ||
         await windowManager.isFullScreen() ||
@@ -270,52 +304,85 @@ class _PlaybackWindow with WindowListener {
     _normalBounds = await windowManager.getBounds();
   }
 
-  Future<void> _restoreBounds() async {
+  /// 无边框窗口的尺寸由视频与倍率决定；关闭时保存当前边界，下次只沿用其中的
+  /// 尺寸——窗口每次创建都重新居中，不再回到上次拖动留下的位置。
+  Future<Rect?> _savedBounds() async {
+    if (mode.screenFullscreen ||
+        await windowManager.isFullScreen() ||
+        await windowManager.isMaximized() ||
+        await windowManager.isMinimized()) {
+      return _normalBounds;
+    }
+    try {
+      return await windowManager.getBounds();
+    } catch (error) {
+      BTLogTool.warn('读取播放器窗口位置失败：$error');
+      return _normalBounds;
+    }
+  }
+
+  /// 播放器窗口每次创建都居中显示，只沿用上次的窗口尺寸；位置不再还原，
+  /// 避免新窗口出现在上次拖动留下的角落。
+  Future<void> _restoreSize() async {
     try {
       var saved = await store.settingsStore.read('playbackWindowBounds');
       if (saved != null) {
         var data = playbackMap(jsonDecode(saved));
-        var numbers = [
-          for (var key in ['x', 'y', 'width', 'height'])
-            (data[key] as num).toDouble(),
-        ];
-        if (numbers.every((value) => value.isFinite) &&
-            numbers[2] >= 720 &&
-            numbers[3] >= 480) {
-          var bounds = Rect.fromLTWH(
-            numbers[0],
-            numbers[1],
-            numbers[2],
-            numbers[3],
-          );
-          var displays = await screenRetriever.getAllDisplays();
-          for (var display in displays) {
-            var area =
-                (display.visiblePosition ?? Offset.zero) &
-                (display.visibleSize ?? display.size);
-            if (area.width < 720 ||
-                area.height < 480 ||
-                !area.overlaps(bounds)) {
-              continue;
-            }
-            var width = bounds.width.clamp(720.0, area.width);
-            var height = bounds.height.clamp(480.0, area.height);
-            await windowManager.setBounds(
-              Rect.fromLTWH(
-                bounds.left.clamp(area.left, area.right - width),
-                bounds.top.clamp(area.top, area.bottom - height),
-                width,
-                height,
-              ),
-            );
-            break;
-          }
+        var width = (data['width'] as num?)?.toDouble();
+        var height = (data['height'] as num?)?.toDouble();
+        if (width == null ||
+            height == null ||
+            !width.isFinite ||
+            !height.isFinite ||
+            width < PlaybackWindowMode.minimumSize.width ||
+            height < PlaybackWindowMode.minimumSize.height) {
+          return;
         }
+        var area = await _displayUnderCursor();
+        if (area.width < PlaybackWindowMode.minimumSize.width ||
+            area.height < PlaybackWindowMode.minimumSize.height) {
+          return;
+        }
+        // setSize 保持左上角不动，因此改完尺寸后重新居中。
+        await windowManager.setSize(
+          Size(
+            width.clamp(PlaybackWindowMode.minimumSize.width, area.width),
+            height.clamp(PlaybackWindowMode.minimumSize.height, area.height),
+          ),
+        );
+        await windowManager.setAlignment(Alignment.center);
+        // 上次的窗口尺寸优先于按视频像素自动适配。
+        mode.markUserSized();
       }
     } catch (error) {
-      BTLogTool.warn('恢复播放器位置失败，使用默认位置：$error');
+      BTLogTool.warn('恢复播放器尺寸失败：$error');
     }
     await _rememberBounds();
+  }
+
+  /// 光标所在屏幕的可用区域；恢复尺寸与窗口居中都以它为准。
+  Future<Rect> _displayUnderCursor() async {
+    var displays = await screenRetriever.getAllDisplays();
+    var cursor = await screenRetriever.getCursorScreenPoint();
+    for (var display in displays) {
+      var area =
+          (display.visiblePosition ?? Offset.zero) &
+          (display.visibleSize ?? display.size);
+      if (area.contains(cursor)) return area;
+    }
+    var primary = await screenRetriever.getPrimaryDisplay();
+    return (primary.visiblePosition ?? Offset.zero) &
+        (primary.visibleSize ?? primary.size);
+  }
+
+  /// 置顶偏好只影响播放器窗口；读取失败保持默认的“不置顶”。
+  Future<void> _restoreOnTop() async {
+    try {
+      var saved = await store.settingsStore.read('playbackOnTop');
+      mode.restoreOnTop(PlaybackOnTop.parse(saved));
+    } catch (error) {
+      BTLogTool.warn('恢复播放器置顶偏好失败：$error');
+    }
   }
 }
 

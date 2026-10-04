@@ -27,6 +27,7 @@ import '../domain/repositories/playback_library.dart';
 import '../domain/repositories/playback_settings.dart';
 import '../domain/repositories/playback_subjects.dart';
 import '../models/playback/playback_completion.dart';
+import '../models/playback/playback_episode_layout.dart';
 import '../models/playback/playback_fit.dart';
 import '../models/playback/playback_history_group.dart';
 import '../models/playback/playback_item.dart';
@@ -90,7 +91,9 @@ class PlaybackStore extends ChangeNotifier {
   Future<void>? _preferencesFuture;
   bool _loudnessEnabled = Platform.isWindows;
   PlaybackFit _fit = PlaybackFit.fit;
+  PlaybackEpisodeLayout _episodeLayout = PlaybackEpisodeLayout.grid;
   double? _aspectRatio;
+  Size? _videoSize;
   Player? _player;
   VideoController? _video;
   PlaybackUpscaler? _upscaler;
@@ -130,7 +133,11 @@ class PlaybackStore extends ChangeNotifier {
   PlaybackUpscaleMode get upscaleMode => _upscaleMode;
   bool get loudnessEnabled => _loudnessEnabled;
   PlaybackFit get fit => _fit;
+  PlaybackEpisodeLayout get episodeLayout => _episodeLayout;
   double? get aspectRatio => _aspectRatio;
+
+  /// 当前视频的显示像素尺寸；独立窗口按它计算原始尺寸与倍率。
+  Size? get videoSize => _videoSize;
   double? get rememberedRate => _rateMemory.remembered;
   PlaybackItem? get current =>
       index >= 0 && index < playlist.length ? playlist[index] : null;
@@ -317,15 +324,21 @@ class PlaybackStore extends ChangeNotifier {
       }),
       player.stream.videoParams.listen((value) {
         if (_closed) return;
-        _upscaler?.source(_videoSource(value));
+        var source = _videoSource(value);
+        _upscaler?.source(source);
         var ratio = playbackAspectRatio(
           aspect: value.aspect,
           width: value.dw ?? value.w,
           height: value.dh ?? value.h,
           rotation: value.rotate,
         );
-        if (ratio == _aspectRatio) return;
+        // 像素尺寸参与窗口缩放，等比例的分辨率切换也必须通知界面。
+        var size = source == null
+            ? null
+            : Size(source.width.toDouble(), source.height.toDouble());
+        if (ratio == _aspectRatio && size == _videoSize) return;
         _aspectRatio = ratio;
+        _videoSize = size;
         _notify();
       }),
       player.stream.error.listen((value) {
@@ -499,6 +512,9 @@ class PlaybackStore extends ChangeNotifier {
     var operation = () async {
       await _rateMemory.load();
       _fit = PlaybackFit.parse(await settingsStore.read('playbackFit'));
+      _episodeLayout = PlaybackEpisodeLayout.parse(
+        await settingsStore.read('playbackEpisodeLayout'),
+      );
       if (Platform.isWindows) {
         _loudnessEnabled = PlaybackLoudness.parse(
           await settingsStore.read(PlaybackLoudness.settingKey),
@@ -566,6 +582,16 @@ class PlaybackStore extends ChangeNotifier {
     _upscaler?.preferences(_upscaleMode, _fit);
     _notify();
   });
+
+  Future<void> setEpisodeLayout(PlaybackEpisodeLayout layout) =>
+      _serial(() async {
+        await _loadPreferences();
+        if (_closed || _episodeLayout == layout) return;
+        await settingsStore.write('playbackEpisodeLayout', layout.name);
+        if (_closed) return;
+        _episodeLayout = layout;
+        _notify();
+      });
 
   Future<void> setUpscaleMode(PlaybackUpscaleMode mode) => _serial(() async {
     await _loadPreferences();

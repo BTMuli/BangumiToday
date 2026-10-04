@@ -7,9 +7,11 @@ class _PlaybackVideoControls extends StatefulWidget {
     required this.player,
     required this.overlay,
     required this.run,
+    required this.pickFile,
+    required this.stopPlayback,
     required this.pickSubtitle,
     required this.windowMode,
-    required this.toggleWindowFullscreen,
+    required this.sidebarVisible,
     required this.buildLibraryPanel,
   });
 
@@ -18,10 +20,14 @@ class _PlaybackVideoControls extends StatefulWidget {
   final Player player;
   final _PlaybackOverlayController overlay;
   final Future<void> Function(Future<void> Function()) run;
+  final Future<void> Function() pickFile;
+  final Future<void> Function() stopPlayback;
   final Future<void> Function() pickSubtitle;
   final PlaybackWindowMode? windowMode;
-  final Future<void> Function() toggleWindowFullscreen;
-  final Widget Function() buildLibraryPanel;
+
+  /// 内嵌播放页已显示侧栏时，底栏不再重复提供选集入口。
+  final bool sidebarVisible;
+  final Widget Function(_PlaybackLibrarySection section) buildLibraryPanel;
 
   @override
   State<_PlaybackVideoControls> createState() => _PlaybackVideoControlsState();
@@ -137,16 +143,13 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         overlay.closeMenus();
         await exitFullscreen(context);
         overlay.show('退出全屏', material.Icons.fullscreen_exit_rounded);
-      } else if (widget.windowMode?.videoOnly ?? false) {
-        overlay.closeMenus();
-        await widget.toggleWindowFullscreen();
       }
       return;
     }
-    if (command == _PlaybackCommand.windowFullscreen) {
-      if (widget.windowMode == null || widget.windowMode!.transitioning) return;
-      overlay.closeMenus();
-      await widget.toggleWindowFullscreen();
+    if (command == _PlaybackCommand.scaleHalf ||
+        command == _PlaybackCommand.scaleOriginal ||
+        command == _PlaybackCommand.scaleOneHalf) {
+      await _applyWindowScale(command);
       return;
     }
     if (command == _PlaybackCommand.fullscreen) {
@@ -265,10 +268,12 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           detail: PlaybackLabel.fromName(store.current!.title).title,
         );
       case _PlaybackCommand.fullscreen:
-      case _PlaybackCommand.windowFullscreen:
       case _PlaybackCommand.escape:
       case _PlaybackCommand.info:
       case _PlaybackCommand.help:
+      case _PlaybackCommand.scaleHalf:
+      case _PlaybackCommand.scaleOriginal:
+      case _PlaybackCommand.scaleOneHalf:
         return;
       case _PlaybackCommand.screenshot:
         await _copyScreenshot();
@@ -310,6 +315,45 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     }
   }
 
+  /// 数字键调整无边框窗口尺寸：1/2/3 对应视频像素的 0.5 / 1 / 1.5 倍。
+  /// 2 倍在 1080p 上会超出工作区并被钳制，实测表现异常，因此不提供。
+  Future<void> _applyWindowScale(_PlaybackCommand command) async {
+    var mode = widget.windowMode;
+    var overlay = widget.overlay;
+    if (mode == null || mode.screenFullscreen) {
+      overlay.show(
+        '当前窗口不支持调整尺寸',
+        material.Icons.aspect_ratio_rounded,
+        detail: '独立播放器窗口可按 1 / 2 / 3 调整',
+      );
+      return;
+    }
+    var (scale, label) = switch (command) {
+      _PlaybackCommand.scaleHalf => (0.5, '0.5 倍'),
+      _PlaybackCommand.scaleOneHalf => (1.5, '1.5 倍'),
+      _ => (1.0, '原始像素'),
+    };
+    var base = mode.scaleBaseSize;
+    var applied = await mode.setVideoScale(scale);
+    if (applied == null) {
+      overlay.show('暂时无法调整窗口尺寸', material.Icons.aspect_ratio_rounded);
+      return;
+    }
+    var detail = mode.videoSize == null
+        ? '未播放视频，按 ${base.width.round()} × ${base.height.round()} 基准'
+        : '视频原始 ${base.width.round()} × ${base.height.round()}';
+    if (applied.clamped) {
+      detail =
+          '屏幕可用区域不足，已限制为 '
+          '${applied.size.width.round()} × ${applied.size.height.round()}';
+    }
+    overlay.show(
+      '窗口尺寸 · $label',
+      material.Icons.aspect_ratio_rounded,
+      detail: detail,
+    );
+  }
+
   void _focusVideo() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted &&
@@ -327,8 +371,8 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     var item = store.current!;
     var label = PlaybackLabel.fromName(item.title);
     var accent = FluentTheme.of(context).accentColor;
-    var videoOnly =
-        (widget.windowMode?.videoOnly ?? false) && !isFullscreen(context);
+    // 独立播放器窗口只有视频，顶栏顺带承担拖动、置顶与窗口按钮。
+    var frameless = widget.windowMode != null && !isFullscreen(context);
     return MaterialDesktopVideoControlsThemeData(
       buttonBarHeight: 48,
       buttonBarButtonSize: 20,
@@ -338,8 +382,18 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         Expanded(
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onPanStart: videoOnly
-                ? (_) => unawaited(widget.run(widget.windowMode!.startDragging))
+            // 自绘拖动：系统移动循环无法在拖动过程中限制窗口位置。
+            onPanStart: frameless
+                ? (_) => unawaited(widget.run(widget.windowMode!.beginDrag))
+                : null,
+            onPanUpdate: frameless
+                ? (_) => unawaited(widget.windowMode!.updateDrag())
+                : null,
+            onPanEnd: frameless
+                ? (_) => unawaited(widget.run(widget.windowMode!.endDrag))
+                : null,
+            onPanCancel: frameless
+                ? () => unawaited(widget.run(widget.windowMode!.endDrag))
                 : null,
             child: Tooltip(
               message: item.title,
@@ -401,7 +455,21 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
             key: const ValueKey('playback-settings'),
           ),
         ),
-        if (videoOnly) ...[
+        if (frameless) ...[
+          _videoIconButton(
+            _PlaybackOnTopIcon(
+              onTop: widget.windowMode!.onTop,
+              size: 20,
+              color: Colors.white,
+            ),
+            _playbackOnTopTooltip(widget.windowMode!.onTop),
+            () => unawaited(
+              widget.run(
+                () =>
+                    widget.windowMode!.setOnTop(widget.windowMode!.onTop.next),
+              ),
+            ),
+          ),
           _videoButton(
             material.Icons.remove_rounded,
             '最小化',
@@ -464,22 +532,25 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         const Spacer(),
         if (width > 340)
           _PlaybackRateButton(player: player, onPressed: _showRateMenu),
-        Builder(
-          builder: (buttonContext) => _videoButton(
-            material.Icons.playlist_play_rounded,
-            '选集与播放记录',
-            () => _showLibrary(buttonContext),
+        // 内嵌播放页已有侧栏时不重复提供选集/记录入口。
+        if (!widget.sidebarVisible) ...[
+          Builder(
+            builder: (buttonContext) => _videoButton(
+              material.Icons.playlist_play_rounded,
+              '选集',
+              () =>
+                  _showLibrary(buttonContext, _PlaybackLibrarySection.playlist),
+            ),
           ),
-        ),
-        if (widget.windowMode != null)
-          _videoButton(
-            material.Icons.fit_screen_rounded,
-            widget.windowMode!.videoOnly ? '退出窗口全屏（W）' : '窗口全屏（W）',
-            widget.windowMode!.transitioning
-                ? null
-                : () => _execute(_PlaybackCommand.windowFullscreen),
-            selected: widget.windowMode!.videoOnly,
+          Builder(
+            builder: (buttonContext) => _videoButton(
+              material.Icons.history_rounded,
+              '播放记录',
+              () =>
+                  _showLibrary(buttonContext, _PlaybackLibrarySection.history),
+            ),
           ),
+        ],
         _videoButton(
           isFullscreen(context)
               ? material.Icons.fullscreen_exit_rounded
@@ -497,6 +568,20 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     VoidCallback? onPressed, {
     Key? key,
     bool selected = false,
+  }) => _videoIconButton(
+    Icon(icon),
+    tooltip,
+    onPressed,
+    key: key,
+    selected: selected,
+  );
+
+  Widget _videoIconButton(
+    Widget icon,
+    String tooltip,
+    VoidCallback? onPressed, {
+    Key? key,
+    bool selected = false,
   }) => Tooltip(
     message: tooltip,
     child: material.IconButton(
@@ -507,18 +592,33 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
       color: selected ? FluentTheme.of(context).accentColor : Colors.white,
       disabledColor: Colors.white.withValues(alpha: 0.25),
       onPressed: onPressed,
-      icon: Icon(icon),
+      icon: icon,
     ),
   );
 
-  List<MenuFlyoutItemBase> _settingsItems() => _playbackSettingsItems(
-    widget.player,
-    widget.store,
-    widget.run,
-    widget.pickSubtitle,
-    _setFit,
-    _execute,
-  );
+  List<MenuFlyoutItemBase> _settingsItems() => [
+    ..._playbackSettingsItems(
+      widget.player,
+      widget.store,
+      widget.run,
+      widget.pickSubtitle,
+      _setFit,
+      _execute,
+      widget.windowMode,
+    ),
+    // 无边框播放器窗口没有标题栏入口，来源操作放在设置与右键菜单里。
+    const MenuFlyoutSeparator(),
+    MenuFlyoutItem(
+      text: const Text('打开本地视频…'),
+      leading: const Icon(material.Icons.video_file_outlined, size: 16),
+      onPressed: () => unawaited(widget.run(widget.pickFile)),
+    ),
+    MenuFlyoutItem(
+      text: const Text('停止播放'),
+      leading: const Icon(material.Icons.stop_circle_outlined, size: 16),
+      onPressed: () => unawaited(widget.run(widget.stopPlayback)),
+    ),
+  ];
 
   void _showSettings(BuildContext buttonContext) =>
       _showButtonMenu(buttonContext, _settingsItems, belowButton: true);
@@ -545,30 +645,28 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     );
   }
 
-  void _showLibrary(BuildContext buttonContext) {
+  /// 选集与播放记录各自浮出独立内容，浮出层固定出现在按钮上方不遮挡控制栏。
+  void _showLibrary(
+    BuildContext buttonContext,
+    _PlaybackLibrarySection section,
+  ) {
     widget.overlay.closeMenus();
     _showChrome();
     _hideTimer?.cancel();
     var navigatorBox =
         Navigator.of(context).context.findRenderObject() as RenderBox;
-    var buttonBox = buttonContext.findRenderObject() as RenderBox;
-    var available = MediaQuery.sizeOf(context);
+    var size = _playbackLibraryFlyoutSize(MediaQuery.sizeOf(context));
     unawaited(
       widget.run(() async {
         try {
           await _contextMenu.showFlyout<void>(
-            position: buttonBox.localToGlobal(
-              Offset.zero,
-              ancestor: navigatorBox,
+            position: _playbackLibraryFlyoutPosition(
+              buttonContext: buttonContext,
+              navigatorBox: navigatorBox,
+              size: size,
             ),
-            builder: (_) => FlyoutContent(
-              padding: EdgeInsets.zero,
-              child: SizedBox(
-                width: (available.width - 32).clamp(140.0, 360.0),
-                height: (available.height - 48).clamp(100.0, 420.0),
-                child: widget.buildLibraryPanel(),
-              ),
-            ),
+            builder: (_) =>
+                _playbackLibraryFlyout(widget.buildLibraryPanel(section), size),
           );
         } finally {
           if (mounted) {
@@ -908,6 +1006,58 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
   );
 }
 
+/// 三态置顶图标：关闭空心、播放时空心加播放角标、始终置顶实心。
+class _PlaybackOnTopIcon extends StatelessWidget {
+  const _PlaybackOnTopIcon({required this.onTop, this.size = 19, this.color});
+
+  final PlaybackOnTop onTop;
+  final double size;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    var tint = onTop.pinned
+        ? FluentTheme.of(context).accentColor
+        : color ?? FluentTheme.of(context).accentColor;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          Icon(
+            onTop == PlaybackOnTop.always
+                ? material.Icons.push_pin
+                : material.Icons.push_pin_outlined,
+            size: size,
+            color: tint,
+          ),
+          if (onTop == PlaybackOnTop.playing)
+            Positioned(
+              right: -1,
+              bottom: -1,
+              child: Icon(
+                material.Icons.play_arrow_rounded,
+                size: size * 0.55,
+                color: tint,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+String _playbackOnTopTooltip(PlaybackOnTop value) => switch (value) {
+  PlaybackOnTop.off =>
+    '窗口置顶：${PlaybackOnTop.off.label}（点击切换为${PlaybackOnTop.playing.label}）',
+  PlaybackOnTop.playing =>
+    '窗口置顶：${PlaybackOnTop.playing.label}（点击切换为'
+        '${PlaybackOnTop.always.label}）',
+  PlaybackOnTop.always => '窗口置顶：${PlaybackOnTop.always.label}（点击关闭置顶）',
+};
+
 /// Shortcut hints follow the flyout's text colors, including disabled items.
 class _PlaybackMenuShortcut extends StatelessWidget {
   const _PlaybackMenuShortcut(this.label, {this.enabled = true});
@@ -976,6 +1126,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
   Future<void> Function() pickSubtitle,
   Future<void> Function(PlaybackFit) setFit,
   ValueChanged<_PlaybackCommand> execute,
+  PlaybackWindowMode? windowMode,
 ) => [
   MenuFlyoutSubItem(
     text: Text('播放速度 · ${PlaybackRateMemory.label(player.state.rate)}×'),
@@ -1014,6 +1165,18 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
       value: store.loudnessEnabled,
       onChanged: (enabled) =>
           unawaited(run(() => store.setLoudnessEnabled(enabled))),
+    ),
+  if (windowMode != null)
+    MenuFlyoutSubItem(
+      text: Text('窗口置顶 · ${windowMode.onTop.label}'),
+      items: (_) => [
+        for (var mode in PlaybackOnTop.values)
+          ToggleMenuFlyoutItem(
+            text: Text('${mode.label} · ${mode.description}'),
+            value: windowMode.onTop == mode,
+            onChanged: (_) => unawaited(run(() => windowMode.setOnTop(mode))),
+          ),
+      ],
     ),
   MenuFlyoutSubItem(
     text: const Text('音轨'),

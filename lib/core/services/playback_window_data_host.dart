@@ -37,6 +37,8 @@ class PlaybackWindowDataHost {
     'playbackRememberedRate',
     'playbackLoudnessEnabled',
     'playbackWindowBounds',
+    'playbackEpisodeLayout',
+    'playbackOnTop',
   };
   final _requests = <int, (String, String, Future<Object?>)>{};
   final _revisions = <String, int>{};

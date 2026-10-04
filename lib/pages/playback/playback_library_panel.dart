@@ -1,5 +1,9 @@
 part of 'playback_page.dart';
 
+/// 面板内容。为空时显示选集/记录两个标签页（内嵌播放页侧栏），
+/// 指定时只显示其中一类（控制层与空态的独立浮出层）。
+enum _PlaybackLibrarySection { playlist, history }
+
 /// Each sidebar/flyout owns its scrolling and tab state. The fullscreen route
 /// can therefore open the same compact library without sharing scroll clients.
 class _PlaybackLibraryPanel extends ConsumerStatefulWidget {
@@ -9,12 +13,14 @@ class _PlaybackLibraryPanel extends ConsumerStatefulWidget {
     required this.openExternalPlayer,
     required this.openVideoDirectory,
     required this.openSubject,
+    this.section,
   });
 
   final Future<void> Function(Future<void> Function()) run;
   final Future<void> Function(PlaybackItem) openExternalPlayer;
   final Future<void> Function(PlaybackItem) openVideoDirectory;
   final Future<void> Function(int) openSubject;
+  final _PlaybackLibrarySection? section;
 
   @override
   ConsumerState<_PlaybackLibraryPanel> createState() =>
@@ -22,29 +28,37 @@ class _PlaybackLibraryPanel extends ConsumerStatefulWidget {
 }
 
 class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
-  final _playlistScroll = ScrollController();
+  final _gridScroll = ScrollController();
+  final _listScroll = ScrollController();
   final _historyScroll = ScrollController();
   final _menu = FlyoutController();
   late bool _showHistory;
   String? _lastPlayingKey;
   int _lastIndex = -1;
   int _columns = 4;
+  PlaybackEpisodeLayout? _lastLayout;
   (String?, String)? _progressSignature;
   static const _cellHeight = 48.0;
+  static const _rowHeight = 46.0;
   static const _gap = 6.0;
+  static const _gridPadding = 8.0;
+  static const _listPadding = 6.0;
 
   @override
   void initState() {
     super.initState();
     var store = ref.read(playbackStoreProvider);
-    _showHistory = store.playlist.isEmpty;
+    _showHistory =
+        widget.section == _PlaybackLibrarySection.history ||
+        (widget.section == null && store.playlist.isEmpty);
     _lastPlayingKey = store.current?.key;
     revealCurrent();
   }
 
   @override
   void dispose() {
-    _playlistScroll.dispose();
+    _gridScroll.dispose();
+    _listScroll.dispose();
     _historyScroll.dispose();
     _menu.dispose();
     super.dispose();
@@ -52,18 +66,29 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
 
   void revealCurrent() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _showHistory || !_playlistScroll.hasClients) return;
-      var index = ref.read(playbackStoreProvider).index;
+      if (!mounted || _showHistory) return;
+      var store = ref.read(playbackStoreProvider);
+      var layout = store.episodeLayout;
+      var scroll = layout == PlaybackEpisodeLayout.list
+          ? _listScroll
+          : _gridScroll;
+      if (!scroll.hasClients) return;
+      var index = store.index;
       if (index < 0) return;
-      var position = _playlistScroll.position;
-      var top = 8 + (index ~/ _columns) * (_cellHeight + _gap);
+      var position = scroll.position;
+      var height = layout == PlaybackEpisodeLayout.list
+          ? _rowHeight
+          : _cellHeight;
+      var top = layout == PlaybackEpisodeLayout.list
+          ? _listPadding + index * (_rowHeight + _gap)
+          : _gridPadding + (index ~/ _columns) * (_cellHeight + _gap);
       if (top >= position.pixels &&
-          top + _cellHeight <= position.pixels + position.viewportDimension) {
+          top + height <= position.pixels + position.viewportDimension) {
         return;
       }
       unawaited(
-        _playlistScroll.animateTo(
-          (top - position.viewportDimension / 2 + _cellHeight / 2).clamp(
+        scroll.animateTo(
+          (top - position.viewportDimension / 2 + height / 2).clamp(
             0.0,
             position.maxScrollExtent,
           ),
@@ -98,10 +123,18 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
     }
     var key = store.current?.key;
     if (key != _lastPlayingKey || store.index != _lastIndex) {
-      if (key != null && _lastPlayingKey == null) _showHistory = false;
-      if (key == null && _lastPlayingKey != null) _showHistory = true;
+      // 只有内嵌侧栏的两个标签页跟随播放状态自动切换。
+      if (widget.section == null) {
+        if (key != null && _lastPlayingKey == null) _showHistory = false;
+        if (key == null && _lastPlayingKey != null) _showHistory = true;
+      }
       _lastPlayingKey = key;
       _lastIndex = store.index;
+      revealCurrent();
+    }
+    // 切换排版后滚动位置属于另一份控制器，重新定位到当前集。
+    if (_lastLayout != store.episodeLayout) {
+      _lastLayout = store.episodeLayout;
       revealCurrent();
     }
     return Container(
@@ -114,36 +147,126 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
         children: [
           Padding(
             padding: const EdgeInsets.all(6),
-            child: Row(
-              children: [
-                _tab('选集', false, store.playlist.length),
-                const SizedBox(width: 4),
-                _tab('记录', true, store.historyGroups.length),
-                Tooltip(
-                  message: '刷新',
-                  child: IconButton(
-                    icon: const Icon(FluentIcons.refresh, size: 14),
-                    onPressed: !_showHistory && !store.canRefresh
-                        ? null
-                        : () => widget.run(() async {
-                            if (_showHistory) {
-                              await store.refreshHistory();
-                            } else {
-                              await store.refresh();
-                              if (!mounted) return;
-                              await ref
-                                  .read(episodeMarkProvider.notifier)
-                                  .syncItems(store.playlist, refresh: true);
-                            }
-                          }),
-                  ),
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // 窄浮出层优先保留入口，排版切换在宽度足够时才出现。
+                var showLayout =
+                    !_showHistory &&
+                    store.playlist.isNotEmpty &&
+                    constraints.maxWidth >= 220;
+                return Row(
+                  children: [
+                    if (widget.section == null) ...[
+                      _tab('选集', false, store.playlist.length),
+                      const SizedBox(width: 4),
+                      _tab('记录', true, store.historyGroups.length),
+                    ] else
+                      Expanded(child: _sectionTitle(store)),
+                    if (showLayout) ...[
+                      const SizedBox(width: 4),
+                      _layoutSwitch(store),
+                    ],
+                    Tooltip(
+                      message: '刷新',
+                      child: IconButton(
+                        icon: const Icon(FluentIcons.refresh, size: 14),
+                        onPressed: !_showHistory && !store.canRefresh
+                            ? null
+                            : () => widget.run(() async {
+                                if (_showHistory) {
+                                  await store.refreshHistory();
+                                } else {
+                                  await store.refresh();
+                                  if (!mounted) return;
+                                  await ref
+                                      .read(episodeMarkProvider.notifier)
+                                      .syncItems(store.playlist, refresh: true);
+                                }
+                              }),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           Container(height: 1, color: BTColors.divider(context)),
           Expanded(child: _showHistory ? _history(store) : _playlist(store)),
         ],
+      ),
+    );
+  }
+
+  /// 单一内容的浮出层标题，替代侧栏里的两个标签页。
+  Widget _sectionTitle(PlaybackStore store) => Container(
+    height: 32,
+    alignment: Alignment.centerLeft,
+    padding: const EdgeInsets.symmetric(horizontal: 6),
+    child: Text(
+      _showHistory
+          ? '播放记录 ${store.historyGroups.length}'
+          : '选集 ${store.playlist.length}',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: BTTypography.caption(context).copyWith(
+        color: BTColors.textSecondary(context),
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+
+  /// 选集与列表两种排版共用一个两段式切换，当前项用强调色标记。
+  Widget _layoutSwitch(PlaybackStore store) {
+    var accent = FluentTheme.of(context).accentColor;
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: BTColors.surfaceTertiary(context),
+        borderRadius: BTRadius.smallBR,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var layout in PlaybackEpisodeLayout.values)
+            _layoutOption(store, layout, accent),
+        ],
+      ),
+    );
+  }
+
+  Widget _layoutOption(
+    PlaybackStore store,
+    PlaybackEpisodeLayout layout,
+    Color accent,
+  ) {
+    var selected = store.episodeLayout == layout;
+    return Tooltip(
+      message: selected
+          ? '${layout.label}布局 · ${layout.description}'
+          : '切换为${layout.label}布局',
+      child: HoverButton(
+        semanticLabel: '${layout.label}布局',
+        onPressed: selected
+            ? null
+            : () => unawaited(widget.run(() => store.setEpisodeLayout(layout))),
+        builder: (context, states) => Container(
+          width: 26,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected
+                ? accent.withValues(alpha: 0.16)
+                : states.isHovered
+                ? BTColors.surfacePrimary(context)
+                : Colors.transparent,
+            borderRadius: BTRadius.smallBR,
+          ),
+          child: Icon(
+            _playbackLayoutIcon(layout),
+            size: 14,
+            color: selected ? accent : BTColors.textSecondary(context),
+          ),
+        ),
       ),
     );
   }
@@ -172,6 +295,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
           child: Text(
             '$title $count',
             maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: BTTypography.caption(context).copyWith(
               color: selected ? accent : BTColors.textSecondary(context),
               fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
@@ -195,23 +319,158 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
         }
         return FlyoutTarget(
           controller: _menu,
-          child: Scrollbar(
-            controller: _playlistScroll,
-            child: GridView.builder(
-              controller: _playlistScroll,
-              padding: const EdgeInsets.all(8),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
-                mainAxisExtent: _cellHeight,
-                mainAxisSpacing: _gap,
-                crossAxisSpacing: _gap,
-              ),
-              itemCount: store.playlist.length,
-              itemBuilder: (_, index) => _episodeCell(store, index),
-            ),
-          ),
+          child: store.episodeLayout == PlaybackEpisodeLayout.list
+              ? Scrollbar(
+                  controller: _listScroll,
+                  child: ListView.builder(
+                    controller: _listScroll,
+                    padding: const EdgeInsets.all(_listPadding),
+                    itemCount: store.playlist.length,
+                    itemBuilder: (_, index) => _episodeRow(store, index),
+                  ),
+                )
+              : Scrollbar(
+                  controller: _gridScroll,
+                  child: GridView.builder(
+                    controller: _gridScroll,
+                    padding: const EdgeInsets.all(_gridPadding),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      mainAxisExtent: _cellHeight,
+                      mainAxisSpacing: _gap,
+                      crossAxisSpacing: _gap,
+                    ),
+                    itemCount: store.playlist.length,
+                    itemBuilder: (_, index) => _episodeCell(store, index),
+                  ),
+                ),
         );
       },
+    );
+  }
+
+  /// 列表排版每行多显示文件名与画质信息，集数仍固定在行首。
+  Widget _episodeRow(PlaybackStore store, int index) {
+    var item = store.playlist[index];
+    var selected = store.index == index;
+    var label = PlaybackLabel.fromName(item.title);
+    var number = label.episodeNumber ?? '${index + 1}';
+    var accent = FluentTheme.of(context).accentColor;
+    var meta = [
+      if (label.episode != null) label.episode!,
+      if (label.details.isNotEmpty) label.details,
+    ].join(' · ');
+    return Tooltip(
+      message: item.title,
+      child: GestureDetector(
+        onSecondaryTapUp: (details) =>
+            _showItemMenu(item, details.globalPosition),
+        child: HoverButton(
+          key: ValueKey((item.subject, item.key)),
+          semanticLabel: '第 $number 集',
+          onPressed: () {
+            if (!store.loading && !selected) {
+              unawaited(widget.run(() => store.jump(index)));
+            }
+          },
+          builder: (context, states) {
+            var reveal = states.isHovered || selected;
+            return Container(
+              height: _rowHeight,
+              margin: const EdgeInsets.only(bottom: _gap),
+              padding: const EdgeInsets.fromLTRB(6, 0, 4, 0),
+              decoration: BoxDecoration(
+                color: selected
+                    ? accent.withValues(alpha: 0.16)
+                    : states.isHovered
+                    ? BTColors.surfaceTertiary(context)
+                    : BTColors.surfacePrimary(context),
+                borderRadius: BTRadius.mediumBR,
+                border: Border.all(
+                  color: selected ? accent : BTColors.divider(context),
+                ),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 28,
+                    child: Text(
+                      number,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: BTTypography.bodyStrong(context).copyWith(
+                        color: selected
+                            ? accent
+                            : BTColors.textPrimary(context),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          label.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: BTTypography.caption(context).copyWith(
+                            color: selected
+                                ? accent
+                                : BTColors.textPrimary(context),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (meta.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            meta,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: BTTypography.caption(context).copyWith(
+                              fontSize: 11,
+                              color: BTColors.textTertiary(context),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  // 右键菜单里的操作在列表排版下作为纯图标常驻行尾。
+                  _PlaybackRowAction(
+                    icon: material.Icons.open_in_new_rounded,
+                    tooltip: '用外部播放器打开',
+                    reveal: reveal,
+                    onPressed: () =>
+                        widget.run(() => widget.openExternalPlayer(item)),
+                  ),
+                  _PlaybackRowAction(
+                    icon: material.Icons.folder_open_rounded,
+                    tooltip: '打开所在目录',
+                    reveal: reveal,
+                    onPressed: () =>
+                        widget.run(() => widget.openVideoDirectory(item)),
+                  ),
+                  if (item.subject != null)
+                    _PlaybackRowAction(
+                      icon: material.Icons.info_outline_rounded,
+                      tooltip: '查看章节',
+                      reveal: reveal,
+                      onPressed: () => widget.openSubject(item.subject!),
+                    ),
+                  PlaybackEpisodeMarkButton(
+                    item: item,
+                    compact: true,
+                    reveal: reveal,
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -390,4 +649,67 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
 
   Widget _empty(String text) =>
       Center(child: Text(text, style: BTTypography.caption(context)));
+}
+
+IconData _playbackLayoutIcon(PlaybackEpisodeLayout layout) => switch (layout) {
+  PlaybackEpisodeLayout.grid => material.Icons.grid_view_rounded,
+  PlaybackEpisodeLayout.list => material.Icons.view_list_rounded,
+};
+
+/// 选集 / 记录浮出层共用的尺寸：窄窗口下仍要放得下刷新与排版切换。
+Size _playbackLibraryFlyoutSize(Size available) => Size(
+  (available.width - 32).clamp(140.0, 360.0),
+  (available.height - 48).clamp(100.0, 420.0),
+);
+
+/// 浮出层放在按钮上方，避免遮挡控制栏或空态按钮；越界时由 fluent 自行钳制。
+Offset _playbackLibraryFlyoutPosition({
+  required BuildContext buttonContext,
+  required RenderBox navigatorBox,
+  required Size size,
+}) {
+  var buttonBox = buttonContext.findRenderObject() as RenderBox;
+  var topLeft = buttonBox.localToGlobal(Offset.zero, ancestor: navigatorBox);
+  return Offset(
+    topLeft.dx + buttonBox.size.width / 2 - size.width / 2,
+    topLeft.dy - size.height - 8,
+  );
+}
+
+Widget _playbackLibraryFlyout(Widget panel, Size size) => FlyoutContent(
+  padding: EdgeInsets.zero,
+  child: SizedBox(width: size.width, height: size.height, child: panel),
+);
+
+/// 列表行的行内操作：纯图标，与标记按钮一起在悬停或选中时出现。
+class _PlaybackRowAction extends StatelessWidget {
+  const _PlaybackRowAction({
+    required this.icon,
+    required this.tooltip,
+    required this.reveal,
+    this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final bool reveal;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    ignoring: !reveal,
+    child: Opacity(
+      opacity: reveal ? 1 : 0,
+      child: Tooltip(
+        message: tooltip,
+        child: IconButton(
+          style: ButtonStyle(
+            padding: WidgetStateProperty.all(const EdgeInsets.all(2)),
+          ),
+          icon: Icon(icon, size: 14, color: BTColors.textSecondary(context)),
+          onPressed: onPressed,
+        ),
+      ),
+    ),
+  );
 }
