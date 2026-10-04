@@ -49,7 +49,6 @@ class PlaybackUpscaler {
   bool _restorationFailed = false;
   bool _unsupported = false;
   String? _baselineDumbMode;
-  String? _baselineTimingOffset;
   bool _resizeInvalidated = false;
   PlaybackPixels? _fixedOutput;
   List<String> _paths = [];
@@ -240,12 +239,6 @@ class PlaybackUpscaler {
             if (original is! List || original.isNotEmpty) {
               throw StateError('当前渲染器已有其他着色器');
             }
-            var timing = await backend.read('video-timing-offset');
-            if (!_current(generation)) continue;
-            if (timing is! num || !timing.isFinite || timing < 0) {
-              throw StateError('无法确认渲染器的帧调度配置');
-            }
-            _baselineTimingOffset = timing.toString();
             _baselineDumbMode = baseline;
           }
           if (_loadedMode != next.mode) {
@@ -258,12 +251,6 @@ class PlaybackUpscaler {
             _loadedMode = null;
             _applied = null;
             await backend.command(['set', 'gpu-dumb-mode', 'no']);
-            if (!_current(generation)) continue;
-            // media_kit_video sets this to zero. Give CNN rendering 10 ms of
-            // headroom while retaining libmpv's wait for the audio target time.
-            // A full frame of waiting would hold ANGLE's shared-surface lock
-            // too long and delay Flutter's texture reads.
-            await backend.command(['set', 'video-timing-offset', '0.010']);
             if (!_current(generation)) continue;
             await backend.shaders(shaders);
             if (!_current(generation)) continue;
@@ -337,12 +324,6 @@ class PlaybackUpscaler {
       },
       if (_baselineDumbMode != null)
         () => backend.command(['set', 'gpu-dumb-mode', _baselineDumbMode!]),
-      if (_baselineTimingOffset != null)
-        () => backend.command([
-          'set',
-          'video-timing-offset',
-          _baselineTimingOffset!,
-        ]),
       backend.redraw,
     ]) {
       try {
