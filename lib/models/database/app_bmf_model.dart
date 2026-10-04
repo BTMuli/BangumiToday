@@ -34,7 +34,8 @@ class AppBmfModel {
   /// 下载目录
   late String? download;
 
-  /// 是否自动更新 RSS
+  /// 是否自动更新 RSS；未指定时，仅配置了 RSS 地址才默认开启。
+  @JsonKey(readValue: _readAutoUpdate)
   late bool autoUpdate;
 
   /// 构造函数
@@ -47,8 +48,15 @@ class AppBmfModel {
     this.download,
     this.mkBgmId,
     this.mkGroupId,
-    this.autoUpdate = true,
-  });
+    bool? autoUpdate,
+  }) : autoUpdate = autoUpdate ?? (rss?.trim().isNotEmpty ?? false);
+
+  static Object? _readAutoUpdate(Map<dynamic, dynamic> json, String key) {
+    var value = json[key];
+    if (value == null) return null;
+    if (value is bool) return value;
+    return (value as num).toInt() != 0;
+  }
 
   /// JSON 序列化
   factory AppBmfModel.fromJson(Map<String, dynamic> json) =>
