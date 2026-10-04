@@ -30,6 +30,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   late BtDownloadState _downloadStore;
   List<String> files = [];
   List<String> aria2Files = [];
+  final Map<String, int> _fileSizes = {};
   final Map<String, List<BtTaskFileDetail>> _taskFileDetails = {};
   final Map<String, DateTime> _taskFileDetailsFetchedAt = {};
   final Set<String> _knownTaskIds = {};
@@ -60,6 +61,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       _refreshGeneration++;
       files.clear();
       aria2Files.clear();
+      _fileSizes.clear();
       _dirTasks = _tasksForDir(
         ref.read(btDownloadStoreProvider.notifier).tasks,
       );
@@ -97,6 +99,14 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       var filesGet = await fileTool.getFileNames(downloadDir, recursive: true);
       filesGet.sort(PlaybackPaths.naturalCompare);
       if (!mounted || generation != _refreshGeneration) return;
+      var visibleFiles = filesGet
+          .where((element) => !element.endsWith('.aria2'))
+          .toList();
+      var fileSizesGet = <String, int>{};
+      for (var file in visibleFiles) {
+        var size = fileTool.getFileSize(path.join(downloadDir, file));
+        if (size >= 0) fileSizesGet[file] = size;
+      }
       var aria2FilesGet = filesGet
           .where((element) => element.endsWith('.aria2'))
           .map((e) => e.replaceAll('.aria2', ''))
@@ -139,10 +149,11 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       }
       if (!mounted || generation != _refreshGeneration) return;
       setState(() {
-        files = filesGet
-            .where((element) => !element.endsWith('.aria2'))
-            .toList();
+        files = visibleFiles;
         aria2Files = aria2FilesGet;
+        _fileSizes
+          ..clear()
+          ..addAll(fileSizesGet);
       });
     } finally {
       _refreshingFiles = false;

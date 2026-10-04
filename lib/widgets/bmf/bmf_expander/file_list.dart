@@ -7,6 +7,7 @@ extension _BmfFileList on _BmfFileExpanderState {
     var isVideo = PlaybackPaths.isVideo(file);
     var isTorrent = file.endsWith('.torrent');
     var statusLabel = fileState?.statusLabel ?? '下载中';
+    var fileSize = _fileSizes[file];
 
     return Container(
       margin: EdgeInsets.only(bottom: 6),
@@ -50,6 +51,15 @@ extension _BmfFileList on _BmfFileExpanderState {
           SizedBox(height: 6),
           Row(
             children: [
+              if (fileSize != null) ...[
+                Text(
+                  filesize(fileSize),
+                  style: BTTypography.caption(
+                    context,
+                  ).copyWith(color: BTColors.textTertiary(context)),
+                ),
+                SizedBox(width: 8),
+              ],
               if (isIncomplete) ...[
                 Expanded(
                   child: ProgressBar(
