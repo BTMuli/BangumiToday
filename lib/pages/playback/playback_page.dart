@@ -58,6 +58,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   bool _sidebarVisible = true;
   bool _showHistory = false;
   bool _noticeFramePending = false;
+  (String?, String)? _progressSignature;
   String? _lastPlayingKey;
   int _lastPlayingIndex = -1;
   int? _posterSubject;
@@ -260,6 +261,23 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
         (_, _) => _onNavigation(),
       );
     }
+    var account = ref.watch(
+      episodeMarkProvider.select((value) => value.account),
+    );
+    var signature = (
+      account,
+      store.playlist.map(EpisodeMarkState.itemKey).join('\n'),
+    );
+    if (_progressSignature != signature) {
+      _progressSignature = signature;
+      var items = List<PlaybackItem>.of(store.playlist);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _progressSignature != signature) return;
+        unawaited(
+          _run(() => ref.read(episodeMarkProvider.notifier).syncItems(items)),
+        );
+      });
+    }
     _onPlaybackChanged();
     _schedulePlaybackNotices();
     return ScaffoldPage(
@@ -269,7 +287,6 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
         child: Column(
           children: [
             _buildHeader(store),
-            if (store.video == null) const PlaybackEpisodeMarkPrompt(),
             const SizedBox(height: 16),
             Expanded(
               child: LayoutBuilder(
@@ -310,7 +327,6 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   }
 
   Widget _buildHeader(PlaybackStore store) {
-    var marking = ref.watch(episodeMarkProvider);
     var current = store.current;
     var label = current == null ? null : PlaybackLabel.fromName(current.title);
     return SizedBox(
@@ -358,14 +374,6 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                   ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          ToggleSwitch(
-            checked: marking.enabled,
-            content: const Text('结束后提示标记看过'),
-            onChanged: (value) => _run(
-              () => ref.read(episodeMarkProvider.notifier).setEnabled(value),
             ),
           ),
           const SizedBox(width: 12),
@@ -572,7 +580,13 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                       key: const ValueKey('playback-refresh'),
                       icon: const Icon(FluentIcons.refresh, size: 15),
                       onPressed: store.canRefresh
-                          ? () => _run(store.refresh)
+                          ? () => _run(() async {
+                              await store.refresh();
+                              if (!mounted) return;
+                              await ref
+                                  .read(episodeMarkProvider.notifier)
+                                  .syncItems(store.playlist, refresh: true);
+                            })
                           : null,
                     ),
                   ),
@@ -751,6 +765,10 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                   ),
                 ),
                 const SizedBox(width: 4),
+                PlaybackEpisodeMarkButton(
+                  key: ValueKey((item.subject, item.key)),
+                  item: item,
+                ),
                 Tooltip(
                   message: '用外部播放器打开',
                   child: IconButton(

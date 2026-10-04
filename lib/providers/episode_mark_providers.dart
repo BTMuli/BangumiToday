@@ -7,8 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import '../core/services/episode_mark_service.dart';
 import '../data/repositories/episode_mark_gateway_impl.dart';
-import '../models/playback/playback_completion.dart';
+import '../models/bangumi/bangumi_model.dart';
 import '../models/playback/episode_mark_state.dart';
+import '../models/playback/playback_item.dart';
 import '../store/bgm_user_hive.dart';
 import '../store/playback_store.dart';
 import 'bangumi_providers.dart';
@@ -29,17 +30,14 @@ final episodeMarkRefreshProvider =
           .where((event) => event.subject == subject);
     });
 
-/// In-memory prompts only. Account changes, disabling and shutdown discard
-/// unconfirmed work; periodic saves and auto-advance do not wait for this queue.
+/// Account-scoped chapter progress and explicit playlist actions. Playback and
+/// auto-advance never wait for queries or writes.
 class EpisodeMarkController extends Notifier<EpisodeMarkState> {
   late final EpisodeMarkService service;
   late final PlaybackStore _playback;
   int _accountGeneration = 0;
   (int?, String?) _observedAuthorization = (null, null);
-  int _settingsRevision = 0;
   bool _closed = false;
-  final _seen = <String>{};
-  Future<void> _settingsOperation = Future.value();
 
   @override
   EpisodeMarkState build() {
@@ -53,35 +51,37 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
       ),
       accountSession: currentAccount,
     );
-    var subscription = _playback.completions.listen(_onCompletion);
+    var progressSubscription = service.progressChanges.listen((value) {
+      if (!_closed && value.account == currentAccount()) {
+        state = service.progressState;
+      }
+    });
     ref.listen<(int?, String?)>(
       bgmUserStoreProvider.select(
         (value) => (value.user?.id, value.accessToken),
       ),
       (_, authorization) {
         _observedAuthorization = authorization;
-        _accountGeneration++;
-        _clear();
+        discardWindowWork();
       },
     );
     ref.listen(playbackStoreProvider, (_, value) {
-      if (value.isClosed) _clear();
+      if (value.isClosed) discardWindowWork();
     });
     ref.onDispose(() {
       _closed = true;
+      unawaited(progressSubscription.cancel());
       service.close();
-      unawaited(subscription.cancel());
     });
-    unawaited(Future.microtask(_loadSetting));
-    return const EpisodeMarkState();
+    return EpisodeMarkState(account: currentAccount());
   }
 
   String? currentAccount() {
-    if (_closed || !state.enabled || _playback.isClosed) return null;
+    if (_closed || _playback.isClosed) return null;
     var user = ref.read(bgmUserStoreProvider);
     var authorization = (user.user?.id, user.accessToken);
-    // Offstage listeners can pause, and OAuth can replace the token before the
-    // user ID. Read live authorization at every guard; expose only a generation.
+    // Read live authorization at every guard, including while page listeners
+    // are paused. Only the generation crosses engines, never the token.
     if (authorization != _observedAuthorization) {
       _observedAuthorization = authorization;
       _accountGeneration++;
@@ -90,185 +90,58 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
     return '${user.user!.id}:$_accountGeneration';
   }
 
-  Future<void> _loadSetting() async {
-    var revision = _settingsRevision;
-    try {
-      var value = await _playback.settingsStore.read(
-        'playbackPromptMarkWatched',
-      );
-      if (_closed || revision != _settingsRevision) return;
-      state = EpisodeMarkState(enabled: value == 'true');
-    } catch (_) {
-      // A missing/unreadable preference stays off. Explicit writes report their
-      // errors to the caller instead of pretending to persist successfully.
-    }
-  }
-
-  Future<void> setEnabled(bool enabled) {
-    _settingsRevision++;
-    var operation = _settingsOperation.then((_) async {
-      if (_closed) return;
-      await _playback.settingsStore.write(
-        'playbackPromptMarkWatched',
-        enabled.toString(),
-      );
-      if (_closed) return;
-      if (!enabled) _accountGeneration++;
-      state = EpisodeMarkState(
-        enabled: enabled,
-        prompts: enabled ? state.prompts : const [],
-        confirmingId: enabled ? state.confirmingId : null,
-      );
-    });
-    _settingsOperation = operation.catchError((Object _) {});
-    return operation;
-  }
-
-  void _clear() {
+  void discardWindowWork() {
     if (_closed) return;
-    _seen.clear();
-    state = EpisodeMarkState(enabled: state.enabled);
-  }
-
-  void acceptCompletion(PlaybackCompletion completion) =>
-      _onCompletion(completion);
-
-  void discardWindowPrompts() {
     _accountGeneration++;
-    _clear();
+    service.resetProgress();
+    state = EpisodeMarkState(account: currentAccount());
   }
 
-  void _onCompletion(PlaybackCompletion completion) {
+  Future<void> syncItems(
+    List<PlaybackItem> items, {
+    bool refresh = false,
+  }) async {
     var account = currentAccount();
-    if (account == null ||
-        (completion.item.subject ?? 0) <= 0 ||
-        !_seen.add(completion.eventId))
-      return;
-    if (_seen.length > 512) _seen.remove(_seen.first);
-    var prompt = EpisodeMarkPrompt(completion: completion, account: account);
-    var prompts = [...state.prompts, prompt];
-    // Keep recent notices bounded. No abandoned notice becomes a durable job.
-    if (prompts.length > 20) {
-      var discarded = prompts.indexWhere(
-        (item) => item.id != state.confirmingId,
-      );
-      prompts.removeAt(discarded);
+    if (_closed || account == null) return;
+    try {
+      await service.syncItems(items, refresh: refresh);
+    } catch (_) {
+      if (_closed || account != currentAccount()) return;
+      rethrow;
     }
-    _publish(prompts);
-    unawaited(_resolve(prompt));
+    if (!_closed && account == currentAccount()) state = service.progressState;
   }
 
-  bool _valid(EpisodeMarkPrompt prompt) =>
-      !_closed &&
-      prompt.account == currentAccount() &&
-      state.prompts.any((item) => item.id == prompt.id);
-
-  void _publish(List<EpisodeMarkPrompt> prompts, {String? confirmingId}) {
+  void receiveSubjectProgress(
+    int subject,
+    Iterable<BangumiUserEpisodeCollection> episodes, {
+    required String? account,
+    int? since,
+  }) {
     if (_closed) return;
-    state = EpisodeMarkState(
-      enabled: state.enabled,
-      prompts: List.unmodifiable(prompts),
-      confirmingId: confirmingId ?? state.confirmingId,
+    service.observeProgress(
+      subject,
+      episodes.map(episodeMarkProgress),
+      account: account,
+      since: since,
     );
   }
 
-  Future<void> _resolve(EpisodeMarkPrompt prompt) async {
-    var result = await service.prepare(prompt.completion);
-    if (!_valid(prompt)) return;
-    if (result.alreadyDone ||
-        result.message == null && result.candidate == null) {
-      dismiss(prompt.id);
-      return;
+  int get progressVersion => service.progressVersion;
+
+  Future<EpisodeMarkWriteResult> markItem(PlaybackItem item) async {
+    var account = currentAccount();
+    if (state.account != account) {
+      state = EpisodeMarkState(account: account);
     }
-    var candidate = result.candidate;
-    if (candidate != null &&
-        state.prompts.any(
-          (other) =>
-              other.id != prompt.id &&
-              other.candidate?.episode.id == candidate.episode.id,
-        )) {
-      dismiss(prompt.id);
-      return;
-    }
-    _publish([
-      for (var item in state.prompts)
-        if (item.id == prompt.id)
-          EpisodeMarkPrompt(
-            completion: prompt.completion,
-            account: prompt.account,
-            candidate: candidate,
-            message: result.message,
-            loading: false,
-            retryable: result.retryable,
-          )
-        else
-          item,
-    ]);
-  }
-
-  void retry(EpisodeMarkPrompt prompt) {
-    if (!_valid(prompt) || prompt.loading || state.confirmingId != null) return;
-    _publish([
-      for (var item in state.prompts)
-        if (item.id == prompt.id)
-          EpisodeMarkPrompt(
-            completion: prompt.completion,
-            account: prompt.account,
-          )
-        else
-          item,
-    ]);
-    unawaited(_resolve(prompt));
-  }
-
-  Future<EpisodeMarkCandidate?> beginConfirmation(
-    EpisodeMarkPrompt prompt,
-  ) async {
-    if (!_valid(prompt) || state.confirmingId != null) return null;
-    var candidate = prompt.candidate;
-    if (candidate == null) return null;
-    _publish(state.prompts, confirmingId: prompt.id);
-    return candidate;
-  }
-
-  Future<EpisodeMarkWriteResult> confirm(EpisodeMarkPrompt prompt) async {
-    if (!_valid(prompt) ||
-        state.confirmingId != prompt.id ||
-        prompt.candidate == null) {
+    var result = await service.mark(item);
+    if (_closed || account != currentAccount()) {
       return const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.expired);
     }
-    var result = await service.confirm(prompt.candidate!);
-    if (!_valid(prompt)) return result;
-    if (result.status != EpisodeMarkWriteStatus.failed) {
-      dismiss(prompt.id);
-    } else {
-      state = EpisodeMarkState(
-        enabled: state.enabled,
-        prompts: List.unmodifiable([
-          for (var item in state.prompts)
-            if (item.id == prompt.id)
-              EpisodeMarkPrompt(
-                completion: prompt.completion,
-                account: prompt.account,
-                candidate: prompt.candidate,
-                loading: false,
-                retryable: true,
-                message: result.message,
-              )
-            else
-              item,
-        ]),
-      );
+    if (result.status == EpisodeMarkWriteStatus.marked ||
+        result.status == EpisodeMarkWriteStatus.alreadyDone) {
+      state = service.progressState;
     }
     return result;
-  }
-
-  void dismiss(String id) {
-    if (_closed) return;
-    state = EpisodeMarkState(
-      enabled: state.enabled,
-      prompts: List.unmodifiable(state.prompts.where((item) => item.id != id)),
-      confirmingId: state.confirmingId == id ? null : state.confirmingId,
-    );
   }
 }

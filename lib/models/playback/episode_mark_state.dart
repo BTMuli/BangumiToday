@@ -1,32 +1,18 @@
-import '../../core/services/episode_mark_service.dart';
-import 'playback_completion.dart';
+import 'playback_item.dart';
 
-class EpisodeMarkPrompt {
-  const EpisodeMarkPrompt({
-    required this.completion,
-    required this.account,
-    this.candidate,
-    this.message,
-    this.loading = true,
-    this.retryable = false,
-  });
-
-  final PlaybackCompletion completion;
-  final String account;
-  final EpisodeMarkCandidate? candidate;
-  final String? message;
-  final bool loading;
-  final bool retryable;
-  String get id => completion.eventId;
-}
-
+/// The account's chapter progress, separate from local playback completion.
 class EpisodeMarkState {
   const EpisodeMarkState({
-    this.enabled = false,
-    this.prompts = const [],
-    this.confirmingId,
+    this.account,
+    this.marked = const {},
+    this.checked = const {},
+    this.loading = const {},
   });
-  final bool enabled;
-  final List<EpisodeMarkPrompt> prompts;
-  final String? confirmingId;
+
+  final String? account;
+  final Set<String> marked;
+  final Set<String> checked;
+  final Set<String> loading;
+
+  static String itemKey(PlaybackItem item) => '${item.subject}:${item.key}';
 }

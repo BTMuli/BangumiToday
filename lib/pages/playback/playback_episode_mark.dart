@@ -4,146 +4,109 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../core/services/episode_mark_service.dart';
+import '../../models/playback/playback_item.dart';
 import '../../providers/episode_mark_providers.dart';
-import '../../providers/playback_window_providers.dart';
-import '../../store/playback_store.dart';
 import '../../ui/bt_infobar.dart';
 
-/// A notice never opens a dialog or requests focus until the user selects it.
-class PlaybackEpisodeMarkPrompt extends ConsumerWidget {
-  const PlaybackEpisodeMarkPrompt({super.key, this.beforeOpenSubject});
+/// A row action always captures its own file, even while auto-advance changes
+/// the currently playing video. Remote watched status is separate from EOF.
+class PlaybackEpisodeMarkButton extends ConsumerStatefulWidget {
+  const PlaybackEpisodeMarkButton({
+    super.key,
+    required this.item,
+    this.compact = false,
+    this.reveal = true,
+  });
 
-  final Future<void> Function()? beforeOpenSubject;
+  final PlaybackItem item;
+  final bool compact;
+  final bool reveal;
 
-  Future<void> _confirm(
-    BuildContext context,
-    WidgetRef ref,
-    EpisodeMarkPrompt prompt,
-  ) async {
+  @override
+  ConsumerState<PlaybackEpisodeMarkButton> createState() =>
+      _PlaybackEpisodeMarkButtonState();
+}
+
+class _PlaybackEpisodeMarkButtonState
+    extends ConsumerState<PlaybackEpisodeMarkButton> {
+  bool _busy = false;
+
+  Future<void> _markWatched() async {
+    if (_busy) return;
+    var item = widget.item;
     var controller = ref.read(episodeMarkProvider.notifier);
-    EpisodeMarkCandidate? resolved;
+    setState(() => _busy = true);
     try {
-      resolved = await controller.beginConfirmation(prompt);
-    } catch (error) {
-      if (context.mounted) await BtInfobar.error(context, error.toString());
-      return;
-    }
-    if (resolved == null) return;
-    final EpisodeMarkCandidate candidate = resolved;
-    if (!context.mounted) {
-      controller.dismiss(prompt.id);
-      return;
-    }
-    var name = ref.read(playbackStoreProvider).nameFor(candidate.subject);
-    var confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => Consumer(
-        builder: (context, dialogRef, _) {
-          var state = dialogRef.watch(episodeMarkProvider);
-          var valid =
-              state.confirmingId == prompt.id &&
-              state.prompts.any((item) => item.id == prompt.id) &&
-              controller.currentAccount() == prompt.account;
-          if (!valid) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!dialogContext.mounted) return;
-              var route = ModalRoute.of(dialogContext);
-              if (route != null) Navigator.of(dialogContext).removeRoute(route);
-            });
+      var result = await controller.markItem(item);
+      if (!mounted) return;
+      switch (result.status) {
+        case EpisodeMarkWriteStatus.failed:
+          await BtInfobar.error(context, result.message ?? '标记失败，请重试');
+        case EpisodeMarkWriteStatus.expired:
+          await BtInfobar.warn(context, '账户或播放器状态已变化，请重试');
+        case EpisodeMarkWriteStatus.marked:
+        case EpisodeMarkWriteStatus.alreadyDone:
+          if (result.message != null) {
+            await BtInfobar.warn(context, result.message!);
+          } else {
+            await BtInfobar.success(
+              context,
+              result.status == EpisodeMarkWriteStatus.alreadyDone
+                  ? '该章节已经标记看过'
+                  : '已标记看过',
+            );
           }
-          return ContentDialog(
-            title: const Text('标记章节看过'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(candidate.completion.item.title),
-                const SizedBox(height: 12),
-                Text(name ?? '条目 #${candidate.subject}'),
-                Text('第 ${candidate.number} 话 · ${candidate.episode.name}'),
-                const SizedBox(height: 12),
-                const Text('播放已结束。确认后将此章节标记为看过。'),
-              ],
-            ),
-            actions: [
-              Button(
-                child: const Text('取消'),
-                onPressed: () => Navigator.pop(context, false),
-              ),
-              FilledButton(
-                child: const Text('标记看过'),
-                onPressed: valid ? () => Navigator.pop(context, true) : null,
-              ),
-            ],
-          );
-        },
-      ),
-    );
-    if (confirmed != true) {
-      controller.dismiss(prompt.id);
-      return;
-    }
-    var result = await controller.confirm(prompt);
-    if (!context.mounted || result.status == EpisodeMarkWriteStatus.expired)
-      return;
-    if (result.status == EpisodeMarkWriteStatus.failed) {
-      await BtInfobar.error(context, result.message ?? '标记失败，请重试');
-    } else if (result.message != null) {
-      await BtInfobar.error(context, result.message!);
+      }
+    } catch (error) {
+      if (mounted) await BtInfobar.error(context, error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    var state = ref.watch(episodeMarkProvider);
-    if (state.prompts.isEmpty) return const SizedBox.shrink();
-    var prompt = state.prompts.first;
-    var busy = state.confirmingId != null;
-    var controller = ref.read(episodeMarkProvider.notifier);
-    var candidate = prompt.candidate;
-    return InfoBar(
-      title: Text('播放已结束 · ${prompt.completion.item.title}'),
-      content: Text(
-        prompt.loading
-            ? '正在匹配章节…'
-            : prompt.message ??
-                  '是否将第 ${candidate!.number} 话「${candidate.episode.name}」标记看过？',
-      ),
-      severity: prompt.message == null
-          ? InfoBarSeverity.info
-          : InfoBarSeverity.warning,
-      onClose: busy ? null : () => controller.dismiss(prompt.id),
-      action: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (candidate != null)
-            Button(
-              onPressed: busy ? null : () => _confirm(context, ref, prompt),
-              child: Text(prompt.retryable ? '重试确认' : '标记看过'),
-            )
-          else if (prompt.retryable)
-            Button(
-              onPressed: busy ? null : () => controller.retry(prompt),
-              child: const Text('重试'),
-            ),
-          if (!prompt.loading) ...[
-            const SizedBox(width: 8),
-            Button(
-              onPressed: busy
-                  ? null
-                  : () async {
-                      var subject = prompt.completion.item.subject;
-                      if (subject == null) return;
-                      controller.dismiss(prompt.id);
-                      await beforeOpenSubject?.call();
-                      await ref.read(playbackSubjectNavigationProvider)(
-                        subject,
-                      );
-                    },
-              child: const Text('打开章节'),
-            ),
-          ],
-        ],
+  Widget build(BuildContext context) {
+    var associated = (widget.item.subject ?? 0) > 0;
+    var progress = ref.watch(episodeMarkProvider);
+    var key = EpisodeMarkState.itemKey(widget.item);
+    var marked = progress.marked.contains(key);
+    var checked = progress.checked.contains(key);
+    var loading = progress.loading.contains(key);
+    var visible = !widget.compact || widget.reveal || _busy || marked;
+    return IgnorePointer(
+      ignoring: !visible,
+      child: Opacity(
+        opacity: visible ? 1 : 0,
+        child: Tooltip(
+          message: !associated
+              ? '未关联番剧，无法标记章节看过'
+              : _busy
+              ? '正在标记看过…'
+              : marked
+              ? '已标记看过'
+              : loading
+              ? '正在读取条目观看进度…'
+              : !checked
+              ? '观看进度尚未确认，点击时读取并标记看过'
+              : '标记看过',
+          child: IconButton(
+            style: widget.compact
+                ? ButtonStyle(
+                    padding: WidgetStateProperty.all(const EdgeInsets.all(2)),
+                  )
+                : null,
+            icon: _busy || (loading && !checked)
+                ? const SizedBox(width: 14, height: 14, child: ProgressRing())
+                : Icon(
+                    marked
+                        ? FluentIcons.completed_solid
+                        : FluentIcons.completed,
+                    size: 14,
+                    color: marked ? FluentTheme.of(context).accentColor : null,
+                  ),
+            onPressed: associated && !_busy ? _markWatched : null,
+          ),
+        ),
       ),
     );
   }

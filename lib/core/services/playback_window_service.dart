@@ -219,7 +219,7 @@ class PlaybackWindowService extends ChangeNotifier {
         return _presentation();
       case 'closing':
         session.closing = true;
-        ref.read(episodeMarkProvider.notifier).discardWindowPrompts();
+        ref.read(episodeMarkProvider.notifier).discardWindowWork();
         _notify();
         return null;
       case 'closed':
@@ -260,36 +260,20 @@ class PlaybackWindowService extends ChangeNotifier {
     Map<String, Object?> body,
   ) async {
     var controller = ref.read(episodeMarkProvider.notifier);
-    EpisodeMarkPrompt? prompt;
-    if (body['id'] != null) {
-      var id = playbackString(body, 'id');
-      for (var value in ref.read(episodeMarkProvider).prompts) {
-        if (value.id == id &&
-            (body['account'] == null || body['account'] == value.account)) {
-          prompt = value;
-          break;
-        }
-      }
-    }
     Object? result;
     switch (method) {
-      case 'episodes.completed':
-        controller.acceptCompletion(decodePlaybackCompletion(body));
-      case 'episodes.enabled':
-        await controller.setEnabled(body['enabled'] as bool);
-      case 'episodes.begin':
-        result =
-            prompt != null &&
-            await controller.beginConfirmation(prompt) != null;
-      case 'episodes.confirm':
-        var write = prompt == null
+      case 'episodes.syncItems':
+        if (body['account'] == controller.currentAccount()) {
+          await controller.syncItems(
+            (body['items'] as List).map(decodePlaybackItem).toList(),
+            refresh: body['refresh'] as bool,
+          );
+        }
+      case 'episodes.markItem':
+        var write = body['account'] != controller.currentAccount()
             ? const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.expired)
-            : await controller.confirm(prompt);
+            : await controller.markItem(decodePlaybackItem(body['item']));
         result = {'status': write.status.name, 'message': write.message};
-      case 'episodes.retry':
-        if (prompt != null) controller.retry(prompt);
-      case 'episodes.dismiss':
-        if (prompt != null) controller.dismiss(prompt.id);
       default:
         throw FormatException('不支持的章节请求：$method');
     }
@@ -308,7 +292,7 @@ class PlaybackWindowService extends ChangeNotifier {
         session.closing = true;
         error = '播放器意外关闭，原生释放未确认；请重启应用后再播放';
         if (!session.gone.isCompleted) session.gone.complete();
-        ref.read(episodeMarkProvider.notifier).discardWindowPrompts();
+        ref.read(episodeMarkProvider.notifier).discardWindowWork();
         _notify();
         return;
       }
@@ -324,7 +308,7 @@ class PlaybackWindowService extends ChangeNotifier {
     await session.channel.setMethodCallHandler(null);
     if (identical(_session, session)) {
       _session = null;
-      ref.read(episodeMarkProvider.notifier).discardWindowPrompts();
+      ref.read(episodeMarkProvider.notifier).discardWindowWork();
     }
     if (!session.gone.isCompleted) session.gone.complete();
     _notify();

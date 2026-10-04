@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
+import '../../providers/episode_mark_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
@@ -15,12 +16,18 @@ import '../../ui/bt_infobar.dart';
 class SubjectEpisode extends ConsumerStatefulWidget {
   /// 章节信息
   final BangumiEpisode episode;
+  final int subject;
 
   /// 用户章节信息
   final BangumiUserEpisodeCollection? user;
 
   /// 构造函数
-  const SubjectEpisode(this.episode, {this.user, super.key});
+  const SubjectEpisode(
+    this.episode, {
+    required this.subject,
+    this.user,
+    super.key,
+  });
 
   @override
   ConsumerState<SubjectEpisode> createState() => _SubjectEpisodeState();
@@ -110,6 +117,9 @@ class _SubjectEpisodeState extends ConsumerState<SubjectEpisode> {
 
   /// 刷新用户章节信息
   Future<void> freshUserEpisodes() async {
+    var marking = ref.read(episodeMarkProvider.notifier);
+    var account = marking.currentAccount();
+    var progressVersion = marking.progressVersion;
     var resp = await ref
         .read(bangumiRepositoryProvider)
         .getCollectionEpisode(episode.id);
@@ -117,12 +127,20 @@ class _SubjectEpisodeState extends ConsumerState<SubjectEpisode> {
       if (mounted) await showRespErr(resp, context, title: '获取 $text 章节信息失败');
       return;
     }
+    marking.receiveSubjectProgress(
+      widget.subject,
+      [resp.data!],
+      account: account,
+      since: progressVersion,
+    );
     userEpisode = resp.data;
     setState(() {});
   }
 
   /// 更新章节收藏状态
   Future<void> updateType(BangumiEpisodeCollectionType type) async {
+    var marking = ref.read(episodeMarkProvider.notifier);
+    var account = marking.currentAccount();
     var resp = await ref
         .read(bangumiRepositoryProvider)
         .updateCollectionEpisode(type: type, episode: episode.id);
@@ -130,6 +148,9 @@ class _SubjectEpisodeState extends ConsumerState<SubjectEpisode> {
       if (mounted) await showRespErr(resp, context, title: '更新章节 $text 状态失败');
       return;
     }
+    marking.receiveSubjectProgress(widget.subject, [
+      BangumiUserEpisodeCollection(episode: episode, type: type),
+    ], account: account);
     if (mounted) {
       await BtInfobar.success(context, '成功更新章节 $text 状态为 ${type.label}');
     }
@@ -148,6 +169,8 @@ class _SubjectEpisodeState extends ConsumerState<SubjectEpisode> {
     } else {
       target = BangumiEpisodeCollectionType.none;
     }
+    var marking = ref.read(episodeMarkProvider.notifier);
+    var account = marking.currentAccount();
     var resp = await ref
         .read(bangumiRepositoryProvider)
         .updateCollectionEpisode(type: target, episode: episode.id);
@@ -157,6 +180,9 @@ class _SubjectEpisodeState extends ConsumerState<SubjectEpisode> {
       }
       return;
     }
+    marking.receiveSubjectProgress(widget.subject, [
+      BangumiUserEpisodeCollection(episode: episode, type: target),
+    ], account: account);
     if (mounted) {
       await BtInfobar.success(context, '成功更新章节 $text 状态为 ${target.label}');
     }

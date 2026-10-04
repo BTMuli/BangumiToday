@@ -2,7 +2,20 @@
 import '../../domain/repositories/bangumi_repository.dart';
 import '../../domain/repositories/episode_mark_gateway.dart';
 import '../../models/bangumi/bangumi_enum.dart';
+import '../../models/bangumi/bangumi_model.dart';
 import '../datasources/bangumi_local_data_source.dart';
+
+EpisodeMarkEpisode episodeMarkProgress(BangumiUserEpisodeCollection value) =>
+    EpisodeMarkEpisode(
+      id: value.episode.id,
+      type: value.episode.type.value,
+      sort: value.episode.sort,
+      withinSubject: value.episode.ep,
+      name: value.episode.nameCn.isEmpty
+          ? value.episode.name
+          : value.episode.nameCn,
+      done: value.type == BangumiEpisodeCollectionType.done,
+    );
 
 class BangumiEpisodeMarkGateway implements EpisodeMarkGateway {
   BangumiEpisodeMarkGateway(this.repository, this.local);
@@ -48,6 +61,24 @@ class BangumiEpisodeMarkGateway implements EpisodeMarkGateway {
       );
     }
     return response.data!.type == BangumiEpisodeCollectionType.done;
+  }
+
+  @override
+  Future<EpisodeMarkPage> progress(int subject, int offset) async {
+    var response = await repository.getCollectionEpisodes(
+      subject,
+      limit: 100,
+      offset: offset,
+    );
+    var page = response.data;
+    if (response.code != 0 || page == null) {
+      throw EpisodeMarkFailure('获取章节观看进度失败：${response.message}');
+    }
+    return EpisodeMarkPage(
+      total: page.total,
+      offset: page.offset,
+      episodes: List.unmodifiable(page.data.map(episodeMarkProgress)),
+    );
   }
 
   @override

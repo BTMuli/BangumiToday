@@ -10,6 +10,7 @@ import '../../core/theme/bt_theme.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
+import '../../providers/episode_mark_providers.dart';
 import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import 'subject_detail_refreshable.dart';
@@ -182,6 +183,9 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
     required int limit,
     bool reportError = false,
   }) async {
+    var marking = ref.read(episodeMarkProvider.notifier);
+    var account = marking.currentAccount();
+    var progressVersion = marking.progressVersion;
     var resp = await ref
         .read(bangumiRepositoryProvider)
         .getCollectionEpisodes(subjectId, offset: offset, limit: limit);
@@ -191,6 +195,12 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
       }
       return null;
     }
+    marking.receiveSubjectProgress(
+      subjectId,
+      resp.data!.data,
+      account: account,
+      since: progressVersion,
+    );
     _mergeUserEpisodes(resp.data!.data);
     return resp.data!.data;
   }
@@ -349,9 +359,9 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
       }
       var userEp = _userEpById[ordered[i].id];
       if (userEp != null) {
-        res.add(SubjectEpisode(ordered[i], user: userEp));
+        res.add(SubjectEpisode(ordered[i], subject: subjectId, user: userEp));
       } else {
-        res.add(SubjectEpisode(ordered[i]));
+        res.add(SubjectEpisode(ordered[i], subject: subjectId));
       }
     }
     if (episodes.length < widget.subject.totalEpisodes) {

@@ -71,7 +71,7 @@ class _PlaybackWindow with WindowListener {
       cover: RemotePlaybackCover(call),
       waitForNativeDestroy: true,
     );
-    marking = RemoteEpisodeMarkController(call, store.completions);
+    marking = RemoteEpisodeMarkController(call);
     container = ProviderContainer(
       overrides: [
         playbackStoreProvider.overrideWith((ref) => store),

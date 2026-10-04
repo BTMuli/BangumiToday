@@ -3,23 +3,24 @@ import 'dart:async';
 
 // Project imports:
 import '../../domain/repositories/episode_mark_gateway.dart';
-import '../../models/playback/playback_completion.dart';
+import '../../models/playback/episode_mark_state.dart';
+import '../../models/playback/playback_item.dart';
 import '../utils/episode_num_extractor.dart';
 
 class EpisodeMarkCandidate {
   const EpisodeMarkCandidate({
-    required this.completion,
+    required this.item,
     required this.account,
     required this.episode,
     required this.number,
   });
 
-  final PlaybackCompletion completion;
+  final PlaybackItem item;
   final String account;
   final EpisodeMarkEpisode episode;
   final int number;
 
-  int get subject => completion.item.subject!;
+  int get subject => item.subject!;
 }
 
 class EpisodeMarkResolution {
@@ -53,8 +54,8 @@ class EpisodeMarkRefresh {
   final int episode;
 }
 
-/// Network work never joins the playback operation queue. No unconfirmed writes
-/// are persisted or retried automatically.
+/// Network work never joins the playback operation queue. Each explicit row
+/// action resolves its own file and writes done without a confirmation dialog.
 class EpisodeMarkService {
   EpisodeMarkService({required this.gateway, required this.accountSession});
 
@@ -63,22 +64,220 @@ class EpisodeMarkService {
   final _pages = <String, Future<List<EpisodeMarkEpisode>>>{};
   final _writes = <String, Future<EpisodeMarkWriteResult>>{};
   final _refreshes = StreamController<EpisodeMarkRefresh>.broadcast();
+  final _progressChanges = StreamController<EpisodeMarkState>.broadcast();
+  final _items = <String, PlaybackItem>{};
+  final _progress = <int, Map<int, EpisodeMarkEpisode>>{};
+  final _progressLoads = <int, Future<void>>{};
+  final _loadedSubjects = <int>{};
+  final _loadingSubjects = <int>{};
+  final _episodeVersions = <int, Map<int, int>>{};
+  int _progressVersion = 0;
+  String? _progressAccount;
   bool _closed = false;
 
   Stream<EpisodeMarkRefresh> get refreshes => _refreshes.stream;
+  Stream<EpisodeMarkState> get progressChanges => _progressChanges.stream;
+  int get progressVersion => _progressVersion;
 
   bool _current(String account) => !_closed && accountSession() == account;
 
-  Future<EpisodeMarkResolution> prepare(PlaybackCompletion completion) async {
+  /// Uses exactly the same file-to-chapter mapping for status and writes.
+  static EpisodeMarkEpisode? matchingEpisode(
+    PlaybackItem item,
+    Iterable<EpisodeMarkEpisode> episodes,
+  ) {
+    var evidence = extractEpisodeNumber(item.filePath);
+    if ((item.subject ?? 0) <= 0 || evidence.kind != EpisodeNumberKind.single) {
+      return null;
+    }
+    var matches = episodes
+        .where(
+          (episode) =>
+              episode.type == 0 &&
+              episode.id > 0 &&
+              episode.sort.isFinite &&
+              episode.sort == evidence.number,
+        )
+        .toList();
+    if (matches.length != 1) return null;
+    var episode = matches.single;
+    var withinSubject = episode.withinSubject;
+    return withinSubject != null &&
+            withinSubject > 0 &&
+            withinSubject != episode.sort
+        ? null
+        : episode;
+  }
+
+  EpisodeMarkState get progressState {
+    var checked = <String>{};
+    var marked = <String>{};
+    var loading = <String>{};
+    for (var entry in _items.entries) {
+      var subject = entry.value.subject;
+      if (_loadingSubjects.contains(subject)) loading.add(entry.key);
+      var episode = matchingEpisode(
+        entry.value,
+        _progress[subject]?.values ?? const <EpisodeMarkEpisode>[],
+      );
+      if (episode?.done == null) continue;
+      checked.add(entry.key);
+      if (episode!.done!) marked.add(entry.key);
+    }
+    return EpisodeMarkState(
+      account: _progressAccount,
+      checked: Set.unmodifiable(checked),
+      marked: Set.unmodifiable(marked),
+      loading: Set.unmodifiable(loading),
+    );
+  }
+
+  void resetProgress() {
+    _progressAccount = accountSession();
+    _items.clear();
+    _progress.clear();
+    _progressLoads.clear();
+    _loadedSubjects.clear();
+    _loadingSubjects.clear();
+    _episodeVersions.clear();
+  }
+
+  void _ensureProgressAccount() {
+    if (_progressAccount != accountSession()) resetProgress();
+  }
+
+  void _notifyProgress() {
+    if (!_closed) _progressChanges.add(progressState);
+  }
+
+  bool _hasProgress(int subject) =>
+      _loadedSubjects.contains(subject) ||
+      _items.values
+          .where((item) => item.subject == subject)
+          .every(
+            (item) =>
+                matchingEpisode(
+                  item,
+                  _progress[subject]?.values ?? const <EpisodeMarkEpisode>[],
+                )?.done !=
+                null,
+          );
+
+  /// Fetch each subject once for the whole playlist, independently of playback.
+  Future<void> syncItems(
+    Iterable<PlaybackItem> items, {
+    bool refresh = false,
+  }) async {
+    _ensureProgressAccount();
+    var account = _progressAccount;
+    if (_closed || account == null) return;
+    _items.clear();
+    for (var item in items) {
+      if ((item.subject ?? 0) > 0)
+        _items[EpisodeMarkState.itemKey(item)] = item;
+    }
+    _notifyProgress();
+    await Future.wait([
+      for (var subject in _items.values.map((item) => item.subject!).toSet())
+        if (refresh || !_hasProgress(subject)) _loadProgress(subject, account),
+    ]);
+  }
+
+  Future<void> _loadProgress(int subject, String account) {
+    var pending = _progressLoads[subject];
+    if (pending != null) return pending;
+    var version = _progressVersion;
+    _loadingSubjects.add(subject);
+    _notifyProgress();
+    late Future<void> future;
+    future = () async {
+      try {
+        var episodes = await _allEpisodes(
+          subject,
+          account,
+          readPage: gateway.progress,
+        );
+        if (!_current(account)) return;
+        // A query started before a chapter edit must not undo that newer edit.
+        var newer = {
+          for (var entry in (_progress[subject] ?? {}).entries)
+            if ((_episodeVersions[subject]?[entry.key] ?? 0) > version)
+              entry.key: entry.value,
+        };
+        _progress[subject] = {
+          for (var episode in episodes) episode.id: episode,
+          ...newer,
+        };
+        _loadedSubjects.add(subject);
+      } finally {
+        if (_current(account) && identical(_progressLoads[subject], future)) {
+          _progressLoads.remove(subject);
+          _loadingSubjects.remove(subject);
+          _notifyProgress();
+        }
+      }
+    }();
+    _progressLoads[subject] = future;
+    return future;
+  }
+
+  /// Details-page reads/edits publish the same authoritative chapter data.
+  void observeProgress(
+    int subject,
+    Iterable<EpisodeMarkEpisode> episodes, {
+    required String? account,
+    int? since,
+  }) {
+    if (account == null || !_current(account)) return;
+    _ensureProgressAccount();
+    var progress = _progress.putIfAbsent(subject, () => {});
+    var versions = _episodeVersions.putIfAbsent(subject, () => {});
+    for (var episode in episodes) {
+      if (episode.id <= 0 || episode.done == null) continue;
+      if (since != null && (versions[episode.id] ?? 0) > since) continue;
+      progress[episode.id] = episode;
+      versions[episode.id] = ++_progressVersion;
+    }
+    _notifyProgress();
+  }
+
+  Future<EpisodeMarkWriteResult> mark(PlaybackItem item) async {
+    _ensureProgressAccount();
+    var account = accountSession();
+    if (_closed || account == null) {
+      return const EpisodeMarkWriteResult(
+        EpisodeMarkWriteStatus.failed,
+        message: '请先登录 Bangumi',
+      );
+    }
+    _items[EpisodeMarkState.itemKey(item)] = item;
+    var resolution = await prepare(item);
+    if (!_current(account)) {
+      return const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.expired);
+    }
+    if (resolution.alreadyDone) {
+      return const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.alreadyDone);
+    }
+    var candidate = resolution.candidate;
+    if (candidate == null) {
+      return EpisodeMarkWriteResult(
+        EpisodeMarkWriteStatus.failed,
+        message: resolution.message ?? '无法匹配章节，请在条目章节页手动标记',
+      );
+    }
+    return confirm(candidate);
+  }
+
+  Future<EpisodeMarkResolution> prepare(PlaybackItem item) async {
     var account = accountSession();
     if (_closed || account == null) {
       return const EpisodeMarkResolution(message: '请先登录 Bangumi');
     }
-    var subject = completion.item.subject;
+    var subject = item.subject;
     if (subject == null || subject <= 0) {
       return const EpisodeMarkResolution(message: '该文件没有关联条目');
     }
-    var evidence = extractEpisodeNumber(completion.item.filePath);
+    var evidence = extractEpisodeNumber(item.filePath);
     if (evidence.kind != EpisodeNumberKind.single) {
       return EpisodeMarkResolution(message: evidence.reason);
     }
@@ -116,10 +315,11 @@ class EpisodeMarkService {
       }
       var done = await gateway.isDone(episode.id);
       if (!_current(account)) return const EpisodeMarkResolution();
+      observeProgress(subject, [episode.withDone(done)], account: account);
       if (done) return const EpisodeMarkResolution(alreadyDone: true);
       return EpisodeMarkResolution(
         candidate: EpisodeMarkCandidate(
-          completion: completion,
+          item: item,
           account: account,
           episode: episode,
           number: evidence.number!,
@@ -133,14 +333,15 @@ class EpisodeMarkService {
 
   Future<List<EpisodeMarkEpisode>> _allEpisodes(
     int subject,
-    String account,
-  ) async {
+    String account, {
+    Future<EpisodeMarkPage> Function(int, int)? readPage,
+  }) async {
     var items = <EpisodeMarkEpisode>[];
     var ids = <int>{};
     var offset = 0;
     int? expectedTotal;
     while (_current(account)) {
-      var page = await gateway.episodes(subject, offset);
+      var page = await (readPage ?? gateway.episodes)(subject, offset);
       if (!_current(account)) throw const EpisodeMarkFailure('账户会话已变化');
       if (page.offset != offset ||
           page.total < 0 ||
@@ -202,6 +403,9 @@ class EpisodeMarkService {
       if (!_current(candidate.account)) {
         return const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.expired);
       }
+      observeProgress(candidate.subject, [
+        candidate.episode.withDone(true),
+      ], account: candidate.account);
       // A successful remote write must still refresh UI if cache invalidation
       // fails. Do not change epStatus or whole-subject collection type locally.
       String? warning;
@@ -241,6 +445,8 @@ class EpisodeMarkService {
   void close() {
     _closed = true;
     _pages.clear();
+    _progressLoads.clear();
+    unawaited(_progressChanges.close());
     unawaited(_refreshes.close());
   }
 }
