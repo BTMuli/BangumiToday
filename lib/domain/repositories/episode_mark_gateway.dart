@@ -11,8 +11,12 @@ class EpisodeMarkEpisode {
 
   final int id;
   final int type;
+
+  /// Broadcast numbering; sequels may continue from the previous season.
   final double sort;
   final String name;
+
+  /// Bangumi ep: numbering within this subject, starting at 1.
   final double? withinSubject;
   final bool? done;
 

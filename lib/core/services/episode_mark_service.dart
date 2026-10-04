@@ -90,23 +90,39 @@ class EpisodeMarkService {
     if ((item.subject ?? 0) <= 0 || evidence.kind != EpisodeNumberKind.single) {
       return null;
     }
-    var matches = episodes
+    return _matchingEpisode(evidence, episodes);
+  }
+
+  static EpisodeMarkEpisode? _matchingEpisode(
+    EpisodeNumberResult evidence,
+    Iterable<EpisodeMarkEpisode> episodes,
+  ) {
+    var mainEpisodes = episodes
         .where(
           (episode) =>
               episode.type == 0 &&
               episode.id > 0 &&
               episode.sort.isFinite &&
-              episode.sort == evidence.number,
+              episode.sort > 0 &&
+              episode.sort == episode.sort.truncateToDouble(),
         )
         .toList();
-    if (matches.length != 1) return null;
-    var episode = matches.single;
-    var withinSubject = episode.withinSubject;
-    return withinSubject != null &&
-            withinSubject > 0 &&
-            withinSubject != episode.sort
-        ? null
-        : episode;
+    // The associated subject already scopes the file to a season. S02E01
+    // explicitly uses ep; ordinary release numbers can use either ep or sort.
+    var localMatches = mainEpisodes
+        .where((episode) => episode.withinSubject == evidence.number)
+        .toList();
+    if (evidence.season != null && localMatches.isNotEmpty) {
+      return localMatches.length == 1 ? localMatches.single : null;
+    }
+    var matches = mainEpisodes
+        .where(
+          (episode) =>
+              episode.sort == evidence.number ||
+              episode.withinSubject == evidence.number,
+        )
+        .toList();
+    return matches.length == 1 ? matches.single : null;
   }
 
   EpisodeMarkState get progressState {
@@ -212,7 +228,8 @@ class EpisodeMarkService {
         _loadedSubjects.add(subject);
       } finally {
         if (_current(account) && identical(_progressLoads[subject], future)) {
-          await _progressLoads.remove(subject);
+          // This is the current future: waiting for it would await itself.
+          unawaited(_progressLoads.remove(subject));
           _loadingSubjects.remove(subject);
           _notifyProgress();
         }
@@ -295,24 +312,9 @@ class EpisodeMarkService {
         if (identical(_pages[key], future)) await _pages.remove(key);
       }
       if (!_current(account)) return const EpisodeMarkResolution();
-      var matches = episodes
-          .where(
-            (episode) =>
-                episode.type == 0 &&
-                episode.id > 0 &&
-                episode.sort.isFinite &&
-                episode.sort == evidence.number,
-          )
-          .toList();
-      if (matches.length != 1) {
+      var episode = _matchingEpisode(evidence, episodes);
+      if (episode == null) {
         return const EpisodeMarkResolution(message: '没有唯一匹配的正片章节，请手动选择');
-      }
-      var episode = matches.single;
-      var withinSubject = episode.withinSubject;
-      if (withinSubject != null &&
-          withinSubject > 0 &&
-          withinSubject != episode.sort) {
-        return const EpisodeMarkResolution(message: '章节排序与条目内编号不同，请手动确认章节');
       }
       var done = await gateway.isDone(episode.id);
       if (!_current(account)) return const EpisodeMarkResolution();
