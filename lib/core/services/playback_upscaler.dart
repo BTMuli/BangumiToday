@@ -1,5 +1,7 @@
+// Dart imports:
 import 'dart:async';
 
+// Project imports:
 import '../../models/playback/playback_fit.dart';
 import '../../models/playback/playback_upscale.dart';
 
@@ -24,7 +26,7 @@ class PlaybackUpscaler {
   });
 
   final PlaybackUpscaleBackend backend;
-  final Future<List<String>> Function() loadShaders;
+  final Future<List<String>> Function(PlaybackUpscaleMode) loadShaders;
   final void Function() onChanged;
   final void Function(Object) onError;
   final Duration debounce;
@@ -41,7 +43,8 @@ class PlaybackUpscaler {
   bool _closed = false;
   bool _mediaReady = false;
   bool _dirty = false;
-  bool _chainLoaded = false;
+  PlaybackUpscaleMode? _loadedMode;
+  PlaybackUpscaleMode? get configuredMode => _loadedMode;
   bool _restorationFailed = false;
   bool _unsupported = false;
   String? _baselineDumbMode;
@@ -59,6 +62,13 @@ class PlaybackUpscaler {
 
   void preferences(PlaybackUpscaleMode value, PlaybackFit framing) {
     if (_closed || (mode == value && fit == framing)) return;
+    // A deliberate quality change may retry after a recovered shader failure.
+    // Layout/fit changes never retry, and failed restoration still blocks work.
+    if (mode != value && !_restorationFailed) {
+      _failed = false;
+      _warned = false;
+      warning = null;
+    }
     mode = value;
     fit = framing;
     _schedule(immediate: true);
@@ -208,11 +218,15 @@ class PlaybackUpscaler {
             }
             _baselineDumbMode = baseline;
           }
-          if (!_chainLoaded) {
-            var shaders = await loadShaders();
+          if (_loadedMode != next.mode) {
+            var shaders = await loadShaders(next.mode);
             if (!_current(generation)) continue;
             _paths = shaders;
             _dirty = true;
+            // Invalidate before mutating. A superseded partial chain must be
+            // reloaded even if the latest preference returns to the old mode.
+            _loadedMode = null;
+            _applied = null;
             await backend.command(['set', 'gpu-dumb-mode', 'no']);
             if (!_current(generation)) continue;
             await backend.command(['change-list', 'glsl-shaders', 'clr', '']);
@@ -237,7 +251,7 @@ class PlaybackUpscaler {
                 ].any((different) => different)) {
               throw StateError('着色器链路读回与已验证清单不一致');
             }
-            _chainLoaded = true;
+            _loadedMode = next.mode;
           }
           // Clear cached fixed dimensions even when a new source happens to
           // calculate the same output as the previous source.
@@ -267,7 +281,7 @@ class PlaybackUpscaler {
           onError(restorationError);
         }
         // A newer layout request cannot retry a failed chain in this file.
-        // Media reset, unlike layout changes, deliberately clears this latch.
+        // Media reset or a deliberate quality change clears this latch.
         _pending = null;
         _timer?.cancel();
         _confirmation?.cancel();
@@ -292,7 +306,7 @@ class PlaybackUpscaler {
         failure ??= error;
       }
     }
-    _chainLoaded = false;
+    _loadedMode = null;
     _applied = null;
     if (failure != null) throw failure;
     _dirty = false;

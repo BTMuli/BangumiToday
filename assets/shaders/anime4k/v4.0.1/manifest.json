@@ -3,6 +3,7 @@
   "source": "https://github.com/bloc97/Anime4K/releases/tag/v4.0.1",
   "archive": "Anime4K_v4.0.zip",
   "archiveSha256": "139cd282086457c5adc79caf7b75b8b825091d71c9b54958c18745fea62d7ed7",
+  "presetSourceCommit": "7684e9586f8dcc738af08a1cdceb024cc184f426",
   "presets": {
     "light": [
       "Anime4K_Clamp_Highlights.glsl",
@@ -11,6 +12,22 @@
       "Anime4K_AutoDownscalePre_x2.glsl",
       "Anime4K_AutoDownscalePre_x4.glsl",
       "Anime4K_Upscale_CNN_x2_S.glsl"
+    ],
+    "standard": [
+      "Anime4K_Clamp_Highlights.glsl",
+      "Anime4K_Restore_CNN_L.glsl",
+      "Anime4K_Upscale_CNN_x2_L.glsl",
+      "Anime4K_AutoDownscalePre_x2.glsl",
+      "Anime4K_AutoDownscalePre_x4.glsl",
+      "Anime4K_Upscale_CNN_x2_M.glsl"
+    ],
+    "high": [
+      "Anime4K_Clamp_Highlights.glsl",
+      "Anime4K_Restore_CNN_VL.glsl",
+      "Anime4K_Upscale_CNN_x2_VL.glsl",
+      "Anime4K_AutoDownscalePre_x2.glsl",
+      "Anime4K_AutoDownscalePre_x4.glsl",
+      "Anime4K_Upscale_CNN_x2_M.glsl"
     ]
   },
   "sha256": {
@@ -19,6 +36,10 @@
     "Anime4K_Upscale_CNN_x2_M.glsl": "716e02098a68f0d648761f2b96b4dd139e1cb09b174bb369fca3aa34328fff7e",
     "Anime4K_AutoDownscalePre_x2.glsl": "9141668ced0b26512253e6396e805820716f35b57c92950d9da489f8b96a7ba4",
     "Anime4K_AutoDownscalePre_x4.glsl": "dadb7b713cfa1d810c55b5deff616072f3390e546fed1e6a54f80ea555f7b95d",
-    "Anime4K_Upscale_CNN_x2_S.glsl": "4c53ec2e287908f7ee7bcb266b0170421626d663576468b7d7dafc62962649a4"
+    "Anime4K_Upscale_CNN_x2_S.glsl": "4c53ec2e287908f7ee7bcb266b0170421626d663576468b7d7dafc62962649a4",
+    "Anime4K_Restore_CNN_L.glsl": "d6efe215e6ee8af1ec560478a91afc1df83fac4ba43b2c806ee61ca2267ed674",
+    "Anime4K_Upscale_CNN_x2_L.glsl": "db1fedf7be82f6fd9034e6bf39b64daf2b7576988bb584ec38f24f5236b1cd97",
+    "Anime4K_Restore_CNN_VL.glsl": "35036722733305cd4d4e57660b883bbe2569ba2914033c254327107d7b77e35e",
+    "Anime4K_Upscale_CNN_x2_VL.glsl": "5638fe31c37c151a3443fea3451a3ef91af073f4dbb9615f6c0d1e29db11493d"
   }
 }

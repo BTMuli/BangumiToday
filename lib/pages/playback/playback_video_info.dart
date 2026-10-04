@@ -201,6 +201,7 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
     var texture = upscale?.actualOutput;
     var requestedSize = _resolution(requested?.width, requested?.height);
     var textureSize = _resolution(texture?.width, texture?.height);
+    var configuredMode = upscale?.configuredMode?.label ?? '—';
     var audioFormatText = _value(audio.format);
     var audioSampleRateText = _value(audio.sampleRate);
     var audioChannelCountText = _value(audio.channelCount);
@@ -313,7 +314,8 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
                           _line(
                             '视频超分',
                             '${widget.store.upscaleMode.label} · '
-                                '${upscale.plan.reason}',
+                                '${upscale.plan.reason}'
+                                '   已加载：$configuredMode',
                             cyan,
                           ),
                           _line(

@@ -1,14 +1,19 @@
+// Dart imports:
 import 'dart:math' as math;
 
+// Project imports:
 import 'playback_fit.dart';
 
-/// Only presets with native execution evidence are selectable.
+/// Quality changes the CNN size, independently of the requested output size.
 enum PlaybackUpscaleMode {
-  off('关闭'),
-  light('轻量');
+  off('关闭', ''),
+  light('轻量', '优先流畅'),
+  standard('标准', '画质与性能均衡'),
+  high('高质量', '1080p → 4K · 较高 GPU 开销');
 
-  const PlaybackUpscaleMode(this.label);
+  const PlaybackUpscaleMode(this.label, this.description);
   final String label;
+  final String description;
 
   static PlaybackUpscaleMode parse(String? value) =>
       values.where((mode) => mode.name == value).firstOrNull ?? off;
@@ -34,19 +39,25 @@ PlaybackVideoSource? playbackVideoSource({
 }
 
 class PlaybackUpscalePlan {
-  const PlaybackUpscalePlan(this.reason, [this.output]);
+  const PlaybackUpscalePlan(
+    this.reason, {
+    this.output,
+    this.mode = PlaybackUpscaleMode.off,
+  });
   final String reason;
   final PlaybackPixels? output;
+  final PlaybackUpscaleMode mode;
   bool get enabled => output != null;
 
   @override
   bool operator ==(Object other) =>
       other is PlaybackUpscalePlan &&
       reason == other.reason &&
-      output == other.output;
+      output == other.output &&
+      mode == other.mode;
 
   @override
-  int get hashCode => Object.hash(reason, output);
+  int get hashCode => Object.hash(reason, output, mode);
 }
 
 bool playbackSoftwareRenderer(String renderer) {
@@ -133,6 +144,7 @@ PlaybackUpscalePlan playbackUpscalePlan({
   }
   return PlaybackUpscalePlan(
     scale + 0.001 < demand ? '已配置 · 输出受预算限制' : '已配置',
-    output,
+    output: output,
+    mode: mode,
   );
 }

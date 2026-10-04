@@ -1014,9 +1014,9 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
         for (var mode in PlaybackUpscaleMode.values)
           ToggleMenuFlyoutItem(
             text: Text(
-              mode == PlaybackUpscaleMode.light
-                  ? '轻量 · Anime4K（SDR 放大）'
-                  : mode.label,
+              mode == PlaybackUpscaleMode.off
+                  ? mode.label
+                  : '${mode.label} · ${mode.description}',
             ),
             value: store.upscaleMode == mode,
             onChanged: (_) => unawaited(run(() => store.setUpscaleMode(mode))),
