@@ -2,16 +2,10 @@
 import 'dart:async';
 
 // Flutter imports:
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 
 // Package imports:
-import 'package:fluent_ui/fluent_ui.dart';
 import 'package:local_notifier/local_notifier.dart';
-import 'package:path/path.dart' as path;
-import 'package:url_launcher/url_launcher_string.dart';
-
-// Project imports:
-import '../constants/app_constants.dart';
 
 //// 通知队列，changeNotifier
 class BTNotifierQueue extends ChangeNotifier {
@@ -59,11 +53,6 @@ class BTNotifierQueue extends ChangeNotifier {
 class BTNotifierTool {
   BTNotifierTool._();
 
-  static final BTNotifierTool _instance = BTNotifierTool._();
-
-  /// 获取实例
-  factory BTNotifierTool() => _instance;
-
   /// 初始化
   static Future<void> init() async {
     await localNotifier.setup(appName: 'BangumiToday');
@@ -82,44 +71,6 @@ class BTNotifierTool {
   }) async {
     var notification = LocalNotification(title: title, body: body);
     if (onClick != null) notification.onClick = onClick;
-    await _notifications.add(notification);
-  }
-
-  /// 创建视频通知
-  /// 可以执行三个操作：potplayer播放、内置播放、查看详情
-  Future<void> showVideo({
-    required int subject,
-    required String dir,
-    required String file,
-  }) async {
-    var notification = LocalNotification(
-      title: '【$subject】视频下载完成',
-      actions: [
-        LocalNotificationAction(type: 'button', text: '打开'),
-        LocalNotificationAction(type: 'button', text: '详情'),
-      ],
-      body: file,
-    );
-    notification.onClick = () async {
-      var url =
-          '${BTAppConstants.urlScheme}://${BTAppConstants.subjectPath}/$subject';
-      await launchUrlString(url);
-    };
-    notification.onClickAction = (index) async {
-      switch (index) {
-        case 0:
-          var filePath = path.join(dir, file);
-          await launchUrlString('file://$filePath');
-          break;
-        case 1:
-          var url =
-              '${BTAppConstants.urlScheme}://${BTAppConstants.subjectPath}/$subject';
-          await launchUrlString(url);
-          break;
-        default:
-          break;
-      }
-    };
     await _notifications.add(notification);
   }
 }

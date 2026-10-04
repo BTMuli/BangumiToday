@@ -3,9 +3,8 @@ part of '../bmf_expander.dart';
 extension _BmfFileList on _BmfFileExpanderState {
   Widget buildFileItem(BuildContext context, String file) {
     var fileState = _dirState?.stateFor(file);
-    var isIncomplete = fileState?.isIncomplete ?? aria2Files.contains(file);
+    var isIncomplete = fileState?.isIncomplete ?? false;
     var isVideo = PlaybackPaths.isVideo(file);
-    var isTorrent = file.endsWith('.torrent');
     var statusLabel = fileState?.statusLabel ?? '下载中';
     var fileSize = _fileSizes[file];
 
@@ -24,11 +23,7 @@ extension _BmfFileList on _BmfFileExpanderState {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                isTorrent
-                    ? FluentIcons.file_code
-                    : isVideo
-                    ? FluentIcons.video
-                    : FluentIcons.document,
+                isVideo ? FluentIcons.video : FluentIcons.document,
                 size: 16,
                 color: isIncomplete
                     ? FluentTheme.of(context).accentColor
@@ -84,7 +79,6 @@ extension _BmfFileList on _BmfFileExpanderState {
                 subject: widget.subject,
                 dir: widget.downloadDir,
                 isVideo: isVideo,
-                isTorrent: isTorrent,
                 canOpen: isVideo && !isIncomplete,
                 isIncomplete: isIncomplete,
                 onDelete: refreshFiles,

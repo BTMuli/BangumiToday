@@ -27,8 +27,7 @@ class BtFileDownloadState {
   /// 已下载完成（任务可用或该文件字节已完整），可打开。
   final bool isComplete;
 
-  /// 单文件展示进度 0..1；未知时为 null（UI 显示为不确定动画，
-  /// 如 aria2 兜底）。
+  /// 单文件展示进度 0..1；未知时为 null（UI 显示为不确定动画）。
   final double? progress;
 
   /// 状态文案（下载中 / 校验中 / 已暂停 / 下载失败 等）。
@@ -87,14 +86,12 @@ bool isTaskAvailable(BtTaskSnapshot task) {
 /// [dir] 与任务 `savePath` 做大小写不敏感的归一化比较；
 /// [fileDetailsByTaskId] 为任务 id -> 引擎文件详情（来自 `taskFiles` RPC，可能为空），
 /// 用于判定单个文件是否已完成并显示该文件的字节进度；
-/// [dirFileNames] 为当前目录扫描到的文件名，用于统计可见未完成数；
-/// [aria2FileNames] 为 `.aria2` 伴生文件对应的文件名，作为外部下载工具兜底。
+/// [dirFileNames] 为当前目录扫描到的文件名，用于统计可见未完成数。
 BtDirDownloadState computeDirDownloadState({
   required String dir,
   required List<BtTaskSnapshot> tasks,
   required Map<String, List<BtTaskFileDetail>> fileDetailsByTaskId,
   Iterable<String> dirFileNames = const [],
-  Iterable<String> aria2FileNames = const [],
 }) {
   var normalizedDir = path.normalize(dir).toLowerCase();
   var visibleNames = dirFileNames.map((name) => name.toLowerCase()).toSet();
@@ -120,17 +117,6 @@ BtDirDownloadState computeDirDownloadState({
       if (name.isEmpty) continue;
       _mergeFileState(byName, name, _fileStateForFile(task, file));
     }
-  }
-
-  for (var name in aria2FileNames) {
-    if (name.isEmpty || byName.containsKey(name)) continue;
-    byName[name] = const BtFileDownloadState(
-      isActive: true,
-      isPaused: false,
-      isFailed: false,
-      isComplete: false,
-      statusLabel: '下载中',
-    );
   }
 
   var incompleteFileCount = byName.entries.where((entry) {

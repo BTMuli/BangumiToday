@@ -13,8 +13,8 @@ import '../../models/playback/playback_item.dart';
 
 /// 基于下载引擎任务快照的本地资源实现。
 ///
-/// 不把预分配的磁盘空间当作已下载数据：文件必须存在、非空、没有 `.aria2`
-/// 残留，且在有对应任务时该条目的所有文件都已完成。
+/// 不把预分配的磁盘空间当作已下载数据：文件必须存在、非空，
+/// 且在有对应任务时匹配的文件已完成下载和校验。
 class PlaybackLibraryImpl implements PlaybackLibrary {
   PlaybackLibraryImpl({required this.tasks, required this.taskFiles});
 
@@ -54,7 +54,7 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
       throw const PlaybackUnavailable('视频文件不存在，请刷新下载目录');
     }
     var length = await file.length();
-    if (length <= 0 || await File('$filePath.aria2').exists()) {
+    if (length <= 0) {
       throw const PlaybackUnavailable('视频文件尚未下载完成');
     }
     var key = PlaybackItem.pathKey(filePath);

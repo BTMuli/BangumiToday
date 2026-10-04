@@ -104,7 +104,6 @@ class _BmfCardState extends ConsumerState<BmfCard>
       return {'count': 0, 'size': '0 B'};
     }
     var files = await fileTool.getFileNames(download);
-    files = files.where((f) => !f.endsWith('.aria2')).toList();
     var totalBytes = await fileTool.getDirSize(download);
 
     return {'count': files.length, 'size': filesize(totalBytes)};

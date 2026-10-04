@@ -26,10 +26,8 @@ class BmfFileExpander extends ConsumerStatefulWidget {
 
 class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   final BTFileTool fileTool = BTFileTool();
-  final BTNotifierTool notifierTool = BTNotifierTool();
   late BtDownloadState _downloadStore;
   List<String> files = [];
-  List<String> aria2Files = [];
   final Map<String, int> _fileSizes = {};
   final Map<String, List<BtTaskFileDetail>> _taskFileDetails = {};
   final Map<String, DateTime> _taskFileDetailsFetchedAt = {};
@@ -60,7 +58,6 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     if (oldWidget.downloadDir != widget.downloadDir) {
       _refreshGeneration++;
       files.clear();
-      aria2Files.clear();
       _fileSizes.clear();
       _dirTasks = _tasksForDir(
         ref.read(btDownloadStoreProvider.notifier).tasks,
@@ -94,23 +91,15 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     _refreshingFiles = true;
     var generation = ++_refreshGeneration;
     var downloadDir = widget.downloadDir;
-    var subject = widget.subject;
     try {
       var filesGet = await fileTool.getFileNames(downloadDir, recursive: true);
       filesGet.sort(PlaybackPaths.naturalCompare);
       if (!mounted || generation != _refreshGeneration) return;
-      var visibleFiles = filesGet
-          .where((element) => !element.endsWith('.aria2'))
-          .toList();
       var fileSizesGet = <String, int>{};
-      for (var file in visibleFiles) {
+      for (var file in filesGet) {
         var size = fileTool.getFileSize(path.join(downloadDir, file));
         if (size >= 0) fileSizesGet[file] = size;
       }
-      var aria2FilesGet = filesGet
-          .where((element) => element.endsWith('.aria2'))
-          .map((e) => e.replaceAll('.aria2', ''))
-          .toList();
       await _refreshTaskFileDetails(downloadDir, generation);
       if (!mounted || generation != _refreshGeneration) return;
       var store = ref.read(btDownloadStoreProvider.notifier);
@@ -119,38 +108,15 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
         tasks: store.tasks,
         fileDetailsByTaskId: _taskFileDetails,
         dirFileNames: filesGet,
-        aria2FileNames: aria2FilesGet,
       );
-      var keepPolling = dirState.hasActiveTasks || aria2FilesGet.isNotEmpty;
-      if (keepPolling) {
+      if (dirState.hasActiveTasks) {
         if (!timerFiles.isActive) timerFiles = getTimerFiles();
       } else if (timerFiles.isActive) {
         timerFiles.cancel();
       }
-      if (aria2Files.isNotEmpty && aria2FilesGet != aria2Files) {
-        var diffFiles = aria2Files
-            .where((element) => !aria2FilesGet.contains(element))
-            .toList();
-        if (diffFiles.isNotEmpty) {
-          for (var file in diffFiles) {
-            var exist = await fileTool.isFileExist(
-              path.join(downloadDir, file),
-            );
-            if (!mounted || generation != _refreshGeneration) return;
-            if (!exist) continue;
-            await notifierTool.showVideo(
-              subject: subject,
-              dir: downloadDir,
-              file: file,
-            );
-            if (!mounted || generation != _refreshGeneration) return;
-          }
-        }
-      }
       if (!mounted || generation != _refreshGeneration) return;
       setState(() {
-        files = visibleFiles;
-        aria2Files = aria2FilesGet;
+        files = filesGet;
         _fileSizes
           ..clear()
           ..addAll(fileSizesGet);
@@ -293,7 +259,6 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       tasks: _downloadStore.tasks,
       fileDetailsByTaskId: _taskFileDetails,
       dirFileNames: files,
-      aria2FileNames: aria2Files,
     );
     var header = Row(
       children: [

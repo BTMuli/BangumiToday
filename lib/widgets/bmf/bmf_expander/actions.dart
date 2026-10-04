@@ -5,7 +5,6 @@ class _FileItemActions extends ConsumerWidget {
   final int subject;
   final String dir;
   final bool isVideo;
-  final bool isTorrent;
   final bool canOpen;
   final bool isIncomplete;
   final Future<void> Function() onDelete;
@@ -16,7 +15,6 @@ class _FileItemActions extends ConsumerWidget {
     required this.subject,
     required this.dir,
     required this.isVideo,
-    required this.isTorrent,
     required this.canOpen,
     required this.isIncomplete,
     required this.onDelete,
