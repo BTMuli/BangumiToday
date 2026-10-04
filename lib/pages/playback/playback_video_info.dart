@@ -6,10 +6,12 @@ class _PlaybackVideoInfo extends StatefulWidget {
     super.key,
     required this.player,
     required this.item,
+    required this.store,
   });
 
   final Player player;
   final PlaybackItem item;
+  final PlaybackStore store;
 
   @override
   State<_PlaybackVideoInfo> createState() => _PlaybackVideoInfoState();
@@ -194,6 +196,9 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
     var positionText = _playbackTime(state.position, milliseconds: true);
     var durationText = _playbackTime(state.duration, milliseconds: true);
     var outputSize = _resolution(video.dw ?? video.w, video.dh ?? video.h);
+    var upscale = widget.store.upscaler;
+    var requested = upscale?.plan.output;
+    var texture = upscale?.actualOutput;
     var audioFormatText = _value(audio.format);
     var audioSampleRateText = _value(audio.sampleRate);
     var audioChannelCountText = _value(audio.channelCount);
@@ -297,11 +302,31 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
                           blue,
                         ),
                         _line(
-                          '视频输出',
+                          '视频显示参数',
                           '$outputSize   渲染帧率：$outputFps fps'
                               '   渲染器：${_property('current-vo')}',
                           pink,
                         ),
+                        if (upscale != null) ...[
+                          _line(
+                            '视频超分',
+                            '${widget.store.upscaleMode.label} · '
+                                '${upscale.plan.reason}',
+                            cyan,
+                          ),
+                          _line(
+                            '纹理输出',
+                            '请求：${_resolution(requested?.width, requested?.height)}'
+                                '   实际：${_resolution(texture?.width, texture?.height)}',
+                            pink,
+                          ),
+                          _line(
+                            'GPU',
+                            '${_value(upscale.renderer)}'
+                                '   纹理上限：—   pass 耗时：—',
+                            blue,
+                          ),
+                        ],
                         _line(
                           '帧统计',
                           '估算帧：${_property('estimated-frame-number')} / '

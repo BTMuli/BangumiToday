@@ -23,6 +23,7 @@ import '../../core/theme/bt_theme.dart';
 import '../../models/playback/playback_fit.dart';
 import '../../models/playback/playback_item.dart';
 import '../../models/playback/playback_rate.dart';
+import '../../models/playback/playback_upscale.dart';
 import '../../providers/episode_mark_providers.dart';
 import '../../providers/playback_window_providers.dart';
 import '../../store/nav_store.dart';
@@ -37,6 +38,7 @@ part 'playback_controls.dart';
 part 'playback_overlay.dart';
 part 'playback_seek_bar.dart';
 part 'playback_video_info.dart';
+part 'playback_viewport.dart';
 
 class PlaybackPage extends ConsumerStatefulWidget {
   const PlaybackPage({super.key, this.independent = false});
@@ -415,13 +417,16 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                               key: _videoKey,
                               controller: store.video!,
                               fit: _playbackBoxFit(store.fit),
-                              controls: (video) => _PlaybackVideoControls(
-                                video: video,
+                              controls: (video) => _PlaybackViewportReporter(
                                 store: store,
-                                player: store.player!,
-                                overlay: _overlay,
-                                run: _run,
-                                pickSubtitle: _pickSubtitle,
+                                child: _PlaybackVideoControls(
+                                  video: video,
+                                  store: store,
+                                  player: store.player!,
+                                  overlay: _overlay,
+                                  run: _run,
+                                  pickSubtitle: _pickSubtitle,
+                                ),
                               ),
                             ),
                           ),

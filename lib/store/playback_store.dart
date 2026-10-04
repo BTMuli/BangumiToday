@@ -11,7 +11,10 @@ import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../core/errors/playback_unavailable.dart';
+import '../core/services/native_playback_upscale_backend.dart';
+import '../core/services/playback_assets.dart';
 import '../core/services/playback_subtitles.dart';
+import '../core/services/playback_upscaler.dart';
 import '../data/repositories/playback_cover_impl.dart';
 import '../data/repositories/playback_history_impl.dart';
 import '../data/repositories/playback_library_impl.dart';
@@ -26,6 +29,7 @@ import '../models/playback/playback_fit.dart';
 import '../models/playback/playback_completion.dart';
 import '../models/playback/playback_item.dart';
 import '../models/playback/playback_rate.dart';
+import '../models/playback/playback_upscale.dart';
 import '../providers/bangumi_providers.dart';
 import '../providers/bmf_providers.dart';
 import '../tools/log_tool.dart';
@@ -86,6 +90,12 @@ class PlaybackStore extends ChangeNotifier {
   double? _aspectRatio;
   Player? _player;
   VideoController? _video;
+  PlaybackUpscaler? _upscaler;
+  PlaybackUpscaleMode _upscaleMode = PlaybackUpscaleMode.off;
+  Object? _viewportOwner;
+  bool _viewportFullscreen = false;
+  final _viewports = <Object, ({PlaybackViewport value, bool fullscreen})>{};
+  VoidCallback? _textureListener;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   Timer? _saveTimer;
   Future<void> _operation = Future.value();
@@ -112,6 +122,8 @@ class PlaybackStore extends ChangeNotifier {
 
   Player? get player => _player;
   VideoController? get video => _video;
+  PlaybackUpscaler? get upscaler => _upscaler;
+  PlaybackUpscaleMode get upscaleMode => _upscaleMode;
   PlaybackFit get fit => _fit;
   double? get aspectRatio => _aspectRatio;
   double? get rememberedRate => _rateMemory.remembered;
@@ -133,6 +145,55 @@ class PlaybackStore extends ChangeNotifier {
     if (error == null) return;
     error = null;
     _notify();
+  }
+
+  /// Fullscreen owns the texture while the windowed controls remain mounted.
+  void reportViewport(
+    Object owner,
+    PlaybackViewport value, {
+    required bool fullscreen,
+  }) {
+    if (_closed) return;
+    _viewports[owner] = (value: value, fullscreen: fullscreen);
+    if (_viewportFullscreen && !fullscreen) return;
+    _viewportOwner = owner;
+    _viewportFullscreen = fullscreen;
+    _upscaler?.viewport(value);
+  }
+
+  void releaseViewport(Object owner) {
+    if (_closed) return;
+    _viewports.remove(owner);
+    if (!identical(owner, _viewportOwner)) return;
+    _viewportOwner = null;
+    _viewportFullscreen = false;
+    if (_viewports.isEmpty) {
+      _upscaler?.viewport(null);
+    } else {
+      var remaining = _viewports.entries.last;
+      reportViewport(
+        remaining.key,
+        remaining.value.value,
+        fullscreen: remaining.value.fullscreen,
+      );
+    }
+  }
+
+  static PlaybackVideoSource? _videoSource(VideoParams value) =>
+      playbackVideoSource(
+        width: value.dw ?? value.w,
+        height: value.dh ?? value.h,
+        rotation: value.rotate,
+        gamma: value.gamma,
+      );
+
+  void _updateTexture() {
+    var rect = _video?.rect.value;
+    _upscaler?.texture(
+      rect == null
+          ? null
+          : (width: rect.width.round(), height: rect.height.round()),
+    );
   }
 
   Future<void> resolveCover(int subject) async {
@@ -172,20 +233,67 @@ class PlaybackStore extends ChangeNotifier {
     MediaKit.ensureInitialized();
     // Render subtitles with mpv/libass so ASS styling and embedded fonts are
     // preserved instead of reducing every subtitle track to Flutter text.
-    var player = Player(configuration: const PlayerConfiguration(libass: true));
+    var player = Player(
+      configuration: PlayerConfiguration(
+        libass: true,
+        logLevel: Platform.isWindows ? MPVLogLevel.v : MPVLogLevel.error,
+      ),
+    );
+    // Subscribe before the rendering context is created. Keep only capability
+    // evidence until the per-Player coordinator exists, never the full log.
+    var earlyLogs = <PlayerLog>[];
+    var logs = player.stream.log.listen((value) {
+      var upscale = _upscaler;
+      if (upscale != null) {
+        upscale.log(value.prefix, value.level, value.text);
+      } else if (earlyLogs.length < 16 &&
+          (value.text.contains('GL_RENDERER=') ||
+              value.text.contains('High bit depth FBOs unsupported'))) {
+        earlyLogs.add(value);
+      }
+    });
     try {
       await PlaybackSubtitles.configure(player);
     } catch (_) {
+      await logs.cancel();
       await _disposePlayer(player);
       rethrow;
     }
     if (_closed) {
+      await logs.cancel();
       await _disposePlayer(player);
       return;
     }
     _player = player;
     _video = VideoController(player);
+    if (Platform.isWindows) {
+      var video = _video!;
+      var assets = PlaybackAnime4kAssets(
+        path.join(
+          PlaybackAssets.directory(
+            executable: Platform.resolvedExecutable,
+            operatingSystem: Platform.operatingSystem,
+          ),
+          'shaders',
+          'anime4k',
+          'v4.0.1',
+        ),
+      );
+      _upscaler = PlaybackUpscaler(
+        backend: NativePlaybackUpscaleBackend(player, video),
+        loadShaders: assets.load,
+        onChanged: _notify,
+        onError: (error) => BTLogTool.warn('视频超分：$error'),
+      )..preferences(_upscaleMode, _fit);
+      for (var value in earlyLogs) {
+        _upscaler!.log(value.prefix, value.level, value.text);
+      }
+      _textureListener = _updateTexture;
+      video.rect.addListener(_updateTexture);
+      _updateTexture();
+    }
     _subscriptions.addAll([
+      logs,
       player.stream.position.listen((value) {
         if (!_closed && !loading) position = value;
       }),
@@ -194,6 +302,7 @@ class PlaybackStore extends ChangeNotifier {
       }),
       player.stream.videoParams.listen((value) {
         if (_closed) return;
+        _upscaler?.source(_videoSource(value));
         var ratio = playbackAspectRatio(
           aspect: value.aspect,
           width: value.dw ?? value.w,
@@ -206,6 +315,7 @@ class PlaybackStore extends ChangeNotifier {
       }),
       player.stream.error.listen((value) {
         if (_closed) return;
+        if (_upscaler?.consumesError(value) ?? false) return;
         error = value;
         _notify();
       }),
@@ -328,6 +438,8 @@ class PlaybackStore extends ChangeNotifier {
     error = null;
     _notify();
     try {
+      await _upscaler?.resetMedia();
+      if (_closed) return;
       await _player!.stop();
       if (_closed) return;
       playlist = nextPlaylist;
@@ -341,6 +453,8 @@ class PlaybackStore extends ChangeNotifier {
       // the playback surface size jump.
       await _player!.open(Media(item.filePath, start: position));
       if (_closed) return;
+      _upscaler?.mediaReady(_videoSource(_player!.state.videoParams));
+      _updateTexture();
     } catch (e) {
       index = -1;
       _session.clear();
@@ -369,6 +483,11 @@ class PlaybackStore extends ChangeNotifier {
     var operation = () async {
       await _rateMemory.load();
       _fit = PlaybackFit.parse(await settingsStore.read('playbackFit'));
+      if (Platform.isWindows) {
+        _upscaleMode = PlaybackUpscaleMode.parse(
+          await settingsStore.read('playbackUpscaleMode'),
+        );
+      }
       _notify();
     }();
     _preferencesFuture = operation;
@@ -406,6 +525,17 @@ class PlaybackStore extends ChangeNotifier {
     await settingsStore.write('playbackFit', mode.name);
     if (_closed) return;
     _fit = mode;
+    _upscaler?.preferences(_upscaleMode, _fit);
+    _notify();
+  });
+
+  Future<void> setUpscaleMode(PlaybackUpscaleMode mode) => _serial(() async {
+    await _loadPreferences();
+    if (_closed || _upscaleMode == mode || !Platform.isWindows) return;
+    await settingsStore.write('playbackUpscaleMode', mode.name);
+    if (_closed) return;
+    _upscaleMode = mode;
+    _upscaler?.preferences(_upscaleMode, _fit);
     _notify();
   });
 
@@ -413,6 +543,8 @@ class PlaybackStore extends ChangeNotifier {
     await _save();
     loading = true;
     try {
+      await _upscaler?.resetMedia();
+      if (_closed) return;
       await _player?.stop();
       _session.clear();
       index = -1;
@@ -456,6 +588,8 @@ class PlaybackStore extends ChangeNotifier {
     if (current?.key == PlaybackItem.pathKey(filePath)) {
       loading = true;
       try {
+        await _upscaler?.resetMedia();
+        if (_closed) return;
         await _player?.stop();
         _session.clear();
         index = -1;
@@ -485,7 +619,13 @@ class PlaybackStore extends ChangeNotifier {
   }
 
   Future<void> _disposePlayer(Player player) {
-    var disposal = Future<void>.sync(player.dispose);
+    var upscale = _upscaler;
+    var disposal = () async {
+      // This wait is not cancelled by the shutdown budget: native commands may
+      // still own the media_kit disposal lock after a timeout.
+      await upscale?.close();
+      await player.dispose();
+    }();
     // media_kit 1.2.6 schedules mpv_terminate_destroy 5 seconds after dispose.
     // Do not destroy the child isolate before that timer runs, or call the
     // native destructor ourselves (which would double-free the same handle).
@@ -546,6 +686,17 @@ class PlaybackStore extends ChangeNotifier {
     // StreamController.close can wait on widget subscriptions. Unmount Video
     // and its controls while the window can still render, then dispose mpv.
     var player = _player;
+    var textureListener = _textureListener;
+    if (textureListener != null) _video?.rect.removeListener(textureListener);
+    _textureListener = null;
+    var upscale = _upscaler;
+    if (upscale != null) {
+      await _shutdownStep(
+        '停止视频超分操作',
+        upscale.close,
+        const Duration(seconds: 1),
+      );
+    }
     _player = null;
     _video = null;
     index = -1;

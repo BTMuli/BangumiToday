@@ -31,6 +31,7 @@ class PlaybackWindowDataHost {
   final void Function() onHistoryChanged;
   static const allowedSettings = {
     'playbackFit',
+    'playbackUpscaleMode',
     'playbackRememberedRate',
     'playbackPromptMarkWatched',
     'playbackWindowBounds',

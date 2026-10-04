@@ -773,6 +773,25 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                                     key: ValueKey(item.key),
                                     player: widget.player,
                                     item: item,
+                                    store: widget.store,
+                                  ),
+                                ),
+                              if ((ModalRoute.of(context)?.isCurrent ?? true) &&
+                                  widget.store.upscaler?.warning != null &&
+                                  !widget.overlay.showInfo &&
+                                  !widget.overlay.showHelp)
+                                Positioned(
+                                  left: 12,
+                                  right: 12,
+                                  bottom: 104,
+                                  child: InfoBar(
+                                    title: const Text('视频超分'),
+                                    content: Text(
+                                      widget.store.upscaler!.warning!,
+                                    ),
+                                    severity: InfoBarSeverity.warning,
+                                    onClose:
+                                        widget.store.upscaler!.dismissWarning,
                                   ),
                                 ),
                               Positioned.fill(
@@ -841,7 +860,7 @@ class _PlaybackSettingsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: '播放设置：倍速、画幅、音轨和字幕',
+    message: Platform.isWindows ? '播放设置：倍速、画幅、超分、音轨和字幕' : '播放设置：倍速、画幅、音轨和字幕',
     child: material.TextButton(
       key: const ValueKey('playback-settings'),
       style: material.TextButton.styleFrom(
@@ -919,6 +938,22 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
         ),
     ],
   ),
+  if (Platform.isWindows)
+    MenuFlyoutSubItem(
+      text: Text('视频超分 · ${store.upscaleMode.label}'),
+      items: (_) => [
+        for (var mode in PlaybackUpscaleMode.values)
+          ToggleMenuFlyoutItem(
+            text: Text(
+              mode == PlaybackUpscaleMode.light
+                  ? '轻量 · Anime4K（SDR 放大）'
+                  : mode.label,
+            ),
+            value: store.upscaleMode == mode,
+            onChanged: (_) => unawaited(run(() => store.setUpscaleMode(mode))),
+          ),
+      ],
+    ),
   MenuFlyoutSubItem(
     text: const Text('音轨'),
     items: (_) => [
