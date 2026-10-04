@@ -78,7 +78,7 @@ int playbackInt(Map<String, Object?> value, String key, {int minimum = 0}) {
 int? playbackSubject(Map<String, Object?> value) =>
     value['subject'] == null ? null : playbackInt(value, 'subject', minimum: 1);
 
-PlaybackItem decodePlaybackItem(Object? value) {
+PlaybackItem decodePlaybackItem(Object? value, {bool includeSize = false}) {
   var data = playbackMap(value);
   var done = data['completed'];
   if (done != 0 && done != 1) {
@@ -88,6 +88,7 @@ PlaybackItem decodePlaybackItem(Object? value) {
     filePath: playbackString(data, 'filePath'),
     title: playbackString(data, 'title'),
     subject: playbackSubject(data),
+    sizeBytes: includeSize ? playbackInt(data, 'sizeBytes', minimum: 1) : null,
     positionMs: playbackInt(data, 'positionMs'),
     durationMs: playbackInt(data, 'durationMs'),
     completed: done == 1,

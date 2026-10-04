@@ -40,9 +40,11 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
   }
 
   @override
-  Future<void> ensureReady(String filePath) => _ensureReady(filePath, {});
+  Future<void> ensureReady(String filePath) async {
+    await _ensureReady(filePath, {});
+  }
 
-  Future<void> _ensureReady(
+  Future<int> _ensureReady(
     String filePath,
     Map<String, List<BtTaskFileDetail>> cachedFiles,
   ) async {
@@ -79,6 +81,7 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
         }
       }
     }
+    return length;
   }
 
   @override
@@ -93,12 +96,13 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
     )) {
       if (entity is! File || !PlaybackPaths.isVideo(entity.path)) continue;
       try {
-        await _ensureReady(entity.path, cachedFiles);
+        var size = await _ensureReady(entity.path, cachedFiles);
         items.add(
           PlaybackItem(
             filePath: path.absolute(entity.path),
             title: path.basename(entity.path),
             subject: subject,
+            sizeBytes: size,
           ),
         );
       } on PlaybackUnavailable {

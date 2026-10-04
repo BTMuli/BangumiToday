@@ -349,7 +349,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
     );
   }
 
-  /// 列表排版每行多显示文件名与画质信息，集数仍固定在行首。
+  /// 列表排版每行显示文件名、画质与文件大小，集数固定在行首。
   Widget _episodeRow(PlaybackStore store, int index) {
     var item = store.playlist[index];
     var selected = store.index == index;
@@ -357,6 +357,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
     var number = label.episodeNumber ?? '${index + 1}';
     var accent = FluentTheme.of(context).accentColor;
     var meta = [
+      if (item.sizeBytes != null) filesize(item.sizeBytes!),
       if (label.episode != null) label.episode!,
       if (label.details.isNotEmpty) label.details,
     ].join(' · ');

@@ -93,7 +93,10 @@ class PlaybackWindowDataHost {
           playbackString(body, 'directory'),
           subject: playbackSubject(body),
         );
-        return [for (var item in items) item.toRow()];
+        return [
+          for (var item in items)
+            {...item.toRow(), 'sizeBytes': item.sizeBytes},
+        ];
       case 'subjects.resolve':
         return subjects.subjectForFile(playbackString(body, 'filePath'));
       case 'cover.resolve':

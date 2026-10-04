@@ -24,7 +24,9 @@ class RemotePlaybackLibrary implements PlaybackLibrary {
       'directory': directory,
       'subject': subject,
     });
-    return (result as List).map(decodePlaybackItem).toList();
+    return (result as List)
+        .map((item) => decodePlaybackItem(item, includeSize: true))
+        .toList();
   }
 }
 

@@ -10,6 +10,7 @@ class PlaybackItem {
     required this.filePath,
     required this.title,
     this.subject,
+    this.sizeBytes,
     this.positionMs = 0,
     this.durationMs = 0,
     this.completed = false,
@@ -19,6 +20,9 @@ class PlaybackItem {
   final String filePath;
   final String title;
   final int? subject;
+
+  /// File metadata from the latest library scan; not persisted in history.
+  final int? sizeBytes;
   final int positionMs;
   final int durationMs;
   final bool completed;
