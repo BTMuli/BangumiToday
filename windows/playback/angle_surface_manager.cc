@@ -7,7 +7,9 @@
 // LICENSE file.
 #include "angle_surface_manager.h"
 
+#include <chrono>
 #include <iostream>
+#include <utility>
 
 namespace {
 class MutexLock {
@@ -64,6 +66,7 @@ void ANGLESurfaceManager::SetSize(int32_t width, int32_t height) {
   if (width == width_ && height == height_) {
     return;
   }
+  WaitForCopy();
   width_ = width;
   height_ = height;
   Create();
@@ -73,6 +76,8 @@ void ANGLESurfaceManager::SetSize(int32_t width, int32_t height) {
 void ANGLESurfaceManager::Draw(std::function<void()> callback) {
   MutexLock lock(mutex_);
   if (!lock) throw std::runtime_error("Unable to lock the video surface.");
+  // A timed-out copy must finish before ANGLE can overwrite its source.
+  WaitForCopy();
   MakeCurrent(true);
   try {
     callback();
@@ -86,16 +91,59 @@ void ANGLESurfaceManager::Draw(std::function<void()> callback) {
 }
 
 void ANGLESurfaceManager::Read() {
-  // A new external texture has no previous complete frame to reuse. Keep the
-  // synchronized copy; render notifications are coalesced instead of skipped
-  // by the consumer. A completed frame is still copied only once.
   MutexLock lock(mutex_);
   if (!lock) throw std::runtime_error("Unable to lock the video surface.");
   if (frame_available_ && d3d_11_device_context_ != nullptr) {
-    d3d_11_device_context_->CopyResource(d3d_11_texture_2D_.Get(),
-                                         internal_d3d_11_texture_2D_.Get());
+    WaitForCopy();
+    // Flutter imports the shared handle and samples it later on its own GPU
+    // device. Its release callback only acknowledges the import, not the end
+    // of sampling. Never overwrite a resource that has been handed to Flutter.
+    D3D11_TEXTURE2D_DESC description{};
+    internal_d3d_11_texture_2D_->GetDesc(&description);
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> snapshot;
+    auto hr = d3d_11_device_->CreateTexture2D(&description, nullptr, &snapshot);
+    if (FAILED(hr)) {
+      throw std::runtime_error("Unable to create the video frame snapshot.");
+    }
+    Microsoft::WRL::ComPtr<IDXGIResource> resource;
+    HANDLE shared_handle = nullptr;
+    hr = snapshot.As(&resource);
+    if (SUCCEEDED(hr)) hr = resource->GetSharedHandle(&shared_handle);
+    if (FAILED(hr) || shared_handle == nullptr) {
+      throw std::runtime_error("Unable to share the video frame snapshot.");
+    }
+    d3d_11_device_context_->CopyResource(snapshot.Get(),
+                                        internal_d3d_11_texture_2D_.Get());
+    d3d_11_device_context_->End(copy_completion_.Get());
+    copy_pending_ = true;
     d3d_11_device_context_->Flush();
+    // Flush submits commands asynchronously. Publish only after the copy has
+    // completed; on failure the previously completed frame remains available.
+    WaitForCopy();
+    d3d_11_texture_2D_ = std::move(snapshot);
+    handle_ = shared_handle;
     frame_available_ = false;
+  }
+}
+
+void ANGLESurfaceManager::WaitForCopy() {
+  if (!copy_pending_) return;
+  const auto started = std::chrono::steady_clock::now();
+  for (;;) {
+    const auto result = d3d_11_device_context_->GetData(
+        copy_completion_.Get(), nullptr, 0, D3D11_ASYNC_GETDATA_DONOTFLUSH);
+    if (result == S_OK) {
+      copy_pending_ = false;
+      return;
+    }
+    if (result != S_FALSE) {
+      throw std::runtime_error("Unable to complete the video frame copy.");
+    }
+    if (std::chrono::steady_clock::now() - started >=
+        std::chrono::milliseconds(100)) {
+      throw std::runtime_error("Timed out copying the video frame.");
+    }
+    ::Sleep(1);
   }
 }
 
@@ -125,7 +173,7 @@ void ANGLESurfaceManager::Create() {
     throw std::runtime_error("Unable to create ANGLE EGL surface.");
     return;
   }
-  if (internal_handle_ == nullptr || handle_ == nullptr) {
+  if (internal_handle_ == nullptr) {
     throw std::runtime_error("Unable to retrieve Direct3D shared HANDLE.");
     return;
   }
@@ -149,6 +197,7 @@ void ANGLESurfaceManager::CleanUp(bool release_context) {
     }
     display_ = EGL_NO_DISPLAY;
     // Release D3D device & context if the instance is being destroyed.
+    copy_completion_.Reset();
     if (d3d_11_device_context_) {
       d3d_11_device_context_->Release();
       d3d_11_device_context_ = nullptr;
@@ -165,14 +214,9 @@ void ANGLESurfaceManager::CleanUp(bool release_context) {
     surface_ = EGL_NO_SURFACE;
   }
   // Release D3D 11 texture(s).
-  if (internal_d3d_11_texture_2D_) {
-    internal_d3d_11_texture_2D_->Release();
-    internal_d3d_11_texture_2D_ = nullptr;
-  }
-  if (d3d_11_texture_2D_) {
-    d3d_11_texture_2D_->Release();
-    d3d_11_texture_2D_ = nullptr;
-  }
+  internal_d3d_11_texture_2D_.Reset();
+  d3d_11_texture_2D_.Reset();
+  internal_handle_ = handle_ = nullptr;
 }
 
 bool ANGLESurfaceManager::CreateD3DTexture() {
@@ -210,6 +254,12 @@ bool ANGLESurfaceManager::CreateD3DTexture() {
     CHECK_HRESULT("D3D11CreateDevice");
   }
 
+  if (!copy_completion_) {
+    const D3D11_QUERY_DESC description{D3D11_QUERY_EVENT, 0};
+    auto hr = d3d_11_device_->CreateQuery(&description, &copy_completion_);
+    CHECK_HRESULT("ID3D11Device::CreateQuery");
+  }
+
   Microsoft::WRL::ComPtr<IDXGIDevice> dxgi_device = nullptr;
   auto dxgi_device_success = d3d_11_device_->QueryInterface(
       __uuidof(IDXGIDevice), (void**)&dxgi_device);
@@ -235,12 +285,8 @@ bool ANGLESurfaceManager::CreateD3DTexture() {
   d3d11_texture2D_desc.CPUAccessFlags = 0;
   d3d11_texture2D_desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
 
-  // The general idea is to create two textures, one that is used to |Draw|
-  // using ANGLE & another one that is used for |Read| the rendered content
-  // using |handle|.
-  // The internal texture is copied to the public texture once a frame is
-  // requested using |ID3D11DeviceContext::CopyResource|. This prevents any kind
-  // of synchronization issues.
+  // ANGLE draws into one internal texture. Read creates an immutable shared
+  // snapshot of each completed frame for Flutter's independent GPU device.
 
   // Internal.
   auto hr = d3d_11_device_->CreateTexture2D(&d3d11_texture2D_desc, nullptr,
@@ -252,18 +298,6 @@ bool ANGLESurfaceManager::CreateD3DTexture() {
   // Retrieve the shared |HANDLE| for interop.
   hr = resource->GetSharedHandle(&internal_handle_);
   CHECK_HRESULT("IDXGIResource::GetSharedHandle");
-  internal_d3d_11_texture_2D_->AddRef();
-
-  // External.
-  hr = d3d_11_device_->CreateTexture2D(&d3d11_texture2D_desc, nullptr,
-                                       &d3d_11_texture_2D_);
-  CHECK_HRESULT("ID3D11Device::CreateTexture2D");
-  hr = d3d_11_texture_2D_.As(&resource);
-  CHECK_HRESULT("ID3D11Texture2D::As");
-  // Retrieve the shared |HANDLE| for interop.
-  hr = resource->GetSharedHandle(&handle_);
-  CHECK_HRESULT("IDXGIResource::GetSharedHandle");
-  d3d_11_texture_2D_->AddRef();
 
   return true;
 }

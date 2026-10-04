@@ -27,8 +27,8 @@
 // |ANGLESurfaceManager| provides an abstraction around ANGLE to easily draw
 // OpenGL ES 2.0 content & read as D3D 11 texture using shared |HANDLE|.
 // * |Draw|: Takes callback where OpenGL ES 2.0 calls can be made for rendering.
-// * |Read|: Copies the drawn content to D3D 11 texture & makes it available to
-//           the shared |handle| for access.
+// * |Read|: Copies the drawn content to an immutable shared D3D 11 snapshot,
+//           waits for GPU completion and updates |texture| and |handle|.
 
 // A large part of implementation is inspired from Flutter.
 // https://github.com/flutter/engine/blob/master/shell/platform/windows/angle_surface_manager.h
@@ -57,6 +57,8 @@ class ANGLESurfaceManager {
  private:
   void SwapBuffers();
 
+  void WaitForCopy();
+
   void Create();
 
   void CleanUp(bool release_context);
@@ -80,6 +82,8 @@ class ANGLESurfaceManager {
   ID3D11DeviceContext* d3d_11_device_context_ = nullptr;
   Microsoft::WRL::ComPtr<ID3D11Texture2D> internal_d3d_11_texture_2D_;
   Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d_11_texture_2D_;
+  Microsoft::WRL::ComPtr<ID3D11Query> copy_completion_;
+  bool copy_pending_ = false;
   // ANGLE
   EGLSurface surface_ = EGL_NO_SURFACE;
   EGLDisplay display_ = EGL_NO_DISPLAY;

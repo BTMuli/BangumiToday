@@ -40,11 +40,19 @@ typedef struct _VideoOutputConfiguration {
         enable_hardware_acceleration(enable_hardware_acceleration) {}
 } VideoOutputConfiguration;
 
-struct PlaybackGpuTexture {
-  int64_t id = 0;
-  bool ready = false;
+struct PlaybackGpuFrame {
   FlutterDesktopGpuSurfaceDescriptor descriptor{};
   Microsoft::WRL::ComPtr<ID3D11Texture2D> resource;
+};
+
+struct PlaybackGpuTexture {
+  int64_t id = 0;
+  int64_t width = 1;
+  int64_t height = 1;
+  std::shared_ptr<PlaybackGpuFrame> frame;
+  // Keep the returned descriptor stable through PopulateTexture, including
+  // its reads after the engine invokes the descriptor's release callback.
+  std::shared_ptr<PlaybackGpuFrame> sampled_frame;
 };
 
 // Unregister callbacks own this store rather than the VideoOutput. They can
@@ -71,7 +79,7 @@ class VideoOutput {
   int64_t width() const {
     std::lock_guard<std::mutex> lock(texture_store_->mutex);
     auto gpu = texture_store_->gpu.find(texture_id_);
-    if (gpu != texture_store_->gpu.end()) return gpu->second->descriptor.width;
+    if (gpu != texture_store_->gpu.end()) return gpu->second->width;
     auto pixels = texture_store_->pixels.find(texture_id_);
     if (pixels != texture_store_->pixels.end()) return pixels->second->width;
     return 1;
@@ -79,7 +87,7 @@ class VideoOutput {
   int64_t height() const {
     std::lock_guard<std::mutex> lock(texture_store_->mutex);
     auto gpu = texture_store_->gpu.find(texture_id_);
-    if (gpu != texture_store_->gpu.end()) return gpu->second->descriptor.height;
+    if (gpu != texture_store_->gpu.end()) return gpu->second->height;
     auto pixels = texture_store_->pixels.find(texture_id_);
     if (pixels != texture_store_->pixels.end()) return pixels->second->height;
     return 1;

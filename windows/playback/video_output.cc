@@ -190,12 +190,22 @@ void VideoOutput::Render() {
         throw std::runtime_error("Unable to render the video frame.");
       }
     });
-    if (texture_update_pending_) {
-      // Publish only after the new shared texture contains a completed frame.
-      surface_manager_->Read();
-      std::lock_guard<std::mutex> lock(texture_store_->mutex);
-      texture_store_->gpu.at(texture_id_)->ready = true;
-    }
+    // Copy and wait on this worker, never in Flutter's raster callback.
+    surface_manager_->Read();
+    auto frame = std::make_shared<PlaybackGpuFrame>();
+    frame->resource = surface_manager_->texture();
+    auto& descriptor = frame->descriptor;
+    descriptor.struct_size = sizeof(FlutterDesktopGpuSurfaceDescriptor);
+    descriptor.handle = surface_manager_->handle();
+    descriptor.width = descriptor.visible_width = surface_manager_->width();
+    descriptor.height = descriptor.visible_height = surface_manager_->height();
+    descriptor.format = kFlutterDesktopPixelFormatBGRA8888;
+    descriptor.release_context = frame->resource.Get();
+    descriptor.release_callback = [](void* context) {
+      static_cast<ID3D11Texture2D*>(context)->Release();
+    };
+    std::lock_guard<std::mutex> lock(texture_store_->mutex);
+    texture_store_->gpu.at(texture_id_)->frame = std::move(frame);
   }
   if (pixel_buffer_) {
     int32_t size[]{static_cast<int32_t>(width()),
@@ -261,8 +271,7 @@ void VideoOutput::CheckAndResize() {
 
 void VideoOutput::Resize(int64_t required_width, int64_t required_height) {
   {
-    // Old callbacks finish their Read before SetSize destroys the old surface.
-    // They retain their own descriptor/resource until the new ID is sampled.
+    // Old IDs retain their last immutable frame until the new ID is sampled.
     std::lock_guard<std::mutex> lock(texture_store_->mutex);
     texture_store_->active_id = 0;
     if (texture_id_) retired_texture_ids_.push_back(texture_id_);
@@ -273,29 +282,18 @@ void VideoOutput::Resize(int64_t required_width, int64_t required_height) {
     surface_manager_->SetSize(static_cast<int32_t>(required_width),
                               static_cast<int32_t>(required_height));
     auto texture = std::make_shared<PlaybackGpuTexture>();
-    texture->resource = surface_manager_->texture();
-    auto& descriptor = texture->descriptor;
-    descriptor.struct_size = sizeof(FlutterDesktopGpuSurfaceDescriptor);
-    descriptor.handle = surface_manager_->handle();
-    descriptor.width = descriptor.visible_width = required_width;
-    descriptor.height = descriptor.visible_height = required_height;
-    descriptor.format = kFlutterDesktopPixelFormatBGRA8888;
-    descriptor.release_context = texture->resource.Get();
-    descriptor.release_callback = [](void* context) {
-      static_cast<ID3D11Texture2D*>(context)->Release();
-    };
-    auto* surface = surface_manager_.get();
+    texture->width = required_width;
+    texture->height = required_height;
     auto variant =
         std::make_unique<flutter::TextureVariant>(flutter::GpuSurfaceTexture(
             kFlutterDesktopGpuSurfaceTypeDxgiSharedHandle,
-            [this, weak_store, texture, surface](
+            [this, weak_store, texture](
                 auto, auto) -> const FlutterDesktopGpuSurfaceDescriptor* {
               auto store = weak_store.lock();
               if (!store) return nullptr;
               std::lock_guard<std::mutex> lock(store->mutex);
-              if (store->closed || !texture->ready) return nullptr;
+              if (store->closed || !texture->frame) return nullptr;
               if (store->active_id == texture->id) {
-                surface->Read();
                 if (store->sampled_id != texture->id) {
                   store->sampled_id = texture->id;
                   render_queue_.Request();
@@ -303,8 +301,9 @@ void VideoOutput::Resize(int64_t required_width, int64_t required_height) {
               }
               // Flutter releases this reference after opening the shared
               // handle.
-              texture->resource->AddRef();
-              return &texture->descriptor;
+              texture->sampled_frame = texture->frame;
+              texture->sampled_frame->resource->AddRef();
+              return &texture->sampled_frame->descriptor;
             }));
     const auto id =
         registrar_->texture_registrar()->RegisterTexture(variant.get());

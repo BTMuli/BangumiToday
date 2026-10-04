@@ -22,23 +22,37 @@ Changes relative to 2.0.1:
 - Rendering disables the target-time wait with `video-timing-offset=0`, so it
   does not wait for the core's presentation signal while holding the surface
   mutex. GL contexts are checked and detached before surface recreation.
-- Each Flutter callback owns its texture descriptor and retains the matching
-  D3D resource. A resized texture is published after its first completed frame
-  is copied; the old IDs are retired after Flutter samples the replacement.
-  The initial ID is sent with a zero-size rectangle to bootstrap playback.
-- Texture reads use the synchronized surface copy, including the first frame
-  after resize. `glFinish` and the D3D context flush are retained; each completed
-  frame is copied only once. Skipping a busy read was removed because a new
-  shared texture has no previous completed image.
+- Every completed frame gets an immutable shared D3D snapshot. The render worker
+  waits for a `D3D11_QUERY_EVENT` after the copy before publishing the snapshot;
+  `Flush` alone only submits asynchronous GPU work. A failed copy leaves the
+  previously published image intact. A timed-out copy must finish before drawing
+  into or resizing its source again.
+- Flutter callbacks only return completed snapshots and do no GPU work or waits.
+  The sampled frame retains its descriptor and D3D resource while the worker can
+  replace the latest frame independently. The engine's release callback balances
+  the reference used to import the handle; it does not signal completion of GPU
+  sampling. Descriptors remain valid for the engine's reads after that callback.
+- A resized texture is published after its first completed snapshot; the old IDs
+  retain their last frame until Flutter samples the replacement. The initial ID
+  is sent with a zero-size rectangle to bootstrap playback. Each rendered frame
+  is copied once; no handed-off resource is reused for a later frame.
 - Disposal closes the queue and texture callbacks, drains accepted render work,
   detaches/frees mpv, waits for all active and retired texture unregistrations,
   then releases ANGLE. Unregister callbacks own their state without the player.
 
-This bounds callback backlog and fixes identified render/core wait and texture
-handoff hazards. It does not interpolate frames or change the 24 fps cadence.
-Actual RTX 4070 playback and fullscreen episode switching still require runtime
-verification; headless checks cannot establish that intermittent freezes are
-fully resolved.
+This bounds callback backlog and removes identified render/core waits and shared
+texture read/write races. It does not interpolate frames or change the source
+frame cadence. Snapshot allocation and EGL handle import now occur per rendered
+frame; this trades extra allocation/import work for safe ownership across devices.
+Actual RTX 4070 playback, sustained higher playback rates and fullscreen episode
+switching still require runtime verification. Headless checks cannot establish
+that intermittent freezes or flashes are fully resolved, or measure playback
+performance on the target GPU.
+
+Synchronization references:
+
+- [Microsoft: Flush is asynchronous; use an event query for completion](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-flush).
+- [Flutter 3.48.0-0.4.pre: shared-handle import and descriptor release](https://github.com/flutter/flutter/blob/3.48.0-0.4.pre/engine/src/flutter/shell/platform/windows/external_texture_d3d.cc).
 
 Verification performed without starting the app or building the project:
 
@@ -54,3 +68,10 @@ Verification performed without starting the app or building the project:
   publication, stale IDs, reference balancing, paused resize, render failure
   recovery, busy reads, delayed unregistration, disposal and software stride.
   Temporary verification files are removed after the checks.
+- The immutable-snapshot change additionally passes MSVC `/Zs`, `/W4`, `/WX` for
+  all six overlaid translation units. A temporary non-UI harness runs the actual
+  `Read`, `Draw`, `WaitForCopy` methods and GPU descriptor callback with two real
+  D3D WARP devices. It checks all pixels of 200 shared frames, retained old frames,
+  duplicate reads, allocation failure, copy timeout/source protection, query
+  error recovery, descriptor lifetime after release, and stale/closed callbacks.
+  The harness is removed after verification; no full build or app launch is run.
