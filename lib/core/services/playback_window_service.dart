@@ -1,11 +1,17 @@
+// Dart imports:
 import 'dart:async';
-import 'package:desktop_multi_window/desktop_multi_window.dart';
+
+// Flutter imports:
 import 'package:flutter/services.dart';
+
+// Package imports:
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:window_manager/window_manager.dart';
 
+// Project imports:
 import '../../providers/episode_mark_providers.dart';
 import '../../store/app_store.dart';
 import '../../store/nav_store.dart';
@@ -174,8 +180,9 @@ class PlaybackWindowService extends ChangeNotifier {
     if (session == null ||
         session.window == null ||
         session.closing ||
-        _disposed)
+        _disposed) {
       return;
+    }
     var value = _presentation();
     session.push = session.push
         .then((_) async {
@@ -212,8 +219,9 @@ class PlaybackWindowService extends ChangeNotifier {
         return _presentation();
       case 'ready':
         var id = playbackString(body, 'windowId');
-        if (session.reportedId != null && session.reportedId != id)
+        if (session.reportedId != null && session.reportedId != id) {
           throw StateError('重复的窗口身份');
+        }
         session.reportedId = id;
         if (!session.ready.isCompleted) session.ready.complete();
         return _presentation();
@@ -228,8 +236,9 @@ class PlaybackWindowService extends ChangeNotifier {
         return null;
       case 'failed':
         error = playbackString(body, 'message');
-        if (!session.ready.isCompleted)
+        if (!session.ready.isCompleted) {
           session.ready.completeError(StateError(error!));
+        }
         _notify();
         return null;
       case 'subject.open':
@@ -318,7 +327,8 @@ class PlaybackWindowService extends ChangeNotifier {
   Future<void> _shutdown() async {
     _exiting = true;
     // An open command can itself be waiting on the child's playback queue.
-    // Send close concurrently once a window exists; its store drains that queue.
+    // Send close concurrently once a window exists; its store drains that
+    // queue.
     if (_session?.window == null) {
       await _operations.timeout(const Duration(seconds: 30));
     }

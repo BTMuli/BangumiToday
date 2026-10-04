@@ -32,8 +32,8 @@ import '../../store/playback_store.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import 'playback_actions.dart';
-import 'playback_label.dart';
 import 'playback_episode_mark.dart';
+import 'playback_label.dart';
 import 'playback_window_mode.dart';
 
 part 'playback_controls.dart';

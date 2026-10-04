@@ -147,7 +147,8 @@ class BtDatabase extends _$BtDatabase {
   }
 
   /// VACUUM INTO reads a consistent SQLite snapshot, including committed WAL
-  /// content. Run before the schema transaction; a failed backup blocks changes.
+  /// content. Run before the schema transaction; a failed backup blocks
+  /// changes.
   Future<void> _backupBeforeMigration() async {
     var databasePath = _databasePath;
     if (databasePath == null) return;

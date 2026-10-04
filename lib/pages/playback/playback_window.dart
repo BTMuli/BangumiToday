@@ -1,12 +1,18 @@
+// Dart imports:
 import 'dart:async';
 import 'dart:convert';
+
+// Flutter imports:
+import 'package:flutter/services.dart';
+
+// Package imports:
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
+// Project imports:
 import '../../core/services/playback_window_protocol.dart';
 import '../../data/repositories/playback_window_remote.dart';
 import '../../providers/episode_mark_providers.dart';
@@ -258,8 +264,9 @@ class _PlaybackWindow with WindowListener {
         mode.screenFullscreen ||
         await windowManager.isFullScreen() ||
         await windowManager.isMaximized() ||
-        await windowManager.isMinimized())
+        await windowManager.isMinimized()) {
       return;
+    }
     _normalBounds = await windowManager.getBounds();
   }
 
@@ -286,8 +293,11 @@ class _PlaybackWindow with WindowListener {
             var area =
                 (display.visiblePosition ?? Offset.zero) &
                 (display.visibleSize ?? display.size);
-            if (area.width < 720 || area.height < 480 || !area.overlaps(bounds))
+            if (area.width < 720 ||
+                area.height < 480 ||
+                !area.overlaps(bounds)) {
               continue;
+            }
             var width = bounds.width.clamp(720.0, area.width);
             var height = bounds.height.clamp(480.0, area.height);
             await windowManager.setBounds(

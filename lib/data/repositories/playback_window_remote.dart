@@ -1,3 +1,4 @@
+// Project imports:
 import '../../core/services/playback_window_protocol.dart';
 import '../../domain/repositories/playback_cover.dart';
 import '../../domain/repositories/playback_history.dart';
@@ -97,7 +98,7 @@ class RemotePlaybackCover implements PlaybackCoverResolver {
         );
         return coverOf(subject);
       } finally {
-        _pending.remove(subject);
+        await _pending.remove(subject);
       }
     });
   }

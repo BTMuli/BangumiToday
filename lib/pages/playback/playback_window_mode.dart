@@ -1,9 +1,12 @@
+// Dart imports:
 import 'dart:async';
 
+// Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
+// Project imports:
 import '../../models/playback/playback_window_size.dart';
 import '../../tools/log_tool.dart';
 
@@ -42,8 +45,9 @@ class PlaybackWindowMode extends ChangeNotifier {
         ratio == null ||
         !ratio.isFinite ||
         ratio <= 0 ||
-        ratio == _aspectRatio)
+        ratio == _aspectRatio) {
       return;
+    }
     _aspectRatio = ratio;
     if (!videoOnly || screenFullscreen) return;
     unawaited(
@@ -155,8 +159,8 @@ class PlaybackWindowMode extends ChangeNotifier {
     if (screenFullscreen) return;
     await windowManager.setAspectRatio(0);
     if (videoOnly) {
-      // window_manager does not expand an already-frameless window to a monitor.
-      // Reset that flag before entering, then restore it on exit.
+      // window_manager does not expand an already-frameless window to a
+      // monitor. Reset that flag before entering, then restore it on exit.
       await windowManager.setTitleBarStyle(
         TitleBarStyle.hidden,
         windowButtonVisibility: false,

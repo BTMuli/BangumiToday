@@ -173,8 +173,9 @@ class EpisodeMarkService {
     if (_closed || account == null) return;
     _items.clear();
     for (var item in items) {
-      if ((item.subject ?? 0) > 0)
+      if ((item.subject ?? 0) > 0) {
         _items[EpisodeMarkState.itemKey(item)] = item;
+      }
     }
     _notifyProgress();
     await Future.wait([
@@ -211,7 +212,7 @@ class EpisodeMarkService {
         _loadedSubjects.add(subject);
       } finally {
         if (_current(account) && identical(_progressLoads[subject], future)) {
-          _progressLoads.remove(subject);
+          await _progressLoads.remove(subject);
           _loadingSubjects.remove(subject);
           _notifyProgress();
         }
@@ -291,7 +292,7 @@ class EpisodeMarkService {
       try {
         episodes = await future;
       } finally {
-        if (identical(_pages[key], future)) _pages.remove(key);
+        if (identical(_pages[key], future)) await _pages.remove(key);
       }
       if (!_current(account)) return const EpisodeMarkResolution();
       var matches = episodes

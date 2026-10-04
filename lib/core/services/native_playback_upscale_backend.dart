@@ -1,6 +1,8 @@
+// Package imports:
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+// Project imports:
 import '../../models/playback/playback_upscale.dart';
 import 'native_upscale_adapter.dart';
 import 'playback_upscaler.dart';

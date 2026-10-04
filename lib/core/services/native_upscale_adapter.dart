@@ -17,9 +17,9 @@ class NativeUpscaleException implements Exception {
   String toString() => '$operation: $message ($code)';
 }
 
-/// Uses media_kit 1.2.6's existing bindings and disposal lock. No additional mpv
-/// client, cached handle, event loop or asynchronous request IDs are created.
-/// Close this adapter before disposing its owning Player.
+/// Uses media_kit 1.2.6's existing bindings and disposal lock. No additional
+/// mpv client, cached handle, event loop or asynchronous request IDs are
+/// created. Close this adapter before disposing its owning Player.
 class NativeUpscaleAdapter {
   NativeUpscaleAdapter(this._player);
 

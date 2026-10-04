@@ -1,3 +1,4 @@
+// Dart imports:
 import 'dart:math' as math;
 
 /// Bounds for a borderless video window, in logical pixels. Native resizing

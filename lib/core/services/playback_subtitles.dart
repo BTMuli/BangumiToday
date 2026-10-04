@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as path;
 
+// Project imports:
 import 'playback_assets.dart';
 
 /// Shares the bundled UI fonts with mpv without installing system fonts.

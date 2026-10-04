@@ -1,3 +1,4 @@
+// Dart imports:
 import 'dart:io';
 
 // Package imports:
@@ -36,7 +37,8 @@ Future<void> openLocalPlayback(
 }
 
 /// Consume the stored copy before showing an operation failure. Page listeners
-/// handle unattended failures on the next frame, so the same error appears once.
+/// handle unattended failures on the next frame, so the same error appears
+/// once.
 Future<void> reportPlaybackError(
   BuildContext context,
   WidgetRef ref,

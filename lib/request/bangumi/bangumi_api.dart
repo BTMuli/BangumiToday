@@ -631,7 +631,7 @@ class BtrBangumiApi {
         data: {'type': type.value},
         options: Options(
           contentType: 'application/json',
-          extra: {if (authScope != null) 'authScope': authScope},
+          extra: {'authScope': ?authScope},
         ),
       );
       var failure = readBangumiWriteFailure(
