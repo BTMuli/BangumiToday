@@ -5,6 +5,17 @@ function(bangumi_configure_playback_renderer)
     if(NOT TARGET media_kit_video_plugin)
         message(FATAL_ERROR "media_kit_video_plugin is required for playback")
     endif()
+    # Flutter's template disables STL exception handling. This renderer throws
+    # recoverable GPU errors through std::packaged_task; without STL catches a
+    # copy timeout calls terminate instead of settling the task's future.
+    get_target_property(_definitions media_kit_video_plugin COMPILE_DEFINITIONS)
+    if(_definitions)
+        list(FILTER _definitions EXCLUDE REGEX "^_HAS_EXCEPTIONS=")
+        set_property(TARGET media_kit_video_plugin PROPERTY COMPILE_DEFINITIONS
+            "${_definitions}")
+    endif()
+    target_compile_definitions(media_kit_video_plugin PRIVATE _HAS_EXCEPTIONS=1)
+
     get_target_property(_plugin_dir media_kit_video_plugin SOURCE_DIR)
     file(READ "${_plugin_dir}/../pubspec.yaml" _pubspec)
     if(NOT _pubspec MATCHES "[\r\n]version: 2\\.0\\.1[\r\n]")

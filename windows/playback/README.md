@@ -9,6 +9,11 @@ these files. All translation units use the substituted headers. The Pub cache,
 generated plugin registration, Dart API and macOS backend remain untouched.
 Review and rebase this override when upgrading the dependency.
 
+The plugin enables `_HAS_EXCEPTIONS=1` instead of Flutter's default `0` so
+`std::packaged_task` can store recoverable render failures in its future. With
+STL exception handling disabled, a GPU copy timeout instead escapes the task
+and terminates the entire process (`0xc0000409`, fast-fail reason 7).
+
 Changes relative to 2.0.1:
 
 - `PlaybackRenderQueue` coalesces notifications into one scheduled render task
@@ -75,3 +80,10 @@ Verification performed without starting the app or building the project:
   duplicate reads, allocation failure, copy timeout/source protection, query
   error recovery, descriptor lifetime after release, and stale/closed callbacks.
   The harness is removed after verification; no full build or app launch is run.
+- The STL exception fix is checked with the production render queue and upstream
+  thread pool. Disabled STL exception handling reproduces `0xc0000409`; enabled
+  handling settles the copy-timeout exception and renders the next requested
+  frame. An isolated CMake configuration verifies that only the renderer target
+  changes its exception definition. MSVC `/Zs`, `/W4`, `/WX` passes for the runner
+  window and all six overlaid plugin translation units. Temporary checks are
+  removed; closing and reopening real playback windows remains a manual check.
