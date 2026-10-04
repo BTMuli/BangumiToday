@@ -21,6 +21,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/errors/playback_unavailable.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../models/playback/playback_fit.dart';
+import '../../models/playback/playback_history_group.dart';
 import '../../models/playback/playback_item.dart';
 import '../../models/playback/playback_rate.dart';
 import '../../models/playback/playback_upscale.dart';
@@ -33,16 +34,19 @@ import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import 'playback_actions.dart';
 import 'playback_label.dart';
 import 'playback_episode_mark.dart';
+import 'playback_window_mode.dart';
 
 part 'playback_controls.dart';
 part 'playback_overlay.dart';
 part 'playback_seek_bar.dart';
 part 'playback_video_info.dart';
 part 'playback_viewport.dart';
+part 'playback_library_panel.dart';
 
 class PlaybackPage extends ConsumerStatefulWidget {
-  const PlaybackPage({super.key, this.independent = false});
+  const PlaybackPage({super.key, this.independent = false, this.windowMode});
   final bool independent;
+  final PlaybackWindowMode? windowMode;
 
   @override
   ConsumerState<PlaybackPage> createState() => _PlaybackPageState();
@@ -50,29 +54,38 @@ class PlaybackPage extends ConsumerStatefulWidget {
 
 class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   late final PlaybackStore _store;
-  final _playlistScroll = ScrollController();
-  final _historyScroll = ScrollController();
+  final _libraryKey = GlobalKey<_PlaybackLibraryPanelState>();
+  final _stageKey = GlobalKey();
   final _videoKey = GlobalKey<VideoState>();
   final _overlay = _PlaybackOverlayController();
   bool _wasActive = true;
   bool _sidebarVisible = true;
-  bool _showHistory = false;
   bool _noticeFramePending = false;
-  (String?, String)? _progressSignature;
   String? _lastPlayingKey;
   int _lastPlayingIndex = -1;
   int? _posterSubject;
-  static const _playlistRowHeight = 48.0;
 
   @override
   void initState() {
     super.initState();
     _store = ref.read(playbackStoreProvider);
-    _showHistory = _store.playlist.isEmpty;
+    widget.windowMode?.addListener(_onWindowModeChanged);
     _wasActive = _isPlaybackActive;
     _store.beforeVideoDispose = _exitVideoFullscreen;
     _onPlaybackChanged();
     unawaited(_run(_store.refreshHistory));
+  }
+
+  void _onWindowModeChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _toggleWindowFullscreen() async {
+    var mode = widget.windowMode;
+    if (mode == null || _store.current == null) return;
+    await _exitVideoFullscreen();
+    var box = _stageKey.currentContext?.findRenderObject() as RenderBox?;
+    await mode.toggleVideoOnly(box?.size ?? const Size(960, 540));
   }
 
   /// 播放页是否为当前页
@@ -115,10 +128,21 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   void _onPlaybackChanged() {
     var key = _store.current?.key;
     if (key == _lastPlayingKey && _store.index == _lastPlayingIndex) return;
-    if (key != null && _lastPlayingKey == null) _showHistory = false;
-    if (key == null && _lastPlayingKey != null) _showHistory = true;
     _lastPlayingKey = key;
     _lastPlayingIndex = _store.index;
+    if (key == null &&
+        !_store.isClosed &&
+        (widget.windowMode?.videoOnly ?? false)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _store.isClosed || _store.current != null) return;
+        unawaited(
+          _run(() async {
+            await _exitVideoFullscreen();
+            await widget.windowMode?.exitVideoOnly();
+          }),
+        );
+      });
+    }
     var subject = _store.current?.subject ?? _firstPlaylistSubject(_store);
     if (subject != null) _posterSubject = subject;
     _ensureCovers(_store);
@@ -145,26 +169,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   }
 
   void _revealCurrent() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_playlistScroll.hasClients || _store.index < 0) return;
-      var position = _playlistScroll.position;
-      var top = 8 + _store.index * _playlistRowHeight;
-      if (top >= position.pixels &&
-          top + _playlistRowHeight <=
-              position.pixels + position.viewportDimension) {
-        return;
-      }
-      unawaited(
-        _playlistScroll.animateTo(
-          (top - position.viewportDimension / 2 + _playlistRowHeight / 2).clamp(
-            0.0,
-            position.maxScrollExtent,
-          ),
-          duration: BTTheme.animationDurationNormal,
-          curve: BTTheme.animationCurve,
-        ),
-      );
-    });
+    _libraryKey.currentState?.revealCurrent();
   }
 
   @override
@@ -172,8 +177,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     if (_store.beforeVideoDispose == _exitVideoFullscreen) {
       _store.beforeVideoDispose = null;
     }
-    _playlistScroll.dispose();
-    _historyScroll.dispose();
+    widget.windowMode?.removeListener(_onWindowModeChanged);
     _overlay.dispose();
     if (!widget.independent) {
       unawaited(_store.pause().catchError((Object _) {}));
@@ -189,6 +193,9 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
 
   Future<void> _stopPlayback() async {
     await _exitVideoFullscreen();
+    if (widget.windowMode?.videoOnly ?? false) {
+      await widget.windowMode!.exitVideoOnly();
+    }
     await _store.stop();
   }
 
@@ -261,25 +268,11 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
         (_, _) => _onNavigation(),
       );
     }
-    var account = ref.watch(
-      episodeMarkProvider.select((value) => value.account),
-    );
-    var signature = (
-      account,
-      store.playlist.map(EpisodeMarkState.itemKey).join('\n'),
-    );
-    if (_progressSignature != signature) {
-      _progressSignature = signature;
-      var items = List<PlaybackItem>.of(store.playlist);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _progressSignature != signature) return;
-        unawaited(
-          _run(() => ref.read(episodeMarkProvider.notifier).syncItems(items)),
-        );
-      });
-    }
     _onPlaybackChanged();
     _schedulePlaybackNotices();
+    if (widget.windowMode?.videoOnly ?? false) {
+      return PlaybackWindowResizeFrame(child: _buildStage(store));
+    }
     return ScaffoldPage(
       padding: EdgeInsets.zero,
       content: Padding(
@@ -293,7 +286,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                 builder: (context, constraints) {
                   var stage = _buildStage(store);
                   if (!_sidebarVisible) return stage;
-                  var sidebar = _buildSidebar(store);
+                  var sidebar = _buildLibraryPanel(key: _libraryKey);
                   if (constraints.maxWidth < 900) {
                     return Column(
                       children: [
@@ -392,6 +385,16 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                 onPressed: () => _run(_stopPlayback),
               ),
             ),
+          if (current != null && widget.windowMode != null)
+            Tooltip(
+              message: '窗口全屏（W）',
+              child: IconButton(
+                icon: const Icon(material.Icons.fit_screen_rounded, size: 19),
+                onPressed: widget.windowMode!.transitioning
+                    ? null
+                    : () => _run(_toggleWindowFullscreen),
+              ),
+            ),
           const SizedBox(width: 4),
           Tooltip(
             message: _sidebarVisible ? '收起播放侧栏' : '展开播放侧栏',
@@ -406,7 +409,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
               ),
               onPressed: () {
                 setState(() => _sidebarVisible = !_sidebarVisible);
-                if (_sidebarVisible && !_showHistory) _revealCurrent();
+                if (_sidebarVisible) _revealCurrent();
               },
             ),
           ),
@@ -420,53 +423,62 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
       var size = playbackSurfaceSize(
         constraints.maxWidth,
         constraints.maxHeight,
-        store.current != null && store.fit == PlaybackFit.fit
+        widget.windowMode?.videoOnly != true &&
+                store.current != null &&
+                store.fit == PlaybackFit.fit
             ? store.aspectRatio
             : null,
       );
       var posterUrl = store.coverFor(_posterSubject);
       return Align(
         child: SizedBox(
+          key: _stageKey,
           width: size.width,
           height: size.height,
           child: ClipRRect(
-            borderRadius: BTRadius.largeBR,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ColoredBox(
-                  color: Colors.black,
-                  child: store.current == null || store.video == null
-                      ? _buildEmptyStage(posterUrl)
-                      : material.Theme(
-                          data: material.ThemeData.dark().copyWith(
-                            colorScheme: material.ColorScheme.fromSeed(
-                              seedColor: FluentTheme.of(context).accentColor,
-                              brightness: material.Brightness.dark,
-                            ),
-                          ),
-                          child: material.Material(
-                            color: Colors.black,
-                            child: Video(
-                              key: _videoKey,
-                              controller: store.video!,
-                              fit: _playbackBoxFit(store.fit),
-                              controls: (video) => _PlaybackViewportReporter(
-                                store: store,
-                                child: _PlaybackVideoControls(
-                                  video: video,
-                                  store: store,
-                                  player: store.player!,
-                                  overlay: _overlay,
-                                  run: _run,
-                                  pickSubtitle: _pickSubtitle,
-                                ),
-                              ),
+            borderRadius: widget.windowMode?.videoOnly == true
+                ? BorderRadius.zero
+                : BTRadius.largeBR,
+            child: ColoredBox(
+              color: Colors.black,
+              child: store.current == null || store.video == null
+                  ? _buildEmptyStage(posterUrl)
+                  : material.Theme(
+                      data: material.ThemeData.dark().copyWith(
+                        colorScheme: material.ColorScheme.fromSeed(
+                          seedColor: FluentTheme.of(context).accentColor,
+                          brightness: material.Brightness.dark,
+                        ),
+                      ),
+                      child: material.Material(
+                        color: Colors.black,
+                        child: Video(
+                          key: _videoKey,
+                          controller: store.video!,
+                          fit: _playbackBoxFit(store.fit),
+                          onEnterFullscreen:
+                              widget.windowMode?.enterScreenFullscreen ??
+                              defaultEnterNativeFullscreen,
+                          onExitFullscreen:
+                              widget.windowMode?.exitScreenFullscreen ??
+                              defaultExitNativeFullscreen,
+                          controls: (video) => _PlaybackViewportReporter(
+                            store: store,
+                            child: _PlaybackVideoControls(
+                              video: video,
+                              store: store,
+                              player: store.player!,
+                              overlay: _overlay,
+                              run: _run,
+                              pickSubtitle: _pickSubtitle,
+                              windowMode: widget.windowMode,
+                              toggleWindowFullscreen: _toggleWindowFullscreen,
+                              buildLibraryPanel: _buildLibraryPanel,
                             ),
                           ),
                         ),
-                ),
-              ],
+                      ),
+                    ),
             ),
           ),
         ),
@@ -550,393 +562,12 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     );
   }
 
-  Widget _buildSidebar(PlaybackStore store) {
-    var labels = store.playlist
-        .map((item) => PlaybackLabel.fromName(item.title))
-        .toList();
-    var sameSeries =
-        labels.isNotEmpty &&
-        labels.every((label) => label.title == labels.first.title);
-    return Container(
-      decoration: BoxDecoration(
-        color: BTColors.surfaceSecondary(context),
-        borderRadius: BTRadius.largeBR,
-        border: Border.all(color: BTColors.divider(context)),
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              children: [
-                _sidebarTab('播放列表', false, store.playlist.length),
-                const SizedBox(width: 4),
-                _sidebarTab('最近播放', true, store.history.length),
-                if (!_showHistory) ...[
-                  const SizedBox(width: 4),
-                  Tooltip(
-                    message: '刷新播放列表',
-                    child: IconButton(
-                      key: const ValueKey('playback-refresh'),
-                      icon: const Icon(FluentIcons.refresh, size: 15),
-                      onPressed: store.canRefresh
-                          ? () => _run(() async {
-                              await store.refresh();
-                              if (!mounted) return;
-                              await ref
-                                  .read(episodeMarkProvider.notifier)
-                                  .syncItems(store.playlist, refresh: true);
-                            })
-                          : null,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Container(height: 1, color: BTColors.divider(context)),
-          Expanded(
-            child: _showHistory
-                ? _buildHistory(store)
-                : store.playlist.isEmpty
-                ? _sidebarEmpty(material.Icons.playlist_play, '暂无播放列表')
-                : Scrollbar(
-                    controller: _playlistScroll,
-                    child: ListView.builder(
-                      key: const PageStorageKey('playback-playlist'),
-                      controller: _playlistScroll,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemExtent: _playlistRowHeight,
-                      itemCount: store.playlist.length,
-                      itemBuilder: (_, index) =>
-                          _playlistRow(store, index, labels[index], sameSeries),
-                    ),
-                  ),
-          ),
-          if (!_showHistory && store.playlist.isNotEmpty) ...[
-            Container(height: 1, color: BTColors.divider(context)),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 8, 4),
-              child: Row(
-                children: [
-                  Text(
-                    '${store.playlist.length} 个视频 · 自动连播',
-                    style: BTTypography.caption(context),
-                  ),
-                  const Spacer(),
-                  Tooltip(
-                    message: '定位当前视频',
-                    child: IconButton(
-                      icon: const Icon(material.Icons.my_location, size: 16),
-                      onPressed: _revealCurrent,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _sidebarTab(String title, bool history, int count) => Expanded(
-    child: HoverButton(
-      semanticLabel: title,
-      onPressed: () {
-        setState(() => _showHistory = history);
-        if (!history) _revealCurrent();
-      },
-      builder: (context, states) {
-        var selected = _showHistory == history;
-        var accent = FluentTheme.of(context).accentColor;
-        return Container(
-          height: 34,
-          decoration: BoxDecoration(
-            color: selected
-                ? accent.withValues(alpha: 0.12)
-                : states.isHovered
-                ? BTColors.surfaceTertiary(context)
-                : Colors.transparent,
-            borderRadius: BTRadius.mediumBR,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? accent : BTColors.textSecondary(context),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text('$count', style: BTTypography.caption(context)),
-            ],
-          ),
-        );
-      },
-    ),
-  );
-
-  Widget _playlistRow(
-    PlaybackStore store,
-    int index,
-    PlaybackLabel label,
-    bool sameSeries,
-  ) {
-    var item = store.playlist[index];
-    var selected = store.index == index;
-    var accent = FluentTheme.of(context).accentColor;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      child: Tooltip(
-        message: item.title,
-        child: HoverButton(
-          key: ValueKey('playback-item-$index'),
-          onPressed: store.loading || selected
-              ? null
-              : () => _run(() => store.jump(index)),
-          builder: (context, states) => Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: selected
-                  ? accent.withValues(alpha: 0.12)
-                  : states.isHovered
-                  ? BTColors.surfaceTertiary(context)
-                  : Colors.transparent,
-              borderRadius: BTRadius.mediumBR,
-              border: Border.all(
-                color: selected
-                    ? accent.withValues(alpha: 0.3)
-                    : Colors.transparent,
-              ),
-            ),
-            child: Row(
-              children: [
-                if (item.subject != null) ...[
-                  _playbackThumb(item, store, selected),
-                  const SizedBox(width: 8),
-                ],
-                SizedBox(
-                  width: 22,
-                  child: selected
-                      ? Icon(FluentIcons.play, size: 12, color: accent)
-                      : Text(
-                          '${index + 1}'.padLeft(2, '0'),
-                          style: BTTypography.caption(context),
-                        ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        sameSeries ? label.episode ?? label.title : label.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: BTTypography.body(context).copyWith(
-                          height: 1.2,
-                          fontWeight: selected
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          color: selected
-                              ? accent
-                              : BTColors.textPrimary(context),
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        [
-                          if (!sameSeries && label.episode != null)
-                            label.episode!,
-                          if (label.details.isNotEmpty) label.details,
-                        ].join(' · '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: BTTypography.caption(
-                          context,
-                        ).copyWith(height: 1.2),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 4),
-                PlaybackEpisodeMarkButton(
-                  key: ValueKey((item.subject, item.key)),
-                  item: item,
-                ),
-                Tooltip(
-                  message: '用外部播放器打开',
-                  child: IconButton(
-                    icon: const Icon(FluentIcons.open_file, size: 14),
-                    onPressed: () => _run(() => _openExternalPlayer(item)),
-                  ),
-                ),
-                Tooltip(
-                  message: '打开所在目录',
-                  child: IconButton(
-                    icon: const Icon(FluentIcons.folder_open, size: 14),
-                    onPressed: () => _run(() => _openVideoDirectory(item)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _playbackThumb(PlaybackItem item, PlaybackStore store, bool selected) {
-    var coverUrl = store.coverFor(item.subject);
-    var accent = FluentTheme.of(context).accentColor;
-    Widget placeholder() => Container(
-      color: BTColors.surfaceTertiary(context),
-      child: Icon(
-        FluentIcons.video,
-        size: 14,
-        color: selected ? accent : BTColors.textTertiary(context),
-      ),
-    );
-    var child = coverUrl == null || coverUrl.isEmpty
-        ? placeholder()
-        : BtBangumiCover(
-            imageUrl: coverUrl,
-            fit: BoxFit.cover,
-            width: 26,
-            height: 38,
-            maxRequestEdge: BangumiCoverUrl.thumbMaxEdge,
-            errorBuilder: (context, {err}) => placeholder(),
-          );
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: SizedBox(width: 26, height: 38, child: child),
-    );
-  }
-
-  Widget _buildHistory(PlaybackStore store) => store.history.isEmpty
-      ? _sidebarEmpty(material.Icons.history, '暂无播放记录')
-      : Scrollbar(
-          controller: _historyScroll,
-          child: ListView.builder(
-            key: const PageStorageKey('playback-history'),
-            controller: _historyScroll,
-            padding: const EdgeInsets.all(8),
-            itemCount: store.history.length,
-            itemBuilder: (_, index) => _historyRow(store.history[index]),
-          ),
-        );
-
-  Widget _historyRow(PlaybackItem item) {
-    var label = PlaybackLabel.fromName(item.title);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Tooltip(
-        message: item.filePath,
-        child: HoverButton(
-          onPressed: () => resumeLocalPlayback(context, ref, item),
-          builder: (context, states) => Container(
-            padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
-            decoration: BoxDecoration(
-              color: states.isHovered
-                  ? BTColors.surfaceTertiary(context)
-                  : Colors.transparent,
-              borderRadius: BTRadius.mediumBR,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: BTTypography.bodyStrong(context),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        [
-                          if (label.episode != null) label.episode!,
-                          item.completed
-                              ? '已看完 · 点击重播'
-                              : '${_time(item.positionMs)} / ${_time(item.durationMs)}',
-                        ].join(' · '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: BTTypography.caption(context),
-                      ),
-                      const SizedBox(height: 7),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(2),
-                        child: SizedBox(
-                          height: 2,
-                          child: Stack(
-                            children: [
-                              ColoredBox(
-                                color: BTColors.divider(context),
-                                child: const SizedBox.expand(),
-                              ),
-                              FractionallySizedBox(
-                                widthFactor: item.completed
-                                    ? 1
-                                    : item.durationMs > 0
-                                    ? (item.positionMs / item.durationMs).clamp(
-                                        0.0,
-                                        1.0,
-                                      )
-                                    : 0,
-                                child: ColoredBox(
-                                  color: FluentTheme.of(context).accentColor,
-                                  child: const SizedBox.expand(),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Tooltip(
-                  message: '移除记录',
-                  child: IconButton(
-                    icon: const Icon(FluentIcons.delete, size: 14),
-                    onPressed: () =>
-                        _run(() => _store.removeHistory(item.filePath)),
-                  ),
-                ),
-                if (item.subject != null)
-                  Tooltip(
-                    message: '查看条目',
-                    child: IconButton(
-                      icon: const Icon(FluentIcons.info, size: 14),
-                      onPressed: () => _openSubject(item.subject!),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _sidebarEmpty(IconData icon, String text) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 32, color: BTColors.textTertiary(context)),
-        const SizedBox(height: 12),
-        Text(text, style: BTTypography.caption(context)),
-      ],
-    ),
+  Widget _buildLibraryPanel({Key? key}) => _PlaybackLibraryPanel(
+    key: key,
+    run: _run,
+    openExternalPlayer: _openExternalPlayer,
+    openVideoDirectory: _openVideoDirectory,
+    openSubject: _openSubject,
   );
 
   static String _time(int milliseconds) {

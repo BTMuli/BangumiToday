@@ -15,6 +15,7 @@ import '../../request/bangumi/bangumi_api.dart';
 import '../../store/playback_store.dart';
 import '../../tools/log_tool.dart';
 import 'playback_page.dart';
+import 'playback_window_mode.dart';
 
 /// This entry never opens the application database, Hive, tray or downloads.
 Future<void> startPlaybackWindow(WindowController window) async {
@@ -47,6 +48,7 @@ class _PlaybackWindow with WindowListener {
   late final PlaybackStore store;
   late final ProviderContainer container;
   late final RemoteEpisodeMarkController marking;
+  late final PlaybackWindowMode mode;
   Future<void>? _closeFuture;
   int _sequence = 0;
   int _commandSequence = 0;
@@ -72,6 +74,8 @@ class _PlaybackWindow with WindowListener {
       waitForNativeDestroy: true,
     );
     marking = RemoteEpisodeMarkController(call);
+    mode = PlaybackWindowMode();
+    store.addListener(_onVideoChanged);
     container = ProviderContainer(
       overrides: [
         playbackStoreProvider.overrideWith((ref) => store),
@@ -103,6 +107,7 @@ class _PlaybackWindow with WindowListener {
           child: _PlaybackWindowApp(
             presentation: presentation,
             closing: closing,
+            mode: mode,
           ),
         ),
       );
@@ -132,6 +137,10 @@ class _PlaybackWindow with WindowListener {
     BtrBangumiApi.setBaseUrl(data['bangumiUrl'] as String);
     marking.receive(episodes);
     presentation.value = data;
+  }
+
+  void _onVideoChanged() {
+    if (!_closing) mode.updateAspectRatio(store.aspectRatio);
   }
 
   Future<Object?> _handle(MethodCall call) async {
@@ -185,8 +194,9 @@ class _PlaybackWindow with WindowListener {
       // The mounted PlaybackPage exits fullscreen and removes Video while this
       // window can still draw; the strict wait includes final durable writes.
       await store.shutdown();
-      if (_normalBounds != null) {
-        var bounds = _normalBounds!;
+      var savedBounds = mode.videoOnly ? mode.restoreBounds : _normalBounds;
+      if (savedBounds != null) {
+        var bounds = savedBounds;
         await store.settingsStore.write(
           'playbackWindowBounds',
           jsonEncode({
@@ -215,6 +225,8 @@ class _PlaybackWindow with WindowListener {
   }
 
   Future<void> _nativeClose() async {
+    store.removeListener(_onVideoChanged);
+    mode.dispose();
     windowManager.removeListener(this);
     await windowManager.setPreventClose(false);
     // destroy() posts a process-wide quit on Windows; only the root may use it.
@@ -241,6 +253,9 @@ class _PlaybackWindow with WindowListener {
 
   Future<void> _rememberBounds() async {
     if (_closing ||
+        mode.videoOnly ||
+        mode.transitioning ||
+        mode.screenFullscreen ||
         await windowManager.isFullScreen() ||
         await windowManager.isMaximized() ||
         await windowManager.isMinimized())
@@ -295,15 +310,20 @@ class _PlaybackWindow with WindowListener {
 }
 
 class _PlaybackWindowApp extends StatelessWidget {
-  const _PlaybackWindowApp({required this.presentation, required this.closing});
+  const _PlaybackWindowApp({
+    required this.presentation,
+    required this.closing,
+    required this.mode,
+  });
   final ValueNotifier<Map<String, Object?>> presentation;
   final ValueNotifier<String?> closing;
+  final PlaybackWindowMode mode;
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<Map<String, Object?>>(
       valueListenable: presentation,
       builder: (context, value, _) {
-        var mode = ThemeMode.values.byName(
+        var themeMode = ThemeMode.values.byName(
           value['theme'] as String? ?? 'system',
         );
         var accent = Color(
@@ -311,7 +331,7 @@ class _PlaybackWindowApp extends StatelessWidget {
         ).toAccentColor();
         return FluentApp(
           debugShowCheckedModeBanner: false,
-          themeMode: mode,
+          themeMode: themeMode,
           theme: FluentThemeData(
             brightness: Brightness.light,
             accentColor: accent,
@@ -328,7 +348,7 @@ class _PlaybackWindowApp extends StatelessWidget {
               children: [
                 IgnorePointer(
                   ignoring: message != null,
-                  child: const PlaybackPage(independent: true),
+                  child: PlaybackPage(independent: true, windowMode: mode),
                 ),
                 if (message != null)
                   Positioned.fill(

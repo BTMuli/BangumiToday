@@ -27,6 +27,7 @@ import '../domain/repositories/playback_settings.dart';
 import '../domain/repositories/playback_subjects.dart';
 import '../models/playback/playback_fit.dart';
 import '../models/playback/playback_completion.dart';
+import '../models/playback/playback_history_group.dart';
 import '../models/playback/playback_item.dart';
 import '../models/playback/playback_rate.dart';
 import '../models/playback/playback_upscale.dart';
@@ -101,6 +102,7 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _operation = Future.value();
   List<PlaybackItem> playlist = [];
   List<PlaybackItem> history = [];
+  List<PlaybackHistoryGroup> historyGroups = [];
   int index = -1;
   bool loading = false;
   String? error;
@@ -351,6 +353,7 @@ class PlaybackStore extends ChangeNotifier {
     var result = await historyStore.readAll();
     if (_closed) return;
     history = result;
+    historyGroups = groupPlaybackHistory(result);
     _notify();
   }
 
@@ -580,27 +583,51 @@ class PlaybackStore extends ChangeNotifier {
     var savedHistory = await historyStore.readAll();
     if (_closed) return;
     history = savedHistory;
+    historyGroups = groupPlaybackHistory(savedHistory);
     _notify();
   }
 
   Future<void> removeHistory(String filePath) => _serial(() async {
     // Stop first so periodic saves cannot re-create a deleted active record.
-    if (current?.key == PlaybackItem.pathKey(filePath)) {
+    await _stopBeforeHistoryDelete({PlaybackItem.pathKey(filePath)});
+    await historyStore.delete(filePath);
+    await refreshHistory();
+  });
+
+  Future<void> removeHistoryGroup(String key) => _serial(() async {
+    var records = (await historyStore.readAll())
+        .where((item) => PlaybackHistoryGroup.keyFor(item) == key)
+        .toList();
+    await _stopBeforeHistoryDelete({
+      for (var item in records) item.key,
+      if (current != null && PlaybackHistoryGroup.keyFor(current!) == key)
+        current!.key,
+    });
+    for (var item in records) {
+      await historyStore.delete(item.filePath);
+    }
+    await refreshHistory();
+  });
+
+  Future<void> _stopBeforeHistoryDelete(Set<String> keys) async {
+    if (keys.contains(current?.key)) {
       loading = true;
       try {
+        await beforeVideoDispose?.call();
         await _upscaler?.resetMedia();
         if (_closed) return;
         await _player?.stop();
         _session.clear();
         index = -1;
         playlist = [];
+        position = Duration.zero;
+        duration = Duration.zero;
+        completed = false;
       } finally {
         loading = false;
       }
     }
-    await historyStore.delete(filePath);
-    await refreshHistory();
-  });
+  }
 
   Future<void> shutdown() => _shutdownFuture ??= _shutdown();
 

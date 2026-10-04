@@ -8,6 +8,9 @@ class _PlaybackVideoControls extends StatefulWidget {
     required this.overlay,
     required this.run,
     required this.pickSubtitle,
+    required this.windowMode,
+    required this.toggleWindowFullscreen,
+    required this.buildLibraryPanel,
   });
 
   final VideoState video;
@@ -16,6 +19,9 @@ class _PlaybackVideoControls extends StatefulWidget {
   final _PlaybackOverlayController overlay;
   final Future<void> Function(Future<void> Function()) run;
   final Future<void> Function() pickSubtitle;
+  final PlaybackWindowMode? windowMode;
+  final Future<void> Function() toggleWindowFullscreen;
+  final Widget Function() buildLibraryPanel;
 
   @override
   State<_PlaybackVideoControls> createState() => _PlaybackVideoControlsState();
@@ -131,7 +137,16 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         overlay.closeMenus();
         await exitFullscreen(context);
         overlay.show('退出全屏', material.Icons.fullscreen_exit_rounded);
+      } else if (widget.windowMode?.videoOnly ?? false) {
+        overlay.closeMenus();
+        await widget.toggleWindowFullscreen();
       }
+      return;
+    }
+    if (command == _PlaybackCommand.windowFullscreen) {
+      if (widget.windowMode == null || widget.windowMode!.transitioning) return;
+      overlay.closeMenus();
+      await widget.toggleWindowFullscreen();
       return;
     }
     if (command == _PlaybackCommand.fullscreen) {
@@ -250,6 +265,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           detail: PlaybackLabel.fromName(store.current!.title).title,
         );
       case _PlaybackCommand.fullscreen:
+      case _PlaybackCommand.windowFullscreen:
       case _PlaybackCommand.escape:
       case _PlaybackCommand.info:
       case _PlaybackCommand.help:
@@ -311,6 +327,8 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     var item = store.current!;
     var label = PlaybackLabel.fromName(item.title);
     var accent = FluentTheme.of(context).accentColor;
+    var videoOnly =
+        (widget.windowMode?.videoOnly ?? false) && !isFullscreen(context);
     return MaterialDesktopVideoControlsThemeData(
       buttonBarHeight: 48,
       buttonBarButtonSize: 20,
@@ -318,61 +336,82 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
       volumeBarThumbColor: accent,
       topButtonBar: [
         Expanded(
-          child: Tooltip(
-            message: item.title,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: videoOnly
+                ? (_) => unawaited(widget.run(widget.windowMode!.startDragging))
+                : null,
+            child: Tooltip(
+              message: item.title,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    store.nameFor(item.subject) ?? label.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  [
-                    if (label.episode != null) label.episode!,
-                    if (label.details.isNotEmpty) label.details,
-                    '${store.index + 1} / ${store.playlist.length}',
-                  ].join(' · '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: material.Colors.white70,
-                    fontSize: 11,
+                  const SizedBox(height: 3),
+                  Text(
+                    [
+                      if (label.episode != null) label.episode!,
+                      if (label.details.isNotEmpty) label.details,
+                      '${store.index + 1} / ${store.playlist.length}',
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: material.Colors.white70,
+                      fontSize: 11,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-        const SizedBox(width: 12),
-        _videoButton(
-          material.Icons.info_outline_rounded,
-          '视频信息（Tab）',
-          () => _execute(_PlaybackCommand.info),
-          key: const ValueKey('playback-video-info'),
-          selected: widget.overlay.showInfo,
-        ),
-        _videoButton(
-          material.Icons.keyboard_alt_outlined,
-          '查看快捷键（F1）',
-          () => _execute(_PlaybackCommand.help),
-          key: const ValueKey('playback-shortcuts'),
-          selected: widget.overlay.showHelp,
-        ),
+        if (width > 360) ...[
+          const SizedBox(width: 12),
+          _videoButton(
+            material.Icons.info_outline_rounded,
+            '视频信息（Tab）',
+            () => _execute(_PlaybackCommand.info),
+            key: const ValueKey('playback-video-info'),
+            selected: widget.overlay.showInfo,
+          ),
+          _videoButton(
+            material.Icons.keyboard_alt_outlined,
+            '查看快捷键（F1）',
+            () => _execute(_PlaybackCommand.help),
+            key: const ValueKey('playback-shortcuts'),
+            selected: widget.overlay.showHelp,
+          ),
+        ],
+        if (videoOnly) ...[
+          _videoButton(
+            material.Icons.remove_rounded,
+            '最小化',
+            () => unawaited(widget.run(widget.windowMode!.minimize)),
+          ),
+          _videoButton(
+            material.Icons.close_rounded,
+            '关闭播放器',
+            () => unawaited(widget.run(widget.windowMode!.closeWindow)),
+          ),
+        ],
       ],
       bottomButtonBar: [
-        const MaterialDesktopPositionIndicator(
-          style: TextStyle(color: Colors.white, fontSize: 12),
-        ),
-        const SizedBox(width: 12),
+        if (width > 420)
+          const MaterialDesktopPositionIndicator(
+            style: TextStyle(color: Colors.white, fontSize: 12),
+          ),
+        if (width > 420) const SizedBox(width: 12),
         if (width > 820)
           _videoButton(
             material.Icons.skip_previous_rounded,
@@ -413,9 +452,26 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
             () => _execute(_PlaybackCommand.forward10),
           ),
         ],
-        if (width > 520) const MaterialDesktopVolumeButton(),
+        if (width > 620) const MaterialDesktopVolumeButton(),
         const Spacer(),
-        _PlaybackSettingsButton(player: player, onPressed: _showSettings),
+        if (width > 340)
+          _PlaybackSettingsButton(player: player, onPressed: _showSettings),
+        Builder(
+          builder: (buttonContext) => _videoButton(
+            material.Icons.playlist_play_rounded,
+            '选集与播放记录',
+            () => _showLibrary(buttonContext),
+          ),
+        ),
+        if (widget.windowMode != null)
+          _videoButton(
+            material.Icons.fit_screen_rounded,
+            widget.windowMode!.videoOnly ? '退出窗口全屏（W）' : '窗口全屏（W）',
+            widget.windowMode!.transitioning
+                ? null
+                : () => _execute(_PlaybackCommand.windowFullscreen),
+            selected: widget.windowMode!.videoOnly,
+          ),
         _videoButton(
           isFullscreen(context)
               ? material.Icons.fullscreen_exit_rounded
@@ -461,6 +517,42 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         _setFit,
         _execute,
       ),
+    );
+  }
+
+  void _showLibrary(BuildContext buttonContext) {
+    widget.overlay.closeMenus();
+    _showChrome();
+    _hideTimer?.cancel();
+    var navigatorBox =
+        Navigator.of(context).context.findRenderObject() as RenderBox;
+    var buttonBox = buttonContext.findRenderObject() as RenderBox;
+    var available = MediaQuery.sizeOf(context);
+    unawaited(
+      widget.run(() async {
+        try {
+          await _contextMenu.showFlyout<void>(
+            position: buttonBox.localToGlobal(
+              Offset.zero,
+              ancestor: navigatorBox,
+            ),
+            builder: (_) => FlyoutContent(
+              padding: EdgeInsets.zero,
+              child: SizedBox(
+                width: (available.width - 32).clamp(140.0, 360.0),
+                height: (available.height - 48).clamp(100.0, 420.0),
+                child: widget.buildLibraryPanel(),
+              ),
+            ),
+          );
+        } finally {
+          if (mounted) {
+            _barHovered = false;
+            _showChrome();
+            _focusVideo();
+          }
+        }
+      }),
     );
   }
 
@@ -567,6 +659,14 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           trailing: const _PlaybackMenuShortcut('F / Enter'),
           onPressed: () => _execute(_PlaybackCommand.fullscreen),
         ),
+        if (widget.windowMode != null)
+          MenuFlyoutItem(
+            text: Text(widget.windowMode!.videoOnly ? '退出窗口全屏' : '窗口全屏'),
+            trailing: const _PlaybackMenuShortcut('W'),
+            onPressed: widget.windowMode!.transitioning
+                ? null
+                : () => _execute(_PlaybackCommand.windowFullscreen),
+          ),
         ToggleMenuFlyoutItem(
           text: const Text('视频信息覆盖层'),
           trailing: const _PlaybackMenuShortcut('Tab'),
@@ -682,7 +782,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: widget.store,
+    listenable: Listenable.merge([widget.store, widget.windowMode]),
     builder: (context, _) {
       var item = widget.store.current;
       if (item == null || widget.store.player != widget.player) {

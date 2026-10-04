@@ -17,6 +17,7 @@ enum _PlaybackCommand {
   previous,
   next,
   fullscreen,
+  windowFullscreen,
   screenshot,
   escape,
   info,
@@ -88,6 +89,9 @@ const _playbackShortcuts = [
   _PlaybackShortcut(_PlaybackCommand.fullscreen, 'F / Enter', '进入 / 退出全屏', [
     SingleActivator(LogicalKeyboardKey.keyF, includeRepeats: false),
     SingleActivator(LogicalKeyboardKey.enter, includeRepeats: false),
+  ]),
+  _PlaybackShortcut(_PlaybackCommand.windowFullscreen, 'W', '进入 / 退出窗口全屏', [
+    SingleActivator(LogicalKeyboardKey.keyW, includeRepeats: false),
   ]),
   _PlaybackShortcut(_PlaybackCommand.screenshot, 'S', '截屏并复制到剪贴板（含字幕）', [
     SingleActivator(LogicalKeyboardKey.keyS, includeRepeats: false),

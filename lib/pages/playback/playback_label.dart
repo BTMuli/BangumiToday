@@ -7,11 +7,13 @@ class PlaybackLabel {
     required this.title,
     required this.details,
     this.episode,
+    this.episodeNumber,
   });
 
   final String title;
   final String details;
   final String? episode;
+  final String? episodeNumber;
 
   factory PlaybackLabel.fromName(String name) {
     var base = path.basenameWithoutExtension(name);
@@ -34,8 +36,10 @@ class PlaybackLabel {
       RegExp(r'\[(\d{1,2}(?:\.\d+)?)\]'),
     ];
     String? episode;
+    String? episodeNumber;
     var seasonMatch = seasonEpisode.firstMatch(base);
     if (seasonMatch != null) {
+      episodeNumber = int.parse(seasonMatch[2]!).toString();
       episode =
           '第 ${int.parse(seasonMatch[1]!)} 季 · '
           '第 ${int.parse(seasonMatch[2]!)} 集';
@@ -44,6 +48,7 @@ class PlaybackLabel {
         var match = pattern.firstMatch(base);
         if (match == null) continue;
         var number = match[1]!;
+        episodeNumber = (int.tryParse(number) ?? number).toString();
         episode = '第 ${int.tryParse(number) ?? number} 集';
         break;
       }
@@ -63,6 +68,7 @@ class PlaybackLabel {
     return PlaybackLabel(
       title: title,
       episode: episode,
+      episodeNumber: episodeNumber,
       details: [?resolution, if (extension.isNotEmpty) extension].join(' · '),
     );
   }
