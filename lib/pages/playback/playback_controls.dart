@@ -393,6 +393,14 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
             selected: widget.overlay.showHelp,
           ),
         ],
+        Builder(
+          builder: (buttonContext) => _videoButton(
+            material.Icons.settings_outlined,
+            '播放设置',
+            () => _showSettings(buttonContext),
+            key: const ValueKey('playback-settings'),
+          ),
+        ),
         if (videoOnly) ...[
           _videoButton(
             material.Icons.remove_rounded,
@@ -455,7 +463,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         if (width > 620) const MaterialDesktopVolumeButton(),
         const Spacer(),
         if (width > 340)
-          _PlaybackSettingsButton(player: player, onPressed: _showSettings),
+          _PlaybackRateButton(player: player, onPressed: _showRateMenu),
         Builder(
           builder: (buttonContext) => _videoButton(
             material.Icons.playlist_play_rounded,
@@ -503,20 +511,37 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     ),
   );
 
-  void _showSettings(BuildContext buttonContext) {
+  List<MenuFlyoutItemBase> _settingsItems() => _playbackSettingsItems(
+    widget.player,
+    widget.store,
+    widget.run,
+    widget.pickSubtitle,
+    _setFit,
+    _execute,
+  );
+
+  void _showSettings(BuildContext buttonContext) =>
+      _showButtonMenu(buttonContext, _settingsItems, belowButton: true);
+
+  void _showRateMenu(BuildContext buttonContext) => _showButtonMenu(
+    buttonContext,
+    () => _playbackRateItems(widget.player, widget.store, widget.run, _execute),
+  );
+
+  void _showButtonMenu(
+    BuildContext buttonContext,
+    List<MenuFlyoutItemBase> Function() items, {
+    bool belowButton = false,
+  }) {
     var navigatorBox =
         Navigator.of(context).context.findRenderObject() as RenderBox;
     var buttonBox = buttonContext.findRenderObject() as RenderBox;
     _showMenu(
-      buttonBox.localToGlobal(Offset.zero, ancestor: navigatorBox),
-      () => _playbackSettingsItems(
-        widget.player,
-        widget.store,
-        widget.run,
-        widget.pickSubtitle,
-        _setFit,
-        _execute,
+      buttonBox.localToGlobal(
+        belowButton ? Offset(0, buttonBox.size.height + 4) : Offset.zero,
+        ancestor: navigatorBox,
       ),
+      items,
     );
   }
 
@@ -601,11 +626,18 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
       () => [
         MenuFlyoutItem(
           text: Text(player.state.playing ? '暂停' : '继续播放'),
+          leading: Icon(
+            player.state.playing
+                ? material.Icons.pause_rounded
+                : material.Icons.play_arrow_rounded,
+            size: 16,
+          ),
           trailing: const _PlaybackMenuShortcut('Space / K'),
           onPressed: () => _execute(_PlaybackCommand.toggle),
         ),
         MenuFlyoutSubItem(
           text: const Text('播放与跳转'),
+          leading: const Icon(material.Icons.playlist_play_rounded, size: 16),
           items: (_) => [
             MenuFlyoutItem(
               text: const Text('后退 10 秒'),
@@ -639,34 +671,18 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           onChanged: (_) => _execute(_PlaybackCommand.mute),
         ),
         const MenuFlyoutSeparator(),
-        ..._playbackSettingsItems(
-          player,
-          widget.store,
-          widget.run,
-          widget.pickSubtitle,
-          _setFit,
-          _execute,
+        MenuFlyoutSubItem(
+          text: const Text('播放设置'),
+          leading: const Icon(material.Icons.settings_outlined, size: 16),
+          items: (_) => _settingsItems(),
         ),
-        const MenuFlyoutSeparator(),
         MenuFlyoutItem(
           text: const Text('截屏并复制到剪贴板'),
+          leading: const Icon(material.Icons.photo_camera_outlined, size: 16),
           trailing: const _PlaybackMenuShortcut('S'),
           onPressed: () => _execute(_PlaybackCommand.screenshot),
         ),
         const MenuFlyoutSeparator(),
-        MenuFlyoutItem(
-          text: Text(isFullscreen(context) ? '退出全屏' : '进入全屏'),
-          trailing: const _PlaybackMenuShortcut('F / Enter'),
-          onPressed: () => _execute(_PlaybackCommand.fullscreen),
-        ),
-        if (widget.windowMode != null)
-          MenuFlyoutItem(
-            text: Text(widget.windowMode!.videoOnly ? '退出窗口全屏' : '窗口全屏'),
-            trailing: const _PlaybackMenuShortcut('W'),
-            onPressed: widget.windowMode!.transitioning
-                ? null
-                : () => _execute(_PlaybackCommand.windowFullscreen),
-          ),
         ToggleMenuFlyoutItem(
           text: const Text('视频信息覆盖层'),
           trailing: const _PlaybackMenuShortcut('Tab'),
@@ -675,6 +691,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         ),
         MenuFlyoutItem(
           text: const Text('查看快捷键'),
+          leading: const Icon(material.Icons.keyboard_alt_outlined, size: 16),
           trailing: const _PlaybackMenuShortcut('F1'),
           onPressed: () => _execute(_PlaybackCommand.help),
         ),
@@ -915,23 +932,18 @@ class _PlaybackMenuShortcut extends StatelessWidget {
   }
 }
 
-/// The surface owns the menu so hiding this button does not orphan the flyout.
-class _PlaybackSettingsButton extends StatelessWidget {
-  const _PlaybackSettingsButton({
-    required this.player,
-    required this.onPressed,
-  });
+/// A quick rate picker; all playback options are available in the top bar.
+class _PlaybackRateButton extends StatelessWidget {
+  const _PlaybackRateButton({required this.player, required this.onPressed});
 
   final Player player;
   final ValueChanged<BuildContext> onPressed;
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: Platform.isWindows
-        ? '播放设置：倍速、画幅、超分、响度均衡、音轨和字幕'
-        : '播放设置：倍速、画幅、音轨和字幕',
+    message: '播放速度',
     child: material.TextButton(
-      key: const ValueKey('playback-settings'),
+      key: const ValueKey('playback-rate'),
       style: material.TextButton.styleFrom(
         foregroundColor: Colors.white,
         minimumSize: const Size(64, 36),
@@ -949,7 +961,7 @@ class _PlaybackSettingsButton extends StatelessWidget {
               style: const TextStyle(fontSize: 12),
             ),
             const SizedBox(width: 5),
-            const Icon(material.Icons.settings_outlined, size: 18),
+            const Icon(material.Icons.speed_rounded, size: 18),
           ],
         ),
       ),
@@ -967,34 +979,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
 ) => [
   MenuFlyoutSubItem(
     text: Text('播放速度 · ${PlaybackRateMemory.label(player.state.rate)}×'),
-    items: (_) => [
-      MenuFlyoutItem(
-        text: Text(
-          store.rememberedRate == null
-              ? '1× / 记忆倍速切换'
-              : '1× / ${PlaybackRateMemory.label(store.rememberedRate!)}× 切换',
-        ),
-        trailing: const _PlaybackMenuShortcut('Z'),
-        onPressed: () => execute(_PlaybackCommand.toggleRate),
-      ),
-      MenuFlyoutItem(
-        text: const Text('放慢 0.1×'),
-        trailing: const _PlaybackMenuShortcut('X'),
-        onPressed: () => execute(_PlaybackCommand.slower),
-      ),
-      MenuFlyoutItem(
-        text: const Text('加速 0.1×'),
-        trailing: const _PlaybackMenuShortcut('C'),
-        onPressed: () => execute(_PlaybackCommand.faster),
-      ),
-      const MenuFlyoutSeparator(),
-      for (var rate in [0.5, 0.75, 1.0, 1.25, 1.5, 2.0])
-        ToggleMenuFlyoutItem(
-          text: Text('${PlaybackRateMemory.label(rate)}×'),
-          value: player.state.rate == rate,
-          onChanged: (_) => unawaited(run(() => store.setRate(rate))),
-        ),
-    ],
+    items: (_) => _playbackRateItems(player, store, run, execute),
   ),
   MenuFlyoutSubItem(
     text: Text('视频画幅 · ${store.fit.label}'),
@@ -1063,6 +1048,40 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
     leading: const Icon(material.Icons.subtitles_outlined, size: 16),
     onPressed: () => unawaited(run(pickSubtitle)),
   ),
+];
+
+List<MenuFlyoutItemBase> _playbackRateItems(
+  Player player,
+  PlaybackStore store,
+  Future<void> Function(Future<void> Function()) run,
+  ValueChanged<_PlaybackCommand> execute,
+) => [
+  MenuFlyoutItem(
+    text: Text(
+      store.rememberedRate == null
+          ? '1× / 记忆倍速切换'
+          : '1× / ${PlaybackRateMemory.label(store.rememberedRate!)}× 切换',
+    ),
+    trailing: const _PlaybackMenuShortcut('Z'),
+    onPressed: () => execute(_PlaybackCommand.toggleRate),
+  ),
+  MenuFlyoutItem(
+    text: const Text('放慢 0.1×'),
+    trailing: const _PlaybackMenuShortcut('X'),
+    onPressed: () => execute(_PlaybackCommand.slower),
+  ),
+  MenuFlyoutItem(
+    text: const Text('加速 0.1×'),
+    trailing: const _PlaybackMenuShortcut('C'),
+    onPressed: () => execute(_PlaybackCommand.faster),
+  ),
+  const MenuFlyoutSeparator(),
+  for (var rate in [0.5, 0.75, 1.0, 1.25, 1.5, 2.0])
+    ToggleMenuFlyoutItem(
+      text: Text('${PlaybackRateMemory.label(rate)}×'),
+      value: player.state.rate == rate,
+      onChanged: (_) => unawaited(run(() => store.setRate(rate))),
+    ),
 ];
 
 BoxFit _playbackBoxFit(PlaybackFit mode) => switch (mode) {
