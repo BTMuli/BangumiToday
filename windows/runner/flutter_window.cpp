@@ -3,6 +3,7 @@
 #include <optional>
 
 #include <desktop_multi_window/desktop_multi_window_plugin.h>
+#include <dwmapi.h>
 
 #include "playback_plugin_registrant.h"
 
@@ -28,6 +29,14 @@ bool FlutterWindow::OnCreate() {
   }
   DesktopMultiWindowSetWindowCreatedCallback([](void* controller) {
     auto* view = static_cast<flutter::FlutterViewController*>(controller);
+    // Frameless playback windows need an explicit rounding preference. DWM
+    // keeps the corners rounded during resizing and squares screen fullscreen.
+    // Use numeric values so older Windows SDK headers remain supported.
+    constexpr DWORD kWindowCornerPreference = 33;  // DWMWA_WINDOW_CORNER_PREFERENCE
+    constexpr DWORD kRoundCorners = 2;  // DWMWCP_ROUND
+    HWND window = GetAncestor(view->view()->GetNativeWindow(), GA_ROOT);
+    DwmSetWindowAttribute(window, kWindowCornerPreference, &kRoundCorners,
+                          sizeof(kRoundCorners));
     RegisterPlaybackPlugins(view->engine());
   });
   RegisterMainPlugins(flutter_controller_->engine());
