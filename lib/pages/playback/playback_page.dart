@@ -57,6 +57,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   bool _wasActive = true;
   bool _sidebarVisible = true;
   bool _showHistory = false;
+  bool _noticeFramePending = false;
   String? _lastPlayingKey;
   int _lastPlayingIndex = -1;
   int? _posterSubject;
@@ -84,6 +85,30 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     var active = _isPlaybackActive;
     if (_wasActive && !active) unawaited(_run(_store.pause));
     _wasActive = active;
+    if (active) _schedulePlaybackNotices();
+  }
+
+  void _schedulePlaybackNotices() {
+    if (_noticeFramePending ||
+        (_store.error == null && _store.upscaler?.warning == null)) {
+      return;
+    }
+    _noticeFramePending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _noticeFramePending = false;
+      if (!mounted || !_isPlaybackActive) return;
+      var error = _store.error;
+      if (error != null) {
+        _store.clearError();
+        unawaited(BtInfobar.error(context, error));
+      }
+      var upscaler = _store.upscaler;
+      var warning = upscaler?.warning;
+      if (warning != null) {
+        upscaler!.dismissWarning();
+        unawaited(BtInfobar.warn(context, '视频超分：$warning'));
+      }
+    });
   }
 
   void _onPlaybackChanged() {
@@ -170,7 +195,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     try {
       await action();
     } catch (error) {
-      if (mounted) await BtInfobar.error(context, error.toString());
+      if (mounted) await reportPlaybackError(context, ref, error);
     }
   }
 
@@ -236,6 +261,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
       );
     }
     _onPlaybackChanged();
+    _schedulePlaybackNotices();
     return ScaffoldPage(
       padding: EdgeInsets.zero,
       content: Padding(
@@ -432,18 +458,6 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                           ),
                         ),
                 ),
-                if (store.error != null)
-                  Positioned(
-                    left: 12,
-                    right: 12,
-                    bottom: 12,
-                    child: InfoBar(
-                      title: const Text('无法播放'),
-                      content: Text(store.error!),
-                      severity: InfoBarSeverity.error,
-                      onClose: store.clearError,
-                    ),
-                  ),
               ],
             ),
           ),

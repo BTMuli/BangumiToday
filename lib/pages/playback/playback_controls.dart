@@ -776,24 +776,6 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                                     store: widget.store,
                                   ),
                                 ),
-                              if ((ModalRoute.of(context)?.isCurrent ?? true) &&
-                                  widget.store.upscaler?.warning != null &&
-                                  !widget.overlay.showInfo &&
-                                  !widget.overlay.showHelp)
-                                Positioned(
-                                  left: 12,
-                                  right: 12,
-                                  bottom: 104,
-                                  child: InfoBar(
-                                    title: const Text('视频超分'),
-                                    content: Text(
-                                      widget.store.upscaler!.warning!,
-                                    ),
-                                    severity: InfoBarSeverity.warning,
-                                    onClose:
-                                        widget.store.upscaler!.dismissWarning,
-                                  ),
-                                ),
                               Positioned.fill(
                                 child: IgnorePointer(
                                   child: _PlaybackFeedbackView(

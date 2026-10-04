@@ -15,7 +15,11 @@ class BtInfobarType {
 
   Future<void> show() async {
     if (!context.mounted) return;
-    return await displayInfoBar(context, builder: (_, _) => infoBar);
+    return await displayInfoBar(
+      context,
+      alignment: Alignment.bottomCenter,
+      builder: (_, _) => infoBar,
+    );
   }
 }
 
