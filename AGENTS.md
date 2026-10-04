@@ -8,6 +8,10 @@
 - Choose a Gitmoji that matches the change type, following recent repository history (for example: `🐛` for fixes, `✨` for features, `♻️` for refactors, and `💄` for UI or style changes).
 - Do not use Conventional Commit prefixes such as `fix:` or `feat:` without a Gitmoji.
 
+## Dependencies
+
+- Keep package entries in `pubspec.yaml` alphabetically ordered by package name within `dependencies`, `dev_dependencies`, and `dependency_overrides` when present. Preserve each package's version, source configuration, and associated comments when reordering.
+
 ## Tests
 
 - Test files written while implementing a change are throwaway verification aids. After the feature or fix has been verified, delete them before creating the commit that delivers the change.
