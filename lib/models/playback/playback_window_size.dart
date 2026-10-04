@@ -38,3 +38,39 @@ import 'dart:math' as math;
     height: math.min(fittedHeight, maxHeight),
   );
 }
+
+/// Keep the top-left corner when resizing; only move to avoid overflow.
+/// The caller fits the window size to the work area before positioning it.
+({double left, double top}) positionPlaybackWindow({
+  required double left,
+  required double top,
+  required double width,
+  required double height,
+  required double workLeft,
+  required double workTop,
+  required double workWidth,
+  required double workHeight,
+  bool center = false,
+}) {
+  if ([left, top, workLeft, workTop].any((value) => !value.isFinite) ||
+      [
+        width,
+        height,
+        workWidth,
+        workHeight,
+      ].any((value) => !value.isFinite || value <= 0)) {
+    throw ArgumentError('窗口位置必须有限，尺寸必须为有限正数');
+  }
+  var horizontal = math.max(0.0, workWidth - width);
+  var vertical = math.max(0.0, workHeight - height);
+  return (
+    left: (center ? workLeft + horizontal / 2 : left).clamp(
+      workLeft,
+      workLeft + horizontal,
+    ),
+    top: (center ? workTop + vertical / 2 : top).clamp(
+      workTop,
+      workTop + vertical,
+    ),
+  );
+}

@@ -152,7 +152,7 @@ class PlaybackWindowMode extends ChangeNotifier {
     );
   }
 
-  /// 按当前倍率调整无边框窗口，并把窗口居中到所在屏幕的可用区域。
+  /// 按当前倍率调整窗口，保留左上角位置；溢出时只移动必要距离。
   Future<Size> _fitToVideo(Rect current) async {
     var area = await _workArea(current);
     var pixel = _videoSize ?? defaultVideoSize;
@@ -160,10 +160,11 @@ class PlaybackWindowMode extends ChangeNotifier {
     var ratio = _videoSize == null ? pixel.width / pixel.height : null;
     var dpr = _devicePixelRatio;
     return _fitVideoBounds(
-      Rect.fromCenter(
-        center: area.center,
-        width: pixel.width * _videoScale / dpr,
-        height: pixel.height * _videoScale / dpr,
+      Rect.fromLTWH(
+        current.left,
+        current.top,
+        pixel.width * _videoScale / dpr,
+        pixel.height * _videoScale / dpr,
       ),
       area: area,
       aspectRatio: ratio,
@@ -254,6 +255,7 @@ class PlaybackWindowMode extends ChangeNotifier {
     Rect bounds, {
     Rect? area,
     double? aspectRatio,
+    bool center = false,
   }) async {
     var work = area ?? await _workArea(bounds);
     var ratio = aspectRatio ?? _aspectRatio;
@@ -277,22 +279,35 @@ class PlaybackWindowMode extends ChangeNotifier {
     // 应用算好的尺寸本身已符合视频比例；顺带清掉可能残留的比例锁，避免它
     // 影响系统贴边吸附与用户自由调整（只有拖边调整大小时才短暂加锁）。
     await releaseRatioLock();
+    var position = positionPlaybackWindow(
+      left: bounds.left,
+      top: bounds.top,
+      width: size.width,
+      height: size.height,
+      workLeft: work.left,
+      workTop: work.top,
+      workWidth: work.width,
+      workHeight: work.height,
+      center: center,
+    );
     await windowManager.setBounds(
-      Rect.fromLTWH(
-        (bounds.center.dx - size.width / 2).clamp(
-          work.left,
-          work.right - size.width,
-        ),
-        (bounds.center.dy - size.height / 2).clamp(
-          work.top,
-          work.bottom - size.height,
-        ),
-        size.width,
-        size.height,
-      ),
+      Rect.fromLTWH(position.left, position.top, size.width, size.height),
     );
     return Size(size.width, size.height);
   }
+
+  /// 首次显示或主窗口唤起时居中；尺寸超过工作区时等比缩小。
+  Future<void> centerWindow({Rect? area}) => _serial(() async {
+    if (screenFullscreen || await windowManager.isFullScreen()) return;
+    if (await windowManager.isMaximized()) await windowManager.unmaximize();
+    var bounds = await windowManager.getBounds();
+    await _fitVideoBounds(
+      bounds,
+      area: area,
+      aspectRatio: bounds.width / bounds.height,
+      center: true,
+    );
+  });
 
   Future<void> enterScreenFullscreen() => _serial(() async {
     if (screenFullscreen) return;

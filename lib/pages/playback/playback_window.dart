@@ -116,6 +116,8 @@ class _PlaybackWindow with WindowListener {
     try {
       _receive(await call('bootstrap', {'windowId': window.windowId}));
       await _restoreSize();
+      await mode.centerWindow(area: await _displayUnderCursor());
+      await _rememberBounds();
       await _restoreOnTop();
       runApp(
         UncontrolledProviderScope(
@@ -192,6 +194,7 @@ class _PlaybackWindow with WindowListener {
         _receive(request.body);
       case 'activate':
         if (await windowManager.isMinimized()) await windowManager.restore();
+        await mode.centerWindow();
         await windowManager.show();
         await windowManager.focus();
       case 'open':
@@ -199,6 +202,8 @@ class _PlaybackWindow with WindowListener {
           playbackString(request.body, 'filePath'),
           subject: playbackSubject(request.body),
         );
+        // 视频参数可能刚改变窗口尺寸；以适配后的最终尺寸重新居中。
+        if (!_closing) await mode.centerWindow();
       default:
         throw FormatException('不支持的播放器命令：${call.method}');
     }
@@ -277,7 +282,7 @@ class _PlaybackWindow with WindowListener {
 
   /// 拖动、缩放或吸附后的尺寸由用户决定，不再按视频分辨率自动开窗。
   void _scheduleBounds({bool movedByUser = false}) {
-    if (_closing) return;
+    if (_closing || mode.transitioning) return;
     if (movedByUser) {
       mode.markUserSized();
       unawaited(mode.settleAfterUserBoundsChange().catchError((Object _) {}));
@@ -343,21 +348,19 @@ class _PlaybackWindow with WindowListener {
             area.height < PlaybackWindowMode.minimumSize.height) {
           return;
         }
-        // setSize 保持左上角不动，因此改完尺寸后重新居中。
+        // 恢复尺寸后由 start 统一居中，包括没有保存尺寸的首次启动。
         await windowManager.setSize(
           Size(
             width.clamp(PlaybackWindowMode.minimumSize.width, area.width),
             height.clamp(PlaybackWindowMode.minimumSize.height, area.height),
           ),
         );
-        await windowManager.setAlignment(Alignment.center);
         // 上次的窗口尺寸优先于按视频像素自动适配。
         mode.markUserSized();
       }
     } catch (error) {
       BTLogTool.warn('恢复播放器尺寸失败：$error');
     }
-    await _rememberBounds();
   }
 
   /// 光标所在屏幕的可用区域；恢复尺寸与窗口居中都以它为准。
