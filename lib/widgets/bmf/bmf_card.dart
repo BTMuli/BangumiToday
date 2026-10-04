@@ -20,6 +20,7 @@ import '../../providers/app_providers.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
+import '../bangumi/bt_bangumi_cover.dart';
 import 'bmf_expander.dart';
 
 enum BmfFilterType { all, hasRss, hasDownload, hasNew }
@@ -32,6 +33,9 @@ class BmfCard extends ConsumerStatefulWidget {
   final bool selected;
   final int? pendingCount;
   final bool dense;
+  final String? imageUrl;
+  final String? displayTitle;
+  final String? seasonLabel;
 
   const BmfCard({
     super.key,
@@ -42,6 +46,9 @@ class BmfCard extends ConsumerStatefulWidget {
     this.selected = false,
     this.pendingCount,
     this.dense = false,
+    this.imageUrl,
+    this.displayTitle,
+    this.seasonLabel,
   });
 
   @override
@@ -81,6 +88,8 @@ class _BmfCardState extends ConsumerState<BmfCard>
 
   Future<void> loadData() async {
     if (!mounted) return;
+    // 工作台行只展示关联状态；文件数量由选中的资源面板读取。
+    if (widget.dense) return;
     var generation = ++_loadGeneration;
     var download = bmf.download;
     var rss = bmf.rss;
@@ -169,6 +178,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
   Widget build(BuildContext context) {
     super.build(context);
     var accentColor = FluentTheme.of(context).accentColor;
+    if (widget.dense) return _buildListRow(context, accentColor);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -193,19 +203,15 @@ class _BmfCardState extends ConsumerState<BmfCard>
                 ? 0.6
                 : 0.8,
             borderRadius: BTRadius.largeBR,
-            padding: EdgeInsets.all(widget.dense ? 10 : 12),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(context, accentColor),
-                SizedBox(height: widget.dense ? 8 : 12),
-                if (widget.dense)
-                  _buildDenseFooter(context, accentColor)
-                else ...[
-                  _buildStats(context),
-                  SizedBox(height: 12),
-                  _buildActions(context, accentColor),
-                ],
+                const SizedBox(height: 12),
+                _buildStats(context),
+                const SizedBox(height: 12),
+                _buildActions(context, accentColor),
               ],
             ),
           ),
@@ -302,88 +308,148 @@ class _BmfCardState extends ConsumerState<BmfCard>
     );
   }
 
-  Widget _buildDenseFooter(BuildContext context, Color accentColor) {
-    if (isLoading) {
-      return SizedBox(
-        height: 28,
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: 14,
-            height: 14,
-            child: const ProgressRing(strokeWidth: 2),
+  Widget _buildListRow(BuildContext context, Color accentColor) {
+    var hasRss = bmf.rss?.trim().isNotEmpty ?? false;
+    var hasDirectory = bmf.download?.trim().isNotEmpty ?? false;
+    var pending = widget.pendingCount ?? 0;
+    var title = widget.displayTitle ?? bmf.title ?? '未命名番剧';
+    return HoverButton(
+      semanticLabel: '$title，${widget.seasonLabel ?? ''}',
+      onPressed: _openDetails,
+      builder: (context, states) => AnimatedContainer(
+        duration: BTDurations.fadeTransition,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: widget.selected
+              ? Color.alphaBlend(
+                  accentColor.withValues(alpha: 0.14),
+                  BTColors.surfacePrimary(context),
+                )
+              : states.isHovered
+              ? BTColors.surfaceTertiary(context)
+              : BTColors.surfacePrimary(context),
+          borderRadius: BTRadius.mediumBR,
+          border: Border.all(
+            color: widget.selected || states.isFocused
+                ? accentColor
+                : BTColors.divider(context),
           ),
         ),
-      );
-    }
-
-    var hasRss = bmf.rss != null && bmf.rss!.isNotEmpty;
-    return Row(
-      children: [
-        ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: 82),
-          child: _buildDenseStat(
-            context,
-            icon: MdiIcons.rss,
-            text: hasRss ? 'RSS' : '无 RSS',
-            isActive: hasRss,
-          ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 58,
+              height: 84,
+              child: BtBangumiCover(
+                imageUrl: widget.imageUrl,
+                maxRequestEdge: BangumiCoverUrl.thumbMaxEdge,
+                borderRadius: BTRadius.smallBR,
+                progressSize: 14,
+                errorBuilder: (context, {err}) => Container(
+                  color: BTColors.surfaceSecondary(context),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    FluentIcons.media,
+                    size: 22,
+                    color: BTColors.textTertiary(context),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Tooltip(
+                    message: '$title\nBangumi #${bmf.subject}',
+                    child: Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: BTTypography.bodyStrong(context),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    widget.seasonLabel ?? 'Bangumi #${bmf.subject}',
+                    style: BTTypography.caption(context),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Wrap(
+                          spacing: 10,
+                          runSpacing: 4,
+                          children: [
+                            _buildListStatus(
+                              context,
+                              icon: MdiIcons.rss,
+                              label: hasRss
+                                  ? (bmf.autoUpdate ? '自动更新' : '手动更新')
+                                  : '缺少 RSS',
+                              active: hasRss,
+                            ),
+                            _buildListStatus(
+                              context,
+                              icon: FluentIcons.folder,
+                              label: hasDirectory ? '本地目录' : '缺少目录',
+                              active: hasDirectory,
+                            ),
+                            if (hasRss && pending > 0)
+                              Text(
+                                '$pending 条待处理',
+                                style: BTTypography.caption(context).copyWith(
+                                  color: accentColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Tooltip(
+                        message: '打开番剧详情（长按添加到导航栏）',
+                        child: IconButton(
+                          icon: const BtIcon(
+                            FluentIcons.open_in_new_tab,
+                            size: 14,
+                          ),
+                          onPressed: _navigateToDetail,
+                          onLongPress: _addToNavOnly,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        SizedBox(width: 12),
-        Expanded(
-          child: _buildDenseStat(
-            context,
-            icon: FluentIcons.folder,
-            text: '$fileCount 个 · $totalSize',
-            isActive: fileCount > 0,
-          ),
-        ),
-        Tooltip(
-          message: bmf.autoUpdate ? '自动更新 RSS：已开启' : '自动更新 RSS：已关闭',
-          child: ToggleSwitch(
-            checked: bmf.autoUpdate,
-            onChanged: widget.onAutoUpdateChanged,
-          ),
-        ),
-        SizedBox(width: 6),
-        Tooltip(
-          message: '跳转到详情页',
-          child: IconButton(
-            icon: BtIcon(FluentIcons.open_in_new_tab, size: 13),
-            onPressed: _navigateToDetail,
-            onLongPress: _addToNavOnly,
-          ),
-        ),
-        _buildMoreButton(context, accentColor),
-      ],
+      ),
     );
   }
 
-  Widget _buildDenseStat(
+  Widget _buildListStatus(
     BuildContext context, {
     required IconData icon,
-    required String text,
-    required bool isActive,
+    required String label,
+    required bool active,
   }) {
-    var color = isActive
-        ? FluentTheme.of(context).accentColor
+    var color = active
+        ? BTColors.textSecondary(context)
         : BTColors.textTertiary(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12, color: color),
-        SizedBox(width: 5),
-        Flexible(
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: BTTypography.caption(context).copyWith(
-              color: isActive
-                  ? BTColors.textSecondary(context)
-                  : BTColors.textTertiary(context),
-            ),
-          ),
+        Icon(icon, size: 11, color: color),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: BTTypography.caption(context).copyWith(color: color),
         ),
       ],
     );

@@ -11,20 +11,27 @@ import 'package:flutter_material_design_icons/flutter_material_design_icons.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
+import '../../core/cache/subject_cache.dart';
 import '../../core/services/bmf_rss_service.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/rss_date.dart';
 import '../../database/app/app_rss.dart';
 import '../../models/database/app_bmf_model.dart';
+import '../../models/rss/rss.dart';
 import '../../providers/app_providers.dart';
+import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
+import '../../ui/bt_select.dart';
+import '../../widgets/bangumi/bt_bangumi_cover.dart';
+import '../../widgets/bmf/bmf_auto_update_button.dart';
 import '../../widgets/bmf/bmf_card.dart';
 import '../../widgets/bmf/bmf_expander.dart';
 import '../../widgets/subject_detail/subject_rss_search_dialog.dart';
 import 'bmf_filter_model.dart';
+import 'bmf_subject_data.dart';
 
 part 'rss_bmf_workspace/config_dialog.dart';
 part 'rss_bmf_workspace/header.dart';
@@ -42,13 +49,26 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
   final BtsAppRss rss = BtsAppRss();
   final BTFileTool fileTool = BTFileTool();
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _bmfListController = ScrollController();
   final ScrollController _rssPaneController = ScrollController();
   final ScrollController _filePaneController = ScrollController();
-  late final BmfFilterModel _filterModel = BmfFilterModel(rss: rss);
+  final FlyoutController _filterFlyoutController = FlyoutController();
+  final BmfFilterModel _filterModel = BmfFilterModel();
+  final Map<String, int> _rssSubjectsByKey = {};
+  final Map<int, int> _statusRevisions = {};
+  final Map<int, int> _updateRevisions = {};
+  String _loadedStatusSignature = '';
+  String _loadedSubjectSignature = '';
+  int _statusLoadGeneration = 0;
+  int _subjectLoadGeneration = 0;
+  bool _refreshing = false;
 
   int? selectedSubject;
   int _handledNavigationRequest = 0;
   bool _showCompactDetail = false;
+  bool _showLocalFiles = false;
+  bool _splitResources = false;
+  double? _listPaneWidth;
 
   Timer? _debounceTimer;
   StreamSubscription<BmfRssStatusEvent>? _statusSubscription;
@@ -64,15 +84,30 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     _statusSubscription = BmfRssService.instance.statusStream.listen((event) {
       if (!mounted) return;
       setState(() {
+        _statusRevisions.update(
+          event.subject,
+          (value) => value + 1,
+          ifAbsent: () => 1,
+        );
         _filterModel.pendingCounts[event.subject] = event.pendingCount;
       });
     });
     _updateSubscription = BmfRssService.instance.updateStream.listen((event) {
-      var subject = _filterModel.rssSubjectsByKey[event.key];
+      var subject = _rssSubjectsByKey[event.key];
       var latestUpdate = latestRssPublishedAt(event.items);
-      if (!mounted || subject == null || latestUpdate == null) return;
+      if (!mounted || subject == null) return;
       setState(() {
-        _filterModel.latestUpdateTimes[subject] = latestUpdate;
+        _updateRevisions.update(
+          subject,
+          (value) => value + 1,
+          ifAbsent: () => 1,
+        );
+        _filterModel.rssItemCounts[subject] = event.items.length;
+        if (latestUpdate == null) {
+          _filterModel.latestUpdateTimes.remove(subject);
+        } else {
+          _filterModel.latestUpdateTimes[subject] = latestUpdate;
+        }
       });
     });
   }
@@ -83,8 +118,10 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     _statusSubscription?.cancel();
     _updateSubscription?.cancel();
     _searchController.dispose();
+    _bmfListController.dispose();
     _rssPaneController.dispose();
     _filePaneController.dispose();
+    _filterFlyoutController.dispose();
     super.dispose();
   }
 
@@ -115,9 +152,8 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     _handledNavigationRequest = navigation.requestId;
     selectedSubject = navigation.targetSubject;
     _showCompactDetail = navigation.targetSubject != null;
-    _filterModel.configurationFilter = BmfConfigurationFilter.all;
-    _filterModel.selectedQuarter = BmfQuarter.all;
-    _filterModel.searchQuery = '';
+    _showLocalFiles = false;
+    _filterModel.resetFilters();
     _debounceTimer?.cancel();
     _searchController.clear();
   }
@@ -125,17 +161,179 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
   void onSearch(String query) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 250), () {
-      if (mounted) setState(() => _filterModel.searchQuery = query);
+      if (mounted) _changeListOptions(() => _filterModel.searchQuery = query);
     });
   }
 
+  void _changeListOptions(VoidCallback change) {
+    setState(() {
+      change();
+      _showCompactDetail = false;
+    });
+    if (_bmfListController.hasClients) _bmfListController.jumpTo(0);
+  }
+
+  void _resetFilters() {
+    _debounceTimer?.cancel();
+    _searchController.clear();
+    _changeListOptions(_filterModel.resetFilters);
+  }
+
+  void _scheduleDataLoad(List<AppBmfModel> bmfList) {
+    var subjectSignature = bmfList.map((item) => item.subject).join('|');
+    if (_loadedSubjectSignature != subjectSignature) {
+      _loadedSubjectSignature = subjectSignature;
+      var generation = ++_subjectLoadGeneration;
+      unawaited(_loadSubjectData(bmfList, generation));
+    }
+    var rssSignature = bmfList
+        .map((item) => '${item.subject}:${item.rss}:${item.mkBgmId}')
+        .join('|');
+    if (_loadedStatusSignature == rssSignature) return;
+    _loadedStatusSignature = rssSignature;
+    _rssSubjectsByKey
+      ..clear()
+      ..addEntries(
+        bmfList.where(BmfFilterModel.hasRss).map((item) {
+          var key = item.mkBgmId?.isNotEmpty == true
+              ? item.mkBgmId!
+              : item.rss!;
+          return MapEntry(key, item.subject);
+        }),
+      );
+    var generation = ++_statusLoadGeneration;
+    _filterModel.pendingCounts.clear();
+    _filterModel.rssItemCounts.clear();
+    _filterModel.latestUpdateTimes.clear();
+    unawaited(_loadUpdateStates(bmfList, generation));
+  }
+
+  Future<void> _loadSubjectData(
+    List<AppBmfModel> bmfList,
+    int generation,
+  ) async {
+    try {
+      var collections = await ref
+          .read(bangumiRepositoryProvider)
+          .getLocalCollections();
+      var byId = {for (var item in collections) item.subjectId: item.subject};
+      var entries = await Future.wait(
+        bmfList.map((item) async {
+          var cached = await BgmSubjectCache().read(
+            item.subject,
+            allowStale: true,
+          );
+          var collection = byId[item.subject];
+          return MapEntry(
+            item.subject,
+            BmfSubjectData.fromSources(
+              covers: [
+                cached?.images.common,
+                cached?.images.medium,
+                cached?.images.large,
+                collection?.images.common,
+                collection?.images.medium,
+                collection?.images.large,
+              ],
+              dates: [cached?.date, collection?.date],
+              names: [
+                cached?.nameCn,
+                collection?.nameCn,
+                cached?.name,
+                collection?.name,
+              ],
+            ),
+          );
+        }),
+      );
+      if (!mounted || generation != _subjectLoadGeneration) return;
+      setState(() {
+        _filterModel.subjectData
+          ..clear()
+          ..addEntries(entries);
+      });
+    } catch (error) {
+      BTLogTool.warn('Failed to load BMF subject cache: $error');
+    }
+  }
+
+  Future<void> _loadUpdateStates(
+    List<AppBmfModel> bmfList,
+    int generation,
+  ) async {
+    var statusRevisions = Map<int, int>.of(_statusRevisions);
+    var updateRevisions = Map<int, int>.of(_updateRevisions);
+    try {
+      var values = await Future.wait(
+        bmfList.where(BmfFilterModel.hasRss).map((item) async {
+          var model = item.mkBgmId?.isNotEmpty == true
+              ? await rss.readByMkId(item.mkBgmId!)
+              : await rss.read(item.rss!);
+          var items = <RssItem>[];
+          if (model != null) {
+            try {
+              items = RssFeed.parse(model.data).items;
+            } catch (error) {
+              BTLogTool.warn(
+                'Failed to parse BMF RSS cache (${item.subject}): $error',
+              );
+            }
+          }
+          return (
+            item.subject,
+            model?.pendingItemKeys.length ?? 0,
+            latestRssPublishedAt(items),
+            items.length,
+          );
+        }),
+      );
+      if (!mounted || generation != _statusLoadGeneration) return;
+      setState(() {
+        for (var value in values) {
+          if (_statusRevisions[value.$1] == statusRevisions[value.$1]) {
+            _filterModel.pendingCounts[value.$1] = value.$2;
+          }
+          if (_updateRevisions[value.$1] == updateRevisions[value.$1]) {
+            _filterModel.rssItemCounts[value.$1] = value.$4;
+            if (value.$3 == null) {
+              _filterModel.latestUpdateTimes.remove(value.$1);
+            } else {
+              _filterModel.latestUpdateTimes[value.$1] = value.$3!;
+            }
+          }
+        }
+      });
+    } catch (error) {
+      BTLogTool.warn('Failed to load BMF RSS status: $error');
+    }
+  }
+
+  Future<void> _refreshWorkspace() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      await ref.read(bmfListProvider.notifier).refresh();
+      if (!mounted) return;
+      setState(() {
+        _loadedStatusSignature = '';
+        _loadedSubjectSignature = '';
+      });
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
   AppBmfModel? _selectedModel() {
-    if (_filterModel.filteredList.isEmpty || selectedSubject == null) {
+    if (_filterModel.filteredList.isEmpty) {
       return null;
     }
-    return _filterModel.filteredList
+    var selected = _filterModel.filteredList
         .where((item) => item.subject == selectedSubject)
         .firstOrNull;
+    if (selected != null) return selected;
+    selectedSubject = _filterModel.filteredList.first.subject;
+    _showLocalFiles = false;
+    return _filterModel.filteredList.first;
   }
 
   void _navigateToDetail(AppBmfModel bmf) {
@@ -351,12 +549,7 @@ class _RssBmfWorkspaceState extends _RssBmfWorkspaceStateBase
 
     return bmfListAsync.when(
       data: (bmfList) {
-        if (_filterModel.scheduleStatusLoad(bmfList)) {
-          Future.microtask(() async {
-            await _filterModel.loadUpdateStates(bmfList);
-            if (mounted) setState(() {});
-          });
-        }
+        _scheduleDataLoad(bmfList);
         _filterModel.applyFilter(bmfList);
         return ScaffoldPage(
           padding: EdgeInsets.zero,

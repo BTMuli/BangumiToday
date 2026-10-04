@@ -20,6 +20,11 @@
 - The `bt_download` test suite remains opt-in and is run by hand by the developer: inside `repos/bt_download` run `cmake --preset windows-x64-debug-tests`, `cmake --build --preset windows-x64-debug-tests`, then `ctest --preset windows-x64-debug-tests`. Neither `dev_build.ps1` nor the release workflow may build or run it.
 - Do not start the app, drive it through MCP tooling, or run manual UI verification unless the user explicitly asks for it.
 
+## UI interaction
+
+- Position flyouts outside their triggering controls with a visible gap, keeping the trigger fully visible while the panel is open.
+- Open select and dropdown option panels below the selection field, or above it when space is limited. Never align the selected option over the field; constrain and scroll the panel when necessary to preserve the field's visibility.
+
 ## AniBT integration
 
 - For AniBT RSS, Open API, release metadata, subscriptions, downloads, or AniBT UI changes, read the project [anibt skill](.agents/skills/anibt/SKILL.md).

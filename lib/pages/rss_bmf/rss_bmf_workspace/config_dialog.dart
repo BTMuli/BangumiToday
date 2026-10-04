@@ -149,8 +149,8 @@ class _BmfConfigDialogState extends ConsumerState<_BmfConfigDialog> {
               subtitle: Text(
                 _autoUpdate ? '应用运行时会按计划自动刷新 RSS' : '已关闭自动刷新，可使用刷新按钮手动更新',
               ),
-              trailing: ToggleSwitch(
-                checked: _autoUpdate,
+              trailing: BmfAutoUpdateButton(
+                enabled: _autoUpdate,
                 onChanged: (value) => setState(() => _autoUpdate = value),
               ),
             ),

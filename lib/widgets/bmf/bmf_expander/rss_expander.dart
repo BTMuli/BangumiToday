@@ -8,6 +8,7 @@ class BmfRssExpander extends ConsumerStatefulWidget {
   final bool initiallyExpanded;
   final bool contentScrollable;
   final bool expandable;
+  final bool embedded;
   final ScrollController? contentScrollController;
 
   const BmfRssExpander({
@@ -19,6 +20,7 @@ class BmfRssExpander extends ConsumerStatefulWidget {
     this.initiallyExpanded = true,
     this.contentScrollable = true,
     this.expandable = true,
+    this.embedded = false,
     this.contentScrollController,
   });
 
@@ -87,23 +89,32 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
   }
 
   Widget buildRssItem(BuildContext context, RssItem item) {
-    var fileSize = item.enclosure?.length != null
+    var fileSize = (item.enclosure?.length ?? 0) > 0
         ? filesize(item.enclosure!.length)
         : null;
+    var publishedAt = latestRssPublishedAt([item]);
+    var dateLabel = publishedAt == null
+        ? null
+        : DateFormat('yyyy-MM-dd HH:mm').format(publishedAt.toLocal());
     var isPending = _data.pendingItemKeys.contains(_data.itemKey(item));
     var accentColor = FluentTheme.of(context).accentColor;
 
     return Container(
-      margin: EdgeInsets.only(bottom: 6),
-      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      margin: EdgeInsets.only(bottom: widget.embedded ? 8 : 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.embedded ? 12 : 10,
+        vertical: widget.embedded ? 12 : 8,
+      ),
       decoration: BoxDecoration(
         color: isPending
-            ? accentColor.withValues(alpha: 0.1)
+            ? Color.alphaBlend(
+                accentColor.withValues(alpha: 0.12),
+                BTColors.surfaceSecondary(context),
+              )
             : BTColors.surfaceSecondary(context),
-        borderRadius: BTRadius.smallBR,
+        borderRadius: widget.embedded ? BTRadius.mediumBR : BTRadius.smallBR,
         border: Border.all(
           color: isPending ? accentColor : BTColors.divider(context),
-          width: 1,
         ),
       ),
       child: Column(
@@ -144,41 +155,29 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
                   child: Text(
                     item.title ?? '',
                     style: BTTypography.body(context),
-                    maxLines: 2,
+                    maxLines: widget.embedded ? 3 : 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
             ],
           ),
-          SizedBox(height: 4),
+          SizedBox(height: widget.embedded ? 8 : 4),
           Row(
             children: [
-              if (fileSize != null) ...[
-                Icon(
-                  FluentIcons.save,
-                  size: 10,
-                  color: BTColors.textTertiary(context),
+              Expanded(
+                child: Wrap(
+                  spacing: 16,
+                  runSpacing: 4,
+                  children: [
+                    if (fileSize != null)
+                      Text(fileSize, style: BTTypography.caption(context)),
+                    if (dateLabel != null)
+                      Text(dateLabel, style: BTTypography.caption(context)),
+                  ],
                 ),
-                SizedBox(width: 4),
-                Text(fileSize, style: BTTypography.caption(context)),
-                SizedBox(width: 12),
-              ],
-              if (item.pubDate != null) ...[
-                Icon(
-                  FluentIcons.clock,
-                  size: 10,
-                  color: BTColors.textTertiary(context),
-                ),
-                SizedBox(width: 4),
-                Text(
-                  item.pubDate!.length > 10
-                      ? item.pubDate!.substring(0, 10)
-                      : item.pubDate!,
-                  style: BTTypography.caption(context),
-                ),
-              ],
-              const Spacer(),
+              ),
+              const SizedBox(width: 8),
               if (isPending)
                 Tooltip(
                   message: '标记为已处理',
@@ -257,8 +256,13 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
 
     var header = Row(
       children: [
-        Text('RSS 订阅', style: BTTypography.subtitle(context)),
-        if (_data.rssItems.isNotEmpty) ...[
+        Text(
+          widget.embedded ? '${_data.rssItems.length} 条资源' : 'RSS 订阅',
+          style: widget.embedded
+              ? BTTypography.caption(context)
+              : BTTypography.subtitle(context),
+        ),
+        if (!widget.embedded && _data.rssItems.isNotEmpty) ...[
           SizedBox(width: 8),
           _buildCountBadge(context, _data.rssItems.length),
         ],
@@ -352,6 +356,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
         header: header,
         content: buildContent(),
         controller: widget.contentScrollController,
+        embedded: widget.embedded,
       );
     }
 

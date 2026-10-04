@@ -21,12 +21,12 @@ class BgmSubjectCache {
   /// 详情页看过或首页补过的条目在这段时间内直接用缓存，过期后由首页重新补。
   static const Duration maxAge = Duration(days: 3);
 
-  /// 读取缓存的条目详情，过期或不存在时返回 null。
-  Future<BangumiSubject?> read(int id) {
+  /// 默认仅返回有效期内的详情；封面等静态展示可复用过期记录。
+  Future<BangumiSubject?> read(int id, {bool allowStale = false}) {
     return BTCacheManager.instance.getJson<BangumiSubject>(
       CacheKeys.subject(id),
       fromJson: BangumiSubject.fromJson,
-      maxAge: maxAge,
+      maxAge: allowStale ? null : maxAge,
     );
   }
 

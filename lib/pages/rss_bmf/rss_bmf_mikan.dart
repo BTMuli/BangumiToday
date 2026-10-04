@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../core/theme/bt_theme.dart';
 import '../../database/app/app_mikan_credential.dart';
 import '../../models/rss/rss.dart';
 import '../../request/mikan/mikan_api.dart';
@@ -14,7 +15,8 @@ import '../../store/app_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import 'mikan_mirror_combo.dart';
-import 'rss_mikan_card_fluent.dart';
+import 'rss_release_data.dart';
+import 'rss_release_list.dart';
 
 /// 负责 MikanProject RSS 页面的显示
 /// 包括 RSSClassic 和 RSSPersonal
@@ -52,10 +54,7 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
   bool _loadFailed = false;
 
   /// mikan 镜像
-  String get mikanRss => ref.watch(appStoreProvider).mikanRss;
-
-  /// Token 仅用于请求，不在界面中明文展示。
-  String get maskedToken => token.isEmpty ? '未设置' : '••••••••';
+  String get mikanRss => ref.read(appStoreProvider).mikanRss;
 
   /// 保存状态
   @override
@@ -158,155 +157,103 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
     await refreshUserRSS();
   }
 
-  /// 构建刷新按钮
-  Widget buildAct() {
-    return Tooltip(
-      message: '刷新 Mikan',
-      child: IconButton(
-        icon: _refreshing
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: ProgressRing(strokeWidth: 2),
-              )
-            : const Icon(FluentIcons.refresh, size: 15),
-        onPressed: _refreshing || !_initialized
-            ? null
-            : (useUserRSS ? refreshUserRSS : refreshMikanRSS),
-      ),
-    );
+  Future<void> _switchFeed(bool personal) async {
+    if (_refreshing || !_initialized || useUserRSS == personal) return;
+    if (personal && token.isEmpty) {
+      await tryEditToken();
+      return;
+    }
+    setState(() {
+      useUserRSS = personal;
+      _loadFailed = false;
+    });
+    if (personal && !_userLoaded) {
+      await refreshUserRSS();
+    } else if (!personal && !_mikanLoaded) {
+      await refreshMikanRSS();
+    }
   }
 
-  /// 构建标题
   Widget buildTitle() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          IconButton(
+    return Row(
+      children: [
+        Tooltip(
+          message: '打开蜜柑计划',
+          child: IconButton(
             icon: Image.asset(
               'assets/images/platforms/mikan-logo.png',
+              width: 30,
               height: 30,
-              fit: BoxFit.cover,
             ),
-            onPressed: () async {
-              await launchUrlString(mikanRss);
-            },
+            onPressed: () => launchUrlString(mikanRss),
           ),
-          Image.asset(
-            'assets/images/platforms/mikan-text.png',
-            height: 30,
-            fit: BoxFit.cover,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Mikan', style: BTTypography.title(context)),
+              Text(
+                useUserRSS ? '个人订阅的最新资源' : '蜜柑计划最近发布的资源',
+                style: BTTypography.caption(context),
+              ),
+            ],
           ),
-          SizedBox(width: 10),
-          const MikanMirrorCombo(),
-          SizedBox(width: 10),
-          buildAct(),
-          SizedBox(width: 10),
-          ...buildTokenBar(),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  /// 构建 Token 栏
-  List<Widget> buildTokenBar() {
-    return [
-      ToggleSwitch(
-        checked: useUserRSS,
-        onChanged: _refreshing || !_initialized
-            ? null
-            : (v) async {
-                var old = useUserRSS;
-                if (token == '' && v) {
-                  await BtInfobar.warn(context, '未设置 Token');
-                  return;
-                }
-                setState(() {
-                  useUserRSS = v;
-                  _loadFailed = false;
-                });
-                if (!v && !_mikanLoaded) {
-                  await refreshMikanRSS();
-                } else if (v && !_userLoaded) {
-                  await refreshUserRSS();
-                }
-                if (v != old) {
-                  if (v) {
-                    if (mounted) await BtInfobar.success(context, '已切换到用户列表');
-                  } else {
-                    if (mounted) {
-                      await BtInfobar.success(context, '已切换到Mikan列表');
-                    }
-                  }
-                }
-                if (mounted) setState(() {});
-              },
-      ),
-      SizedBox(width: 10),
-      FilledButton(onPressed: null, child: Text('Token: $maskedToken')),
-      SizedBox(width: 10),
-      Button(
-        onPressed: _refreshing || !_initialized ? null : tryEditToken,
-        child: const Text('编辑Token'),
-      ),
-    ];
-  }
-
-  /// 构建内容
   Widget buildContent(List<RssItem> data) {
-    if (data.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (_refreshing || !_initialized) ...[
-              const ProgressRing(),
-              SizedBox(height: 20),
-              const Text('正在加载数据...'),
-            ] else
-              Text(_loadFailed ? '加载失败，请点击刷新重试' : '暂无 RSS 数据'),
-          ],
+    return RssReleaseList(
+      key: ValueKey(useUserRSS ? 'mikan-personal' : 'mikan-classic'),
+      title: buildTitle(),
+      refreshEnabled: _initialized,
+      leadingControls: [
+        ToggleButton(
+          checked: !useUserRSS,
+          onChanged: _refreshing || !_initialized
+              ? null
+              : (_) => _switchFeed(false),
+          child: const Text('站点更新'),
         ),
-      );
-    } else {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          var cardWidth = 280.0;
-          var crossAxisCount = (constraints.maxWidth / cardWidth).floor().clamp(
-            1,
-            6,
-          );
-          var mainAxisExtent = 180.0;
-
-          return GridView.builder(
-            key: PageStorageKey(useUserRSS ? 'mikan-user-rss' : 'mikan-rss'),
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              mainAxisExtent: mainAxisExtent,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: data.length,
-            itemBuilder: (context, index) {
-              return RssMikanCardFluent(item: data[index]);
-            },
-          );
-        },
-      );
-    }
+        ToggleButton(
+          checked: useUserRSS,
+          onChanged: _refreshing || !_initialized
+              ? null
+              : (_) => _switchFeed(true),
+          child: const Text('个人订阅'),
+        ),
+      ],
+      sourceControls: [
+        const Tooltip(
+          message: 'Mikan 访问地址',
+          child: MikanMirrorCombo(width: 176),
+        ),
+        Tooltip(
+          message: token.isEmpty ? '设置 Token 后可查看个人订阅' : '个人订阅 Token 已设置',
+          child: Button(
+            onPressed: _refreshing || !_initialized ? null : tryEditToken,
+            child: Text(token.isEmpty ? '设置 Token' : '编辑 Token'),
+          ),
+        ),
+      ],
+      items: data,
+      source: RssReleaseSource.mikan,
+      refreshing: _refreshing,
+      loaded: (useUserRSS ? _userLoaded : _mikanLoaded) || _loadFailed,
+      loadFailed: _loadFailed,
+      onRefresh: useUserRSS ? refreshUserRSS : refreshMikanRSS,
+    );
   }
 
   /// 构建函数
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return ScaffoldPage.withPadding(
+    return ScaffoldPage(
       padding: EdgeInsets.zero,
-      header: Padding(padding: EdgeInsets.all(8), child: buildTitle()),
       content: buildContent(useUserRSS ? userItems : rssItems),
     );
   }

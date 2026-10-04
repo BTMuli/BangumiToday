@@ -23,6 +23,7 @@ enum AnibtSortField {
 
 /// Server-supported RSS filters and filters applied to its returned items.
 class AnibtFilters {
+  static const defaultLanguages = {'CHS', 'CHT'};
   static const resolutions = ['4K', '2160p', '1080p', '720p', '480p', '360p'];
   static const languageLabels = {
     'CHS': '简中',
@@ -66,7 +67,7 @@ class AnibtFilters {
   AnibtFilters({
     this.query = '',
     Set<String> selectedResolutions = const {},
-    Set<String> selectedLanguages = const {},
+    Set<String> selectedLanguages = defaultLanguages,
     Set<String> selectedSubtitles = const {},
     Set<String> selectedFormats = const {},
     this.sortField = AnibtSortField.publishedAt,
@@ -84,7 +85,11 @@ class AnibtFilters {
 
   bool get isDefault =>
       query.trim().isEmpty &&
-      tagCount == 0 &&
+      selectedResolutions.isEmpty &&
+      selectedLanguages.length == defaultLanguages.length &&
+      selectedLanguages.containsAll(defaultLanguages) &&
+      selectedSubtitles.isEmpty &&
+      selectedFormats.isEmpty &&
       sortField == AnibtSortField.publishedAt &&
       descending;
 

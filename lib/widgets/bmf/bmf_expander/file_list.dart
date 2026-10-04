@@ -9,12 +9,15 @@ extension _BmfFileList on _BmfFileExpanderState {
     var fileSize = _fileSizes[file];
 
     return Container(
-      margin: EdgeInsets.only(bottom: 6),
-      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      margin: EdgeInsets.only(bottom: widget.embedded ? 8 : 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.embedded ? 12 : 10,
+        vertical: widget.embedded ? 12 : 8,
+      ),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context),
-        borderRadius: BTRadius.smallBR,
-        border: Border.all(color: BTColors.divider(context), width: 1),
+        borderRadius: widget.embedded ? BTRadius.mediumBR : BTRadius.smallBR,
+        border: Border.all(color: BTColors.divider(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -36,44 +39,53 @@ extension _BmfFileList on _BmfFileExpanderState {
                   child: Text(
                     file,
                     style: BTTypography.body(context),
-                    maxLines: 2,
+                    maxLines: widget.embedded ? 3 : 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
             ],
           ),
-          SizedBox(height: 6),
+          SizedBox(height: widget.embedded ? 8 : 6),
           Row(
             children: [
-              if (fileSize != null) ...[
-                Text(
-                  filesize(fileSize),
-                  style: BTTypography.caption(
-                    context,
-                  ).copyWith(color: BTColors.textTertiary(context)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        if (fileSize != null)
+                          Text(
+                            filesize(fileSize),
+                            style: BTTypography.caption(
+                              context,
+                            ).copyWith(color: BTColors.textTertiary(context)),
+                          ),
+                        if (isIncomplete)
+                          Text(
+                            statusLabel,
+                            style: BTTypography.caption(
+                              context,
+                            ).copyWith(color: _statusColor(context, fileState)),
+                          ),
+                      ],
+                    ),
+                    if (isIncomplete) ...[
+                      const SizedBox(height: 6),
+                      ProgressBar(
+                        value: fileState?.progress == null
+                            ? null
+                            : fileState!.progress! * 100,
+                        strokeWidth: 2,
+                      ),
+                    ],
+                  ],
                 ),
-                SizedBox(width: 8),
-              ],
-              if (isIncomplete) ...[
-                Expanded(
-                  child: ProgressBar(
-                    value: fileState?.progress == null
-                        ? null
-                        : fileState!.progress! * 100,
-                    strokeWidth: 2,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Text(
-                  statusLabel,
-                  style: BTTypography.caption(
-                    context,
-                  ).copyWith(color: _statusColor(context, fileState)),
-                ),
-                SizedBox(width: 8),
-              ] else
-                const Spacer(),
+              ),
+              const SizedBox(width: 16),
               _FileItemActions(
                 file: file,
                 subject: widget.subject,

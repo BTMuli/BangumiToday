@@ -6,7 +6,7 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        var compact = constraints.maxWidth < 900;
+        var compact = constraints.maxWidth < 880;
         var selected = _selectedModel();
         if (compact) {
           if (_showCompactDetail && selected != null) {
@@ -15,19 +15,43 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
           return _buildBmfList(context, compact: true);
         }
 
-        var listWidth = (constraints.maxWidth * 0.30).clamp(320.0, 420.0);
+        var maximumListWidth = (constraints.maxWidth - 548).clamp(280.0, 460.0);
+        var listWidth = (_listPaneWidth ?? 320).clamp(280.0, maximumListWidth);
         return Row(
           children: [
             SizedBox(
               width: listWidth,
               child: _buildBmfList(context, compact: false),
             ),
-            Container(width: 1, color: BTColors.divider(context)),
-            Expanded(
-              child: selected == null
-                  ? _buildSelectPrompt(context)
-                  : _buildDetailPane(context, selected),
+            Tooltip(
+              message: '拖动调整番剧列表宽度，双击恢复',
+              child: MouseRegion(
+                cursor: SystemMouseCursors.resizeLeftRight,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onDoubleTap: () => setState(() => _listPaneWidth = null),
+                  onHorizontalDragUpdate: (details) => setState(() {
+                    _listPaneWidth =
+                        ((_listPaneWidth ?? listWidth).clamp(
+                                  280.0,
+                                  maximumListWidth,
+                                ) +
+                                details.delta.dx)
+                            .clamp(280.0, maximumListWidth);
+                  }),
+                  child: SizedBox(
+                    width: 8,
+                    child: Center(
+                      child: Container(
+                        width: 1,
+                        color: BTColors.divider(context),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
+            Expanded(child: _buildDetailPane(context, selected!)),
           ],
         );
       },
@@ -39,14 +63,18 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
     return ColoredBox(
       color: BTColors.surfaceSecondary(context),
       child: ListView.separated(
-        padding: EdgeInsets.all(10),
+        controller: _bmfListController,
+        padding: const EdgeInsets.all(12),
         itemCount: _filterModel.filteredList.length,
-        separatorBuilder: (_, _) => SizedBox(height: 8),
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           var bmf = _filterModel.filteredList[index];
           return BmfCard(
             key: ValueKey(bmf.subject),
             bmf: bmf,
+            imageUrl: _filterModel.subjectData[bmf.subject]?.imageUrl,
+            displayTitle: _filterModel.titleFor(bmf),
+            seasonLabel: _filterModel.quarterFor(bmf).label,
             pendingCount: _filterModel.pendingCounts[bmf.subject] ?? 0,
             selected: !compact && selected?.subject == bmf.subject,
             dense: true,
@@ -54,6 +82,7 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
             onOpen: () => setState(() {
               selectedSubject = bmf.subject;
               _showCompactDetail = compact;
+              _showLocalFiles = false;
             }),
             onDelete: () => _deleteBmf(bmf, requireConfirmation: false),
           );
@@ -67,148 +96,157 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
     AppBmfModel bmf, {
     bool showBackButton = false,
   }) {
-    var hasRss = bmf.rss != null && bmf.rss!.isNotEmpty;
-    var hasDirectory = bmf.download != null && bmf.download!.isNotEmpty;
+    var hasRss = BmfFilterModel.hasRss(bmf);
+    var hasDirectory = BmfFilterModel.hasDirectory(bmf);
+    var airDate = _filterModel.airDateFor(bmf);
     var pendingCount = _filterModel.pendingCounts[bmf.subject] ?? 0;
+    var title = _filterModel.titleFor(bmf);
+
+    var actions = Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 4,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Button(
+          onPressed: () => _editConfiguration(bmf),
+          child: const Text('编辑关联'),
+        ),
+        if (hasRss)
+          BmfAutoUpdateButton(
+            enabled: bmf.autoUpdate,
+            onChanged: (enabled) => _setAutoUpdate(bmf, enabled),
+          ),
+        Tooltip(
+          message: '查找 RSS',
+          child: IconButton(
+            icon: const BtIcon(FluentIcons.search, size: 15),
+            onPressed: () => _searchRss(bmf),
+          ),
+        ),
+        Tooltip(
+          message: '复制标题',
+          child: IconButton(
+            icon: const BtIcon(FluentIcons.copy, size: 15),
+            onPressed: () => _copyTitle(bmf),
+          ),
+        ),
+        Tooltip(
+          message: '打开番剧详情（长按添加到导航栏）',
+          child: IconButton(
+            icon: const BtIcon(FluentIcons.open_in_new_tab, size: 15),
+            onPressed: () => _navigateToDetail(bmf),
+            onLongPress: () => _addToNavOnly(bmf),
+          ),
+        ),
+        Tooltip(
+          message: '删除 BMF 关联',
+          child: IconButton(
+            icon: Icon(
+              FluentIcons.delete,
+              size: 15,
+              color: BTColors.errorLight(context),
+            ),
+            onPressed: () => _deleteBmf(bmf),
+          ),
+        ),
+      ],
+    );
 
     return ColoredBox(
       color: BTColors.surfacePrimary(context),
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(18, 16, 14, 14),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 第一行：图标与标题
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (showBackButton) ...[
                       IconButton(
-                        icon: BtIcon(FluentIcons.back, size: 15),
+                        icon: const BtIcon(FluentIcons.back, size: 15),
                         onPressed: () =>
                             setState(() => _showCompactDetail = false),
                       ),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 8),
                     ],
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: FluentTheme.of(
-                          context,
-                        ).accentColor.withValues(alpha: 0.14),
-                        borderRadius: BTRadius.mediumBR,
-                      ),
-                      child: Icon(
-                        FluentIcons.media,
-                        size: 18,
-                        color: FluentTheme.of(context).accentColor,
+                    SizedBox(
+                      width: 48,
+                      height: 68,
+                      child: BtBangumiCover(
+                        imageUrl:
+                            _filterModel.subjectData[bmf.subject]?.imageUrl,
+                        maxRequestEdge: BangumiCoverUrl.thumbMaxEdge,
+                        borderRadius: BTRadius.smallBR,
+                        errorBuilder: (context, {err}) => Container(
+                          color: BTColors.surfaceSecondary(context),
+                          child: const Icon(FluentIcons.media, size: 24),
+                        ),
                       ),
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     Expanded(
-                      child: Text(
-                        bmf.title ?? '未命名番剧',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: BTTypography.title(context),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10),
-                // 第二行：条目信息与状态标签
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      'Bangumi #${bmf.subject}',
-                      style: BTTypography.caption(context),
-                    ),
-                    if (bmf.airDate != null && bmf.airDate!.isNotEmpty)
-                      Text(
-                        '首播 ${bmf.airDate}',
-                        style: BTTypography.caption(context),
-                      ),
-                    if (pendingCount > 0)
-                      _buildStatusBadge(
-                        context,
-                        label: '$pendingCount 条更新',
-                        active: true,
-                      ),
-                    _buildStatusBadge(
-                      context,
-                      label: bmf.autoUpdate ? 'RSS 自动更新' : 'RSS 手动更新',
-                      active: bmf.autoUpdate,
-                    ),
-                    _buildStatusBadge(
-                      context,
-                      label: hasRss ? 'RSS 已关联' : '缺少 RSS',
-                      active: hasRss,
-                    ),
-                    _buildStatusBadge(
-                      context,
-                      label: hasDirectory ? '目录已关联' : '缺少目录',
-                      active: hasDirectory,
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12),
-                // 第三行：操作按钮
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    FilledButton(
-                      onPressed: () => _editConfiguration(bmf),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(FluentIcons.edit, size: 13),
-                          SizedBox(width: 6),
-                          const Text('编辑关联'),
+                          Tooltip(
+                            message: '$title\nBangumi #${bmf.subject}',
+                            child: Text(
+                              title,
+                              style: BTTypography.subtitle(context),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 4,
+                            children: [
+                              Text(
+                                _filterModel.quarterFor(bmf).label,
+                                style: BTTypography.caption(context),
+                              ),
+                              if (airDate != null)
+                                Text(
+                                  '首播 $airDate',
+                                  style: BTTypography.caption(context),
+                                ),
+                              Text(
+                                hasRss
+                                    ? (bmf.autoUpdate ? 'RSS 自动更新' : 'RSS 手动更新')
+                                    : '缺少 RSS',
+                                style: BTTypography.caption(context).copyWith(
+                                  color: hasRss
+                                      ? null
+                                      : BTColors.warningLight(context),
+                                ),
+                              ),
+                              if (!hasDirectory)
+                                Text(
+                                  '缺少目录',
+                                  style: BTTypography.caption(context).copyWith(
+                                    color: BTColors.warningLight(context),
+                                  ),
+                                ),
+                              if (pendingCount > 0)
+                                Text(
+                                  '$pendingCount 条待处理',
+                                  style: BTTypography.caption(context).copyWith(
+                                    color: FluentTheme.of(context).accentColor,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                    SizedBox(width: 6),
-                    Tooltip(
-                      message: '搜索番剧 RSS（AniBT / Mikan）',
-                      child: IconButton(
-                        icon: BtIcon(FluentIcons.search, size: 14),
-                        onPressed: () => _searchRss(bmf),
-                      ),
-                    ),
-                    SizedBox(width: 6),
-                    Tooltip(
-                      message: '复制标题',
-                      child: IconButton(
-                        icon: BtIcon(FluentIcons.copy, size: 14),
-                        onPressed: () => _copyTitle(bmf),
-                      ),
-                    ),
-                    Tooltip(
-                      message: '打开番剧详情',
-                      child: IconButton(
-                        icon: BtIcon(FluentIcons.open_in_new_tab, size: 14),
-                        onPressed: () => _navigateToDetail(bmf),
-                        onLongPress: () => _addToNavOnly(bmf),
-                      ),
-                    ),
-                    Tooltip(
-                      message: '删除 BMF 关联',
-                      child: IconButton(
-                        icon: Icon(
-                          FluentIcons.delete,
-                          size: 14,
-                          color: BTColors.errorLight(context),
-                        ),
-                        onPressed: () => _deleteBmf(bmf),
-                      ),
-                    ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                actions,
               ],
             ),
           ),
@@ -236,96 +274,107 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
   }) {
     if (!hasRss && !hasDirectory) {
       return SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: _buildUnconfiguredCard(context, bmf),
       );
     }
 
-    Widget rssPane() => _buildScrollableResourcePane(
-      child: BmfRssExpander(
-        key: ValueKey(_rssViewKey(bmf, pendingCount)),
-        bmf: bmf,
-        isConfig: true,
-        maxHeight: 320,
-        contentScrollable: false,
-        expandable: false,
-        contentScrollController: _rssPaneController,
-        onDelete: () => _removeRss(bmf),
-      ),
+    Widget rssPane() => BmfRssExpander(
+      key: ValueKey(_rssViewKey(bmf, pendingCount)),
+      bmf: bmf,
+      isConfig: true,
+      maxHeight: 320,
+      contentScrollable: false,
+      expandable: false,
+      embedded: true,
+      contentScrollController: _rssPaneController,
+      onDelete: () => _removeRss(bmf),
     );
-    Widget filePane() => _buildScrollableResourcePane(
-      child: BmfFileExpander(
-        key: ValueKey('file-${bmf.subject}-${bmf.download}'),
-        downloadDir: bmf.download!,
-        subject: bmf.subject,
-        maxHeight: 320,
-        contentScrollable: false,
-        expandable: false,
-        contentScrollController: _filePaneController,
-        onDelete: () => _removeDirectory(bmf),
-      ),
+    Widget filePane() => BmfFileExpander(
+      key: ValueKey('file-${bmf.subject}-${bmf.download}'),
+      downloadDir: bmf.download!,
+      subject: bmf.subject,
+      maxHeight: 320,
+      contentScrollable: false,
+      expandable: false,
+      embedded: true,
+      contentScrollController: _filePaneController,
+      onDelete: () => _removeDirectory(bmf),
     );
-
-    if (!hasRss) return filePane();
-    if (!hasDirectory) return rssPane();
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 700) {
-          return Column(
-            children: [
-              Expanded(child: rssPane()),
-              Container(height: 1, color: BTColors.divider(context)),
-              Expanded(child: filePane()),
-            ],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        var canSplit = hasRss && hasDirectory && constraints.maxWidth >= 1100;
+        var split = canSplit && _splitResources;
+        return Column(
           children: [
-            Expanded(child: rssPane()),
-            Container(width: 1, color: BTColors.divider(context)),
-            Expanded(child: filePane()),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+              child: Row(
+                children: [
+                  if (hasRss && hasDirectory && !split) ...[
+                    ToggleButton(
+                      checked: !_showLocalFiles,
+                      onChanged: (_) => setState(() => _showLocalFiles = false),
+                      child: const Text('RSS 资源'),
+                    ),
+                    const SizedBox(width: 8),
+                    ToggleButton(
+                      checked: _showLocalFiles,
+                      onChanged: (_) => setState(() => _showLocalFiles = true),
+                      child: const Text('本地文件'),
+                    ),
+                  ] else
+                    Text(
+                      split
+                          ? 'RSS 资源与本地文件'
+                          : hasRss
+                          ? 'RSS 资源'
+                          : '本地文件',
+                      style: BTTypography.bodyStrong(context),
+                    ),
+                  const Spacer(),
+                  if (canSplit)
+                    ToggleButton(
+                      checked: split,
+                      onChanged: (value) =>
+                          setState(() => _splitResources = value),
+                      child: const Text('并排查看'),
+                    ),
+                  if (!hasRss || !hasDirectory)
+                    HyperlinkButton(
+                      onPressed: () => _editConfiguration(bmf),
+                      child: Text(hasRss ? '关联本地目录' : '关联 RSS'),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: split
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: rssPane()),
+                        Container(width: 1, color: BTColors.divider(context)),
+                        Expanded(child: filePane()),
+                      ],
+                    )
+                  : (hasDirectory && (!hasRss || _showLocalFiles)
+                        ? filePane()
+                        : rssPane()),
+            ),
           ],
         );
       },
     );
   }
 
-  Widget _buildScrollableResourcePane({required Widget child}) {
-    return Padding(padding: EdgeInsets.all(12), child: child);
-  }
-
-  Widget _buildStatusBadge(
-    BuildContext context, {
-    required String label,
-    required bool active,
-  }) {
-    var color = active
-        ? FluentTheme.of(context).accentColor
-        : BTColors.warningLight(context);
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BTRadius.roundBR,
-      ),
-      child: Text(
-        label,
-        style: BTTypography.caption(
-          context,
-        ).copyWith(color: color, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-
   Widget _buildUnconfiguredCard(BuildContext context, AppBmfModel bmf) {
     return Container(
-      padding: EdgeInsets.all(18),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context),
         borderRadius: BTRadius.largeBR,
-        border: Border.all(color: BTColors.divider(context)),
       ),
       child: Column(
         children: [
@@ -334,36 +383,19 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
             size: 36,
             color: BTColors.textTertiary(context),
           ),
-          SizedBox(height: 10),
+          const SizedBox(height: 10),
           Text('尚未建立资源关联', style: BTTypography.subtitle(context)),
-          SizedBox(height: 5),
+          const SizedBox(height: 5),
           Text(
-            '添加 RSS 用于接收发布更新，添加本地目录用于查看已落地文件。',
+            '添加 RSS 接收发布更新，关联本地目录查看下载文件。',
             textAlign: TextAlign.center,
             style: BTTypography.caption(context),
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Button(
             onPressed: () => _editConfiguration(bmf),
             child: const Text('开始配置'),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSelectPrompt(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            FluentIcons.bulleted_list,
-            size: 42,
-            color: BTColors.textTertiary(context),
-          ),
-          SizedBox(height: 12),
-          Text('选择一个番剧关联', style: BTTypography.subtitle(context)),
         ],
       ),
     );
@@ -375,39 +407,28 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            _filterModel.configurationFilter ==
-                    BmfConfigurationFilter.incomplete
-                ? FluentIcons.completed
+            _filterModel.hasActiveFilters
+                ? FluentIcons.search
                 : MdiIcons.linkOff,
             size: 46,
             color: BTColors.textTertiary(context),
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Text(
-            _filterModel.searchQuery.isNotEmpty
-                ? '没有找到匹配的番剧'
-                : _filterModel.configurationFilter ==
-                      BmfConfigurationFilter.updates
-                ? '没有待处理更新'
-                : _filterModel.configurationFilter ==
-                      BmfConfigurationFilter.autoUpdate
-                ? '没有开启自动更新的 BMF'
-                : _filterModel.configurationFilter ==
-                      BmfConfigurationFilter.manualUpdate
-                ? '没有关闭自动更新的 BMF'
-                : _filterModel.configurationFilter ==
-                      BmfConfigurationFilter.incomplete
-                ? '当前关联均已补全'
-                : '暂无 BMF 关联',
+            _filterModel.totalCount == 0 ? '暂无 BMF 关联' : '当前筛选下没有匹配的番剧',
             style: BTTypography.subtitle(context),
           ),
-          SizedBox(height: 5),
+          const SizedBox(height: 5),
           Text(
-            _filterModel.searchQuery.isNotEmpty
-                ? '尝试其他标题或 Bangumi ID'
-                : '可以在番剧详情页创建 BMF 关联',
+            _filterModel.totalCount == 0
+                ? '在番剧详情页关联 RSS 或本地目录后，会显示在这里'
+                : '尝试其他标题、季度或关联状态',
             style: BTTypography.caption(context),
           ),
+          if (_filterModel.hasActiveFilters) ...[
+            const SizedBox(height: 12),
+            Button(onPressed: _resetFilters, child: const Text('清除全部筛选')),
+          ],
         ],
       ),
     );

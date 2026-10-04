@@ -7,6 +7,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../core/theme/bt_theme.dart';
 import '../../models/rss/anibt_filters.dart';
 import '../../models/rss/rss.dart';
 import '../../request/rss/anibt_api.dart';
@@ -261,7 +262,7 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
             );
           },
         ),
-        if (!_filters.isDefault) ...[
+        if (_filters.tagCount > 0 || !_filters.isDefault) ...[
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -308,7 +309,10 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
               Text(
                 _loadFailed
                     ? '加载失败，请点击刷新重试'
-                    : (_filters.isDefault ? '暂无 RSS 数据' : '未找到匹配的资源'),
+                    : (_filters.queryParameters.isEmpty &&
+                              !_filters.usesLocalResults
+                          ? '暂无 RSS 数据'
+                          : '未找到匹配的资源'),
               ),
               if (!_loadFailed && !_filters.isDefault) ...[
                 const SizedBox(height: 12),
@@ -325,7 +329,7 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
       controller: _scrollController,
       // Build and repaint only viewport rows and the nearby scroll cache.
       addRepaintBoundaries: true,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.all(12),
       itemCount: items.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) => RssAnibtCardFluent(
@@ -359,7 +363,10 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
           ],
         ),
       ),
-      content: buildContent(),
+      content: ColoredBox(
+        color: BTColors.surfaceSecondary(context),
+        child: buildContent(),
+      ),
     );
   }
 }

@@ -8,6 +8,7 @@ import '../../providers/bmf_providers.dart';
 import '../../store/app_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import '../../ui/bt_select.dart';
 
 Future<void> applyMikanMirror({
   required WidgetRef ref,
@@ -31,8 +32,9 @@ Future<void> applyMikanMirror({
 
 class MikanMirrorCombo extends ConsumerWidget {
   final bool showCustomButton;
+  final double? width;
 
-  const MikanMirrorCombo({super.key, this.showCustomButton = true});
+  const MikanMirrorCombo({super.key, this.showCustomButton = true, this.width});
 
   Future<void> tryEditUrl(BuildContext context, WidgetRef ref) async {
     var current = ref.read(appStoreProvider).mikanRss;
@@ -73,19 +75,23 @@ class MikanMirrorCombo extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ComboBox<String>(
-          value: current,
-          items: [
-            for (var value in values)
-              ComboBoxItem(
-                value: value,
-                child: Text(BTAppConstants.mikanMirrorLabel(value)),
-              ),
-          ],
-          onChanged: (value) async {
-            if (value == null || value == current) return;
-            await applyMikanMirror(ref: ref, context: context, input: value);
-          },
+        SizedBox(
+          width: width,
+          child: BtSelect<String>(
+            value: current,
+            isExpanded: width != null,
+            items: [
+              for (var value in values)
+                ComboBoxItem(
+                  value: value,
+                  child: Text(BTAppConstants.mikanMirrorLabel(value)),
+                ),
+            ],
+            onChanged: (value) async {
+              if (value == null || value == current) return;
+              await applyMikanMirror(ref: ref, context: context, input: value);
+            },
+          ),
         ),
         if (showCustomButton) ...[
           SizedBox(width: 8),

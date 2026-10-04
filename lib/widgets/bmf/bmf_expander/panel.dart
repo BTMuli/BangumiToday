@@ -6,7 +6,29 @@ Widget _buildFixedResourcePanel(
   required Widget header,
   required Widget content,
   ScrollController? controller,
+  bool embedded = false,
 }) {
+  if (embedded) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+          child: header,
+        ),
+        Expanded(
+          child: Scrollbar(
+            controller: controller,
+            thumbVisibility: controller != null,
+            child: SingleChildScrollView(
+              controller: controller,
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: content,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
   return Container(
     clipBehavior: Clip.antiAlias,
     decoration: BoxDecoration(

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../core/services/download_service.dart';
+import '../../core/theme/bt_theme.dart';
 import '../../core/utils/tool_func.dart';
 import '../../models/rss/anibt_filters.dart';
 import '../../models/rss/rss.dart';
@@ -15,6 +16,9 @@ import '../../store/bt_download_store.dart';
 import '../../store/nav_store.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/rss/anibt_tag_chip.dart';
+import '../../widgets/rss/rss_release_surface.dart';
+import 'rss_release_data.dart';
+import 'rss_release_detail_dialog.dart';
 
 class RssAnibtCardFluent extends ConsumerStatefulWidget {
   final RssItem item;
@@ -34,15 +38,15 @@ class RssAnibtCardFluent extends ConsumerStatefulWidget {
 
 class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
     with AutomaticKeepAliveClientMixin {
-  final ValueNotifier<bool> _hovered = ValueNotifier(false);
-  bool _downloading = false;
+  final ValueNotifier<bool> _downloading = ValueNotifier(false);
+  bool _showingDetails = false;
 
   @override
-  bool get wantKeepAlive => _downloading;
+  bool get wantKeepAlive => _downloading.value || _showingDetails;
 
   @override
   void dispose() {
-    _hovered.dispose();
+    _downloading.dispose();
     super.dispose();
   }
 
@@ -108,8 +112,8 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
   Future<void> _download() async {
     var magnet = magnetUri;
     var torrent = torrentUrl;
-    if (_downloading || (magnet == null && torrent == null)) return;
-    setState(() => _downloading = true);
+    if (_downloading.value || (magnet == null && torrent == null)) return;
+    _downloading.value = true;
     updateKeepAlive();
     try {
       var saveDir = await getDirectoryPath();
@@ -143,7 +147,7 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
       if (mounted) await BtInfobar.error(context, error.toString());
     } finally {
       if (mounted) {
-        setState(() => _downloading = false);
+        _downloading.value = false;
         updateKeepAlive();
       }
     }
@@ -314,42 +318,140 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
     );
   }
 
-  Widget _buildActions(Color accentColor) {
+  Future<void> _showDetails() async {
+    var size = contentLength;
+    var release = RssReleaseData(
+      item: item,
+      title: releaseTitle,
+      categories: item.categories
+          .map((category) => category.value?.trim())
+          .whereType<String>()
+          .where((text) => text.isNotEmpty)
+          .toList(),
+      tags: [
+        ?metadata?.episodeLabel,
+        ?metadata?.version,
+        ?metadata?.resolution,
+        ...?metadata?.languages.map(_languageLabel),
+        ?subtitleLabel,
+        ?metadata?.format,
+        ...?metadata?.customTags,
+      ],
+      author: metadata?.groupName ?? item.author,
+      sizeLabel: size == null ? null : filesize(size),
+      publishedAt: publishedAt,
+      downloadUrl: magnetUri ?? torrentUrl,
+      detailUrl: releaseUrl,
+    );
+    _showingDetails = true;
+    updateKeepAlive();
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        dismissWithEsc: true,
+        builder: (dialogContext) => RssReleaseDetailDialog(
+          release: release,
+          markdownDescription: true,
+          baseUrl: Uri.tryParse(releaseUrl ?? AnibtAPI.baseUrl),
+          onTapUrl: _openDescriptionLink,
+          actions: Row(
+            children: [
+              const Spacer(),
+              _buildActions(
+                FluentTheme.of(dialogContext).accentColor,
+                includeDetails: false,
+              ),
+              const SizedBox(width: 12),
+              Button(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('关闭'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        _showingDetails = false;
+        updateKeepAlive();
+      }
+    }
+  }
+
+  Future<bool> _openDescriptionLink(String url) async {
+    var uri = Uri.tryParse(url);
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty) {
+      return false;
+    }
+    try {
+      var opened = await launchUrlString(url);
+      if (!opened && mounted) await BtInfobar.error(context, '无法打开链接');
+      return opened;
+    } catch (error) {
+      if (mounted) await BtInfobar.error(context, error.toString());
+      return false;
+    }
+  }
+
+  Widget _buildActions(Color accentColor, {bool includeDetails = true}) {
     var bgmId = metadata?.bgmId;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (bgmId != null && bgmId > 0)
+    return ValueListenableBuilder<bool>(
+      valueListenable: _downloading,
+      builder: (context, downloading, _) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (includeDetails)
+            Tooltip(
+              message: '查看资源详情',
+              child: IconButton(
+                icon: Icon(FluentIcons.info, size: 16, color: accentColor),
+                onPressed: _showDetails,
+              ),
+            ),
           Tooltip(
-            message: '查看番剧详情',
+            message: downloading
+                ? '正在添加下载任务'
+                : magnetUri == null
+                ? '种子下载'
+                : '磁力下载',
             child: IconButton(
-              icon: Icon(FluentIcons.info, size: 16, color: accentColor),
-              onPressed: _openSubject,
+              icon: downloading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: ProgressRing(strokeWidth: 2),
+                    )
+                  : Icon(FluentIcons.download, size: 16, color: accentColor),
+              onPressed:
+                  downloading || (magnetUri == null && torrentUrl == null)
+                  ? null
+                  : _download,
             ),
           ),
-        Tooltip(
-          message: magnetUri == null ? '种子下载' : '磁力下载',
-          child: IconButton(
-            icon: _downloading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: ProgressRing(strokeWidth: 2),
-                  )
-                : Icon(FluentIcons.download, size: 16, color: accentColor),
-            onPressed: _downloading || (magnetUri == null && torrentUrl == null)
-                ? null
-                : _download,
+          if (bgmId != null && bgmId > 0)
+            Tooltip(
+              message: '打开番剧详情',
+              child: IconButton(
+                icon: Icon(
+                  FluentIcons.open_in_new_tab,
+                  size: 16,
+                  color: accentColor,
+                ),
+                onPressed: _openSubject,
+              ),
+            ),
+          Tooltip(
+            message: '在浏览器打开资源页面',
+            child: IconButton(
+              icon: Icon(FluentIcons.edge_logo, size: 16, color: accentColor),
+              onPressed: releaseUrl == null ? null : _openLink,
+            ),
           ),
-        ),
-        Tooltip(
-          message: '打开发布详情',
-          child: IconButton(
-            icon: Icon(FluentIcons.edge_logo, size: 16, color: accentColor),
-            onPressed: releaseUrl == null ? null : _openLink,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -358,9 +460,7 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
     super.build(context);
     var theme = FluentTheme.of(context);
     var accentColor = theme.accentColor;
-    var secondaryColor = theme.brightness == Brightness.light
-        ? Colors.grey[130]
-        : Colors.grey[100];
+    var secondaryColor = BTColors.textSecondary(context);
     var title = metadata?.animeTitle ?? releaseTitle;
     var specifications = [
       ?metadata?.episodeLabel,
@@ -441,6 +541,8 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
           children: [
             heading,
             const SizedBox(height: 8),
+            tags,
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -453,39 +555,11 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
                 _buildActions(accentColor),
               ],
             ),
-            const SizedBox(height: 8),
-            tags,
           ],
         );
       },
     );
 
-    return MouseRegion(
-      onEnter: (_) => _hovered.value = true,
-      onExit: (_) => _hovered.value = false,
-      child: ValueListenableBuilder<bool>(
-        valueListenable: _hovered,
-        child: content,
-        builder: (context, hovered, child) => AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color:
-                (theme.brightness == Brightness.light
-                        ? Colors.white
-                        : Colors.grey[190])
-                    .withValues(alpha: hovered ? 0.95 : 0.85),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: theme.brightness == Brightness.light
-                  ? Colors.grey[60]
-                  : Colors.grey[130],
-            ),
-          ),
-          child: child,
-        ),
-      ),
-    );
+    return RssReleaseSurface(child: content);
   }
 }

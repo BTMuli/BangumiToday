@@ -7,6 +7,7 @@ class BmfFileExpander extends ConsumerStatefulWidget {
   final Future<void> Function()? onDelete;
   final bool contentScrollable;
   final bool expandable;
+  final bool embedded;
   final ScrollController? contentScrollController;
 
   const BmfFileExpander({
@@ -17,6 +18,7 @@ class BmfFileExpander extends ConsumerStatefulWidget {
     this.onDelete,
     this.contentScrollable = true,
     this.expandable = true,
+    this.embedded = false,
     this.contentScrollController,
   });
 
@@ -262,8 +264,13 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     );
     var header = Row(
       children: [
-        Text('下载目录', style: BTTypography.subtitle(context)),
-        if (files.isNotEmpty) ...[
+        Text(
+          widget.embedded ? '${files.length} 个文件' : '下载目录',
+          style: widget.embedded
+              ? BTTypography.caption(context)
+              : BTTypography.subtitle(context),
+        ),
+        if (!widget.embedded && files.isNotEmpty) ...[
           SizedBox(width: 8),
           _buildCountBadge(context, files.length),
         ],
@@ -347,6 +354,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
         header: header,
         content: buildContent(),
         controller: widget.contentScrollController,
+        embedded: widget.embedded,
       );
     }
 
