@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as path;
 
+import 'playback_assets.dart';
+
 /// Shares the bundled UI fonts with mpv without installing system fonts.
 abstract final class PlaybackSubtitles {
   static const fontFiles = [
@@ -22,20 +24,13 @@ abstract final class PlaybackSubtitles {
           ? path.Style.windows
           : path.Style.posix,
     );
-    var directory = paths.dirname(executable);
-    var assets = switch (operatingSystem) {
-      'windows' => paths.join(directory, 'data', 'flutter_assets'),
-      'macos' => paths.join(
-        directory,
-        '..',
-        'Frameworks',
-        'App.framework',
-        'Resources',
-        'flutter_assets',
+    return paths.join(
+      PlaybackAssets.directory(
+        executable: executable,
+        operatingSystem: operatingSystem,
       ),
-      _ => throw UnsupportedError('不支持的平台：$operatingSystem'),
-    };
-    return paths.normalize(paths.join(assets, 'assets', 'fonts'));
+      'fonts',
+    );
   }
 
   /// Configure before the first media load, when libass reads its font folder.
@@ -59,6 +54,7 @@ abstract final class PlaybackSubtitles {
       'sub-font': 'Sarasa Mono SC',
       'embeddedfonts': 'yes',
       'sub-ass-override': 'no',
+      'blend-subtitles': 'no',
       // These defaults style unstyled text, preserving ASS/SSA script styles.
       'sub-color': '#FFFFFF',
       'sub-border-color': '#202020',

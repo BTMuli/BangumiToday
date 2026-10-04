@@ -1,0 +1,138 @@
+import 'dart:math' as math;
+
+import 'playback_fit.dart';
+
+/// Only presets with native execution evidence are selectable.
+enum PlaybackUpscaleMode {
+  off('关闭'),
+  light('轻量');
+
+  const PlaybackUpscaleMode(this.label);
+  final String label;
+
+  static PlaybackUpscaleMode parse(String? value) =>
+      values.where((mode) => mode.name == value).firstOrNull ?? off;
+}
+
+typedef PlaybackPixels = ({int width, int height});
+typedef PlaybackViewport = ({double width, double height, double dpr});
+typedef PlaybackVideoSource = ({int width, int height, String? gamma});
+
+PlaybackVideoSource? playbackVideoSource({
+  int? width,
+  int? height,
+  int? rotation,
+  String? gamma,
+}) {
+  if (width == null || height == null || width <= 0 || height <= 0) return null;
+  var rotated = (rotation ?? 0) % 180 == 90;
+  return (
+    width: rotated ? height : width,
+    height: rotated ? width : height,
+    gamma: gamma,
+  );
+}
+
+class PlaybackUpscalePlan {
+  const PlaybackUpscalePlan(this.reason, [this.output]);
+  final String reason;
+  final PlaybackPixels? output;
+  bool get enabled => output != null;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PlaybackUpscalePlan &&
+      reason == other.reason &&
+      output == other.output;
+
+  @override
+  int get hashCode => Object.hash(reason, output);
+}
+
+bool playbackSoftwareRenderer(String renderer) {
+  var text = renderer.toLowerCase();
+  return [
+    'software rasterizer',
+    'software renderer',
+    'llvmpipe',
+    'softpipe',
+    'swiftshader',
+    'microsoft basic render',
+    'warp',
+    'mesa x11',
+  ].any(text.contains);
+}
+
+PlaybackUpscalePlan playbackUpscalePlan({
+  required PlaybackUpscaleMode mode,
+  required PlaybackFit fit,
+  required PlaybackVideoSource? source,
+  required PlaybackViewport? viewport,
+  required String? renderer,
+  bool previouslyEnabled = false,
+  int? maximumTextureSize,
+}) {
+  if (mode == PlaybackUpscaleMode.off) {
+    return const PlaybackUpscalePlan('已关闭');
+  }
+  if (source == null || source.width <= 0 || source.height <= 0) {
+    return const PlaybackUpscalePlan('等待视频参数');
+  }
+  var gamma = source.gamma?.toLowerCase();
+  if (['pq', 'st2084', 'hlg', 'arib-std-b67'].contains(gamma)) {
+    return const PlaybackUpscalePlan('HDR 暂未开放');
+  }
+  if (![
+    'bt.1886',
+    'srgb',
+    'linear',
+    'gamma1.8',
+    'gamma2.2',
+    'gamma2.8',
+    'prophoto',
+  ].contains(gamma)) {
+    return const PlaybackUpscalePlan('等待确认 SDR 色彩');
+  }
+  if (viewport == null ||
+      [
+        viewport.width,
+        viewport.height,
+        viewport.dpr,
+      ].any((value) => !value.isFinite || value <= 0)) {
+    return const PlaybackUpscalePlan('等待可见画面');
+  }
+  if (renderer == null || renderer.isEmpty) {
+    return const PlaybackUpscalePlan('等待渲染器信息');
+  }
+  if (playbackSoftwareRenderer(renderer)) {
+    return const PlaybackUpscalePlan('软件渲染器暂不支持');
+  }
+  var horizontal = viewport.width * viewport.dpr / source.width;
+  var vertical = viewport.height * viewport.dpr / source.height;
+  var demand = fit == PlaybackFit.fit
+      ? math.min(horizontal, vertical)
+      : math.max(horizontal, vertical);
+  if (!demand.isFinite || demand <= (previouslyEnabled ? 1.01 : 1.03)) {
+    return const PlaybackUpscalePlan('当前无需放大');
+  }
+  // This is an output budget, not a claim about unknown driver limits or the
+  // shader's intermediate allocations. Native failures still require fallback.
+  var edge = math.min(4096, maximumTextureSize ?? 4096);
+  var scale = [
+    demand,
+    4.0,
+    edge / math.max(source.width, source.height),
+    math.sqrt(3840 * 2160 / source.width / source.height),
+  ].reduce(math.min);
+  var output = (
+    width: (source.width * scale).floor(),
+    height: (source.height * scale).floor(),
+  );
+  if (output.width <= source.width || output.height <= source.height) {
+    return const PlaybackUpscalePlan('输出预算不足，保持普通播放');
+  }
+  return PlaybackUpscalePlan(
+    scale + 0.001 < demand ? '已配置 · 输出受预算限制' : '已配置',
+    output,
+  );
+}
