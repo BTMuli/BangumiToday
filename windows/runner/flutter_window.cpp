@@ -29,8 +29,8 @@ bool FlutterWindow::OnCreate() {
   }
   DesktopMultiWindowSetWindowCreatedCallback([](void* controller) {
     auto* view = static_cast<flutter::FlutterViewController*>(controller);
-    // Frameless playback windows need an explicit rounding preference. DWM
-    // keeps the corners rounded during resizing and squares screen fullscreen.
+    // Frameless playback windows need an explicit rounding preference. The
+    // playback frame channel disables rounding when entering screen fullscreen.
     // Use numeric values so older Windows SDK headers remain supported.
     constexpr DWORD kWindowCornerPreference = 33;  // DWMWA_WINDOW_CORNER_PREFERENCE
     constexpr DWORD kRoundCorners = 2;  // DWMWCP_ROUND

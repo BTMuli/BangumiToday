@@ -1,5 +1,9 @@
 // Dart imports:
 import 'dart:async';
+import 'dart:io';
+
+// Flutter imports:
+import 'package:flutter/services.dart';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
@@ -26,6 +30,15 @@ class PlaybackWindowMode extends ChangeNotifier {
 
   /// 未载入视频（停止播放）时数字键仍可用的基准尺寸。
   static const defaultVideoSize = Size(1920, 1080);
+
+  static const _frameChannel = MethodChannel(
+    'bangumi_today/playback_window_frame',
+  );
+
+  Future<void> _setFullscreenFrame(bool fullscreen) async {
+    if (!Platform.isWindows) return;
+    await _frameChannel.invokeMethod<void>('setFullscreenFrame', fullscreen);
+  }
 
   bool screenFullscreen = false;
   bool transitioning = false;
@@ -291,6 +304,16 @@ class PlaybackWindowMode extends ChangeNotifier {
       windowButtonVisibility: false,
     );
     await windowManager.setFullScreen(true);
+    try {
+      await _setFullscreenFrame(true);
+    } catch (_) {
+      // Restore both native bounds and decorations if completing the frame
+      // change fails, so the video route and native window stay in sync.
+      await windowManager.setFullScreen(false);
+      await windowManager.setAsFrameless();
+      await _setFullscreenFrame(false);
+      rethrow;
+    }
     screenFullscreen = true;
   });
 
@@ -301,6 +324,7 @@ class PlaybackWindowMode extends ChangeNotifier {
     await windowManager.setAsFrameless();
     await windowManager.setResizable(true);
     await windowManager.setMaximizable(true);
+    await _setFullscreenFrame(false);
     await _fitVideoBounds(await windowManager.getBounds());
   });
 
