@@ -8,6 +8,8 @@ enum _PlaybackCommand {
   forward5,
   back10,
   forward10,
+  previousChapter,
+  nextChapter,
   volumeUp,
   volumeDown,
   mute,
@@ -58,6 +60,12 @@ const _playbackShortcuts = [
   ]),
   _PlaybackShortcut(_PlaybackCommand.forward10, 'L', '前进 10 秒', [
     SingleActivator(LogicalKeyboardKey.keyL),
+  ]),
+  _PlaybackShortcut(_PlaybackCommand.previousChapter, 'A', '上一章节', [
+    SingleActivator(LogicalKeyboardKey.keyA),
+  ]),
+  _PlaybackShortcut(_PlaybackCommand.nextChapter, 'D', '下一章节', [
+    SingleActivator(LogicalKeyboardKey.keyD),
   ]),
   _PlaybackShortcut(_PlaybackCommand.volumeUp, '↑', '音量增加 5%', [
     SingleActivator(LogicalKeyboardKey.arrowUp),

@@ -20,6 +20,7 @@ import 'package:url_launcher/url_launcher.dart';
 // Project imports:
 import '../../core/errors/playback_unavailable.dart';
 import '../../core/theme/bt_theme.dart';
+import '../../models/playback/playback_chapter.dart';
 import '../../models/playback/playback_episode_layout.dart';
 import '../../models/playback/playback_fit.dart';
 import '../../models/playback/playback_history_group.dart';

@@ -9,11 +9,15 @@ class _PlaybackSeekBar extends StatefulWidget {
   const _PlaybackSeekBar({
     super.key,
     required this.player,
+    required this.chapters,
+    required this.onChapter,
     required this.run,
     required this.onInteraction,
   });
 
   final Player player;
+  final List<PlaybackChapter> chapters;
+  final ValueChanged<PlaybackChapter> onChapter;
   final Future<void> Function(Future<void> Function()) run;
   final void Function(bool) onInteraction;
 
@@ -111,8 +115,42 @@ class _PlaybackSeekBarState extends State<_PlaybackSeekBar> {
     widget.onInteraction(false);
   }
 
+  PlaybackChapter? _nearChapter(double dx) {
+    if (_durationMs <= 0 || _trackWidth <= 0) return null;
+    PlaybackChapter? nearest;
+    var distance = 8.0;
+    for (var chapter in widget.chapters) {
+      var milliseconds = chapter.start.inMicroseconds / 1000;
+      if (milliseconds >= _durationMs) continue;
+      var x = milliseconds / _durationMs * _trackWidth;
+      var delta = (x - dx).abs();
+      if (delta <= distance) {
+        nearest = chapter;
+        distance = delta;
+      }
+    }
+    return nearest;
+  }
+
+  String get _tooltip {
+    var milliseconds = _dragging ? _dragMs : _hoverFraction * _durationMs;
+    var time = Duration(milliseconds: milliseconds.round());
+    var chapter = _dragging
+        ? playbackChapterAt(widget.chapters, time)
+        : _nearChapter(_hoverFraction * _trackWidth) ??
+              playbackChapterAt(widget.chapters, time);
+    if (chapter == null) return _playbackTime(time);
+    return '${_playbackTime(time)} · ${chapter.title}'
+        '\n章节起点 ${_playbackTime(chapter.start)}（点击刻度跳转）';
+  }
+
   void _tap(TapUpDetails details) {
     if (_trackWidth <= 0 || _durationMs <= 0) return;
+    var chapter = _nearChapter(details.localPosition.dx);
+    if (chapter != null) {
+      widget.onChapter(chapter);
+      return;
+    }
     var fraction = (details.localPosition.dx / _trackWidth).clamp(0.0, 1.0);
     var target = Duration(milliseconds: (fraction * _durationMs).round());
     setState(() => _positionMs = target.inMilliseconds.toDouble());
@@ -153,13 +191,7 @@ class _PlaybackSeekBarState extends State<_PlaybackSeekBar> {
           }
         },
         child: Tooltip(
-          message: _playbackTime(
-            Duration(
-              milliseconds:
-                  ((_dragging ? _dragMs : _hoverFraction * _durationMs))
-                      .round(),
-            ),
-          ),
+          message: _tooltip,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTapUp: _tap,
@@ -206,6 +238,29 @@ class _PlaybackSeekBarState extends State<_PlaybackSeekBar> {
                           ],
                         ),
                       ),
+                      if (_durationMs > 0 && constraints.maxWidth >= 4)
+                        for (var chapter in widget.chapters)
+                          if (chapter.start.inMicroseconds / 1000 < _durationMs)
+                            Positioned(
+                              left:
+                                  (chapter.start.inMicroseconds /
+                                              1000 /
+                                              _durationMs *
+                                              constraints.maxWidth -
+                                          2)
+                                      .clamp(0.0, constraints.maxWidth - 4),
+                              child: IgnorePointer(
+                                child: Container(
+                                  width: 4,
+                                  height: trackHeight + 6,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    border: Border.all(color: Colors.black),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                              ),
+                            ),
                       if (_hovering || _dragging)
                         Align(
                           alignment: Alignment(fraction * 2 - 1, 0),

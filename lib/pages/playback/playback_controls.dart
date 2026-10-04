@@ -207,6 +207,27 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
               ? target.inMilliseconds / duration.inMilliseconds
               : null,
         );
+      case _PlaybackCommand.previousChapter:
+      case _PlaybackCommand.nextChapter:
+        var chapters = _availableChapters;
+        var next = command == _PlaybackCommand.nextChapter;
+        var chapter = adjacentPlaybackChapter(
+          chapters,
+          player.state.position,
+          next: next,
+        );
+        if (chapter == null) {
+          overlay.show(
+            chapters.isEmpty
+                ? '此视频没有章节信息'
+                : next
+                ? '已经是最后一个章节'
+                : '已经是第一个章节',
+            material.Icons.bookmark_outline_rounded,
+          );
+          return;
+        }
+        await _seekChapter(chapter);
       case _PlaybackCommand.volumeUp:
       case _PlaybackCommand.volumeDown:
       case _PlaybackCommand.mute:
@@ -278,6 +299,56 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
       case _PlaybackCommand.screenshot:
         await _copyScreenshot();
     }
+  }
+
+  List<PlaybackChapter> get _availableChapters {
+    var duration = widget.player.state.duration;
+    return [
+      for (var chapter in widget.store.chapters)
+        if (duration <= Duration.zero || chapter.start < duration) chapter,
+    ];
+  }
+
+  Future<void> _seekChapter(PlaybackChapter chapter) async {
+    if (widget.store.loading || !mounted) return;
+    await widget.player.seek(chapter.start);
+    widget.overlay.show(
+      chapter.title,
+      material.Icons.bookmark_outline_rounded,
+      detail: _playbackTime(chapter.start),
+    );
+  }
+
+  List<MenuFlyoutItemBase> _chapterItems() {
+    var chapters = _availableChapters;
+    var position = widget.player.state.position;
+    var current = playbackChapterAt(chapters, position);
+    return [
+      for (var next in [false, true])
+        MenuFlyoutItem(
+          text: Text(next ? '下一章节' : '上一章节'),
+          trailing: _PlaybackMenuShortcut(next ? 'D' : 'A'),
+          onPressed:
+              !widget.store.loading &&
+                  adjacentPlaybackChapter(chapters, position, next: next) !=
+                      null
+              ? () => _execute(
+                  next
+                      ? _PlaybackCommand.nextChapter
+                      : _PlaybackCommand.previousChapter,
+                )
+              : null,
+        ),
+      const MenuFlyoutSeparator(),
+      for (var chapter in chapters)
+        ToggleMenuFlyoutItem(
+          text: Text('${_playbackTime(chapter.start)} · ${chapter.title}'),
+          value: identical(chapter, current),
+          onChanged: widget.store.loading
+              ? null
+              : (_) => unawaited(widget.run(() => _seekChapter(chapter))),
+        ),
+    ];
   }
 
   Future<void> _copyScreenshot() async {
@@ -530,6 +601,14 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         ],
         if (width > 620) const MaterialDesktopVolumeButton(),
         const Spacer(),
+        if (store.chapters.isNotEmpty)
+          Builder(
+            builder: (buttonContext) => _videoButton(
+              material.Icons.bookmarks_outlined,
+              '章节（A / D）',
+              () => _showButtonMenu(buttonContext, _chapterItems),
+            ),
+          ),
         if (width > 340)
           _PlaybackRateButton(player: player, onPressed: _showRateMenu),
         // 内嵌播放页已有侧栏时不重复提供选集/记录入口。
@@ -769,6 +848,12 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           onChanged: (_) => _execute(_PlaybackCommand.mute),
         ),
         const MenuFlyoutSeparator(),
+        if (widget.store.chapters.isNotEmpty)
+          MenuFlyoutSubItem(
+            text: const Text('章节'),
+            leading: const Icon(material.Icons.bookmarks_outlined, size: 16),
+            items: (_) => _chapterItems(),
+          ),
         MenuFlyoutSubItem(
           text: const Text('播放设置'),
           leading: const Icon(material.Icons.settings_outlined, size: 16),
@@ -855,6 +940,10 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                           _PlaybackSeekBar(
                             key: ValueKey(widget.store.current!.key),
                             player: widget.player,
+                            chapters: _availableChapters,
+                            onChapter: (chapter) => unawaited(
+                              widget.run(() => _seekChapter(chapter)),
+                            ),
                             run: widget.run,
                             onInteraction: _seekInteraction,
                           ),

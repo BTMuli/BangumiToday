@@ -13,6 +13,7 @@ import 'package:path/path.dart' as path;
 import '../core/errors/playback_unavailable.dart';
 import '../core/services/native_playback_upscale_backend.dart';
 import '../core/services/playback_assets.dart';
+import '../core/services/playback_chapters.dart';
 import '../core/services/playback_loudness.dart';
 import '../core/services/playback_subtitles.dart';
 import '../core/services/playback_upscaler.dart';
@@ -26,6 +27,7 @@ import '../domain/repositories/playback_history.dart';
 import '../domain/repositories/playback_library.dart';
 import '../domain/repositories/playback_settings.dart';
 import '../domain/repositories/playback_subjects.dart';
+import '../models/playback/playback_chapter.dart';
 import '../models/playback/playback_completion.dart';
 import '../models/playback/playback_episode_layout.dart';
 import '../models/playback/playback_fit.dart';
@@ -96,6 +98,7 @@ class PlaybackStore extends ChangeNotifier {
   double? _aspectRatio;
   Size? _videoSize;
   Player? _player;
+  PlaybackChapters? _chapters;
   bool _manualSubtitles = true;
   VideoController? _video;
   PlaybackUpscaler? _upscaler;
@@ -130,6 +133,7 @@ class PlaybackStore extends ChangeNotifier {
   bool get isClosed => _closed;
 
   Player? get player => _player;
+  List<PlaybackChapter> get chapters => _chapters?.chapters ?? const [];
   bool get automaticSubtitles => !_manualSubtitles;
   VideoController? get video => _video;
   PlaybackUpscaler? get upscaler => _upscaler;
@@ -267,22 +271,30 @@ class PlaybackStore extends ChangeNotifier {
         earlyLogs.add(value);
       }
     });
+    var chapters = PlaybackChapters(
+      player.platform as NativePlayer,
+      onChanged: _notify,
+    );
     try {
       await PlaybackSubtitles.configure(player);
+      await chapters.initialize();
       if (Platform.isWindows) {
         await PlaybackLoudness.apply(player, _loudnessEnabled);
       }
     } catch (_) {
+      chapters.close();
       await logs.cancel();
       await _disposePlayer(player);
       rethrow;
     }
     if (_closed) {
+      chapters.close();
       await logs.cancel();
       await _disposePlayer(player);
       return;
     }
     _player = player;
+    _chapters = chapters;
     // The full libmpv build adds decoders to hwdec=auto. Keep the original
     // D3D11 copy-back path for media_kit_video's ANGLE texture output.
     _video = VideoController(
@@ -486,6 +498,7 @@ class PlaybackStore extends ChangeNotifier {
     _notify();
     try {
       _manualSubtitles = true;
+      _chapters?.reset();
       await _upscaler?.resetMedia();
       if (_closed) return;
       await _player!.stop();
@@ -501,14 +514,17 @@ class PlaybackStore extends ChangeNotifier {
       // auto-advancing between episodes (usually the same ratio) does not make
       // the playback surface size jump.
       await _player!.setSubtitleTrack(SubtitleTrack.no());
+      _chapters?.reset(active: true);
       await _player!.open(Media(item.filePath, start: position));
       if (_closed) return;
       await _autoSelectSubtitle();
+      await _chapters?.refresh();
       _upscaler?.mediaReady(_videoSource(_player!.state.videoParams));
       _updateTexture();
     } catch (e) {
       index = -1;
       _manualSubtitles = true;
+      _chapters?.reset();
       _session.clear();
       rethrow;
     } finally {
@@ -665,6 +681,7 @@ class PlaybackStore extends ChangeNotifier {
     loading = true;
     try {
       _manualSubtitles = true;
+      _chapters?.reset();
       await _upscaler?.resetMedia();
       if (_closed) return;
       await _player?.stop();
@@ -733,6 +750,7 @@ class PlaybackStore extends ChangeNotifier {
       loading = true;
       try {
         _manualSubtitles = true;
+        _chapters?.reset();
         await beforeVideoDispose?.call();
         await _upscaler?.resetMedia();
         if (_closed) return;
@@ -790,6 +808,7 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _shutdown() async {
     // Refuse newly queued work before waiting for the current operation.
     _closed = true;
+    _chapters?.close();
     _session.close();
     _saveTimer?.cancel();
     var pending = _operation;
