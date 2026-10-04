@@ -26,6 +26,7 @@ import '../../models/playback/playback_history_group.dart';
 import '../../models/playback/playback_item.dart';
 import '../../models/playback/playback_on_top.dart';
 import '../../models/playback/playback_rate.dart';
+import '../../models/playback/playback_subtitle.dart';
 import '../../models/playback/playback_upscale.dart';
 import '../../providers/episode_mark_providers.dart';
 import '../../providers/playback_window_providers.dart';
@@ -226,7 +227,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
       ],
     );
     if (file != null) {
-      await _store.player?.setSubtitleTrack(SubtitleTrack.uri(file.path));
+      await _store.setSubtitleTrack(SubtitleTrack.uri(file.path));
     }
   }
 

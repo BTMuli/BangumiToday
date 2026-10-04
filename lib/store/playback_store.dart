@@ -32,6 +32,7 @@ import '../models/playback/playback_fit.dart';
 import '../models/playback/playback_history_group.dart';
 import '../models/playback/playback_item.dart';
 import '../models/playback/playback_rate.dart';
+import '../models/playback/playback_subtitle.dart';
 import '../models/playback/playback_upscale.dart';
 import '../providers/bangumi_providers.dart';
 import '../providers/bmf_providers.dart';
@@ -95,6 +96,7 @@ class PlaybackStore extends ChangeNotifier {
   double? _aspectRatio;
   Size? _videoSize;
   Player? _player;
+  bool _manualSubtitles = true;
   VideoController? _video;
   PlaybackUpscaler? _upscaler;
   PlaybackUpscaleMode _upscaleMode = PlaybackUpscaleMode.off;
@@ -128,6 +130,7 @@ class PlaybackStore extends ChangeNotifier {
   bool get isClosed => _closed;
 
   Player? get player => _player;
+  bool get automaticSubtitles => !_manualSubtitles;
   VideoController? get video => _video;
   PlaybackUpscaler? get upscaler => _upscaler;
   PlaybackUpscaleMode get upscaleMode => _upscaleMode;
@@ -316,6 +319,16 @@ class PlaybackStore extends ChangeNotifier {
     }
     _subscriptions.addAll([
       logs,
+      player.stream.tracks.listen((_) {
+        if (_closed || completed || _manualSubtitles || current == null) return;
+        var sessionId = _session.id;
+        unawaited(
+          _serial(() async {
+            if (_session.id != sessionId || current == null) return;
+            await _autoSelectSubtitle();
+          }).catchError((Object _) {}),
+        );
+      }),
       player.stream.position.listen((value) {
         if (!_closed && !loading) position = value;
       }),
@@ -472,6 +485,7 @@ class PlaybackStore extends ChangeNotifier {
     error = null;
     _notify();
     try {
+      _manualSubtitles = true;
       await _upscaler?.resetMedia();
       if (_closed) return;
       await _player!.stop();
@@ -479,18 +493,22 @@ class PlaybackStore extends ChangeNotifier {
       playlist = nextPlaylist;
       index = nextIndex;
       _session.begin(item);
+      _manualSubtitles = false;
       position = previous?.resumePosition ?? Duration.zero;
       duration = Duration(milliseconds: previous?.durationMs ?? 0);
       completed = false;
       // Keep the previous aspect ratio until the new stream reports its own, so
       // auto-advancing between episodes (usually the same ratio) does not make
       // the playback surface size jump.
+      await _player!.setSubtitleTrack(SubtitleTrack.no());
       await _player!.open(Media(item.filePath, start: position));
       if (_closed) return;
+      await _autoSelectSubtitle();
       _upscaler?.mediaReady(_videoSource(_player!.state.videoParams));
       _updateTexture();
     } catch (e) {
       index = -1;
+      _manualSubtitles = true;
       _session.clear();
       rethrow;
     } finally {
@@ -510,6 +528,40 @@ class PlaybackStore extends ChangeNotifier {
     await _player?.pause();
     await _save();
   });
+
+  Future<void> _autoSelectSubtitle() async {
+    var player = _player;
+    if (_closed || player == null || _manualSubtitles || current == null) {
+      return;
+    }
+    var id = preferredPlaybackSubtitle(
+      player.state.tracks.subtitle.map(
+        (track) => (id: track.id, title: track.title, language: track.language),
+      ),
+    );
+    if (player.state.track.subtitle.id == id) return;
+    var track = player.state.tracks.subtitle.firstWhere(
+      (track) => track.id == id,
+      orElse: SubtitleTrack.no,
+    );
+    await player.setSubtitleTrack(track);
+  }
+
+  Future<void> setSubtitleTrack(SubtitleTrack track) {
+    var sessionId = _session.id;
+    var automatic = track.id == 'auto';
+    // Mark the manual choice before queued automatic selections can run.
+    _manualSubtitles = !automatic;
+    return _serial(() async {
+      if (_session.id != sessionId || current == null) return;
+      if (!automatic) {
+        await _player?.setSubtitleTrack(track);
+      } else {
+        await _autoSelectSubtitle();
+      }
+      _notify();
+    });
+  }
 
   Future<void> _loadPreferences() {
     var pending = _preferencesFuture;
@@ -612,6 +664,7 @@ class PlaybackStore extends ChangeNotifier {
     await _save();
     loading = true;
     try {
+      _manualSubtitles = true;
       await _upscaler?.resetMedia();
       if (_closed) return;
       await _player?.stop();
@@ -679,6 +732,7 @@ class PlaybackStore extends ChangeNotifier {
     if (keys.contains(current?.key)) {
       loading = true;
       try {
+        _manualSubtitles = true;
         await beforeVideoDispose?.call();
         await _upscaler?.resetMedia();
         if (_closed) return;

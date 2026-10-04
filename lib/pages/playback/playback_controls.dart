@@ -1197,11 +1197,19 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
       for (var track in player.state.tracks.subtitle)
         ToggleMenuFlyoutItem(
           text: Text(
-            _playbackTrackLabel(track.id, track.title, track.language),
+            track.id == 'auto' && store.automaticSubtitles
+                ? _playbackAutomaticSubtitleLabel(player)
+                : playbackSubtitleTrackLabel(
+                    track.id,
+                    track.title,
+                    track.language,
+                  ),
           ),
-          value: player.state.track.subtitle.id == track.id,
-          onChanged: (_) =>
-              unawaited(run(() => player.setSubtitleTrack(track))),
+          value: track.id == 'auto'
+              ? store.automaticSubtitles
+              : !store.automaticSubtitles &&
+                    player.state.track.subtitle.id == track.id,
+          onChanged: (_) => unawaited(run(() => store.setSubtitleTrack(track))),
         ),
     ],
   ),
@@ -1263,4 +1271,18 @@ String _playbackTrackLabel(String id, String? title, String? language) {
         (language == null || language.isEmpty))
       '轨道 $id',
   ].join(' · ');
+}
+
+String _playbackAutomaticSubtitleLabel(Player player) {
+  var selected = player.state.tracks.subtitle.firstWhere(
+    (track) => track.id == player.state.track.subtitle.id,
+    orElse: () => player.state.track.subtitle,
+  );
+  if (selected.id == 'auto') return '自动选择';
+  var label = playbackSubtitleTrackLabel(
+    selected.id,
+    selected.title,
+    selected.language,
+  );
+  return '自动选择 · $label';
 }

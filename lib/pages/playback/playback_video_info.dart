@@ -371,7 +371,7 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
                           ),
                         _line(
                           '字幕',
-                          _playbackTrackLabel(
+                          playbackSubtitleTrackLabel(
                             subtitle.id,
                             subtitle.title,
                             subtitle.language,

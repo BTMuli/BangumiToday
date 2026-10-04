@@ -56,6 +56,9 @@ abstract final class PlaybackSubtitles {
       'embeddedfonts': 'yes',
       'sub-ass-override': 'no',
       'blend-subtitles': 'no',
+      // The store selects by language/title once tracks become available.
+      'sid': 'no',
+      'secondary-sid': 'no',
       // These defaults style unstyled text, preserving ASS/SSA script styles.
       'sub-color': '#FFFFFF',
       'sub-border-color': '#202020',
