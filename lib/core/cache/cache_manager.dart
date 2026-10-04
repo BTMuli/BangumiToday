@@ -1,5 +1,6 @@
 // Dart imports:
 import 'dart:convert';
+import 'dart:io';
 
 // Package imports:
 import 'package:hive_ce/hive_ce.dart';
@@ -351,6 +352,16 @@ class BTCacheManager {
   int get memoryCacheSize => _memoryCache.length;
 
   int get diskCacheSize => _box?.length ?? 0;
+
+  /// 应用数据缓存文件占用的字节数。
+  Future<int> getDiskCacheBytes() async {
+    await _ensureReady();
+    var path = _box?.path;
+    if (path == null) return 0;
+    var file = File(path);
+    if (!await file.exists()) return 0;
+    return file.length();
+  }
 }
 
 class CacheKeys {

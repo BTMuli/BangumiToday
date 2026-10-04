@@ -1,12 +1,8 @@
-// Dart imports:
-import 'dart:io';
-
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
 // Project imports:
 import '../../controller/progress_controller.dart';
@@ -53,8 +49,14 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
   /// 缓存大小
   int _cacheSize = 0;
 
+  /// 图片缓存大小
+  int _imageCacheSize = 0;
+
   /// 是否正在计算缓存
   bool _calculatingCache = false;
+
+  /// 是否正在确认或清除缓存
+  bool _clearingCache = false;
 
   @override
   void initState() {
@@ -64,32 +66,29 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
 
   /// 计算缓存大小
   Future<void> _calculateCacheSize() async {
-    if (_calculatingCache) return;
-    _calculatingCache = true;
-    var downloadDir = BTDownloadTool.downloadDir;
+    if (_calculatingCache || !mounted) return;
+    setState(() => _calculatingCache = true);
+    try {
+      var downloadSize = await fileTool.getDirSize(BTDownloadTool.downloadDir);
+      var cacheSize = await BTCacheManager.instance.getDiskCacheBytes();
+      var imageSize = await _getImageCacheSize();
 
-    var downloadSize = await fileTool.getDirSize(downloadDir);
-    var cacheSize = BTCacheManager.instance.diskCacheSize;
-    var imageSize = await _getImageCacheSize();
-
-    if (mounted) {
-      setState(() {
-        _cacheSize = downloadSize + cacheSize + imageSize;
-        _calculatingCache = false;
-      });
+      if (mounted) {
+        setState(() {
+          _cacheSize = downloadSize + cacheSize + imageSize;
+          _imageCacheSize = imageSize;
+        });
+      }
+    } catch (e) {
+      BTLogTool.warn('计算缓存大小失败：$e');
+    } finally {
+      if (mounted) setState(() => _calculatingCache = false);
     }
   }
 
   /// 获取图片缓存大小
   Future<int> _getImageCacheSize() async {
-    try {
-      var tempDir = await getTemporaryDirectory();
-      var cacheDir = Directory('${tempDir.path}/libCachedImageData');
-      if (await cacheDir.exists()) {
-        return await fileTool.getDirSize(cacheDir.path);
-      }
-    } catch (_) {}
-    return 0;
+    return DefaultCacheManager().store.getCacheSize();
   }
 
   /// 删除文件
@@ -309,53 +308,84 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
           BTIconButton(
             icon: FluentIcons.refresh,
             tooltip: '重新计算缓存大小',
-            onPressed: _calculatingCache ? null : _calculateCacheSize,
+            onPressed: _calculatingCache || _clearingCache
+                ? null
+                : _calculateCacheSize,
           ),
           BTIconButton(
             icon: FluentIcons.delete,
-            tooltip: '清除缓存',
-            onPressed: _cacheSize == 0 ? null : _clearCache,
+            tooltip: '清除全部缓存',
+            onPressed: _cacheSize == 0 || _calculatingCache || _clearingCache
+                ? null
+                : _clearCache,
           ),
         ],
       ),
     );
   }
 
-  /// 清除缓存
-  Future<void> _clearCache() async {
-    var check = await showConfirm(
-      context,
-      title: '清除缓存',
-      content: '确定要清除缓存吗？\n这将清除：\n• 应用数据缓存\n• 图片缓存\n• 下载文件',
+  /// 构建图片缓存信息
+  Widget buildImageCacheInfo() {
+    return ListTile(
+      leading: BtIcon(MdiIcons.imageOutline),
+      title: const Text('图片缓存'),
+      subtitle: Text(
+        _calculatingCache
+            ? '正在计算图片缓存大小...'
+            : '缓存大小：${BTFileTool.formatSize(_imageCacheSize)}',
+      ),
+      trailing: BTIconButton(
+        icon: FluentIcons.delete,
+        tooltip: '清除图片缓存',
+        onPressed: _imageCacheSize == 0 || _calculatingCache || _clearingCache
+            ? null
+            : () => _clearCache(imagesOnly: true),
+      ),
     );
-    if (!check || !mounted) return;
+  }
 
-    if (progress.isShow) {
-      progress.update(title: '正在清除缓存', text: '正在清除缓存...');
-    } else {
-      progress = ProgressWidget.show(
-        context,
-        title: '正在清除缓存',
-        text: '正在清除缓存...',
-      );
-    }
-
+  /// 清除缓存
+  Future<void> _clearCache({bool imagesOnly = false}) async {
+    if (_clearingCache || _calculatingCache) return;
+    setState(() => _clearingCache = true);
+    var title = imagesOnly ? '清除图片缓存' : '清除全部缓存';
     try {
-      await BTCacheManager.instance.clear();
-      progress.update(text: '已清除应用缓存');
+      var check = await showConfirm(
+        context,
+        title: title,
+        content: imagesOnly
+            ? '确定要清除图片缓存吗？\n封面和头像将在下次使用时重新加载。'
+            : '确定要清除全部缓存吗？\n这将清除：\n• 应用数据缓存\n• 图片缓存\n• 下载文件',
+      );
+      if (!check || !mounted) return;
+
+      progress = ProgressWidget.show(context, title: title, text: '正在清除缓存...');
+
+      if (!imagesOnly) {
+        await BTCacheManager.instance.clear();
+        progress.update(text: '已清除应用缓存');
+      }
 
       await DefaultCacheManager().emptyCache();
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
       progress.update(text: '已清除图片缓存');
 
-      await fileTool.clearDir(BTDownloadTool.downloadDir);
-      progress.update(text: '已清除下载文件');
+      if (!imagesOnly) {
+        await fileTool.clearDir(BTDownloadTool.downloadDir);
+        progress.update(text: '已清除下载文件');
+      }
 
       progress.end();
       await _calculateCacheSize();
-      if (mounted) await BtInfobar.success(context, '缓存已清除');
+      if (mounted) {
+        await BtInfobar.success(context, imagesOnly ? '图片缓存已清除' : '缓存已清除');
+      }
     } catch (e) {
-      progress.end();
+      if (progress.isShow) progress.end();
       if (mounted) await BtInfobar.error(context, '清除缓存失败：$e');
+    } finally {
+      if (mounted) setState(() => _clearingCache = false);
     }
   }
 
@@ -372,6 +402,7 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
         buildMinimizeToTrayInfo(),
         const BTSettingDivider(),
         buildCacheInfo(),
+        buildImageCacheInfo(),
         buildLogInfo(),
         const BTSettingDivider(),
         buildDownloadInfo(),
