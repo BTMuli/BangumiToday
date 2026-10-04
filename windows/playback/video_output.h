@@ -17,6 +17,7 @@
 #include <render_gl.h>
 
 #include <atomic>
+#include <chrono>
 #include <future>
 #include <memory>
 #include <optional>
@@ -137,6 +138,15 @@ class VideoOutput {
   // Set before draining accepted work on the render thread.
   std::atomic<bool> destroyed_{false};
   PlaybackRenderQueue render_queue_;
+  std::chrono::steady_clock::time_point statistics_since_ =
+      std::chrono::steady_clock::now();
+  std::chrono::steady_clock::time_point last_render_error_{};
+  std::chrono::steady_clock::time_point last_slow_report_{};
+  uint64_t rendered_frames_ = 0;
+  uint64_t slow_frames_ = 0;
+  uint64_t render_errors_ = 0;
+  double render_total_ms_ = 0;
+  double render_max_ms_ = 0;
 
   std::shared_ptr<PlaybackTextureStore> texture_store_ =
       std::make_shared<PlaybackTextureStore>();

@@ -11,6 +11,8 @@
 #include <iostream>
 #include <utility>
 
+#include "native_log.h"
+
 namespace {
 class MutexLock {
  public:
@@ -34,13 +36,19 @@ class MutexLock {
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3d11.lib")
 
-#define FAIL(message)                                                 \
+#define FAIL(message)                                              \
+  BangumiNativeGraphicsError("ANGLESurfaceManager: " message);     \
   std::cout << "media_kit: ANGLESurfaceManager: Failure: " << message \
             << std::endl;                                             \
   return false
 
 #define CHECK_HRESULT(message) \
   if (FAILED(hr)) {            \
+    char detail[128]{};         \
+    _snprintf_s(detail, sizeof(detail), _TRUNCATE,                 \
+                "ANGLE: %s HRESULT=0x%08lX", message,             \
+                static_cast<unsigned long>(hr));                  \
+    BangumiNativeGraphicsError(detail);                           \
     FAIL(message);             \
   }
 
@@ -103,6 +111,11 @@ void ANGLESurfaceManager::Read() {
     Microsoft::WRL::ComPtr<ID3D11Texture2D> snapshot;
     auto hr = d3d_11_device_->CreateTexture2D(&description, nullptr, &snapshot);
     if (FAILED(hr)) {
+      char detail[128]{};
+      _snprintf_s(detail, sizeof(detail), _TRUNCATE,
+                  "CreateTexture2D snapshot HRESULT=0x%08lX",
+                  static_cast<unsigned long>(hr));
+      BangumiNativeGraphicsError(detail);
       throw std::runtime_error("Unable to create the video frame snapshot.");
     }
     Microsoft::WRL::ComPtr<IDXGIResource> resource;
@@ -110,6 +123,11 @@ void ANGLESurfaceManager::Read() {
     hr = snapshot.As(&resource);
     if (SUCCEEDED(hr)) hr = resource->GetSharedHandle(&shared_handle);
     if (FAILED(hr) || shared_handle == nullptr) {
+      char detail[128]{};
+      _snprintf_s(detail, sizeof(detail), _TRUNCATE,
+                  "GetSharedHandle snapshot HRESULT=0x%08lX",
+                  static_cast<unsigned long>(hr));
+      BangumiNativeGraphicsError(detail);
       throw std::runtime_error("Unable to share the video frame snapshot.");
     }
     d3d_11_device_context_->CopyResource(snapshot.Get(),
@@ -137,10 +155,18 @@ void ANGLESurfaceManager::WaitForCopy() {
       return;
     }
     if (result != S_FALSE) {
+      char detail[192]{};
+      _snprintf_s(detail, sizeof(detail), _TRUNCATE,
+                  "GPU frame copy HRESULT=0x%08lX device_removed=0x%08lX",
+                  static_cast<unsigned long>(result),
+                  static_cast<unsigned long>(
+                      d3d_11_device_->GetDeviceRemovedReason()));
+      BangumiNativeGraphicsError(detail);
       throw std::runtime_error("Unable to complete the video frame copy.");
     }
     if (std::chrono::steady_clock::now() - started >=
         std::chrono::milliseconds(100)) {
+      BangumiNativeGraphicsError("GPU frame copy timed out after 100ms");
       throw std::runtime_error("Timed out copying the video frame.");
     }
     ::Sleep(1);
@@ -153,6 +179,10 @@ void ANGLESurfaceManager::MakeCurrent(bool value) {
             : eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE,
                              EGL_NO_CONTEXT);
   if (result == EGL_FALSE) {
+    char detail[128]{};
+    _snprintf_s(detail, sizeof(detail), _TRUNCATE,
+                "eglMakeCurrent failed: EGL error=0x%X", eglGetError());
+    BangumiNativeGraphicsError(detail);
     throw std::runtime_error("Unable to activate the video GL context.");
   }
 }
@@ -265,9 +295,28 @@ bool ANGLESurfaceManager::CreateD3DTexture() {
       __uuidof(IDXGIDevice), (void**)&dxgi_device);
   if (SUCCEEDED(dxgi_device_success) && dxgi_device != nullptr) {
     dxgi_device->SetGPUThreadPriority(5);  // Must be in interval [-7, 7].
+    Microsoft::WRL::ComPtr<IDXGIAdapter> adapter;
+    DXGI_ADAPTER_DESC description{};
+    if (SUCCEEDED(dxgi_device->GetAdapter(&adapter)) &&
+        SUCCEEDED(adapter->GetDesc(&description))) {
+      char name[512]{};
+      WideCharToMultiByte(CP_UTF8, 0, description.Description, -1, name,
+                          sizeof(name), nullptr, nullptr);
+      char detail[768]{};
+      _snprintf_s(detail, sizeof(detail), _TRUNCATE,
+                  "ANGLE GPU=%s vendor=0x%X device=0x%X VRAM_MB=%llu", name,
+                  description.VendorId, description.DeviceId,
+                  static_cast<unsigned long long>(
+                      description.DedicatedVideoMemory / (1024 * 1024)));
+      BangumiNativeLog(detail);
+    }
   }
 
   auto level = d3d_11_device_->GetFeatureLevel();
+  char device_info[128]{};
+  _snprintf_s(device_info, sizeof(device_info), _TRUNCATE,
+              "ANGLE Direct3D feature level=0x%X", static_cast<unsigned>(level));
+  BangumiNativeLog(device_info);
   std::cout << "media_kit: ANGLESurfaceManager: Direct3D Feature Level: "
             << (((unsigned)level) >> 12) << "_"
             << ((((unsigned)level) >> 8) & 0xf) << std::endl;

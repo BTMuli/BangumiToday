@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include "app_links/app_links_plugin_c_api.h"
+#include "crash_handler.h"
 #include "flutter_window.h"
 #include "utils.h"
 
@@ -32,6 +33,8 @@ static bool ForwardAppLinkToWindow(const wchar_t *title) {
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  int dump_exit_code = 0;
+  if (RunCrashDumpHelper(&dump_exit_code)) return dump_exit_code;
   // Forward the protocol URL to the running instance. Prefer exe-path matching
   // so Debug titles like BangumiToday[Dev] still receive the callback; fall
   // back to both window titles if the path comparison misses.
@@ -40,6 +43,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
       ForwardAppLinkToWindow(L"BangumiToday")) {
     return EXIT_SUCCESS;
   }
+
+  NativeDiagnosticsSession diagnostics;
 
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.

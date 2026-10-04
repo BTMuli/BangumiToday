@@ -10,6 +10,8 @@
 
 #include <algorithm>
 
+#include "native_log.h"
+
 // Limit the frame size to 1080p in software rendering.
 // This is for performance reasons & to avoid allocating too much memory.
 #define SW_RENDERING_MAX_WIDTH 1920
@@ -30,7 +32,33 @@ VideoOutput::VideoOutput(int64_t handle, VideoOutputConfiguration configuration,
           [this](std::function<void()> task) {
             thread_pool_ref_->Post(std::move(task));
           },
-          [this](bool force) { ProcessRender(force); }) {
+          [this](bool force) {
+            try {
+              ProcessRender(force);
+            } catch (const std::exception& error) {
+              ++render_errors_;
+              auto now = std::chrono::steady_clock::now();
+              if (render_errors_ == 1 ||
+                  now - last_render_error_ >= std::chrono::seconds(5)) {
+                char message[1024]{};
+                _snprintf_s(message, sizeof(message), _TRUNCATE,
+                            "VideoOutput handle=%p texture=%lld "
+                            "render errors=%llu: %s",
+                            handle_, static_cast<long long>(texture_id_),
+                            static_cast<unsigned long long>(render_errors_),
+                            error.what());
+                BangumiNativeLog(message, true);
+                last_render_error_ = now;
+              }
+              // packaged_task stores this exception in a usually discarded
+              // future. Record it before preserving that existing behavior.
+              throw;
+            } catch (...) {
+              BangumiNativeLog("VideoOutput: unknown render exception", true);
+              throw;
+            }
+          }) {
+  BangumiNativeLog("VideoOutput: creating render context");
   // The constructor must be invoked through the thread pool, because
   // |ANGLESurfaceManager| & libmpv render context creation can conflict with
   // the existing |Render| or |Resize| calls from another |VideoOutput|
@@ -62,7 +90,9 @@ VideoOutput::VideoOutput(int64_t handle, VideoOutputConfiguration configuration,
             {MPV_RENDER_PARAM_INVALID, nullptr},
         };
         // Create render context.
-        if (mpv_render_context_create(&render_context_, handle_, params) == 0) {
+        const auto status =
+            mpv_render_context_create(&render_context_, handle_, params);
+        if (status == 0) {
           mpv_render_context_set_update_callback(
               render_context_,
               [](void* context) {
@@ -75,17 +105,21 @@ VideoOutput::VideoOutput(int64_t handle, VideoOutputConfiguration configuration,
               reinterpret_cast<void*>(this));
           // Set flag to true, indicating that H/W rendering is supported.
           is_hardware_acceleration_enabled = true;
+          BangumiNativeLog("VideoOutput: using hardware rendering");
           std::cout << "media_kit: VideoOutput: Using H/W rendering."
                     << std::endl;
+        } else {
+          BangumiNativeLog(mpv_error_string(status), true);
         }
+      } catch (const std::exception& error) {
+        BangumiNativeLog(error.what(), true);
       } catch (...) {
-        // Do nothing.
-        // Likely received an |std::runtime_error| from |ANGLESurfaceManager|,
-        // which indicates that H/W rendering is not supported.
+        BangumiNativeLog("Unknown hardware rendering initialization error", true);
       }
     }
     if (!is_hardware_acceleration_enabled) {
       surface_manager_.reset();
+      BangumiNativeLog("VideoOutput: falling back to software rendering");
       std::cout << "media_kit: VideoOutput: Using S/W rendering." << std::endl;
       // Allocate a "large enough" buffer ahead of time.
       pixel_buffer_ =
@@ -95,7 +129,9 @@ VideoOutput::VideoOutput(int64_t handle, VideoOutputConfiguration configuration,
           {MPV_RENDER_PARAM_API_TYPE, MPV_RENDER_API_TYPE_SW},
           {MPV_RENDER_PARAM_INVALID, nullptr},
       };
-      if (mpv_render_context_create(&render_context_, handle_, params) == 0) {
+      const auto status =
+          mpv_render_context_create(&render_context_, handle_, params);
+      if (status == 0) {
         mpv_render_context_set_update_callback(
             render_context_,
             [](void* context) {
@@ -106,6 +142,8 @@ VideoOutput::VideoOutput(int64_t handle, VideoOutputConfiguration configuration,
               that->NotifyRender();
             },
             reinterpret_cast<void*>(this));
+      } else {
+        BangumiNativeLog(mpv_error_string(status), true);
       }
     }
   });
@@ -113,6 +151,7 @@ VideoOutput::VideoOutput(int64_t handle, VideoOutputConfiguration configuration,
 }
 
 VideoOutput::~VideoOutput() {
+  BangumiNativeLog("VideoOutput: disposal started");
   render_queue_.Close();
   destroyed_ = true;
   {
@@ -156,12 +195,14 @@ VideoOutput::~VideoOutput() {
       .wait();
   std::lock_guard<std::mutex> lock(texture_store_->mutex);
   texture_id_ = 0;
+  BangumiNativeLog("VideoOutput: disposal completed");
 }
 
 void VideoOutput::NotifyRender() { render_queue_.Request(); }
 
 void VideoOutput::ProcessRender(bool force) {
   if (destroyed_ || !render_context_) return;
+  const auto started = std::chrono::steady_clock::now();
   // A newly sampled texture also schedules this task, even while paused.
   RetireSampledTextures();
   if (surface_manager_) surface_manager_->MakeCurrent(true);
@@ -170,6 +211,37 @@ void VideoOutput::ProcessRender(bool force) {
   if (!force && !(updates & MPV_RENDER_UPDATE_FRAME)) return;
   CheckAndResize();
   Render();
+  const auto finished = std::chrono::steady_clock::now();
+  const auto elapsed =
+      std::chrono::duration<double, std::milli>(finished - started).count();
+  ++rendered_frames_;
+  render_total_ms_ += elapsed;
+  render_max_ms_ = (std::max)(render_max_ms_, elapsed);
+  if (elapsed >= 50) ++slow_frames_;
+  // One aggregate every ten seconds, or promptly for the first slow frame.
+  // No per-frame I/O, and no property calls back into the mpv core.
+  if (finished - statistics_since_ >= std::chrono::seconds(10) ||
+      (elapsed >= 50 &&
+       finished - last_slow_report_ >= std::chrono::seconds(5))) {
+    char message[512]{};
+    _snprintf_s(message, sizeof(message), _TRUNCATE,
+                "VideoOutput handle=%p texture=%lld size=%lldx%lld "
+                "frames=%llu interval_ms=%.1f render_avg_ms=%.2f "
+                "render_max_ms=%.2f slow_frames=%llu errors=%llu",
+                handle_, static_cast<long long>(texture_id_),
+                static_cast<long long>(width()), static_cast<long long>(height()),
+                static_cast<unsigned long long>(rendered_frames_),
+                std::chrono::duration<double, std::milli>(
+                    finished - statistics_since_).count(),
+                render_total_ms_ / rendered_frames_, render_max_ms_,
+                static_cast<unsigned long long>(slow_frames_),
+                static_cast<unsigned long long>(render_errors_));
+    BangumiNativeLog(message);
+    if (slow_frames_ > 0) last_slow_report_ = finished;
+    statistics_since_ = finished;
+    rendered_frames_ = slow_frames_ = 0;
+    render_total_ms_ = render_max_ms_ = 0;
+  }
 }
 
 void VideoOutput::Render() {

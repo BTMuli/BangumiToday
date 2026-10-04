@@ -87,7 +87,8 @@ class PlaybackWindowService extends ChangeNotifier {
 
   Future<void> _serial(Future<void> Function() action) {
     var result = _operations.then((_) => action());
-    _operations = result.catchError((Object failure) {
+    _operations = result.catchError((Object failure, StackTrace stackTrace) {
+      BTLogTool.error(['播放器窗口操作失败：$failure', stackTrace.toString()]);
       error = failure.toString();
       _notify();
     });
@@ -236,6 +237,7 @@ class PlaybackWindowService extends ChangeNotifier {
         return null;
       case 'failed':
         error = playbackString(body, 'message');
+        BTLogTool.error('播放器窗口启动失败：$error');
         if (!session.ready.isCompleted) {
           session.ready.completeError(StateError(error!));
         }
@@ -298,6 +300,9 @@ class PlaybackWindowService extends ChangeNotifier {
       if (!session.cleanupConfirmed) {
         // Native ownership cannot be inferred from a disappeared HWND. Block
         // reopening after an unexpected close until the whole app restarts.
+        if (!session.gone.isCompleted) {
+          BTLogTool.error('播放器意外关闭：generation=${session.identity.generation}');
+        }
         session.closing = true;
         error = '播放器意外关闭，原生释放未确认；请重启应用后再播放';
         if (!session.gone.isCompleted) session.gone.complete();

@@ -7,6 +7,7 @@ project(runner LANGUAGES CXX)
 #
 # Any new source files that you add to the application should be added here.
 add_executable(${BINARY_NAME} WIN32
+  "crash_handler.cpp"
   "flutter_window.cpp"
   "playback_plugin_registrant.cpp"
   "main.cpp"
@@ -20,6 +21,14 @@ add_executable(${BINARY_NAME} WIN32
 # Apply the standard set of build settings. This can be removed for applications
 # that need different build settings.
 apply_standard_settings(${BINARY_NAME})
+
+# The crash handler uses the C++ terminate hook. Flutter's template disables
+# STL exception handling, which makes std::terminate bypass that hook in MSVC.
+get_target_property(_runner_definitions ${BINARY_NAME} COMPILE_DEFINITIONS)
+list(FILTER _runner_definitions EXCLUDE REGEX "^_HAS_EXCEPTIONS=")
+set_property(TARGET ${BINARY_NAME} PROPERTY COMPILE_DEFINITIONS
+  "${_runner_definitions}")
+target_compile_definitions(${BINARY_NAME} PRIVATE _HAS_EXCEPTIONS=1)
 
 # Add preprocessor definitions for the build version.
 target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION=\"${FLUTTER_VERSION}\"")
@@ -36,7 +45,7 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 # PlaybackWindowFramePlugin uses PluginRegistrar from the plugin wrapper.
 target_link_libraries(${BINARY_NAME} PRIVATE
   flutter flutter_wrapper_app flutter_wrapper_plugin)
-target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "dbghelp.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.

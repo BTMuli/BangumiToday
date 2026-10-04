@@ -27,13 +27,14 @@ import 'playback_window_mode.dart';
 
 /// This entry never opens the application database, Hive, tray or downloads.
 Future<void> startPlaybackWindow(WindowController window) async {
-  await windowManager.ensureInitialized();
   try {
+    await BTLogTool.init(scope: 'playback-${window.windowId}');
+    await windowManager.ensureInitialized();
     var identity = PlaybackWindowIdentity.decode(window.arguments);
     var child = _PlaybackWindow(window, identity);
     await child.start();
-  } catch (error) {
-    BTLogTool.error('播放器启动失败：$error');
+  } catch (error, stackTrace) {
+    BTLogTool.error(['播放器启动失败：$error', stackTrace.toString()]);
     // A malformed role must never fall through into the main startup sequence.
     runApp(FluentApp(home: Center(child: Text('播放器启动失败：$error'))));
     await windowManager.setTitle('BangumiToday · 播放器启动失败');
@@ -135,7 +136,8 @@ class _PlaybackWindow with WindowListener {
       await WidgetsBinding.instance.endOfFrame;
       _receive(await call('ready', {'windowId': window.windowId}));
       await windowManager.focus();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      BTLogTool.error(['播放器窗口初始化失败：$error', stackTrace.toString()]);
       // Before opening media, this engine owns no native Player. Report that
       // cleanup explicitly so the main owner can safely retire the generation.
       await call('failed', {'message': error.toString()});
@@ -213,14 +215,15 @@ class _PlaybackWindow with WindowListener {
   @override
   void onWindowClose() {
     unawaited(
-      _beginClose().catchError((Object error) {
-        BTLogTool.error('关闭播放器失败：$error');
+      _beginClose().catchError((Object error, StackTrace stackTrace) {
+        BTLogTool.error(['关闭播放器失败：$error', stackTrace.toString()]);
       }),
     );
   }
 
   Future<void> _beginClose() => _closeFuture ??= _close();
   Future<void> _close() async {
+    BTLogTool.info('播放器窗口开始关闭：${identity.generation}');
     _closing = true;
     _boundsTimer?.cancel();
     closing.value = '正在保存并关闭播放器…';
@@ -263,6 +266,7 @@ class _PlaybackWindow with WindowListener {
   }
 
   Future<void> _nativeClose() async {
+    BTLogTool.info('播放器窗口原生清理已完成，关闭窗口');
     store.removeListener(_onVideoChanged);
     await _playing?.cancel();
     _playing = null;

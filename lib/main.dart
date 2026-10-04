@@ -49,6 +49,8 @@ bool _applicationExitStarted = false;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 每个独立窗口都有自己的 Dart isolate，必须在分派入口前安装处理器。
+  _configureErrorHandling();
   if (Platform.isWindows) {
     var window = await WindowController.fromCurrentEngine();
     if (window.arguments.isNotEmpty) {
@@ -56,7 +58,6 @@ Future<void> main() async {
       return;
     }
   }
-  _configureErrorHandling();
   AppLifecycleListener(
     onExitRequested: () async {
       await _exitApplication();
@@ -304,10 +305,5 @@ void _configureErrorHandling() {
 }
 
 void _reportUnhandledError(Object error, StackTrace stackTrace) {
-  if (BTLogTool.isInitialized) {
-    BTLogTool.error(['未处理异常', error.toString(), stackTrace.toString()]);
-    return;
-  }
-
-  debugPrint(BTLogTool.sanitize('未处理异常: $error\n$stackTrace'));
+  BTLogTool.error(['未处理异常', error.toString(), stackTrace.toString()]);
 }

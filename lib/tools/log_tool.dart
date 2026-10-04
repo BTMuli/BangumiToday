@@ -6,10 +6,10 @@ import 'package:flutter/foundation.dart';
 
 // Package imports:
 import 'package:logger/logger.dart';
-import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../core/services/file_service.dart';
+import 'durable_log_output.dart';
 
 /// 因为Release模式下，日志文件是限制的
 /// 详见：https://github.com/SourceHorizon/logger?tab=readme-ov-file#logfilter
@@ -33,6 +33,7 @@ class BTLogTool {
   static late Logger logger;
 
   static bool _isInitialized = false;
+  static final _pending = <({Level level, String message})>[];
 
   /// 日志工具是否已完成初始化
   static bool get isInitialized => _isInitialized;
@@ -75,53 +76,38 @@ class BTLogTool {
   /// 文件工具
   final BTFileTool fileTool = BTFileTool();
 
-  /// 获取文件名称 yyyy-MM-dd.log
-  static String _getFileName() {
-    var now = DateTime.now();
-    return '${now.year}-${now.month}-${now.day}.log';
-  }
-
-  /// 获取日志文件
-  static Future<File> _getLogFile() async {
-    var file = path.join(logDir, _getFileName());
-    if (!await instance.fileTool.isFileExist(file)) {
-      return await instance.fileTool.createFile(file);
-    }
-    return File(file);
-  }
-
   /// 初始化
-  static Future<void> init() async {
+  static Future<void> init({String scope = 'main'}) async {
     if (_isInitialized) return;
     logDir = await instance.fileTool.getAppDataPath('log');
-    var outputC = ConsoleOutput();
-    var outputs = <LogOutput>[outputC];
-    PrettyPrinter printer;
-    if (!kDebugMode) {
-      var file = await _getLogFile();
-      var outputF = FileOutput(file: file, overrideExisting: false);
-      outputs.add(outputF);
-      printer = PrettyPrinter(
-        methodCount: 0,
+    await Directory(logDir).create(recursive: true);
+    var safeScope = scope.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    logger = Logger(
+      filter: BTLogFilter(),
+      level: Level.all,
+      output: MultiOutput([
+        ConsoleOutput(),
+        BTDurableLogOutput(
+          logDir,
+          safeScope,
+          onError: (error) => debugPrint(sanitize('写入日志失败：$error')),
+        ),
+      ]),
+      printer: PrettyPrinter(
+        methodCount: kDebugMode ? 5 : 0,
         errorMethodCount: 5,
         lineLength: 100,
         colors: false,
         printEmojis: true,
         dateTimeFormat: DateTimeFormat.dateAndTime,
-      );
-    } else {
-      printer = PrettyPrinter(
-        dateTimeFormat: DateTimeFormat.dateAndTime,
-        methodCount: 5,
-      );
-    }
-    logger = Logger(
-      filter: BTLogFilter(),
-      level: Level.all,
-      output: MultiOutput(outputs),
-      printer: printer,
+      ),
     );
     _isInitialized = true;
+    for (var entry in _pending) {
+      logger.log(entry.level, entry.message);
+    }
+    _pending.clear();
+    info('日志已初始化：scope=$safeScope，pid=$pid');
   }
 
   /// 打开日志目录
@@ -132,31 +118,27 @@ class BTLogTool {
 
   /// 打印信息日志
   static void info(dynamic message) {
-    var str = sanitize(message);
-    if (!_isInitialized) {
-      debugPrint(str);
-      return;
-    }
-    logger.log(Level.info, str);
+    _log(Level.info, message);
   }
 
   /// 打印警告日志
   static void warn(dynamic message) {
-    var str = sanitize(message);
-    if (!_isInitialized) {
-      debugPrint(str);
-      return;
-    }
-    logger.log(Level.warning, str);
+    _log(Level.warning, message);
   }
 
   /// 打印错误日志
   static void error(dynamic message) {
+    _log(Level.error, message);
+  }
+
+  static void _log(Level level, dynamic message) {
     var str = sanitize(message);
     if (!_isInitialized) {
+      if (_pending.length == 100) _pending.removeAt(0);
+      _pending.add((level: level, message: str));
       debugPrint(str);
       return;
     }
-    logger.log(Level.error, str);
+    logger.log(level, str);
   }
 }

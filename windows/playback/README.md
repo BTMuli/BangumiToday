@@ -9,6 +9,29 @@ these files. All translation units use the substituted headers. The Pub cache,
 generated plugin registration, Dart API and macOS backend remain untouched.
 Review and rebase this override when upgrading the dependency.
 
+Playback diagnostics are saved in the application's `BangumiToday/log` directory
+under Documents, accessible through the settings page's log-directory action:
+
+- Main and child Dart engines write separate daily files, including Debug builds.
+  Records are appended synchronously; warnings/errors also flush to disk.
+- Each Player records media opens, state changes, errors and a snapshot every
+  15 seconds. Five-second mpv samples include hardware decoding, output/decoder
+  drops, A/V sync and cache duration. Three-second position stalls, prolonged
+  buffering and delayed Dart event-loop ticks produce warnings; pauses and
+  completed playback are excluded from position-stall detection.
+- `native-<pid>.log` records ANGLE/D3D errors, renderer initialization/disposal
+  and aggregate render timing. GPU errors and slow-frame reports are limited
+  to one report per five seconds, with normal timing reports every ten seconds.
+- The Windows runner records unhandled native exceptions and asks a separate
+  instance of the same executable to write `native-<pid>-<timestamp>.dmp`.
+  The helper runs before Flutter/plugin startup and has an eight-second budget.
+  A retained `.running` marker reports an unclean prior exit on the next launch,
+  including termination paths that bypass exception handlers.
+
+Property semantics follow the [mpv manual](https://mpv.io/manual/master/).
+Dump capture follows Microsoft's recommendation to use
+[MiniDumpWriteDump from a separate process](https://learn.microsoft.com/en-us/windows/win32/api/minidumpapiset/nf-minidumpapiset-minidumpwritedump).
+
 The plugin enables `_HAS_EXCEPTIONS=1` instead of Flutter's default `0` so
 `std::packaged_task` can store recoverable render failures in its future. With
 STL exception handling disabled, a GPU copy timeout instead escapes the task

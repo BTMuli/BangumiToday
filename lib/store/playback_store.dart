@@ -14,6 +14,7 @@ import '../core/errors/playback_unavailable.dart';
 import '../core/services/native_playback_upscale_backend.dart';
 import '../core/services/playback_assets.dart';
 import '../core/services/playback_chapters.dart';
+import '../core/services/playback_diagnostics.dart';
 import '../core/services/playback_loudness.dart';
 import '../core/services/playback_subtitles.dart';
 import '../core/services/playback_upscaler.dart';
@@ -98,6 +99,7 @@ class PlaybackStore extends ChangeNotifier {
   double? _aspectRatio;
   Size? _videoSize;
   Player? _player;
+  PlaybackDiagnostics? _diagnostics;
   PlaybackChapters? _chapters;
   bool _manualSubtitles = true;
   VideoController? _video;
@@ -240,7 +242,11 @@ class PlaybackStore extends ChangeNotifier {
     });
     _operation = next.catchError((Object e, StackTrace s) {
       error = e.toString();
-      BTLogTool.warn(['播放操作失败', e.toString()]);
+      BTLogTool.error([
+        '播放操作失败：file=${current?.filePath}',
+        e.toString(),
+        s.toString(),
+      ]);
       _notify();
     });
     return next;
@@ -249,19 +255,31 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _initializePlayer() async {
     if (_player != null) return;
     if (!playerAllowed) throw StateError('主窗口不能创建原生播放器');
+    BTLogTool.info('开始初始化原生播放器');
     MediaKit.ensureInitialized();
     // Render subtitles with mpv/libass so ASS styling and embedded fonts are
     // preserved instead of reducing every subtitle track to Flutter text.
     var player = Player(
       configuration: PlayerConfiguration(
         libass: true,
-        logLevel: Platform.isWindows ? MPVLogLevel.v : MPVLogLevel.error,
+        logLevel: Platform.isWindows ? MPVLogLevel.v : MPVLogLevel.info,
       ),
+    );
+    var diagnostics = _diagnostics = PlaybackDiagnostics(
+      player,
+      context: () => {
+        'file': current?.filePath,
+        'loading': loading,
+        'upscale': _upscaleMode.name,
+        'loudness': _loudnessEnabled,
+        'texture': _video?.rect.value.toString(),
+      },
     );
     // Subscribe before the rendering context is created. Keep only capability
     // evidence until the per-Player coordinator exists, never the full log.
     var earlyLogs = <PlayerLog>[];
     var logs = player.stream.log.listen((value) {
+      diagnostics.log(value);
       var upscale = _upscaler;
       if (upscale != null) {
         upscale.log(value.prefix, value.level, value.text);
@@ -281,13 +299,16 @@ class PlaybackStore extends ChangeNotifier {
       if (Platform.isWindows) {
         await PlaybackLoudness.apply(player, _loudnessEnabled);
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      BTLogTool.error(['初始化播放器失败：$error', stackTrace.toString()]);
+      diagnostics.close();
       chapters.close();
       await logs.cancel();
       await _disposePlayer(player);
       rethrow;
     }
     if (_closed) {
+      diagnostics.close();
       chapters.close();
       await logs.cancel();
       await _disposePlayer(player);
@@ -331,6 +352,12 @@ class PlaybackStore extends ChangeNotifier {
     }
     _subscriptions.addAll([
       logs,
+      player.stream.playing.listen((value) {
+        diagnostics.event('播放状态改变：playing=$value');
+      }),
+      player.stream.buffering.listen((value) {
+        diagnostics.event('缓冲状态改变：buffering=$value');
+      }),
       player.stream.tracks.listen((_) {
         if (_closed || completed || _manualSubtitles || current == null) return;
         var sessionId = _session.id;
@@ -367,6 +394,7 @@ class PlaybackStore extends ChangeNotifier {
         _notify();
       }),
       player.stream.error.listen((value) {
+        diagnostics.failure(value);
         if (_closed) return;
         if (_upscaler?.consumesError(value) ?? false) return;
         error = value;
@@ -376,6 +404,7 @@ class PlaybackStore extends ChangeNotifier {
         if (_closed || loading || current == null) return;
         completed = value;
         if (!value) return;
+        diagnostics.event('视频播放完成');
         var snapshot = _session.finish(position: position, duration: duration);
         if (snapshot == null) return;
         unawaited(
@@ -486,6 +515,7 @@ class PlaybackStore extends ChangeNotifier {
     var nextPlaylist = items ?? playlist;
     if (nextIndex < 0 || nextIndex >= nextPlaylist.length) return;
     var item = nextPlaylist[nextIndex];
+    BTLogTool.info('准备播放：${item.filePath}');
     await library.ensureReady(item.filePath);
     if (_closed) return;
     var previous = await historyStore.read(item.filePath);
@@ -510,6 +540,7 @@ class PlaybackStore extends ChangeNotifier {
       position = previous?.resumePosition ?? Duration.zero;
       duration = Duration(milliseconds: previous?.durationMs ?? 0);
       completed = false;
+      _diagnostics?.opening(item.filePath, position);
       // Keep the previous aspect ratio until the new stream reports its own, so
       // auto-advancing between episodes (usually the same ratio) does not make
       // the playback surface size jump.
@@ -786,10 +817,12 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _disposePlayer(Player player) {
     var upscale = _upscaler;
     var disposal = () async {
+      BTLogTool.info('开始释放原生播放器');
       // This wait is not cancelled by the shutdown budget: native commands may
       // still own the media_kit disposal lock after a timeout.
       await upscale?.close();
       await player.dispose();
+      BTLogTool.info('Player.dispose 已完成，等待原生销毁=$waitForNativeDestroy');
     }();
     // media_kit 1.2.6 schedules mpv_terminate_destroy 5 seconds after dispose.
     // Do not destroy the child isolate before that timer runs, or call the
@@ -808,6 +841,7 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _shutdown() async {
     // Refuse newly queued work before waiting for the current operation.
     _closed = true;
+    _diagnostics?.close();
     _chapters?.close();
     _session.close();
     _saveTimer?.cancel();
@@ -925,8 +959,8 @@ class PlaybackStore extends ChangeNotifier {
       return true;
     } on TimeoutException {
       BTLogTool.warn('播放器清理超时：$name');
-    } catch (error) {
-      BTLogTool.warn('播放器清理失败：$name，$error');
+    } catch (error, stackTrace) {
+      BTLogTool.error(['播放器清理失败：$name，$error', stackTrace.toString()]);
     }
     return false;
   }
