@@ -31,8 +31,25 @@ Future<void> openLocalPlayback(
     await store.openLocalFile(filePath, subject: subject);
     if (!child) ref.read(navStoreProvider.notifier).goToPlayback();
   } catch (error) {
-    if (context.mounted) await BtInfobar.error(context, error.toString());
+    if (context.mounted) await reportPlaybackError(context, ref, error);
   }
+}
+
+/// Consume the stored copy before showing an operation failure. Page listeners
+/// handle unattended failures on the next frame, so the same error appears once.
+Future<void> reportPlaybackError(
+  BuildContext context,
+  WidgetRef ref,
+  Object error,
+) async {
+  var message = error.toString();
+  var store = ref.read(playbackStoreProvider);
+  if (store.error == message) store.clearError();
+  if (Platform.isWindows && !ref.read(isPlaybackWindowProvider)) {
+    var windows = ref.read(playbackWindowServiceProvider);
+    if (windows.error == message) windows.clearError();
+  }
+  await BtInfobar.error(context, message);
 }
 
 Future<XFile?> pickPlaybackFile() => openFile(

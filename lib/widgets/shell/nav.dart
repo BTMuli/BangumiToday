@@ -13,13 +13,13 @@ import '../../controller/progress_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/app_link_service.dart';
 import '../../core/services/bangumi_oauth_coordinator.dart';
+import '../../core/services/playback_window_service.dart';
 import '../../core/utils/get_theme_label.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../pages/app_setting/app_setting_page.dart';
 import '../../pages/bangumi_calendar/bangumi_calendar_page.dart';
 import '../../pages/download/download_page.dart';
 import '../../pages/playback/playback_page.dart';
-import '../../pages/playback/playback_entrance_page.dart';
 import '../../pages/rss_bmf/rss_bmf_page.dart';
 import '../../pages/user_collection/user_collection_page.dart';
 import '../../providers/app_providers.dart';
@@ -41,9 +41,6 @@ class NavWidget extends ConsumerStatefulWidget {
 /// 导航状态
 class _NavWidgetState extends ConsumerState<NavWidget>
     with AutomaticKeepAliveClientMixin {
-  /// 当前索引
-  int get curIndex => ref.watch(navStoreProvider).curIndex;
-
   /// 当前主题模式
   ThemeMode get _curThemeMode => ref.watch(appStoreProvider).themeMode;
 
@@ -61,6 +58,8 @@ class _NavWidgetState extends ConsumerState<NavWidget>
 
   /// 应用链接订阅
   StreamSubscription<Uri>? _appLinkSubscription;
+
+  bool _playbackErrorFramePending = false;
 
   /// 进度条
   late ProgressController progress = ProgressController();
@@ -93,6 +92,24 @@ class _NavWidgetState extends ConsumerState<NavWidget>
         }
       }
     }
+  }
+
+  void _schedulePlaybackWindowError() {
+    if (!Platform.isWindows) return;
+    var error = ref.watch(
+      playbackWindowServiceProvider.select((service) => service.error),
+    );
+    if (error == null || _playbackErrorFramePending) return;
+    _playbackErrorFramePending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _playbackErrorFramePending = false;
+      if (!mounted) return;
+      var windows = ref.read(playbackWindowServiceProvider);
+      var message = windows.error;
+      if (message == null) return;
+      windows.clearError();
+      unawaited(BtInfobar.error(context, message));
+    });
   }
 
   /// dispose
@@ -270,13 +287,12 @@ class _NavWidgetState extends ConsumerState<NavWidget>
           title: const Text('下载管理'),
           body: const DownloadPage(),
         ),
-      PaneItem(
-        icon: const Icon(FluentIcons.play),
-        title: const Text('播放'),
-        body: Platform.isWindows
-            ? const PlaybackEntrancePage()
-            : const PlaybackPage(),
-      ),
+      if (!Platform.isWindows)
+        PaneItem(
+          icon: const Icon(FluentIcons.play),
+          title: const Text('播放'),
+          body: const PlaybackPage(),
+        ),
     ];
   }
 
@@ -285,7 +301,25 @@ class _NavWidgetState extends ConsumerState<NavWidget>
     super.build(context);
     var store = ref.watch(navStoreProvider);
     var constItems = getConstItems();
-    var selectedKey = store.pageKeyForIndex(store.curIndex);
+    _schedulePlaybackWindowError();
+    // Fluent 只给页面编号；store 的固定位置也包含登录动作。
+    var paneIndices = <int>[
+      for (var i = 0; i < constItems.length; i++)
+        if (constItems[i] is! PaneItemAction && constItems[i].body != null) i,
+      for (var i = 0; i < store.navItems.length; i++) store.topNavCount + i,
+      store.topNavCount + store.navItems.length,
+    ];
+    var selected = paneIndices.indexOf(store.curIndex);
+    if (selected < 0) {
+      // 登出或热重载移除当前页后，回到首页并同步导航状态。
+      selected = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && ref.read(navStoreProvider).curIndex == store.curIndex) {
+          ref.read(navStoreProvider.notifier).setCurIndex(paneIndices.first);
+        }
+      });
+    }
+    var selectedKey = store.pageKeyForIndex(paneIndices[selected]);
     return NavigationView(
       paneBodyBuilder: (_, _) {
         return NavPageStack(
@@ -295,9 +329,9 @@ class _NavWidgetState extends ConsumerState<NavWidget>
         );
       },
       pane: NavigationPane(
-        selected: curIndex,
+        selected: selected,
         onChanged: (index) =>
-            ref.read(navStoreProvider.notifier).setCurIndex(index),
+            ref.read(navStoreProvider.notifier).setCurIndex(paneIndices[index]),
         displayMode: PaneDisplayMode.compact,
         items: [...constItems, ..._navItems],
         footerItems: [

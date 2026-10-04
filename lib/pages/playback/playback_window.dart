@@ -157,8 +157,6 @@ class _PlaybackWindow with WindowListener {
           playbackString(request.body, 'filePath'),
           subject: playbackSubject(request.body),
         );
-      case 'history.delete':
-        await store.removeHistory(playbackString(request.body, 'filePath'));
       default:
         throw FormatException('不支持的播放器命令：${call.method}');
     }

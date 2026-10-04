@@ -41,8 +41,8 @@ class BTNavState {
   /// 常量条目数量
   final int topNavCount;
 
-  /// 播放页索引
-  int get playbackIndex => Platform.isWindows ? 4 : 3;
+  /// 内嵌播放页索引；Windows 没有播放页，返回 -1。
+  int get playbackIndex => Platform.isWindows ? -1 : 3;
 
   /// 侧边动态项
   List<PaneItem> get paneItems => navItems.map((e) => e.body).toList();
@@ -147,7 +147,7 @@ class BTNavNotifier extends Notifier<BTNavState> {
       curIndex: 0,
       navItems: <BtmAppNavItem>[],
       aliveKeys: <String>[],
-      topNavCount: Platform.isWindows ? 5 : 4,
+      topNavCount: 4,
     );
     for (var item in hiveItems) {
       draft = _addNavItemB(
@@ -206,8 +206,11 @@ class BTNavNotifier extends Notifier<BTNavState> {
     return true;
   }
 
-  /// 切换到播放页面。
-  void goToPlayback() => goIndex(state.playbackIndex);
+  /// 切换到内嵌播放页面；Windows 播放由独立窗口承载。
+  void goToPlayback() {
+    if (Platform.isWindows) return;
+    goIndex(state.playbackIndex);
+  }
 
   /// 查找动态条目索引
   int _navIndexOf(

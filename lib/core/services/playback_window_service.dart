@@ -69,6 +69,12 @@ class PlaybackWindowService extends ChangeNotifier {
   bool get hasWindow => _session != null;
   bool get isClosing => _session?.closing == true;
 
+  void clearError() {
+    if (error == null) return;
+    error = null;
+    _notify();
+  }
+
   void _notify() {
     if (!_disposed) notifyListeners();
   }
@@ -289,16 +295,6 @@ class PlaybackWindowService extends ChangeNotifier {
     }
     return {'result': result, 'state': _presentation()['episodes']};
   }
-
-  Future<void> removeHistory(String filePath) => _serial(() async {
-    var session = _session;
-    if (session != null) {
-      if (session.closing) throw StateError('播放器正在关闭');
-      await _invoke(session, 'history.delete', {'filePath': filePath});
-    } else {
-      await store.removeHistory(filePath);
-    }
-  });
 
   Future<void> _checkWindow() async {
     var session = _session;
