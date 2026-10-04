@@ -9,6 +9,7 @@ import '../../domain/repositories/bangumi_repository.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
+import 'bangumi_calendar_data.dart';
 
 /// 一次条目详情请求的结果：`rateLimited` 表示被接口限流，本轮收工。
 typedef _SubjectFetch = ({BangumiSubject? subject, bool rateLimited});
@@ -46,14 +47,12 @@ class BangumiCalendarEnricher {
   final Map<int, Future<_SubjectFetch>> _pending = {};
 
   /// 读取仍然有效的缓存，返回 subject id -> bgm 条目。
-  Future<Map<int, BangumiLegacySubjectSmall>> readCache(
-    Iterable<int> ids,
-  ) async {
-    var map = <int, BangumiLegacySubjectSmall>{};
+  Future<Map<int, BangumiCalendarSubject>> readCache(Iterable<int> ids) async {
+    var map = <int, BangumiCalendarSubject>{};
     for (var id in ids) {
       var subject = await readSubject(id);
       if (subject == null) continue;
-      map[id] = toLegacySubject(subject);
+      map[id] = toCalendarSubject(subject);
     }
     return map;
   }
@@ -74,10 +73,10 @@ class BangumiCalendarEnricher {
   Future<void> fetchMissing({
     required Iterable<int> ids,
     required BTBangumiRepository repository,
-    required void Function(Map<int, BangumiLegacySubjectSmall> filled) onFilled,
+    required void Function(Map<int, BangumiCalendarSubject> filled) onFilled,
     bool Function()? isActive,
   }) async {
-    var batch = <int, BangumiLegacySubjectSmall>{};
+    var batch = <int, BangumiCalendarSubject>{};
     var cache = BTCacheManager.instance;
     var stopped = false;
     await forEachConcurrent(
@@ -96,7 +95,7 @@ class BangumiCalendarEnricher {
         var subject = result.subject;
         if (subject == null) return;
         if (isActive != null && !isActive()) return;
-        batch[id] = toLegacySubject(subject);
+        batch[id] = toCalendarSubject(subject);
         if (batch.length >= flushSize) {
           onFilled(Map.of(batch));
           batch.clear();
@@ -248,32 +247,35 @@ class BangumiCalendarEnricher {
     return last;
   }
 
-  /// 把 bgm 条目详情转成卡片使用的结构。
+  /// 把 bgm 条目详情转成日历补全结果，保留成人向标记。
   ///
   /// 标题、放送星期、放送时刻都由 bangumi-data 决定，这里只提供它没有的
   /// 展示字段；`airWeekday` 因此留空由日历组装覆盖。
-  BangumiLegacySubjectSmall toLegacySubject(BangumiSubject subject) {
+  BangumiCalendarSubject toCalendarSubject(BangumiSubject subject) {
     var images = subject.images;
-    return BangumiLegacySubjectSmall(
-      id: subject.id,
-      url: 'https://bangumi.tv/subject/${subject.id}',
-      type: BangumiLegacySubjectType.anime,
-      name: subject.name,
-      nameCn: subject.nameCn,
-      summary: subject.summary,
-      airDate: subject.date ?? '',
-      airWeekday: 0,
-      images: BangumiPersonImages(
-        large: images.large,
-        medium: images.medium,
-        small: images.small,
-        grid: images.grid,
+    return (
+      nsfw: subject.nsfw,
+      subject: BangumiLegacySubjectSmall(
+        id: subject.id,
+        url: 'https://bangumi.tv/subject/${subject.id}',
+        type: BangumiLegacySubjectType.anime,
+        name: subject.name,
+        nameCn: subject.nameCn,
+        summary: subject.summary,
+        airDate: subject.date ?? '',
+        airWeekday: 0,
+        images: BangumiPersonImages(
+          large: images.large,
+          medium: images.medium,
+          small: images.small,
+          grid: images.grid,
+        ),
+        eps: subject.eps,
+        epsCount: subject.totalEpisodes,
+        rating: subject.rating,
+        rank: subject.rating.rank,
+        collection: subject.collection,
       ),
-      eps: subject.eps,
-      epsCount: subject.totalEpisodes,
-      rating: subject.rating,
-      rank: subject.rating.rank,
-      collection: subject.collection,
     );
   }
 }

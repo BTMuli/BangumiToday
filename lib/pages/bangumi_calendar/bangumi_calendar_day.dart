@@ -31,6 +31,9 @@ class BangumiCalendarDay extends StatelessWidget {
   /// 分组是否还在准备中（准备完成前数据是置空的）
   final bool loading;
 
+  /// 当前是否只展示收藏条目。
+  final bool collectionOnly;
+
   /// 空状态最小高度，保证滚动距离稳定
   static const double _emptyHeight = 180;
 
@@ -42,6 +45,7 @@ class BangumiCalendarDay extends StatelessWidget {
     required this.isToday,
     required this.data,
     required this.loading,
+    this.collectionOnly = false,
   });
 
   /// 月份/日期，如 `10/03`
@@ -56,7 +60,10 @@ class BangumiCalendarDay extends StatelessWidget {
     if (loading) {
       return BTEmptyState.loading(message: '正在加载数据...');
     }
-    return BTEmptyState.noData(title: '暂无放送数据', message: '该日期没有番剧放送');
+    return BTEmptyState.noData(
+      title: collectionOnly ? '暂无收藏番剧放送' : '暂无可显示的放送',
+      message: collectionOnly ? '可关闭「只显示收藏」查看其他放送条目' : '该日期暂无符合显示条件的番剧',
+    );
   }
 
   /// 构建今天标记

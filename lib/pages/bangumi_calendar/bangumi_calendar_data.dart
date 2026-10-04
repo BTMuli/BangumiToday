@@ -5,6 +5,12 @@ import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model_legacy.dart';
 import '../../models/bangumi/request_subject.dart';
 
+/// 日历补全结果，同时保留展示字段与成人向标记。
+typedef BangumiCalendarSubject = ({
+  BangumiLegacySubjectSmall subject,
+  bool nsfw,
+});
+
 /// 首页日历条目：bgm 条目 + 本地时间的放送时刻
 class BangumiCalendarItem {
   /// bgm 条目，供卡片展示与条目详情跳转
@@ -35,7 +41,7 @@ class BangumiCalendarItem {
 /// 首页日历数据组装
 ///
 /// 以本地 bangumi-data 为主：条目集合、星期归属与放送时刻全部由它决定；
-/// bgm 只作为辅助，按 subject id 补全封面、评分、收藏数等展示字段。
+/// bgm 按 subject id 补全展示字段与成人向标记，成人向条目不在首页显示。
 class BangumiCalendarData {
   BangumiCalendarData._();
 
@@ -43,7 +49,7 @@ class BangumiCalendarData {
   ///
   /// [items] 为本地 bangumi-data 的在播条目；[siteMeta] 为 bangumi-data
   /// 站点元数据，用于拼条目链接；[enrich] 为 bgm 条目（按 subject id 索引），
-  /// 为空时条目只展示 bangumi-data 自带字段，没有封面与评分；
+  /// 缺失时仅生成候选条目，确认成人向标记后才能展示；
   /// [finishedIds] 为已确认放完的条目，直接不排进日历。
   ///
   /// 缺少 bgm subject id、放送时刻无法解析的条目会被丢弃：它们既无法
@@ -51,7 +57,7 @@ class BangumiCalendarData {
   static List<List<BangumiCalendarItem>> buildDays({
     required List<BangumiDataItem> items,
     required Map<String, BangumiDataSite> siteMeta,
-    required Map<int, BangumiLegacySubjectSmall> enrich,
+    required Map<int, BangumiCalendarSubject> enrich,
     Set<int> watchedIds = const {},
     Set<int> bmfIds = const {},
     Set<int> finishedIds = const {},
@@ -62,12 +68,14 @@ class BangumiCalendarData {
     for (var item in items) {
       var id = subjectIdOf(item);
       if (id == null || finishedIds.contains(id) || !seen.add(id)) continue;
+      var detail = enrich[id];
+      if (detail?.nsfw ?? false) continue;
       var anchor =
           parseBangumiBroadcastStart(item.broadcast) ??
           DateTime.tryParse(item.begin);
       if (anchor == null) continue;
       var weekday = bangumiJstWeekday(anchor);
-      var bgm = enrich[id];
+      var bgm = detail?.subject;
       var period =
           parseBangumiBroadcastPeriod(item.broadcast) ??
           const Duration(days: 7);
@@ -135,7 +143,7 @@ class BangumiCalendarData {
   /// 首页按分组准备数据时只确认该分组里的条目。
   static Map<int, Duration> pendingFinished({
     required List<BangumiDataItem> items,
-    required Map<int, BangumiLegacySubjectSmall> enrich,
+    required Map<int, BangumiCalendarSubject> enrich,
     int? weekday,
     int maxLag = 8,
   }) {
@@ -149,7 +157,9 @@ class BangumiCalendarData {
     for (var item in items) {
       var id = subjectIdOf(item);
       if (id == null) continue;
-      var total = _totalEpisodes(enrich[id]);
+      var detail = enrich[id];
+      if (detail?.nsfw ?? false) continue;
+      var total = _totalEpisodes(detail?.subject);
       if (total == null) continue;
       var firstAir = DateTime.tryParse(item.begin);
       if (firstAir == null) continue;
@@ -170,9 +180,10 @@ class BangumiCalendarData {
   }
 
   /// 用 bgm 日历兜底：本地 bangumi-data 为空（首次安装或尚未同步）时，
-  /// 直接用 bgm 的星期分组渲染，保证页面不空白；放送时刻未知。
+  /// 沿用 bgm 的星期分组；成人向标记仍需由条目详情补全，放送时刻未知。
   static List<List<BangumiCalendarItem>> buildDaysFromRemote(
     List<BangumiCalendarRespData> remote, {
+    Map<int, BangumiCalendarSubject> enrich = const {},
     Set<int> watchedIds = const {},
     Set<int> bmfIds = const {},
   }) {
@@ -181,9 +192,11 @@ class BangumiCalendarData {
       var index = data.weekday.id - 1;
       if (index < 0 || index > 6) continue;
       for (var item in data.items) {
+        var detail = enrich[item.id];
+        if (detail?.nsfw ?? false) continue;
         days[index].add(
           BangumiCalendarItem(
-            subject: item,
+            subject: detail?.subject ?? item,
             airClock: null,
             episode: null,
             watched: watchedIds.contains(item.id),
@@ -196,6 +209,24 @@ class BangumiCalendarData {
       day.sort(compareItem);
     }
     return days;
+  }
+
+  /// 首页仅展示已确认非成人向的条目，未知标记或详情请求失败时也不展示。
+  ///
+  /// 准备详情时将 [onlyVerified] 设为 false，保留待确认条目以便补全；
+  /// 已知成人向条目始终排除，即使它在收藏或订阅列表中。
+  static List<BangumiCalendarItem> filterItems(
+    List<BangumiCalendarItem> day, {
+    required Map<int, BangumiCalendarSubject> enrich,
+    Set<int>? collectedIds,
+    bool onlyVerified = true,
+  }) {
+    return [
+      for (var item in day)
+        if (!(enrich[item.subject.id]?.nsfw ?? onlyVerified) &&
+            (collectedIds == null || collectedIds.contains(item.subject.id)))
+          item,
+    ];
   }
 
   /// 按放送时刻排序：看过的排该天最后，再看时刻未知的，同刻按 subject id。

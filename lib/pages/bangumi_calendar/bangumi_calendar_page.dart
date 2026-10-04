@@ -17,7 +17,7 @@ import '../../database/bangumi/bangumi_data.dart';
 import '../../domain/repositories/bangumi_repository.dart';
 import '../../models/bangumi/bangumi_data_model.dart';
 import '../../models/bangumi/bangumi_enum.dart';
-import '../../models/bangumi/bangumi_model.dart';
+import '../../models/bangumi/request_subject.dart';
 import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_data.dart';
 import '../../tools/log_tool.dart';
@@ -107,11 +107,14 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 本地在播条目（组装日历的输入）
   List<BangumiDataItem> _items = [];
 
+  /// 本地数据为空时使用的远程日历，同样需要确认成人向标记。
+  List<BangumiCalendarRespData> _remote = [];
+
   /// bangumi-data 站点元数据
   Map<String, BangumiDataSite> _siteMeta = {};
 
-  /// 已拿到的 bgm 条目（封面/评分/话数/总话数），按 subject id 累积
-  final Map<int, BangumiLegacySubjectSmall> _enrich = {};
+  /// 已拿到的 bgm 展示字段与成人向标记，按 subject id 累积。
+  final Map<int, BangumiCalendarSubject> _enrich = {};
 
   /// 候选分组（索引 0=周一 … 6=周日），由本地数据组装，不做就绪与收藏过滤
   List<List<BangumiCalendarItem>> _rawDays = List.generate(7, (_) => []);
@@ -182,7 +185,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 获取数据
   ///
   /// 条目集合、星期归属、放送时刻与话数都来自本地 bangumi-data；bgm 只按
-  /// subject id 补封面、评分、收藏数。
+  /// subject id 补封面、评分、收藏数与成人向标记。
   ///
   /// 分组是「先置空再填充」的：换数据时所有分组先清空显示加载态，等某个分组
   /// 补齐详情、确认完结状态后再整组填充。这样不会先把候选条目画出来，又因为
@@ -200,6 +203,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       var repository = ref.read(bangumiRepositoryProvider);
       _watchedIds = await loadWatchedIds(repository);
       _bmfIds = await loadBmfIds();
+      _collectedIds = await loadCollectedIds();
       var items = await sqliteBd.readItemsOnAir();
       if (!mounted) return;
       if (items.isEmpty) {
@@ -207,8 +211,8 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
         return;
       }
       _items = items;
+      _remote = [];
       _siteMeta = await sqliteBd.readSiteMap();
-      _collectedIds = await loadCollectedIds();
       if (!mounted) return;
       // 新一轮数据：先置空全部分组，再按分组填充。已经拿到的补全结果
       // （[_enrich]）与完结判定（[_finishedIds]）按 subject id 保留，重来一遍
@@ -250,7 +254,12 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 用本地 bangumi-data 重新组装候选分组，并刷新展示。
   Future<void> rebuildDays() async {
     if (_items.isEmpty) {
-      // 远程兜底：候选分组不来自 bangumi-data，直接用现成的
+      _rawDays = BangumiCalendarData.buildDaysFromRemote(
+        _remote,
+        enrich: _enrich,
+        watchedIds: _watchedIds,
+        bmfIds: _bmfIds,
+      );
       await applyDisplay();
       return;
     }
@@ -265,7 +274,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     await applyDisplay();
   }
 
-  /// 按就绪状态与「只显示收藏」生成展示用的分组。
+  /// 按就绪状态、成人向标记与「只显示收藏」生成展示用的分组。
   ///
   /// 还没准备好的分组一律置空：先置空、准备好再整组填充，避免先渲染出候选
   /// 条目、再把已完结的剔除掉，页面上不会出现数量先多后少。
@@ -275,7 +284,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     calendarData = [
       for (var slot = 0; slot < 7; slot++)
         if (_readySlots.contains(slot))
-          filterDay(_rawDays[weekdayIndexAt(slot)])
+          filterDay(_rawDays[weekdayIndexAt(slot)], onlyVerified: true)
         else
           const <BangumiCalendarItem>[],
     ];
@@ -283,14 +292,17 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     realignActiveSlot(anchor);
   }
 
-  /// 按当前过滤条件筛出一天要展示的条目；未开启过滤时原样返回。
-  List<BangumiCalendarItem> filterDay(List<BangumiCalendarItem> day) {
-    var collected = _collectedIds;
-    if (collected == null) return day;
-    return [
-      for (var item in day)
-        if (collected.contains(item.subject.id)) item,
-    ];
+  /// 筛出当前收藏范围内的非成人向条目；展示时还必须确认标记。
+  List<BangumiCalendarItem> filterDay(
+    List<BangumiCalendarItem> day, {
+    bool onlyVerified = false,
+  }) {
+    return BangumiCalendarData.filterItems(
+      day,
+      enrich: _enrich,
+      collectedIds: _collectedIds,
+      onlyVerified: onlyVerified,
+    );
   }
 
   /// 一次性准备整周条目：缓存命中的直接补齐，缺的合并成一轮请求。
@@ -489,7 +501,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     _watchedIds = watched;
     _bmfIds = bmf;
     _collectedIds = collected;
-    await applyDisplay();
+    await rebuildDays();
     // 展示范围变了：整周重新准备一轮，只补还没拿到的条目
     // （关掉过滤时新露出来的条目平时不会被补全）。
     unawaited(prepareDays());
@@ -523,7 +535,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
   /// 本地 bangumi-data 为空时用 bgm 日历兜底，避免首页空白。
   ///
-  /// 兜底数据本身就是条目详情，没有补全一说，直接整周填充。
+  /// 远程日历不带成人向标记，按本地日历的流程补全后再填充。
   Future<void> loadRemoteFallback(BTBangumiRepository repository) async {
     var remote = await repository.getToday();
     if (!mounted) return;
@@ -533,13 +545,13 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       await BTErrorHandler.handle(context, remote, title: '获取放送数据失败');
       return;
     }
-    _rawDays = BangumiCalendarData.buildDaysFromRemote(
-      remote.data!,
-      watchedIds: _watchedIds,
-      bmfIds: _bmfIds,
-    );
+    _items = [];
+    _remote = remote.data!;
+    _readySlots.clear();
+    _enrichDirty = false;
     _enrichGeneration++;
-    await markAllSlotsReady();
+    await rebuildDays();
+    unawaited(prepareDays(refreshKnown: true));
     if (!mounted) return;
     await BtInfobar.warn(context, '本地 BangumiData 为空，已回退到 Bangumi 日历数据');
   }
@@ -911,6 +923,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
             date: dateAt(slot),
             isToday: slot == 0,
             data: getTabData(slot),
+            collectionOnly: _collectedIds != null,
             // 分组准备好之前是置空的，显示加载态；处理好之后才是空数据
             loading: !_readySlots.contains(slot),
           ),
