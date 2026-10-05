@@ -159,94 +159,87 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (showBackButton) ...[
-                      IconButton(
-                        icon: const BtIcon(FluentIcons.back, size: 15),
-                        onPressed: () =>
-                            setState(() => _showCompactDetail = false),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    SizedBox(
-                      width: 48,
-                      height: 68,
-                      child: BtBangumiCover(
-                        imageUrl:
-                            _filterModel.subjectData[bmf.subject]?.imageUrl,
-                        maxRequestEdge: BangumiCoverUrl.thumbMaxEdge,
-                        borderRadius: BTRadius.smallBR,
-                        errorBuilder: (context, {err}) => Container(
-                          color: BTColors.surfaceSecondary(context),
-                          child: const Icon(FluentIcons.media, size: 24),
+                if (showBackButton) ...[
+                  IconButton(
+                    icon: const BtIcon(FluentIcons.back, size: 15),
+                    onPressed: () => setState(() => _showCompactDetail = false),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                SizedBox(
+                  width: 64,
+                  height: 92,
+                  child: BtBangumiCover(
+                    imageUrl: _filterModel.subjectData[bmf.subject]?.imageUrl,
+                    maxRequestEdge: BangumiCoverUrl.thumbMaxEdge,
+                    borderRadius: BTRadius.smallBR,
+                    errorBuilder: (context, {err}) => Container(
+                      color: BTColors.surfaceSecondary(context),
+                      child: const Icon(FluentIcons.media, size: 24),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Tooltip(
+                        message: '$title\nBangumi #${bmf.subject}',
+                        child: Text(
+                          title,
+                          style: BTTypography.subtitle(context),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 4,
                         children: [
-                          Tooltip(
-                            message: '$title\nBangumi #${bmf.subject}',
-                            child: Text(
-                              title,
-                              style: BTTypography.subtitle(context),
+                          Text(
+                            _filterModel.quarterFor(bmf).label,
+                            style: BTTypography.caption(context),
+                          ),
+                          if (airDate != null)
+                            Text(
+                              '首播 $airDate',
+                              style: BTTypography.caption(context),
+                            ),
+                          Text(
+                            hasRss
+                                ? (bmf.autoUpdate ? 'RSS 自动更新' : 'RSS 手动更新')
+                                : '缺少 RSS',
+                            style: BTTypography.caption(context).copyWith(
+                              color: hasRss
+                                  ? null
+                                  : BTColors.warningLight(context),
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 4,
-                            children: [
-                              Text(
-                                _filterModel.quarterFor(bmf).label,
-                                style: BTTypography.caption(context),
+                          if (!hasDirectory)
+                            Text(
+                              '缺少目录',
+                              style: BTTypography.caption(
+                                context,
+                              ).copyWith(color: BTColors.warningLight(context)),
+                            ),
+                          if (pendingCount > 0)
+                            Text(
+                              '$pendingCount 条待处理',
+                              style: BTTypography.caption(context).copyWith(
+                                color: FluentTheme.of(context).accentColor,
                               ),
-                              if (airDate != null)
-                                Text(
-                                  '首播 $airDate',
-                                  style: BTTypography.caption(context),
-                                ),
-                              Text(
-                                hasRss
-                                    ? (bmf.autoUpdate ? 'RSS 自动更新' : 'RSS 手动更新')
-                                    : '缺少 RSS',
-                                style: BTTypography.caption(context).copyWith(
-                                  color: hasRss
-                                      ? null
-                                      : BTColors.warningLight(context),
-                                ),
-                              ),
-                              if (!hasDirectory)
-                                Text(
-                                  '缺少目录',
-                                  style: BTTypography.caption(context).copyWith(
-                                    color: BTColors.warningLight(context),
-                                  ),
-                                ),
-                              if (pendingCount > 0)
-                                Text(
-                                  '$pendingCount 条待处理',
-                                  style: BTTypography.caption(context).copyWith(
-                                    color: FluentTheme.of(context).accentColor,
-                                  ),
-                                ),
-                            ],
-                          ),
+                            ),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      Align(alignment: Alignment.centerRight, child: actions),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                actions,
               ],
             ),
           ),
