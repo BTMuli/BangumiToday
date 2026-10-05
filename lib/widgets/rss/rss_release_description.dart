@@ -23,7 +23,51 @@ String? rssDescriptionHtml(String? description, {bool isMarkdown = false}) {
       htmlBlocks[index],
     );
   }
-  return rendered;
+  return _restoreThematicBreaks(rendered);
+}
+
+/// 修复仅含分隔线的独立列表；AniBT 导入的 `- - -` 会变成 `<li>- -</li>`。
+/// `+ ---` 也会解析成只包含 hr 的列表项，展示时恢复为独立分隔线。
+String _restoreThematicBreaks(String source) {
+  var fragment = html.parseFragment(source);
+  var importedBreak = RegExp(r'^-(?:[ \t\r\n]+-)+$');
+  void visit(dom.Node node) {
+    if (node is dom.Element) {
+      if (['pre', 'code', 'kbd', 'samp'].contains(node.localName)) return;
+      if (node.localName == 'ul') {
+        var children = node.children;
+        var onlyListItem =
+            children.length == 1 &&
+            children.single.localName == 'li' &&
+            node.nodes.whereType<dom.Text>().every(
+              (text) => text.data.trim().isEmpty,
+            );
+        if (onlyListItem) {
+          var item = children.single;
+          var text = item.text.trim();
+          var isImportedBreak =
+              item.children.isEmpty && importedBreak.hasMatch(text);
+          var isMarkdownBreak =
+              text.isEmpty &&
+              item.children.length == 1 &&
+              item.children.single.localName == 'hr';
+          if (isImportedBreak || isMarkdownBreak) {
+            node.parentNode!.insertBefore(dom.Element.tag('hr'), node);
+            node.remove();
+          }
+        }
+        // 普通列表及其嵌套内容保留原有结构。
+        return;
+      }
+      if (node.localName == 'ol') return;
+    }
+    for (var child in node.nodes.toList()) {
+      visit(child);
+    }
+  }
+
+  visit(fragment);
+  return fragment.outerHtml;
 }
 
 /// RSS 会在 Markdown 前后插入 HTML 摘要、图片和换行标签。
