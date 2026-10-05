@@ -124,6 +124,7 @@ class PlaybackStore extends ChangeNotifier {
   bool _closed = false;
   bool _disposed = false;
   Future<void>? _shutdownFuture;
+  Future<void>? _shutdownWorkFuture;
   Future<void>? _settlementFuture;
   final _shutdownWork = <Future<void>>[];
   final _nativeDestructions = <Future<void>>[];
@@ -369,13 +370,15 @@ class PlaybackStore extends ChangeNotifier {
         );
       }),
       player.stream.position.listen((value) {
-        if (!_closed && !loading) position = value;
+        if (!_closed && !loading && current != null) position = value;
       }),
       player.stream.duration.listen((value) {
-        if (!_closed && !loading && value > Duration.zero) duration = value;
+        if (!_closed && !loading && current != null && value > Duration.zero) {
+          duration = value;
+        }
       }),
       player.stream.videoParams.listen((value) {
-        if (_closed) return;
+        if (_closed || current == null) return;
         var source = _videoSource(value);
         _upscaler?.source(source);
         var ratio = playbackAspectRatio(
@@ -395,7 +398,7 @@ class PlaybackStore extends ChangeNotifier {
       }),
       player.stream.error.listen((value) {
         diagnostics.failure(value);
-        if (_closed) return;
+        if (_closed || current == null) return;
         if (_upscaler?.consumesError(value) ?? false) return;
         error = value;
         _notify();
@@ -707,8 +710,23 @@ class PlaybackStore extends ChangeNotifier {
     _notify();
   });
 
-  Future<void> stop() => _serial(() async {
-    await _save();
+  Future<void> stop() => _serial(_stop);
+
+  /// Unload media while retaining the Player and its native render context.
+  Future<void> clearCurrentPlayback() => _serial(() async {
+    await beforeVideoDispose?.call();
+    await _stop(refreshHistory: false);
+    _sourceDir = null;
+    _sourceSubject = null;
+    _aspectRatio = null;
+    _videoSize = null;
+    error = null;
+    _diagnostics?.stopped();
+    _notify();
+  });
+
+  Future<void> _stop({bool refreshHistory = true}) async {
+    await _save(refreshHistory: refreshHistory);
     loading = true;
     try {
       _manualSubtitles = true;
@@ -726,7 +744,7 @@ class PlaybackStore extends ChangeNotifier {
       loading = false;
       _notify();
     }
-  });
+  }
 
   Future<void> _save({bool refreshHistory = true}) async {
     var item = current;
@@ -800,15 +818,29 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> shutdown() => _shutdownFuture ??= _shutdown();
 
+  /// The window can be hidden after UI detachment and accepted work settle.
+  /// Keep its engine alive separately for mpv's delayed native destruction.
+  Future<void> waitForShutdownWork() =>
+      _shutdownWorkFuture ??= _waitForShutdownWork();
+
+  Future<void> _waitForShutdownWork() async {
+    await shutdown();
+    await Future.wait(_shutdownWork);
+    _checkShutdownFailures();
+  }
+
   /// Closing a child engine must not cancel timed-out writes or mpv's delayed
   /// destruction. Keep the engine alive until every accepted operation settles.
   Future<void> waitForShutdownSettlement() =>
       _settlementFuture ??= _waitForShutdownSettlement();
 
   Future<void> _waitForShutdownSettlement() async {
-    await shutdown();
-    await Future.wait(_shutdownWork);
+    await waitForShutdownWork();
     await Future.wait(_nativeDestructions);
+    _checkShutdownFailures();
+  }
+
+  void _checkShutdownFailures() {
     if (_shutdownFailures.isNotEmpty) {
       throw StateError('播放器未能完成保存或清理：${_shutdownFailures.first}');
     }
@@ -901,7 +933,8 @@ class PlaybackStore extends ChangeNotifier {
     playlist = [];
     loading = false;
     _notify();
-    if (!_disposed && player != null) {
+    // Hidden retained windows have already unmounted Video when media cleared.
+    if (!_disposed && player != null && finalItem != null) {
       await _shutdownStep(
         '移除视频界面',
         () => WidgetsBinding.instance.endOfFrame,

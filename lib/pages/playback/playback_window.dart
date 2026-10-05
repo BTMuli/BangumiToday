@@ -59,10 +59,13 @@ class _PlaybackWindow with WindowListener {
   late final RemoteEpisodeMarkController marking;
   late final PlaybackWindowMode mode;
   Future<void>? _closeFuture;
+  Future<void>? _shutdownFuture;
   int _sequence = 0;
   int _commandSequence = 0;
   int _presentationRevision = -1;
   bool _closing = false;
+  bool _hidden = false;
+  bool _exiting = false;
   Timer? _boundsTimer;
   Rect? _normalBounds;
   StreamSubscription<bool>? _playing;
@@ -187,18 +190,32 @@ class _PlaybackWindow with WindowListener {
     if (request.sequence <= _commandSequence) throw StateError('播放器命令已经失效');
     _commandSequence = request.sequence;
     if (call.method == 'prepareClose') {
-      await _beginClose();
+      await _beginShutdown();
+      return null;
+    }
+    if (call.method == 'activate') {
+      await _closeFuture;
+      if (_exiting) throw StateError('应用正在退出');
+      _closing = false;
+      closing.value = null;
+      marking.resume();
+      var value = await this.call('activated', {});
+      if (_exiting || _closing) throw StateError('播放器正在关闭');
+      _receive(value);
+      await store.refreshHistory();
+      if (await windowManager.isMinimized()) await windowManager.restore();
+      await mode.centerWindow();
+      if (_exiting || _closing) throw StateError('播放器正在关闭');
+      _hidden = false;
+      await windowManager.show();
+      if (_exiting || _closing) throw StateError('播放器正在关闭');
+      await windowManager.focus();
       return null;
     }
     if (_closing) throw StateError('播放器正在关闭');
     switch (call.method) {
       case 'presentation':
         _receive(request.body);
-      case 'activate':
-        if (await windowManager.isMinimized()) await windowManager.restore();
-        await mode.centerWindow();
-        await windowManager.show();
-        await windowManager.focus();
       case 'open':
         await store.openLocalFile(
           playbackString(request.body, 'filePath'),
@@ -221,47 +238,113 @@ class _PlaybackWindow with WindowListener {
     );
   }
 
-  Future<void> _beginClose() => _closeFuture ??= _close();
+  Future<void> _beginClose() {
+    if (_exiting) return _shutdownFuture ?? Future.value();
+    return _closeFuture ??= _close().whenComplete(() => _closeFuture = null);
+  }
+
   Future<void> _close() async {
-    BTLogTool.info('播放器窗口开始关闭：${identity.generation}');
+    if (_hidden) return;
+    BTLogTool.info('播放器窗口保存并隐藏：${identity.generation}');
     _closing = true;
     _boundsTimer?.cancel();
     closing.value = '正在保存并关闭播放器…';
-    marking.invalidate();
+    marking.suspend();
     try {
       await call('closing', {});
       if (await windowManager.isMinimized()) await windowManager.restore();
       await windowManager.show();
-      // The mounted PlaybackPage exits fullscreen and removes Video while this
-      // window can still draw; the strict wait includes final durable writes.
-      await store.shutdown();
       var savedBounds = await _savedBounds();
-      if (savedBounds != null) {
-        var bounds = savedBounds;
-        await store.settingsStore.write(
-          'playbackWindowBounds',
-          jsonEncode({
-            'x': bounds.left,
-            'y': bounds.top,
-            'width': bounds.width,
-            'height': bounds.height,
-          }),
-        );
+      await store.clearCurrentPlayback();
+      await _saveBounds(savedBounds);
+      // Remove the stopped video's widget while frames are still available.
+      await WidgetsBinding.instance.endOfFrame;
+      await windowManager.hide();
+      _hidden = true;
+      await call('hidden', {});
+      BTLogTool.info('播放器窗口已隐藏，保留 mpv 等待下次播放');
+    } catch (error) {
+      if (!_exiting) {
+        _closing = false;
+        marking.resume();
       }
+      var message = '保存或停止播放失败：$error';
+      await _showCloseFailure(message);
+      try {
+        _receive(await call('closeFailed', {'message': message}));
+      } catch (failure) {
+        BTLogTool.error('报告播放器关闭失败：$failure');
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _saveBounds(Rect? bounds) async {
+    if (bounds == null) return;
+    await store.settingsStore.write(
+      'playbackWindowBounds',
+      jsonEncode({
+        'x': bounds.left,
+        'y': bounds.top,
+        'width': bounds.width,
+        'height': bounds.height,
+      }),
+    );
+  }
+
+  Future<void> _beginShutdown() => _shutdownFuture ??= _shutdown();
+
+  Future<void> _shutdown() async {
+    _exiting = true;
+    _closing = true;
+    // A user close may already be saving and unloading media. Let it finish
+    // before the app exit takes ownership of native destruction.
+    try {
+      await _closeFuture;
+    } catch (_) {
+      // The close error was reported; exit must still release the Player.
+    }
+    _closing = true;
+    _boundsTimer?.cancel();
+    closing.value = '正在退出并释放播放器…';
+    marking.invalidate();
+    BTLogTool.info('应用退出，开始销毁播放器：${identity.generation}');
+    try {
+      await call('closing', {});
+      if (!_hidden) {
+        if (await windowManager.isMinimized()) await windowManager.restore();
+        await windowManager.show();
+        await _saveBounds(await _savedBounds());
+      }
+      await store.shutdown();
+      await store.waitForShutdownWork();
+      await windowManager.hide();
+      _hidden = true;
       await store.waitForShutdownSettlement();
       await call('closed', {});
       // Return the prepareClose reply before taking down its channel/HWND.
       Timer(const Duration(milliseconds: 100), () {
         unawaited(
-          _nativeClose().catchError((Object error) {
-            closing.value = '关闭窗口失败：$error';
-            BTLogTool.error(closing.value);
+          _nativeClose().catchError((Object error) async {
+            await _showCloseFailure('关闭窗口失败：$error');
           }),
         );
       });
     } catch (error) {
-      closing.value = '保存或清理失败：$error。请保留此窗口并从主窗口退出应用。';
+      await _showCloseFailure('保存或清理失败：$error。请保留此窗口并从主窗口退出应用。');
       rethrow;
+    }
+  }
+
+  Future<void> _showCloseFailure(String message) async {
+    closing.value = message;
+    BTLogTool.error(message);
+    try {
+      await windowManager.show();
+      _hidden = false;
+      await windowManager.focus();
+    } catch (error) {
+      BTLogTool.error('重新显示播放器清理错误失败：$error');
     }
   }
 

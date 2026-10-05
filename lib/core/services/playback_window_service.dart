@@ -44,6 +44,8 @@ class _PlaybackWindowSession {
   WindowController? window;
   String? reportedId;
   bool closing = false;
+  bool visible = true;
+  Completer<void>? closePending;
   bool cleanupConfirmed = false;
   int sequence = 0;
   Future<void> push = Future.value();
@@ -99,9 +101,15 @@ class PlaybackWindowService extends ChangeNotifier {
     if (_exiting) throw StateError('应用正在退出');
     await _checkWindow();
     var session = _session ?? await _create();
+    var pendingClose = session.closePending;
+    if (pendingClose != null) {
+      await pendingClose.future.timeout(const Duration(seconds: 30));
+    }
+    if (_exiting) throw StateError('应用正在退出');
     if (session.closing) throw StateError('播放器正在保存并关闭，请稍后重试');
     error = null;
     await _invoke(session, 'activate', {});
+    if (_exiting) throw StateError('应用正在退出');
     if (filePath != null) {
       await _invoke(session, 'open', {
         'filePath': filePath,
@@ -181,6 +189,7 @@ class PlaybackWindowService extends ChangeNotifier {
     if (session == null ||
         session.window == null ||
         session.closing ||
+        !session.visible ||
         _disposed) {
       return;
     }
@@ -228,9 +237,32 @@ class PlaybackWindowService extends ChangeNotifier {
         return _presentation();
       case 'closing':
         session.closing = true;
+        if (!_exiting && session.closePending == null) {
+          session.closePending = Completer<void>();
+          unawaited(session.closePending!.future.catchError((Object _) {}));
+        }
         ref.read(episodeMarkProvider.notifier).discardWindowWork();
         _notify();
         return null;
+      case 'hidden':
+        session.visible = false;
+        session.closing = _exiting;
+        _finishClose(session);
+        _notify();
+        return null;
+      case 'activated':
+        if (_exiting) throw StateError('应用正在退出');
+        session.visible = true;
+        session.closing = false;
+        _notify();
+        return _presentation();
+      case 'closeFailed':
+        error = playbackString(body, 'message');
+        session.visible = true;
+        session.closing = _exiting;
+        _finishClose(session, failure: StateError(error!));
+        _notify();
+        return _presentation();
       case 'closed':
         session.closing = true;
         session.cleanupConfirmed = true;
@@ -263,6 +295,17 @@ class PlaybackWindowService extends ChangeNotifier {
           return _episodeRequest(call.method, body);
         }
         return session.data.handle(call.method, call.arguments);
+    }
+  }
+
+  void _finishClose(_PlaybackWindowSession session, {Object? failure}) {
+    var pending = session.closePending;
+    session.closePending = null;
+    if (pending == null || pending.isCompleted) return;
+    if (failure == null) {
+      pending.complete();
+    } else {
+      pending.completeError(failure);
     }
   }
 
@@ -305,6 +348,7 @@ class PlaybackWindowService extends ChangeNotifier {
         }
         session.closing = true;
         error = '播放器意外关闭，原生释放未确认；请重启应用后再播放';
+        _finishClose(session, failure: StateError(error!));
         if (!session.gone.isCompleted) session.gone.complete();
         ref.read(episodeMarkProvider.notifier).discardWindowWork();
         _notify();
@@ -318,6 +362,7 @@ class PlaybackWindowService extends ChangeNotifier {
       session.retirement ??= _finishRetirement(session);
 
   Future<void> _finishRetirement(_PlaybackWindowSession session) async {
+    _finishClose(session, failure: StateError('播放器窗口已经关闭'));
     await session.data.close();
     await session.channel.setMethodCallHandler(null);
     if (identical(_session, session)) {

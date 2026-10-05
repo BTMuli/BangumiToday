@@ -48,6 +48,16 @@ class PlaybackDiagnostics {
     BTLogTool.info('打开视频：$file，恢复位置=${resume.inMilliseconds}ms');
   }
 
+  void stopped() {
+    if (_closed || !_active) return;
+    event('清空当前播放，停止诊断采样');
+    _active = false;
+    _revision++;
+    _properties.clear();
+    _health.reset();
+    _flushSuppressed();
+  }
+
   void event(String name, {bool error = false}) {
     var message = '$name ${_snapshot()}';
     if (error) {

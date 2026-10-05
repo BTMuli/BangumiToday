@@ -27,7 +27,9 @@ class RemoteEpisodeMarkController extends EpisodeMarkController {
   RemoteEpisodeMarkController(this.call);
   final PlaybackWindowCall call;
   int _revision = -1;
+  int _epoch = 0;
   bool _remoteClosed = false;
+  bool _suspended = false;
 
   @override
   EpisodeMarkState build() {
@@ -36,7 +38,7 @@ class RemoteEpisodeMarkController extends EpisodeMarkController {
   }
 
   void receive(Object? value) {
-    if (_remoteClosed) return;
+    if (_remoteClosed || _suspended) return;
     var data = playbackMap(value);
     var revision = playbackInt(data, 'revision');
     if (revision <= _revision) return;
@@ -46,10 +48,21 @@ class RemoteEpisodeMarkController extends EpisodeMarkController {
   }
 
   @override
-  String? currentAccount() => _remoteClosed ? null : state.account;
+  String? currentAccount() =>
+      _remoteClosed || _suspended ? null : state.account;
+
+  void suspend() {
+    _epoch++;
+    _suspended = true;
+    state = const EpisodeMarkState();
+  }
+
+  void resume() {
+    if (!_remoteClosed) _suspended = false;
+  }
 
   void invalidate() {
-    state = const EpisodeMarkState();
+    suspend();
     _remoteClosed = true;
   }
 
@@ -59,7 +72,8 @@ class RemoteEpisodeMarkController extends EpisodeMarkController {
     bool refresh = false,
   }) async {
     var account = currentAccount();
-    if (_remoteClosed || account == null) return;
+    var epoch = _epoch;
+    if (_remoteClosed || _suspended || account == null) return;
     try {
       var response = playbackMap(
         await call('episodes.syncItems', {
@@ -68,26 +82,41 @@ class RemoteEpisodeMarkController extends EpisodeMarkController {
           'refresh': refresh,
         }),
       );
-      if (!_remoteClosed && currentAccount() == account) {
+      if (!_remoteClosed && epoch == _epoch && currentAccount() == account) {
         receive(response['state']);
       }
     } catch (_) {
-      if (_remoteClosed || currentAccount() != account) return;
+      if (_remoteClosed || epoch != _epoch || currentAccount() != account) {
+        return;
+      }
       rethrow;
     }
   }
 
   @override
   Future<EpisodeMarkWriteResult> markItem(PlaybackItem item) async {
-    if (_remoteClosed) {
+    if (_remoteClosed || _suspended) {
       return const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.expired);
     }
-    var response = playbackMap(
-      await call('episodes.markItem', {
-        'account': currentAccount(),
-        'item': item.toRow(),
-      }),
-    );
+    var epoch = _epoch;
+    var account = currentAccount();
+    Map<String, Object?> response;
+    try {
+      response = playbackMap(
+        await call('episodes.markItem', {
+          'account': account,
+          'item': item.toRow(),
+        }),
+      );
+    } catch (_) {
+      if (_remoteClosed || epoch != _epoch || currentAccount() != account) {
+        return const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.expired);
+      }
+      rethrow;
+    }
+    if (_remoteClosed || epoch != _epoch || currentAccount() != account) {
+      return const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.expired);
+    }
     receive(response['state']);
     var result = playbackMap(response['result']);
     return EpisodeMarkWriteResult(
