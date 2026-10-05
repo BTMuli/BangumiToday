@@ -68,47 +68,62 @@ ANGLESurfaceManager::~ANGLESurfaceManager() {
   instance_count_--;
 }
 
-void ANGLESurfaceManager::SetSize(int32_t width, int32_t height) {
+void ANGLESurfaceManager::SetSize(int32_t width, int32_t height,
+                                  PlaybackRenderSample* sample) {
+  ScopedPlaybackTiming lock_timing(sample, PlaybackRenderStage::surface_lock);
   MutexLock lock(mutex_);
   if (!lock) throw std::runtime_error("Unable to lock the video surface.");
+  lock_timing.Finish();
   if (width == width_ && height == height_) {
     return;
   }
-  WaitForCopy();
+  WaitForCopy(sample);
   width_ = width;
   height_ = height;
-  Create();
+  Create(sample);
   frame_available_ = false;
 }
 
-void ANGLESurfaceManager::Draw(std::function<void()> callback) {
+void ANGLESurfaceManager::Draw(std::function<void()> callback,
+                               PlaybackRenderSample* sample) {
+  ScopedPlaybackTiming lock_timing(sample, PlaybackRenderStage::surface_lock);
   MutexLock lock(mutex_);
   if (!lock) throw std::runtime_error("Unable to lock the video surface.");
+  lock_timing.Finish();
   // A timed-out copy must finish before ANGLE can overwrite its source.
-  WaitForCopy();
-  MakeCurrent(true);
+  WaitForCopy(sample);
+  MakeCurrent(true, sample);
   try {
-    callback();
-    SwapBuffers();
+    {
+      ScopedPlaybackTiming timing(sample, PlaybackRenderStage::mpv_render);
+      callback();
+    }
+    {
+      ScopedPlaybackTiming timing(sample, PlaybackRenderStage::swap);
+      SwapBuffers();
+    }
     frame_available_ = true;
   } catch (...) {
-    MakeCurrent(false);
+    MakeCurrent(false, sample);
     throw;
   }
-  MakeCurrent(false);
+  MakeCurrent(false, sample);
 }
 
-void ANGLESurfaceManager::Read() {
+void ANGLESurfaceManager::Read(PlaybackRenderSample* sample) {
+  ScopedPlaybackTiming lock_timing(sample, PlaybackRenderStage::surface_lock);
   MutexLock lock(mutex_);
   if (!lock) throw std::runtime_error("Unable to lock the video surface.");
+  lock_timing.Finish();
   if (frame_available_ && d3d_11_device_context_ != nullptr) {
-    WaitForCopy();
+    WaitForCopy(sample);
     // Flutter imports the shared handle and samples it later on its own GPU
     // device. Its release callback only acknowledges the import, not the end
     // of sampling. Never overwrite a resource that has been handed to Flutter.
     D3D11_TEXTURE2D_DESC description{};
     internal_d3d_11_texture_2D_->GetDesc(&description);
     Microsoft::WRL::ComPtr<ID3D11Texture2D> snapshot;
+    ScopedPlaybackTiming allocation(sample, PlaybackRenderStage::snapshot);
     auto hr = d3d_11_device_->CreateTexture2D(&description, nullptr, &snapshot);
     if (FAILED(hr)) {
       char detail[128]{};
@@ -118,6 +133,8 @@ void ANGLESurfaceManager::Read() {
       BangumiNativeGraphicsError(detail);
       throw std::runtime_error("Unable to create the video frame snapshot.");
     }
+    allocation.Finish();
+    ScopedPlaybackTiming sharing(sample, PlaybackRenderStage::share);
     Microsoft::WRL::ComPtr<IDXGIResource> resource;
     HANDLE shared_handle = nullptr;
     hr = snapshot.As(&resource);
@@ -130,24 +147,32 @@ void ANGLESurfaceManager::Read() {
       BangumiNativeGraphicsError(detail);
       throw std::runtime_error("Unable to share the video frame snapshot.");
     }
+    sharing.Finish();
+    ScopedPlaybackTiming submission(sample, PlaybackRenderStage::copy_submit);
     d3d_11_device_context_->CopyResource(snapshot.Get(),
                                         internal_d3d_11_texture_2D_.Get());
     d3d_11_device_context_->End(copy_completion_.Get());
     copy_pending_ = true;
     d3d_11_device_context_->Flush();
+    submission.Finish();
     // Flush submits commands asynchronously. Publish only after the copy has
     // completed; on failure the previously completed frame remains available.
-    WaitForCopy();
+    WaitForCopy(sample, PlaybackRenderStage::copy_wait);
     d3d_11_texture_2D_ = std::move(snapshot);
     handle_ = shared_handle;
     frame_available_ = false;
   }
 }
 
-void ANGLESurfaceManager::WaitForCopy() {
+void ANGLESurfaceManager::WaitForCopy(PlaybackRenderSample* sample,
+                                      PlaybackRenderStage stage) {
   if (!copy_pending_) return;
+  ScopedPlaybackTiming timing(sample, stage);
   const auto started = std::chrono::steady_clock::now();
+  uint64_t polls = 0;
   for (;;) {
+    ++polls;
+    if (sample) ++sample->gpu_polls;
     const auto result = d3d_11_device_context_->GetData(
         copy_completion_.Get(), nullptr, 0, D3D11_ASYNC_GETDATA_DONOTFLUSH);
     if (result == S_OK) {
@@ -166,14 +191,24 @@ void ANGLESurfaceManager::WaitForCopy() {
     }
     if (std::chrono::steady_clock::now() - started >=
         std::chrono::milliseconds(100)) {
-      BangumiNativeGraphicsError("GPU frame copy timed out after 100ms");
+      char detail[256]{};
+      _snprintf_s(
+          detail, sizeof(detail), _TRUNCATE,
+          "GPU frame copy timed out after 100ms wait_ms=%.2f "
+          "polls=%llu size=%dx%d device_removed=0x%08lX",
+          PlaybackRenderMilliseconds(PlaybackRenderClock::now() - started),
+          polls, width_, height_,
+          static_cast<unsigned long>(d3d_11_device_->GetDeviceRemovedReason()));
+      BangumiNativeGraphicsError(detail);
       throw std::runtime_error("Timed out copying the video frame.");
     }
     ::Sleep(1);
   }
 }
 
-void ANGLESurfaceManager::MakeCurrent(bool value) {
+void ANGLESurfaceManager::MakeCurrent(bool value,
+                                      PlaybackRenderSample* sample) {
+  ScopedPlaybackTiming timing(sample, PlaybackRenderStage::context);
   const auto result =
       value ? eglMakeCurrent(display_, surface_, surface_, context_)
             : eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE,
@@ -189,7 +224,8 @@ void ANGLESurfaceManager::MakeCurrent(bool value) {
 
 void ANGLESurfaceManager::SwapBuffers() { glFinish(); }
 
-void ANGLESurfaceManager::Create() {
+void ANGLESurfaceManager::Create(PlaybackRenderSample* sample) {
+  ScopedPlaybackTiming timing(sample, PlaybackRenderStage::surface_create);
   CleanUp(false);
   if (!CreateD3DTexture()) {
     throw std::runtime_error("Unable to create Windows Direct3D device.");

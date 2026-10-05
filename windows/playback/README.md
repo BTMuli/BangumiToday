@@ -22,6 +22,34 @@ under Documents, accessible through the settings page's log-directory action:
 - `native-<pid>.log` records ANGLE/D3D errors, renderer initialization/disposal
   and aggregate render timing. GPU errors and slow-frame reports are limited
   to one report per five seconds, with normal timing reports every ten seconds.
+  Timing includes failed attempts: `attempts = frames + failures`, while
+  `errors_total` is cumulative for the player. `over_20ms`, `over_33ms` and
+  `slow_frames` count attempts taking at least 20, 33 and 50 ms respectively;
+  they are overlapping thresholds, not mpv's dropped-frame counters.
+  Stage averages/maxima separate retired-texture cleanup, update, resize,
+  surface lock/context/recreation, mpv rendering, swap, snapshot allocation,
+  handle sharing, copy submission, previous-copy wait, GPU completion wait
+  and frame storage/publication. Nested resize/recreation and update/context
+  times overlap.
+  These are CPU wall times, not GPU timestamp measurements.
+  Each aggregate also records its worst attempt, including sequence, dimensions,
+  size request, queue delay, coalesced request count, failure stage and age at
+  logging. Subtract `age_ms` and `render_ms` from the record time to locate it.
+  A separate worst-queue record identifies significant scheduling delays when
+  they occurred in a different attempt. Disposal flushes the remaining interval.
+  Resize begin/completion records link old/new dimensions and texture IDs;
+  completion still awaits the first frame, rather than proving publication.
+  The matching `first frame ready` record confirms its completed snapshot and
+  texture notification, before Flutter's subsequent sampling/presentation.
+- Dart diagnostics include the matching `native_handle`, media revision, actual
+  texture dimensions, installed shader mode, FPS/rate frame budget and cached
+  metric age. mpv warnings/errors carry this snapshot; rate/loudness changes
+  are recorded. Slow property reads identify the slowest property, and cached
+  metrics are published together only for the current media revision.
+  Supersampling logs use a generation to link configuration steps, shader lists,
+  output requests, observed dimensions, confirmation timeouts, superseded work
+  and recovery. Step completion confirms command acceptance/configuration;
+  observed output and native publication timing establish frame availability.
 - The Windows runner records unhandled native exceptions and asks a separate
   instance of the same executable to collect a crash before Flutter/plugin
   startup. The timestamp is the actual crash time, including milliseconds:

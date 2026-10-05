@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <functional>
 
+#include "render_diagnostics.h"
 #include "utils.h"
 
 // |ANGLESurfaceManager| provides an abstraction around ANGLE to easily draw
@@ -46,20 +47,23 @@ class ANGLESurfaceManager {
 
   ~ANGLESurfaceManager();
 
-  void SetSize(int32_t width, int32_t height);
+  void SetSize(int32_t width, int32_t height,
+               PlaybackRenderSample* sample = nullptr);
 
-  void Draw(std::function<void()> callback);
+  void Draw(std::function<void()> callback,
+            PlaybackRenderSample* sample = nullptr);
 
-  void Read();
+  void Read(PlaybackRenderSample* sample = nullptr);
 
-  void MakeCurrent(bool value);
+  void MakeCurrent(bool value, PlaybackRenderSample* sample = nullptr);
 
  private:
   void SwapBuffers();
 
-  void WaitForCopy();
+  void WaitForCopy(PlaybackRenderSample* sample = nullptr,
+                   PlaybackRenderStage stage = PlaybackRenderStage::prior_copy);
 
-  void Create();
+  void Create(PlaybackRenderSample* sample = nullptr);
 
   void CleanUp(bool release_context);
 

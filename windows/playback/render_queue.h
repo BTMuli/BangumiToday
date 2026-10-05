@@ -1,6 +1,8 @@
 #ifndef BANGUMI_PLAYBACK_RENDER_QUEUE_H_
 #define BANGUMI_PLAYBACK_RENDER_QUEUE_H_
 
+#include <chrono>
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <utility>
@@ -10,7 +12,7 @@
 class PlaybackRenderQueue {
  public:
   using Post = std::function<void(std::function<void()>)>;
-  using Render = std::function<void(bool)>;
+  using Render = std::function<void(bool, double, uint64_t)>;
 
   PlaybackRenderQueue(Post post, Render render)
       : post_(std::move(post)), render_(std::move(render)) {}
@@ -18,6 +20,8 @@ class PlaybackRenderQueue {
   void Request(bool force = false) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (closed_) return;
+    if (!requested_) requested_since_ = std::chrono::steady_clock::now();
+    ++requests_;
     requested_ = true;
     force_ = force_ || force;
     if (!queued_) {
@@ -38,17 +42,23 @@ class PlaybackRenderQueue {
 
   void Run() {
     bool force;
+    double queue_ms;
+    uint64_t requests;
     {
       std::lock_guard<std::mutex> lock(mutex_);
       if (closed_) {
         queued_ = false;
         return;
       }
+      queue_ms = std::chrono::duration<double, std::milli>(
+                     std::chrono::steady_clock::now() - requested_since_)
+                     .count();
+      requests = std::exchange(requests_, uint64_t{0});
       requested_ = false;
       force = std::exchange(force_, false);
     }
     try {
-      render_(force);
+      render_(force, queue_ms, requests);
     } catch (...) {
       Complete();
       throw;
@@ -73,6 +83,8 @@ class PlaybackRenderQueue {
   bool force_ = false;
   bool queued_ = false;
   bool closed_ = false;
+  uint64_t requests_ = 0;
+  std::chrono::steady_clock::time_point requested_since_{};
 };
 
 #endif  // BANGUMI_PLAYBACK_RENDER_QUEUE_H_

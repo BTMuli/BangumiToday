@@ -23,6 +23,7 @@ class PlaybackUpscaler {
     required this.loadShaders,
     required this.onChanged,
     required this.onError,
+    this.onDiagnostics,
     this.debounce = const Duration(milliseconds: 150),
   });
 
@@ -30,6 +31,7 @@ class PlaybackUpscaler {
   final Future<List<String>> Function(PlaybackUpscaleMode) loadShaders;
   final void Function() onChanged;
   final void Function(Object) onError;
+  final void Function(String)? onDiagnostics;
   final Duration debounce;
   PlaybackUpscaleMode mode = PlaybackUpscaleMode.off;
   PlaybackFit fit = PlaybackFit.fit;
@@ -64,8 +66,49 @@ class PlaybackUpscaler {
   Timer? _confirmation;
   final _forwardedErrors = <String>{};
 
+  String _pixels(PlaybackPixels? value) =>
+      value == null ? 'none' : '${value.width}x${value.height}';
+
+  void _trace(String message, {int? generation}) {
+    // Diagnostic sinks must never change playback or recovery behavior.
+    try {
+      onDiagnostics?.call(
+        '超分 generation=${generation ?? _generation} $message',
+      );
+    } catch (_) {}
+  }
+
+  Future<T> _step<T>(
+    String name,
+    Future<T> Function() action, {
+    int? generation,
+  }) async {
+    var clock = Stopwatch();
+    _trace('step=$name begin', generation: generation);
+    clock.start();
+    try {
+      var result = await action();
+      _trace(
+        'step=$name completed elapsed_ms=${clock.elapsedMilliseconds}',
+        generation: generation,
+      );
+      return result;
+    } catch (error) {
+      _trace(
+        'step=$name failed elapsed_ms=${clock.elapsedMilliseconds} '
+        'error=$error',
+        generation: generation,
+      );
+      rethrow;
+    }
+  }
+
   void preferences(PlaybackUpscaleMode value, PlaybackFit framing) {
     if (_closed || (mode == value && fit == framing)) return;
+    _trace(
+      'preferences old_mode=${mode.name} new_mode=${value.name} '
+      'old_fit=${fit.name} new_fit=${framing.name}',
+    );
     // A deliberate quality change may retry after a recovered shader failure.
     // Layout/fit changes never retry, and failed restoration still blocks work.
     if (mode != value && !_restorationFailed) {
@@ -100,6 +143,10 @@ class PlaybackUpscaler {
 
   void texture(PlaybackPixels? value) {
     if (_closed || actualOutput == value) return;
+    _trace(
+      'output observed old=${_pixels(actualOutput)} new=${_pixels(value)} '
+      'expected=${_pixels(_applied?.output ?? _applying?.output)}',
+    );
     actualOutput = value;
     if (value == _applied?.output) _confirmation?.cancel();
     onChanged();
@@ -222,19 +269,38 @@ class PlaybackUpscaler {
         _watchOutput(generation, next);
         continue;
       }
+      var clock = Stopwatch()..start();
+      _trace(
+        'apply begin configured=${_loadedMode?.name ?? 'none'} '
+        'mode=${next.mode.name} enabled=${next.enabled} reason=${next.reason} '
+        'old_output=${_pixels(_fixedOutput)} '
+        'new_output=${_pixels(next.output)} '
+        'actual=${_pixels(actualOutput)} source=$_source viewport=$_viewport '
+        'fit=${fit.name} resize_invalidated=$_resizeInvalidated',
+        generation: generation,
+      );
+      var outcome = 'superseded';
       try {
         if (!next.enabled) {
-          if (_dirty) await _restore();
+          if (_dirty) await _restore(generation: generation);
           if (!_current(generation)) continue;
         } else {
           if (_baselineDumbMode == null) {
-            var baseline = await backend.read('gpu-dumb-mode');
+            var baseline = await _step(
+              'read_gpu_dumb_mode',
+              () => backend.read('gpu-dumb-mode'),
+              generation: generation,
+            );
             if (!_current(generation)) continue;
             if (baseline is! String ||
                 !['yes', 'no', 'auto'].contains(baseline)) {
               throw StateError('无法确认渲染器的普通播放配置');
             }
-            var original = await backend.read('glsl-shaders');
+            var original = await _step(
+              'read_original_shaders',
+              () => backend.read('glsl-shaders'),
+              generation: generation,
+            );
             if (!_current(generation)) continue;
             if (original is! List || original.isNotEmpty) {
               throw StateError('当前渲染器已有其他着色器');
@@ -242,7 +308,11 @@ class PlaybackUpscaler {
             _baselineDumbMode = baseline;
           }
           if (_loadedMode != next.mode) {
-            var shaders = await loadShaders(next.mode);
+            var shaders = await _step(
+              'load_shaders:${next.mode.name}',
+              () => loadShaders(next.mode),
+              generation: generation,
+            );
             if (!_current(generation)) continue;
             _paths = shaders;
             _dirty = true;
@@ -250,11 +320,24 @@ class PlaybackUpscaler {
             // reloaded even if the latest preference returns to the old mode.
             _loadedMode = null;
             _applied = null;
-            await backend.command(['set', 'gpu-dumb-mode', 'no']);
+            await _step(
+              'gpu_dumb_mode:no',
+              () => backend.command(['set', 'gpu-dumb-mode', 'no']),
+              generation: generation,
+            );
             if (!_current(generation)) continue;
-            await backend.shaders(shaders);
+            _trace('shader_chain=$shaders', generation: generation);
+            await _step(
+              'install_shaders',
+              () => backend.shaders(shaders),
+              generation: generation,
+            );
             if (!_current(generation)) continue;
-            var configured = await backend.read('glsl-shaders');
+            var configured = await _step(
+              'verify_shaders',
+              () => backend.read('glsl-shaders'),
+              generation: generation,
+            );
             if (!_current(generation)) continue;
             if (configured is! List ||
                 configured.length != shaders.length ||
@@ -270,21 +353,30 @@ class PlaybackUpscaler {
           // Quality switches reuse the texture; layout changes resize directly.
           if (_resizeInvalidated) {
             _applied = null;
-            await backend.resize(null);
+            await _step(
+              'invalidate_output',
+              () => backend.resize(null),
+              generation: generation,
+            );
             _fixedOutput = null;
             if (!_current(generation)) continue;
           }
           if (_fixedOutput != next.output) {
             _applied = null;
-            await backend.resize(next.output);
+            await _step(
+              'resize:${_pixels(next.output)}',
+              () => backend.resize(next.output),
+              generation: generation,
+            );
             _fixedOutput = next.output;
             if (!_current(generation)) continue;
           }
           _resizeInvalidated = false;
-          await backend.redraw();
+          await _step('redraw', backend.redraw, generation: generation);
           if (!_current(generation)) continue;
         }
         _applied = next;
+        outcome = 'configured';
         plan = next;
         if (_failed && mode != PlaybackUpscaleMode.off) {
           _showFailure();
@@ -293,11 +385,12 @@ class PlaybackUpscaler {
         }
         _watchOutput(generation, next);
       } catch (error) {
+        outcome = 'failed';
         onError(error);
         if (_closed) return;
         _failed = true;
         try {
-          if (_dirty) await _restore();
+          if (_dirty) await _restore(generation: generation);
         } catch (restorationError) {
           _restorationFailed = true;
           onError(restorationError);
@@ -308,23 +401,43 @@ class PlaybackUpscaler {
         _timer?.cancel();
         _confirmation?.cancel();
         if (_mediaReady) _showFailure();
+      } finally {
+        _trace(
+          'apply end outcome=$outcome elapsed_ms=${clock.elapsedMilliseconds} '
+          'current_generation=$_generation configured=${_loadedMode?.name} '
+          'actual=${_pixels(actualOutput)} target=${_pixels(next.output)}',
+          generation: generation,
+        );
       }
     }
   }
 
-  Future<void> _restore() async {
+  Future<void> _restore({int? generation}) async {
+    var operation = generation ?? _generation;
     // Try every part of recovery even when clearing the shader list fails.
     Object? failure;
     for (var action in <Future<void> Function()>[
-      () => backend.shaders(const []),
+      () => _step(
+        'restore_shaders',
+        () => backend.shaders(const []),
+        generation: operation,
+      ),
       () async {
-        await backend.resize(null);
+        await _step(
+          'restore_output',
+          () => backend.resize(null),
+          generation: operation,
+        );
         _fixedOutput = null;
         _resizeInvalidated = false;
       },
       if (_baselineDumbMode != null)
-        () => backend.command(['set', 'gpu-dumb-mode', _baselineDumbMode!]),
-      backend.redraw,
+        () => _step(
+          'restore_gpu_dumb_mode:$_baselineDumbMode',
+          () => backend.command(['set', 'gpu-dumb-mode', _baselineDumbMode!]),
+          generation: operation,
+        ),
+      () => _step('restore_redraw', backend.redraw, generation: operation),
     ]) {
       try {
         await action();
@@ -340,8 +453,18 @@ class PlaybackUpscaler {
 
   void _watchOutput(int generation, PlaybackUpscalePlan next) {
     if (!next.enabled || actualOutput == next.output) return;
+    _trace(
+      'output confirmation pending actual=${_pixels(actualOutput)} '
+      'expected=${_pixels(next.output)} timeout_ms=3000',
+      generation: generation,
+    );
     _confirmation = Timer(const Duration(seconds: 3), () {
       if (!_current(generation) || actualOutput == next.output) return;
+      _trace(
+        'output confirmation timed_out actual=${_pixels(actualOutput)} '
+        'expected=${_pixels(next.output)}',
+        generation: generation,
+      );
       _failed = true;
       onError(StateError('超分纹理尺寸未能确认'));
       _schedule(immediate: true);

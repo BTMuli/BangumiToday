@@ -64,6 +64,8 @@ function(bangumi_configure_playback_renderer)
         "${_overlay_dir}/render_queue.h" COPYONLY)
     configure_file("${_override_dir}/native_log.h"
         "${_overlay_dir}/native_log.h" COPYONLY)
+    configure_file("${_override_dir}/render_diagnostics.h"
+        "${_overlay_dir}/render_diagnostics.h" COPYONLY)
 
     get_target_property(_sources media_kit_video_plugin SOURCES)
     set(_overlay_sources "")

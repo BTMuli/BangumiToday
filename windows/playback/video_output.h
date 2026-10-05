@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "angle_surface_manager.h"
+#include "render_diagnostics.h"
 #include "render_queue.h"
 #include "thread_pool.h"
 
@@ -108,13 +109,22 @@ class VideoOutput {
  private:
   void NotifyRender();
 
-  void ProcessRender(bool force);
+  void ProcessRender(bool force, double queue_ms, uint64_t requests);
 
-  void Render();
+  void RecordRender(PlaybackRenderSample& sample, bool success,
+                    const char* error = nullptr);
 
-  void CheckAndResize();
+  void FlushRenderStatistics(PlaybackRenderClock::time_point finished);
 
-  void Resize(int64_t required_width, int64_t required_height);
+  void LogRenderSample(const PlaybackRenderSample& sample, const char* kind,
+                       const char* error = nullptr);
+
+  bool Render(PlaybackRenderSample* sample);
+
+  void CheckAndResize(PlaybackRenderSample* sample);
+
+  void Resize(int64_t required_width, int64_t required_height,
+              PlaybackRenderSample* sample = nullptr);
 
   void PublishTexture();
 
@@ -142,11 +152,10 @@ class VideoOutput {
       std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point last_render_error_{};
   std::chrono::steady_clock::time_point last_slow_report_{};
-  uint64_t rendered_frames_ = 0;
-  uint64_t slow_frames_ = 0;
+  uint64_t render_sequence_ = 0;
+  uint64_t size_request_ = 0;
   uint64_t render_errors_ = 0;
-  double render_total_ms_ = 0;
-  double render_max_ms_ = 0;
+  PlaybackRenderStatistics render_statistics_;
 
   std::shared_ptr<PlaybackTextureStore> texture_store_ =
       std::make_shared<PlaybackTextureStore>();

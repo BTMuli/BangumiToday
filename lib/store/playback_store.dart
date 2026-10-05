@@ -268,12 +268,16 @@ class PlaybackStore extends ChangeNotifier {
     );
     var diagnostics = _diagnostics = PlaybackDiagnostics(
       player,
-      context: () => {
-        'file': current?.filePath,
-        'loading': loading,
-        'upscale': _upscaleMode.name,
-        'loudness': _loudnessEnabled,
-        'texture': _video?.rect.value.toString(),
+      context: () {
+        var rect = _video?.rect.value;
+        return {
+          'file': current?.filePath,
+          'loading': loading,
+          'upscale': _upscaleMode.name,
+          'loudness': _loudnessEnabled,
+          'texture': rect == null ? null : '${rect.width}x${rect.height}',
+          'upscale_configured': _upscaler?.configuredMode?.name,
+        };
       },
     );
     // Subscribe before the rendering context is created. Keep only capability
@@ -343,6 +347,7 @@ class PlaybackStore extends ChangeNotifier {
         loadShaders: assets.load,
         onChanged: _notify,
         onError: (error) => BTLogTool.warn('视频超分：$error'),
+        onDiagnostics: diagnostics.event,
       )..preferences(_upscaleMode, _fit);
       for (var value in earlyLogs) {
         _upscaler!.log(value.prefix, value.level, value.text);
@@ -358,6 +363,9 @@ class PlaybackStore extends ChangeNotifier {
       }),
       player.stream.buffering.listen((value) {
         diagnostics.event('缓冲状态改变：buffering=$value');
+      }),
+      player.stream.rate.listen((value) {
+        diagnostics.event('播放速率改变：rate=$value');
       }),
       player.stream.tracks.listen((_) {
         if (_closed || completed || _manualSubtitles || current == null) return;
@@ -659,6 +667,7 @@ class PlaybackStore extends ChangeNotifier {
     }
     if (_closed) return;
     _loudnessEnabled = enabled;
+    _diagnostics?.event('音量标准化改变：enabled=$enabled');
     _notify();
   });
 

@@ -24,6 +24,7 @@ class PlaybackDiagnostics {
   final _properties = <String, String>{};
   Duration _lastProperties = Duration.zero;
   Duration _lastSnapshot = Duration.zero;
+  Duration? _propertiesSampledAt;
   bool _reading = false;
   bool _closed = false;
   bool _active = false;
@@ -36,13 +37,23 @@ class PlaybackDiagnostics {
   String? _lastFailure;
   Duration _lastFailureTime = Duration.zero;
 
-  String get contextText => context().toString();
+  String get contextText {
+    var native = player.platform;
+    return {
+      ...context(),
+      'native_handle': native is NativePlayer
+          ? native.ctx.address.toRadixString(16).padLeft(16, '0').toUpperCase()
+          : null,
+      'media_revision': _revision,
+    }.toString();
+  }
 
   void opening(String file, Duration resume) {
     _revision++;
     _active = true;
     _health.reset();
     _properties.clear();
+    _propertiesSampledAt = null;
     _outputDrops = _decoderDrops = 0;
     _lastProperties = _lastSnapshot = _clock.elapsed;
     BTLogTool.info('打开视频：$file，恢复位置=${resume.inMilliseconds}ms');
@@ -54,6 +65,7 @@ class PlaybackDiagnostics {
     _active = false;
     _revision++;
     _properties.clear();
+    _propertiesSampledAt = null;
     _health.reset();
     _flushSuppressed();
   }
@@ -81,9 +93,9 @@ class PlaybackDiagnostics {
     _lastLog = message;
     _lastLogTime = now;
     if (value.level == 'fatal' || value.level == 'error') {
-      BTLogTool.error('$message $contextText');
+      BTLogTool.error('$message ${_snapshot()}');
     } else if (value.level == 'warn') {
-      BTLogTool.warn('$message $contextText');
+      BTLogTool.warn('$message ${_snapshot()}');
     } else {
       BTLogTool.info(message);
     }
@@ -108,10 +120,21 @@ class PlaybackDiagnostics {
 
   String _snapshot() {
     var state = player.state;
+    var fps = double.tryParse(_properties['estimated-vf-fps'] ?? '');
+    var effectiveFps = fps == null ? null : fps * state.rate;
+    var budget =
+        effectiveFps != null && effectiveFps.isFinite && effectiveFps > 0
+        ? (1000 / effectiveFps).toStringAsFixed(2)
+        : 'unknown';
+    var sampledAt = _propertiesSampledAt;
+    var age = sampledAt == null
+        ? 'unknown'
+        : '${(_clock.elapsed - sampledAt).inMilliseconds}';
     return 'position=${state.position.inMilliseconds}ms '
         'duration=${state.duration.inMilliseconds}ms '
         'playing=${state.playing} buffering=${state.buffering} '
         'completed=${state.completed} rate=${state.rate} '
+        'frame_budget_ms=$budget metrics_age_ms=$age '
         'video=${state.videoParams} metrics=$_properties $contextText';
   }
 
@@ -146,6 +169,11 @@ class PlaybackDiagnostics {
     }
     _reading = true;
     var revision = _revision;
+    var started = _clock.elapsed;
+    String? property;
+    String? slowestProperty;
+    var slowest = Duration.zero;
+    var values = <String, String>{};
     try {
       for (var name in const [
         'mpv-version',
@@ -160,12 +188,23 @@ class PlaybackDiagnostics {
         'demuxer-cache-duration',
       ]) {
         if (_closed || revision != _revision || native.disposed) return;
-        _properties[name] = await native.getProperty(
+        property = name;
+        var propertyStarted = _clock.elapsed;
+        values[name] = await native.getProperty(
           name,
           waitForInitialization: false,
         );
+        var elapsed = _clock.elapsed - propertyStarted;
+        if (elapsed > slowest) {
+          slowest = elapsed;
+          slowestProperty = name;
+        }
       }
       if (_closed || revision != _revision) return;
+      _properties
+        ..clear()
+        ..addAll(values);
+      _propertiesSampledAt = _clock.elapsed;
       var output = int.tryParse(_properties['frame-drop-count'] ?? '') ?? 0;
       var decoder =
           int.tryParse(_properties['decoder-frame-drop-count'] ?? '') ?? 0;
@@ -178,10 +217,21 @@ class PlaybackDiagnostics {
       _outputDrops = output;
       _decoderDrops = decoder;
     } catch (error, stackTrace) {
-      if (!_closed) {
-        BTLogTool.warn(['读取播放诊断失败：$error', stackTrace.toString()]);
+      if (!_closed && revision == _revision) {
+        BTLogTool.warn([
+          '读取播放诊断失败：property=$property error=$error $contextText',
+          stackTrace.toString(),
+        ]);
       }
     } finally {
+      var elapsed = (_clock.elapsed - started).inMilliseconds;
+      if (!_closed && revision == _revision && elapsed >= 200) {
+        BTLogTool.warn(
+          '读取播放诊断耗时 ${elapsed}ms '
+          'slowest_property=$slowestProperty '
+          'slowest_ms=${slowest.inMilliseconds} ${_snapshot()}',
+        );
+      }
       _reading = false;
     }
   }

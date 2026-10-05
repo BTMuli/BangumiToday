@@ -32,31 +32,8 @@ VideoOutput::VideoOutput(int64_t handle, VideoOutputConfiguration configuration,
           [this](std::function<void()> task) {
             thread_pool_ref_->Post(std::move(task));
           },
-          [this](bool force) {
-            try {
-              ProcessRender(force);
-            } catch (const std::exception& error) {
-              ++render_errors_;
-              auto now = std::chrono::steady_clock::now();
-              if (render_errors_ == 1 ||
-                  now - last_render_error_ >= std::chrono::seconds(5)) {
-                char message[1024]{};
-                _snprintf_s(message, sizeof(message), _TRUNCATE,
-                            "VideoOutput handle=%p texture=%lld "
-                            "render errors=%llu: %s",
-                            handle_, static_cast<long long>(texture_id_),
-                            static_cast<unsigned long long>(render_errors_),
-                            error.what());
-                BangumiNativeLog(message, true);
-                last_render_error_ = now;
-              }
-              // packaged_task stores this exception in a usually discarded
-              // future. Record it before preserving that existing behavior.
-              throw;
-            } catch (...) {
-              BangumiNativeLog("VideoOutput: unknown render exception", true);
-              throw;
-            }
+          [this](bool force, double queue_ms, uint64_t requests) {
+            ProcessRender(force, queue_ms, requests);
           }) {
   BangumiNativeLog("VideoOutput: creating render context");
   // The constructor must be invoked through the thread pool, because
@@ -163,6 +140,7 @@ VideoOutput::~VideoOutput() {
   }
   thread_pool_ref_
       ->Post([this]() {
+        FlushRenderStatistics(PlaybackRenderClock::now());
         if (surface_manager_) surface_manager_->MakeCurrent(true);
         if (render_context_) {
           mpv_render_context_set_update_callback(render_context_, nullptr,
@@ -200,70 +178,168 @@ VideoOutput::~VideoOutput() {
 
 void VideoOutput::NotifyRender() { render_queue_.Request(); }
 
-void VideoOutput::ProcessRender(bool force) {
+void VideoOutput::ProcessRender(bool force, double queue_ms,
+                                uint64_t requests) {
   if (destroyed_ || !render_context_) return;
-  const auto started = std::chrono::steady_clock::now();
-  // A newly sampled texture also schedules this task, even while paused.
-  RetireSampledTextures();
-  if (surface_manager_) surface_manager_->MakeCurrent(true);
-  const auto updates = mpv_render_context_update(render_context_);
-  if (surface_manager_) surface_manager_->MakeCurrent(false);
-  if (!force && !(updates & MPV_RENDER_UPDATE_FRAME)) return;
-  CheckAndResize();
-  Render();
-  const auto finished = std::chrono::steady_clock::now();
-  const auto elapsed =
-      std::chrono::duration<double, std::milli>(finished - started).count();
-  ++rendered_frames_;
-  render_total_ms_ += elapsed;
-  render_max_ms_ = (std::max)(render_max_ms_, elapsed);
-  if (elapsed >= 50) ++slow_frames_;
-  // One aggregate every ten seconds, or promptly for the first slow frame.
-  // No per-frame I/O, and no property calls back into the mpv core.
-  if (finished - statistics_since_ >= std::chrono::seconds(10) ||
-      (elapsed >= 50 &&
-       finished - last_slow_report_ >= std::chrono::seconds(5))) {
-    char message[512]{};
-    _snprintf_s(message, sizeof(message), _TRUNCATE,
-                "VideoOutput handle=%p texture=%lld size=%lldx%lld "
-                "frames=%llu interval_ms=%.1f render_avg_ms=%.2f "
-                "render_max_ms=%.2f slow_frames=%llu errors=%llu",
-                handle_, static_cast<long long>(texture_id_),
-                static_cast<long long>(width()), static_cast<long long>(height()),
-                static_cast<unsigned long long>(rendered_frames_),
-                std::chrono::duration<double, std::milli>(
-                    finished - statistics_since_).count(),
-                render_total_ms_ / rendered_frames_, render_max_ms_,
-                static_cast<unsigned long long>(slow_frames_),
-                static_cast<unsigned long long>(render_errors_));
-    BangumiNativeLog(message);
-    if (slow_frames_ > 0) last_slow_report_ = finished;
-    statistics_since_ = finished;
-    rendered_frames_ = slow_frames_ = 0;
-    render_total_ms_ = render_max_ms_ = 0;
+  const auto started = PlaybackRenderClock::now();
+  PlaybackRenderSample sample;
+  sample.sequence = ++render_sequence_;
+  sample.size_request = size_request_;
+  sample.queue_ms = queue_ms;
+  sample.requests = requests;
+  sample.force = force;
+  try {
+    {
+      ScopedPlaybackTiming timing(&sample, PlaybackRenderStage::retire);
+      RetireSampledTextures();
+    }
+    uint64_t updates;
+    {
+      ScopedPlaybackTiming timing(&sample, PlaybackRenderStage::update);
+      if (surface_manager_) surface_manager_->MakeCurrent(true, &sample);
+      updates = mpv_render_context_update(render_context_);
+      if (surface_manager_) surface_manager_->MakeCurrent(false, &sample);
+    }
+    if (!force && !(updates & MPV_RENDER_UPDATE_FRAME)) return;
+    {
+      ScopedPlaybackTiming timing(&sample, PlaybackRenderStage::resize);
+      CheckAndResize(&sample);
+    }
+    if (!Render(&sample)) return;
+  } catch (const std::exception& error) {
+    sample.finished = PlaybackRenderClock::now();
+    sample.elapsed_ms = PlaybackRenderMilliseconds(sample.finished - started);
+    RecordRender(sample, false, error.what());
+    throw;
+  } catch (...) {
+    sample.finished = PlaybackRenderClock::now();
+    sample.elapsed_ms = PlaybackRenderMilliseconds(sample.finished - started);
+    RecordRender(sample, false, "Unknown render exception");
+    throw;
+  }
+  sample.finished = PlaybackRenderClock::now();
+  sample.elapsed_ms = PlaybackRenderMilliseconds(sample.finished - started);
+  RecordRender(sample, true);
+}
+
+void VideoOutput::LogRenderSample(const PlaybackRenderSample& sample,
+                                  const char* kind, const char* error) {
+  char stages[1024]{};
+  size_t used = 0;
+  for (size_t i = 0; i < sample.stages.size(); ++i) {
+    const auto count = _snprintf_s(
+        stages + used, sizeof(stages) - used, _TRUNCATE, "%s=%.2f ",
+        PlaybackRenderStageName(static_cast<PlaybackRenderStage>(i)),
+        sample.stages[i]);
+    if (count < 0) break;
+    used += static_cast<size_t>(count);
+  }
+  char message[2048]{};
+  _snprintf_s(
+      message, sizeof(message), _TRUNCATE,
+      "VideoOutput %s handle=%p sequence=%llu size_request=%llu "
+      "texture=%lld size=%lldx%lld force=%d requests=%llu gpu_polls=%llu "
+      "queue_ms=%.2f render_ms=%.2f age_ms=%.2f "
+      "failed_stage=%s stages_ms={%s} error=%s",
+      kind, handle_, sample.sequence, sample.size_request,
+      static_cast<long long>(sample.texture),
+      static_cast<long long>(sample.width),
+      static_cast<long long>(sample.height), sample.force ? 1 : 0,
+      sample.requests, sample.gpu_polls, sample.queue_ms, sample.elapsed_ms,
+      PlaybackRenderMilliseconds(PlaybackRenderClock::now() - sample.finished),
+      sample.failed_stage ? sample.failed_stage : "none", stages,
+      error ? error : "none");
+  BangumiNativeLog(message, error != nullptr);
+}
+
+void VideoOutput::RecordRender(PlaybackRenderSample& sample, bool success,
+                               const char* error) {
+  sample.texture = texture_id_;
+  sample.width = width();
+  sample.height = height();
+  render_statistics_.Record(sample, success);
+  if (!success) {
+    ++render_errors_;
+    if (render_errors_ == 1 ||
+        sample.finished - last_render_error_ >= std::chrono::seconds(5)) {
+      LogRenderSample(sample, "failure", error);
+      last_render_error_ = sample.finished;
+    }
+  }
+  // Failed attempts contribute to every timing/count, not just errors_total.
+  // Fixed thresholds let Dart's FPS/rate budget explain sub-50ms slowdowns
+  // without synchronous mpv property reads on the render worker.
+  if (sample.finished - statistics_since_ >= std::chrono::seconds(10) ||
+      ((sample.elapsed_ms >= 50 || sample.queue_ms >= 50 || !success) &&
+       sample.finished - last_slow_report_ >= std::chrono::seconds(5))) {
+    FlushRenderStatistics(sample.finished);
   }
 }
 
-void VideoOutput::Render() {
-  if (destroyed_ || !texture_id_) return;
+void VideoOutput::FlushRenderStatistics(
+    PlaybackRenderClock::time_point finished) {
+  const auto& stats = render_statistics_;
+  if (stats.attempts == 0) return;
+  char stages[1536]{};
+  size_t used = 0;
+  for (size_t i = 0; i < stats.totals.size(); ++i) {
+    const auto count = _snprintf_s(
+        stages + used, sizeof(stages) - used, _TRUNCATE, "%s=%.2f/%.2f ",
+        PlaybackRenderStageName(static_cast<PlaybackRenderStage>(i)),
+        stats.totals[i] / stats.attempts, stats.maxima[i]);
+    if (count < 0) break;
+    used += static_cast<size_t>(count);
+  }
+  char message[2048]{};
+  _snprintf_s(message, sizeof(message), _TRUNCATE,
+              "VideoOutput handle=%p texture=%lld size=%lldx%lld "
+              "attempts=%llu frames=%llu failures=%llu interval_ms=%.1f "
+              "render_avg_ms=%.2f render_max_ms=%.2f "
+              "over_20ms=%llu over_33ms=%llu slow_frames=%llu "
+              "errors_total=%llu queue_avg_ms=%.2f queue_max_ms=%.2f "
+              "stages_avg_max_ms={%s}",
+              handle_, static_cast<long long>(texture_id_),
+              static_cast<long long>(width()), static_cast<long long>(height()),
+              stats.attempts, stats.frames, stats.failures,
+              PlaybackRenderMilliseconds(finished - statistics_since_),
+              stats.total_ms / stats.attempts, stats.worst.elapsed_ms,
+              stats.over_20, stats.over_33, stats.over_50, render_errors_,
+              stats.queue_total_ms / stats.attempts, stats.queue_max_ms,
+              stages);
+  BangumiNativeLog(message);
+  LogRenderSample(stats.worst, "worst");
+  if (stats.queue_max_ms >= 50 &&
+      stats.longest_queue.sequence != stats.worst.sequence)
+    LogRenderSample(stats.longest_queue, "queue_worst");
+  if (stats.over_50 > 0 || stats.failures > 0 || stats.queue_max_ms >= 50)
+    last_slow_report_ = finished;
+  statistics_since_ = finished;
+  render_statistics_ = {};
+}
+
+bool VideoOutput::Render(PlaybackRenderSample* sample) {
+  if (destroyed_ || !texture_id_) return false;
   // video-timing-offset is zero. Do not wait for the core's presentation signal
   // while holding the surface mutex needed by Flutter's texture callback.
   int block_for_target_time = 0;
   if (surface_manager_) {
-    surface_manager_->Draw([&]() {
-      mpv_opengl_fbo fbo{0, surface_manager_->width(),
-                         surface_manager_->height(), 0};
-      mpv_render_param params[]{
-          {MPV_RENDER_PARAM_OPENGL_FBO, &fbo},
-          {MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block_for_target_time},
-          {MPV_RENDER_PARAM_INVALID, nullptr},
-      };
-      if (mpv_render_context_render(render_context_, params) < 0) {
-        throw std::runtime_error("Unable to render the video frame.");
-      }
-    });
+    surface_manager_->Draw(
+        [&]() {
+          mpv_opengl_fbo fbo{0, surface_manager_->width(),
+                             surface_manager_->height(), 0};
+          mpv_render_param params[]{
+              {MPV_RENDER_PARAM_OPENGL_FBO, &fbo},
+              {MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block_for_target_time},
+              {MPV_RENDER_PARAM_INVALID, nullptr},
+          };
+          if (mpv_render_context_render(render_context_, params) < 0) {
+            throw std::runtime_error("Unable to render the video frame.");
+          }
+        },
+        sample);
     // Copy and wait on this worker, never in Flutter's raster callback.
-    surface_manager_->Read();
+    surface_manager_->Read(sample);
+    ScopedPlaybackTiming frame_timing(sample, PlaybackRenderStage::frame_store);
     auto frame = std::make_shared<PlaybackGpuFrame>();
     frame->resource = surface_manager_->texture();
     auto& descriptor = frame->descriptor;
@@ -291,12 +367,15 @@ void VideoOutput::Render() {
         {MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block_for_target_time},
         {MPV_RENDER_PARAM_INVALID, nullptr},
     };
+    ScopedPlaybackTiming timing(sample, PlaybackRenderStage::mpv_render);
     if (mpv_render_context_render(render_context_, params) < 0) {
       throw std::runtime_error("Unable to render the software video frame.");
     }
   }
+  ScopedPlaybackTiming timing(sample, PlaybackRenderStage::publish);
   PublishTexture();
   registrar_->texture_registrar()->MarkTextureFrameAvailable(texture_id_);
+  return true;
 }
 
 void VideoOutput::SetTextureUpdateCallback(
@@ -317,8 +396,21 @@ void VideoOutput::SetTextureUpdateCallback(
 
 void VideoOutput::SetSize(std::optional<int64_t> width,
                           std::optional<int64_t> height) {
-  thread_pool_ref_->Post([this, width, height]() {
+  const auto requested = PlaybackRenderClock::now();
+  thread_pool_ref_->Post([this, width, height, requested]() {
     if (destroyed_) return;
+    if (width_ != width || height_ != height) {
+      char message[512]{};
+      _snprintf_s(
+          message, sizeof(message), _TRUNCATE,
+          "VideoOutput size request handle=%p size_request=%llu "
+          "old_requested=%lldx%lld new_requested=%lldx%lld "
+          "output=%lldx%lld queue_ms=%.2f",
+          handle_, ++size_request_, width_.value_or(0), height_.value_or(0),
+          width.value_or(0), height.value_or(0), this->width(), this->height(),
+          PlaybackRenderMilliseconds(PlaybackRenderClock::now() - requested));
+      BangumiNativeLog(message);
+    }
     width_ = width;
     height_ = height;
     if (pixel_buffer_) {
@@ -333,15 +425,25 @@ void VideoOutput::SetSize(std::optional<int64_t> width,
   });
 }
 
-void VideoOutput::CheckAndResize() {
+void VideoOutput::CheckAndResize(PlaybackRenderSample* sample) {
   const auto required_width = GetVideoWidth();
   const auto required_height = GetVideoHeight();
   if (required_width < 1 || required_height < 1) return;
   if (required_width == width() && required_height == height()) return;
-  Resize(required_width, required_height);
+  Resize(required_width, required_height, sample);
 }
 
-void VideoOutput::Resize(int64_t required_width, int64_t required_height) {
+void VideoOutput::Resize(int64_t required_width, int64_t required_height,
+                         PlaybackRenderSample* sample) {
+  const auto started = PlaybackRenderClock::now();
+  char message[512]{};
+  _snprintf_s(message, sizeof(message), _TRUNCATE,
+              "VideoOutput resize begin handle=%p size_request=%llu "
+              "sequence=%llu old_texture=%lld old_size=%lldx%lld "
+              "new_size=%lldx%lld",
+              handle_, size_request_, sample ? sample->sequence : uint64_t{0},
+              texture_id_, width(), height(), required_width, required_height);
+  BangumiNativeLog(message);
   {
     // Old IDs retain their last immutable frame until the new ID is sampled.
     std::lock_guard<std::mutex> lock(texture_store_->mutex);
@@ -352,7 +454,7 @@ void VideoOutput::Resize(int64_t required_width, int64_t required_height) {
   std::weak_ptr<PlaybackTextureStore> weak_store = texture_store_;
   if (surface_manager_) {
     surface_manager_->SetSize(static_cast<int32_t>(required_width),
-                              static_cast<int32_t>(required_height));
+                              static_cast<int32_t>(required_height), sample);
     auto texture = std::make_shared<PlaybackGpuTexture>();
     texture->width = required_width;
     texture->height = required_height;
@@ -415,6 +517,14 @@ void VideoOutput::Resize(int64_t required_width, int64_t required_height) {
     texture_store_->active_id = texture_id_ = registered;
   }
   texture_update_pending_ = true;
+  _snprintf_s(message, sizeof(message), _TRUNCATE,
+              "VideoOutput resize completed handle=%p size_request=%llu "
+              "sequence=%llu texture=%lld size=%lldx%lld elapsed_ms=%.2f "
+              "first_frame_pending=1",
+              handle_, size_request_, sample ? sample->sequence : uint64_t{0},
+              texture_id_, width(), height(),
+              PlaybackRenderMilliseconds(PlaybackRenderClock::now() - started));
+  BangumiNativeLog(message);
 }
 
 void VideoOutput::PublishTexture() {
@@ -423,6 +533,15 @@ void VideoOutput::PublishTexture() {
   const bool has_video_size = GetVideoWidth() > 0 && GetVideoHeight() > 0;
   texture_update_callback_(texture_id_, has_video_size ? width() : 0,
                            has_video_size ? height() : 0);
+  if (has_video_size) {
+    char message[384]{};
+    _snprintf_s(message, sizeof(message), _TRUNCATE,
+                "VideoOutput first frame ready handle=%p size_request=%llu "
+                "sequence=%llu texture=%lld size=%lldx%lld",
+                handle_, size_request_, render_sequence_, texture_id_, width(),
+                height());
+    BangumiNativeLog(message);
+  }
 }
 
 void VideoOutput::RetireSampledTextures() {
