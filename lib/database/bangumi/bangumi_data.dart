@@ -63,14 +63,14 @@ class BtsBangumiData {
   Future<List<BangumiDataItem>> readItems(String title) async =>
       (await DatasetStorage(_db).readItems(title)).map(_itemFromRow).toList();
 
-  /// 读取首页七个日本放送日内的候选条目，包括本周尚未首播的新番。
+  /// 读取首页七个本地放送日内的候选条目，包括本周尚未首播的新番。
   ///
   /// 窗口从 [at] 所在放送日的 0 点开始；分组时再核对每一天的首末播日期。
   Future<List<BangumiDataItem>> readItemsForCalendar({DateTime? at}) async {
-    var start = bangumiCalendarStart(at: at);
+    var date = bangumiCalendarDate(at: at);
     var rows = await DatasetStorage(_db).readItemsInAirWindow(
-      start: start,
-      end: start.add(const Duration(days: 7)),
+      start: bangumiCalendarStart(at: date),
+      end: bangumiCalendarDate(at: date, offset: 7),
     );
     return rows.map(_itemFromRow).toList();
   }

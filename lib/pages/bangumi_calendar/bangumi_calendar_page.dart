@@ -47,7 +47,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 正在请求数据
   bool isRequesting = false;
 
-  /// 请求数据，索引 0=周一 ... 6=周日，按日本放送日归属
+  /// 请求数据，索引 0=周一 ... 6=周日，按本地放送日归属
   List<List<BangumiCalendarItem>> calendarData = List.generate(7, (_) => []);
 
   /// 是否只显示收藏
@@ -67,6 +67,12 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
   /// 顶部吸附栏当前选中的分组，0 为今天
   final ValueNotifier<int> _activeSlot = ValueNotifier<int>(0);
+
+  /// 当前数据对应的时间，日期标题与分组共用，避免异步加载跨午夜后错位。
+  DateTime _calendarAt = DateTime.now();
+
+  /// 本地午夜刷新日历。
+  Timer? _dayChangeTimer;
 
   /// 日历滚动控制器
   final ScrollController _scrollController = ScrollController();
@@ -141,8 +147,8 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 星期列表
   List<String> weekday = ['一', '二', '三', '四', '五', '六', '日'];
 
-  /// 今天；星期归属与日历一致，按日本放送日（JST）计算。
-  int get today => bangumiJstWeekday(DateTime.now()) - 1;
+  /// 今天；与当前日历数据使用同一份本地日期。
+  int get today => dateAt(0).weekday - 1;
 
   /// 保存状态
   @override
@@ -157,6 +163,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       setState(() {});
     }
     _scrollController.addListener(syncActiveSlot);
+    scheduleDayChange();
     Future.microtask(() async {
       await getData(freshTab: true);
       version = await sqliteAc.readBangumiDataVersion() ?? 'unknown';
@@ -167,6 +174,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 清理
   @override
   void dispose() {
+    _dayChangeTimer?.cancel();
     _scrollController.removeListener(syncActiveSlot);
     _scrollController.dispose();
     _activeSlot.dispose();
@@ -178,8 +186,21 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
   /// [slot] 对应的日期。
   DateTime dateAt(int slot) {
-    var jst = bangumiJstNow();
-    return DateTime(jst.year, jst.month, jst.day + slot);
+    return bangumiCalendarDate(at: _calendarAt, offset: slot);
+  }
+
+  /// 在系统本地午夜刷新；跨日时若已有请求或刷新失败，稍后重试。
+  void scheduleDayChange() {
+    _dayChangeTimer?.cancel();
+    var now = DateTime.now();
+    var delay = bangumiCalendarDate(at: now) == dateAt(0)
+        ? bangumiCalendarDate(at: now, offset: 1).difference(now)
+        : const Duration(minutes: 1);
+    _dayChangeTimer = Timer(delay, () async {
+      if (!mounted) return;
+      await getData(freshTab: true);
+      if (mounted) scheduleDayChange();
+    });
   }
 
   /// 获取数据
@@ -194,6 +215,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   Future<void> getData({bool freshTab = false}) async {
     if (isRequesting) return;
     isRequesting = true;
+    var calendarAt = DateTime.now();
     if (freshTab) {
       _activeSlot.value = 0;
       if (_scrollController.hasClients) _scrollController.jumpTo(0);
@@ -204,8 +226,9 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       _watchedIds = await loadWatchedIds(repository);
       _bmfIds = await loadBmfIds();
       _collectedIds = await loadCollectedIds();
-      var items = await sqliteBd.readItemsForCalendar();
+      var items = await sqliteBd.readItemsForCalendar(at: calendarAt);
       if (!mounted) return;
+      _calendarAt = calendarAt;
       if (items.isEmpty) {
         await loadRemoteFallback(repository);
         return;
@@ -270,6 +293,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       watchedIds: _watchedIds,
       bmfIds: _bmfIds,
       finishedIds: _finishedIds,
+      at: _calendarAt,
     );
     await applyDisplay();
   }
@@ -458,6 +482,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       items: _items,
       enrich: _enrich,
       weekday: weekdayIndexAt(slot) + 1,
+      at: _calendarAt,
     );
     if (pending.isEmpty) return;
     var finished = await enricher.confirmFinished(

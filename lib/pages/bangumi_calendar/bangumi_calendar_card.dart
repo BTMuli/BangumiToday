@@ -555,7 +555,7 @@ class _BangumiCalendarCardState extends ConsumerState<BangumiCalendarCard>
         if (hasAirInfo) ...[
           SizedBox(height: 6),
           Tooltip(
-            message: '放送时刻为本地时间，星期与话数按日本放送日推算',
+            message: '放送日期与时刻为本地时间，话数按本地放送日推算',
             child: Row(
               children: [
                 if (hasAirTime) ...[

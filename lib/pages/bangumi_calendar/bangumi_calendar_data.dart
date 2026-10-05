@@ -45,7 +45,7 @@ class BangumiCalendarItem {
 class BangumiCalendarData {
   BangumiCalendarData._();
 
-  /// 组装一周日历，索引 0=周一 ... 6=周日，按日本放送日归属。
+  /// 组装一周日历，索引 0=周一 ... 6=周日，按本地放送日归属。
   ///
   /// [items] 为本地 bangumi-data 在七天窗口内的候选条目；[siteMeta] 为站点
   /// 元数据，用于拼条目链接；[enrich] 为 bgm 条目（按 subject id 索引），
@@ -75,7 +75,7 @@ class BangumiCalendarData {
           parseBangumiBroadcastStart(item.broadcast) ??
           DateTime.tryParse(item.begin);
       if (anchor == null) continue;
-      var weekday = bangumiJstWeekday(anchor);
+      var weekday = anchor.toLocal().weekday;
       var day = dayStarts[weekday]!;
       var firstAir = DateTime.tryParse(item.begin) ?? anchor;
       if (!bangumiAirsOnDay(
@@ -121,14 +121,15 @@ class BangumiCalendarData {
 
   /// 每个星期在滚动窗口里的起始时刻（1=周一 ... 7=周日）。
   ///
-  /// 窗口与星期归属都按日本放送日算，所以取该星期当天的 JST 0 点；用 UTC
-  /// 表示，避免设备时区影响深夜番的话数推算。
+  /// 窗口与星期归属都按系统本地日期计算，与卡片显示的放送时刻保持一致。
   static Map<int, DateTime> _dayStarts({DateTime? at}) {
-    var start = bangumiCalendarStart(at: at);
-    var startWeekday = bangumiJstWeekday(start);
+    var start = bangumiCalendarDate(at: at);
     return {
       for (var weekday = 1; weekday <= 7; weekday++)
-        weekday: start.add(Duration(days: (weekday - startWeekday + 7) % 7)),
+        weekday: bangumiCalendarDate(
+          at: start,
+          offset: (weekday - start.weekday + 7) % 7,
+        ),
     };
   }
 
@@ -154,14 +155,10 @@ class BangumiCalendarData {
     required Map<int, BangumiCalendarSubject> enrich,
     int? weekday,
     int maxLag = 8,
+    DateTime? at,
   }) {
     var pending = <int, Duration>{};
-    var jst = bangumiJstNow();
-    var today = DateTime.utc(
-      jst.year,
-      jst.month,
-      jst.day,
-    ).subtract(const Duration(hours: bangumiJstOffsetHours));
+    var today = bangumiCalendarDate(at: at);
     for (var item in items) {
       var id = subjectIdOf(item);
       if (id == null) continue;
@@ -173,7 +170,7 @@ class BangumiCalendarData {
       if (firstAir == null) continue;
       if (weekday != null) {
         var anchor = parseBangumiBroadcastStart(item.broadcast) ?? firstAir;
-        if (bangumiJstWeekday(anchor) != weekday) continue;
+        if (anchor.toLocal().weekday != weekday) continue;
       }
       var period =
           parseBangumiBroadcastPeriod(item.broadcast) ??

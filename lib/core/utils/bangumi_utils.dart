@@ -19,9 +19,6 @@ bool hasBgmOauthCredentials() {
   return getBgmAppId().isNotEmpty && getBgmAppSecret().isNotEmpty;
 }
 
-/// 日本放送时区（JST）相对 UTC 的偏移小时数。
-const int bangumiJstOffsetHours = 9;
-
 /// 从 BangumiData `broadcast` 里取出当前放送起点。
 ///
 /// 该字段是 ISO 8601 重复区间，形如 `R/2025-04-29T16:00:00.000Z/P7D`：
@@ -35,26 +32,18 @@ DateTime? parseBangumiBroadcastStart(String? broadcast) {
   return DateTime.tryParse(parts[1]);
 }
 
-/// 当前的日本放送时刻（JST）。
-DateTime bangumiJstNow() {
-  return DateTime.now().toUtc().add(
-    const Duration(hours: bangumiJstOffsetHours),
-  );
+/// 首页日期按系统本地时区计算，返回 [at] 所在日期偏移 [offset] 天的 0 点。
+/// 使用日历日期构造，避免夏令时切换日按 24 小时累加导致日期偏移。
+DateTime bangumiCalendarDate({DateTime? at, int offset = 0}) {
+  var local = (at ?? DateTime.now()).toLocal();
+  return DateTime(local.year, local.month, local.day + offset);
 }
 
-/// 首页七天窗口的起点：日本放送日当天 0 点，用 UTC 表示。
-DateTime bangumiCalendarStart({DateTime? at}) {
-  var jst = (at ?? DateTime.now()).toUtc().add(
-    const Duration(hours: bangumiJstOffsetHours),
-  );
-  return DateTime.utc(
-    jst.year,
-    jst.month,
-    jst.day,
-  ).subtract(const Duration(hours: bangumiJstOffsetHours));
-}
+/// 首页七天窗口的起点：本地当天 0 点，用 UTC 表示以便查询数据库。
+DateTime bangumiCalendarStart({DateTime? at}) =>
+    bangumiCalendarDate(at: at).toUtc();
 
-/// 排期是否覆盖 [day] 这个放送日（当天 JST 0 点，用 UTC 表示）。
+/// 排期是否覆盖 [day] 这个本地放送日（当天本地 0 点）。
 ///
 /// 首播与当前排期起点都必须早于当天结束，末播不能早于当天开始。
 /// 按整天判断，保留当天已经播出的首话和最后一话。
@@ -64,18 +53,10 @@ bool bangumiAirsOnDay({
   required DateTime day,
   DateTime? lastAir,
 }) {
-  var dayEnd = day.add(const Duration(days: 1));
+  var dayEnd = bangumiCalendarDate(at: day, offset: 1);
   return firstAir.isBefore(dayEnd) &&
       scheduleStart.isBefore(dayEnd) &&
       (lastAir == null || !lastAir.isBefore(day));
-}
-
-/// 放送时刻按日本放送日（JST）归属的星期，1=周一 ... 7=周日。
-///
-/// 与 bgm.tv 日历的 air_weekday 口径一致：深夜番按日本当天日期归属，
-/// 不会因为本地时区回退一天而挪到前一个 Tab。
-int bangumiJstWeekday(DateTime time) {
-  return time.toUtc().add(const Duration(hours: bangumiJstOffsetHours)).weekday;
 }
 
 /// 从 BangumiData `broadcast` 里取出放送周期，如 `P7D`、`P1M`。
@@ -129,10 +110,14 @@ String? formatBangumiAirClock(DateTime? time) {
   return '$hour:$minute';
 }
 
-/// 把 BangumiData 的 ISO 8601 时间收成 `yyyy-MM-dd`；无法解析时返回空串。
+/// 把 BangumiData 的 ISO 8601 时间折算成本地日期；无法解析时返回空串。
 String formatBangumiAirDate(String? time) {
-  if (time == null || time.length < 10) return '';
-  return time.substring(0, 10);
+  var local = time == null ? null : DateTime.tryParse(time)?.toLocal();
+  if (local == null) return '';
+  var year = local.year.toString().padLeft(4, '0');
+  var month = local.month.toString().padLeft(2, '0');
+  var day = local.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
 }
 
 /// 根据评分获取对应label
