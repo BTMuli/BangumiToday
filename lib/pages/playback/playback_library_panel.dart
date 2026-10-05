@@ -756,6 +756,8 @@ IconData _playbackLayoutIcon(PlaybackEpisodeLayout layout) => switch (layout) {
   required BuildContext buttonContext,
   required RenderBox navigatorBox,
   bool besideButton = false,
+  bool preferBelow = false,
+  double maximumWidth = 360,
 }) {
   const margin = 8.0;
   const gap = 8.0;
@@ -763,7 +765,7 @@ IconData _playbackLayoutIcon(PlaybackEpisodeLayout layout) => switch (layout) {
   var topLeft = buttonBox.localToGlobal(Offset.zero, ancestor: navigatorBox);
   var button = topLeft & buttonBox.size;
   var bounds = (Offset.zero & navigatorBox.size).deflate(margin);
-  var width = bounds.width.clamp(0.0, 360.0);
+  var width = bounds.width.clamp(0.0, maximumWidth);
   var height = bounds.height.clamp(0.0, 420.0);
   var rightSpace = bounds.right - button.right - gap;
   if (besideButton && rightSpace >= 140) {
@@ -781,7 +783,9 @@ IconData _playbackLayoutIcon(PlaybackEpisodeLayout layout) => switch (layout) {
   }
   var above = (button.top - gap - bounds.top).clamp(0.0, bounds.height);
   var below = (bounds.bottom - button.bottom - gap).clamp(0.0, bounds.height);
-  var showAbove = above >= below;
+  var showAbove = preferBelow
+      ? below < height && above > below
+      : above >= below;
   height = height.clamp(0.0, showAbove ? above : below);
   return (
     position: Offset(

@@ -704,22 +704,42 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
   void _showRateMenu(BuildContext buttonContext) => _showButtonMenu(
     buttonContext,
     () => _playbackRateItems(widget.player, widget.store, widget.run, _execute),
+    menuWidth: 220,
   );
 
   void _showButtonMenu(
     BuildContext buttonContext,
     List<MenuFlyoutItemBase> Function() items, {
     bool belowButton = false,
+    double menuWidth = 320,
   }) {
     var navigatorBox =
         Navigator.of(context).context.findRenderObject() as RenderBox;
     var buttonBox = buttonContext.findRenderObject() as RenderBox;
+    var layout = _playbackLibraryFlyoutLayout(
+      buttonContext: buttonContext,
+      navigatorBox: navigatorBox,
+      preferBelow: belowButton,
+      maximumWidth: menuWidth,
+    );
+    var button = buttonBox.localToGlobal(Offset.zero, ancestor: navigatorBox);
+    var above = layout.position.dy < button.dy;
+    // Explicit placement and height constraints prevent the flyout's automatic
+    // edge clamping from moving a tall speed menu back over its trigger.
+    var position = above
+        ? Offset(layout.position.dx, button.dy - 8)
+        : layout.position;
     _showMenu(
-      buttonBox.localToGlobal(
-        belowButton ? Offset(0, buttonBox.size.height + 4) : Offset.zero,
-        ancestor: navigatorBox,
-      ),
+      position,
       items,
+      placement: above
+          ? FlyoutPlacementMode.topLeft
+          : FlyoutPlacementMode.bottomLeft,
+      constraints: BoxConstraints(
+        minWidth: layout.size.width,
+        maxWidth: layout.size.width,
+        maxHeight: layout.size.height,
+      ),
     );
   }
 
@@ -759,15 +779,35 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     );
   }
 
-  void _showMenu(Offset position, List<MenuFlyoutItemBase> Function() items) {
+  void _showMenu(
+    Offset position,
+    List<MenuFlyoutItemBase> Function() items, {
+    FlyoutPlacementMode placement = FlyoutPlacementMode.auto,
+    BoxConstraints? constraints,
+  }) {
     _showChrome();
     _hideTimer?.cancel();
+    var navigatorBox =
+        Navigator.of(context).context.findRenderObject() as RenderBox;
+    var maximumWidth = (navigatorBox.size.width - 16).clamp(0.0, 320.0);
+    var menuConstraints =
+        constraints ??
+        BoxConstraints(
+          minWidth: maximumWidth.clamp(0.0, 220.0),
+          maxWidth: maximumWidth,
+          maxHeight: (navigatorBox.size.height - 16).clamp(
+            0.0,
+            double.infinity,
+          ),
+        );
     unawaited(
       widget.run(() async {
         try {
           await _contextMenu.showFlyout<void>(
             position: position,
-            builder: (_) => MenuFlyout(items: items()),
+            placementMode: placement,
+            builder: (_) =>
+                MenuFlyout(items: items(), constraints: menuConstraints),
           );
         } finally {
           if (mounted) {
@@ -1200,6 +1240,44 @@ class _PlaybackRateButton extends StatelessWidget {
   );
 }
 
+/// Descriptions occupy their own line; long track names wrap within the menu.
+class _PlaybackMenuLabel extends StatelessWidget {
+  const _PlaybackMenuLabel(this.title, {this.description});
+
+  final String title;
+  final String? description;
+
+  @override
+  Widget build(BuildContext context) {
+    var detail = description;
+    var color = DefaultTextStyle.of(context).style.color;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          maxLines: detail == null ? 2 : 1,
+          softWrap: true,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (detail != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            detail,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              color: color?.withValues(alpha: color.a * 0.7),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 List<MenuFlyoutItemBase> _playbackSettingsItems(
   Player player,
   PlaybackStore store,
@@ -1218,10 +1296,11 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
       items: (_) => [
         for (var mode in PlaybackUpscaleMode.values)
           ToggleMenuFlyoutItem(
-            text: Text(
-              mode == PlaybackUpscaleMode.off
-                  ? mode.label
-                  : '${mode.label} · ${mode.description}',
+            text: _PlaybackMenuLabel(
+              mode.label,
+              description: mode == PlaybackUpscaleMode.off
+                  ? null
+                  : mode.description,
             ),
             value: store.upscaleMode == mode,
             onChanged: (_) => unawaited(run(() => store.setUpscaleMode(mode))),
@@ -1241,7 +1320,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
       items: (_) => [
         for (var mode in PlaybackOnTop.values)
           ToggleMenuFlyoutItem(
-            text: Text('${mode.label} · ${mode.description}'),
+            text: _PlaybackMenuLabel(mode.label, description: mode.description),
             value: windowMode.onTop == mode,
             onChanged: (_) => unawaited(run(() => windowMode.setOnTop(mode))),
           ),
@@ -1252,7 +1331,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
     items: (_) => [
       for (var track in player.state.tracks.audio)
         ToggleMenuFlyoutItem(
-          text: Text(
+          text: _PlaybackMenuLabel(
             _playbackTrackLabel(track.id, track.title, track.language),
           ),
           value: player.state.track.audio.id == track.id,
@@ -1265,7 +1344,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
     items: (_) => [
       for (var track in player.state.tracks.subtitle)
         ToggleMenuFlyoutItem(
-          text: Text(
+          text: _PlaybackMenuLabel(
             track.id == 'auto' && store.automaticSubtitles
                 ? _playbackAutomaticSubtitleLabel(player)
                 : playbackSubtitleTrackLabel(
