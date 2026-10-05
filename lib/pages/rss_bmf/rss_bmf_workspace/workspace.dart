@@ -288,7 +288,7 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
       expandable: false,
       embedded: true,
       contentScrollController: _rssPaneController,
-      onDelete: () => _removeRss(bmf),
+      onDelete: (id) => _removeRss(bmf, id),
     );
     Widget filePane() => BmfFileExpander(
       key: ValueKey('file-${bmf.subject}-${bmf.download}'),

@@ -1,5 +1,6 @@
 // Dart imports:
 import 'dart:async';
+import 'dart:convert';
 
 // Flutter imports:
 import 'package:flutter/services.dart';
@@ -16,8 +17,11 @@ import '../../core/services/bmf_rss_service.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/rss_date.dart';
-import '../../database/app/app_rss.dart';
+import '../../database/app/app_bmf.dart';
+import '../../database/app/app_subscription.dart';
+import '../../database/drift/bt_database.dart';
 import '../../models/database/app_bmf_model.dart';
+import '../../models/database/app_subscription_model.dart';
 import '../../models/rss/rss.dart';
 import '../../providers/app_providers.dart';
 import '../../tools/log_tool.dart';
@@ -34,6 +38,7 @@ import 'bmf_filter_model.dart';
 import 'bmf_subject_data.dart';
 
 part 'rss_bmf_workspace/config_dialog.dart';
+part 'rss_bmf_workspace/recovery_dialog.dart';
 part 'rss_bmf_workspace/header.dart';
 part 'rss_bmf_workspace/workspace.dart';
 
@@ -46,7 +51,6 @@ class RssBmfWorkspace extends ConsumerStatefulWidget {
 
 abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     with AutomaticKeepAliveClientMixin {
-  final BtsAppRss rss = BtsAppRss();
   final BTFileTool fileTool = BTFileTool();
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _bmfListController = ScrollController();
@@ -54,7 +58,6 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
   final ScrollController _filePaneController = ScrollController();
   final FlyoutController _filterFlyoutController = FlyoutController();
   final BmfFilterModel _filterModel = BmfFilterModel();
-  final Map<String, int> _rssSubjectsByKey = {};
   final Map<int, int> _statusRevisions = {};
   final Map<int, int> _updateRevisions = {};
   String _loadedStatusSignature = '';
@@ -73,7 +76,6 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
   Timer? _debounceTimer;
   StreamSubscription<BmfRssStatusEvent>? _statusSubscription;
   StreamSubscription<BmfRssUpdateEvent>? _updateSubscription;
-  bool _preCheckDone = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -93,22 +95,18 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
       });
     });
     _updateSubscription = BmfRssService.instance.updateStream.listen((event) {
-      var subject = _rssSubjectsByKey[event.key];
-      var latestUpdate = latestRssPublishedAt(event.items);
-      if (!mounted || subject == null) return;
+      if (!mounted) return;
+      var subject = event.subject;
       setState(() {
         _updateRevisions.update(
           subject,
           (value) => value + 1,
           ifAbsent: () => 1,
         );
-        _filterModel.rssItemCounts[subject] = event.items.length;
-        if (latestUpdate == null) {
-          _filterModel.latestUpdateTimes.remove(subject);
-        } else {
-          _filterModel.latestUpdateTimes[subject] = latestUpdate;
-        }
       });
+      unawaited(
+        _loadUpdateStates(_filterModel.filteredList, _statusLoadGeneration),
+      );
     });
   }
 
@@ -123,28 +121,6 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     _filePaneController.dispose();
     _filterFlyoutController.dispose();
     super.dispose();
-  }
-
-  Future<void> _preCheck(List<AppBmfModel> bmfList) async {
-    if (_preCheckDone || bmfList.isEmpty) return;
-    _preCheckDone = true;
-
-    var rssList = await rss.readAll();
-    var usedMkIds = bmfList
-        .where((item) => item.mkBgmId != null && item.mkBgmId!.isNotEmpty)
-        .map((item) => item.mkBgmId)
-        .toSet();
-    var unusedRss = rssList.where((rssItem) {
-      if (rssItem.mkBgmId == null || rssItem.mkBgmId!.isEmpty) return false;
-      return !usedMkIds.contains(rssItem.mkBgmId);
-    }).toList();
-
-    for (var item in unusedRss) {
-      await rss.deleteByMkId(item.mkBgmId!);
-    }
-    if (unusedRss.isNotEmpty && mounted) {
-      await BtInfobar.warn(context, '清理了 ${unusedRss.length} 条未使用的 RSS 缓存');
-    }
   }
 
   void _applyNavigationIntent(BmfNavigationState navigation) {
@@ -187,20 +163,15 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
       unawaited(_loadSubjectData(bmfList, generation));
     }
     var rssSignature = bmfList
-        .map((item) => '${item.subject}:${item.rss}:${item.mkBgmId}')
+        .map((item) {
+          var subscriptions = item.subscriptions
+              .map((s) => '${s.id}:${s.feedKey}:${s.status}:${s.autoUpdate}')
+              .join(',');
+          return '${item.subject}:$subscriptions';
+        })
         .join('|');
     if (_loadedStatusSignature == rssSignature) return;
     _loadedStatusSignature = rssSignature;
-    _rssSubjectsByKey
-      ..clear()
-      ..addEntries(
-        bmfList.where(BmfFilterModel.hasRss).map((item) {
-          var key = item.mkBgmId?.isNotEmpty == true
-              ? item.mkBgmId!
-              : item.rss!;
-          return MapEntry(key, item.subject);
-        }),
-      );
     var generation = ++_statusLoadGeneration;
     _filterModel.pendingCounts.clear();
     _filterModel.rssItemCounts.clear();
@@ -264,29 +235,32 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     var statusRevisions = Map<int, int>.of(_statusRevisions);
     var updateRevisions = Map<int, int>.of(_updateRevisions);
     try {
-      var values = await Future.wait(
-        bmfList.where(BmfFilterModel.hasRss).map((item) async {
-          var model = item.mkBgmId?.isNotEmpty == true
-              ? await rss.readByMkId(item.mkBgmId!)
-              : await rss.read(item.rss!);
-          var items = <RssItem>[];
-          if (model != null) {
+      var subscriptions = await appSubscriptionStorage.readAll();
+      var caches = await appSubscriptionStorage.readCaches();
+      var parsed = <String, List<RssItem>>{};
+      var values = bmfList.map((item) {
+        var owned = subscriptions.where((s) => s.bmfId == item.id);
+        var items = <RssItem>[];
+        var pending = 0;
+        for (var subscription in owned) {
+          pending += subscription.pendingItemKeys.length;
+          var feedItems = parsed.putIfAbsent(subscription.feedKey, () {
             try {
-              items = RssFeed.parse(model.data).items;
-            } catch (error) {
-              BTLogTool.warn(
-                'Failed to parse BMF RSS cache (${item.subject}): $error',
-              );
+              var xml = caches[subscription.feedKey]?.data;
+              return xml == null ? <RssItem>[] : RssFeed.parse(xml).items;
+            } catch (_) {
+              return <RssItem>[];
             }
-          }
-          return (
-            item.subject,
-            model?.pendingItemKeys.length ?? 0,
-            latestRssPublishedAt(items),
-            items.length,
-          );
-        }),
-      );
+          });
+          items.addAll(feedItems);
+        }
+        return (
+          item.subject,
+          pending,
+          latestRssPublishedAt(items),
+          items.length,
+        );
+      }).toList();
       if (!mounted || generation != _statusLoadGeneration) return;
       setState(() {
         for (var value in values) {
@@ -389,20 +363,9 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     );
     if (draft == null || !mounted) return;
 
-    var rssValue = draft.rss.trim();
     var downloadValue = draft.download.trim();
     var repo = ref.read(bmfRepositoryProvider);
 
-    if (rssValue.isNotEmpty) {
-      var duplicated = await repo.checkRss(
-        rssValue,
-        excludeSubject: bmf.subject,
-      );
-      if (duplicated && mounted) {
-        await BtInfobar.error(context, '该 RSS 已经被其他 BMF 使用');
-        return;
-      }
-    }
     if (downloadValue.isNotEmpty) {
       var duplicated = await repo.checkDir(
         downloadValue,
@@ -414,23 +377,18 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
       }
     }
 
-    if (bmf.rss != null && bmf.rss!.isNotEmpty && bmf.rss != rssValue) {
-      if (bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty) {
-        await rss.deleteByMkId(bmf.mkBgmId!);
-      } else {
-        await rss.delete(bmf.rss!);
-      }
-    }
     var titleValue = draft.title.trim();
     var updated = bmf.copyWith(
       title: titleValue.isEmpty ? null : titleValue,
-      rss: rssValue.isEmpty ? null : rssValue,
+      subscriptions: draft.subscriptions,
       download: downloadValue.isEmpty ? null : downloadValue,
-      autoUpdate: draft.autoUpdate,
-      mkBgmId: null,
-      mkGroupId: null,
     );
-    await repo.updateModel(updated);
+    try {
+      await repo.updateModel(updated);
+    } on StateError catch (error) {
+      if (mounted) await BtInfobar.error(context, error.message);
+      return;
+    }
     if (mounted) await BtInfobar.success(context, 'BMF 配置已保存');
   }
 
@@ -447,27 +405,17 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
         selectOnly: true,
         onSubscribe: (dialogContext, rssUrl) async {
           var repo = ref.read(bmfRepositoryProvider);
-          var duplicated = await repo.checkRss(
-            rssUrl,
-            excludeSubject: bmf.subject,
-          );
           if (!dialogContext.mounted) return false;
-          if (duplicated) {
-            await BtInfobar.error(dialogContext, '该 RSS 已经被其他 BMF 使用');
+          try {
+            await repo.updateModel(bmf.copyWith(rss: rssUrl));
+          } on StateError catch (error) {
+            if (dialogContext.mounted) {
+              await BtInfobar.error(dialogContext, error.message);
+            }
             return false;
           }
-          if (bmf.rss != null && bmf.rss!.isNotEmpty && bmf.rss != rssUrl) {
-            if (bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty) {
-              await rss.deleteByMkId(bmf.mkBgmId!);
-            } else {
-              await rss.delete(bmf.rss!);
-            }
-          }
-          await repo.updateModel(
-            bmf.copyWith(rss: rssUrl, mkBgmId: null, mkGroupId: null),
-          );
           if (dialogContext.mounted) {
-            await BtInfobar.success(dialogContext, 'RSS 关联已更新');
+            await BtInfobar.success(dialogContext, 'RSS 订阅已添加');
           }
           return true;
         },
@@ -504,15 +452,12 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     await BtInfobar.success(context, 'BMF 配置已删除');
   }
 
-  Future<void> _removeRss(AppBmfModel bmf) async {
-    if (bmf.rss != null && bmf.rss!.isNotEmpty) {
-      if (bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty) {
-        await rss.deleteByMkId(bmf.mkBgmId!);
-      } else {
-        await rss.delete(bmf.rss!);
-      }
-    }
-    var updated = bmf.copyWith(rss: null, mkBgmId: null, mkGroupId: null);
+  Future<void> _removeRss(AppBmfModel bmf, int subscriptionId) async {
+    var updated = bmf.copyWith(
+      subscriptions: bmf.subscriptions
+          .where((s) => s.id != subscriptionId)
+          .toList(),
+    );
     await ref.read(bmfRepositoryProvider).updateModel(updated);
     if (mounted) await BtInfobar.success(context, 'RSS 关联已移除');
   }
@@ -527,8 +472,7 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     var navigationRequest = selectedSubject == bmf.subject
         ? _handledNavigationRequest
         : 0;
-    return 'rss-${bmf.subject}-${bmf.rss}-'
-        '${pendingCount > 0}-$navigationRequest';
+    return 'rss-${bmf.subject}-$navigationRequest';
   }
 }
 
@@ -540,12 +484,6 @@ class _RssBmfWorkspaceState extends _RssBmfWorkspaceStateBase
     var bmfListAsync = ref.watch(bmfListProvider);
     var navigation = ref.watch(bmfNavigationProvider);
     _applyNavigationIntent(navigation);
-
-    ref.listen<AsyncValue<List<AppBmfModel>>>(bmfListProvider, (prev, next) {
-      next.whenData((bmfList) {
-        if (!_preCheckDone) _preCheck(bmfList);
-      });
-    });
 
     return bmfListAsync.when(
       data: (bmfList) {

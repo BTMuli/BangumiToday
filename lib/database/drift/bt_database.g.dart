@@ -43,15 +43,6 @@ class $AppBmfTable extends AppBmf with TableInfo<$AppBmfTable, BmfRow> {
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
-  static const VerificationMeta _rssMeta = const VerificationMeta('rss');
-  @override
-  late final GeneratedColumn<String> rss = GeneratedColumn<String>(
-    'rss',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   static const VerificationMeta _downloadMeta = const VerificationMeta(
     'download',
   );
@@ -62,30 +53,6 @@ class $AppBmfTable extends AppBmf with TableInfo<$AppBmfTable, BmfRow> {
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-  );
-  static const VerificationMeta _mkBgmIdMeta = const VerificationMeta(
-    'mkBgmId',
-  );
-  @override
-  late final GeneratedColumn<String> mkBgmId = GeneratedColumn<String>(
-    'mkBgmId',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(''),
-  );
-  static const VerificationMeta _mkGroupIdMeta = const VerificationMeta(
-    'mkGroupId',
-  );
-  @override
-  late final GeneratedColumn<String> mkGroupId = GeneratedColumn<String>(
-    'mkGroupId',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(''),
   );
   static const VerificationMeta _airDateMeta = const VerificationMeta(
     'airDate',
@@ -99,30 +66,8 @@ class $AppBmfTable extends AppBmf with TableInfo<$AppBmfTable, BmfRow> {
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
-  static const VerificationMeta _autoUpdateMeta = const VerificationMeta(
-    'autoUpdate',
-  );
   @override
-  late final GeneratedColumn<int> autoUpdate = GeneratedColumn<int>(
-    'autoUpdate',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(1),
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    subject,
-    title,
-    rss,
-    download,
-    mkBgmId,
-    mkGroupId,
-    airDate,
-    autoUpdate,
-  ];
+  List<GeneratedColumn> get $columns => [id, subject, title, download, airDate];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -152,40 +97,16 @@ class $AppBmfTable extends AppBmf with TableInfo<$AppBmfTable, BmfRow> {
         title.isAcceptableOrUnknown(data['title']!, _titleMeta),
       );
     }
-    if (data.containsKey('rss')) {
-      context.handle(
-        _rssMeta,
-        rss.isAcceptableOrUnknown(data['rss']!, _rssMeta),
-      );
-    }
     if (data.containsKey('download')) {
       context.handle(
         _downloadMeta,
         download.isAcceptableOrUnknown(data['download']!, _downloadMeta),
       );
     }
-    if (data.containsKey('mkBgmId')) {
-      context.handle(
-        _mkBgmIdMeta,
-        mkBgmId.isAcceptableOrUnknown(data['mkBgmId']!, _mkBgmIdMeta),
-      );
-    }
-    if (data.containsKey('mkGroupId')) {
-      context.handle(
-        _mkGroupIdMeta,
-        mkGroupId.isAcceptableOrUnknown(data['mkGroupId']!, _mkGroupIdMeta),
-      );
-    }
     if (data.containsKey('airDate')) {
       context.handle(
         _airDateMeta,
         airDate.isAcceptableOrUnknown(data['airDate']!, _airDateMeta),
-      );
-    }
-    if (data.containsKey('autoUpdate')) {
-      context.handle(
-        _autoUpdateMeta,
-        autoUpdate.isAcceptableOrUnknown(data['autoUpdate']!, _autoUpdateMeta),
       );
     }
     return context;
@@ -209,30 +130,14 @@ class $AppBmfTable extends AppBmf with TableInfo<$AppBmfTable, BmfRow> {
         DriftSqlType.string,
         data['${effectivePrefix}title'],
       ),
-      rss: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}rss'],
-      ),
       download: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}download'],
-      ),
-      mkBgmId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}mkBgmId'],
-      ),
-      mkGroupId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}mkGroupId'],
       ),
       airDate: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}airDate'],
       ),
-      autoUpdate: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}autoUpdate'],
-      )!,
     );
   }
 
@@ -252,33 +157,17 @@ class BmfRow extends DataClass implements Insertable<BmfRow> {
   /// bangumi subject title
   final String? title;
 
-  /// RSS URL
-  final String? rss;
-
   /// 下载目录
   final String? download;
 
-  /// mikan bangumi id
-  final String? mkBgmId;
-
-  /// mikan group id
-  final String? mkGroupId;
-
   /// 放送日期
   final String? airDate;
-
-  /// 是否自动更新 RSS（0/1）
-  final int autoUpdate;
   const BmfRow({
     required this.id,
     required this.subject,
     this.title,
-    this.rss,
     this.download,
-    this.mkBgmId,
-    this.mkGroupId,
     this.airDate,
-    required this.autoUpdate,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -288,22 +177,12 @@ class BmfRow extends DataClass implements Insertable<BmfRow> {
     if (!nullToAbsent || title != null) {
       map['title'] = Variable<String>(title);
     }
-    if (!nullToAbsent || rss != null) {
-      map['rss'] = Variable<String>(rss);
-    }
     if (!nullToAbsent || download != null) {
       map['download'] = Variable<String>(download);
-    }
-    if (!nullToAbsent || mkBgmId != null) {
-      map['mkBgmId'] = Variable<String>(mkBgmId);
-    }
-    if (!nullToAbsent || mkGroupId != null) {
-      map['mkGroupId'] = Variable<String>(mkGroupId);
     }
     if (!nullToAbsent || airDate != null) {
       map['airDate'] = Variable<String>(airDate);
     }
-    map['autoUpdate'] = Variable<int>(autoUpdate);
     return map;
   }
 
@@ -314,20 +193,12 @@ class BmfRow extends DataClass implements Insertable<BmfRow> {
       title: title == null && nullToAbsent
           ? const Value.absent()
           : Value(title),
-      rss: rss == null && nullToAbsent ? const Value.absent() : Value(rss),
       download: download == null && nullToAbsent
           ? const Value.absent()
           : Value(download),
-      mkBgmId: mkBgmId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(mkBgmId),
-      mkGroupId: mkGroupId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(mkGroupId),
       airDate: airDate == null && nullToAbsent
           ? const Value.absent()
           : Value(airDate),
-      autoUpdate: Value(autoUpdate),
     );
   }
 
@@ -340,12 +211,8 @@ class BmfRow extends DataClass implements Insertable<BmfRow> {
       id: serializer.fromJson<int>(json['id']),
       subject: serializer.fromJson<int>(json['subject']),
       title: serializer.fromJson<String?>(json['title']),
-      rss: serializer.fromJson<String?>(json['rss']),
       download: serializer.fromJson<String?>(json['download']),
-      mkBgmId: serializer.fromJson<String?>(json['mkBgmId']),
-      mkGroupId: serializer.fromJson<String?>(json['mkGroupId']),
       airDate: serializer.fromJson<String?>(json['airDate']),
-      autoUpdate: serializer.fromJson<int>(json['autoUpdate']),
     );
   }
   @override
@@ -355,12 +222,8 @@ class BmfRow extends DataClass implements Insertable<BmfRow> {
       'id': serializer.toJson<int>(id),
       'subject': serializer.toJson<int>(subject),
       'title': serializer.toJson<String?>(title),
-      'rss': serializer.toJson<String?>(rss),
       'download': serializer.toJson<String?>(download),
-      'mkBgmId': serializer.toJson<String?>(mkBgmId),
-      'mkGroupId': serializer.toJson<String?>(mkGroupId),
       'airDate': serializer.toJson<String?>(airDate),
-      'autoUpdate': serializer.toJson<int>(autoUpdate),
     };
   }
 
@@ -368,36 +231,22 @@ class BmfRow extends DataClass implements Insertable<BmfRow> {
     int? id,
     int? subject,
     Value<String?> title = const Value.absent(),
-    Value<String?> rss = const Value.absent(),
     Value<String?> download = const Value.absent(),
-    Value<String?> mkBgmId = const Value.absent(),
-    Value<String?> mkGroupId = const Value.absent(),
     Value<String?> airDate = const Value.absent(),
-    int? autoUpdate,
   }) => BmfRow(
     id: id ?? this.id,
     subject: subject ?? this.subject,
     title: title.present ? title.value : this.title,
-    rss: rss.present ? rss.value : this.rss,
     download: download.present ? download.value : this.download,
-    mkBgmId: mkBgmId.present ? mkBgmId.value : this.mkBgmId,
-    mkGroupId: mkGroupId.present ? mkGroupId.value : this.mkGroupId,
     airDate: airDate.present ? airDate.value : this.airDate,
-    autoUpdate: autoUpdate ?? this.autoUpdate,
   );
   BmfRow copyWithCompanion(AppBmfCompanion data) {
     return BmfRow(
       id: data.id.present ? data.id.value : this.id,
       subject: data.subject.present ? data.subject.value : this.subject,
       title: data.title.present ? data.title.value : this.title,
-      rss: data.rss.present ? data.rss.value : this.rss,
       download: data.download.present ? data.download.value : this.download,
-      mkBgmId: data.mkBgmId.present ? data.mkBgmId.value : this.mkBgmId,
-      mkGroupId: data.mkGroupId.present ? data.mkGroupId.value : this.mkGroupId,
       airDate: data.airDate.present ? data.airDate.value : this.airDate,
-      autoUpdate: data.autoUpdate.present
-          ? data.autoUpdate.value
-          : this.autoUpdate,
     );
   }
 
@@ -407,28 +256,14 @@ class BmfRow extends DataClass implements Insertable<BmfRow> {
           ..write('id: $id, ')
           ..write('subject: $subject, ')
           ..write('title: $title, ')
-          ..write('rss: $rss, ')
           ..write('download: $download, ')
-          ..write('mkBgmId: $mkBgmId, ')
-          ..write('mkGroupId: $mkGroupId, ')
-          ..write('airDate: $airDate, ')
-          ..write('autoUpdate: $autoUpdate')
+          ..write('airDate: $airDate')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
-    id,
-    subject,
-    title,
-    rss,
-    download,
-    mkBgmId,
-    mkGroupId,
-    airDate,
-    autoUpdate,
-  );
+  int get hashCode => Object.hash(id, subject, title, download, airDate);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -436,67 +271,43 @@ class BmfRow extends DataClass implements Insertable<BmfRow> {
           other.id == this.id &&
           other.subject == this.subject &&
           other.title == this.title &&
-          other.rss == this.rss &&
           other.download == this.download &&
-          other.mkBgmId == this.mkBgmId &&
-          other.mkGroupId == this.mkGroupId &&
-          other.airDate == this.airDate &&
-          other.autoUpdate == this.autoUpdate);
+          other.airDate == this.airDate);
 }
 
 class AppBmfCompanion extends UpdateCompanion<BmfRow> {
   final Value<int> id;
   final Value<int> subject;
   final Value<String?> title;
-  final Value<String?> rss;
   final Value<String?> download;
-  final Value<String?> mkBgmId;
-  final Value<String?> mkGroupId;
   final Value<String?> airDate;
-  final Value<int> autoUpdate;
   const AppBmfCompanion({
     this.id = const Value.absent(),
     this.subject = const Value.absent(),
     this.title = const Value.absent(),
-    this.rss = const Value.absent(),
     this.download = const Value.absent(),
-    this.mkBgmId = const Value.absent(),
-    this.mkGroupId = const Value.absent(),
     this.airDate = const Value.absent(),
-    this.autoUpdate = const Value.absent(),
   });
   AppBmfCompanion.insert({
     this.id = const Value.absent(),
     required int subject,
     this.title = const Value.absent(),
-    this.rss = const Value.absent(),
     this.download = const Value.absent(),
-    this.mkBgmId = const Value.absent(),
-    this.mkGroupId = const Value.absent(),
     this.airDate = const Value.absent(),
-    this.autoUpdate = const Value.absent(),
   }) : subject = Value(subject);
   static Insertable<BmfRow> custom({
     Expression<int>? id,
     Expression<int>? subject,
     Expression<String>? title,
-    Expression<String>? rss,
     Expression<String>? download,
-    Expression<String>? mkBgmId,
-    Expression<String>? mkGroupId,
     Expression<String>? airDate,
-    Expression<int>? autoUpdate,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (subject != null) 'subject': subject,
       if (title != null) 'title': title,
-      if (rss != null) 'rss': rss,
       if (download != null) 'download': download,
-      if (mkBgmId != null) 'mkBgmId': mkBgmId,
-      if (mkGroupId != null) 'mkGroupId': mkGroupId,
       if (airDate != null) 'airDate': airDate,
-      if (autoUpdate != null) 'autoUpdate': autoUpdate,
     });
   }
 
@@ -504,23 +315,15 @@ class AppBmfCompanion extends UpdateCompanion<BmfRow> {
     Value<int>? id,
     Value<int>? subject,
     Value<String?>? title,
-    Value<String?>? rss,
     Value<String?>? download,
-    Value<String?>? mkBgmId,
-    Value<String?>? mkGroupId,
     Value<String?>? airDate,
-    Value<int>? autoUpdate,
   }) {
     return AppBmfCompanion(
       id: id ?? this.id,
       subject: subject ?? this.subject,
       title: title ?? this.title,
-      rss: rss ?? this.rss,
       download: download ?? this.download,
-      mkBgmId: mkBgmId ?? this.mkBgmId,
-      mkGroupId: mkGroupId ?? this.mkGroupId,
       airDate: airDate ?? this.airDate,
-      autoUpdate: autoUpdate ?? this.autoUpdate,
     );
   }
 
@@ -536,23 +339,11 @@ class AppBmfCompanion extends UpdateCompanion<BmfRow> {
     if (title.present) {
       map['title'] = Variable<String>(title.value);
     }
-    if (rss.present) {
-      map['rss'] = Variable<String>(rss.value);
-    }
     if (download.present) {
       map['download'] = Variable<String>(download.value);
     }
-    if (mkBgmId.present) {
-      map['mkBgmId'] = Variable<String>(mkBgmId.value);
-    }
-    if (mkGroupId.present) {
-      map['mkGroupId'] = Variable<String>(mkGroupId.value);
-    }
     if (airDate.present) {
       map['airDate'] = Variable<String>(airDate.value);
-    }
-    if (autoUpdate.present) {
-      map['autoUpdate'] = Variable<int>(autoUpdate.value);
     }
     return map;
   }
@@ -563,26 +354,755 @@ class AppBmfCompanion extends UpdateCompanion<BmfRow> {
           ..write('id: $id, ')
           ..write('subject: $subject, ')
           ..write('title: $title, ')
-          ..write('rss: $rss, ')
           ..write('download: $download, ')
-          ..write('mkBgmId: $mkBgmId, ')
-          ..write('mkGroupId: $mkGroupId, ')
-          ..write('airDate: $airDate, ')
-          ..write('autoUpdate: $autoUpdate')
+          ..write('airDate: $airDate')
           ..write(')'))
         .toString();
   }
 }
 
-class $AppRssTable extends AppRss with TableInfo<$AppRssTable, RssRow> {
+class $AppSubscriptionTable extends AppSubscription
+    with TableInfo<$AppSubscriptionTable, SubscriptionRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $AppRssTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _rssMeta = const VerificationMeta('rss');
+  $AppSubscriptionTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
-  late final GeneratedColumn<String> rss = GeneratedColumn<String>(
-    'rss',
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _bmfIdMeta = const VerificationMeta('bmfId');
+  @override
+  late final GeneratedColumn<int> bmfId = GeneratedColumn<int>(
+    'bmfId',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES AppBmf (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _providerMeta = const VerificationMeta(
+    'provider',
+  );
+  @override
+  late final GeneratedColumn<String> provider = GeneratedColumn<String>(
+    'provider',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('generic'),
+  );
+  static const VerificationMeta _urlMeta = const VerificationMeta('url');
+  @override
+  late final GeneratedColumn<String> url = GeneratedColumn<String>(
+    'url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _feedKeyMeta = const VerificationMeta(
+    'feedKey',
+  );
+  @override
+  late final GeneratedColumn<String> feedKey = GeneratedColumn<String>(
+    'feedKey',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceConfigMeta = const VerificationMeta(
+    'sourceConfig',
+  );
+  @override
+  late final GeneratedColumn<String> sourceConfig = GeneratedColumn<String>(
+    'sourceConfig',
+    aliasedName,
+    false,
+    check: () => const CustomExpression(
+      "json_valid(sourceConfig) "
+      "AND json_type(sourceConfig) = 'object'",
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{"version":1}'),
+  );
+  static const VerificationMeta _autoUpdateMeta = const VerificationMeta(
+    'autoUpdate',
+  );
+  @override
+  late final GeneratedColumn<int> autoUpdate = GeneratedColumn<int>(
+    'autoUpdate',
+    aliasedName,
+    false,
+    check: () => const CustomExpression('autoUpdate IN (0, 1)'),
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    check: () => const CustomExpression("status IN ('active', 'needsReview')"),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('active'),
+  );
+  static const VerificationMeta _pendingItemsMeta = const VerificationMeta(
+    'pendingItems',
+  );
+  @override
+  late final GeneratedColumn<String> pendingItems = GeneratedColumn<String>(
+    'pendingItems',
+    aliasedName,
+    false,
+    check: () => const CustomExpression(
+      "json_valid(pendingItems) "
+      "AND json_type(pendingItems) = 'array'",
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _knownItemsMeta = const VerificationMeta(
+    'knownItems',
+  );
+  @override
+  late final GeneratedColumn<String> knownItems = GeneratedColumn<String>(
+    'knownItems',
+    aliasedName,
+    false,
+    check: () => const CustomExpression(
+      "json_valid(knownItems) "
+      "AND json_type(knownItems) = 'array'",
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _hasBaselineMeta = const VerificationMeta(
+    'hasBaseline',
+  );
+  @override
+  late final GeneratedColumn<int> hasBaseline = GeneratedColumn<int>(
+    'hasBaseline',
+    aliasedName,
+    false,
+    check: () => const CustomExpression('hasBaseline IN (0, 1)'),
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _itemKeyVersionMeta = const VerificationMeta(
+    'itemKeyVersion',
+  );
+  @override
+  late final GeneratedColumn<int> itemKeyVersion = GeneratedColumn<int>(
+    'itemKeyVersion',
+    aliasedName,
+    false,
+    check: () => const CustomExpression('itemKeyVersion > 0'),
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    bmfId,
+    provider,
+    url,
+    feedKey,
+    sourceConfig,
+    autoUpdate,
+    status,
+    pendingItems,
+    knownItems,
+    hasBaseline,
+    itemKeyVersion,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'AppSubscription';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SubscriptionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('bmfId')) {
+      context.handle(
+        _bmfIdMeta,
+        bmfId.isAcceptableOrUnknown(data['bmfId']!, _bmfIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bmfIdMeta);
+    }
+    if (data.containsKey('provider')) {
+      context.handle(
+        _providerMeta,
+        provider.isAcceptableOrUnknown(data['provider']!, _providerMeta),
+      );
+    }
+    if (data.containsKey('url')) {
+      context.handle(
+        _urlMeta,
+        url.isAcceptableOrUnknown(data['url']!, _urlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_urlMeta);
+    }
+    if (data.containsKey('feedKey')) {
+      context.handle(
+        _feedKeyMeta,
+        feedKey.isAcceptableOrUnknown(data['feedKey']!, _feedKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_feedKeyMeta);
+    }
+    if (data.containsKey('sourceConfig')) {
+      context.handle(
+        _sourceConfigMeta,
+        sourceConfig.isAcceptableOrUnknown(
+          data['sourceConfig']!,
+          _sourceConfigMeta,
+        ),
+      );
+    }
+    if (data.containsKey('autoUpdate')) {
+      context.handle(
+        _autoUpdateMeta,
+        autoUpdate.isAcceptableOrUnknown(data['autoUpdate']!, _autoUpdateMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('pendingItems')) {
+      context.handle(
+        _pendingItemsMeta,
+        pendingItems.isAcceptableOrUnknown(
+          data['pendingItems']!,
+          _pendingItemsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('knownItems')) {
+      context.handle(
+        _knownItemsMeta,
+        knownItems.isAcceptableOrUnknown(data['knownItems']!, _knownItemsMeta),
+      );
+    }
+    if (data.containsKey('hasBaseline')) {
+      context.handle(
+        _hasBaselineMeta,
+        hasBaseline.isAcceptableOrUnknown(
+          data['hasBaseline']!,
+          _hasBaselineMeta,
+        ),
+      );
+    }
+    if (data.containsKey('itemKeyVersion')) {
+      context.handle(
+        _itemKeyVersionMeta,
+        itemKeyVersion.isAcceptableOrUnknown(
+          data['itemKeyVersion']!,
+          _itemKeyVersionMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {bmfId, feedKey},
+  ];
+  @override
+  SubscriptionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SubscriptionRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      bmfId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bmfId'],
+      )!,
+      provider: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}provider'],
+      )!,
+      url: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}url'],
+      )!,
+      feedKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}feedKey'],
+      )!,
+      sourceConfig: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sourceConfig'],
+      )!,
+      autoUpdate: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}autoUpdate'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      pendingItems: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pendingItems'],
+      )!,
+      knownItems: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}knownItems'],
+      )!,
+      hasBaseline: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}hasBaseline'],
+      )!,
+      itemKeyVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}itemKeyVersion'],
+      )!,
+    );
+  }
+
+  @override
+  $AppSubscriptionTable createAlias(String alias) {
+    return $AppSubscriptionTable(attachedDatabase, alias);
+  }
+}
+
+class SubscriptionRow extends DataClass implements Insertable<SubscriptionRow> {
+  final int id;
+  final int bmfId;
+  final String provider;
+  final String url;
+  final String feedKey;
+  final String sourceConfig;
+  final int autoUpdate;
+  final String status;
+  final String pendingItems;
+  final String knownItems;
+  final int hasBaseline;
+  final int itemKeyVersion;
+  const SubscriptionRow({
+    required this.id,
+    required this.bmfId,
+    required this.provider,
+    required this.url,
+    required this.feedKey,
+    required this.sourceConfig,
+    required this.autoUpdate,
+    required this.status,
+    required this.pendingItems,
+    required this.knownItems,
+    required this.hasBaseline,
+    required this.itemKeyVersion,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['bmfId'] = Variable<int>(bmfId);
+    map['provider'] = Variable<String>(provider);
+    map['url'] = Variable<String>(url);
+    map['feedKey'] = Variable<String>(feedKey);
+    map['sourceConfig'] = Variable<String>(sourceConfig);
+    map['autoUpdate'] = Variable<int>(autoUpdate);
+    map['status'] = Variable<String>(status);
+    map['pendingItems'] = Variable<String>(pendingItems);
+    map['knownItems'] = Variable<String>(knownItems);
+    map['hasBaseline'] = Variable<int>(hasBaseline);
+    map['itemKeyVersion'] = Variable<int>(itemKeyVersion);
+    return map;
+  }
+
+  AppSubscriptionCompanion toCompanion(bool nullToAbsent) {
+    return AppSubscriptionCompanion(
+      id: Value(id),
+      bmfId: Value(bmfId),
+      provider: Value(provider),
+      url: Value(url),
+      feedKey: Value(feedKey),
+      sourceConfig: Value(sourceConfig),
+      autoUpdate: Value(autoUpdate),
+      status: Value(status),
+      pendingItems: Value(pendingItems),
+      knownItems: Value(knownItems),
+      hasBaseline: Value(hasBaseline),
+      itemKeyVersion: Value(itemKeyVersion),
+    );
+  }
+
+  factory SubscriptionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SubscriptionRow(
+      id: serializer.fromJson<int>(json['id']),
+      bmfId: serializer.fromJson<int>(json['bmfId']),
+      provider: serializer.fromJson<String>(json['provider']),
+      url: serializer.fromJson<String>(json['url']),
+      feedKey: serializer.fromJson<String>(json['feedKey']),
+      sourceConfig: serializer.fromJson<String>(json['sourceConfig']),
+      autoUpdate: serializer.fromJson<int>(json['autoUpdate']),
+      status: serializer.fromJson<String>(json['status']),
+      pendingItems: serializer.fromJson<String>(json['pendingItems']),
+      knownItems: serializer.fromJson<String>(json['knownItems']),
+      hasBaseline: serializer.fromJson<int>(json['hasBaseline']),
+      itemKeyVersion: serializer.fromJson<int>(json['itemKeyVersion']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'bmfId': serializer.toJson<int>(bmfId),
+      'provider': serializer.toJson<String>(provider),
+      'url': serializer.toJson<String>(url),
+      'feedKey': serializer.toJson<String>(feedKey),
+      'sourceConfig': serializer.toJson<String>(sourceConfig),
+      'autoUpdate': serializer.toJson<int>(autoUpdate),
+      'status': serializer.toJson<String>(status),
+      'pendingItems': serializer.toJson<String>(pendingItems),
+      'knownItems': serializer.toJson<String>(knownItems),
+      'hasBaseline': serializer.toJson<int>(hasBaseline),
+      'itemKeyVersion': serializer.toJson<int>(itemKeyVersion),
+    };
+  }
+
+  SubscriptionRow copyWith({
+    int? id,
+    int? bmfId,
+    String? provider,
+    String? url,
+    String? feedKey,
+    String? sourceConfig,
+    int? autoUpdate,
+    String? status,
+    String? pendingItems,
+    String? knownItems,
+    int? hasBaseline,
+    int? itemKeyVersion,
+  }) => SubscriptionRow(
+    id: id ?? this.id,
+    bmfId: bmfId ?? this.bmfId,
+    provider: provider ?? this.provider,
+    url: url ?? this.url,
+    feedKey: feedKey ?? this.feedKey,
+    sourceConfig: sourceConfig ?? this.sourceConfig,
+    autoUpdate: autoUpdate ?? this.autoUpdate,
+    status: status ?? this.status,
+    pendingItems: pendingItems ?? this.pendingItems,
+    knownItems: knownItems ?? this.knownItems,
+    hasBaseline: hasBaseline ?? this.hasBaseline,
+    itemKeyVersion: itemKeyVersion ?? this.itemKeyVersion,
+  );
+  SubscriptionRow copyWithCompanion(AppSubscriptionCompanion data) {
+    return SubscriptionRow(
+      id: data.id.present ? data.id.value : this.id,
+      bmfId: data.bmfId.present ? data.bmfId.value : this.bmfId,
+      provider: data.provider.present ? data.provider.value : this.provider,
+      url: data.url.present ? data.url.value : this.url,
+      feedKey: data.feedKey.present ? data.feedKey.value : this.feedKey,
+      sourceConfig: data.sourceConfig.present
+          ? data.sourceConfig.value
+          : this.sourceConfig,
+      autoUpdate: data.autoUpdate.present
+          ? data.autoUpdate.value
+          : this.autoUpdate,
+      status: data.status.present ? data.status.value : this.status,
+      pendingItems: data.pendingItems.present
+          ? data.pendingItems.value
+          : this.pendingItems,
+      knownItems: data.knownItems.present
+          ? data.knownItems.value
+          : this.knownItems,
+      hasBaseline: data.hasBaseline.present
+          ? data.hasBaseline.value
+          : this.hasBaseline,
+      itemKeyVersion: data.itemKeyVersion.present
+          ? data.itemKeyVersion.value
+          : this.itemKeyVersion,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SubscriptionRow(')
+          ..write('id: $id, ')
+          ..write('bmfId: $bmfId, ')
+          ..write('provider: $provider, ')
+          ..write('url: $url, ')
+          ..write('feedKey: $feedKey, ')
+          ..write('sourceConfig: $sourceConfig, ')
+          ..write('autoUpdate: $autoUpdate, ')
+          ..write('status: $status, ')
+          ..write('pendingItems: $pendingItems, ')
+          ..write('knownItems: $knownItems, ')
+          ..write('hasBaseline: $hasBaseline, ')
+          ..write('itemKeyVersion: $itemKeyVersion')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    bmfId,
+    provider,
+    url,
+    feedKey,
+    sourceConfig,
+    autoUpdate,
+    status,
+    pendingItems,
+    knownItems,
+    hasBaseline,
+    itemKeyVersion,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SubscriptionRow &&
+          other.id == this.id &&
+          other.bmfId == this.bmfId &&
+          other.provider == this.provider &&
+          other.url == this.url &&
+          other.feedKey == this.feedKey &&
+          other.sourceConfig == this.sourceConfig &&
+          other.autoUpdate == this.autoUpdate &&
+          other.status == this.status &&
+          other.pendingItems == this.pendingItems &&
+          other.knownItems == this.knownItems &&
+          other.hasBaseline == this.hasBaseline &&
+          other.itemKeyVersion == this.itemKeyVersion);
+}
+
+class AppSubscriptionCompanion extends UpdateCompanion<SubscriptionRow> {
+  final Value<int> id;
+  final Value<int> bmfId;
+  final Value<String> provider;
+  final Value<String> url;
+  final Value<String> feedKey;
+  final Value<String> sourceConfig;
+  final Value<int> autoUpdate;
+  final Value<String> status;
+  final Value<String> pendingItems;
+  final Value<String> knownItems;
+  final Value<int> hasBaseline;
+  final Value<int> itemKeyVersion;
+  const AppSubscriptionCompanion({
+    this.id = const Value.absent(),
+    this.bmfId = const Value.absent(),
+    this.provider = const Value.absent(),
+    this.url = const Value.absent(),
+    this.feedKey = const Value.absent(),
+    this.sourceConfig = const Value.absent(),
+    this.autoUpdate = const Value.absent(),
+    this.status = const Value.absent(),
+    this.pendingItems = const Value.absent(),
+    this.knownItems = const Value.absent(),
+    this.hasBaseline = const Value.absent(),
+    this.itemKeyVersion = const Value.absent(),
+  });
+  AppSubscriptionCompanion.insert({
+    this.id = const Value.absent(),
+    required int bmfId,
+    this.provider = const Value.absent(),
+    required String url,
+    required String feedKey,
+    this.sourceConfig = const Value.absent(),
+    this.autoUpdate = const Value.absent(),
+    this.status = const Value.absent(),
+    this.pendingItems = const Value.absent(),
+    this.knownItems = const Value.absent(),
+    this.hasBaseline = const Value.absent(),
+    this.itemKeyVersion = const Value.absent(),
+  }) : bmfId = Value(bmfId),
+       url = Value(url),
+       feedKey = Value(feedKey);
+  static Insertable<SubscriptionRow> custom({
+    Expression<int>? id,
+    Expression<int>? bmfId,
+    Expression<String>? provider,
+    Expression<String>? url,
+    Expression<String>? feedKey,
+    Expression<String>? sourceConfig,
+    Expression<int>? autoUpdate,
+    Expression<String>? status,
+    Expression<String>? pendingItems,
+    Expression<String>? knownItems,
+    Expression<int>? hasBaseline,
+    Expression<int>? itemKeyVersion,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (bmfId != null) 'bmfId': bmfId,
+      if (provider != null) 'provider': provider,
+      if (url != null) 'url': url,
+      if (feedKey != null) 'feedKey': feedKey,
+      if (sourceConfig != null) 'sourceConfig': sourceConfig,
+      if (autoUpdate != null) 'autoUpdate': autoUpdate,
+      if (status != null) 'status': status,
+      if (pendingItems != null) 'pendingItems': pendingItems,
+      if (knownItems != null) 'knownItems': knownItems,
+      if (hasBaseline != null) 'hasBaseline': hasBaseline,
+      if (itemKeyVersion != null) 'itemKeyVersion': itemKeyVersion,
+    });
+  }
+
+  AppSubscriptionCompanion copyWith({
+    Value<int>? id,
+    Value<int>? bmfId,
+    Value<String>? provider,
+    Value<String>? url,
+    Value<String>? feedKey,
+    Value<String>? sourceConfig,
+    Value<int>? autoUpdate,
+    Value<String>? status,
+    Value<String>? pendingItems,
+    Value<String>? knownItems,
+    Value<int>? hasBaseline,
+    Value<int>? itemKeyVersion,
+  }) {
+    return AppSubscriptionCompanion(
+      id: id ?? this.id,
+      bmfId: bmfId ?? this.bmfId,
+      provider: provider ?? this.provider,
+      url: url ?? this.url,
+      feedKey: feedKey ?? this.feedKey,
+      sourceConfig: sourceConfig ?? this.sourceConfig,
+      autoUpdate: autoUpdate ?? this.autoUpdate,
+      status: status ?? this.status,
+      pendingItems: pendingItems ?? this.pendingItems,
+      knownItems: knownItems ?? this.knownItems,
+      hasBaseline: hasBaseline ?? this.hasBaseline,
+      itemKeyVersion: itemKeyVersion ?? this.itemKeyVersion,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (bmfId.present) {
+      map['bmfId'] = Variable<int>(bmfId.value);
+    }
+    if (provider.present) {
+      map['provider'] = Variable<String>(provider.value);
+    }
+    if (url.present) {
+      map['url'] = Variable<String>(url.value);
+    }
+    if (feedKey.present) {
+      map['feedKey'] = Variable<String>(feedKey.value);
+    }
+    if (sourceConfig.present) {
+      map['sourceConfig'] = Variable<String>(sourceConfig.value);
+    }
+    if (autoUpdate.present) {
+      map['autoUpdate'] = Variable<int>(autoUpdate.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (pendingItems.present) {
+      map['pendingItems'] = Variable<String>(pendingItems.value);
+    }
+    if (knownItems.present) {
+      map['knownItems'] = Variable<String>(knownItems.value);
+    }
+    if (hasBaseline.present) {
+      map['hasBaseline'] = Variable<int>(hasBaseline.value);
+    }
+    if (itemKeyVersion.present) {
+      map['itemKeyVersion'] = Variable<int>(itemKeyVersion.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppSubscriptionCompanion(')
+          ..write('id: $id, ')
+          ..write('bmfId: $bmfId, ')
+          ..write('provider: $provider, ')
+          ..write('url: $url, ')
+          ..write('feedKey: $feedKey, ')
+          ..write('sourceConfig: $sourceConfig, ')
+          ..write('autoUpdate: $autoUpdate, ')
+          ..write('status: $status, ')
+          ..write('pendingItems: $pendingItems, ')
+          ..write('knownItems: $knownItems, ')
+          ..write('hasBaseline: $hasBaseline, ')
+          ..write('itemKeyVersion: $itemKeyVersion')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AppRssCacheTable extends AppRssCache
+    with TableInfo<$AppRssCacheTable, RssCacheRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppRssCacheTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _feedKeyMeta = const VerificationMeta(
+    'feedKey',
+  );
+  @override
+  late final GeneratedColumn<String> feedKey = GeneratedColumn<String>(
+    'feedKey',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _requestUrlMeta = const VerificationMeta(
+    'requestUrl',
+  );
+  @override
+  late final GeneratedColumn<String> requestUrl = GeneratedColumn<String>(
+    'requestUrl',
     aliasedName,
     false,
     type: DriftSqlType.string,
@@ -597,59 +1117,57 @@ class $AppRssTable extends AppRss with TableInfo<$AppRssTable, RssRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _mkBgmIdMeta = const VerificationMeta(
-    'mkBgmId',
+  static const VerificationMeta _ttlMinutesMeta = const VerificationMeta(
+    'ttlMinutes',
   );
   @override
-  late final GeneratedColumn<String> mkBgmId = GeneratedColumn<String>(
-    'mkBgmId',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _mkGroupIdMeta = const VerificationMeta(
-    'mkGroupId',
-  );
-  @override
-  late final GeneratedColumn<String> mkGroupId = GeneratedColumn<String>(
-    'mkGroupId',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _ttlMeta = const VerificationMeta('ttl');
-  @override
-  late final GeneratedColumn<int> ttl = GeneratedColumn<int>(
-    'ttl',
+  late final GeneratedColumn<int> ttlMinutes = GeneratedColumn<int>(
+    'ttlMinutes',
     aliasedName,
     false,
+    check: () => const CustomExpression('ttlMinutes >= 0'),
     type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _updatedMeta = const VerificationMeta(
-    'updated',
-  );
-  @override
-  late final GeneratedColumn<int> updated = GeneratedColumn<int>(
-    'updated',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _pendingItemsMeta = const VerificationMeta(
-    'pendingItems',
-  );
-  @override
-  late final GeneratedColumn<String> pendingItems = GeneratedColumn<String>(
-    'pendingItems',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant('[]'),
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastSuccessAtMeta = const VerificationMeta(
+    'lastSuccessAt',
+  );
+  @override
+  late final GeneratedColumn<int> lastSuccessAt = GeneratedColumn<int>(
+    'lastSuccessAt',
+    aliasedName,
+    false,
+    check: () => const CustomExpression('lastSuccessAt >= 0'),
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastAttemptAtMeta = const VerificationMeta(
+    'lastAttemptAt',
+  );
+  @override
+  late final GeneratedColumn<int> lastAttemptAt = GeneratedColumn<int>(
+    'lastAttemptAt',
+    aliasedName,
+    false,
+    check: () => const CustomExpression('lastAttemptAt >= 0'),
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastFailedAtMeta = const VerificationMeta(
+    'lastFailedAt',
+  );
+  @override
+  late final GeneratedColumn<int> lastFailedAt = GeneratedColumn<int>(
+    'lastFailedAt',
+    aliasedName,
+    false,
+    check: () => const CustomExpression('lastFailedAt >= 0'),
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
   );
   static const VerificationMeta _cacheVersionMeta = const VerificationMeta(
     'cacheVersion',
@@ -659,53 +1177,49 @@ class $AppRssTable extends AppRss with TableInfo<$AppRssTable, RssRow> {
     'cacheVersion',
     aliasedName,
     false,
+    check: () => const CustomExpression('cacheVersion > 0'),
     type: DriftSqlType.int,
     requiredDuringInsert: false,
     defaultValue: const Constant(1),
   );
-  static const VerificationMeta _lastFailedMeta = const VerificationMeta(
-    'lastFailed',
-  );
-  @override
-  late final GeneratedColumn<int> lastFailed = GeneratedColumn<int>(
-    'lastFailed',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(0),
-  );
   @override
   List<GeneratedColumn> get $columns => [
-    rss,
+    feedKey,
+    requestUrl,
     data,
-    mkBgmId,
-    mkGroupId,
-    ttl,
-    updated,
-    pendingItems,
+    ttlMinutes,
+    lastSuccessAt,
+    lastAttemptAt,
+    lastFailedAt,
     cacheVersion,
-    lastFailed,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'AppRss';
+  static const String $name = 'AppRssCache';
   @override
   VerificationContext validateIntegrity(
-    Insertable<RssRow> instance, {
+    Insertable<RssCacheRow> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
-    if (data.containsKey('rss')) {
+    if (data.containsKey('feedKey')) {
       context.handle(
-        _rssMeta,
-        rss.isAcceptableOrUnknown(data['rss']!, _rssMeta),
+        _feedKeyMeta,
+        feedKey.isAcceptableOrUnknown(data['feedKey']!, _feedKeyMeta),
       );
     } else if (isInserting) {
-      context.missing(_rssMeta);
+      context.missing(_feedKeyMeta);
+    }
+    if (data.containsKey('requestUrl')) {
+      context.handle(
+        _requestUrlMeta,
+        requestUrl.isAcceptableOrUnknown(data['requestUrl']!, _requestUrlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_requestUrlMeta);
     }
     if (data.containsKey('data')) {
       context.handle(
@@ -713,40 +1227,36 @@ class $AppRssTable extends AppRss with TableInfo<$AppRssTable, RssRow> {
         this.data.isAcceptableOrUnknown(data['data']!, _dataMeta),
       );
     }
-    if (data.containsKey('mkBgmId')) {
+    if (data.containsKey('ttlMinutes')) {
       context.handle(
-        _mkBgmIdMeta,
-        mkBgmId.isAcceptableOrUnknown(data['mkBgmId']!, _mkBgmIdMeta),
+        _ttlMinutesMeta,
+        ttlMinutes.isAcceptableOrUnknown(data['ttlMinutes']!, _ttlMinutesMeta),
       );
     }
-    if (data.containsKey('mkGroupId')) {
+    if (data.containsKey('lastSuccessAt')) {
       context.handle(
-        _mkGroupIdMeta,
-        mkGroupId.isAcceptableOrUnknown(data['mkGroupId']!, _mkGroupIdMeta),
+        _lastSuccessAtMeta,
+        lastSuccessAt.isAcceptableOrUnknown(
+          data['lastSuccessAt']!,
+          _lastSuccessAtMeta,
+        ),
       );
     }
-    if (data.containsKey('ttl')) {
+    if (data.containsKey('lastAttemptAt')) {
       context.handle(
-        _ttlMeta,
-        ttl.isAcceptableOrUnknown(data['ttl']!, _ttlMeta),
+        _lastAttemptAtMeta,
+        lastAttemptAt.isAcceptableOrUnknown(
+          data['lastAttemptAt']!,
+          _lastAttemptAtMeta,
+        ),
       );
-    } else if (isInserting) {
-      context.missing(_ttlMeta);
     }
-    if (data.containsKey('updated')) {
+    if (data.containsKey('lastFailedAt')) {
       context.handle(
-        _updatedMeta,
-        updated.isAcceptableOrUnknown(data['updated']!, _updatedMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_updatedMeta);
-    }
-    if (data.containsKey('pendingItems')) {
-      context.handle(
-        _pendingItemsMeta,
-        pendingItems.isAcceptableOrUnknown(
-          data['pendingItems']!,
-          _pendingItemsMeta,
+        _lastFailedAtMeta,
+        lastFailedAt.isAcceptableOrUnknown(
+          data['lastFailedAt']!,
+          _lastFailedAtMeta,
         ),
       );
     }
@@ -759,345 +1269,296 @@ class $AppRssTable extends AppRss with TableInfo<$AppRssTable, RssRow> {
         ),
       );
     }
-    if (data.containsKey('lastFailed')) {
-      context.handle(
-        _lastFailedMeta,
-        lastFailed.isAcceptableOrUnknown(data['lastFailed']!, _lastFailedMeta),
-      );
-    }
     return context;
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {rss};
+  Set<GeneratedColumn> get $primaryKey => {feedKey};
   @override
-  RssRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+  RssCacheRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return RssRow(
-      rss: attachedDatabase.typeMapping.read(
+    return RssCacheRow(
+      feedKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}rss'],
+        data['${effectivePrefix}feedKey'],
+      )!,
+      requestUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}requestUrl'],
       )!,
       data: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}data'],
       ),
-      mkBgmId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}mkBgmId'],
-      ),
-      mkGroupId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}mkGroupId'],
-      ),
-      ttl: attachedDatabase.typeMapping.read(
+      ttlMinutes: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
-        data['${effectivePrefix}ttl'],
+        data['${effectivePrefix}ttlMinutes'],
       )!,
-      updated: attachedDatabase.typeMapping.read(
+      lastSuccessAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
-        data['${effectivePrefix}updated'],
+        data['${effectivePrefix}lastSuccessAt'],
       )!,
-      pendingItems: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}pendingItems'],
+      lastAttemptAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lastAttemptAt'],
+      )!,
+      lastFailedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lastFailedAt'],
       )!,
       cacheVersion: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}cacheVersion'],
       )!,
-      lastFailed: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}lastFailed'],
-      )!,
     );
   }
 
   @override
-  $AppRssTable createAlias(String alias) {
-    return $AppRssTable(attachedDatabase, alias);
+  $AppRssCacheTable createAlias(String alias) {
+    return $AppRssCacheTable(attachedDatabase, alias);
   }
 }
 
-class RssRow extends DataClass implements Insertable<RssRow> {
-  /// RSS URL（主键）
-  final String rss;
-
-  /// RSS 数据
+class RssCacheRow extends DataClass implements Insertable<RssCacheRow> {
+  final String feedKey;
+  final String requestUrl;
   final String? data;
-
-  /// mikan bangumi id
-  final String? mkBgmId;
-
-  /// mikan group id
-  final String? mkGroupId;
-
-  /// ttl
-  final int ttl;
-
-  /// 最近更新时间（epoch 毫秒）
-  final int updated;
-
-  /// RSS 更新后尚未由用户处理的条目标识（JSON 文本）
-  final String pendingItems;
-
-  /// 缓存版本
+  final int ttlMinutes;
+  final int lastSuccessAt;
+  final int lastAttemptAt;
+  final int lastFailedAt;
   final int cacheVersion;
-
-  /// 最近一次刷新失败时间（epoch 毫秒），0 表示无失败
-  final int lastFailed;
-  const RssRow({
-    required this.rss,
+  const RssCacheRow({
+    required this.feedKey,
+    required this.requestUrl,
     this.data,
-    this.mkBgmId,
-    this.mkGroupId,
-    required this.ttl,
-    required this.updated,
-    required this.pendingItems,
+    required this.ttlMinutes,
+    required this.lastSuccessAt,
+    required this.lastAttemptAt,
+    required this.lastFailedAt,
     required this.cacheVersion,
-    required this.lastFailed,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    map['rss'] = Variable<String>(rss);
+    map['feedKey'] = Variable<String>(feedKey);
+    map['requestUrl'] = Variable<String>(requestUrl);
     if (!nullToAbsent || data != null) {
       map['data'] = Variable<String>(data);
     }
-    if (!nullToAbsent || mkBgmId != null) {
-      map['mkBgmId'] = Variable<String>(mkBgmId);
-    }
-    if (!nullToAbsent || mkGroupId != null) {
-      map['mkGroupId'] = Variable<String>(mkGroupId);
-    }
-    map['ttl'] = Variable<int>(ttl);
-    map['updated'] = Variable<int>(updated);
-    map['pendingItems'] = Variable<String>(pendingItems);
+    map['ttlMinutes'] = Variable<int>(ttlMinutes);
+    map['lastSuccessAt'] = Variable<int>(lastSuccessAt);
+    map['lastAttemptAt'] = Variable<int>(lastAttemptAt);
+    map['lastFailedAt'] = Variable<int>(lastFailedAt);
     map['cacheVersion'] = Variable<int>(cacheVersion);
-    map['lastFailed'] = Variable<int>(lastFailed);
     return map;
   }
 
-  AppRssCompanion toCompanion(bool nullToAbsent) {
-    return AppRssCompanion(
-      rss: Value(rss),
+  AppRssCacheCompanion toCompanion(bool nullToAbsent) {
+    return AppRssCacheCompanion(
+      feedKey: Value(feedKey),
+      requestUrl: Value(requestUrl),
       data: data == null && nullToAbsent ? const Value.absent() : Value(data),
-      mkBgmId: mkBgmId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(mkBgmId),
-      mkGroupId: mkGroupId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(mkGroupId),
-      ttl: Value(ttl),
-      updated: Value(updated),
-      pendingItems: Value(pendingItems),
+      ttlMinutes: Value(ttlMinutes),
+      lastSuccessAt: Value(lastSuccessAt),
+      lastAttemptAt: Value(lastAttemptAt),
+      lastFailedAt: Value(lastFailedAt),
       cacheVersion: Value(cacheVersion),
-      lastFailed: Value(lastFailed),
     );
   }
 
-  factory RssRow.fromJson(
+  factory RssCacheRow.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return RssRow(
-      rss: serializer.fromJson<String>(json['rss']),
+    return RssCacheRow(
+      feedKey: serializer.fromJson<String>(json['feedKey']),
+      requestUrl: serializer.fromJson<String>(json['requestUrl']),
       data: serializer.fromJson<String?>(json['data']),
-      mkBgmId: serializer.fromJson<String?>(json['mkBgmId']),
-      mkGroupId: serializer.fromJson<String?>(json['mkGroupId']),
-      ttl: serializer.fromJson<int>(json['ttl']),
-      updated: serializer.fromJson<int>(json['updated']),
-      pendingItems: serializer.fromJson<String>(json['pendingItems']),
+      ttlMinutes: serializer.fromJson<int>(json['ttlMinutes']),
+      lastSuccessAt: serializer.fromJson<int>(json['lastSuccessAt']),
+      lastAttemptAt: serializer.fromJson<int>(json['lastAttemptAt']),
+      lastFailedAt: serializer.fromJson<int>(json['lastFailedAt']),
       cacheVersion: serializer.fromJson<int>(json['cacheVersion']),
-      lastFailed: serializer.fromJson<int>(json['lastFailed']),
     );
   }
   @override
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
-      'rss': serializer.toJson<String>(rss),
+      'feedKey': serializer.toJson<String>(feedKey),
+      'requestUrl': serializer.toJson<String>(requestUrl),
       'data': serializer.toJson<String?>(data),
-      'mkBgmId': serializer.toJson<String?>(mkBgmId),
-      'mkGroupId': serializer.toJson<String?>(mkGroupId),
-      'ttl': serializer.toJson<int>(ttl),
-      'updated': serializer.toJson<int>(updated),
-      'pendingItems': serializer.toJson<String>(pendingItems),
+      'ttlMinutes': serializer.toJson<int>(ttlMinutes),
+      'lastSuccessAt': serializer.toJson<int>(lastSuccessAt),
+      'lastAttemptAt': serializer.toJson<int>(lastAttemptAt),
+      'lastFailedAt': serializer.toJson<int>(lastFailedAt),
       'cacheVersion': serializer.toJson<int>(cacheVersion),
-      'lastFailed': serializer.toJson<int>(lastFailed),
     };
   }
 
-  RssRow copyWith({
-    String? rss,
+  RssCacheRow copyWith({
+    String? feedKey,
+    String? requestUrl,
     Value<String?> data = const Value.absent(),
-    Value<String?> mkBgmId = const Value.absent(),
-    Value<String?> mkGroupId = const Value.absent(),
-    int? ttl,
-    int? updated,
-    String? pendingItems,
+    int? ttlMinutes,
+    int? lastSuccessAt,
+    int? lastAttemptAt,
+    int? lastFailedAt,
     int? cacheVersion,
-    int? lastFailed,
-  }) => RssRow(
-    rss: rss ?? this.rss,
+  }) => RssCacheRow(
+    feedKey: feedKey ?? this.feedKey,
+    requestUrl: requestUrl ?? this.requestUrl,
     data: data.present ? data.value : this.data,
-    mkBgmId: mkBgmId.present ? mkBgmId.value : this.mkBgmId,
-    mkGroupId: mkGroupId.present ? mkGroupId.value : this.mkGroupId,
-    ttl: ttl ?? this.ttl,
-    updated: updated ?? this.updated,
-    pendingItems: pendingItems ?? this.pendingItems,
+    ttlMinutes: ttlMinutes ?? this.ttlMinutes,
+    lastSuccessAt: lastSuccessAt ?? this.lastSuccessAt,
+    lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
+    lastFailedAt: lastFailedAt ?? this.lastFailedAt,
     cacheVersion: cacheVersion ?? this.cacheVersion,
-    lastFailed: lastFailed ?? this.lastFailed,
   );
-  RssRow copyWithCompanion(AppRssCompanion data) {
-    return RssRow(
-      rss: data.rss.present ? data.rss.value : this.rss,
+  RssCacheRow copyWithCompanion(AppRssCacheCompanion data) {
+    return RssCacheRow(
+      feedKey: data.feedKey.present ? data.feedKey.value : this.feedKey,
+      requestUrl: data.requestUrl.present
+          ? data.requestUrl.value
+          : this.requestUrl,
       data: data.data.present ? data.data.value : this.data,
-      mkBgmId: data.mkBgmId.present ? data.mkBgmId.value : this.mkBgmId,
-      mkGroupId: data.mkGroupId.present ? data.mkGroupId.value : this.mkGroupId,
-      ttl: data.ttl.present ? data.ttl.value : this.ttl,
-      updated: data.updated.present ? data.updated.value : this.updated,
-      pendingItems: data.pendingItems.present
-          ? data.pendingItems.value
-          : this.pendingItems,
+      ttlMinutes: data.ttlMinutes.present
+          ? data.ttlMinutes.value
+          : this.ttlMinutes,
+      lastSuccessAt: data.lastSuccessAt.present
+          ? data.lastSuccessAt.value
+          : this.lastSuccessAt,
+      lastAttemptAt: data.lastAttemptAt.present
+          ? data.lastAttemptAt.value
+          : this.lastAttemptAt,
+      lastFailedAt: data.lastFailedAt.present
+          ? data.lastFailedAt.value
+          : this.lastFailedAt,
       cacheVersion: data.cacheVersion.present
           ? data.cacheVersion.value
           : this.cacheVersion,
-      lastFailed: data.lastFailed.present
-          ? data.lastFailed.value
-          : this.lastFailed,
     );
   }
 
   @override
   String toString() {
-    return (StringBuffer('RssRow(')
-          ..write('rss: $rss, ')
+    return (StringBuffer('RssCacheRow(')
+          ..write('feedKey: $feedKey, ')
+          ..write('requestUrl: $requestUrl, ')
           ..write('data: $data, ')
-          ..write('mkBgmId: $mkBgmId, ')
-          ..write('mkGroupId: $mkGroupId, ')
-          ..write('ttl: $ttl, ')
-          ..write('updated: $updated, ')
-          ..write('pendingItems: $pendingItems, ')
-          ..write('cacheVersion: $cacheVersion, ')
-          ..write('lastFailed: $lastFailed')
+          ..write('ttlMinutes: $ttlMinutes, ')
+          ..write('lastSuccessAt: $lastSuccessAt, ')
+          ..write('lastAttemptAt: $lastAttemptAt, ')
+          ..write('lastFailedAt: $lastFailedAt, ')
+          ..write('cacheVersion: $cacheVersion')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(
-    rss,
+    feedKey,
+    requestUrl,
     data,
-    mkBgmId,
-    mkGroupId,
-    ttl,
-    updated,
-    pendingItems,
+    ttlMinutes,
+    lastSuccessAt,
+    lastAttemptAt,
+    lastFailedAt,
     cacheVersion,
-    lastFailed,
   );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is RssRow &&
-          other.rss == this.rss &&
+      (other is RssCacheRow &&
+          other.feedKey == this.feedKey &&
+          other.requestUrl == this.requestUrl &&
           other.data == this.data &&
-          other.mkBgmId == this.mkBgmId &&
-          other.mkGroupId == this.mkGroupId &&
-          other.ttl == this.ttl &&
-          other.updated == this.updated &&
-          other.pendingItems == this.pendingItems &&
-          other.cacheVersion == this.cacheVersion &&
-          other.lastFailed == this.lastFailed);
+          other.ttlMinutes == this.ttlMinutes &&
+          other.lastSuccessAt == this.lastSuccessAt &&
+          other.lastAttemptAt == this.lastAttemptAt &&
+          other.lastFailedAt == this.lastFailedAt &&
+          other.cacheVersion == this.cacheVersion);
 }
 
-class AppRssCompanion extends UpdateCompanion<RssRow> {
-  final Value<String> rss;
+class AppRssCacheCompanion extends UpdateCompanion<RssCacheRow> {
+  final Value<String> feedKey;
+  final Value<String> requestUrl;
   final Value<String?> data;
-  final Value<String?> mkBgmId;
-  final Value<String?> mkGroupId;
-  final Value<int> ttl;
-  final Value<int> updated;
-  final Value<String> pendingItems;
+  final Value<int> ttlMinutes;
+  final Value<int> lastSuccessAt;
+  final Value<int> lastAttemptAt;
+  final Value<int> lastFailedAt;
   final Value<int> cacheVersion;
-  final Value<int> lastFailed;
   final Value<int> rowid;
-  const AppRssCompanion({
-    this.rss = const Value.absent(),
+  const AppRssCacheCompanion({
+    this.feedKey = const Value.absent(),
+    this.requestUrl = const Value.absent(),
     this.data = const Value.absent(),
-    this.mkBgmId = const Value.absent(),
-    this.mkGroupId = const Value.absent(),
-    this.ttl = const Value.absent(),
-    this.updated = const Value.absent(),
-    this.pendingItems = const Value.absent(),
+    this.ttlMinutes = const Value.absent(),
+    this.lastSuccessAt = const Value.absent(),
+    this.lastAttemptAt = const Value.absent(),
+    this.lastFailedAt = const Value.absent(),
     this.cacheVersion = const Value.absent(),
-    this.lastFailed = const Value.absent(),
     this.rowid = const Value.absent(),
   });
-  AppRssCompanion.insert({
-    required String rss,
+  AppRssCacheCompanion.insert({
+    required String feedKey,
+    required String requestUrl,
     this.data = const Value.absent(),
-    this.mkBgmId = const Value.absent(),
-    this.mkGroupId = const Value.absent(),
-    required int ttl,
-    required int updated,
-    this.pendingItems = const Value.absent(),
+    this.ttlMinutes = const Value.absent(),
+    this.lastSuccessAt = const Value.absent(),
+    this.lastAttemptAt = const Value.absent(),
+    this.lastFailedAt = const Value.absent(),
     this.cacheVersion = const Value.absent(),
-    this.lastFailed = const Value.absent(),
     this.rowid = const Value.absent(),
-  }) : rss = Value(rss),
-       ttl = Value(ttl),
-       updated = Value(updated);
-  static Insertable<RssRow> custom({
-    Expression<String>? rss,
+  }) : feedKey = Value(feedKey),
+       requestUrl = Value(requestUrl);
+  static Insertable<RssCacheRow> custom({
+    Expression<String>? feedKey,
+    Expression<String>? requestUrl,
     Expression<String>? data,
-    Expression<String>? mkBgmId,
-    Expression<String>? mkGroupId,
-    Expression<int>? ttl,
-    Expression<int>? updated,
-    Expression<String>? pendingItems,
+    Expression<int>? ttlMinutes,
+    Expression<int>? lastSuccessAt,
+    Expression<int>? lastAttemptAt,
+    Expression<int>? lastFailedAt,
     Expression<int>? cacheVersion,
-    Expression<int>? lastFailed,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
-      if (rss != null) 'rss': rss,
+      if (feedKey != null) 'feedKey': feedKey,
+      if (requestUrl != null) 'requestUrl': requestUrl,
       if (data != null) 'data': data,
-      if (mkBgmId != null) 'mkBgmId': mkBgmId,
-      if (mkGroupId != null) 'mkGroupId': mkGroupId,
-      if (ttl != null) 'ttl': ttl,
-      if (updated != null) 'updated': updated,
-      if (pendingItems != null) 'pendingItems': pendingItems,
+      if (ttlMinutes != null) 'ttlMinutes': ttlMinutes,
+      if (lastSuccessAt != null) 'lastSuccessAt': lastSuccessAt,
+      if (lastAttemptAt != null) 'lastAttemptAt': lastAttemptAt,
+      if (lastFailedAt != null) 'lastFailedAt': lastFailedAt,
       if (cacheVersion != null) 'cacheVersion': cacheVersion,
-      if (lastFailed != null) 'lastFailed': lastFailed,
       if (rowid != null) 'rowid': rowid,
     });
   }
 
-  AppRssCompanion copyWith({
-    Value<String>? rss,
+  AppRssCacheCompanion copyWith({
+    Value<String>? feedKey,
+    Value<String>? requestUrl,
     Value<String?>? data,
-    Value<String?>? mkBgmId,
-    Value<String?>? mkGroupId,
-    Value<int>? ttl,
-    Value<int>? updated,
-    Value<String>? pendingItems,
+    Value<int>? ttlMinutes,
+    Value<int>? lastSuccessAt,
+    Value<int>? lastAttemptAt,
+    Value<int>? lastFailedAt,
     Value<int>? cacheVersion,
-    Value<int>? lastFailed,
     Value<int>? rowid,
   }) {
-    return AppRssCompanion(
-      rss: rss ?? this.rss,
+    return AppRssCacheCompanion(
+      feedKey: feedKey ?? this.feedKey,
+      requestUrl: requestUrl ?? this.requestUrl,
       data: data ?? this.data,
-      mkBgmId: mkBgmId ?? this.mkBgmId,
-      mkGroupId: mkGroupId ?? this.mkGroupId,
-      ttl: ttl ?? this.ttl,
-      updated: updated ?? this.updated,
-      pendingItems: pendingItems ?? this.pendingItems,
+      ttlMinutes: ttlMinutes ?? this.ttlMinutes,
+      lastSuccessAt: lastSuccessAt ?? this.lastSuccessAt,
+      lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
+      lastFailedAt: lastFailedAt ?? this.lastFailedAt,
       cacheVersion: cacheVersion ?? this.cacheVersion,
-      lastFailed: lastFailed ?? this.lastFailed,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1105,32 +1566,29 @@ class AppRssCompanion extends UpdateCompanion<RssRow> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    if (rss.present) {
-      map['rss'] = Variable<String>(rss.value);
+    if (feedKey.present) {
+      map['feedKey'] = Variable<String>(feedKey.value);
+    }
+    if (requestUrl.present) {
+      map['requestUrl'] = Variable<String>(requestUrl.value);
     }
     if (data.present) {
       map['data'] = Variable<String>(data.value);
     }
-    if (mkBgmId.present) {
-      map['mkBgmId'] = Variable<String>(mkBgmId.value);
+    if (ttlMinutes.present) {
+      map['ttlMinutes'] = Variable<int>(ttlMinutes.value);
     }
-    if (mkGroupId.present) {
-      map['mkGroupId'] = Variable<String>(mkGroupId.value);
+    if (lastSuccessAt.present) {
+      map['lastSuccessAt'] = Variable<int>(lastSuccessAt.value);
     }
-    if (ttl.present) {
-      map['ttl'] = Variable<int>(ttl.value);
+    if (lastAttemptAt.present) {
+      map['lastAttemptAt'] = Variable<int>(lastAttemptAt.value);
     }
-    if (updated.present) {
-      map['updated'] = Variable<int>(updated.value);
-    }
-    if (pendingItems.present) {
-      map['pendingItems'] = Variable<String>(pendingItems.value);
+    if (lastFailedAt.present) {
+      map['lastFailedAt'] = Variable<int>(lastFailedAt.value);
     }
     if (cacheVersion.present) {
       map['cacheVersion'] = Variable<int>(cacheVersion.value);
-    }
-    if (lastFailed.present) {
-      map['lastFailed'] = Variable<int>(lastFailed.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -1140,17 +1598,541 @@ class AppRssCompanion extends UpdateCompanion<RssRow> {
 
   @override
   String toString() {
-    return (StringBuffer('AppRssCompanion(')
-          ..write('rss: $rss, ')
+    return (StringBuffer('AppRssCacheCompanion(')
+          ..write('feedKey: $feedKey, ')
+          ..write('requestUrl: $requestUrl, ')
           ..write('data: $data, ')
-          ..write('mkBgmId: $mkBgmId, ')
-          ..write('mkGroupId: $mkGroupId, ')
-          ..write('ttl: $ttl, ')
-          ..write('updated: $updated, ')
-          ..write('pendingItems: $pendingItems, ')
+          ..write('ttlMinutes: $ttlMinutes, ')
+          ..write('lastSuccessAt: $lastSuccessAt, ')
+          ..write('lastAttemptAt: $lastAttemptAt, ')
+          ..write('lastFailedAt: $lastFailedAt, ')
           ..write('cacheVersion: $cacheVersion, ')
-          ..write('lastFailed: $lastFailed, ')
           ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AppMigrationRecoveryTable extends AppMigrationRecovery
+    with TableInfo<$AppMigrationRecoveryTable, MigrationRecoveryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppMigrationRecoveryTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _migrationVersionMeta = const VerificationMeta(
+    'migrationVersion',
+  );
+  @override
+  late final GeneratedColumn<int> migrationVersion = GeneratedColumn<int>(
+    'migrationVersion',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _legacyKeyMeta = const VerificationMeta(
+    'legacyKey',
+  );
+  @override
+  late final GeneratedColumn<String> legacyKey = GeneratedColumn<String>(
+    'legacyKey',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    check: () => const CustomExpression(
+      "json_valid(payload) "
+      "AND json_type(payload) = 'object'",
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _candidateBmfIdsMeta = const VerificationMeta(
+    'candidateBmfIds',
+  );
+  @override
+  late final GeneratedColumn<String> candidateBmfIds = GeneratedColumn<String>(
+    'candidateBmfIds',
+    aliasedName,
+    false,
+    check: () => const CustomExpression(
+      "json_valid(candidateBmfIds) "
+      "AND json_type(candidateBmfIds) = 'array'",
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'createdAt',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _resolvedAtMeta = const VerificationMeta(
+    'resolvedAt',
+  );
+  @override
+  late final GeneratedColumn<int> resolvedAt = GeneratedColumn<int>(
+    'resolvedAt',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    migrationVersion,
+    kind,
+    legacyKey,
+    payload,
+    candidateBmfIds,
+    createdAt,
+    resolvedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'AppMigrationRecovery';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MigrationRecoveryRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('migrationVersion')) {
+      context.handle(
+        _migrationVersionMeta,
+        migrationVersion.isAcceptableOrUnknown(
+          data['migrationVersion']!,
+          _migrationVersionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_migrationVersionMeta);
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('legacyKey')) {
+      context.handle(
+        _legacyKeyMeta,
+        legacyKey.isAcceptableOrUnknown(data['legacyKey']!, _legacyKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_legacyKeyMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('candidateBmfIds')) {
+      context.handle(
+        _candidateBmfIdsMeta,
+        candidateBmfIds.isAcceptableOrUnknown(
+          data['candidateBmfIds']!,
+          _candidateBmfIdsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('createdAt')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['createdAt']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('resolvedAt')) {
+      context.handle(
+        _resolvedAtMeta,
+        resolvedAt.isAcceptableOrUnknown(data['resolvedAt']!, _resolvedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {migrationVersion, kind, legacyKey},
+  ];
+  @override
+  MigrationRecoveryRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MigrationRecoveryRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      migrationVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}migrationVersion'],
+      )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      legacyKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}legacyKey'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      candidateBmfIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}candidateBmfIds'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}createdAt'],
+      )!,
+      resolvedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}resolvedAt'],
+      ),
+    );
+  }
+
+  @override
+  $AppMigrationRecoveryTable createAlias(String alias) {
+    return $AppMigrationRecoveryTable(attachedDatabase, alias);
+  }
+}
+
+class MigrationRecoveryRow extends DataClass
+    implements Insertable<MigrationRecoveryRow> {
+  final int id;
+  final int migrationVersion;
+  final String kind;
+  final String legacyKey;
+  final String payload;
+  final String candidateBmfIds;
+  final int createdAt;
+  final int? resolvedAt;
+  const MigrationRecoveryRow({
+    required this.id,
+    required this.migrationVersion,
+    required this.kind,
+    required this.legacyKey,
+    required this.payload,
+    required this.candidateBmfIds,
+    required this.createdAt,
+    this.resolvedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['migrationVersion'] = Variable<int>(migrationVersion);
+    map['kind'] = Variable<String>(kind);
+    map['legacyKey'] = Variable<String>(legacyKey);
+    map['payload'] = Variable<String>(payload);
+    map['candidateBmfIds'] = Variable<String>(candidateBmfIds);
+    map['createdAt'] = Variable<int>(createdAt);
+    if (!nullToAbsent || resolvedAt != null) {
+      map['resolvedAt'] = Variable<int>(resolvedAt);
+    }
+    return map;
+  }
+
+  AppMigrationRecoveryCompanion toCompanion(bool nullToAbsent) {
+    return AppMigrationRecoveryCompanion(
+      id: Value(id),
+      migrationVersion: Value(migrationVersion),
+      kind: Value(kind),
+      legacyKey: Value(legacyKey),
+      payload: Value(payload),
+      candidateBmfIds: Value(candidateBmfIds),
+      createdAt: Value(createdAt),
+      resolvedAt: resolvedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resolvedAt),
+    );
+  }
+
+  factory MigrationRecoveryRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MigrationRecoveryRow(
+      id: serializer.fromJson<int>(json['id']),
+      migrationVersion: serializer.fromJson<int>(json['migrationVersion']),
+      kind: serializer.fromJson<String>(json['kind']),
+      legacyKey: serializer.fromJson<String>(json['legacyKey']),
+      payload: serializer.fromJson<String>(json['payload']),
+      candidateBmfIds: serializer.fromJson<String>(json['candidateBmfIds']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      resolvedAt: serializer.fromJson<int?>(json['resolvedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'migrationVersion': serializer.toJson<int>(migrationVersion),
+      'kind': serializer.toJson<String>(kind),
+      'legacyKey': serializer.toJson<String>(legacyKey),
+      'payload': serializer.toJson<String>(payload),
+      'candidateBmfIds': serializer.toJson<String>(candidateBmfIds),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'resolvedAt': serializer.toJson<int?>(resolvedAt),
+    };
+  }
+
+  MigrationRecoveryRow copyWith({
+    int? id,
+    int? migrationVersion,
+    String? kind,
+    String? legacyKey,
+    String? payload,
+    String? candidateBmfIds,
+    int? createdAt,
+    Value<int?> resolvedAt = const Value.absent(),
+  }) => MigrationRecoveryRow(
+    id: id ?? this.id,
+    migrationVersion: migrationVersion ?? this.migrationVersion,
+    kind: kind ?? this.kind,
+    legacyKey: legacyKey ?? this.legacyKey,
+    payload: payload ?? this.payload,
+    candidateBmfIds: candidateBmfIds ?? this.candidateBmfIds,
+    createdAt: createdAt ?? this.createdAt,
+    resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
+  );
+  MigrationRecoveryRow copyWithCompanion(AppMigrationRecoveryCompanion data) {
+    return MigrationRecoveryRow(
+      id: data.id.present ? data.id.value : this.id,
+      migrationVersion: data.migrationVersion.present
+          ? data.migrationVersion.value
+          : this.migrationVersion,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      legacyKey: data.legacyKey.present ? data.legacyKey.value : this.legacyKey,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      candidateBmfIds: data.candidateBmfIds.present
+          ? data.candidateBmfIds.value
+          : this.candidateBmfIds,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      resolvedAt: data.resolvedAt.present
+          ? data.resolvedAt.value
+          : this.resolvedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MigrationRecoveryRow(')
+          ..write('id: $id, ')
+          ..write('migrationVersion: $migrationVersion, ')
+          ..write('kind: $kind, ')
+          ..write('legacyKey: $legacyKey, ')
+          ..write('payload: $payload, ')
+          ..write('candidateBmfIds: $candidateBmfIds, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('resolvedAt: $resolvedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    migrationVersion,
+    kind,
+    legacyKey,
+    payload,
+    candidateBmfIds,
+    createdAt,
+    resolvedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MigrationRecoveryRow &&
+          other.id == this.id &&
+          other.migrationVersion == this.migrationVersion &&
+          other.kind == this.kind &&
+          other.legacyKey == this.legacyKey &&
+          other.payload == this.payload &&
+          other.candidateBmfIds == this.candidateBmfIds &&
+          other.createdAt == this.createdAt &&
+          other.resolvedAt == this.resolvedAt);
+}
+
+class AppMigrationRecoveryCompanion
+    extends UpdateCompanion<MigrationRecoveryRow> {
+  final Value<int> id;
+  final Value<int> migrationVersion;
+  final Value<String> kind;
+  final Value<String> legacyKey;
+  final Value<String> payload;
+  final Value<String> candidateBmfIds;
+  final Value<int> createdAt;
+  final Value<int?> resolvedAt;
+  const AppMigrationRecoveryCompanion({
+    this.id = const Value.absent(),
+    this.migrationVersion = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.legacyKey = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.candidateBmfIds = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+  });
+  AppMigrationRecoveryCompanion.insert({
+    this.id = const Value.absent(),
+    required int migrationVersion,
+    required String kind,
+    required String legacyKey,
+    required String payload,
+    this.candidateBmfIds = const Value.absent(),
+    required int createdAt,
+    this.resolvedAt = const Value.absent(),
+  }) : migrationVersion = Value(migrationVersion),
+       kind = Value(kind),
+       legacyKey = Value(legacyKey),
+       payload = Value(payload),
+       createdAt = Value(createdAt);
+  static Insertable<MigrationRecoveryRow> custom({
+    Expression<int>? id,
+    Expression<int>? migrationVersion,
+    Expression<String>? kind,
+    Expression<String>? legacyKey,
+    Expression<String>? payload,
+    Expression<String>? candidateBmfIds,
+    Expression<int>? createdAt,
+    Expression<int>? resolvedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (migrationVersion != null) 'migrationVersion': migrationVersion,
+      if (kind != null) 'kind': kind,
+      if (legacyKey != null) 'legacyKey': legacyKey,
+      if (payload != null) 'payload': payload,
+      if (candidateBmfIds != null) 'candidateBmfIds': candidateBmfIds,
+      if (createdAt != null) 'createdAt': createdAt,
+      if (resolvedAt != null) 'resolvedAt': resolvedAt,
+    });
+  }
+
+  AppMigrationRecoveryCompanion copyWith({
+    Value<int>? id,
+    Value<int>? migrationVersion,
+    Value<String>? kind,
+    Value<String>? legacyKey,
+    Value<String>? payload,
+    Value<String>? candidateBmfIds,
+    Value<int>? createdAt,
+    Value<int?>? resolvedAt,
+  }) {
+    return AppMigrationRecoveryCompanion(
+      id: id ?? this.id,
+      migrationVersion: migrationVersion ?? this.migrationVersion,
+      kind: kind ?? this.kind,
+      legacyKey: legacyKey ?? this.legacyKey,
+      payload: payload ?? this.payload,
+      candidateBmfIds: candidateBmfIds ?? this.candidateBmfIds,
+      createdAt: createdAt ?? this.createdAt,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (migrationVersion.present) {
+      map['migrationVersion'] = Variable<int>(migrationVersion.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (legacyKey.present) {
+      map['legacyKey'] = Variable<String>(legacyKey.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (candidateBmfIds.present) {
+      map['candidateBmfIds'] = Variable<String>(candidateBmfIds.value);
+    }
+    if (createdAt.present) {
+      map['createdAt'] = Variable<int>(createdAt.value);
+    }
+    if (resolvedAt.present) {
+      map['resolvedAt'] = Variable<int>(resolvedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppMigrationRecoveryCompanion(')
+          ..write('id: $id, ')
+          ..write('migrationVersion: $migrationVersion, ')
+          ..write('kind: $kind, ')
+          ..write('legacyKey: $legacyKey, ')
+          ..write('payload: $payload, ')
+          ..write('candidateBmfIds: $candidateBmfIds, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('resolvedAt: $resolvedAt')
           ..write(')'))
         .toString();
   }
@@ -3861,7 +4843,12 @@ abstract class _$BtDatabase extends GeneratedDatabase {
   _$BtDatabase(QueryExecutor e) : super(e);
   $BtDatabaseManager get managers => $BtDatabaseManager(this);
   late final $AppBmfTable appBmf = $AppBmfTable(this);
-  late final $AppRssTable appRss = $AppRssTable(this);
+  late final $AppSubscriptionTable appSubscription = $AppSubscriptionTable(
+    this,
+  );
+  late final $AppRssCacheTable appRssCache = $AppRssCacheTable(this);
+  late final $AppMigrationRecoveryTable appMigrationRecovery =
+      $AppMigrationRecoveryTable(this);
   late final $AppConfigTable appConfig = $AppConfigTable(this);
   late final $AppPlaybackTable appPlayback = $AppPlaybackTable(this);
   late final $BangumiUserTable bangumiUser = $BangumiUserTable(this);
@@ -3873,20 +4860,37 @@ abstract class _$BtDatabase extends GeneratedDatabase {
   late final $BangumiDataItemTable bangumiDataItem = $BangumiDataItemTable(
     this,
   );
+  late final Index appSubscriptionFeedKey = Index(
+    'AppSubscription_feedKey',
+    'CREATE INDEX AppSubscription_feedKey ON AppSubscription (feedKey)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     appBmf,
-    appRss,
+    appSubscription,
+    appRssCache,
+    appMigrationRecovery,
     appConfig,
     appPlayback,
     bangumiUser,
     bangumiCollection,
     bangumiDataSite,
     bangumiDataItem,
+    appSubscriptionFeedKey,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'AppBmf',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('AppSubscription', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$AppBmfTableCreateCompanionBuilder =
@@ -3894,25 +4898,42 @@ typedef $$AppBmfTableCreateCompanionBuilder =
       Value<int> id,
       required int subject,
       Value<String?> title,
-      Value<String?> rss,
       Value<String?> download,
-      Value<String?> mkBgmId,
-      Value<String?> mkGroupId,
       Value<String?> airDate,
-      Value<int> autoUpdate,
     });
 typedef $$AppBmfTableUpdateCompanionBuilder =
     AppBmfCompanion Function({
       Value<int> id,
       Value<int> subject,
       Value<String?> title,
-      Value<String?> rss,
       Value<String?> download,
-      Value<String?> mkBgmId,
-      Value<String?> mkGroupId,
       Value<String?> airDate,
-      Value<int> autoUpdate,
     });
+
+final class $$AppBmfTableReferences
+    extends BaseReferences<_$BtDatabase, $AppBmfTable, BmfRow> {
+  $$AppBmfTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$AppSubscriptionTable, List<SubscriptionRow>>
+  _appSubscriptionRefsTable(_$BtDatabase db) => MultiTypedResultKey.fromTable(
+    db.appSubscription,
+    aliasName: 'AppBmf__id__AppSubscription__bmfId',
+  );
+
+  $$AppSubscriptionTableProcessedTableManager get appSubscriptionRefs {
+    final manager = $$AppSubscriptionTableTableManager(
+      $_db,
+      $_db.appSubscription,
+    ).filter((f) => f.bmfId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _appSubscriptionRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$AppBmfTableFilterComposer extends Composer<_$BtDatabase, $AppBmfTable> {
   $$AppBmfTableFilterComposer({
@@ -3937,23 +4958,8 @@ class $$AppBmfTableFilterComposer extends Composer<_$BtDatabase, $AppBmfTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get rss => $composableBuilder(
-    column: $table.rss,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<String> get download => $composableBuilder(
     column: $table.download,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get mkBgmId => $composableBuilder(
-    column: $table.mkBgmId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get mkGroupId => $composableBuilder(
-    column: $table.mkGroupId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3962,10 +4968,30 @@ class $$AppBmfTableFilterComposer extends Composer<_$BtDatabase, $AppBmfTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get autoUpdate => $composableBuilder(
-    column: $table.autoUpdate,
-    builder: (column) => ColumnFilters(column),
-  );
+  Expression<bool> appSubscriptionRefs(
+    Expression<bool> Function($$AppSubscriptionTableFilterComposer f) f,
+  ) {
+    final $$AppSubscriptionTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.appSubscription,
+      getReferencedColumn: (t) => t.bmfId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AppSubscriptionTableFilterComposer(
+            $db: $db,
+            $table: $db.appSubscription,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$AppBmfTableOrderingComposer
@@ -3992,33 +5018,13 @@ class $$AppBmfTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get rss => $composableBuilder(
-    column: $table.rss,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get download => $composableBuilder(
     column: $table.download,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get mkBgmId => $composableBuilder(
-    column: $table.mkBgmId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get mkGroupId => $composableBuilder(
-    column: $table.mkGroupId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get airDate => $composableBuilder(
     column: $table.airDate,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get autoUpdate => $composableBuilder(
-    column: $table.autoUpdate,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -4041,25 +5047,36 @@ class $$AppBmfTableAnnotationComposer
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
 
-  GeneratedColumn<String> get rss =>
-      $composableBuilder(column: $table.rss, builder: (column) => column);
-
   GeneratedColumn<String> get download =>
       $composableBuilder(column: $table.download, builder: (column) => column);
-
-  GeneratedColumn<String> get mkBgmId =>
-      $composableBuilder(column: $table.mkBgmId, builder: (column) => column);
-
-  GeneratedColumn<String> get mkGroupId =>
-      $composableBuilder(column: $table.mkGroupId, builder: (column) => column);
 
   GeneratedColumn<String> get airDate =>
       $composableBuilder(column: $table.airDate, builder: (column) => column);
 
-  GeneratedColumn<int> get autoUpdate => $composableBuilder(
-    column: $table.autoUpdate,
-    builder: (column) => column,
-  );
+  Expression<T> appSubscriptionRefs<T extends Object>(
+    Expression<T> Function($$AppSubscriptionTableAnnotationComposer a) f,
+  ) {
+    final $$AppSubscriptionTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.appSubscription,
+      getReferencedColumn: (t) => t.bmfId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AppSubscriptionTableAnnotationComposer(
+            $db: $db,
+            $table: $db.appSubscription,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$AppBmfTableTableManager
@@ -4073,9 +5090,9 @@ class $$AppBmfTableTableManager
           $$AppBmfTableAnnotationComposer,
           $$AppBmfTableCreateCompanionBuilder,
           $$AppBmfTableUpdateCompanionBuilder,
-          (BmfRow, BaseReferences<_$BtDatabase, $AppBmfTable, BmfRow>),
+          (BmfRow, $$AppBmfTableReferences),
           BmfRow,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool appSubscriptionRefs})
         > {
   $$AppBmfTableTableManager(_$BtDatabase db, $AppBmfTable table)
     : super(
@@ -4093,58 +5110,68 @@ class $$AppBmfTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int> subject = const Value.absent(),
                 Value<String?> title = const Value.absent(),
-                Value<String?> rss = const Value.absent(),
                 Value<String?> download = const Value.absent(),
-                Value<String?> mkBgmId = const Value.absent(),
-                Value<String?> mkGroupId = const Value.absent(),
                 Value<String?> airDate = const Value.absent(),
-                Value<int> autoUpdate = const Value.absent(),
               }) => AppBmfCompanion(
                 id: id,
                 subject: subject,
                 title: title,
-                rss: rss,
                 download: download,
-                mkBgmId: mkBgmId,
-                mkGroupId: mkGroupId,
                 airDate: airDate,
-                autoUpdate: autoUpdate,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required int subject,
                 Value<String?> title = const Value.absent(),
-                Value<String?> rss = const Value.absent(),
                 Value<String?> download = const Value.absent(),
-                Value<String?> mkBgmId = const Value.absent(),
-                Value<String?> mkGroupId = const Value.absent(),
                 Value<String?> airDate = const Value.absent(),
-                Value<int> autoUpdate = const Value.absent(),
               }) => AppBmfCompanion.insert(
                 id: id,
                 subject: subject,
                 title: title,
-                rss: rss,
                 download: download,
-                mkBgmId: mkBgmId,
-                mkGroupId: mkGroupId,
                 airDate: airDate,
-                autoUpdate: autoUpdate,
               ),
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
                   e.readTable<$AppBmfTable, BmfRow>(table),
-                  BaseReferences<_$BtDatabase, $AppBmfTable, BmfRow>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$AppBmfTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({appSubscriptionRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (appSubscriptionRefs) db.appSubscription,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (appSubscriptionRefs)
+                    await $_getPrefetchedData<
+                      BmfRow,
+                      $AppBmfTable,
+                      SubscriptionRow
+                    >(
+                      currentTable: table,
+                      referencedTable: $$AppBmfTableReferences
+                          ._appSubscriptionRefsTable(db),
+                      managerFromTypedResult: (p0) => $$AppBmfTableReferences(
+                        db,
+                        table,
+                        p0,
+                      ).appSubscriptionRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.bmfId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -4159,72 +5186,109 @@ typedef $$AppBmfTableProcessedTableManager =
       $$AppBmfTableAnnotationComposer,
       $$AppBmfTableCreateCompanionBuilder,
       $$AppBmfTableUpdateCompanionBuilder,
-      (BmfRow, BaseReferences<_$BtDatabase, $AppBmfTable, BmfRow>),
+      (BmfRow, $$AppBmfTableReferences),
       BmfRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool appSubscriptionRefs})
     >;
-typedef $$AppRssTableCreateCompanionBuilder =
-    AppRssCompanion Function({
-      required String rss,
-      Value<String?> data,
-      Value<String?> mkBgmId,
-      Value<String?> mkGroupId,
-      required int ttl,
-      required int updated,
+typedef $$AppSubscriptionTableCreateCompanionBuilder =
+    AppSubscriptionCompanion Function({
+      Value<int> id,
+      required int bmfId,
+      Value<String> provider,
+      required String url,
+      required String feedKey,
+      Value<String> sourceConfig,
+      Value<int> autoUpdate,
+      Value<String> status,
       Value<String> pendingItems,
-      Value<int> cacheVersion,
-      Value<int> lastFailed,
-      Value<int> rowid,
+      Value<String> knownItems,
+      Value<int> hasBaseline,
+      Value<int> itemKeyVersion,
     });
-typedef $$AppRssTableUpdateCompanionBuilder =
-    AppRssCompanion Function({
-      Value<String> rss,
-      Value<String?> data,
-      Value<String?> mkBgmId,
-      Value<String?> mkGroupId,
-      Value<int> ttl,
-      Value<int> updated,
+typedef $$AppSubscriptionTableUpdateCompanionBuilder =
+    AppSubscriptionCompanion Function({
+      Value<int> id,
+      Value<int> bmfId,
+      Value<String> provider,
+      Value<String> url,
+      Value<String> feedKey,
+      Value<String> sourceConfig,
+      Value<int> autoUpdate,
+      Value<String> status,
       Value<String> pendingItems,
-      Value<int> cacheVersion,
-      Value<int> lastFailed,
-      Value<int> rowid,
+      Value<String> knownItems,
+      Value<int> hasBaseline,
+      Value<int> itemKeyVersion,
     });
 
-class $$AppRssTableFilterComposer extends Composer<_$BtDatabase, $AppRssTable> {
-  $$AppRssTableFilterComposer({
+final class $$AppSubscriptionTableReferences
+    extends
+        BaseReferences<_$BtDatabase, $AppSubscriptionTable, SubscriptionRow> {
+  $$AppSubscriptionTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $AppBmfTable _bmfIdTable(_$BtDatabase db) =>
+      db.appBmf.createAlias('AppSubscription__bmfId__AppBmf__id');
+
+  $$AppBmfTableProcessedTableManager get bmfId {
+    final $_column = $_itemColumn<int>('bmfId')!;
+
+    final manager = $$AppBmfTableTableManager(
+      $_db,
+      $_db.appBmf,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_bmfIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$AppSubscriptionTableFilterComposer
+    extends Composer<_$BtDatabase, $AppSubscriptionTable> {
+  $$AppSubscriptionTableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<String> get rss => $composableBuilder(
-    column: $table.rss,
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get data => $composableBuilder(
-    column: $table.data,
+  ColumnFilters<String> get provider => $composableBuilder(
+    column: $table.provider,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get mkBgmId => $composableBuilder(
-    column: $table.mkBgmId,
+  ColumnFilters<String> get url => $composableBuilder(
+    column: $table.url,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get mkGroupId => $composableBuilder(
-    column: $table.mkGroupId,
+  ColumnFilters<String> get feedKey => $composableBuilder(
+    column: $table.feedKey,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get ttl => $composableBuilder(
-    column: $table.ttl,
+  ColumnFilters<String> get sourceConfig => $composableBuilder(
+    column: $table.sourceConfig,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get updated => $composableBuilder(
-    column: $table.updated,
+  ColumnFilters<int> get autoUpdate => $composableBuilder(
+    column: $table.autoUpdate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4233,53 +5297,86 @@ class $$AppRssTableFilterComposer extends Composer<_$BtDatabase, $AppRssTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get cacheVersion => $composableBuilder(
-    column: $table.cacheVersion,
+  ColumnFilters<String> get knownItems => $composableBuilder(
+    column: $table.knownItems,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get lastFailed => $composableBuilder(
-    column: $table.lastFailed,
+  ColumnFilters<int> get hasBaseline => $composableBuilder(
+    column: $table.hasBaseline,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<int> get itemKeyVersion => $composableBuilder(
+    column: $table.itemKeyVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$AppBmfTableFilterComposer get bmfId {
+    final $$AppBmfTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bmfId,
+      referencedTable: $db.appBmf,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AppBmfTableFilterComposer(
+            $db: $db,
+            $table: $db.appBmf,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
-class $$AppRssTableOrderingComposer
-    extends Composer<_$BtDatabase, $AppRssTable> {
-  $$AppRssTableOrderingComposer({
+class $$AppSubscriptionTableOrderingComposer
+    extends Composer<_$BtDatabase, $AppSubscriptionTable> {
+  $$AppSubscriptionTableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<String> get rss => $composableBuilder(
-    column: $table.rss,
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get data => $composableBuilder(
-    column: $table.data,
+  ColumnOrderings<String> get provider => $composableBuilder(
+    column: $table.provider,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get mkBgmId => $composableBuilder(
-    column: $table.mkBgmId,
+  ColumnOrderings<String> get url => $composableBuilder(
+    column: $table.url,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get mkGroupId => $composableBuilder(
-    column: $table.mkGroupId,
+  ColumnOrderings<String> get feedKey => $composableBuilder(
+    column: $table.feedKey,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get ttl => $composableBuilder(
-    column: $table.ttl,
+  ColumnOrderings<String> get sourceConfig => $composableBuilder(
+    column: $table.sourceConfig,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get updated => $composableBuilder(
-    column: $table.updated,
+  ColumnOrderings<int> get autoUpdate => $composableBuilder(
+    column: $table.autoUpdate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -4288,46 +5385,438 @@ class $$AppRssTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get cacheVersion => $composableBuilder(
-    column: $table.cacheVersion,
+  ColumnOrderings<String> get knownItems => $composableBuilder(
+    column: $table.knownItems,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get lastFailed => $composableBuilder(
-    column: $table.lastFailed,
+  ColumnOrderings<int> get hasBaseline => $composableBuilder(
+    column: $table.hasBaseline,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get itemKeyVersion => $composableBuilder(
+    column: $table.itemKeyVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$AppBmfTableOrderingComposer get bmfId {
+    final $$AppBmfTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bmfId,
+      referencedTable: $db.appBmf,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AppBmfTableOrderingComposer(
+            $db: $db,
+            $table: $db.appBmf,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
-class $$AppRssTableAnnotationComposer
-    extends Composer<_$BtDatabase, $AppRssTable> {
-  $$AppRssTableAnnotationComposer({
+class $$AppSubscriptionTableAnnotationComposer
+    extends Composer<_$BtDatabase, $AppSubscriptionTable> {
+  $$AppSubscriptionTableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<String> get rss =>
-      $composableBuilder(column: $table.rss, builder: (column) => column);
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get provider =>
+      $composableBuilder(column: $table.provider, builder: (column) => column);
+
+  GeneratedColumn<String> get url =>
+      $composableBuilder(column: $table.url, builder: (column) => column);
+
+  GeneratedColumn<String> get feedKey =>
+      $composableBuilder(column: $table.feedKey, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceConfig => $composableBuilder(
+    column: $table.sourceConfig,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get autoUpdate => $composableBuilder(
+    column: $table.autoUpdate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get pendingItems => $composableBuilder(
+    column: $table.pendingItems,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get knownItems => $composableBuilder(
+    column: $table.knownItems,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get hasBaseline => $composableBuilder(
+    column: $table.hasBaseline,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get itemKeyVersion => $composableBuilder(
+    column: $table.itemKeyVersion,
+    builder: (column) => column,
+  );
+
+  $$AppBmfTableAnnotationComposer get bmfId {
+    final $$AppBmfTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bmfId,
+      referencedTable: $db.appBmf,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AppBmfTableAnnotationComposer(
+            $db: $db,
+            $table: $db.appBmf,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AppSubscriptionTableTableManager
+    extends
+        RootTableManager<
+          _$BtDatabase,
+          $AppSubscriptionTable,
+          SubscriptionRow,
+          $$AppSubscriptionTableFilterComposer,
+          $$AppSubscriptionTableOrderingComposer,
+          $$AppSubscriptionTableAnnotationComposer,
+          $$AppSubscriptionTableCreateCompanionBuilder,
+          $$AppSubscriptionTableUpdateCompanionBuilder,
+          (SubscriptionRow, $$AppSubscriptionTableReferences),
+          SubscriptionRow,
+          PrefetchHooks Function({bool bmfId})
+        > {
+  $$AppSubscriptionTableTableManager(
+    _$BtDatabase db,
+    $AppSubscriptionTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppSubscriptionTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppSubscriptionTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AppSubscriptionTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> bmfId = const Value.absent(),
+                Value<String> provider = const Value.absent(),
+                Value<String> url = const Value.absent(),
+                Value<String> feedKey = const Value.absent(),
+                Value<String> sourceConfig = const Value.absent(),
+                Value<int> autoUpdate = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> pendingItems = const Value.absent(),
+                Value<String> knownItems = const Value.absent(),
+                Value<int> hasBaseline = const Value.absent(),
+                Value<int> itemKeyVersion = const Value.absent(),
+              }) => AppSubscriptionCompanion(
+                id: id,
+                bmfId: bmfId,
+                provider: provider,
+                url: url,
+                feedKey: feedKey,
+                sourceConfig: sourceConfig,
+                autoUpdate: autoUpdate,
+                status: status,
+                pendingItems: pendingItems,
+                knownItems: knownItems,
+                hasBaseline: hasBaseline,
+                itemKeyVersion: itemKeyVersion,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int bmfId,
+                Value<String> provider = const Value.absent(),
+                required String url,
+                required String feedKey,
+                Value<String> sourceConfig = const Value.absent(),
+                Value<int> autoUpdate = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> pendingItems = const Value.absent(),
+                Value<String> knownItems = const Value.absent(),
+                Value<int> hasBaseline = const Value.absent(),
+                Value<int> itemKeyVersion = const Value.absent(),
+              }) => AppSubscriptionCompanion.insert(
+                id: id,
+                bmfId: bmfId,
+                provider: provider,
+                url: url,
+                feedKey: feedKey,
+                sourceConfig: sourceConfig,
+                autoUpdate: autoUpdate,
+                status: status,
+                pendingItems: pendingItems,
+                knownItems: knownItems,
+                hasBaseline: hasBaseline,
+                itemKeyVersion: itemKeyVersion,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$AppSubscriptionTable, SubscriptionRow>(table),
+                  $$AppSubscriptionTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({bmfId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (bmfId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.bmfId,
+                                referencedTable:
+                                    $$AppSubscriptionTableReferences
+                                        ._bmfIdTable(db),
+                                referencedColumn:
+                                    $$AppSubscriptionTableReferences
+                                        ._bmfIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$AppSubscriptionTableProcessedTableManager =
+    ProcessedTableManager<
+      _$BtDatabase,
+      $AppSubscriptionTable,
+      SubscriptionRow,
+      $$AppSubscriptionTableFilterComposer,
+      $$AppSubscriptionTableOrderingComposer,
+      $$AppSubscriptionTableAnnotationComposer,
+      $$AppSubscriptionTableCreateCompanionBuilder,
+      $$AppSubscriptionTableUpdateCompanionBuilder,
+      (SubscriptionRow, $$AppSubscriptionTableReferences),
+      SubscriptionRow,
+      PrefetchHooks Function({bool bmfId})
+    >;
+typedef $$AppRssCacheTableCreateCompanionBuilder =
+    AppRssCacheCompanion Function({
+      required String feedKey,
+      required String requestUrl,
+      Value<String?> data,
+      Value<int> ttlMinutes,
+      Value<int> lastSuccessAt,
+      Value<int> lastAttemptAt,
+      Value<int> lastFailedAt,
+      Value<int> cacheVersion,
+      Value<int> rowid,
+    });
+typedef $$AppRssCacheTableUpdateCompanionBuilder =
+    AppRssCacheCompanion Function({
+      Value<String> feedKey,
+      Value<String> requestUrl,
+      Value<String?> data,
+      Value<int> ttlMinutes,
+      Value<int> lastSuccessAt,
+      Value<int> lastAttemptAt,
+      Value<int> lastFailedAt,
+      Value<int> cacheVersion,
+      Value<int> rowid,
+    });
+
+class $$AppRssCacheTableFilterComposer
+    extends Composer<_$BtDatabase, $AppRssCacheTable> {
+  $$AppRssCacheTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get feedKey => $composableBuilder(
+    column: $table.feedKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get requestUrl => $composableBuilder(
+    column: $table.requestUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get data => $composableBuilder(
+    column: $table.data,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get ttlMinutes => $composableBuilder(
+    column: $table.ttlMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastSuccessAt => $composableBuilder(
+    column: $table.lastSuccessAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastFailedAt => $composableBuilder(
+    column: $table.lastFailedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cacheVersion => $composableBuilder(
+    column: $table.cacheVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppRssCacheTableOrderingComposer
+    extends Composer<_$BtDatabase, $AppRssCacheTable> {
+  $$AppRssCacheTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get feedKey => $composableBuilder(
+    column: $table.feedKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get requestUrl => $composableBuilder(
+    column: $table.requestUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get data => $composableBuilder(
+    column: $table.data,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get ttlMinutes => $composableBuilder(
+    column: $table.ttlMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastSuccessAt => $composableBuilder(
+    column: $table.lastSuccessAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastFailedAt => $composableBuilder(
+    column: $table.lastFailedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cacheVersion => $composableBuilder(
+    column: $table.cacheVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppRssCacheTableAnnotationComposer
+    extends Composer<_$BtDatabase, $AppRssCacheTable> {
+  $$AppRssCacheTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get feedKey =>
+      $composableBuilder(column: $table.feedKey, builder: (column) => column);
+
+  GeneratedColumn<String> get requestUrl => $composableBuilder(
+    column: $table.requestUrl,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get data =>
       $composableBuilder(column: $table.data, builder: (column) => column);
 
-  GeneratedColumn<String> get mkBgmId =>
-      $composableBuilder(column: $table.mkBgmId, builder: (column) => column);
+  GeneratedColumn<int> get ttlMinutes => $composableBuilder(
+    column: $table.ttlMinutes,
+    builder: (column) => column,
+  );
 
-  GeneratedColumn<String> get mkGroupId =>
-      $composableBuilder(column: $table.mkGroupId, builder: (column) => column);
+  GeneratedColumn<int> get lastSuccessAt => $composableBuilder(
+    column: $table.lastSuccessAt,
+    builder: (column) => column,
+  );
 
-  GeneratedColumn<int> get ttl =>
-      $composableBuilder(column: $table.ttl, builder: (column) => column);
+  GeneratedColumn<int> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => column,
+  );
 
-  GeneratedColumn<int> get updated =>
-      $composableBuilder(column: $table.updated, builder: (column) => column);
-
-  GeneratedColumn<String> get pendingItems => $composableBuilder(
-    column: $table.pendingItems,
+  GeneratedColumn<int> get lastFailedAt => $composableBuilder(
+    column: $table.lastFailedAt,
     builder: (column) => column,
   );
 
@@ -4335,92 +5824,86 @@ class $$AppRssTableAnnotationComposer
     column: $table.cacheVersion,
     builder: (column) => column,
   );
-
-  GeneratedColumn<int> get lastFailed => $composableBuilder(
-    column: $table.lastFailed,
-    builder: (column) => column,
-  );
 }
 
-class $$AppRssTableTableManager
+class $$AppRssCacheTableTableManager
     extends
         RootTableManager<
           _$BtDatabase,
-          $AppRssTable,
-          RssRow,
-          $$AppRssTableFilterComposer,
-          $$AppRssTableOrderingComposer,
-          $$AppRssTableAnnotationComposer,
-          $$AppRssTableCreateCompanionBuilder,
-          $$AppRssTableUpdateCompanionBuilder,
-          (RssRow, BaseReferences<_$BtDatabase, $AppRssTable, RssRow>),
-          RssRow,
+          $AppRssCacheTable,
+          RssCacheRow,
+          $$AppRssCacheTableFilterComposer,
+          $$AppRssCacheTableOrderingComposer,
+          $$AppRssCacheTableAnnotationComposer,
+          $$AppRssCacheTableCreateCompanionBuilder,
+          $$AppRssCacheTableUpdateCompanionBuilder,
+          (
+            RssCacheRow,
+            BaseReferences<_$BtDatabase, $AppRssCacheTable, RssCacheRow>,
+          ),
+          RssCacheRow,
           PrefetchHooks Function()
         > {
-  $$AppRssTableTableManager(_$BtDatabase db, $AppRssTable table)
+  $$AppRssCacheTableTableManager(_$BtDatabase db, $AppRssCacheTable table)
     : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$AppRssTableFilterComposer($db: db, $table: table),
+              $$AppRssCacheTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
-              $$AppRssTableOrderingComposer($db: db, $table: table),
+              $$AppRssCacheTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$AppRssTableAnnotationComposer($db: db, $table: table),
+              $$AppRssCacheTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
-                Value<String> rss = const Value.absent(),
+                Value<String> feedKey = const Value.absent(),
+                Value<String> requestUrl = const Value.absent(),
                 Value<String?> data = const Value.absent(),
-                Value<String?> mkBgmId = const Value.absent(),
-                Value<String?> mkGroupId = const Value.absent(),
-                Value<int> ttl = const Value.absent(),
-                Value<int> updated = const Value.absent(),
-                Value<String> pendingItems = const Value.absent(),
+                Value<int> ttlMinutes = const Value.absent(),
+                Value<int> lastSuccessAt = const Value.absent(),
+                Value<int> lastAttemptAt = const Value.absent(),
+                Value<int> lastFailedAt = const Value.absent(),
                 Value<int> cacheVersion = const Value.absent(),
-                Value<int> lastFailed = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
-              }) => AppRssCompanion(
-                rss: rss,
+              }) => AppRssCacheCompanion(
+                feedKey: feedKey,
+                requestUrl: requestUrl,
                 data: data,
-                mkBgmId: mkBgmId,
-                mkGroupId: mkGroupId,
-                ttl: ttl,
-                updated: updated,
-                pendingItems: pendingItems,
+                ttlMinutes: ttlMinutes,
+                lastSuccessAt: lastSuccessAt,
+                lastAttemptAt: lastAttemptAt,
+                lastFailedAt: lastFailedAt,
                 cacheVersion: cacheVersion,
-                lastFailed: lastFailed,
                 rowid: rowid,
               ),
           createCompanionCallback:
               ({
-                required String rss,
+                required String feedKey,
+                required String requestUrl,
                 Value<String?> data = const Value.absent(),
-                Value<String?> mkBgmId = const Value.absent(),
-                Value<String?> mkGroupId = const Value.absent(),
-                required int ttl,
-                required int updated,
-                Value<String> pendingItems = const Value.absent(),
+                Value<int> ttlMinutes = const Value.absent(),
+                Value<int> lastSuccessAt = const Value.absent(),
+                Value<int> lastAttemptAt = const Value.absent(),
+                Value<int> lastFailedAt = const Value.absent(),
                 Value<int> cacheVersion = const Value.absent(),
-                Value<int> lastFailed = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
-              }) => AppRssCompanion.insert(
-                rss: rss,
+              }) => AppRssCacheCompanion.insert(
+                feedKey: feedKey,
+                requestUrl: requestUrl,
                 data: data,
-                mkBgmId: mkBgmId,
-                mkGroupId: mkGroupId,
-                ttl: ttl,
-                updated: updated,
-                pendingItems: pendingItems,
+                ttlMinutes: ttlMinutes,
+                lastSuccessAt: lastSuccessAt,
+                lastAttemptAt: lastAttemptAt,
+                lastFailedAt: lastFailedAt,
                 cacheVersion: cacheVersion,
-                lastFailed: lastFailed,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable<$AppRssTable, RssRow>(table),
-                  BaseReferences<_$BtDatabase, $AppRssTable, RssRow>(
+                  e.readTable<$AppRssCacheTable, RssCacheRow>(table),
+                  BaseReferences<_$BtDatabase, $AppRssCacheTable, RssCacheRow>(
                     db,
                     table,
                     e,
@@ -4433,18 +5916,305 @@ class $$AppRssTableTableManager
       );
 }
 
-typedef $$AppRssTableProcessedTableManager =
+typedef $$AppRssCacheTableProcessedTableManager =
     ProcessedTableManager<
       _$BtDatabase,
-      $AppRssTable,
-      RssRow,
-      $$AppRssTableFilterComposer,
-      $$AppRssTableOrderingComposer,
-      $$AppRssTableAnnotationComposer,
-      $$AppRssTableCreateCompanionBuilder,
-      $$AppRssTableUpdateCompanionBuilder,
-      (RssRow, BaseReferences<_$BtDatabase, $AppRssTable, RssRow>),
-      RssRow,
+      $AppRssCacheTable,
+      RssCacheRow,
+      $$AppRssCacheTableFilterComposer,
+      $$AppRssCacheTableOrderingComposer,
+      $$AppRssCacheTableAnnotationComposer,
+      $$AppRssCacheTableCreateCompanionBuilder,
+      $$AppRssCacheTableUpdateCompanionBuilder,
+      (
+        RssCacheRow,
+        BaseReferences<_$BtDatabase, $AppRssCacheTable, RssCacheRow>,
+      ),
+      RssCacheRow,
+      PrefetchHooks Function()
+    >;
+typedef $$AppMigrationRecoveryTableCreateCompanionBuilder =
+    AppMigrationRecoveryCompanion Function({
+      Value<int> id,
+      required int migrationVersion,
+      required String kind,
+      required String legacyKey,
+      required String payload,
+      Value<String> candidateBmfIds,
+      required int createdAt,
+      Value<int?> resolvedAt,
+    });
+typedef $$AppMigrationRecoveryTableUpdateCompanionBuilder =
+    AppMigrationRecoveryCompanion Function({
+      Value<int> id,
+      Value<int> migrationVersion,
+      Value<String> kind,
+      Value<String> legacyKey,
+      Value<String> payload,
+      Value<String> candidateBmfIds,
+      Value<int> createdAt,
+      Value<int?> resolvedAt,
+    });
+
+class $$AppMigrationRecoveryTableFilterComposer
+    extends Composer<_$BtDatabase, $AppMigrationRecoveryTable> {
+  $$AppMigrationRecoveryTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get migrationVersion => $composableBuilder(
+    column: $table.migrationVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get legacyKey => $composableBuilder(
+    column: $table.legacyKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get candidateBmfIds => $composableBuilder(
+    column: $table.candidateBmfIds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppMigrationRecoveryTableOrderingComposer
+    extends Composer<_$BtDatabase, $AppMigrationRecoveryTable> {
+  $$AppMigrationRecoveryTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get migrationVersion => $composableBuilder(
+    column: $table.migrationVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get legacyKey => $composableBuilder(
+    column: $table.legacyKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get candidateBmfIds => $composableBuilder(
+    column: $table.candidateBmfIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppMigrationRecoveryTableAnnotationComposer
+    extends Composer<_$BtDatabase, $AppMigrationRecoveryTable> {
+  $$AppMigrationRecoveryTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get migrationVersion => $composableBuilder(
+    column: $table.migrationVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get legacyKey =>
+      $composableBuilder(column: $table.legacyKey, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<String> get candidateBmfIds => $composableBuilder(
+    column: $table.candidateBmfIds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$AppMigrationRecoveryTableTableManager
+    extends
+        RootTableManager<
+          _$BtDatabase,
+          $AppMigrationRecoveryTable,
+          MigrationRecoveryRow,
+          $$AppMigrationRecoveryTableFilterComposer,
+          $$AppMigrationRecoveryTableOrderingComposer,
+          $$AppMigrationRecoveryTableAnnotationComposer,
+          $$AppMigrationRecoveryTableCreateCompanionBuilder,
+          $$AppMigrationRecoveryTableUpdateCompanionBuilder,
+          (
+            MigrationRecoveryRow,
+            BaseReferences<
+              _$BtDatabase,
+              $AppMigrationRecoveryTable,
+              MigrationRecoveryRow
+            >,
+          ),
+          MigrationRecoveryRow,
+          PrefetchHooks Function()
+        > {
+  $$AppMigrationRecoveryTableTableManager(
+    _$BtDatabase db,
+    $AppMigrationRecoveryTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppMigrationRecoveryTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppMigrationRecoveryTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$AppMigrationRecoveryTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> migrationVersion = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<String> legacyKey = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<String> candidateBmfIds = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int?> resolvedAt = const Value.absent(),
+              }) => AppMigrationRecoveryCompanion(
+                id: id,
+                migrationVersion: migrationVersion,
+                kind: kind,
+                legacyKey: legacyKey,
+                payload: payload,
+                candidateBmfIds: candidateBmfIds,
+                createdAt: createdAt,
+                resolvedAt: resolvedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int migrationVersion,
+                required String kind,
+                required String legacyKey,
+                required String payload,
+                Value<String> candidateBmfIds = const Value.absent(),
+                required int createdAt,
+                Value<int?> resolvedAt = const Value.absent(),
+              }) => AppMigrationRecoveryCompanion.insert(
+                id: id,
+                migrationVersion: migrationVersion,
+                kind: kind,
+                legacyKey: legacyKey,
+                payload: payload,
+                candidateBmfIds: candidateBmfIds,
+                createdAt: createdAt,
+                resolvedAt: resolvedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$AppMigrationRecoveryTable, MigrationRecoveryRow>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$BtDatabase,
+                    $AppMigrationRecoveryTable,
+                    MigrationRecoveryRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppMigrationRecoveryTableProcessedTableManager =
+    ProcessedTableManager<
+      _$BtDatabase,
+      $AppMigrationRecoveryTable,
+      MigrationRecoveryRow,
+      $$AppMigrationRecoveryTableFilterComposer,
+      $$AppMigrationRecoveryTableOrderingComposer,
+      $$AppMigrationRecoveryTableAnnotationComposer,
+      $$AppMigrationRecoveryTableCreateCompanionBuilder,
+      $$AppMigrationRecoveryTableUpdateCompanionBuilder,
+      (
+        MigrationRecoveryRow,
+        BaseReferences<
+          _$BtDatabase,
+          $AppMigrationRecoveryTable,
+          MigrationRecoveryRow
+        >,
+      ),
+      MigrationRecoveryRow,
       PrefetchHooks Function()
     >;
 typedef $$AppConfigTableCreateCompanionBuilder =
@@ -5886,8 +7656,12 @@ class $BtDatabaseManager {
   $BtDatabaseManager(this._db);
   $$AppBmfTableTableManager get appBmf =>
       $$AppBmfTableTableManager(_db, _db.appBmf);
-  $$AppRssTableTableManager get appRss =>
-      $$AppRssTableTableManager(_db, _db.appRss);
+  $$AppSubscriptionTableTableManager get appSubscription =>
+      $$AppSubscriptionTableTableManager(_db, _db.appSubscription);
+  $$AppRssCacheTableTableManager get appRssCache =>
+      $$AppRssCacheTableTableManager(_db, _db.appRssCache);
+  $$AppMigrationRecoveryTableTableManager get appMigrationRecovery =>
+      $$AppMigrationRecoveryTableTableManager(_db, _db.appMigrationRecovery);
   $$AppConfigTableTableManager get appConfig =>
       $$AppConfigTableTableManager(_db, _db.appConfig);
   $$AppPlaybackTableTableManager get appPlayback =>

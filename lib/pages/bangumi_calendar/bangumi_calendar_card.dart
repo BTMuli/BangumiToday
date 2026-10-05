@@ -15,7 +15,6 @@ import 'package:url_launcher/url_launcher_string.dart';
 // Project imports:
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/bangumi_utils.dart';
-import '../../database/app/app_rss.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/database/app_bmf_model.dart';
@@ -209,10 +208,6 @@ class _BangumiCalendarCardState extends ConsumerState<BangumiCalendarCard>
               rss: rss,
             );
           } else {
-            // 旧 RSS 的缓存数据跟着订阅一起换掉，避免留下过期条目
-            if (bmf.rss != null && bmf.rss!.isNotEmpty && bmf.rss != rss) {
-              await BtsAppRss().delete(bmf.rss!);
-            }
             bmf = bmf.copyWith(rss: rss);
           }
           var scheduled = await repo.write(bmf);

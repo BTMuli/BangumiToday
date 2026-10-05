@@ -14,7 +14,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../controller/progress_controller.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
-import '../../database/app/app_rss.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../pages/subject_detail/subject_stat_providers.dart';
 import '../../providers/app_providers.dart';
@@ -43,7 +42,6 @@ class SubjectBmfDrawer extends ConsumerStatefulWidget {
 }
 
 class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
-  final BtsAppRss sqliteRss = BtsAppRss();
   late ProgressController progress = ProgressController();
   final BTFileTool fileTool = BTFileTool();
 
@@ -177,20 +175,11 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
 
   Future<void> updateRss(String? newRss) async {
     if (newRss == null) return;
-    if (newRss == bmf.rss) {
+    if (bmf.subscriptions.any((s) => s.url == newRss)) {
       if (mounted) await BtInfobar.error(context, '未修改 RSS');
       return;
     }
     var repo = ref.read(bmfRepositoryProvider);
-    var check = await repo.checkRss(newRss, excludeSubject: bmf.subject);
-    if (check) {
-      if (mounted) await BtInfobar.error(context, '该RSS已经被其他BMF使用');
-      return;
-    }
-    if (bmf.rss != null && bmf.rss!.isNotEmpty) {
-      await sqliteRss.delete(bmf.rss!);
-      if (mounted) await BtInfobar.success(context, '成功删除旧 RSS 数据');
-    }
     bmf = bmf.copyWith(rss: newRss);
     await titleCheck();
     var scheduled = await repo.write(bmf);
@@ -249,10 +238,12 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
     setState(() {});
   }
 
-  Future<void> deleteRss() async {
-    if (bmf.rss == null || bmf.rss!.isEmpty) return;
-    await sqliteRss.delete(bmf.rss!);
-    bmf = bmf.copyWith(rss: null);
+  Future<void> deleteRss(int subscriptionId) async {
+    bmf = bmf.copyWith(
+      subscriptions: bmf.subscriptions
+          .where((s) => s.id != subscriptionId)
+          .toList(),
+    );
     var repo = ref.read(bmfRepositoryProvider);
     await repo.write(bmf);
     if (mounted) await BtInfobar.success(context, '成功删除 RSS 订阅');

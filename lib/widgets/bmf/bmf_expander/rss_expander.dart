@@ -4,7 +4,7 @@ class BmfRssExpander extends ConsumerStatefulWidget {
   final AppBmfModel bmf;
   final bool isConfig;
   final double maxHeight;
-  final Future<void> Function()? onDelete;
+  final Future<void> Function(int subscriptionId)? onDelete;
   final bool initiallyExpanded;
   final bool contentScrollable;
   final bool expandable;
@@ -29,24 +29,13 @@ class BmfRssExpander extends ConsumerStatefulWidget {
 }
 
 class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
-  late final BmfRssData _data = BmfRssData(
-    sqlite: BtsAppRss(),
-    bmf: widget.bmf,
-  );
+  late final BmfRssData _data = BmfRssData(bmf: widget.bmf);
   StreamSubscription<BmfRssUpdateEvent>? _updateSubscription;
-
-  String? get _updateKey {
-    var bmf = widget.bmf;
-    if (bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty) return bmf.mkBgmId;
-    return bmf.rss;
-  }
-
-  String? get mikanRss => ref.watch(appStoreProvider).mikanRss;
+  StreamSubscription<BmfRssStatusEvent>? _statusSubscription;
 
   @override
   void initState() {
     super.initState();
-    _data.mikanRss = mikanRss;
     _data.addListener(_onDataChanged);
     _listenToUpdate();
     Future.microtask(_data.load);
@@ -57,32 +46,29 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
   }
 
   void _listenToUpdate() {
-    var key = _updateKey;
-    if (key == null) return;
-    _updateSubscription = BmfRssService.instance.updateStream
-        .where((event) => event.key == key)
-        .listen((event) {
-          if (!mounted || _updateKey != key) return;
-          _data.applyUpdate(event);
-        });
+    _updateSubscription = BmfRssService.instance.updateStream.listen((event) {
+      if (!mounted) return;
+      _data.applyUpdate(event);
+    });
+    _statusSubscription = BmfRssService.instance.statusStream.listen((event) {
+      if (mounted && event.subscriptionId == _data.selectedSubscriptionId) {
+        unawaited(_data.load());
+      }
+    });
   }
 
   @override
   void didUpdateWidget(BmfRssExpander oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.bmf.rss != widget.bmf.rss ||
-        oldWidget.bmf.mkBgmId != widget.bmf.mkBgmId ||
-        oldWidget.bmf.mkGroupId != widget.bmf.mkGroupId) {
-      _updateSubscription?.cancel();
-      _updateSubscription = null;
-      _data.updateBmf(widget.bmf, mikanRss: mikanRss);
-      _listenToUpdate();
+    if (!identical(oldWidget.bmf, widget.bmf)) {
+      _data.updateBmf(widget.bmf);
     }
   }
 
   @override
   void dispose() {
     _updateSubscription?.cancel();
+    _statusSubscription?.cancel();
     _data.removeListener(_onDataChanged);
     _data.dispose();
     super.dispose();
@@ -190,7 +176,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
                 item: item,
                 dir: widget.bmf.download,
                 subject: widget.bmf.subject,
-                rssLink: widget.bmf.rss!,
+                rssLink: _data.rssUrl,
                 onHandled: () => _data.markItemHandled(item),
               ),
             ],
@@ -250,11 +236,10 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
 
   @override
   Widget build(BuildContext context) {
-    _data.mikanRss = mikanRss;
     var accentColor = FluentTheme.of(context).accentColor;
     var rssLink = _data.rssUrl;
 
-    var header = Row(
+    var actionHeader = Row(
       children: [
         Text(
           widget.embedded ? '${_data.rssItems.length} 条资源' : 'RSS 订阅',
@@ -318,7 +303,8 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
                   content: '确定删除该 RSS 订阅配置吗？',
                 );
                 if (!confirm) return;
-                await widget.onDelete!();
+                var id = _data.selectedSubscriptionId;
+                if (id != null) await widget.onDelete!(id);
               },
             ),
           ),
@@ -326,17 +312,18 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
           message: '刷新 RSS',
           child: IconButton(
             icon: BtIcon(FluentIcons.refresh, size: 14),
-            onPressed: () async {
-              var result = await ref
-                  .read(bmfRepositoryProvider)
-                  .refreshRss(widget.bmf);
-              if (!context.mounted) return;
-              if (result) {
-                await BtInfobar.success(context, 'RSS 刷新成功');
-              } else {
-                await BtInfobar.error(context, 'RSS 刷新失败');
-              }
-            },
+            onPressed: _data.subscription?.canRefresh != true
+                ? null
+                : () async {
+                    var result = await BmfRssService.instance
+                        .refreshSubscription(_data.selectedSubscriptionId!);
+                    if (!context.mounted) return;
+                    if (result) {
+                      await BtInfobar.success(context, 'RSS 刷新成功');
+                    } else {
+                      await BtInfobar.error(context, 'RSS 刷新失败');
+                    }
+                  },
           ),
         ),
         Tooltip(
@@ -346,6 +333,39 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
             onPressed: () async => await launchUrlString(rssLink),
           ),
         ),
+      ],
+    );
+
+    var header = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.bmf.subscriptions.length > 1) ...[
+          BtSelect<int>(
+            isExpanded: true,
+            value: _data.selectedSubscriptionId,
+            items: [
+              for (var subscription in widget.bmf.subscriptions)
+                ComboBoxItem(
+                  value: subscription.id,
+                  child: Text(
+                    '${subscription.provider} · ${subscription.id}'
+                    '${subscription.status == 'needsReview' ? ' · 待核对' : ''}',
+                  ),
+                ),
+            ],
+            onChanged: (id) {
+              if (id != null) setState(() => _data.selectSubscription(id));
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (_data.subscription?.status == 'needsReview')
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('订阅待核对，请在 BMF 工作台确认旧状态归属或修正地址'),
+          ),
+        actionHeader,
       ],
     );
 

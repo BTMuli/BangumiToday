@@ -3,122 +3,100 @@ import 'package:drift/drift.dart';
 
 // Project imports:
 import '../../models/database/app_bmf_model.dart';
-import '../../tools/log_tool.dart';
+import '../../models/database/app_subscription_model.dart';
 import '../bt_sqlite.dart';
 import '../drift/bt_database.dart';
+import '../drift/subscription_storage.dart';
 
-/// Bangumi-Mikan-File Map
-/// 用于存储特定条目对应的MikanRSS及下载目录
-///
-/// 只负责表存取：写入/删除后的 RSS 调度由 `BmfRepositoryImpl` 统一触发，
-/// 保证每次成功写入恰好刷新一次。建表与补列由 `BtDatabase` 拥有。
 class BtsAppBmf {
   BtsAppBmf._();
-
-  /// 实例
-  static final BtsAppBmf _instance = BtsAppBmf._();
-
-  /// 获取实例
-  factory BtsAppBmf() => _instance;
-
-  /// 数据库
+  static final BtsAppBmf instance = BtsAppBmf._();
+  factory BtsAppBmf() => instance;
   BtDatabase get _db => BTSqlite().db;
 
-  /// 读取全部配置，按条目 ID 降序
   Future<List<AppBmfModel>> readAll() async {
-    var query = _db.select(_db.appBmf)
-      ..orderBy([(table) => OrderingTerm.desc(table.subject)]);
-    var rows = await query.get();
-    return rows.map((row) => AppBmfModel.fromJson(row.toJson())).toList();
+    var rows = await (_db.select(
+      _db.appBmf,
+    )..orderBy([(b) => OrderingTerm.desc(b.subject)])).get();
+    var subscriptions = await SubscriptionStorage(_db).readAll();
+    var byBmf = <int, List<AppSubscriptionModel>>{};
+    for (var subscription in subscriptions) {
+      byBmf.putIfAbsent(subscription.bmfId, () => []).add(subscription);
+    }
+    return rows
+        .map(
+          (r) => AppBmfModel.fromJson({
+            ...r.toJson(),
+            'subscriptions':
+                byBmf[r.id]?.map((s) => s.toJson()).toList() ??
+                <Map<String, dynamic>>[],
+          }),
+        )
+        .toList();
   }
 
-  /// 读取配置
   Future<AppBmfModel?> read(int subject) async {
     var row = await _findBySubject(subject);
     if (row == null) return null;
-    return AppBmfModel.fromJson(row.toJson());
+    var subscriptions = await SubscriptionStorage(_db).readAll(bmfId: row.id);
+    return AppBmfModel.fromJson({
+      ...row.toJson(),
+      'subscriptions': subscriptions.map((s) => s.toJson()).toList(),
+    });
   }
 
-  /// 写入/更新配置
-  ///
-  /// `subject` 是唯一约束而不是主键（主键是自增 `id`），所以先按 subject
-  /// 查一次再决定 INSERT / UPDATE，让既有行的 id 保持不变。
   Future<void> write(AppBmfModel model) async {
-    if (model.rss != null && model.rss!.isNotEmpty) {
-      var url = Uri.parse(model.rss!);
-      model.mkBgmId = url.queryParameters['bangumiId'];
-      model.mkGroupId = url.queryParameters['subgroupid'];
-    }
-    var existing = await _findBySubject(model.subject);
-    if (existing == null) {
-      await _db.into(_db.appBmf).insert(_companion(model));
-    } else {
-      var update = _db.update(_db.appBmf)
-        ..where((table) => table.id.equals(existing.id));
-      await update.write(_companion(model));
-    }
-    BTLogTool.info('Write AppBmf subject: ${model.subject}');
+    await _db.transaction(() async {
+      var existing = await _findBySubject(model.subject);
+      var values = AppBmfCompanion(
+        subject: Value(model.subject),
+        title: Value(model.title),
+        airDate: Value(model.airDate),
+        download: Value(model.download),
+      );
+      int id;
+      if (existing == null) {
+        id = await _db.into(_db.appBmf).insert(values);
+      } else {
+        id = existing.id;
+        await (_db.update(
+          _db.appBmf,
+        )..where((b) => b.id.equals(id))).write(values);
+      }
+      await SubscriptionStorage(_db).saveSubscriptions(id, model.subscriptions);
+    });
   }
 
-  /// Updates only the subject air date while backfilling old records.
   Future<void> updateAirDate(int subject, String airDate) async {
-    var update = _db.update(_db.appBmf)
-      ..where((table) => table.subject.equals(subject));
-    await update.write(AppBmfCompanion(airDate: Value(airDate)));
+    await (_db.update(_db.appBmf)..where((b) => b.subject.equals(subject)))
+        .write(AppBmfCompanion(airDate: Value(airDate)));
   }
 
-  /// 删除配置
   Future<void> delete(int subject) async {
-    var delete = _db.delete(_db.appBmf)
-      ..where((table) => table.subject.equals(subject));
-    await delete.go();
-    BTLogTool.info('Delete AppBmf subject: $subject');
+    await _db.transaction(() async {
+      var existing = await _findBySubject(subject);
+      if (existing == null) return;
+      await SubscriptionStorage(_db).saveSubscriptions(existing.id, []);
+      await (_db.delete(
+        _db.appBmf,
+      )..where((b) => b.id.equals(existing.id))).go();
+      await SubscriptionStorage(_db).pruneUnusedCaches();
+    });
   }
 
-  /// 检测RSS链接是否存在
-  /// [excludeSubject] 排除的条目ID，用于修改时排除自身
-  Future<bool> checkRss(String input, {int? excludeSubject}) async {
-    var query = _db.select(_db.appBmf)
-      ..where(
-        (table) => excludeSubject == null
-            ? table.rss.equals(input)
-            : table.rss.equals(input) &
-                  table.subject.equals(excludeSubject).not(),
-      );
-    var rows = await query.get();
-    return rows.isNotEmpty;
-  }
+  /// Feeds may be shared by different BMFs; duplicates within a BMF are checked
+  /// transactionally when saving the complete subscription collection.
+  Future<bool> checkRss(String input, {int? excludeSubject}) async => false;
 
-  /// 检测下载目录是否存在
-  /// [excludeSubject] 排除的条目ID，用于修改时排除自身
   Future<bool> checkDir(String dir, {int? excludeSubject}) async {
-    var query = _db.select(_db.appBmf)
-      ..where(
-        (table) => excludeSubject == null
-            ? table.download.equals(dir)
-            : table.download.equals(dir) &
-                  table.subject.equals(excludeSubject).not(),
-      );
-    var rows = await query.get();
-    return rows.isNotEmpty;
+    var query = _db.select(_db.appBmf)..where((b) => b.download.equals(dir));
+    if (excludeSubject != null) {
+      query.where((b) => b.subject.equals(excludeSubject).not());
+    }
+    return (await query.get()).isNotEmpty;
   }
 
-  Future<BmfRow?> _findBySubject(int subject) {
-    var query = _db.select(_db.appBmf)
-      ..where((table) => table.subject.equals(subject));
-    return query.getSingleOrNull();
-  }
-
-  AppBmfCompanion _companion(AppBmfModel model) {
-    return AppBmfCompanion(
-      subject: Value(model.subject),
-      title: Value(model.title),
-      airDate: Value(model.airDate),
-      rss: Value(model.rss),
-      download: Value(model.download),
-      mkBgmId: Value(model.mkBgmId),
-      mkGroupId: Value(model.mkGroupId),
-      autoUpdate: Value(model.autoUpdate ? 1 : 0),
-    );
-  }
+  Future<BmfRow?> _findBySubject(int subject) => (_db.select(
+    _db.appBmf,
+  )..where((b) => b.subject.equals(subject))).getSingleOrNull();
 }

@@ -1,38 +1,39 @@
 // Dart imports:
+import 'dart:convert';
 import 'dart:io';
 
 // Package imports:
+import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as path;
+import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 // Project imports:
+import '../database_process_lock.dart';
+import 'migrations/legacy_subscription_converter.dart';
+import 'migrations/schema_v1.dart';
 import 'tables/app_bmf.dart';
 import 'tables/app_config.dart';
+import 'tables/app_migration_recovery.dart';
 import 'tables/app_playback.dart';
-import 'tables/app_rss.dart';
+import 'tables/app_rss_cache.dart';
+import 'tables/app_subscription.dart';
 import 'tables/bangumi_collection.dart';
 import 'tables/bangumi_data_item.dart';
 import 'tables/bangumi_data_site.dart';
 import 'tables/bangumi_user.dart';
 
 part 'bt_database.g.dart';
+part 'migrations/subscription_migration.dart';
 
-/// 应用 SQLite 数据库。
-///
-/// 接管既有 `BangumiToday.db`：表名、列名、类型与缺省值都与迁移前的建表语句
-/// 一致，因此不需要重建或搬迁数据。
-///
-/// 版本策略：**保持 `schemaVersion = 1`**。迁移前 sqflite 用
-/// `OpenDatabaseOptions(version: 1)` 打开，写入的 `user_version` 就是 1；
-/// 结构演进当时完全靠 `preCheck()` + `PRAGMA table_info` 补列，所以版本号不能
-/// 用来推断结构。Drift 接管时如果改版本号，既有库会走进 `onUpgrade`，而它其实
-/// 已经是目标结构。保持 1 可让旧版本客户端仍能打开同一文件（回退安全），
-/// 后续真正的结构演进再从 1 开始按步升级。
+/// Schema owner. Conversion completes before business queries run.
 @DriftDatabase(
   tables: [
     AppBmf,
-    AppRss,
+    AppSubscription,
+    AppRssCache,
+    AppMigrationRecovery,
     AppConfig,
     AppPlayback,
     BangumiUser,
@@ -42,129 +43,60 @@ part 'bt_database.g.dart';
   ],
 )
 class BtDatabase extends _$BtDatabase {
-  /// 构造函数
   BtDatabase(super.executor, {String? databasePath, this.onMigration})
     : _databasePath = databasePath;
 
   final String? _databasePath;
-
-  /// Optional application logging, without coupling schema logic to Flutter.
   final void Function(String message)? onMigration;
+  DatabaseProcessLock? _processLock;
 
-  /// 打开指定路径的数据库文件。
   factory BtDatabase.open(
     String databasePath, {
     void Function(String message)? onMigration,
   }) {
-    return BtDatabase(
-      _openConnection(File(databasePath)),
+    late BtDatabase database;
+    database = BtDatabase(
+      LazyDatabase(() async {
+        database._processLock = await DatabaseProcessLock.acquire(databasePath);
+        return NativeDatabase.createInBackground(File(databasePath));
+      }),
       databasePath: databasePath,
       onMigration: onMigration,
     );
-  }
-
-  static QueryExecutor _openConnection(File file) {
-    return NativeDatabase.createInBackground(file);
+    return database;
   }
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    // A version-zero database can also contain legacy tables. Inspect actual
-    // structure instead of treating every onCreate as an empty installation.
-    onCreate: (_) => _ensureSchema(),
-    beforeOpen: (details) async {
-      // 旧库由 sqflite 建立，可能缺少后加的列。版本号相同不代表结构一致，
-      // 所以每次打开都按目标结构补齐一次，替代原来的 static bool 缓存。
-      await _ensureSchema();
-      onMigration?.call(
-        'SQLite opened: ${details.wasCreated ? "created" : "existing"}',
-      );
+    onCreate: (_) => _migrateSubscriptions(),
+    onUpgrade: (_, from, to) async {
+      if (from != 1 || to != 2) {
+        throw StateError('不支持的数据库版本，请使用匹配的客户端或迁移前快照');
+      }
+      await _migrateSubscriptions();
+    },
+    beforeOpen: (_) async {
+      await _validateV2();
+      await customStatement('PRAGMA foreign_keys = ON');
+      var enabled = await customSelect('PRAGMA foreign_keys').getSingle();
+      if (enabled.read<int>('foreign_keys') != 1) {
+        throw StateError('无法开启数据库外键约束');
+      }
+      onMigration?.call('SQLite opened: schema v2');
     },
   );
 
-  /// 逐表比对目标结构，补齐缺失的列。
-  ///
-  /// 与 `preCheck()` 时代的语义一致，但放进单次迁移流程里：不再用进程内
-  /// 静态标志缓存判定结果，避免两套连接对同一列给出不同结论。
-  ///
-  /// 注意 Drift 默认把 Dart getter 名转成 snake_case（`mkBgmId` →
-  /// `mk_bgm_id`），本项目的列名是 camelCase，所以比对必须用
-  /// `$name`（SQL 列名）而不是 getter 名，否则会误判缺失列并重复 ALTER。
-  Future<void> _ensureSchema() async {
-    var missingTables = <TableInfo>[];
-    var missingColumns = <(TableInfo, GeneratedColumn)>[];
-    for (var table in allTables) {
-      var actual = await customSelect(
-        'PRAGMA table_info(${table.actualTableName})',
-      ).get();
-      var existing = actual.map((row) => row.read<String>('name')).toSet();
-      if (existing.isEmpty) {
-        missingTables.add(table);
-        continue;
-      }
-      for (var key in table.$primaryKey) {
-        if (!actual.any(
-          (row) =>
-              row.read<String>('name') == key.$name && row.read<int>('pk') > 0,
-        )) {
-          throw StateError(
-            '数据库结构异常：${table.actualTableName}.${key.$name} 主键缺失；'
-            '请关闭应用并从备份恢复，不能自动重建',
-          );
-        }
-      }
-      for (var column in table.$columns) {
-        if (existing.contains(column.$name)) continue;
-        if (!column.$nullable && column.defaultValue == null) {
-          throw StateError(
-            '数据库结构异常：${table.actualTableName}.${column.$name} '
-            '缺失且没有安全默认值；请关闭应用并从备份恢复',
-          );
-        }
-        missingColumns.add((table, column));
-      }
+  @override
+  Future<void> close() async {
+    try {
+      await super.close();
+    } finally {
+      var lock = _processLock;
+      _processLock = null;
+      await lock?.release();
     }
-    if (missingTables.isEmpty && missingColumns.isEmpty) return;
-    await _backupBeforeMigration();
-    await transaction(() async {
-      var migrator = Migrator(this);
-      for (var table in missingTables) {
-        await migrator.createTable(table);
-      }
-      for (var (table, column) in missingColumns) {
-        // Drift renders the real SQL type, nullability and default expression.
-        // Do not derive DDL from a Dart expression's toString().
-        await migrator.addColumn(table, column);
-      }
-    });
-    onMigration?.call(
-      'SQLite schema updated: ${missingTables.length} tables, '
-      '${missingColumns.length} columns',
-    );
-  }
-
-  /// VACUUM INTO reads a consistent SQLite snapshot, including committed WAL
-  /// content. Run before the schema transaction; a failed backup blocks
-  /// changes.
-  Future<void> _backupBeforeMigration() async {
-    var databasePath = _databasePath;
-    if (databasePath == null) return;
-    var tables = await customSelect(
-      "SELECT name FROM sqlite_master WHERE type = 'table' "
-      "AND name NOT LIKE 'sqlite_%'",
-    ).get();
-    if (tables.isEmpty) return;
-    var directory = Directory(path.join(path.dirname(databasePath), 'backups'));
-    await directory.create(recursive: true);
-    var backup = path.join(
-      directory.path,
-      'BangumiToday.pre-migration-'
-      '${DateTime.now().microsecondsSinceEpoch}.db',
-    );
-    await customStatement('VACUUM INTO ?', [backup]);
-    onMigration?.call('SQLite migration backup: $backup');
   }
 }

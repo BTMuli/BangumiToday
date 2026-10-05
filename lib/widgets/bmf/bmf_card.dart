@@ -14,7 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/tool_func.dart';
-import '../../database/app/app_rss.dart';
+import '../../database/app/app_subscription.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../providers/app_providers.dart';
 import '../../ui/bt_dialog.dart';
@@ -58,7 +58,6 @@ class BmfCard extends ConsumerStatefulWidget {
 class _BmfCardState extends ConsumerState<BmfCard>
     with AutomaticKeepAliveClientMixin {
   final BTFileTool fileTool = BTFileTool();
-  final BtsAppRss sqliteRss = BtsAppRss();
 
   int fileCount = 0;
   String totalSize = '0 B';
@@ -80,7 +79,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
   @override
   void didUpdateWidget(BmfCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.bmf.rss != widget.bmf.rss ||
+    if (!identical(oldWidget.bmf, widget.bmf) ||
         oldWidget.bmf.download != widget.bmf.download) {
       Future.microtask(loadData);
     }
@@ -92,12 +91,10 @@ class _BmfCardState extends ConsumerState<BmfCard>
     if (widget.dense) return;
     var generation = ++_loadGeneration;
     var download = bmf.download;
-    var rss = bmf.rss;
-    var mkBgmId = bmf.mkBgmId;
     setState(() => isLoading = true);
 
     var fileStats = await _loadFileStats(download);
-    var rssStats = await _loadRssStats(rss, mkBgmId);
+    var rssStats = await _loadRssStats();
     if (!mounted || generation != _loadGeneration) return;
 
     setState(() {
@@ -118,15 +115,9 @@ class _BmfCardState extends ConsumerState<BmfCard>
     return {'count': files.length, 'size': filesize(totalBytes)};
   }
 
-  Future<int> _loadRssStats(String? rss, String? mkBgmId) async {
-    if (rss == null || rss.isEmpty) return 0;
-
-    var appRssModel = mkBgmId != null && mkBgmId.isNotEmpty
-        ? await sqliteRss.readByMkId(mkBgmId)
-        : await sqliteRss.read(rss);
-    if (appRssModel == null || appRssModel.data.isEmpty) return 0;
-    return appRssModel.pendingItemKeys.length;
-  }
+  Future<int> _loadRssStats() async => (await appSubscriptionStorage.readAll(
+    bmfId: bmf.id,
+  )).fold<int>(0, (total, s) => total + s.pendingItemKeys.length);
 
   @override
   void dispose() {
@@ -688,13 +679,18 @@ class _BmfDetailDialogState extends ConsumerState<_BmfDetailDialog> {
               bmf: widget.bmf,
               isConfig: true,
               maxHeight: 200,
-              onDelete: () async {
+              onDelete: (id) async {
                 var repo = context.mounted
                     ? ref.read(bmfRepositoryProvider)
                     : null;
                 if (repo == null) return;
-                widget.bmf.rss = null;
-                await repo.write(widget.bmf);
+                await repo.write(
+                  widget.bmf.copyWith(
+                    subscriptions: widget.bmf.subscriptions
+                        .where((s) => s.id != id)
+                        .toList(),
+                  ),
+                );
                 if (context.mounted) Navigator.of(context).pop();
               },
             ),

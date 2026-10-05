@@ -2,60 +2,84 @@ part of '../rss_bmf_workspace.dart';
 
 class _BmfConfigDraft {
   final String title;
-  final String rss;
   final String download;
-  final bool autoUpdate;
+  final List<AppSubscriptionModel> subscriptions;
+  const _BmfConfigDraft(this.title, this.download, this.subscriptions);
+}
 
-  const _BmfConfigDraft({
-    required this.title,
-    required this.rss,
-    required this.download,
-    required this.autoUpdate,
-  });
+class _SubscriptionEditor {
+  final AppSubscriptionModel original;
+  final TextEditingController url;
+  bool autoUpdate;
+  _SubscriptionEditor(this.original)
+    : url = TextEditingController(text: original.url),
+      autoUpdate = original.autoUpdate;
 }
 
 class _BmfConfigDialog extends ConsumerStatefulWidget {
   final AppBmfModel bmf;
-
   const _BmfConfigDialog({required this.bmf});
-
   @override
   ConsumerState<_BmfConfigDialog> createState() => _BmfConfigDialogState();
 }
 
 class _BmfConfigDialogState extends ConsumerState<_BmfConfigDialog> {
-  late final TextEditingController _titleController;
-  late final TextEditingController _rssController;
-  late final TextEditingController _downloadController;
-  late bool _autoUpdate;
+  late final TextEditingController _title;
+  late final TextEditingController _download;
+  late final List<_SubscriptionEditor> _subscriptions;
+  final List<_SubscriptionEditor> _removed = [];
   bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.bmf.title ?? '');
-    _rssController = TextEditingController(text: widget.bmf.rss ?? '');
-    _downloadController = TextEditingController(
-      text: widget.bmf.download ?? '',
-    );
-    _autoUpdate = widget.bmf.autoUpdate;
+    _title = TextEditingController(text: widget.bmf.title ?? '');
+    _download = TextEditingController(text: widget.bmf.download ?? '');
+    _subscriptions = widget.bmf.subscriptions
+        .map(_SubscriptionEditor.new)
+        .toList();
   }
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _rssController.dispose();
-    _downloadController.dispose();
+    _title.dispose();
+    _download.dispose();
+    for (var editor in [..._subscriptions, ..._removed]) {
+      editor.url.dispose();
+    }
     super.dispose();
   }
 
-  void _submit() {
-    Navigator.of(context).pop(
-      _BmfConfigDraft(
-        title: _titleController.text,
-        rss: _rssController.text,
-        download: _downloadController.text,
-        autoUpdate: _autoUpdate,
+  Future<void> _submit() async {
+    var desired = _subscriptions
+        .map(
+          (editor) => editor.original.copyWith(
+            url: editor.url.text.trim(),
+            autoUpdate: editor.autoUpdate,
+          ),
+        )
+        .toList();
+    if (desired.any((s) => s.url.isEmpty || (s.id < 0 && !s.canRefresh))) {
+      await BtInfobar.error(context, '请填写有效的 HTTP 或 HTTPS RSS 地址');
+      return;
+    }
+    if (desired.map((s) => s.feedKey).toSet().length != desired.length) {
+      await BtInfobar.error(context, '同一番剧不能重复添加相同订阅');
+      return;
+    }
+    if (mounted) {
+      Navigator.of(
+        context,
+      ).pop(_BmfConfigDraft(_title.text, _download.text, desired));
+    }
+  }
+
+  void _add(String url) {
+    setState(
+      () => _subscriptions.add(
+        _SubscriptionEditor(
+          AppSubscriptionModel.forUrl(url, bmfId: widget.bmf.id),
+        ),
       ),
     );
   }
@@ -67,12 +91,11 @@ class _BmfConfigDialogState extends ConsumerState<_BmfConfigDialog> {
       dismissWithEsc: true,
       builder: (_) => SubjectRssSearchDialog(
         subjectId: widget.bmf.subject,
-        title: _titleController.text.trim(),
-        currentRss: _rssController.text.trim(),
+        title: _title.text.trim(),
         selectOnly: true,
         onSubscribe: (_, rss) async {
           if (!mounted) return false;
-          setState(() => _rssController.text = rss);
+          _add(rss);
           return true;
         },
       ),
@@ -80,130 +103,108 @@ class _BmfConfigDialogState extends ConsumerState<_BmfConfigDialog> {
   }
 
   Future<void> _refreshNow() async {
-    if (_refreshing) return;
-    if (widget.bmf.rss == null || widget.bmf.rss!.isEmpty) {
-      await BtInfobar.error(context, '请先配置 RSS');
-      return;
-    }
-
     setState(() => _refreshing = true);
-    var result = await ref.read(bmfRepositoryProvider).refreshRss(widget.bmf);
-    if (!mounted) return;
-    setState(() => _refreshing = false);
-    if (result) {
-      await BtInfobar.success(context, 'RSS 刷新成功');
-    } else {
-      await BtInfobar.error(context, 'RSS 刷新失败');
+    try {
+      var result = await ref.read(bmfRepositoryProvider).refreshRss(widget.bmf);
+      if (mounted) {
+        if (result) {
+          await BtInfobar.success(context, '已保存的 RSS 刷新成功');
+        } else {
+          await BtInfobar.error(context, 'RSS 刷新失败或需要核对配置');
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return ContentDialog(
-      constraints: BoxConstraints(maxWidth: 620),
-      title: Row(
+  Widget build(BuildContext context) => ContentDialog(
+    constraints: const BoxConstraints(maxWidth: 720),
+    title: Text('编辑 ${widget.bmf.title ?? widget.bmf.subject}'),
+    content: SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(FluentIcons.link, size: 18),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '编辑 ${widget.bmf.title ?? widget.bmf.subject}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          const Text('显示标题'),
+          const SizedBox(height: 6),
+          TextBox(controller: _title, placeholder: '番剧标题'),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Expanded(child: Text('RSS 订阅')),
+              Button(onPressed: () => _add(''), child: const Text('添加地址')),
+              const SizedBox(width: 8),
+              Button(onPressed: _searchRss, child: const Text('搜索 RSS')),
+            ],
+          ),
+          for (var editor in _subscriptions)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          editor.original.status == 'needsReview'
+                              ? '待核对 · ${editor.original.provider}'
+                              : editor.original.provider,
+                        ),
+                      ),
+                      BmfAutoUpdateButton(
+                        enabled: editor.autoUpdate,
+                        onChanged: (value) =>
+                            setState(() => editor.autoUpdate = value),
+                      ),
+                      IconButton(
+                        icon: const Icon(FluentIcons.delete, size: 14),
+                        onPressed: () => setState(() {
+                          _subscriptions.remove(editor);
+                          _removed.add(editor);
+                        }),
+                      ),
+                    ],
+                  ),
+                  TextBox(controller: editor.url, placeholder: '完整 RSS 订阅地址'),
+                ],
+              ),
+            ),
+          const SizedBox(height: 10),
+          const Text('更换或删除地址时，未处理记录会保存在「待核对」中。'),
+          const SizedBox(height: 16),
+          const Text('本地目录'),
+          const SizedBox(height: 6),
+          TextBox(
+            controller: _download,
+            placeholder: '内置下载引擎保存文件的目标目录',
+            suffix: IconButton(
+              icon: BtIcon(FluentIcons.folder_open, size: 14),
+              onPressed: () async {
+                var directory = await getDirectoryPath();
+                if (directory != null && mounted) {
+                  setState(() => _download.text = directory);
+                }
+              },
             ),
           ),
         ],
       ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildLabel(context, '显示标题'),
-            TextBox(controller: _titleController, placeholder: '番剧标题'),
-            SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  Text('RSS 订阅', style: BTTypography.bodyStrong(context)),
-                  const SizedBox(width: 6),
-                  Tooltip(
-                    message: '搜索 RSS（AniBT / Mikan）',
-                    child: IconButton(
-                      icon: const Icon(FluentIcons.search, size: 14),
-                      onPressed: _searchRss,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            TextBox(
-              controller: _rssController,
-              placeholder: 'AniBT、Mikan 或其他兼容 RSS 订阅地址',
-            ),
-            SizedBox(height: 14),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('RSS 自动更新'),
-              subtitle: Text(
-                _autoUpdate ? '应用运行时会按计划自动刷新 RSS' : '已关闭自动刷新，可使用刷新按钮手动更新',
-              ),
-              trailing: BmfAutoUpdateButton(
-                enabled: _autoUpdate,
-                onChanged: (value) => setState(() => _autoUpdate = value),
-              ),
-            ),
-            SizedBox(height: 6),
-            _buildLabel(context, '本地目录'),
-            TextBox(
-              controller: _downloadController,
-              placeholder: '内置下载引擎保存文件的目标目录',
-              suffix: Tooltip(
-                message: '选择目录',
-                child: IconButton(
-                  icon: BtIcon(FluentIcons.folder_open, size: 14),
-                  onPressed: () async {
-                    var directory = await getDirectoryPath();
-                    if (directory == null || !mounted) return;
-                    setState(() => _downloadController.text = directory);
-                  },
-                ),
-              ),
-            ),
-            SizedBox(height: 10),
-            Text(
-              '应用会把 torrent 与该目录交给内置下载引擎；任务可在下载管理页查看。',
-              style: BTTypography.caption(context),
-            ),
-          ],
-        ),
+    ),
+    actions: [
+      Button(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('取消'),
       ),
-      actions: [
-        Button(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        Button(
-          onPressed: _refreshing ? null : _refreshNow,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(FluentIcons.refresh, size: 13),
-              SizedBox(width: 6),
-              Text(_refreshing ? '刷新中…' : '刷新 RSS'),
-            ],
-          ),
-        ),
-        FilledButton(onPressed: _submit, child: const Text('保存关联')),
-      ],
-    );
-  }
-
-  Widget _buildLabel(BuildContext context, String label) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 6),
-      child: Text(label, style: BTTypography.bodyStrong(context)),
-    );
-  }
+      Button(
+        onPressed: _refreshing || widget.bmf.subscriptions.isEmpty
+            ? null
+            : _refreshNow,
+        child: Text(_refreshing ? '刷新中…' : '刷新已保存的 RSS'),
+      ),
+      FilledButton(onPressed: _submit, child: const Text('保存关联')),
+    ],
+  );
 }

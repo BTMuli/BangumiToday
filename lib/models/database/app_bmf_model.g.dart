@@ -11,11 +11,10 @@ AppBmfModel _$AppBmfModelFromJson(Map<String, dynamic> json) => AppBmfModel(
   subject: (json['subject'] as num).toInt(),
   title: json['title'] as String?,
   airDate: json['airDate'] as String?,
-  rss: json['rss'] as String?,
   download: json['download'] as String?,
-  mkBgmId: json['mkBgmId'] as String?,
-  mkGroupId: json['mkGroupId'] as String?,
-  autoUpdate: AppBmfModel._readAutoUpdate(json, 'autoUpdate') as bool?,
+  subscriptions: (json['subscriptions'] as List<dynamic>?)
+      ?.map((e) => AppSubscriptionModel.fromJson(e as Map<String, dynamic>))
+      .toList(),
 );
 
 Map<String, dynamic> _$AppBmfModelToJson(AppBmfModel instance) =>
@@ -24,9 +23,6 @@ Map<String, dynamic> _$AppBmfModelToJson(AppBmfModel instance) =>
       'subject': instance.subject,
       'title': instance.title,
       'airDate': instance.airDate,
-      'rss': instance.rss,
-      'mkBgmId': instance.mkBgmId,
-      'mkGroupId': instance.mkGroupId,
       'download': instance.download,
-      'autoUpdate': instance.autoUpdate,
+      'subscriptions': instance.subscriptions.map((e) => e.toJson()).toList(),
     };

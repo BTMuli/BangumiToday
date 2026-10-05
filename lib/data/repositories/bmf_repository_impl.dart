@@ -5,7 +5,6 @@ import 'dart:async';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/bmf_rss_service.dart';
 import '../../database/app/app_bmf.dart';
-import '../../database/app/app_rss.dart';
 import '../../domain/repositories/bmf_repository.dart';
 import '../../models/database/app_bmf_model.dart';
 
@@ -16,13 +15,11 @@ import '../../models/database/app_bmf_model.dart';
 /// 存取，调度顺序为“先落库、再广播变更、最后拉取 RSS”，避免订阅已保存但列表
 /// 因网络失败而不同步。
 class BmfRepositoryImpl implements BmfRepository {
-  BmfRepositoryImpl({BtsAppBmf? table, BtsAppRss? rssTable, BmfRssService? rss})
+  BmfRepositoryImpl({BtsAppBmf? table, BmfRssService? rss})
     : _table = table ?? BtsAppBmf(),
-      _rssTable = rssTable ?? BtsAppRss(),
       _rss = rss ?? BmfRssService.instance;
 
   final BtsAppBmf _table;
-  final BtsAppRss _rssTable;
   final BmfRssService _rss;
 
   final StreamController<BmfChange> _changes =
@@ -47,13 +44,10 @@ class BmfRepositoryImpl implements BmfRepository {
   @override
   Future<void> delete(int subject) async {
     var existing = await _table.read(subject);
-    if (existing != null && existing.rss != null && existing.rss!.isNotEmpty) {
-      await _rssTable.delete(existing.rss!);
-    }
     await _table.delete(subject);
     _emit(BmfChangeKind.removed, subject);
     if (existing != null) {
-      await _rss.onBmfDeleted(subject, existing.mkBgmId, existing.rss);
+      await _rss.onBmfDeleted(subject);
     }
   }
 
@@ -83,13 +77,23 @@ class BmfRepositoryImpl implements BmfRepository {
     var origin = BTAppConstants.normalizeMikanUrl(ori);
     var allBmf = await _table.readAll();
     for (var item in allBmf) {
-      if (item.rss == null || item.rss!.isEmpty) continue;
-      var newRss = BTAppConstants.rewriteMikanUrl(item.rss!, target);
-      if (newRss == item.rss && item.rss!.startsWith(origin)) {
-        newRss = item.rss!.replaceFirst(origin, target);
+      var changed = false;
+      var subscriptions = item.subscriptions.map((subscription) {
+        if (subscription.provider != 'mikan') return subscription;
+        var url = subscription.url;
+        var rewritten = BTAppConstants.rewriteMikanUrl(url, target);
+        if (rewritten == url && url.startsWith(origin)) {
+          rewritten = url.replaceFirst(origin, target);
+        }
+        changed = changed || rewritten != url;
+        return subscription.copyWith(url: rewritten);
+      }).toList();
+      if (changed) {
+        await _persist(
+          item.copyWith(subscriptions: subscriptions),
+          BmfChangeKind.updated,
+        );
       }
-      if (newRss == item.rss) continue;
-      await _persist(item.copyWith(rss: newRss), BmfChangeKind.updated);
     }
   }
 
@@ -98,9 +102,10 @@ class BmfRepositoryImpl implements BmfRepository {
   /// 返回本次写入是否已经发起拉取，供调用方避免重复刷新。
   Future<bool> _persist(AppBmfModel model, BmfChangeKind kind) async {
     await _table.write(model);
-    _emit(kind, model.subject, model: model);
-    if (!_rss.willRefreshOnWrite(model)) return false;
-    await _rss.onBmfWritten(model);
+    var saved = (await _table.read(model.subject))!;
+    _emit(kind, saved.subject, model: saved);
+    if (!_rss.willRefreshOnWrite(saved)) return false;
+    await _rss.onBmfWritten(saved);
     return true;
   }
 

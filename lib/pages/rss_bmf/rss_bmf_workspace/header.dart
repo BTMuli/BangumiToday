@@ -18,18 +18,34 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
               ),
             ],
           );
-          var refresh = Tooltip(
-            message: '重新读取关联配置与本地缓存',
-            child: IconButton(
-              icon: _refreshing
-                  ? const SizedBox(
-                      width: 15,
-                      height: 15,
-                      child: ProgressRing(strokeWidth: 2),
-                    )
-                  : const BtIcon(FluentIcons.refresh, size: 15),
-              onPressed: _refreshing ? null : _refreshWorkspace,
-            ),
+          var refresh = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Button(
+                onPressed: () async {
+                  await showDialog<void>(
+                    context: context,
+                    builder: (_) => const _RecoveryDialog(),
+                  );
+                  if (mounted) await _refreshWorkspace();
+                },
+                child: const Text('待核对'),
+              ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: '重新读取关联配置与本地缓存',
+                child: IconButton(
+                  icon: _refreshing
+                      ? const SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: ProgressRing(strokeWidth: 2),
+                        )
+                      : const BtIcon(FluentIcons.refresh, size: 15),
+                  onPressed: _refreshing ? null : _refreshWorkspace,
+                ),
+              ),
+            ],
           );
           if (constraints.maxWidth < 680) {
             return Column(

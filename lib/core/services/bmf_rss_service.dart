@@ -4,60 +4,50 @@ import 'dart:math';
 
 // Project imports:
 import '../../database/app/app_bmf.dart';
-import '../../database/app/app_config.dart';
-import '../../database/app/app_rss.dart';
+import '../../database/app/app_subscription.dart';
+import '../../database/drift/subscription_storage.dart';
 import '../../models/app/response.dart';
 import '../../models/database/app_bmf_model.dart';
-import '../../models/database/app_rss_model.dart';
+import '../../models/database/app_subscription_model.dart';
 import '../../models/rss/rss.dart';
 import '../../request/mikan/mikan_api.dart';
 import '../../store/bmf_store.dart';
 import '../../store/nav_store.dart';
 import '../../tools/log_tool.dart';
-import '../constants/app_constants.dart';
 import '../container.dart';
 import '../utils/async_pool.dart';
 import 'notification_service.dart';
 import 'rss_freshness.dart';
 
 class BmfRssUpdateEvent {
-  final String key;
-  final String rssData;
-  final List<RssItem> items;
-  final DateTime updated;
-  final Set<String> pendingItemKeys;
-
-  BmfRssUpdateEvent({
-    required this.key,
+  const BmfRssUpdateEvent({
+    required this.subscriptionId,
+    required this.subject,
     required this.rssData,
     required this.items,
     required this.updated,
     required this.pendingItemKeys,
   });
+  final int subscriptionId;
+  final int subject;
+  String get key => subscriptionId.toString();
+  final String rssData;
+  final List<RssItem> items;
+  final DateTime updated;
+  final Set<String> pendingItemKeys;
 }
 
 class BmfRssStatusEvent {
+  const BmfRssStatusEvent({
+    required this.subject,
+    required this.pendingCount,
+    this.subscriptionId,
+  });
   final int subject;
   final int pendingCount;
-
-  const BmfRssStatusEvent({required this.subject, required this.pendingCount});
+  final int? subscriptionId;
 }
 
-class _RssRefreshResult {
-  final bool success;
-  final List<RssItem> newItems;
-
-  const _RssRefreshResult({required this.success, this.newItems = const []});
-}
-
-class _RssSubscriptionUpdate {
-  final AppBmfModel bmf;
-  final List<RssItem> newItems;
-
-  const _RssSubscriptionUpdate({required this.bmf, required this.newItems});
-}
-
-/// 一次全量 RSS 刷新的请求与命中指标。
 class RssRefreshMetrics {
   const RssRefreshMetrics({
     required this.total,
@@ -69,571 +59,337 @@ class RssRefreshMetrics {
     required this.peakConcurrency,
     required this.elapsedMs,
   });
-
-  /// 候选订阅总数。
   final int total;
-
-  /// 命中 freshness 缓存、未发起请求的订阅数。
   final int cacheHits;
-
-  /// 实际发起网络请求的订阅数。
   final int requested;
-
-  /// 本次刷新成功的订阅数。
   final int successes;
-
-  /// 本次刷新失败的订阅数。
   final int failures;
-
-  /// 处于退避窗口内被跳过的订阅数。
   final int backoffSkips;
-
-  /// 刷新期间的峰值并发数。
   final int peakConcurrency;
-
-  /// 全量刷新耗时（毫秒）。
   final int elapsedMs;
 }
 
 class BmfRssService {
-  BmfRssService._({
-    BtrMikanApi? api,
-    DateTime Function()? now,
-    Duration freshnessWindow = defaultFreshnessWindow,
-    int concurrency = defaultConcurrency,
-    Duration connectTimeout = defaultTimeout,
-    Duration receiveTimeout = defaultTimeout,
-    int maxAttempts = defaultMaxAttempts,
-    Duration retryBaseDelay = const Duration(seconds: 1),
-    Duration maxBackoffDelay = const Duration(minutes: 2),
-    Duration recoveryWindow = const Duration(minutes: 5),
-    Duration Function()? jitter,
-  }) : _api = api ?? BtrMikanApi(),
-       _now = now ?? DateTime.now,
-       _freshness = RssFreshness(window: freshnessWindow),
-       _concurrency = concurrency,
-       _connectTimeout = connectTimeout,
-       _receiveTimeout = receiveTimeout,
-       _maxAttempts = maxAttempts,
-       _retryBaseDelay = retryBaseDelay,
-       _maxBackoffDelay = maxBackoffDelay,
-       _recoveryWindow = recoveryWindow,
-       _jitter = jitter ?? _defaultJitter;
-
+  BmfRssService._();
   static final BmfRssService instance = BmfRssService._();
-
-  /// 默认 freshness 窗口：窗口内热启动与定时刷新直接复用缓存。
-  static const Duration defaultFreshnessWindow = Duration(minutes: 30);
-
-  /// 默认并发上限。
-  static const int defaultConcurrency = 4;
-
-  /// 默认连接/读取超时。
-  static const Duration defaultTimeout = Duration(seconds: 15);
-
-  /// 默认单源最大请求次数（首次 + 重试）。
-  static const int defaultMaxAttempts = 4;
-
-  static Duration _defaultJitter() =>
-      Duration(milliseconds: Random().nextInt(300));
-
   factory BmfRssService() => instance;
 
-  final BtsAppBmf _bmfDb = BtsAppBmf();
-  final BtsAppRss _rssDb = BtsAppRss();
-  final BtsAppConfig _configDb = BtsAppConfig();
-  final BtrMikanApi _api;
-  final DateTime Function() _now;
-  final RssFreshness _freshness;
-  final int _concurrency;
-  final Duration _connectTimeout;
-  final Duration _receiveTimeout;
-  final int _maxAttempts;
-  final Duration _retryBaseDelay;
-  final Duration _maxBackoffDelay;
-  final Duration _recoveryWindow;
-  final Duration Function() _jitter;
+  static const defaultFreshnessWindow = Duration(minutes: 30);
+  static const defaultConcurrency = 4;
+  static const defaultTimeout = Duration(seconds: 15);
+  static const defaultMaxAttempts = 4;
 
-  /// 最近一次全量刷新的指标，用于热启动请求数与缓存命中验证。
-  RssRefreshMetrics? lastRefreshMetrics;
-
-  Timer? _refreshTimer;
+  final BtrMikanApi _api = BtrMikanApi();
   final AsyncSingleFlight _startGuard = AsyncSingleFlight();
   final AsyncSingleFlight _bulkRefreshGuard = AsyncSingleFlight();
-  final KeyedAsyncSerialExecutor<String> _singleRefreshExecutor =
-      KeyedAsyncSerialExecutor<String>();
-  final Map<String, Set<String>> _knownItems = {};
-  bool _isInitialized = false;
-  bool _cancelRequested = false;
-
+  final Map<String, Future<BTResponse>> _requests = {};
   final StreamController<BmfRssUpdateEvent> _updateController =
       StreamController<BmfRssUpdateEvent>.broadcast();
   final StreamController<BmfRssStatusEvent> _statusController =
       StreamController<BmfRssStatusEvent>.broadcast();
+  Timer? _refreshTimer;
+  bool _isInitialized = false;
+  bool _cancelRequested = false;
+  RssRefreshMetrics? lastRefreshMetrics;
 
+  SubscriptionStorage get _storage => appSubscriptionStorage;
   Stream<BmfRssUpdateEvent> get updateStream => _updateController.stream;
   Stream<BmfRssStatusEvent> get statusStream => _statusController.stream;
-
   bool get isInitialized => _isInitialized;
 
   Future<void> start({
     Duration refreshInterval = const Duration(minutes: 15),
   }) async {
-    if (_isInitialized) {
-      BTLogTool.info('BMF RSS 服务已经在运行');
-      return;
-    }
-
-    await _startGuard.run(() => _start(refreshInterval));
-  }
-
-  Future<void> _start(Duration refreshInterval) async {
-    BTLogTool.info('BMF RSS 服务启动');
-    await _loadKnownItems();
-    await _refreshAllRss(respectAutoUpdate: true);
-
-    _refreshTimer = Timer.periodic(refreshInterval, (_) {
-      unawaited(_refreshFromTimer());
+    if (_isInitialized) return;
+    await _startGuard.run(() async {
+      await _refreshAll(respectAutoUpdate: true);
+      _refreshTimer = Timer.periodic(
+        refreshInterval,
+        (_) => unawaited(_timerRefresh()),
+      );
+      _isInitialized = true;
     });
-
-    _isInitialized = true;
-    BTLogTool.info('BMF RSS 服务初始化完成');
   }
 
-  Future<void> _refreshFromTimer() async {
+  Future<void> _timerRefresh() async {
     try {
-      await _refreshAllRss(respectAutoUpdate: true);
-    } catch (error, stackTrace) {
-      BTLogTool.error([
-        'BMF RSS 定时刷新失败',
-        error.toString(),
-        stackTrace.toString(),
-      ]);
+      await _refreshAll(respectAutoUpdate: true);
+    } catch (error) {
+      BTLogTool.warn('BMF RSS 定时刷新失败：${error.runtimeType}');
     }
   }
 
   void stop() {
     _refreshTimer?.cancel();
     _refreshTimer = null;
+    _cancelRequested = true;
     _isInitialized = false;
-    BTLogTool.info('BMF RSS 服务已停止');
   }
 
-  Future<void> _loadKnownItems() async {
-    _knownItems.clear();
-    var rssModels = await _rssDb.readAll();
-    for (var model in rssModels) {
-      if (model.data.isNotEmpty) {
-        try {
-          var items = RssFeed.parse(model.data).items;
-          var key = model.mkBgmId != null && model.mkBgmId!.isNotEmpty
-              ? model.mkBgmId!
-              : model.rss;
-          _knownItems[key] = items
-              .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
-              .toSet();
-        } catch (e) {
-          BTLogTool.warn('解析 RSS 缓存失败: $e');
+  Future<void> _refreshAll({
+    required bool respectAutoUpdate,
+    bool force = false,
+  }) async {
+    await _bulkRefreshGuard.run(() async {
+      var started = DateTime.now();
+      var subscriptions = (await _storage.readAll())
+          .where((s) => s.canRefresh && (!respectAutoUpdate || s.autoUpdate))
+          .toList();
+      var caches = await _storage.readCaches();
+      var groups = <String, List<AppSubscriptionModel>>{};
+      var cacheHits = 0;
+      var backoff = 0;
+      var freshness = const RssFreshness(window: defaultFreshnessWindow);
+      for (var subscription in subscriptions) {
+        var cache = caches[subscription.feedKey];
+        if (!force && freshness.isFresh(cache, started)) {
+          try {
+            await _apply(
+              subscription.feedKey,
+              cache!.requestUrl,
+              [subscription.id],
+              cache.data!,
+              cache.lastSuccessAt,
+            );
+            cacheHits++;
+            continue;
+          } on FormatException {
+            // Invalid XML is rebuilt by the normal request path.
+          }
         }
+        if (!force &&
+            cache != null &&
+            cache.lastFailedAt > 0 &&
+            started.millisecondsSinceEpoch - cache.lastFailedAt >= 0 &&
+            started.millisecondsSinceEpoch - cache.lastFailedAt <
+                const Duration(minutes: 5).inMilliseconds) {
+          backoff++;
+          continue;
+        }
+        groups.putIfAbsent(subscription.feedKey, () => []).add(subscription);
       }
-    }
-  }
-
-  Future<void> _refreshAllRss({
-    required bool respectAutoUpdate,
-    bool forceRefresh = false,
-  }) async {
-    await _bulkRefreshGuard.run(
-      () => _performRefreshAllRss(
-        respectAutoUpdate: respectAutoUpdate,
-        forceRefresh: forceRefresh,
-      ),
-    );
-  }
-
-  Future<void> _performRefreshAllRss({
-    required bool respectAutoUpdate,
-    bool forceRefresh = false,
-  }) async {
-    var bmfList = await _bmfDb.readAll();
-    if (bmfList.isEmpty) {
-      BTLogTool.info('没有 BMF 订阅需要刷新');
-      return;
-    }
-
-    var mikanUrl = await _configDb.readMikanUrl();
-
-    var candidates = bmfList
-        .where(
-          (bmf) =>
-              bmf.rss != null &&
-              bmf.rss!.isNotEmpty &&
-              (!respectAutoUpdate || bmf.autoUpdate),
-        )
-        .toList();
-
-    var now = _now();
-    _cancelRequested = false;
-    var cacheHits = 0;
-    var backoffSkips = 0;
-    var subscriptions = <AppBmfModel>[];
-    for (var bmf in candidates) {
-      var url = _getRssUrl(bmf, mikanUrl);
-      var cached = await _readCachedModel(bmf, url);
-      if (!forceRefresh && _isCacheUsable(cached, now)) {
-        cacheHits++;
-        continue;
-      }
-      if (!forceRefresh && _isInBackoff(cached, now)) {
-        backoffSkips++;
-        continue;
-      }
-      subscriptions.add(bmf);
-    }
-
-    if (subscriptions.isEmpty) {
+      _cancelRequested = false;
+      var successes = 0;
+      var failures = 0;
+      var active = 0;
+      var peak = 0;
+      await forEachConcurrent(
+        groups.values,
+        maxConcurrent: defaultConcurrency,
+        action: (group) async {
+          if (_cancelRequested) return;
+          active++;
+          if (active > peak) peak = active;
+          try {
+            if (await _refreshGroup(group)) {
+              successes++;
+            } else {
+              failures++;
+            }
+          } finally {
+            active--;
+          }
+        },
+      );
       lastRefreshMetrics = RssRefreshMetrics(
-        total: candidates.length,
-        cacheHits: candidates.length,
-        requested: 0,
-        successes: 0,
-        failures: 0,
-        backoffSkips: backoffSkips,
-        peakConcurrency: 0,
-        elapsedMs: 0,
+        total: subscriptions.length,
+        cacheHits: cacheHits,
+        requested: successes + failures,
+        successes: successes,
+        failures: failures,
+        backoffSkips: backoff,
+        peakConcurrency: peak,
+        elapsedMs: DateTime.now().difference(started).inMilliseconds,
       );
       BTLogTool.info(
-        'BMF RSS 全量刷新：共 ${candidates.length} 个订阅，'
-        '缓存命中 $cacheHits，退避跳过 $backoffSkips，请求 0，全部复用缓存',
+        'BMF RSS 刷新：${subscriptions.length} 个订阅，'
+        '缓存 $cacheHits，退避 $backoff，请求 ${successes + failures} 个 feed，'
+        '成功 $successes，失败 $failures，峰值并发 $peak',
       );
-      return;
-    }
-
-    BTLogTool.info(
-      '开始刷新 ${subscriptions.length} 个 BMF RSS 订阅'
-      '（共 ${candidates.length} 个，缓存命中 $cacheHits，退避跳过 $backoffSkips）',
-    );
-
-    var startedAt = _now();
-    var updates = <_RssSubscriptionUpdate>[];
-    var successes = 0;
-    var failures = 0;
-    var active = 0;
-    var peakConcurrency = 0;
-    await forEachConcurrent(
-      subscriptions,
-      maxConcurrent: _concurrency,
-      action: (bmf) async {
-        if (_cancelRequested) return;
-        active++;
-        if (active > peakConcurrency) peakConcurrency = active;
-        _RssRefreshResult result;
-        try {
-          result = await _refreshSingleRssInternal(bmf, mikanUrl);
-          if (result.success) {
-            successes++;
-          } else {
-            failures++;
-          }
-        } finally {
-          active--;
-        }
-        if (result.newItems.isNotEmpty) {
-          updates.add(
-            _RssSubscriptionUpdate(bmf: bmf, newItems: result.newItems),
-          );
-        }
-      },
-    );
-    await _notifyUpdates(updates);
-
-    var elapsedMs = _now().difference(startedAt).inMilliseconds;
-    lastRefreshMetrics = RssRefreshMetrics(
-      total: candidates.length,
-      cacheHits: cacheHits,
-      requested: subscriptions.length,
-      successes: successes,
-      failures: failures,
-      backoffSkips: backoffSkips,
-      peakConcurrency: peakConcurrency,
-      elapsedMs: elapsedMs,
-    );
-    BTLogTool.info(
-      'BMF RSS 全量刷新完成：共 ${candidates.length} 个订阅，'
-      '缓存命中 $cacheHits，退避跳过 $backoffSkips，'
-      '成功 $successes，失败 $failures，峰值并发 $peakConcurrency，'
-      '耗时 $elapsedMs ms',
-    );
+    });
   }
 
-  bool _isInBackoff(AppRssModel? cached, DateTime now) {
-    if (cached == null || cached.lastFailed <= 0) return false;
-    var ageMs = now.millisecondsSinceEpoch - cached.lastFailed;
-    return ageMs >= 0 && ageMs < _recoveryWindow.inMilliseconds;
-  }
-
-  bool _isCacheUsable(AppRssModel? cached, DateTime now) {
-    if (!_freshness.isFresh(cached, now)) return false;
+  Future<bool> _refreshGroup(List<AppSubscriptionModel> group) async {
+    if (group.isEmpty) return false;
+    var first = group.first;
+    var ids = group.map((s) => s.id).toList();
     try {
-      RssFeed.parse(cached!.data);
+      var request = _requests[first.feedKey];
+      if (request == null) {
+        request = _fetchWithRetry(first.url);
+        _requests[first.feedKey] = request;
+        request = request.whenComplete(() => _requests.remove(first.feedKey));
+        _requests[first.feedKey] = request;
+      }
+      var response = await request;
+      if (response.code != 0 || response.data is! String) {
+        throw const FormatException('RSS request failed');
+      }
+      await _apply(
+        first.feedKey,
+        first.url,
+        ids,
+        response.data as String,
+        DateTime.now().millisecondsSinceEpoch,
+      );
       return true;
-    } catch (_) {
-      // 缓存损坏按过期处理，重新拉取。
+    } catch (error) {
+      BTLogTool.warn(
+        'RSS 刷新失败：subscription=${first.id}，'
+        '${error.runtimeType}',
+      );
+      await _storage.recordFailure(
+        first.feedKey,
+        first.url,
+        ids,
+        DateTime.now().millisecondsSinceEpoch,
+      );
       return false;
     }
   }
 
-  Future<AppRssModel?> _readCachedModel(AppBmfModel bmf, String url) async {
-    if (bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty) {
-      return _rssDb.readByMkId(bmf.mkBgmId!);
-    }
-    return _rssDb.read(url);
-  }
-
-  Future<_RssRefreshResult> _refreshSingleRssInternal(
-    AppBmfModel bmf,
-    String? mikanUrl, {
-    bool resetKnownItems = false,
-  }) async {
-    var url = _getRssUrl(bmf, mikanUrl);
-    var key = _keyForBmf(bmf, url);
-
-    return _singleRefreshExecutor.run(key, () async {
-      if (resetKnownItems) _knownItems.remove(key);
-      return await _performSingleRssRefresh(bmf, url, key);
-    });
-  }
-
-  Future<_RssRefreshResult> _performSingleRssRefresh(
-    AppBmfModel bmf,
+  Future<void> _apply(
+    String feedKey,
     String url,
-    String key,
+    List<int> ids,
+    String xml,
+    int at,
   ) async {
-    AppRssModel? existingModel;
-    try {
-      existingModel = await _readCachedModel(bmf, url);
-      var rssGet = await _fetchWithRetry(url);
-
-      if (rssGet.code != 0 || rssGet.data == null) {
-        BTLogTool.warn('刷新 RSS 失败: ${bmf.subject}');
-        await _persistRefreshFailure(existingModel, bmf);
-        return const _RssRefreshResult(success: false);
-      }
-
-      var feed = RssFeed.parse(rssGet.data);
-      var currentItems = feed.items;
-      var currentKeys = currentItems
-          .map((e) => '${e.title ?? ''}|${e.pubDate ?? ''}')
-          .toSet();
-
-      var knownKeys = _knownItems[key] ?? <String>{};
-      var newItems = currentItems.where((item) {
-        var itemKey = '${item.title ?? ""}|${item.pubDate ?? ""}';
-        return !knownKeys.contains(itemKey);
-      }).toList();
-      var pendingItemKeys = existingModel?.pendingItemKeys ?? <String>{};
-      if (knownKeys.isNotEmpty) {
-        pendingItemKeys.addAll(
-          newItems.map((item) => '${item.title ?? ''}|${item.pubDate ?? ''}'),
-        );
-      }
-
-      _knownItems[key] = currentKeys;
-
-      var appRssModel = AppRssModel(
-        rss: url,
-        data: rssGet.data,
-        ttl: feed.ttl,
-        updated: _now().millisecondsSinceEpoch,
-        mkBgmId: bmf.mkBgmId,
-        mkGroupId: bmf.mkGroupId,
-      );
-      appRssModel.setPendingItemKeys(pendingItemKeys);
-      await _rssDb.write(appRssModel);
-
+    var updates = await _storage.applyFeed(
+      feedKey: feedKey,
+      requestUrl: url,
+      subscriptionIds: ids,
+      xml: xml,
+      at: at,
+    );
+    var items = RssFeed.parse(xml).items;
+    var notifications = <String>[];
+    var itemCount = 0;
+    for (var update in updates) {
+      var bmf = await _bmfFor(update.subscription);
+      if (bmf == null) continue;
       _updateController.add(
         BmfRssUpdateEvent(
-          key: key,
-          rssData: rssGet.data,
-          items: currentItems,
-          updated: _now(),
-          pendingItemKeys: pendingItemKeys,
+          subscriptionId: update.subscription.id,
+          subject: bmf.subject,
+          rssData: xml,
+          items: items,
+          updated: DateTime.fromMillisecondsSinceEpoch(at),
+          pendingItemKeys: update.subscription.pendingItemKeys,
         ),
       );
-      notifyPendingStateChanged(bmf, pendingItemKeys.length);
-
-      if (newItems.isNotEmpty && knownKeys.isNotEmpty) {
-        BTLogTool.info(
-          '发现 ${newItems.length} 条新 RSS 更新: ${bmf.title ?? bmf.subject}',
-        );
+      await notifySubscriptionStateChanged(update.subscription.id);
+      if (update.newItems.isNotEmpty) {
+        notifications.add(bmf.title ?? '动画 ${bmf.subject}');
+        itemCount += update.newItems.length;
       }
-
-      return _RssRefreshResult(
-        success: true,
-        newItems: knownKeys.isEmpty ? const [] : newItems,
-      );
-    } catch (e) {
-      BTLogTool.error(['刷新 RSS 异常', 'Subject: ${bmf.subject}', 'Error: $e']);
-      await _persistRefreshFailure(existingModel, bmf);
-      return const _RssRefreshResult(success: false);
+    }
+    if (notifications.isNotEmpty) {
+      try {
+        await BTNotifierTool.showMini(
+          title: 'RSS 订阅更新',
+          body: '${notifications.join('、')} 有 $itemCount 条更新',
+          onClick: () {
+            globalContainer
+                .read(bmfNavigationProvider.notifier)
+                .openWorkspace();
+            globalContainer.read(navStoreProvider.notifier).setCurIndex(1);
+          },
+        );
+      } catch (error) {
+        BTLogTool.warn('RSS 通知失败：${error.runtimeType}');
+      }
     }
   }
 
-  Future<void> _persistRefreshFailure(
-    AppRssModel? existingModel,
-    AppBmfModel bmf,
-  ) async {
-    existingModel ??= AppRssModel(
-      rss: bmf.rss ?? '',
-      data: '',
-      ttl: 0,
-      mkBgmId: bmf.mkBgmId,
-      mkGroupId: bmf.mkGroupId,
+  Future<AppBmfModel?> _bmfFor(AppSubscriptionModel subscription) async {
+    var query = _storage.db.select(_storage.db.appBmf)
+      ..where((b) => b.id.equals(subscription.bmfId));
+    var row = await query.getSingleOrNull();
+    return row == null ? null : BtsAppBmf().read(row.subject);
+  }
+
+  Future<void> notifySubscriptionStateChanged(int id) async {
+    var subscription = await _storage.read(id);
+    if (subscription == null) return;
+    var bmf = await _bmfFor(subscription);
+    if (bmf == null) return;
+    var count = bmf.subscriptions.fold<int>(
+      0,
+      (sum, s) => sum + s.pendingItemKeys.length,
     );
-    await _rssDb.markRefreshFailure(existingModel);
+    _statusController.add(
+      BmfRssStatusEvent(
+        subject: bmf.subject,
+        subscriptionId: id,
+        pendingCount: count,
+      ),
+    );
   }
 
   Future<BTResponse> _fetchWithRetry(String url) async {
     var response = await _api.getCustomRSS(
       url,
-      connectTimeout: _connectTimeout,
-      receiveTimeout: _receiveTimeout,
+      preserveRequestUrl: true,
+      connectTimeout: defaultTimeout,
+      receiveTimeout: defaultTimeout,
     );
-    var attempt = 1;
-    while (response.code != 0 && attempt < _maxAttempts) {
-      if (_cancelRequested) break;
-      await Future<void>.delayed(_retryDelay(attempt));
+    for (
+      var attempt = 1;
+      response.code != 0 && attempt < defaultMaxAttempts && !_cancelRequested;
+      attempt++
+    ) {
+      await Future<void>.delayed(
+        Duration(milliseconds: 1000 * (1 << attempt) + Random().nextInt(300)),
+      );
       if (_cancelRequested) break;
       response = await _api.getCustomRSS(
         url,
-        connectTimeout: _connectTimeout,
-        receiveTimeout: _receiveTimeout,
+        preserveRequestUrl: true,
+        connectTimeout: defaultTimeout,
+        receiveTimeout: defaultTimeout,
       );
-      attempt++;
     }
     return response;
   }
 
-  Duration _retryDelay(int attempt) {
-    var baseMs = _retryBaseDelay.inMilliseconds * (1 << attempt);
-    if (baseMs > _maxBackoffDelay.inMilliseconds) {
-      baseMs = _maxBackoffDelay.inMilliseconds;
-    }
-    return Duration(milliseconds: baseMs + _jitter().inMilliseconds);
-  }
+  Future<void> refreshNow() =>
+      _refreshAll(respectAutoUpdate: false, force: true);
+  void cancelPendingRefresh() => _cancelRequested = true;
 
-  String _getRssUrl(AppBmfModel bmf, String? mikanUrl) {
-    var baseUrl = BTAppConstants.normalizeMikanUrl(mikanUrl);
-    if (bmf.mkBgmId == null || bmf.mkBgmId!.isEmpty) {
-      return BTAppConstants.rewriteMikanUrl(bmf.rss!, baseUrl);
-    }
-    var url = '$baseUrl/RSS/Bangumi?bangumiId=${bmf.mkBgmId}';
-    if (bmf.mkGroupId != null) {
-      url += '&subgroupid=${bmf.mkGroupId}';
-    }
-    return url;
-  }
-
-  String _keyForBmf(AppBmfModel bmf, String fallbackUrl) {
-    if (bmf.mkBgmId != null && bmf.mkBgmId!.isNotEmpty) {
-      return bmf.mkBgmId!;
-    }
-    return fallbackUrl;
-  }
-
-  Future<void> _notifyUpdates(List<_RssSubscriptionUpdate> updates) async {
-    if (updates.isEmpty) return;
-    var itemCount = updates.fold<int>(
-      0,
-      (total, update) => total + update.newItems.length,
-    );
-    void onClick() {
-      globalContainer.read(bmfNavigationProvider.notifier).openWorkspace();
-      globalContainer.read(navStoreProvider.notifier).setCurIndex(1);
-    }
-
-    var body = updates.length == 1
-        ? '${updates.single.bmf.title ?? '动画 ${updates.single.bmf.subject}'}'
-              ' 有 $itemCount 条更新'
-        : '${updates.length} 个订阅共有 $itemCount 条更新';
-    await BTNotifierTool.showMini(
-      title: 'RSS 订阅更新',
-      body: body,
-      onClick: onClick,
-    );
-  }
-
-  Future<void> refreshNow() async {
-    BTLogTool.info('手动刷新所有 BMF RSS');
-    await _refreshAllRss(respectAutoUpdate: false, forceRefresh: true);
-  }
-
-  /// 取消当前批次剩余的刷新任务与重试。
-  void cancelPendingRefresh() {
-    _cancelRequested = true;
+  Future<bool> refreshSubscription(int id) async {
+    var subscription = await _storage.read(id);
+    if (subscription == null || !subscription.canRefresh) return false;
+    return _refreshGroup([subscription]);
   }
 
   Future<bool> refreshBmf(AppBmfModel bmf) async {
-    if (!_isInitialized) return false;
-    if (bmf.rss == null || bmf.rss!.isEmpty) return false;
-    var mikanUrl = await _configDb.readMikanUrl();
-    return _refreshSingleRssAndGetResult(bmf, mikanUrl);
-  }
-
-  void notifyPendingStateChanged(AppBmfModel bmf, int pendingCount) {
-    _statusController.add(
-      BmfRssStatusEvent(subject: bmf.subject, pendingCount: pendingCount),
+    var current = await BtsAppBmf().read(bmf.subject);
+    if (current == null) return false;
+    var results = await Future.wait(
+      current.subscriptions
+          .where((s) => s.canRefresh)
+          .map((s) => refreshSubscription(s.id)),
     );
+    return results.isNotEmpty && results.every((r) => r);
   }
 
-  /// 写入该订阅后是否会顺带发起一次刷新。
-  ///
-  /// 仓储据此判断调用方是否还需要自行 [refreshBmf]；只有服务未启动、关闭了自动
-  /// 更新或没有 RSS 地址时才返回 false。
-  bool willRefreshOnWrite(AppBmfModel bmf) {
-    if (!_isInitialized) return false;
-    if (!bmf.autoUpdate) return false;
-    return bmf.rss != null && bmf.rss!.isNotEmpty;
-  }
+  bool willRefreshOnWrite(AppBmfModel bmf) =>
+      _isInitialized &&
+      bmf.subscriptions.any((s) => s.canRefresh && s.autoUpdate);
 
   Future<bool> onBmfWritten(AppBmfModel bmf) async {
     if (!willRefreshOnWrite(bmf)) return false;
-
-    var mikanUrl = await _configDb.readMikanUrl();
-
-    var result = await _refreshSingleRssAndGetResult(
-      bmf,
-      mikanUrl,
-      resetKnownItems: true,
+    var subscriptions = bmf.subscriptions
+        .where((s) => s.canRefresh && s.autoUpdate)
+        .toList();
+    var results = await Future.wait(
+      subscriptions.map((s) => refreshSubscription(s.id)),
     );
-    if (result) {
-      BTLogTool.info('BMF 订阅已更新: ${bmf.title ?? bmf.subject}');
-    }
-    return result;
+    return results.every((r) => r);
   }
 
-  Future<bool> _refreshSingleRssAndGetResult(
-    AppBmfModel bmf,
-    String? mikanUrl, {
-    bool resetKnownItems = false,
-  }) async {
-    var result = await _refreshSingleRssInternal(
-      bmf,
-      mikanUrl,
-      resetKnownItems: resetKnownItems,
-    );
-    return result.success;
-  }
-
-  Future<void> onBmfDeleted(int subject, String? mkBgmId, String? rss) async {
-    if (!_isInitialized) return;
-
-    var key = mkBgmId != null && mkBgmId.isNotEmpty ? mkBgmId : rss;
-    if (key != null) {
-      _knownItems.remove(key);
-    }
+  Future<void> onBmfDeleted(int subject) async {
     _statusController.add(BmfRssStatusEvent(subject: subject, pendingCount: 0));
-
-    BTLogTool.info('BMF 订阅已移除: subject=$subject');
   }
 }

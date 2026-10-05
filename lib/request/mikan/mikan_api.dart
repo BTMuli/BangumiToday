@@ -192,10 +192,11 @@ class BtrMikanApi {
   /// 获取自定义 RSS
   Future<BTResponse> getCustomRSS(
     String url, {
+    bool preserveRequestUrl = false,
     Duration? connectTimeout,
     Duration? receiveTimeout,
   }) async {
-    var fetchUrl = rewriteUrl(url);
+    var fetchUrl = preserveRequestUrl ? url : rewriteUrl(url);
     try {
       var resp = await client.dio.get(
         fetchUrl,
@@ -206,7 +207,7 @@ class BtrMikanApi {
       );
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
-      var errInfo = ["Fail to load custom RSS $url", "DioErr: ${e.error}"];
+      var errInfo = ['Fail to load custom RSS', 'DioErr: ${e.type}'];
       BTLogTool.error(errInfo);
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
@@ -214,7 +215,7 @@ class BtrMikanApi {
         data: e.error,
       );
     } on Exception catch (e) {
-      var errInfo = ["Fail to load custom RSS $url", "Err: ${e.toString()}"];
+      var errInfo = ['Fail to load custom RSS', 'Err: ${e.runtimeType}'];
       BTLogTool.error(errInfo);
       return BTResponse.error(
         code: 666,

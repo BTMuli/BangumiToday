@@ -1,92 +1,85 @@
 // Package imports:
 import 'package:json_annotation/json_annotation.dart';
 
-/// AppBmf 表的数据模型
-/// 该表在 lib/database/app/app_bmf.dart 中定义
+// Project imports:
+import 'app_subscription_model.dart';
+
 part 'app_bmf_model.g.dart';
 
-/// AppBmf 表的数据模型
-@JsonSerializable()
+/// BMF directory association plus its complete subscription collection.
+@JsonSerializable(explicitToJson: true)
 class AppBmfModel {
   static const _unset = Object();
 
-  /// ID
-  final int id;
-
-  /// bangumi subject id
-  final int subject;
-
-  /// bangumi subject title
-  late String? title;
-
-  /// bangumi subject air date
-  late String? airDate;
-
-  /// RSS URL
-  late String? rss;
-
-  /// mikan bangymi id
-  late String? mkBgmId;
-
-  /// mikan group id
-  late String? mkGroupId;
-
-  /// 下载目录
-  late String? download;
-
-  /// 是否自动更新 RSS；未指定时，仅配置了 RSS 地址才默认开启。
-  @JsonKey(readValue: _readAutoUpdate)
-  late bool autoUpdate;
-
-  /// 构造函数
   AppBmfModel({
     this.id = -1,
     required this.subject,
     this.title,
     this.airDate,
-    this.rss,
     this.download,
-    this.mkBgmId,
-    this.mkGroupId,
+    List<AppSubscriptionModel>? subscriptions,
+    String? rss,
     bool? autoUpdate,
-  }) : autoUpdate = autoUpdate ?? (rss?.trim().isNotEmpty ?? false);
-
-  static Object? _readAutoUpdate(Map<dynamic, dynamic> json, String key) {
-    var value = json[key];
-    if (value == null) return null;
-    if (value is bool) return value;
-    return (value as num).toInt() != 0;
+  }) : subscriptions = List.of(subscriptions ?? const []) {
+    if (rss != null && rss.trim().isNotEmpty) {
+      this.rss = rss;
+    }
+    if (autoUpdate != null) this.autoUpdate = autoUpdate;
   }
 
-  /// JSON 序列化
-  factory AppBmfModel.fromJson(Map<String, dynamic> json) =>
-      _$AppBmfModelFromJson(json);
+  final int id;
+  final int subject;
+  String? title;
+  String? airDate;
+  String? download;
+  List<AppSubscriptionModel> subscriptions;
 
-  /// JSON 反序列化
-  Map<String, dynamic> toJson() => _$AppBmfModelToJson(this);
+  // Convenience for existing subscribe actions: adding a source never replaces
+  // the collection. Editing/removing sources uses explicit subscription IDs.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  String? get rss => subscriptions.firstOrNull?.url;
+  set rss(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      if (subscriptions.isNotEmpty) subscriptions.removeAt(0);
+      return;
+    }
+    var draft = AppSubscriptionModel.forUrl(value, bmfId: id);
+    if (subscriptions.any((s) => s.feedKey == draft.feedKey)) return;
+    subscriptions.add(draft);
+  }
 
-  /// 复制（支持设置 null 值）
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  bool get autoUpdate => subscriptions.any((s) => s.autoUpdate);
+  set autoUpdate(bool value) {
+    subscriptions = subscriptions
+        .map((s) => s.copyWith(autoUpdate: value))
+        .toList();
+  }
+
   AppBmfModel copyWith({
     Object? id = _unset,
     Object? subject = _unset,
     Object? title = _unset,
     Object? airDate = _unset,
-    Object? rss = _unset,
-    Object? mkBgmId = _unset,
-    Object? mkGroupId = _unset,
     Object? download = _unset,
+    Object? rss = _unset,
     Object? autoUpdate = _unset,
+    List<AppSubscriptionModel>? subscriptions,
   }) {
-    return AppBmfModel(
+    var model = AppBmfModel(
       id: id == _unset ? this.id : id as int,
       subject: subject == _unset ? this.subject : subject as int,
       title: title == _unset ? this.title : title as String?,
       airDate: airDate == _unset ? this.airDate : airDate as String?,
-      rss: rss == _unset ? this.rss : rss as String?,
-      mkBgmId: mkBgmId == _unset ? this.mkBgmId : mkBgmId as String?,
-      mkGroupId: mkGroupId == _unset ? this.mkGroupId : mkGroupId as String?,
       download: download == _unset ? this.download : download as String?,
-      autoUpdate: autoUpdate == _unset ? this.autoUpdate : autoUpdate as bool,
+      subscriptions: subscriptions ?? this.subscriptions,
     );
+    if (rss != _unset) model.rss = rss as String?;
+    if (autoUpdate != _unset) model.autoUpdate = autoUpdate as bool;
+    return model;
   }
+
+  factory AppBmfModel.fromJson(Map<String, dynamic> json) =>
+      _$AppBmfModelFromJson(json);
+  Map<String, dynamic> toJson() => _$AppBmfModelToJson(this);
 }
