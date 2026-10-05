@@ -657,23 +657,44 @@ IconData _playbackLayoutIcon(PlaybackEpisodeLayout layout) => switch (layout) {
   PlaybackEpisodeLayout.list => material.Icons.view_list_rounded,
 };
 
-/// 选集 / 记录浮出层共用的尺寸：窄窗口下仍要放得下刷新与排版切换。
-Size _playbackLibraryFlyoutSize(Size available) => Size(
-  (available.width - 32).clamp(140.0, 360.0),
-  (available.height - 48).clamp(100.0, 420.0),
-);
-
-/// 浮出层放在按钮上方，避免遮挡控制栏或空态按钮；越界时由 fluent 自行钳制。
-Offset _playbackLibraryFlyoutPosition({
+/// 空态面板优先在按钮右侧居中；控制栏面板优先在上方，尺寸受可用空间限制。
+({Offset position, Size size}) _playbackLibraryFlyoutLayout({
   required BuildContext buttonContext,
   required RenderBox navigatorBox,
-  required Size size,
+  bool besideButton = false,
 }) {
+  const margin = 8.0;
+  const gap = 8.0;
   var buttonBox = buttonContext.findRenderObject() as RenderBox;
   var topLeft = buttonBox.localToGlobal(Offset.zero, ancestor: navigatorBox);
-  return Offset(
-    topLeft.dx + buttonBox.size.width / 2 - size.width / 2,
-    topLeft.dy - size.height - 8,
+  var button = topLeft & buttonBox.size;
+  var bounds = (Offset.zero & navigatorBox.size).deflate(margin);
+  var width = bounds.width.clamp(0.0, 360.0);
+  var height = bounds.height.clamp(0.0, 420.0);
+  var rightSpace = bounds.right - button.right - gap;
+  if (besideButton && rightSpace >= 140) {
+    width = width.clamp(0.0, rightSpace);
+    return (
+      position: Offset(
+        button.right + gap,
+        (button.center.dy - height / 2).clamp(
+          bounds.top,
+          bounds.bottom - height,
+        ),
+      ),
+      size: Size(width, height),
+    );
+  }
+  var above = (button.top - gap - bounds.top).clamp(0.0, bounds.height);
+  var below = (bounds.bottom - button.bottom - gap).clamp(0.0, bounds.height);
+  var showAbove = above >= below;
+  height = height.clamp(0.0, showAbove ? above : below);
+  return (
+    position: Offset(
+      (button.center.dx - width / 2).clamp(bounds.left, bounds.right - width),
+      showAbove ? button.top - gap - height : button.bottom + gap,
+    ),
+    size: Size(width, height),
   );
 }
 

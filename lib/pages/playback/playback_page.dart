@@ -90,18 +90,19 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   void _showLibraryFlyout(BuildContext buttonContext) {
     var navigatorBox =
         Navigator.of(context).context.findRenderObject() as RenderBox;
-    var size = _playbackLibraryFlyoutSize(MediaQuery.sizeOf(context));
+    var layout = _playbackLibraryFlyoutLayout(
+      buttonContext: buttonContext,
+      navigatorBox: navigatorBox,
+      besideButton: true,
+    );
     unawaited(
       _run(() async {
         await _libraryFlyout.showFlyout<void>(
-          position: _playbackLibraryFlyoutPosition(
-            buttonContext: buttonContext,
-            navigatorBox: navigatorBox,
-            size: size,
-          ),
+          placementMode: FlyoutPlacementMode.bottomLeft,
+          position: layout.position,
           builder: (_) => _playbackLibraryFlyout(
             _buildLibraryPanel(section: _PlaybackLibrarySection.history),
-            size,
+            layout.size,
           ),
         );
       }),

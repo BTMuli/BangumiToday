@@ -724,7 +724,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     );
   }
 
-  /// 选集与播放记录各自浮出独立内容，浮出层固定出现在按钮上方不遮挡控制栏。
+  /// 选集与播放记录各自浮出独立内容，按按钮上方的空间限制面板高度。
   void _showLibrary(
     BuildContext buttonContext,
     _PlaybackLibrarySection section,
@@ -734,18 +734,20 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     _hideTimer?.cancel();
     var navigatorBox =
         Navigator.of(context).context.findRenderObject() as RenderBox;
-    var size = _playbackLibraryFlyoutSize(MediaQuery.sizeOf(context));
+    var layout = _playbackLibraryFlyoutLayout(
+      buttonContext: buttonContext,
+      navigatorBox: navigatorBox,
+    );
     unawaited(
       widget.run(() async {
         try {
           await _contextMenu.showFlyout<void>(
-            position: _playbackLibraryFlyoutPosition(
-              buttonContext: buttonContext,
-              navigatorBox: navigatorBox,
-              size: size,
+            placementMode: FlyoutPlacementMode.bottomLeft,
+            position: layout.position,
+            builder: (_) => _playbackLibraryFlyout(
+              widget.buildLibraryPanel(section),
+              layout.size,
             ),
-            builder: (_) =>
-                _playbackLibraryFlyout(widget.buildLibraryPanel(section), size),
           );
         } finally {
           if (mounted) {
