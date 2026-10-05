@@ -7,6 +7,7 @@ import '../../models/bangumi/bangumi_model.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
 import '../drift/bt_database.dart';
+import '../drift/collection_storage.dart';
 
 /// 负责 bangumi.tv 用户收藏相关处理
 /// 首先将用户所有收藏的条目信息存储到数据库中
@@ -88,23 +89,14 @@ class BtsBangumiCollection {
 
   /// 添加/更新收藏
   Future<void> write(BangumiUserSubjectCollection collection) async {
-    var existing = await _firstById(collection.subjectId);
-    if (existing == null) {
-      await _db.into(_db.bangumiCollection).insert(_companion(collection));
-      BTLogTool.info('Add collection: ${collection.subjectId}');
-      return;
-    }
-    var update = _db.update(_db.bangumiCollection)
-      ..where((table) => table.subjectId.equals(collection.subjectId));
-    await update.write(_companion(collection));
-    BTLogTool.info('Update collection: ${collection.subjectId}');
+    await CollectionStorage(_db).saveAll([_companion(collection)]);
+    BTLogTool.info('Write collection: ${collection.subjectId}');
   }
 
   /// 写入/更新收藏列表
   Future<void> writeList(List<BangumiUserSubjectCollection> collections) async {
-    for (var collection in collections) {
-      await write(collection);
-    }
+    await CollectionStorage(_db).saveAll(collections.map(_companion));
+    BTLogTool.info('Write ${collections.length} collections');
   }
 
   /// 删除收藏
