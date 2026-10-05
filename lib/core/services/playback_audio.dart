@@ -42,9 +42,10 @@ abstract final class PlaybackAudio {
       var encodedBits = track.isEmpty
           ? null
           : await metadata.bitDepth(
-              filePath,
+              track['external-filename'] as String? ?? filePath,
               codec: codec,
               track: (track['src-id'] as num?)?.toInt(),
+              streamIndex: (track['ff-index'] as num?)?.toInt(),
             );
       var deviceMatches =
           driver == 'wasapi' &&

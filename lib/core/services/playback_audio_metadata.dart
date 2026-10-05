@@ -6,7 +6,7 @@ import 'dart:typed_data';
 /// assumption that a 32-bit decoder container means 32 encoded bits.
 class PlaybackAudioMetadata {
   String? _path;
-  Future<Map<int, int>>? _depths;
+  Future<_AudioDepths>? _depths;
 
   void clear() {
     _path = null;
@@ -17,8 +17,17 @@ class PlaybackAudioMetadata {
     String path, {
     required String codec,
     int? track,
+    int? streamIndex,
   }) async {
-    if (!codec.startsWith('pcm_') && !const {'flac', 'alac'}.contains(codec)) {
+    if (!codec.startsWith('pcm_') &&
+        !const {
+          'flac',
+          'alac',
+          'truehd',
+          'mlp',
+          'ape',
+          'tta',
+        }.contains(codec)) {
       return null;
     }
     if (_path != path) {
@@ -26,10 +35,12 @@ class PlaybackAudioMetadata {
       _depths = _read(path);
     }
     var depths = await _depths!;
-    return depths[track] ?? depths[-1];
+    // libavformat does not expose Matroska TrackNumber as mpv's src-id.
+    // ff-index instead identifies its zero-based stream in TrackEntry order.
+    return depths.tracks[track] ?? depths.streams[streamIndex] ?? depths.single;
   }
 
-  static Future<Map<int, int>> _read(String path) async {
+  static Future<_AudioDepths> _read(String path) async {
     RandomAccessFile? file;
     try {
       file = await File(path).open();
@@ -37,7 +48,7 @@ class PlaybackAudioMetadata {
       var prefix = await file.read(42);
       if (_tag(prefix, 0) == 'fLaC') {
         var bits = _flacBits(prefix);
-        return {-1: ?bits};
+        return _AudioDepths(single: bits);
       }
       if (const {'RIFF', 'RF64'}.contains(_tag(prefix, 0)) &&
           _tag(prefix, 8) == 'WAVE') {
@@ -48,23 +59,23 @@ class PlaybackAudioMetadata {
       }
       return await _mp4(file, length);
     } on FileSystemException {
-      return const {};
+      return const _AudioDepths();
     } on FormatException {
-      return const {};
+      return const _AudioDepths();
     } on RangeError {
-      return const {};
+      return const _AudioDepths();
     } finally {
       await file?.close();
     }
   }
 
-  static Future<Map<int, int>> _wav(RandomAccessFile file, int length) async {
+  static Future<_AudioDepths> _wav(RandomAccessFile file, int length) async {
     var position = 12;
     for (var count = 0; count < 128 && position + 8 <= length; count++) {
       await file.setPosition(position);
       var header = await file.read(8);
       var size = ByteData.sublistView(header).getUint32(4, Endian.little);
-      if (position + 8 + size > length) return const {};
+      if (position + 8 + size > length) return const _AudioDepths();
       if (_tag(header, 0) == 'fmt ' && size >= 16) {
         var data = ByteData.sublistView(await file.read(size < 40 ? size : 40));
         var tag = data.getUint16(0, Endian.little);
@@ -74,14 +85,18 @@ class PlaybackAudioMetadata {
           var valid = data.getUint16(18, Endian.little);
           if (valid > 0 && valid <= bits) bits = valid;
         }
-        return {if ((tag == 1 || tag == 3) && bits > 0 && bits <= 64) -1: bits};
+        return _AudioDepths(
+          single: (tag == 1 || tag == 3) && bits > 0 && bits <= 64
+              ? bits
+              : null,
+        );
       }
       position += 8 + size + (size & 1);
     }
-    return const {};
+    return const _AudioDepths();
   }
 
-  static Future<Map<int, int>> _matroska(
+  static Future<_AudioDepths> _matroska(
     RandomAccessFile file,
     int length,
   ) async {
@@ -93,14 +108,14 @@ class PlaybackAudioMetadata {
       var element = _ebml(header, 0);
       var payload = position + element.start;
       var end = element.end == null ? length : position + element.end!;
-      if (end > length || end <= position) return const {};
+      if (end > length || end <= position) return const _AudioDepths();
       if (element.id == 0x18538067) {
         segment = payload;
         position = payload;
         continue;
       }
       if (segment != null && element.id == 0x1654ae6b) {
-        if (end - payload > 4 * 1024 * 1024) return const {};
+        if (end - payload > 4 * 1024 * 1024) return const _AudioDepths();
         await file.setPosition(payload);
         return _matroskaDepths(await file.read(end - payload));
       }
@@ -129,14 +144,16 @@ class PlaybackAudioMetadata {
           continue;
         }
       }
-      if (element.end == null) return const {};
+      if (element.end == null) return const _AudioDepths();
       position = end;
     }
-    return const {};
+    return const _AudioDepths();
   }
 
-  static Map<int, int> _matroskaDepths(Uint8List data) {
-    var result = <int, int>{};
+  static _AudioDepths _matroskaDepths(Uint8List data) {
+    var tracks = <int, int>{};
+    var streams = <int, int>{};
+    var streamIndex = 0;
     for (var entry in _ebmlChildren(data)) {
       if (entry.id != 0xae) continue;
       int? number;
@@ -166,14 +183,16 @@ class PlaybackAudioMetadata {
       if (codec == 'A_ALAC' && private != null && private.length >= 36) {
         bits = private[17];
       }
-      if (number != null && bits != null && bits > 0 && bits <= 64) {
-        result[number] = bits;
+      if (bits != null && bits > 0 && bits <= 64) {
+        if (number != null) tracks[number] = bits;
+        streams[streamIndex] = bits;
       }
+      streamIndex++;
     }
-    return result;
+    return _AudioDepths(tracks: tracks, streams: streams);
   }
 
-  static Future<Map<int, int>> _mp4(RandomAccessFile file, int length) async {
+  static Future<_AudioDepths> _mp4(RandomAccessFile file, int length) async {
     var position = 0;
     for (var count = 0; count < 128 && position + 8 <= length; count++) {
       await file.setPosition(position);
@@ -182,19 +201,23 @@ class PlaybackAudioMetadata {
       var headerSize = size == 1 ? 16 : 8;
       if (size == 1) size = _uint(header, 8, 8);
       if (size == 0) size = length - position;
-      if (size < headerSize || position + size > length) return const {};
+      if (size < headerSize || position + size > length) {
+        return const _AudioDepths();
+      }
       if (_tag(header, 4) == 'moov') {
-        if (size > 4 * 1024 * 1024) return const {};
+        if (size > 4 * 1024 * 1024) return const _AudioDepths();
         await file.setPosition(position + headerSize);
         return _mp4Depths(await file.read(size - headerSize));
       }
       position += size;
     }
-    return const {};
+    return const _AudioDepths();
   }
 
-  static Map<int, int> _mp4Depths(Uint8List data) {
-    var result = <int, int>{};
+  static _AudioDepths _mp4Depths(Uint8List data) {
+    var tracks = <int, int>{};
+    var streams = <int, int>{};
+    var streamIndex = 0;
     for (var trak in _boxes(data).where((value) => value.id == 'trak')) {
       var track = _payload(data, trak);
       int? id;
@@ -236,11 +259,13 @@ class PlaybackAudioMetadata {
           }
         }
       }
-      if (id != null && bits != null && const {16, 20, 24, 32}.contains(bits)) {
-        result[id] = bits;
+      if (bits != null && const {16, 20, 24, 32}.contains(bits)) {
+        if (id != null) tracks[id] = bits;
+        streams[streamIndex] = bits;
       }
+      streamIndex++;
     }
-    return result;
+    return _AudioDepths(tracks: tracks, streams: streams);
   }
 
   static int? _flacBits(Uint8List data) {
@@ -317,6 +342,18 @@ class PlaybackAudioMetadata {
       position += size;
     }
   }
+}
+
+class _AudioDepths {
+  const _AudioDepths({
+    this.single,
+    this.tracks = const {},
+    this.streams = const {},
+  });
+
+  final int? single;
+  final Map<int, int> tracks;
+  final Map<int, int> streams;
 }
 
 class _AudioHeader {

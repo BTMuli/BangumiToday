@@ -21,6 +21,21 @@ class PlaybackAudioSource {
       codec.startsWith('pcm_') ||
       const {'flac', 'alac', 'truehd', 'mlp', 'ape', 'tta'}.contains(codec);
 
+  bool get lossy => const {
+    'aac',
+    'aac_latm',
+    'ac3',
+    'eac3',
+    'mp1',
+    'mp2',
+    'mp3',
+    'opus',
+    'vorbis',
+    'wmav1',
+    'wmav2',
+    'wmapro',
+  }.contains(codec);
+
   int? get pcmBits => int.tryParse(
     RegExp(r'^pcm_[suf](\d+)').firstMatch(codec)?.group(1) ?? '',
   );
@@ -59,7 +74,9 @@ class PlaybackAudioSource {
       ? playbackAudioPrecision(format)
       : bits!;
 
-  String get precisionLabel => bits != null
+  String get precisionLabel => lossy
+      ? '有损编码（$format 解码）'
+      : bits != null
       ? '$bits 位${codec.startsWith('pcm_f') ? '浮点' : ''}'
       : minimumBits > 16
       ? '>16 位（$format 解码）'
