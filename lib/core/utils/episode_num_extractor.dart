@@ -33,7 +33,8 @@ final _batchPattern = RegExp(
   caseSensitive: false,
 );
 final _specialPattern = RegExp(
-  r'\b(?:SP|OVA|OAD|OP|ED)(?:\d+)?\b|特别篇|特別篇|特典|'
+  r'\b(?:SP|OVA|OAD|(?:NC)?(?:OP|ED)|PV|CM|TRAILER|TEASER|PREVIEW|'
+  r'SAMPLE)(?:\d+)?\b|特别篇|特別篇|特典|预告|預告|予告|'
   r'(?:S\d{1,2}[ ._-]*E|\d{1,2}x|\b(?:Episode|EP?)[ ._-]*|'
   r'第\s*|[\s\[【_-])\d+\.\d+(?:v\d+)?'
   r'(?=[话話集\s\[\]【】()._-]|$)',

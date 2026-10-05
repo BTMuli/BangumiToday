@@ -81,41 +81,53 @@ class EpisodeMarkService {
 
   bool _current(String account) => !_closed && accountSession() == account;
 
-  /// Uses exactly the same file-to-chapter mapping for status and writes.
+  /// Uses the same mapping for status and writes. Unnumbered files require
+  /// a complete chapter list, rather than a partial progress observation.
   static EpisodeMarkEpisode? matchingEpisode(
     PlaybackItem item,
-    Iterable<EpisodeMarkEpisode> episodes,
-  ) {
+    Iterable<EpisodeMarkEpisode> episodes, {
+    bool complete = true,
+  }) {
     var evidence = extractEpisodeNumber(item.filePath);
-    if ((item.subject ?? 0) <= 0 || evidence.kind != EpisodeNumberKind.single) {
-      return null;
-    }
-    return _matchingEpisode(evidence, episodes);
+    if ((item.subject ?? 0) <= 0) return null;
+    return _matchingEpisode(evidence, episodes, complete: complete);
   }
 
   static EpisodeMarkEpisode? _matchingEpisode(
     EpisodeNumberResult evidence,
-    Iterable<EpisodeMarkEpisode> episodes,
-  ) {
-    var mainEpisodes = episodes
+    Iterable<EpisodeMarkEpisode> episodes, {
+    bool complete = true,
+  }) {
+    if (evidence.kind != EpisodeNumberKind.single &&
+        evidence.kind != EpisodeNumberKind.unknown) {
+      return null;
+    }
+    var mainEpisodes = episodes.where((episode) => episode.type == 0).toList();
+    var validEpisodes = mainEpisodes
         .where(
           (episode) =>
-              episode.type == 0 &&
               episode.id > 0 &&
               episode.sort.isFinite &&
               episode.sort > 0 &&
               episode.sort == episode.sort.truncateToDouble(),
         )
         .toList();
+    // Movies often have no filename episode marker. The associated subject
+    // must have exactly one main chapter; never override an explicit number.
+    if (evidence.kind == EpisodeNumberKind.unknown) {
+      return complete && mainEpisodes.length == 1
+          ? validEpisodes.singleOrNull
+          : null;
+    }
     // The associated subject already scopes the file to a season. S02E01
     // explicitly uses ep; ordinary release numbers can use either ep or sort.
-    var localMatches = mainEpisodes
+    var localMatches = validEpisodes
         .where((episode) => episode.withinSubject == evidence.number)
         .toList();
     if (evidence.season != null && localMatches.isNotEmpty) {
       return localMatches.length == 1 ? localMatches.single : null;
     }
-    var matches = mainEpisodes
+    var matches = validEpisodes
         .where(
           (episode) =>
               episode.sort == evidence.number ||
@@ -135,6 +147,7 @@ class EpisodeMarkService {
       var episode = matchingEpisode(
         entry.value,
         _progress[subject]?.values ?? const <EpisodeMarkEpisode>[],
+        complete: _loadedSubjects.contains(subject),
       );
       if (episode?.done == null) continue;
       checked.add(entry.key);
@@ -175,6 +188,7 @@ class EpisodeMarkService {
                 matchingEpisode(
                   item,
                   _progress[subject]?.values ?? const <EpisodeMarkEpisode>[],
+                  complete: false,
                 )?.done !=
                 null,
           );
@@ -296,7 +310,8 @@ class EpisodeMarkService {
       return const EpisodeMarkResolution(message: '该文件没有关联条目');
     }
     var evidence = extractEpisodeNumber(item.filePath);
-    if (evidence.kind != EpisodeNumberKind.single) {
+    if (evidence.kind != EpisodeNumberKind.single &&
+        evidence.kind != EpisodeNumberKind.unknown) {
       return EpisodeMarkResolution(message: evidence.reason);
     }
     try {
@@ -314,7 +329,11 @@ class EpisodeMarkService {
       if (!_current(account)) return const EpisodeMarkResolution();
       var episode = _matchingEpisode(evidence, episodes);
       if (episode == null) {
-        return const EpisodeMarkResolution(message: '没有唯一匹配的正片章节，请手动选择');
+        return EpisodeMarkResolution(
+          message: evidence.kind == EpisodeNumberKind.unknown
+              ? evidence.reason
+              : '没有唯一匹配的正片章节，请手动选择',
+        );
       }
       var done = await gateway.isDone(episode.id);
       if (!_current(account)) return const EpisodeMarkResolution();
@@ -325,7 +344,7 @@ class EpisodeMarkService {
           item: item,
           account: account,
           episode: episode,
-          number: evidence.number!,
+          number: evidence.number ?? episode.sort.toInt(),
         ),
       );
     } catch (error) {
