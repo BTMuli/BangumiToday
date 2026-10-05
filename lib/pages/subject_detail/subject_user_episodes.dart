@@ -15,6 +15,7 @@ import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import 'subject_detail_refreshable.dart';
 import 'subject_episode.dart';
+import 'subject_episode_load_queue.dart';
 import 'subject_stat_providers.dart';
 
 /// SubjectDetail页面的章节模块，负责显示/操作章节信息
@@ -85,6 +86,11 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
 
   Future<List<BangumiUserEpisodeCollection>?>? _userEpisodesInFlight;
 
+  late final _loads = SubjectEpisodeLoadQueue(
+    loadPage: (reportError) => _loadPage(reportError: reportError),
+    refreshList: _refreshEpisodes,
+  );
+
   @override
   bool get wantKeepAlive => true;
 
@@ -154,7 +160,10 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
 
   /// 重新拉取章节列表与用户章节状态（由详情页刷新按钮触发）
   @override
-  Future<void> refresh() async {
+  Future<void> refresh() => _loads.refresh();
+
+  Future<void> _refreshEpisodes() async {
+    if (!mounted) return;
     if (widget.subject.type != BangumiSubjectType.anime) return;
     var episodeBackup = List<BangumiEpisode>.of(episodes);
     var userEpisodeBackup = List<BangumiUserEpisodeCollection>.of(userEpisodes);
@@ -167,14 +176,19 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
     _userEpById.clear();
     _userEpisodesInFlight = null;
     offset = 0;
-    await load(reportError: true);
-    // 接口失败（如 502）时保留刷新前的章节，避免整块被清空。
-    if (episodes.isEmpty && episodeBackup.isNotEmpty) {
-      episodes.addAll(episodeBackup);
-      userEpisodes.addAll(userEpisodeBackup);
-      _userEpById.addAll(userEpMapBackup);
-      offset = offsetBackup;
-      if (mounted) setState(() {});
+    try {
+      await _loadPage(reportError: true);
+    } finally {
+      // 接口失败（如 502）时保留刷新前的章节，避免整块被清空。
+      if (mounted && episodes.isEmpty && episodeBackup.isNotEmpty) {
+        episodes = episodeBackup;
+        userEpisodes = userEpisodeBackup;
+        _userEpById
+          ..clear()
+          ..addAll(userEpMapBackup);
+        offset = offsetBackup;
+        setState(() {});
+      }
     }
   }
 
@@ -183,12 +197,14 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
     required int limit,
     bool reportError = false,
   }) async {
+    if (!mounted) return null;
     var marking = ref.read(episodeMarkProvider.notifier);
     var account = marking.currentAccount();
     var progressVersion = marking.progressVersion;
     var resp = await ref
         .read(bangumiRepositoryProvider)
         .getCollectionEpisodes(subjectId, offset: offset, limit: limit);
+    if (!mounted) return null;
     if (resp.code != 0 || resp.data == null) {
       if (reportError && mounted) {
         await showRespErr(resp, context, title: '获取章节进度失败');
@@ -241,29 +257,39 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
   ///
   /// [reportError] 用于区分「用户明确要数据」（首次挂载、点刷新、加载更多）
   /// 与后台状态同步：前者失败要弹提示，后者保持静默。
-  Future<void> load({bool reportError = false}) async {
+  Future<void> load({bool reportError = false}) =>
+      _loads.load(reportError: reportError);
+
+  Future<void> _loadPage({bool reportError = false}) async {
+    if (!mounted) return;
     var isFirst = episodes.isEmpty;
     if (isFirst) _loading = true;
+    var pageOffset = offset;
     var repository = ref.read(bangumiRepositoryProvider);
     isCollection = isCollection || widget.provider.collected;
     var epFuture = repository.getEpisodeList(
       subjectId,
-      offset: offset,
+      offset: pageOffset,
       limit: _pageSize,
     );
     var userEpFuture = _userEpisodesInFlight;
     if (userEpFuture == null && user != null && isCollection) {
       userEpFuture = _fetchUserEpisodePage(
-        offset: offset,
+        offset: pageOffset,
         limit: _pageSize,
         reportError: reportError,
       );
       _userEpisodesInFlight = userEpFuture;
     }
     var ep1Resp = await epFuture;
+    if (!mounted) return;
     var pageLen = 0;
     if (ep1Resp.code == 0 && ep1Resp.data != null) {
-      episodes.addAll(ep1Resp.data!.data);
+      // Pagination boundaries may overlap; a chapter ID is rendered once.
+      episodes = {
+        for (var episode in episodes) episode.id: episode,
+        for (var episode in ep1Resp.data!.data) episode.id: episode,
+      }.values.toList();
       pageLen = ep1Resp.data!.data.length;
       _loadError = null;
     } else {
@@ -280,7 +306,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
       isCollection = true;
       userEpFuture = _userEpisodesInFlight;
       userEpFuture ??= _fetchUserEpisodePage(
-        offset: offset,
+        offset: pageOffset,
         limit: _pageSize,
         reportError: reportError,
       );
@@ -290,7 +316,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
       await userEpFuture;
     }
     _userEpisodesInFlight = null;
-    offset += pageLen;
+    offset = pageOffset + pageLen;
     if (isFirst) _loading = false;
     if (mounted) setState(() {});
   }
@@ -358,11 +384,14 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
         res.add(buildEpHint(curType));
       }
       var userEp = _userEpById[ordered[i].id];
-      if (userEp != null) {
-        res.add(SubjectEpisode(ordered[i], subject: subjectId, user: userEp));
-      } else {
-        res.add(SubjectEpisode(ordered[i], subject: subjectId));
-      }
+      res.add(
+        SubjectEpisode(
+          ordered[i],
+          subject: subjectId,
+          user: userEp,
+          key: ValueKey(ordered[i].id),
+        ),
+      );
     }
     if (episodes.length < widget.subject.totalEpisodes) {
       res.add(
