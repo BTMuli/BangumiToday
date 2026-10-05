@@ -21,6 +21,7 @@ Future<void> showManualDownloadDialog(
     if (!context.mounted) return;
     var draft = await showDialog<_ManualDownloadDraft>(
       context: context,
+      barrierDismissible: true,
       builder: (_) => _ManualDownloadDialog(
         initialSavePath: savePath ?? '',
         torrentPaths: torrentPaths,
