@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import 'core/utils/window_effect.dart';
 import 'store/app_store.dart';
+import 'widgets/playback/playback_drop_target.dart';
 import 'widgets/shell/nav.dart';
 
 /// 应用入口
@@ -69,6 +70,7 @@ class _BTAppState extends ConsumerState<BTApp> {
       themeMode: appStore.themeMode,
       theme: getTheme(context, appStore),
       home: const NavWidget(),
+      builder: (context, child) => PlaybackDropTarget(child: child!),
       debugShowCheckedModeBanner: false,
     );
   }

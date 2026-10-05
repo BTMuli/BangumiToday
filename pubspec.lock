@@ -1473,6 +1473,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "0.10.0-dev.2"
+  super_drag_and_drop:
+    dependency: "direct main"
+    description:
+      name: super_drag_and_drop
+      sha256: "2fe00592e6e7d659e8affb367df6f95c27a0a0f5fc321aac880e44ff762e1fd5"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.10.0-dev.2"
   super_native_extensions:
     dependency: transitive
     description:

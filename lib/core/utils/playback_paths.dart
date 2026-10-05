@@ -33,6 +33,26 @@ class PlaybackPaths {
   static bool isVideo(String value) =>
       videoExtensions.contains(path.extension(value).toLowerCase());
 
+  /// 按拖入顺序选择首个本地视频，保留 URI 中的中文、空格与网络路径。
+  static String? firstDroppedVideo(Iterable<Uri?> uris) {
+    for (var uri in uris) {
+      if (uri == null || uri.scheme != 'file') continue;
+      try {
+        var filePath = uri.toFilePath(windows: Platform.isWindows);
+        if (path.isAbsolute(filePath) &&
+            !path.isRootRelative(filePath) &&
+            isVideo(filePath)) {
+          return path.normalize(filePath);
+        }
+      } on ArgumentError {
+        // Invalid file URIs must not prevent later files from being recognized.
+      } on UnsupportedError {
+        // File URIs with queries, fragments or invalid separators are ignored.
+      }
+    }
+    return null;
+  }
+
   /// 把下载任务里的相对路径解析到下载根目录，越界时抛
   /// [PlaybackUnavailable]。
   static String resolveTaskPath(String root, String relative) {

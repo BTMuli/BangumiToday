@@ -21,19 +21,29 @@ Future<void> openLocalPlayback(
   int? subject,
 }) async {
   try {
-    var child = ref.read(isPlaybackWindowProvider);
-    if (Platform.isWindows && !child) {
-      await ref
-          .read(playbackWindowServiceProvider)
-          .open(filePath: filePath, subject: subject);
-      return;
-    }
-    var store = ref.read(playbackStoreProvider);
-    await store.openLocalFile(filePath, subject: subject);
-    if (!child) ref.read(navStoreProvider.notifier).goToPlayback();
+    await openLocalPlaybackFile(ref, filePath, subject: subject);
   } catch (error) {
     if (context.mounted) await reportPlaybackError(context, ref, error);
   }
+}
+
+/// Shared by file picking and window-wide drops, whose context is above the
+/// Navigator and therefore presents operation failures outside its Overlay.
+Future<void> openLocalPlaybackFile(
+  WidgetRef ref,
+  String filePath, {
+  int? subject,
+}) async {
+  var child = ref.read(isPlaybackWindowProvider);
+  if (Platform.isWindows && !child) {
+    await ref
+        .read(playbackWindowServiceProvider)
+        .open(filePath: filePath, subject: subject);
+    return;
+  }
+  var store = ref.read(playbackStoreProvider);
+  await store.openLocalFile(filePath, subject: subject);
+  if (!child) ref.read(navStoreProvider.notifier).goToPlayback();
 }
 
 /// Consume the stored copy before showing an operation failure. Page listeners
@@ -44,6 +54,10 @@ Future<void> reportPlaybackError(
   WidgetRef ref,
   Object error,
 ) async {
+  await BtInfobar.error(context, consumePlaybackError(ref, error));
+}
+
+String consumePlaybackError(WidgetRef ref, Object error) {
   var message = error.toString();
   var store = ref.read(playbackStoreProvider);
   if (store.error == message) store.clearError();
@@ -51,7 +65,7 @@ Future<void> reportPlaybackError(
     var windows = ref.read(playbackWindowServiceProvider);
     if (windows.error == message) windows.clearError();
   }
-  await BtInfobar.error(context, message);
+  return message;
 }
 
 Future<XFile?> pickPlaybackFile() => openFile(

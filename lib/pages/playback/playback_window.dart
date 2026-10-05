@@ -22,6 +22,7 @@ import '../../providers/playback_window_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/playback_store.dart';
 import '../../tools/log_tool.dart';
+import '../../widgets/playback/playback_drop_target.dart';
 import 'playback_page.dart';
 import 'playback_window_mode.dart';
 
@@ -508,6 +509,11 @@ class _PlaybackWindowApp extends StatelessWidget {
             brightness: Brightness.dark,
             accentColor: accent,
             fontFamily: 'SMonoSC',
+          ),
+          builder: (context, child) => ValueListenableBuilder<String?>(
+            valueListenable: closing,
+            builder: (context, message, _) =>
+                PlaybackDropTarget(enabled: message == null, child: child!),
           ),
           home: ValueListenableBuilder<String?>(
             valueListenable: closing,
