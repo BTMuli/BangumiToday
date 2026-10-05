@@ -30,6 +30,7 @@ class BmfRssExpander extends ConsumerStatefulWidget {
 
 class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
   late final BmfRssData _data = BmfRssData(bmf: widget.bmf);
+  final FlyoutController _sourceFlyout = FlyoutController();
   StreamSubscription<BmfRssUpdateEvent>? _updateSubscription;
   StreamSubscription<BmfRssStatusEvent>? _statusSubscription;
 
@@ -71,6 +72,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     _statusSubscription?.cancel();
     _data.removeListener(_onDataChanged);
     _data.dispose();
+    _sourceFlyout.dispose();
     super.dispose();
   }
 
@@ -234,12 +236,78 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     );
   }
 
+  String _sourceLabel(String provider) => switch (provider) {
+    'anibt' => 'AniBT',
+    'mikan' => 'Mikan',
+    'comicat' => 'Comicat',
+    'generic' => '通用 RSS',
+    _ => provider,
+  };
+
+  Future<void> _showSourceOptions() async {
+    if (_sourceFlyout.isOpen) return;
+    var id = await _sourceFlyout.showFlyout<int>(
+      autoModeConfiguration: FlyoutAutoConfiguration(
+        preferredMode: FlyoutPlacementMode.bottomRight,
+      ),
+      additionalOffset: 8,
+      forceAvailableSpace: true,
+      builder: (flyoutContext) => MenuFlyout(
+        constraints: const BoxConstraints(minWidth: 160, maxWidth: 240),
+        items: [
+          for (var subscription in widget.bmf.subscriptions)
+            MenuFlyoutItem(
+              text: Tooltip(
+                message: subscription.url,
+                child: Text(_sourceLabel(subscription.provider)),
+              ),
+              selected: subscription.id == _data.selectedSubscriptionId,
+              trailing: subscription.id == _data.selectedSubscriptionId
+                  ? const Icon(FluentIcons.check_mark, size: 12)
+                  : null,
+              closeAfterClick: false,
+              onPressed: () => Navigator.of(flyoutContext).pop(subscription.id),
+            ),
+        ],
+      ),
+    );
+    if (!mounted || id == null || id == _data.selectedSubscriptionId) return;
+    if (!widget.bmf.subscriptions.any(
+      (subscription) => subscription.id == id,
+    )) {
+      return;
+    }
+    setState(() => _data.selectSubscription(id));
+  }
+
+  Widget _buildSourceButton() {
+    var selected = widget.bmf.subscriptions
+        .where(
+          (subscription) => subscription.id == _data.selectedSubscriptionId,
+        )
+        .firstOrNull;
+    var label = selected == null ? null : _sourceLabel(selected.provider);
+    return FlyoutTarget(
+      controller: _sourceFlyout,
+      child: Tooltip(
+        message: label == null ? '切换来源' : '切换来源（当前：$label）',
+        child: IconButton(
+          icon: BtIcon(MdiIcons.swapHorizontal, size: 14),
+          onPressed: () => unawaited(_showSourceOptions()),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     var accentColor = FluentTheme.of(context).accentColor;
     var rssLink = _data.rssUrl;
 
-    var actionHeader = Row(
+    var metadata = Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
           widget.embedded ? '${_data.rssItems.length} 条资源' : 'RSS 订阅',
@@ -247,12 +315,9 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
               ? BTTypography.caption(context)
               : BTTypography.subtitle(context),
         ),
-        if (!widget.embedded && _data.rssItems.isNotEmpty) ...[
-          SizedBox(width: 8),
+        if (!widget.embedded && _data.rssItems.isNotEmpty)
           _buildCountBadge(context, _data.rssItems.length),
-        ],
-        if (_data.pendingItemKeys.isNotEmpty) ...[
-          SizedBox(width: 8),
+        if (_data.pendingItemKeys.isNotEmpty)
           Container(
             padding: EdgeInsets.symmetric(horizontal: 7, vertical: 2),
             decoration: BoxDecoration(
@@ -268,8 +333,6 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
               ),
             ),
           ),
-        ],
-        SizedBox(width: 8),
         Tooltip(
           message: rssLink,
           child: Icon(
@@ -278,7 +341,12 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
             color: BTColors.textTertiary(context),
           ),
         ),
-        const Spacer(),
+      ],
+    );
+    var actions = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.bmf.subscriptions.length > 1) _buildSourceButton(),
         if (_data.pendingItemKeys.isNotEmpty)
           Tooltip(
             message: '全部标记为已处理',
@@ -340,32 +408,18 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (widget.bmf.subscriptions.length > 1) ...[
-          BtSelect<int>(
-            isExpanded: true,
-            value: _data.selectedSubscriptionId,
-            items: [
-              for (var subscription in widget.bmf.subscriptions)
-                ComboBoxItem(
-                  value: subscription.id,
-                  child: Text(
-                    '${subscription.provider} · ${subscription.id}'
-                    '${subscription.status == 'needsReview' ? ' · 待核对' : ''}',
-                  ),
-                ),
-            ],
-            onChanged: (id) {
-              if (id != null) setState(() => _data.selectSubscription(id));
-            },
-          ),
-          const SizedBox(height: 8),
-        ],
+        Row(
+          children: [
+            Expanded(child: metadata),
+            const SizedBox(width: 12),
+            actions,
+          ],
+        ),
         if (_data.subscription?.status == 'needsReview')
           const Padding(
-            padding: EdgeInsets.only(bottom: 8),
+            padding: EdgeInsets.only(top: 8),
             child: Text('订阅待核对，请在 BMF 工作台确认旧状态归属或修正地址'),
           ),
-        actionHeader,
       ],
     );
 
