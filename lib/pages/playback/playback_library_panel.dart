@@ -32,6 +32,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   final _listScroll = ScrollController();
   final _historyScroll = ScrollController();
   final _menu = FlyoutController();
+  final _expandedHistory = <String>{};
   late bool _showHistory;
   String? _lastPlayingKey;
   int _lastIndex = -1;
@@ -579,11 +580,85 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   }
 
   Widget _historyRow(PlaybackStore store, PlaybackHistoryGroup group) {
+    var expanded = _expandedHistory.contains(group.key);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _historySummary(store, group, expanded),
+        if (expanded)
+          for (var item in group.items) _historyEpisode(item),
+      ],
+    );
+  }
+
+  Widget _historyEpisode(PlaybackItem item) {
+    var label = PlaybackLabel.fromName(item.title);
+    var progress = item.completed
+        ? '已播完'
+        : '${_PlaybackPageState._time(item.positionMs)} / '
+              '${_PlaybackPageState._time(item.durationMs)}';
+    var date = DateTime.fromMillisecondsSinceEpoch(item.updatedAt);
+    var stamp =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')} '
+        '${date.hour.toString().padLeft(2, '0')}:'
+        '${date.minute.toString().padLeft(2, '0')}';
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, bottom: 4),
+      child: Tooltip(
+        message: item.filePath,
+        child: HoverButton(
+          key: ValueKey('history:${item.key}'),
+          onPressed: () => resumeLocalPlayback(context, ref, item),
+          builder: (context, states) => Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: states.isHovered
+                  ? BTColors.surfaceTertiary(context)
+                  : BTColors.surfaceSecondary(context),
+              borderRadius: BTRadius.mediumBR,
+            ),
+            child: Row(
+              children: [
+                const Icon(material.Icons.play_arrow_rounded, size: 16),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label.episode ?? item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: BTTypography.body(context),
+                      ),
+                      Text(
+                        '$progress · $stamp',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: BTTypography.caption(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _historySummary(
+    PlaybackStore store,
+    PlaybackHistoryGroup group,
+    bool expanded,
+  ) {
     var item = group.latest;
     var label = PlaybackLabel.fromName(item.title);
     if (group.subject != null) unawaited(store.resolveCover(group.subject!));
     return Tooltip(
-      message: '${item.filePath}\n${group.items.length} 集播放记录',
+      message: '${item.filePath}\n${group.items.length} 条播放记录',
       child: HoverButton(
         key: ValueKey(group.key),
         onPressed: () => resumeLocalPlayback(context, ref, item),
@@ -616,7 +691,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
                         item.completed
                             ? '已播完'
                             : _PlaybackPageState._time(item.positionMs),
-                        if (group.items.length > 1) '${group.items.length} 集记录',
+                        if (group.items.length > 1) '${group.items.length} 条记录',
                       ].join(' · '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -625,6 +700,25 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
                   ],
                 ),
               ),
+              if (group.items.length > 1)
+                Tooltip(
+                  message: expanded ? '收起播放记录列表' : '展开播放记录列表',
+                  child: IconButton(
+                    icon: Icon(
+                      expanded
+                          ? material.Icons.expand_less_rounded
+                          : material.Icons.list_rounded,
+                      size: 16,
+                    ),
+                    onPressed: () => setState(() {
+                      if (expanded) {
+                        _expandedHistory.remove(group.key);
+                      } else {
+                        _expandedHistory.add(group.key);
+                      }
+                    }),
+                  ),
+                ),
               if (group.subject != null)
                 Tooltip(
                   message: '查看条目',
