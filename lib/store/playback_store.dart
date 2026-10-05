@@ -13,6 +13,8 @@ import 'package:path/path.dart' as path;
 import '../core/errors/playback_unavailable.dart';
 import '../core/services/native_playback_upscale_backend.dart';
 import '../core/services/playback_assets.dart';
+import '../core/services/playback_audio.dart';
+import '../core/services/playback_audio_metadata.dart';
 import '../core/services/playback_chapters.dart';
 import '../core/services/playback_diagnostics.dart';
 import '../core/services/playback_loudness.dart';
@@ -32,6 +34,7 @@ import '../models/playback/playback_chapter.dart';
 import '../models/playback/playback_completion.dart';
 import '../models/playback/playback_episode_layout.dart';
 import '../models/playback/playback_geometry.dart';
+import '../models/playback/playback_hires.dart';
 import '../models/playback/playback_history_group.dart';
 import '../models/playback/playback_item.dart';
 import '../models/playback/playback_rate.dart';
@@ -94,6 +97,16 @@ class PlaybackStore extends ChangeNotifier {
   );
   Future<void>? _preferencesFuture;
   bool _loudnessEnabled = Platform.isWindows;
+  bool _hiResEnabled = false;
+  bool _hiResConfigured = false;
+  PlaybackAudioSource? _audioSource;
+  PlaybackAudioOutput? _audioOutput;
+  String? _hiResFailure;
+  String? _hiResBlockedSource;
+  DateTime? _hiResConfiguredAt;
+  Timer? _audioRefreshTimer;
+  final _audioMetadata = PlaybackAudioMetadata();
+  PlaybackWasapiFormat? _wasapiFormat;
   PlaybackEpisodeLayout _episodeLayout = PlaybackEpisodeLayout.grid;
   double? _aspectRatio;
   Size? _videoSize;
@@ -141,6 +154,18 @@ class PlaybackStore extends ChangeNotifier {
   PlaybackUpscaler? get upscaler => _upscaler;
   PlaybackUpscaleMode get upscaleMode => _upscaleMode;
   bool get loudnessEnabled => _loudnessEnabled;
+  bool get hiResEnabled => _hiResEnabled;
+  PlaybackHiResState get hiRes => PlaybackHiResState(
+    source: _audioSource,
+    output: _audioOutput,
+    requested: _hiResEnabled,
+    configured: _hiResConfigured,
+    supported: PlaybackAudio.supported,
+    rate: _player?.state.rate ?? 1,
+    failure: _hiResFailure,
+  );
+  bool get loudnessActive => _loudnessEnabled && !_hiResConfigured;
+  bool get loudnessPausedForHiRes => _hiResConfigured;
   PlaybackEpisodeLayout get episodeLayout => _episodeLayout;
   double? get aspectRatio => _aspectRatio;
 
@@ -272,7 +297,9 @@ class PlaybackStore extends ChangeNotifier {
           'file': current?.filePath,
           'loading': loading,
           'upscale': _upscaleMode.name,
-          'loudness': _loudnessEnabled,
+          'loudness': loudnessActive,
+          'hires_requested': _hiResEnabled,
+          'hires_status': hiRes.status,
           'texture': rect == null ? null : '${rect.width}x${rect.height}',
           'upscale_configured': _upscaler?.configuredMode?.name,
         };
@@ -283,6 +310,13 @@ class PlaybackStore extends ChangeNotifier {
     var earlyLogs = <PlayerLog>[];
     var logs = player.stream.log.listen((value) {
       diagnostics.log(value);
+      if (value.prefix == 'ao/wasapi') {
+        var format = PlaybackWasapiFormat.parse(value.text);
+        if (format != null) {
+          _wasapiFormat = format;
+          _scheduleAudioRefresh();
+        }
+      }
       var upscale = _upscaler;
       if (upscale != null) {
         upscale.log(value.prefix, value.level, value.text);
@@ -298,9 +332,16 @@ class PlaybackStore extends ChangeNotifier {
     );
     try {
       await PlaybackSubtitles.configure(player);
+      await PlaybackAudio.apply(player, false);
       await chapters.initialize();
+      var native = player.platform as NativePlayer;
+      for (var property in ['audio-out-params', 'current-tracks/audio']) {
+        await native.observeProperty(property, (_) async {
+          _scheduleAudioRefresh();
+        });
+      }
       if (Platform.isWindows) {
-        await PlaybackLoudness.apply(player, _loudnessEnabled);
+        await PlaybackLoudness.apply(player, loudnessActive);
       }
     } catch (error, stackTrace) {
       BTLogTool.error(['初始化播放器失败：$error', stackTrace.toString()]);
@@ -364,6 +405,14 @@ class PlaybackStore extends ChangeNotifier {
       }),
       player.stream.rate.listen((value) {
         diagnostics.event('播放速率改变：rate=$value');
+        _scheduleAudioRefresh();
+        _notify();
+      }),
+      player.stream.audioParams.listen((_) => _scheduleAudioRefresh()),
+      player.stream.audioDevice.listen((_) {
+        _hiResBlockedSource = null;
+        _hiResFailure = null;
+        _scheduleAudioRefresh();
       }),
       player.stream.tracks.listen((_) {
         if (_closed || completed || _manualSubtitles || current == null) return;
@@ -541,6 +590,7 @@ class PlaybackStore extends ChangeNotifier {
       await _upscaler?.resetMedia();
       if (_closed) return;
       await _player!.stop();
+      await _resetAudio();
       if (_closed) return;
       playlist = nextPlaylist;
       index = nextIndex;
@@ -557,6 +607,7 @@ class PlaybackStore extends ChangeNotifier {
       _chapters?.reset(active: true);
       await _player!.open(Media(item.filePath, start: position));
       if (_closed) return;
+      _scheduleAudioRefresh();
       await _autoSelectSubtitle();
       await _chapters?.refresh();
       _upscaler?.mediaReady(_videoSource(_player!.state.videoParams));
@@ -624,6 +675,8 @@ class PlaybackStore extends ChangeNotifier {
     if (pending != null) return pending;
     var operation = () async {
       await _rateMemory.load();
+      _hiResEnabled =
+          await settingsStore.read(PlaybackAudio.settingKey) == 'true';
       _episodeLayout = PlaybackEpisodeLayout.parse(
         await settingsStore.read('playbackEpisodeLayout'),
       );
@@ -652,13 +705,15 @@ class PlaybackStore extends ChangeNotifier {
     await _loadPreferences();
     if (_closed || _loudnessEnabled == enabled || !Platform.isWindows) return;
     var player = _player;
-    if (player != null) await PlaybackLoudness.apply(player, enabled);
+    if (player != null && !_hiResConfigured) {
+      await PlaybackLoudness.apply(player, enabled);
+    }
     if (_closed) return;
     try {
       await settingsStore.write(PlaybackLoudness.settingKey, '$enabled');
     } catch (_) {
-      if (!_closed && player != null) {
-        await PlaybackLoudness.apply(player, _loudnessEnabled);
+      if (!_closed && player != null && !_hiResConfigured) {
+        await PlaybackLoudness.apply(player, loudnessActive);
       }
       rethrow;
     }
@@ -685,6 +740,129 @@ class PlaybackStore extends ChangeNotifier {
     if (_closed) return;
     await player.setRate(rate);
   });
+
+  Future<void> setHiResEnabled(bool enabled) => _serial(() async {
+    await _loadPreferences();
+    if (_closed || _hiResEnabled == enabled) return;
+    await settingsStore.write(PlaybackAudio.settingKey, '$enabled');
+    if (_closed) return;
+    _hiResEnabled = enabled;
+    _hiResBlockedSource = null;
+    _hiResFailure = null;
+    await _refreshAudio();
+    _diagnostics?.event('HiRes 偏好改变：enabled=$enabled，${hiRes.status}');
+    _notify();
+  });
+
+  Future<void> setAudioTrack(AudioTrack track) => _serial(() async {
+    await _resetAudio();
+    await _player?.setAudioTrack(track);
+    _scheduleAudioRefresh();
+  });
+
+  void _scheduleAudioRefresh({
+    Duration delay = const Duration(milliseconds: 150),
+  }) {
+    if (_closed || current == null || _audioRefreshTimer?.isActive == true) {
+      return;
+    }
+    var sessionId = _session.id;
+    _audioRefreshTimer = Timer(delay, () {
+      unawaited(
+        _serial(() async {
+          if (_session.id != sessionId || current == null) return;
+          await _refreshAudio();
+        }).catchError((Object _) {}),
+      );
+    });
+  }
+
+  Future<void> _configureHiRes(bool enabled) async {
+    var player = _player;
+    if (player == null || _hiResConfigured == enabled) return;
+    var previous = _hiResConfigured;
+    _wasapiFormat = null;
+    try {
+      if (Platform.isWindows) {
+        await PlaybackLoudness.apply(player, _loudnessEnabled && !enabled);
+      }
+      await PlaybackAudio.apply(player, enabled);
+    } catch (_) {
+      if (!_closed) {
+        await PlaybackAudio.apply(player, previous);
+        if (Platform.isWindows) {
+          await PlaybackLoudness.apply(player, loudnessActive);
+        }
+      }
+      rethrow;
+    }
+    if (_closed) return;
+    _hiResConfigured = enabled;
+    _hiResConfiguredAt = enabled ? DateTime.now() : null;
+  }
+
+  String? _audioSourceKey(PlaybackAudioSource? source) => source == null
+      ? null
+      : '${source.id}/${source.codec}/${source.sampleRate}/${source.format}/${source.channels}';
+
+  Future<void> _refreshAudio() async {
+    var player = _player;
+    if (_closed || player == null || current == null) return;
+    var before = hiRes.tooltip;
+    var params = await PlaybackAudio.read(
+      player,
+      filePath: current!.filePath,
+      metadata: _audioMetadata,
+      deviceFormat: _wasapiFormat,
+    );
+    if (_closed) return;
+    _audioSource = params.source;
+    _audioOutput = params.output;
+    var key = _audioSourceKey(params.source);
+    if (_hiResBlockedSource != key) _hiResFailure = null;
+    var desired =
+        _hiResEnabled &&
+        PlaybackAudio.supported &&
+        (params.source?.hiRes ?? false) &&
+        _hiResBlockedSource != key;
+    try {
+      await _configureHiRes(desired);
+      if (_closed) return;
+      if (_hiResConfigured) {
+        // Reconfiguration is asynchronous. Do not judge the previous shared
+        // device's format while WASAPI/CoreAudio is opening the new stream.
+        var settled =
+            DateTime.now().difference(_hiResConfiguredAt!) >=
+            const Duration(milliseconds: 900);
+        if (!settled) {
+          _audioOutput = null;
+          _scheduleAudioRefresh(delay: const Duration(seconds: 1));
+        } else if (hiRes.outputMismatch != null && player.state.rate == 1) {
+          _hiResFailure = hiRes.outputMismatch;
+          _hiResBlockedSource = key;
+          await _configureHiRes(false);
+          _diagnostics?.event('HiRes 回退共享输出：$_hiResFailure');
+        }
+      }
+    } catch (failure) {
+      _hiResFailure = failure.toString();
+      _hiResBlockedSource = key;
+      _diagnostics?.event('HiRes 配置失败：$failure');
+    }
+    if (before != hiRes.tooltip) _notify();
+  }
+
+  Future<void> _resetAudio() async {
+    _audioRefreshTimer?.cancel();
+    _audioMetadata.clear();
+    _wasapiFormat = null;
+    _audioSource = null;
+    _audioOutput = null;
+    _hiResFailure = null;
+    _hiResBlockedSource = null;
+    await _configureHiRes(false);
+    _notify();
+  }
 
   Future<void> setEpisodeLayout(PlaybackEpisodeLayout layout) =>
       _serial(() async {
@@ -730,6 +908,7 @@ class PlaybackStore extends ChangeNotifier {
       await _upscaler?.resetMedia();
       if (_closed) return;
       await _player?.stop();
+      await _resetAudio();
       _session.clear();
       index = -1;
       playlist = [];
@@ -800,6 +979,7 @@ class PlaybackStore extends ChangeNotifier {
         await _upscaler?.resetMedia();
         if (_closed) return;
         await _player?.stop();
+        await _resetAudio();
         _session.clear();
         index = -1;
         playlist = [];
@@ -873,6 +1053,7 @@ class PlaybackStore extends ChangeNotifier {
     _chapters?.close();
     _session.close();
     _saveTimer?.cancel();
+    _audioRefreshTimer?.cancel();
     var pending = _operation;
     var drained = await _shutdownStep(
       '等待播放操作',

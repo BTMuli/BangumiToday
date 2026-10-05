@@ -41,7 +41,7 @@ class NativeUpscaleAdapter {
 
   void _checkOpen() {
     if (_closed || _player.disposed) {
-      throw StateError('超分适配器或播放器已关闭');
+      throw StateError('播放适配器或播放器已关闭');
     }
   }
 
@@ -57,7 +57,7 @@ class NativeUpscaleAdapter {
     );
   }
 
-  /// Only used for short shader configuration commands, never media loading.
+  /// Only used for short playback configuration commands, never media loading.
   Future<void> command(List<String> arguments) {
     if (arguments.isEmpty ||
         arguments.length > 16 ||

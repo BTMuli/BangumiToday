@@ -442,6 +442,8 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     var item = store.current!;
     var label = PlaybackLabel.fromName(item.title);
     var accent = FluentTheme.of(context).accentColor;
+    // Reserve the audio output button before choosing optional controls.
+    var bottomWidth = width - 52;
     // 独立播放器窗口只有视频，顶栏顺带承担拖动、置顶与窗口按钮。
     var frameless = widget.windowMode != null && !isFullscreen(context);
     return MaterialDesktopVideoControlsThemeData(
@@ -554,12 +556,12 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         ],
       ],
       bottomButtonBar: [
-        if (width > 420)
+        if (bottomWidth > 420)
           const MaterialDesktopPositionIndicator(
             style: TextStyle(color: Colors.white, fontSize: 12),
           ),
-        if (width > 420) const SizedBox(width: 12),
-        if (width > 820)
+        if (bottomWidth > 420) const SizedBox(width: 12),
+        if (bottomWidth > 820)
           _videoButton(
             material.Icons.skip_previous_rounded,
             '上一个视频',
@@ -579,7 +581,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
             key: const ValueKey('playback-toggle'),
           ),
         ),
-        if (width > 820)
+        if (bottomWidth > 820)
           _videoButton(
             material.Icons.skip_next_rounded,
             '下一个视频',
@@ -587,7 +589,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                 ? () => _execute(_PlaybackCommand.next)
                 : null,
           ),
-        if (width > 700) ...[
+        if (bottomWidth > 700) ...[
           _videoButton(
             material.Icons.replay_10_rounded,
             '后退 10 秒',
@@ -599,7 +601,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
             () => _execute(_PlaybackCommand.forward10),
           ),
         ],
-        if (width > 620) const MaterialDesktopVolumeButton(),
+        if (bottomWidth > 620) const MaterialDesktopVolumeButton(),
         const Spacer(),
         if (store.chapters.isNotEmpty)
           Builder(
@@ -609,8 +611,14 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
               () => _showButtonMenu(buttonContext, _chapterItems),
             ),
           ),
-        if (width > 340)
+        if (bottomWidth > 340)
           _PlaybackRateButton(player: player, onPressed: _showRateMenu),
+        _PlaybackHiResButton(
+          store: store,
+          onPressed: () => unawaited(
+            widget.run(() => store.setHiResEnabled(!store.hiResEnabled)),
+          ),
+        ),
         // 内嵌播放页已有侧栏时不重复提供选集/记录入口。
         if (!widget.sidebarVisible) ...[
           Builder(
@@ -1240,6 +1248,48 @@ class _PlaybackRateButton extends StatelessWidget {
   );
 }
 
+class _PlaybackHiResButton extends StatelessWidget {
+  const _PlaybackHiResButton({required this.store, required this.onPressed});
+
+  final PlaybackStore store;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    var hiRes = store.hiRes;
+    var clickable = hiRes.available || hiRes.requested;
+    var color = hiRes.active
+        ? FluentTheme.of(context).accentColor
+        : hiRes.requested && hiRes.available
+        ? const Color(0xFFFFE27A)
+        : Colors.white.withValues(alpha: clickable ? 1 : 0.4);
+    return Tooltip(
+      message: hiRes.tooltip,
+      child: Semantics(
+        label: hiRes.status,
+        toggled: hiRes.requested,
+        child: material.TextButton(
+          key: const ValueKey('playback-hires'),
+          style: material.TextButton.styleFrom(
+            foregroundColor: color,
+            disabledForegroundColor: color,
+            backgroundColor: hiRes.active
+                ? color.withValues(alpha: 0.15)
+                : Colors.transparent,
+            minimumSize: const Size(52, 36),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+          onPressed: clickable ? onPressed : null,
+          child: const Text(
+            'HiRes',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Descriptions occupy their own line; long track names wrap within the menu.
 class _PlaybackMenuLabel extends StatelessWidget {
   const _PlaybackMenuLabel(this.title, {this.description});
@@ -1309,10 +1359,15 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
     ),
   if (Platform.isWindows)
     ToggleMenuFlyoutItem(
-      text: const Text('响度均衡'),
+      text: _PlaybackMenuLabel(
+        '响度均衡',
+        description: store.loudnessPausedForHiRes ? 'HiRes 输出下暂停' : null,
+      ),
       value: store.loudnessEnabled,
-      onChanged: (enabled) =>
-          unawaited(run(() => store.setLoudnessEnabled(enabled))),
+      onChanged: store.loudnessPausedForHiRes
+          ? null
+          : (enabled) =>
+                unawaited(run(() => store.setLoudnessEnabled(enabled))),
     ),
   if (windowMode != null)
     MenuFlyoutSubItem(
@@ -1335,7 +1390,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
             _playbackTrackLabel(track.id, track.title, track.language),
           ),
           value: player.state.track.audio.id == track.id,
-          onChanged: (_) => unawaited(run(() => player.setAudioTrack(track))),
+          onChanged: (_) => unawaited(run(() => store.setAudioTrack(track))),
         ),
     ],
   ),

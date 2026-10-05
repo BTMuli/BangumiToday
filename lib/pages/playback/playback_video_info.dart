@@ -365,9 +365,19 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
                         if (Platform.isWindows)
                           _line(
                             '响度均衡',
-                            widget.store.loudnessEnabled ? '开启' : '关闭',
+                            widget.store.loudnessPausedForHiRes
+                                ? 'HiRes 输出下暂停'
+                                : widget.store.loudnessActive
+                                ? '开启'
+                                : '关闭',
                             green,
                           ),
+                        _line(
+                          '音源解析度',
+                          widget.store.hiRes.source?.description ?? '等待检测',
+                          yellow,
+                        ),
+                        _line('HiRes', widget.store.hiRes.status, pink),
                         _line(
                           '字幕',
                           playbackSubtitleTrackLabel(
