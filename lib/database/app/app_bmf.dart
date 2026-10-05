@@ -72,17 +72,8 @@ class BtsAppBmf {
         .write(AppBmfCompanion(airDate: Value(airDate)));
   }
 
-  Future<void> delete(int subject) async {
-    await _db.transaction(() async {
-      var existing = await _findBySubject(subject);
-      if (existing == null) return;
-      await SubscriptionStorage(_db).saveSubscriptions(existing.id, []);
-      await (_db.delete(
-        _db.appBmf,
-      )..where((b) => b.id.equals(existing.id))).go();
-      await SubscriptionStorage(_db).pruneUnusedCaches();
-    });
-  }
+  Future<void> delete(int subject) =>
+      SubscriptionStorage(_db).deleteBmf(subject);
 
   /// Feeds may be shared by different BMFs; duplicates within a BMF are checked
   /// transactionally when saving the complete subscription collection.

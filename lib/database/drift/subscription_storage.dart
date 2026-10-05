@@ -51,6 +51,66 @@ class SubscriptionStorage {
     return row == null ? null : AppRssCacheModel.fromJson(row.toJson());
   }
 
+  /// Deleting a complete BMF also discards its exclusively owned old state.
+  Future<void> deleteBmf(int subject) async {
+    await db.transaction(() async {
+      var parent = await (db.select(
+        db.appBmf,
+      )..where((b) => b.subject.equals(subject))).getSingleOrNull();
+      if (parent == null) return;
+      // Unlike removing one RSS, deleting the BMF must not archive new state.
+      await (db.delete(
+        db.appSubscription,
+      )..where((s) => s.bmfId.equals(parent.id))).go();
+      await (db.delete(db.appBmf)..where((b) => b.id.equals(parent.id))).go();
+      var recovery = await db.select(db.appMigrationRecovery).get();
+      for (var row in recovery.where((r) => _belongsOnlyToBmf(r, parent.id))) {
+        await (db.delete(
+          db.appMigrationRecovery,
+        )..where((r) => r.id.equals(row.id))).go();
+      }
+      await pruneUnusedCaches();
+    });
+  }
+
+  static bool _belongsOnlyToBmf(MigrationRecoveryRow record, int bmfId) {
+    if (record.migrationVersion != 2) return false;
+    var candidates = jsonDecode(record.candidateBmfIds) as List;
+    if (candidates.isEmpty ||
+        candidates.any((id) => id is! int || id != bmfId)) {
+      return false;
+    }
+    var payload = jsonDecode(record.payload) as Map;
+    var original = payload['row'];
+    if (original is! Map) return false;
+    switch (record.kind) {
+      case 'AppBmf':
+        return original['id'] is int && original['id'] == bmfId;
+      case 'subscriptionState':
+        return original['bmfId'] is int && original['bmfId'] == bmfId;
+      case 'AppRss':
+        var url = original['rss'];
+        var reasons = payload['reasons'];
+        // Candidates alone do not prove ownership of an ambiguous cache.
+        return url is String &&
+            FeedIdentity.fromUrl(url).isValid &&
+            reasons is List &&
+            reasons.isNotEmpty &&
+            reasons.every(
+              (reason) => const {
+                'invalidPendingJson',
+                'cacheMikanConflict',
+                'invalidXml',
+                'incompatibleCacheVersion',
+                'invalidTime:updated',
+                'invalidTime:lastFailed',
+              }.contains(reason),
+            );
+      default:
+        return false;
+    }
+  }
+
   Future<void> saveSubscriptions(
     int bmfId,
     List<AppSubscriptionModel> desired,
@@ -334,6 +394,7 @@ class SubscriptionStorage {
         db.appMigrationRecovery,
       )..where((r) => r.id.equals(recoveryId))).write(
         AppMigrationRecoveryCompanion(
+          candidateBmfIds: Value(jsonEncode(candidates.toList()..sort())),
           resolvedAt: Value(DateTime.now().millisecondsSinceEpoch),
         ),
       );
