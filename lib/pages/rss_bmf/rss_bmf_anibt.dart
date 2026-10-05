@@ -35,6 +35,7 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
   bool _loaded = false;
   bool _loadFailed = false;
   bool _localFallback = false;
+  int _requestId = 0;
 
   @override
   bool get wantKeepAlive => true;
@@ -63,17 +64,25 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
   }
 
   Future<void> refresh({bool notify = true}) async {
-    if (!mounted || _refreshing) return;
-    setState(() => _refreshing = true);
-    var resGet = await anibtAPI.getMagnetsRSS(filters: _filters);
     if (!mounted) return;
+    var requestId = ++_requestId;
+    var filters = _filters;
+    setState(() {
+      _refreshing = true;
+      _loadFailed = false;
+      _localFallback = false;
+    });
+    var resGet = await anibtAPI.getMagnetsRSS(filters: filters);
+    if (!mounted || requestId != _requestId) return;
     var localFallback = false;
+    // 关键词搜索必须查询站点，只对无关键词的标签筛选保留 RSS 回退。
     if (resGet.code == 503 &&
         resGet.data is String &&
         (resGet.data as String).contains('Search backend unavailable') &&
-        _filters.queryParameters.isNotEmpty) {
+        filters.query.trim().isEmpty &&
+        filters.queryParameters.isNotEmpty) {
       resGet = await anibtAPI.getMagnetsRSS();
-      if (!mounted) return;
+      if (!mounted || requestId != _requestId) return;
       localFallback = resGet.code == 0 && resGet.data != null;
     }
     var success = resGet.code == 0 && resGet.data != null;
@@ -94,19 +103,31 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
     if (notify) await BtInfobar.success(context, '已刷新 AniBT 列表');
   }
 
-  Future<void> _applyFilters(AnibtFilters filters) async {
-    if (_refreshing) return;
+  Future<void> _applyFilters(
+    AnibtFilters filters, {
+    bool forceRemote = false,
+  }) async {
+    if (!mounted) return;
     if (utf8.encode(filters.query.trim()).length > 160) {
       await BtInfobar.warn(context, '搜索关键词过长，请缩短后重试');
       return;
     }
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
     var onlyLocalChange =
+        !forceRemote &&
+        !_refreshing &&
+        !_localFallback &&
         _loaded &&
         !_loadFailed &&
         jsonEncode(filters.queryParameters) ==
             jsonEncode(_filters.queryParameters);
     setState(() {
+      if (jsonEncode(filters.queryParameters) !=
+          jsonEncode(_filters.queryParameters)) {
+        rssItems = [];
+        _visibleItems = [];
+        _loaded = false;
+      }
       _filters = filters;
       if (onlyLocalChange) _updateVisibleItems();
     });
@@ -114,12 +135,14 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
     await refresh(notify: false);
   }
 
-  Future<void> _search() =>
-      _applyFilters(_filters.copyWith(query: _searchController.text.trim()));
+  Future<void> _search() => _applyFilters(
+    _filters.copyWith(query: _searchController.text.trim()),
+    forceRemote: true,
+  );
 
   Future<void> _reset() async {
     _searchController.clear();
-    await _applyFilters(AnibtFilters());
+    await _applyFilters(AnibtFilters(), forceRemote: true);
   }
 
   Future<void> _showFilters() async {
@@ -131,6 +154,10 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
     if (!mounted || filters == null) return;
     await _applyFilters(filters.copyWith(query: _searchController.text.trim()));
   }
+
+  String _sourceUrl(String path) => Uri.parse(
+    AnibtAPI.baseUrl,
+  ).resolve(path).replace(queryParameters: _filters.queryParameters).toString();
 
   Widget buildTitle() {
     return Row(
@@ -145,10 +172,26 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
             semanticLabel: 'AniBT',
           ),
           onPressed: () async {
-            await launchUrlString('${AnibtAPI.baseUrl}/magnets');
+            await launchUrlString(_sourceUrl('/magnets'));
           },
         ),
-        SizedBox(width: 10),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('AniBT', style: BTTypography.title(context)),
+              Text(
+                _filters.query.isEmpty
+                    ? 'AniBT 最近发布的资源'
+                    : '全站搜索：${_filters.query} · 最多返回 100 条匹配资源',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: BTTypography.caption(context),
+              ),
+            ],
+          ),
+        ),
         Tooltip(
           message: '刷新 AniBT',
           child: IconButton(
@@ -167,10 +210,9 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
           child: IconButton(
             icon: const Icon(FluentIcons.subscribe),
             onPressed: () async =>
-                await launchUrlString('${AnibtAPI.baseUrl}/magnets'),
+                await launchUrlString(_sourceUrl('/rss/magnets.xml')),
           ),
         ),
-        const Spacer(),
         if (_loaded && !_loadFailed && !_refreshing)
           Text(
             _usesLocalResults
@@ -188,25 +230,23 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
       valueListenable: _searchController,
       builder: (context, value, _) => TextBox(
         controller: _searchController,
-        placeholder: '搜索番剧、发布标题或字幕组...',
-        enabled: !_refreshing,
+        placeholder: '搜索 AniBT 全站番剧、发布标题或字幕组...',
+        textInputAction: TextInputAction.search,
         onSubmitted: (_) async => await _search(),
         prefix: const Padding(
           padding: EdgeInsets.only(left: 10),
           child: Icon(FluentIcons.search, size: 14),
         ),
-        suffix: value.text.isEmpty
+        suffix: value.text.isEmpty && _filters.query.isEmpty
             ? null
             : Tooltip(
                 message: '清除搜索',
                 child: IconButton(
                   icon: const Icon(FluentIcons.clear, size: 12),
-                  onPressed: _refreshing
-                      ? null
-                      : () async {
-                          _searchController.clear();
-                          if (_filters.query.isNotEmpty) await _search();
-                        },
+                  onPressed: () async {
+                    _searchController.clear();
+                    if (_filters.query.isNotEmpty) await _search();
+                  },
                 ),
               ),
       ),
@@ -219,10 +259,7 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        FilledButton(
-          onPressed: _refreshing ? null : _search,
-          child: const Text('搜索'),
-        ),
+        FilledButton(onPressed: _search, child: const Text('搜索')),
         Button(
           onPressed: _refreshing ? null : _showFilters,
           child: Row(
@@ -235,10 +272,7 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
           ),
         ),
         if (!_filters.isDefault)
-          Button(
-            onPressed: _refreshing ? null : _reset,
-            child: const Text('重置'),
-          ),
+          Button(onPressed: _reset, child: const Text('重置')),
       ],
     );
 
@@ -314,7 +348,14 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
                           ? '暂无 RSS 数据'
                           : '未找到匹配的资源'),
               ),
-              if (!_loadFailed && !_filters.isDefault) ...[
+              if (_loadFailed) ...[
+                const SizedBox(height: 12),
+                Button(
+                  onPressed: () => refresh(notify: false),
+                  child: const Text('重试站点请求'),
+                ),
+              ],
+              if (!_filters.isDefault) ...[
                 const SizedBox(height: 12),
                 Button(onPressed: _reset, child: const Text('重置搜索与筛选')),
               ],

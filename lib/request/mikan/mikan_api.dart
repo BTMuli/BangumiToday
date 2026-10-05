@@ -72,6 +72,39 @@ class BtrMikanApi {
     }
   }
 
+  /// 搜索站点发布的资源，不受首页或个人订阅 RSS 的范围限制。
+  Future<BTResponse<List<RssItem>>> searchRSS(String query) async {
+    try {
+      var resp = await client.dio.get<String>(
+        '/RSS/Search',
+        queryParameters: {'searchstr': query.trim()},
+        options: Options(
+          responseType: ResponseType.plain,
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 20),
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 300,
+        ),
+      );
+      return BTResponse.success(data: RssFeed.parse(resp.data ?? '').items);
+    } on DioException catch (error) {
+      var status = error.response?.statusCode;
+      BTLogTool.error('Mikan 资源搜索失败：$status ${error.type}');
+      return BTResponse.error(
+        code: status ?? 666,
+        message: 'Mikan 站点搜索失败，请稍后重试',
+        data: null,
+      );
+    } on Exception catch (error) {
+      BTLogTool.error('Mikan 搜索 RSS 解析失败：$error');
+      return BTResponse.error(
+        code: 666,
+        message: '无法读取 Mikan 搜索结果，请稍后重试',
+        data: null,
+      );
+    }
+  }
+
   /// 获取用户的 RSS
   Future<BTResponse> getUserRSS(String token) async {
     try {

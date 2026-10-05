@@ -114,6 +114,8 @@ class AnibtAPI {
         options: Options(
           responseType: ResponseType.plain,
           listFormat: ListFormat.multi,
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 20),
           validateStatus: (status) =>
               status != null && status >= 200 && status < 300,
         ),
@@ -124,7 +126,14 @@ class AnibtAPI {
       BTLogTool.error('Failed to load anibt RSS ${e.response?.data}');
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
-        message: 'Failed to load anibt RSS',
+        message:
+            e.response?.statusCode == 503 &&
+                e.response?.data is String &&
+                (e.response!.data as String).contains(
+                  'Search backend unavailable',
+                )
+            ? 'AniBT 站点搜索暂不可用，请稍后重试'
+            : 'AniBT 资源请求失败，请稍后重试',
         data: e.response?.data,
       );
     } on Exception catch (e) {

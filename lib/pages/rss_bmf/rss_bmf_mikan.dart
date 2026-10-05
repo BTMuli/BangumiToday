@@ -34,6 +34,13 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
     with AutomaticKeepAliveClientMixin {
   /// 请求客户端
   final BtrMikanApi mikanAPI = BtrMikanApi();
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+  List<RssItem> _searchItems = [];
+  bool _searchLoaded = false;
+  int _requestId = 0;
+
+  bool get _isSearch => _query.isNotEmpty;
 
   /// RSS 数据
   List<RssItem> rssItems = [];
@@ -67,6 +74,12 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
     unawaited(Future<void>.delayed(Duration.zero, init));
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   /// 刷新
   Future<void> refreshMikanRSS() => _refreshRSS(personal: false);
 
@@ -74,21 +87,28 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
   Future<void> refreshUserRSS() => _refreshRSS(personal: true);
 
   Future<void> _refreshRSS({required bool personal, bool notify = true}) async {
-    if (!mounted || _refreshing) return;
+    if (!mounted) return;
+    var requestId = ++_requestId;
+    var query = _query;
     setState(() {
       _refreshing = true;
       _loadFailed = false;
     });
-    var resGet = personal
+    var resGet = query.isNotEmpty
+        ? await mikanAPI.searchRSS(query)
+        : personal
         ? await mikanAPI.getUserRSS(token)
         : await mikanAPI.getClassicRSS();
-    if (!mounted) return;
+    if (!mounted || requestId != _requestId) return;
     var success = resGet.code == 0 && resGet.data != null;
     setState(() {
       _refreshing = false;
       _loadFailed = !success;
       if (success) {
-        if (personal) {
+        if (query.isNotEmpty) {
+          _searchItems = resGet.data!;
+          _searchLoaded = true;
+        } else if (personal) {
           userItems = resGet.data!;
           _userLoaded = true;
         } else {
@@ -102,8 +122,46 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
       return;
     }
     if (notify) {
-      await BtInfobar.success(context, personal ? '已刷新用户列表' : '已刷新 Mikan 列表');
+      await BtInfobar.success(
+        context,
+        query.isNotEmpty
+            ? '已刷新 Mikan 搜索结果'
+            : personal
+            ? '已刷新用户列表'
+            : '已刷新 Mikan 列表',
+      );
     }
+  }
+
+  Future<void> _search() async {
+    if (!_initialized) return;
+    var query = _searchController.text.trim();
+    setState(() {
+      if (_query != query) {
+        _searchItems = [];
+        _searchLoaded = false;
+      }
+      _query = query;
+    });
+    await _refreshRSS(personal: useUserRSS, notify: false);
+  }
+
+  Future<void> _clearSearch() async {
+    _searchController.clear();
+    if (_isSearch) await _search();
+  }
+
+  Future<void> _reloadMirror() async {
+    if (!_initialized) return;
+    setState(() {
+      rssItems = [];
+      userItems = [];
+      _searchItems = [];
+      _mikanLoaded = false;
+      _userLoaded = false;
+      _searchLoaded = false;
+    });
+    await _refreshRSS(personal: useUserRSS, notify: false);
   }
 
   /// 初始化
@@ -147,8 +205,10 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
     }
     await BtsMikanCredential().writeToken(parsed);
     if (!mounted) return;
+    _searchController.clear();
     setState(() {
       token = parsed;
+      _query = '';
       userItems = [];
       _userLoaded = false;
       useUserRSS = true;
@@ -158,13 +218,17 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
   }
 
   Future<void> _switchFeed(bool personal) async {
-    if (_refreshing || !_initialized || useUserRSS == personal) return;
+    if (!_initialized || (!_isSearch && useUserRSS == personal)) return;
     if (personal && token.isEmpty) {
       await tryEditToken();
       return;
     }
+    _searchController.clear();
     setState(() {
+      ++_requestId;
+      _query = '';
       useUserRSS = personal;
+      _refreshing = false;
       _loadFailed = false;
     });
     if (personal && !_userLoaded) {
@@ -172,6 +236,43 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
     } else if (!personal && !_mikanLoaded) {
       await refreshMikanRSS();
     }
+  }
+
+  Widget _buildSearch() {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _searchController,
+      builder: (context, value, _) => TextBox(
+        controller: _searchController,
+        enabled: _initialized,
+        placeholder: '搜索 Mikan 全站资源标题、字幕组或格式',
+        textInputAction: TextInputAction.search,
+        prefix: const Padding(
+          padding: EdgeInsets.only(left: 10),
+          child: Icon(FluentIcons.search, size: 14),
+        ),
+        suffix: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (value.text.isNotEmpty || _isSearch)
+              Tooltip(
+                message: '清除搜索，返回更新列表',
+                child: IconButton(
+                  icon: const Icon(FluentIcons.clear, size: 12),
+                  onPressed: _initialized ? _clearSearch : null,
+                ),
+              ),
+            Tooltip(
+              message: '搜索 Mikan 全站（Enter）',
+              child: IconButton(
+                icon: const Icon(FluentIcons.search, size: 14),
+                onPressed: _initialized ? _search : null,
+              ),
+            ),
+          ],
+        ),
+        onSubmitted: (_) => unawaited(_search()),
+      ),
+    );
   }
 
   Widget buildTitle() {
@@ -185,7 +286,14 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
               width: 30,
               height: 30,
             ),
-            onPressed: () => launchUrlString(mikanRss),
+            onPressed: () => launchUrlString(
+              _isSearch
+                  ? Uri.parse(mikanRss)
+                        .resolve('/Home/Search')
+                        .replace(queryParameters: {'searchstr': _query})
+                        .toString()
+                  : mikanRss,
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -195,7 +303,13 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
             children: [
               Text('Mikan', style: BTTypography.title(context)),
               Text(
-                useUserRSS ? '个人订阅的最新资源' : '蜜柑计划最近发布的资源',
+                _isSearch
+                    ? '全站搜索：$_query'
+                    : useUserRSS
+                    ? '个人订阅的最新资源'
+                    : '蜜柑计划最近发布的资源',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: BTTypography.caption(context),
               ),
             ],
@@ -207,22 +321,21 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
 
   Widget buildContent(List<RssItem> data) {
     return RssReleaseList(
-      key: ValueKey(useUserRSS ? 'mikan-personal' : 'mikan-classic'),
       title: buildTitle(),
+      searchControl: _buildSearch(),
+      useLocalFilters: false,
+      isSearch: _isSearch,
+      onClearSearch: _clearSearch,
       refreshEnabled: _initialized,
       leadingControls: [
         ToggleButton(
-          checked: !useUserRSS,
-          onChanged: _refreshing || !_initialized
-              ? null
-              : (_) => _switchFeed(false),
+          checked: !_isSearch && !useUserRSS,
+          onChanged: !_initialized ? null : (_) => _switchFeed(false),
           child: const Text('站点更新'),
         ),
         ToggleButton(
-          checked: useUserRSS,
-          onChanged: _refreshing || !_initialized
-              ? null
-              : (_) => _switchFeed(true),
+          checked: !_isSearch && useUserRSS,
+          onChanged: !_initialized ? null : (_) => _switchFeed(true),
           child: const Text('个人订阅'),
         ),
       ],
@@ -242,7 +355,13 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
       items: data,
       source: RssReleaseSource.mikan,
       refreshing: _refreshing,
-      loaded: (useUserRSS ? _userLoaded : _mikanLoaded) || _loadFailed,
+      loaded:
+          (_isSearch
+              ? _searchLoaded
+              : useUserRSS
+              ? _userLoaded
+              : _mikanLoaded) ||
+          _loadFailed,
       loadFailed: _loadFailed,
       onRefresh: useUserRSS ? refreshUserRSS : refreshMikanRSS,
     );
@@ -252,9 +371,18 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    ref.listen(appStoreProvider.select((store) => store.mikanRss), (_, _) {
+      unawaited(_reloadMirror());
+    });
     return ScaffoldPage(
       padding: EdgeInsets.zero,
-      content: buildContent(useUserRSS ? userItems : rssItems),
+      content: buildContent(
+        _isSearch
+            ? _searchItems
+            : useUserRSS
+            ? userItems
+            : rssItems,
+      ),
     );
   }
 }

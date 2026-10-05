@@ -30,6 +30,10 @@ class RssReleaseList extends ConsumerStatefulWidget {
 
   /// 站点已完成筛选时，直接展示返回的资源。
   final bool useLocalFilters;
+
+  /// 区分空的站点搜索结果和空的更新列表。
+  final bool isSearch;
+  final Future<void> Function()? onClearSearch;
   final bool refreshEnabled;
   final List<RssItem> items;
   final RssReleaseSource source;
@@ -45,6 +49,8 @@ class RssReleaseList extends ConsumerStatefulWidget {
     this.sourceControls = const [],
     this.searchControl,
     this.useLocalFilters = true,
+    this.isSearch = false,
+    this.onClearSearch,
     this.refreshEnabled = true,
     required this.items,
     required this.source,
@@ -601,7 +607,8 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
   Widget _buildEmptyState(BuildContext context) {
     var initialLoad = !widget.loaded && _releases.isEmpty;
     var loading = widget.refreshing || initialLoad;
-    var filtered = _releases.isNotEmpty;
+    var filtered = widget.useLocalFilters && _releases.isNotEmpty;
+    var noMatches = filtered || widget.isSearch;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -610,7 +617,7 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
             const ProgressRing()
           else
             Icon(
-              filtered ? FluentIcons.search : MdiIcons.rss,
+              noMatches ? FluentIcons.search : MdiIcons.rss,
               size: 36,
               color: BTColors.textTertiary(context),
             ),
@@ -618,10 +625,10 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
           Text(
             loading
                 ? '正在加载资源…'
-                : filtered
-                ? '没有匹配的资源'
                 : widget.loadFailed
                 ? '资源加载失败'
+                : noMatches
+                ? '没有匹配的资源'
                 : '暂无 RSS 资源',
             style: BTTypography.subtitle(context),
           ),
@@ -631,6 +638,13 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
               onPressed: filtered ? _clearFilters : widget.onRefresh,
               child: Text(filtered ? '清除筛选' : '重新加载'),
             ),
+            if (widget.isSearch && widget.onClearSearch != null) ...[
+              const SizedBox(height: 8),
+              Button(
+                onPressed: widget.onClearSearch,
+                child: const Text('清除搜索'),
+              ),
+            ],
           ],
         ],
       ),

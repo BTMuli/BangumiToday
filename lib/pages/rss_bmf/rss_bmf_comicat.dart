@@ -200,6 +200,8 @@ class _RssBmfComicatState extends State<RssBmfComicat>
       title: buildTitle(),
       searchControl: _buildSearch(),
       useLocalFilters: false,
+      isSearch: _feed.isSearch,
+      onClearSearch: _clearSearch,
       sourceControls: [
         for (var category in ComicatRssCategory.values)
           ToggleButton(
