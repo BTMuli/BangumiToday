@@ -1,6 +1,5 @@
 // Package imports:
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../core/services/download_directory.dart';
 import '../../core/services/download_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../models/rss/rss.dart';
@@ -108,7 +108,7 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
     }
     _downloading.value = {..._downloading.value, release.key};
     try {
-      var directory = await getDirectoryPath();
+      var directory = await pickDownloadDirectory();
       if (!mounted || directory == null || directory.isEmpty) return;
       var downloadUrl = _sourceUrl(release.downloadUrl!);
       var store = ref.read(btDownloadStoreProvider.notifier);

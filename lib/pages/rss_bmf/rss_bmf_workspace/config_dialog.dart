@@ -201,7 +201,9 @@ class _BmfConfigDialogState extends ConsumerState<_BmfConfigDialog> {
             suffix: IconButton(
               icon: BtIcon(FluentIcons.folder_open, size: 14),
               onPressed: () async {
-                var directory = await getDirectoryPath();
+                var directory = await pickDownloadDirectory(
+                  currentPath: _download.text,
+                );
                 if (directory != null && mounted) {
                   setState(() => _download.text = directory);
                 }

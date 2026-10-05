@@ -1,11 +1,11 @@
 // Package imports:
-import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../core/services/download_directory.dart';
 import '../../core/services/download_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/tool_func.dart';
@@ -116,7 +116,7 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
     _downloading.value = true;
     updateKeepAlive();
     try {
-      var saveDir = await getDirectoryPath();
+      var saveDir = await pickDownloadDirectory();
       if (!mounted || saveDir == null || saveDir.isEmpty) return;
 
       if (magnet != null) {

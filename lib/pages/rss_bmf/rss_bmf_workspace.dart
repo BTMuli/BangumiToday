@@ -6,7 +6,6 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 
 // Package imports:
-import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import '../../core/cache/subject_cache.dart';
 import '../../core/services/bmf_rss_service.dart';
+import '../../core/services/download_directory.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/rss_date.dart';
