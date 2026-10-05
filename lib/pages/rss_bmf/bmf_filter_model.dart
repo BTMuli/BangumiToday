@@ -94,15 +94,22 @@ class BmfQuarter {
 
 /// 配置、季度、搜索先组合，再统计快捷筛选数量；排序使用独立的数据维度。
 class BmfFilterModel {
+  BmfFilterModel({DateTime? now}) {
+    selectCurrentQuarter(now: now);
+  }
+
   List<AppBmfModel> filteredList = [];
   BmfFilterStats filterStats = const BmfFilterStats();
   int totalCount = 0;
   BmfConfigurationFilter configurationFilter = BmfConfigurationFilter.all;
   BmfAssociationFilter associationFilter = BmfAssociationFilter.all;
   BmfUpdateFilter updateFilter = BmfUpdateFilter.all;
-  BmfQuarter selectedQuarter = BmfQuarter.all;
+
+  /// null 表示全选，空集合表示未选任何项。
+  Set<int>? selectedYears;
+  Set<int>? selectedSeasons;
   BmfSortOrder sortOrder = BmfSortOrder.attention;
-  List<BmfQuarter> quarterOptions = [];
+  List<int> yearOptions = [];
   String searchQuery = '';
   final Map<int, BmfSubjectData> subjectData = {};
   final Map<int, int> pendingCounts = {};
@@ -149,14 +156,31 @@ class BmfFilterModel {
       configurationFilter != BmfConfigurationFilter.all ||
       associationFilter != BmfAssociationFilter.all ||
       updateFilter != BmfUpdateFilter.all ||
-      selectedQuarter != BmfQuarter.all ||
+      selectedYears != null ||
+      selectedSeasons != null ||
       searchQuery.trim().isNotEmpty;
+
+  bool get hasOnlyUnknownYear =>
+      selectedYears?.length == 1 &&
+      selectedYears!.contains(BmfQuarter.unknown.year);
+
+  void selectYears(Set<int>? years) {
+    selectedYears = years == null ? null : Set.of(years);
+    if (hasOnlyUnknownYear) selectedSeasons = null;
+  }
+
+  void selectCurrentQuarter({DateTime? now}) {
+    var current = BmfQuarter.current(now: now);
+    selectedYears = {current.year};
+    selectedSeasons = {current.quarter};
+  }
 
   void resetFilters() {
     configurationFilter = BmfConfigurationFilter.all;
     associationFilter = BmfAssociationFilter.all;
     updateFilter = BmfUpdateFilter.all;
-    selectedQuarter = BmfQuarter.all;
+    selectedYears = null;
+    selectedSeasons = null;
     searchQuery = '';
   }
 
@@ -165,16 +189,20 @@ class BmfFilterModel {
     var at = now ?? DateTime.now();
     var today = DateTime(at.year, at.month, at.day);
     var current = BmfQuarter.current(now: at);
-    var quarters = bmfList.map(quarterFor).toSet()..add(current);
+    var years = bmfList.map((item) => quarterFor(item).year).toSet()
+      ..add(current.year);
     // 保留当前选择，让删除最后一条结果后的筛选仍可清除。
-    if (selectedQuarter != BmfQuarter.all) quarters.add(selectedQuarter);
-    quarterOptions = quarters.toList()
-      ..sort((a, b) => b.index.compareTo(a.index));
+    years.addAll(selectedYears ?? const {});
+    yearOptions = years.toList()..sort((a, b) => b.compareTo(a));
 
     var queries = searchQuery.trim().toLowerCase().split(RegExp(r'\s+'));
     var scoped = bmfList.where((item) {
-      if (selectedQuarter != BmfQuarter.all &&
-          quarterFor(item) != selectedQuarter) {
+      var quarter = quarterFor(item);
+      if (selectedYears != null && !selectedYears!.contains(quarter.year)) {
+        return false;
+      }
+      if (selectedSeasons != null &&
+          !selectedSeasons!.contains(quarter.quarter)) {
         return false;
       }
       var searchText = [

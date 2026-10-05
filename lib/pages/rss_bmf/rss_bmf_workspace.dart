@@ -40,6 +40,7 @@ import 'bmf_subject_data.dart';
 part 'rss_bmf_workspace/config_dialog.dart';
 part 'rss_bmf_workspace/recovery_dialog.dart';
 part 'rss_bmf_workspace/header.dart';
+part 'rss_bmf_workspace/period_filter.dart';
 part 'rss_bmf_workspace/workspace.dart';
 
 class RssBmfWorkspace extends ConsumerStatefulWidget {

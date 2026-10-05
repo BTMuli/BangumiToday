@@ -193,7 +193,8 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
             value: BmfConfigurationFilter.incomplete,
           ),
           const SizedBox(width: 8),
-          SizedBox(width: 160, child: _buildQuarterFilter()),
+          _buildYearFilter(),
+          _buildQuarterFilter(),
           Tooltip(
             message: _filterModel.sortOrder.description,
             child: SizedBox(
@@ -314,9 +315,8 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
                     Row(
                       children: [
                         Button(
-                          onPressed: () => change(() {
-                            _filterModel.selectedQuarter = BmfQuarter.current();
-                          }),
+                          onPressed: () =>
+                              change(_filterModel.selectCurrentQuarter),
                           child: const Text('只看本季'),
                         ),
                         const Spacer(),
@@ -375,24 +375,44 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
     );
   }
 
+  Widget _buildYearFilter() {
+    return Tooltip(
+      message: '按首播年份筛选',
+      child: _BmfPeriodFilter(
+        title: '年份',
+        currentValue: BmfQuarter.current().year,
+        currentLabel: '本年',
+        selectedValues: _filterModel.selectedYears,
+        options: {
+          for (var year in _filterModel.yearOptions)
+            year: year == BmfQuarter.unknown.year ? '日期未知' : '$year',
+        },
+        columns: 3,
+        maxWidth: 280,
+        maxHeight: 280,
+        onChanged: (values) =>
+            _changeListOptions(() => _filterModel.selectYears(values)),
+      ),
+    );
+  }
+
   Widget _buildQuarterFilter() {
     return Tooltip(
       message: '按首播季度筛选；3、6、9、12 月 25 日起首播归入下一季',
-      child: BtSelect<BmfQuarter>(
-        value: _filterModel.selectedQuarter,
-        isExpanded: true,
-        items: [
-          const ComboBoxItem(value: BmfQuarter.all, child: Text('全部季度')),
-          ..._filterModel.quarterOptions.map(
-            (quarter) =>
-                ComboBoxItem(value: quarter, child: Text(quarter.label)),
-          ),
-        ],
-        onChanged: (value) {
-          if (value != null) {
-            _changeListOptions(() => _filterModel.selectedQuarter = value);
-          }
-        },
+      child: _BmfPeriodFilter(
+        title: '季度',
+        currentValue: BmfQuarter.current().quarter,
+        currentLabel: '本季',
+        selectedValues: _filterModel.selectedSeasons,
+        options: const {1: '冬季', 2: '春季', 3: '夏季', 4: '秋季'},
+        columns: 2,
+        maxWidth: 200,
+        maxHeight: 200,
+        onChanged: _filterModel.hasOnlyUnknownYear
+            ? null
+            : (values) => _changeListOptions(
+                () => _filterModel.selectedSeasons = values,
+              ),
       ),
     );
   }
