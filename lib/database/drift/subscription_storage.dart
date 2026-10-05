@@ -164,10 +164,18 @@ class SubscriptionStorage {
     required Iterable<int> subscriptionIds,
     required String xml,
     required int at,
+    bool fromCache = false,
+    RssFeed? parsedFeed,
   }) async {
-    var feed = RssFeed.parse(xml);
+    var feed = parsedFeed ?? RssFeed.parse(xml);
     var currentKeys = feed.items.map(rssItemKey).toSet();
     return db.transaction(() async {
+      if (fromCache) {
+        var currentCache = await readCache(feedKey);
+        if (currentCache?.data != xml || currentCache?.lastSuccessAt != at) {
+          return <SubscriptionFeedUpdate>[];
+        }
+      }
       var updates = <SubscriptionFeedUpdate>[];
       for (var id in subscriptionIds.toSet()) {
         var current = await read(id);
@@ -176,6 +184,7 @@ class SubscriptionStorage {
             !current.canRefresh) {
           continue;
         }
+        if (fromCache && current.hasBaseline) continue;
         var pending = current.pendingItemKeys;
         var known = current.knownItemKeys;
         var newItems = current.hasBaseline
@@ -197,7 +206,7 @@ class SubscriptionStorage {
         );
         updates.add(SubscriptionFeedUpdate((await read(id))!, newItems));
       }
-      if (updates.isNotEmpty) {
+      if (updates.isNotEmpty && !fromCache) {
         await db
             .into(db.appRssCache)
             .insertOnConflictUpdate(
@@ -310,11 +319,13 @@ class SubscriptionStorage {
           original['pendingItems'] as String? ?? '[]',
         );
         var pending = target.pendingItemKeys..addAll(keys);
+        var known = target.knownItemKeys..addAll(keys);
         await (db.update(
           db.appSubscription,
         )..where((s) => s.id.equals(target.id))).write(
           AppSubscriptionCompanion(
             pendingItems: Value(jsonEncode(pending.toList()..sort())),
+            knownItems: Value(jsonEncode(known.toList()..sort())),
           ),
         );
         candidates.add(target.bmfId);

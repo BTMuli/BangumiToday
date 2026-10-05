@@ -16,6 +16,7 @@ import '../../store/nav_store.dart';
 import '../../tools/log_tool.dart';
 import '../container.dart';
 import '../utils/async_pool.dart';
+import '../utils/keyed_request_pool.dart';
 import 'notification_service.dart';
 import 'rss_freshness.dart';
 
@@ -82,7 +83,9 @@ class BmfRssService {
   final BtrMikanApi _api = BtrMikanApi();
   final AsyncSingleFlight _startGuard = AsyncSingleFlight();
   final AsyncSingleFlight _bulkRefreshGuard = AsyncSingleFlight();
-  final Map<String, Future<BTResponse>> _requests = {};
+  final KeyedRequestPool<BTResponse> _requests = KeyedRequestPool(
+    maxConcurrent: defaultConcurrency,
+  );
   final StreamController<BmfRssUpdateEvent> _updateController =
       StreamController<BmfRssUpdateEvent>.broadcast();
   final StreamController<BmfRssStatusEvent> _statusController =
@@ -90,6 +93,7 @@ class BmfRssService {
   Timer? _refreshTimer;
   bool _isInitialized = false;
   bool _cancelRequested = false;
+  int _refreshEpoch = 0;
   RssRefreshMetrics? lastRefreshMetrics;
 
   SubscriptionStorage get _storage => appSubscriptionStorage;
@@ -122,7 +126,7 @@ class BmfRssService {
   void stop() {
     _refreshTimer?.cancel();
     _refreshTimer = null;
-    _cancelRequested = true;
+    cancelPendingRefresh();
     _isInitialized = false;
   }
 
@@ -136,6 +140,7 @@ class BmfRssService {
           .where((s) => s.canRefresh && (!respectAutoUpdate || s.autoUpdate))
           .toList();
       var caches = await _storage.readCaches();
+      var parsedCaches = <String, RssFeed>{};
       var groups = <String, List<AppSubscriptionModel>>{};
       var cacheHits = 0;
       var backoff = 0;
@@ -150,6 +155,11 @@ class BmfRssService {
               [subscription.id],
               cache.data!,
               cache.lastSuccessAt,
+              fromCache: true,
+              parsedFeed: parsedCaches.putIfAbsent(
+                subscription.feedKey,
+                () => RssFeed.parse(cache.data!),
+              ),
             );
             cacheHits++;
             continue;
@@ -214,14 +224,11 @@ class BmfRssService {
     var first = group.first;
     var ids = group.map((s) => s.id).toList();
     try {
-      var request = _requests[first.feedKey];
-      if (request == null) {
-        request = _fetchWithRetry(first.url);
-        _requests[first.feedKey] = request;
-        request = request.whenComplete(() => _requests.remove(first.feedKey));
-        _requests[first.feedKey] = request;
-      }
-      var response = await request;
+      var epoch = _refreshEpoch;
+      var response = await _requests.run(
+        first.feedKey,
+        () => _fetchWithRetry(first.url, epoch),
+      );
       if (response.code != 0 || response.data is! String) {
         throw const FormatException('RSS request failed');
       }
@@ -233,6 +240,8 @@ class BmfRssService {
         DateTime.now().millisecondsSinceEpoch,
       );
       return true;
+    } on RequestPoolCancelled {
+      return false;
     } catch (error) {
       BTLogTool.warn(
         'RSS 刷新失败：subscription=${first.id}，'
@@ -253,16 +262,21 @@ class BmfRssService {
     String url,
     List<int> ids,
     String xml,
-    int at,
-  ) async {
+    int at, {
+    bool fromCache = false,
+    RssFeed? parsedFeed,
+  }) async {
+    var feed = parsedFeed ?? RssFeed.parse(xml);
     var updates = await _storage.applyFeed(
       feedKey: feedKey,
       requestUrl: url,
       subscriptionIds: ids,
       xml: xml,
       at: at,
+      fromCache: fromCache,
+      parsedFeed: feed,
     );
-    var items = RssFeed.parse(xml).items;
+    var items = feed.items;
     var notifications = <String>[];
     var itemCount = 0;
     for (var update in updates) {
@@ -327,7 +341,8 @@ class BmfRssService {
     );
   }
 
-  Future<BTResponse> _fetchWithRetry(String url) async {
+  Future<BTResponse> _fetchWithRetry(String url, int epoch) async {
+    if (epoch != _refreshEpoch) throw const RequestPoolCancelled();
     var response = await _api.getCustomRSS(
       url,
       preserveRequestUrl: true,
@@ -336,13 +351,14 @@ class BmfRssService {
     );
     for (
       var attempt = 1;
-      response.code != 0 && attempt < defaultMaxAttempts && !_cancelRequested;
+      response.code != 0 && attempt < defaultMaxAttempts;
       attempt++
     ) {
+      if (epoch != _refreshEpoch) throw const RequestPoolCancelled();
       await Future<void>.delayed(
         Duration(milliseconds: 1000 * (1 << attempt) + Random().nextInt(300)),
       );
-      if (_cancelRequested) break;
+      if (epoch != _refreshEpoch) throw const RequestPoolCancelled();
       response = await _api.getCustomRSS(
         url,
         preserveRequestUrl: true,
@@ -350,12 +366,19 @@ class BmfRssService {
         receiveTimeout: defaultTimeout,
       );
     }
+    if (response.code != 0 && epoch != _refreshEpoch) {
+      throw const RequestPoolCancelled();
+    }
     return response;
   }
 
   Future<void> refreshNow() =>
       _refreshAll(respectAutoUpdate: false, force: true);
-  void cancelPendingRefresh() => _cancelRequested = true;
+  void cancelPendingRefresh() {
+    _cancelRequested = true;
+    _refreshEpoch++;
+    _requests.cancelPending();
+  }
 
   Future<bool> refreshSubscription(int id) async {
     var subscription = await _storage.read(id);

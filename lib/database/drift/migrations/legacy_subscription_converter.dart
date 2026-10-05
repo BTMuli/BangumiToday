@@ -209,9 +209,17 @@ class LegacySubscriptionConverter {
         return value;
       }
 
-      var success = usable ? time('updated') : 0;
+      var updated = time('updated');
+      var success = usable ? updated : 0;
       var failed = time('lastFailed');
-      var attempt = success > failed ? success : failed;
+      var attempt = updated > failed ? updated : failed;
+      var previousCache = cacheByKey[identity.feedKey];
+      if (previousCache != null) {
+        var previousAttempt = previousCache['lastAttemptAt'] as int;
+        var previousFailure = previousCache['lastFailedAt'] as int;
+        if (previousAttempt > attempt) attempt = previousAttempt;
+        if (previousFailure > failed) failed = previousFailure;
+      }
       if (failed <= success) failed = 0;
       var ttl = row['ttl'];
       var ttlMinutes = ttl is int && ttl > 0 ? ttl : 0;
@@ -262,6 +270,14 @@ class LegacySubscriptionConverter {
       result.rssDisposition[url] = reasons.isEmpty
           ? 'converted'
           : 'convertedAndRecovery';
+    }
+    for (var subscription in result.subscriptions) {
+      subscription['knownItems'] = jsonEncode(
+        {
+          ..._keys(subscription['knownItems']),
+          ..._keys(subscription['pendingItems']),
+        }.toList()..sort(),
+      );
     }
     result.caches.addAll(cacheByKey.values);
     return result;
