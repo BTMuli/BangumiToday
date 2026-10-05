@@ -20,6 +20,9 @@ extension _SubscriptionMigration on BtDatabase {
           }
         } else if (column['primaryKey'] == true && matches.single['pk'] == 0) {
           throw StateError('旧数据库主键异常：$table.${column['name']}');
+        } else if ((matches.single['type'] as String).toUpperCase() !=
+            (column['ddl'] as String).split(' ').first) {
+          throw StateError('旧数据库字段类型异常：$table.${column['name']}');
         }
       }
       if (table == 'AppBmf' || table == 'AppRss') {
@@ -295,6 +298,23 @@ extension _SubscriptionMigration on BtDatabase {
   }
 
   Future<void> _validateV2() async {
+    const subscriptionTables = {
+      'AppBmf',
+      'AppSubscription',
+      'AppRssCache',
+      'AppMigrationRecovery',
+    };
+    String normalized(String value) =>
+        value.replaceAll(RegExp(r'[\s"`]'), '').toLowerCase();
+    String? normalizedDefault(String? value) {
+      if (value == null) return null;
+      var result = value.trim();
+      while (result.startsWith('(') && result.endsWith(')')) {
+        result = result.substring(1, result.length - 1).trim();
+      }
+      return result.toUpperCase() == 'NULL' ? null : result;
+    }
+
     for (var stale in const ['AppRss', 'AppBmf_v2']) {
       if ((await _rows('PRAGMA table_info("$stale")')).isNotEmpty) {
         throw StateError('新版数据库存在旧表或残留迁移表');
@@ -303,24 +323,79 @@ extension _SubscriptionMigration on BtDatabase {
     for (var table in allTables) {
       var actual = await _rows('PRAGMA table_info("${table.actualTableName}")');
       if (actual.isEmpty) throw StateError('新版数据库缺表，拒绝自动修复');
-      if (const {
-            'AppBmf',
-            'AppSubscription',
-            'AppRssCache',
-            'AppMigrationRecovery',
-          }.contains(table.actualTableName) &&
-          actual.length != table.$columns.length) {
+      var subscriptionTable = subscriptionTables.contains(
+        table.actualTableName,
+      );
+      if (subscriptionTable && actual.length != table.$columns.length) {
         throw StateError('新版订阅表含有未支持的字段');
+      }
+      var schema = await customSelect(
+        'SELECT sql FROM sqlite_master WHERE name = ?',
+        variables: [Variable(table.actualTableName)],
+      ).getSingle();
+      var tableSql = normalized(schema.read<String>('sql'));
+      var actualPrimary = actual
+          .where((c) => c['pk'] != 0)
+          .map((c) => c['name'] as String)
+          .toSet();
+      var expectedPrimary = table.$primaryKey.map((c) => c.$name).toSet();
+      var historicalNullable = <String>[];
+      if (actualPrimary.length != expectedPrimary.length ||
+          !actualPrimary.containsAll(expectedPrimary) ||
+          table.$columns.any((c) => c.hasAutoIncrement) &&
+              !tableSql.contains('autoincrement')) {
+        throw StateError('新版数据库主键或自增约束异常');
       }
       for (var column in table.$columns) {
         var matches = actual.where((c) => c['name'] == column.$name);
         if (matches.length != 1) throw StateError('新版数据库缺列，拒绝自动修复');
         var row = matches.single;
         var expectedType = column.type == DriftSqlType.int ? 'INTEGER' : 'TEXT';
+        var nullableMismatch =
+            !column.$nullable &&
+            row['notnull'] != 1 &&
+            !(row['pk'] != 0 &&
+                expectedType == 'INTEGER' &&
+                expectedPrimary.length == 1);
+        // Legacy business tables used nullable declarations for required data.
+        // Keep their DDL and verify values without rebuilding these tables.
+        if (!subscriptionTable && nullableMismatch) {
+          historicalNullable.add(column.$name);
+          nullableMismatch = false;
+        }
         if ((row['type'] as String).toUpperCase() != expectedType ||
-            (!column.$nullable && row['notnull'] != 1 && row['pk'] == 0) ||
+            nullableMismatch ||
             (table.$primaryKey.contains(column) && row['pk'] == 0)) {
-          throw StateError('新版数据库列约束异常，拒绝写入');
+          throw StateError(
+            '新版数据库列约束异常：'
+            '${table.actualTableName}.${column.$name}，拒绝写入',
+          );
+        }
+        if (subscriptionTable) {
+          var context = GenerationContext.fromDb(
+            this,
+            supportsVariables: false,
+          );
+          column.defaultValue?.writeInto(context);
+          var expectedDefault = column.defaultValue == null
+              ? null
+              : context.sql;
+          if ((column.$nullable && row['notnull'] != 0) ||
+              normalizedDefault(row['dflt_value'] as String?) !=
+                  normalizedDefault(expectedDefault)) {
+            throw StateError('新版订阅表默认值或可空约束异常');
+          }
+        }
+      }
+      if (historicalNullable.isNotEmpty) {
+        var predicate = historicalNullable
+            .map((c) => '"$c" IS NULL')
+            .join(' OR ');
+        if ((await _rows(
+          'SELECT 1 FROM "${table.actualTableName}" '
+          'WHERE $predicate LIMIT 1',
+        )).isNotEmpty) {
+          throw StateError('历史业务表包含缺失的必填数据：${table.actualTableName}');
         }
       }
     }
@@ -346,8 +421,6 @@ extension _SubscriptionMigration on BtDatabase {
         "json_valid(candidateBmfIds) AND json_type(candidateBmfIds) = 'array'",
       ],
     };
-    String normalized(String value) =>
-        value.replaceAll(RegExp(r'[\s"`]'), '').toLowerCase();
     for (var entry in checks.entries) {
       var row = await customSelect(
         'SELECT sql FROM sqlite_master WHERE name = ?',
@@ -359,15 +432,19 @@ extension _SubscriptionMigration on BtDatabase {
       )) {
         throw StateError('新版数据库 CHECK 约束缺失');
       }
+      if (RegExp(r'check\(').allMatches(sql).length != entry.value.length) {
+        throw StateError('新版订阅表含有未支持的 CHECK 约束');
+      }
     }
     var foreignKeys = await _rows('PRAGMA foreign_key_list(AppSubscription)');
-    if (!foreignKeys.any(
-      (f) =>
-          f['table'] == 'AppBmf' &&
-          f['from'] == 'bmfId' &&
-          f['to'] == 'id' &&
-          f['on_delete'] == 'CASCADE',
-    )) {
+    if (foreignKeys.length != 1 ||
+        !foreignKeys.any(
+          (f) =>
+              f['table'] == 'AppBmf' &&
+              f['from'] == 'bmfId' &&
+              f['to'] == 'id' &&
+              f['on_delete'] == 'CASCADE',
+        )) {
       throw StateError('新版数据库订阅外键缺失');
     }
     for (var entry in const {
@@ -377,18 +454,32 @@ extension _SubscriptionMigration on BtDatabase {
     }.entries) {
       var indexes = await _rows('PRAGMA index_list("${entry.key}")');
       var found = false;
-      for (var index in indexes.where((i) => i['unique'] == 1)) {
+      for (var index in indexes.where(
+        (i) => i['unique'] == 1 && i['partial'] == 0,
+      )) {
         var columns = await _rows('PRAGMA index_info("${index['name']}")');
+        var details = await _rows('PRAGMA index_xinfo("${index['name']}")');
         if (jsonEncode(columns.map((c) => c['name']).toList()) ==
-            jsonEncode(entry.value)) {
+                jsonEncode(entry.value) &&
+            details
+                .where((c) => c['key'] == 1)
+                .every((c) => c['coll'] == 'BINARY')) {
           found = true;
         }
       }
       if (!found) throw StateError('新版数据库唯一约束缺失');
     }
     var feedIndex = await _rows('PRAGMA index_info(AppSubscription_feedKey)');
-    if (feedIndex.length != 1 || feedIndex.single['name'] != 'feedKey') {
+    var feedIndexes = await _rows('PRAGMA index_list(AppSubscription)');
+    if (feedIndex.length != 1 ||
+        feedIndex.single['name'] != 'feedKey' ||
+        !feedIndexes.any(
+          (i) => i['name'] == 'AppSubscription_feedKey' && i['partial'] == 0,
+        )) {
       throw StateError('新版数据库 feedKey 索引缺失');
+    }
+    if ((await _rows('PRAGMA foreign_key_check')).isNotEmpty) {
+      throw StateError('新版数据库包含无效外键数据');
     }
   }
 }
