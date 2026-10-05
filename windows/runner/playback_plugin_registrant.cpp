@@ -5,6 +5,10 @@
 #include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
 
+#include <cwchar>
+#include <optional>
+#include <vector>
+
 #include <file_selector_windows/file_selector_windows.h>
 #include <irondash_engine_context/irondash_engine_context_plugin_c_api.h>
 #include <media_kit_libs_windows_video/media_kit_libs_windows_video_plugin_c_api.h>
@@ -17,6 +21,58 @@
 namespace {
 void SkipMainVideoRegistration(FlutterDesktopPluginRegistrarRef) {}
 
+// libmpv renders into a Flutter texture and does not own a monitor. Query the
+// display containing this engine's window, including after a monitor move.
+std::optional<double> PlaybackDisplayRefreshRate(HWND window) {
+  const auto monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
+  MONITORINFOEXW info{};
+  info.cbSize = sizeof(info);
+  if (!GetMonitorInfoW(monitor, &info)) return std::nullopt;
+
+  // DisplayConfig retains fractional rates such as 60000/1001 Hz. The active
+  // topology can change between the buffer-size query and the actual query.
+  for (int attempt = 0; attempt < 3; ++attempt) {
+    UINT32 path_count = 0;
+    UINT32 mode_count = 0;
+    if (GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &path_count,
+                                   &mode_count) != ERROR_SUCCESS) {
+      break;
+    }
+    std::vector<DISPLAYCONFIG_PATH_INFO> paths(path_count);
+    std::vector<DISPLAYCONFIG_MODE_INFO> modes(mode_count);
+    const auto status = QueryDisplayConfig(
+        QDC_ONLY_ACTIVE_PATHS, &path_count, paths.data(), &mode_count,
+        modes.data(), nullptr);
+    if (status == ERROR_INSUFFICIENT_BUFFER) continue;
+    if (status != ERROR_SUCCESS) break;
+    for (UINT32 index = 0; index < path_count; ++index) {
+      const auto& path = paths[index];
+      DISPLAYCONFIG_SOURCE_DEVICE_NAME source{};
+      source.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
+      source.header.size = sizeof(source);
+      source.header.adapterId = path.sourceInfo.adapterId;
+      source.header.id = path.sourceInfo.id;
+      if (DisplayConfigGetDeviceInfo(&source.header) != ERROR_SUCCESS ||
+          std::wcscmp(source.viewGdiDeviceName, info.szDevice) != 0) {
+        continue;
+      }
+      const auto& rate = path.targetInfo.refreshRate;
+      if (rate.Denominator && rate.Numerator > rate.Denominator) {
+        return static_cast<double>(rate.Numerator) / rate.Denominator;
+      }
+    }
+    break;
+  }
+  // Older display drivers or remote sessions may not support DisplayConfig.
+  DEVMODEW mode{};
+  mode.dmSize = sizeof(mode);
+  if (EnumDisplaySettingsExW(info.szDevice, ENUM_CURRENT_SETTINGS, &mode, 0) &&
+      mode.dmDisplayFrequency > 1) {
+    return static_cast<double>(mode.dmDisplayFrequency);
+  }
+  return std::nullopt;
+}
+
 // window_manager owns fullscreen bounds and restoration, but leaves caption
 // styles in place. Complete the frame change on this engine's own window.
 class PlaybackWindowFramePlugin : public flutter::Plugin {
@@ -27,8 +83,21 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
             registrar->messenger(), "bangumi_today/playback_window_frame",
             &flutter::StandardMethodCodec::GetInstance())) {
     channel_->SetMethodCallHandler([this](const auto& call, auto result) {
-      if (call.method_name() != "setFullscreenFrame") {
+      if (call.method_name() != "setFullscreenFrame" &&
+          call.method_name() != "getDisplayRefreshRate") {
         result->NotImplemented();
+        return;
+      }
+      auto* view = registrar_->GetView();
+      HWND window = view ? GetAncestor(view->GetNativeWindow(), GA_ROOT) : nullptr;
+      if (!window || !IsWindow(window)) {
+        result->Error("window_unavailable", "Playback window is unavailable.");
+        return;
+      }
+      if (call.method_name() == "getDisplayRefreshRate") {
+        const auto rate = PlaybackDisplayRefreshRate(window);
+        result->Success(rate ? flutter::EncodableValue(*rate)
+                             : flutter::EncodableValue());
         return;
       }
       const auto* fullscreen = call.arguments()
@@ -36,12 +105,6 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
                                    : nullptr;
       if (!fullscreen) {
         result->Error("invalid_argument", "Expected a fullscreen boolean.");
-        return;
-      }
-      auto* view = registrar_->GetView();
-      HWND window = view ? GetAncestor(view->GetNativeWindow(), GA_ROOT) : nullptr;
-      if (!window || !IsWindow(window)) {
-        result->Error("window_unavailable", "Playback window is unavailable.");
         return;
       }
       if (*fullscreen) {
@@ -79,15 +142,28 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
   flutter::PluginRegistrarWindows* registrar_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
 };
+
+void RegisterWindowFramePlugin(flutter::PluginRegistry* registry) {
+  auto* registrar = flutter::PluginRegistrarManager::GetInstance()
+                        ->GetRegistrar<flutter::PluginRegistrarWindows>(
+                            registry->GetRegistrarForPlugin(
+                                "PlaybackWindowFramePlugin"));
+  registrar->AddPlugin(std::make_unique<PlaybackWindowFramePlugin>(registrar));
+}
 }  // namespace
 
 // Reuse Flutter's generated list, including future application plugins. Headers
 // above keep the C API declaration intact; only the registration call is skipped.
-#define RegisterPlugins RegisterMainPlugins
+#define RegisterPlugins RegisterGeneratedMainPlugins
 #define MediaKitVideoPluginCApiRegisterWithRegistrar SkipMainVideoRegistration
 #include "../flutter/generated_plugin_registrant.cc"
 #undef MediaKitVideoPluginCApiRegisterWithRegistrar
 #undef RegisterPlugins
+
+void RegisterMainPlugins(flutter::PluginRegistry* registry) {
+  RegisterGeneratedMainPlugins(registry);
+  RegisterWindowFramePlugin(registry);
+}
 
 // Keep credentials, app links, notifications and taskbar services in the main
 // engine. desktop_multi_window registers its child channel after this callback.
@@ -98,12 +174,7 @@ void RegisterPlaybackPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("MediaKitVideoPluginCApi"));
   WindowManagerPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("WindowManagerPlugin"));
-  auto* frame_registrar = flutter::PluginRegistrarManager::GetInstance()
-                              ->GetRegistrar<flutter::PluginRegistrarWindows>(
-                                  registry->GetRegistrarForPlugin(
-                                      "PlaybackWindowFramePlugin"));
-  frame_registrar->AddPlugin(
-      std::make_unique<PlaybackWindowFramePlugin>(frame_registrar));
+  RegisterWindowFramePlugin(registry);
   ScreenRetrieverWindowsPluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("ScreenRetrieverWindowsPluginCApi"));
   FileSelectorWindowsRegisterWithRegistrar(

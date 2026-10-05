@@ -22,6 +22,10 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
   bool _reading = false;
   Map<String, String> _properties = {};
 
+  static const _displayChannel = MethodChannel(
+    'bangumi_today/playback_window_frame',
+  );
+
   static const _propertyNames = [
     'file-format',
     'file-size',
@@ -38,7 +42,6 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
     'audio-out-params/format',
     'audio-out-params/samplerate',
     'audio-out-params/channel-count',
-    'display-fps',
     'mpv-version',
     'current-tracks/video/id',
     'current-tracks/video/codec',
@@ -70,8 +73,9 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
     if (native is! NativePlayer || native.disposed) return;
     _reading = true;
     try {
-      var entries = await Future.wait(
-        _propertyNames.map((name) async {
+      var entries = await Future.wait([
+        _readDisplayFps(),
+        ..._propertyNames.map((name) async {
           try {
             var value = await native
                 // The mounted surface already owns an initialized player.
@@ -84,11 +88,32 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
             return MapEntry(name, '');
           }
         }),
-      );
+      ]);
       if (mounted) setState(() => _properties = Map.fromEntries(entries));
     } finally {
       _reading = false;
     }
+  }
+
+  Future<MapEntry<String, String>> _readDisplayFps() async {
+    double? rate;
+    try {
+      rate = Platform.isWindows
+          ? await _displayChannel
+                .invokeMethod<double>('getDisplayRefreshRate')
+                .timeout(const Duration(milliseconds: 500))
+          : View.of(context).display.refreshRate;
+    } on PlatformException {
+      // Display changes can briefly make the native monitor unavailable.
+    } on MissingPluginException {
+      // An older running engine needs a restart for the native channel.
+    } on TimeoutException {
+      // Do not stall the OSD while the native window is busy.
+    }
+    return MapEntry(
+      'display-fps',
+      rate != null && rate.isFinite && rate > 1 ? rate.toStringAsFixed(3) : '',
+    );
   }
 
   @override
@@ -395,7 +420,7 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
                           cyan,
                         ),
                         const Text(
-                          'Tab 或右键菜单关闭 · — 表示当前媒体未提供数据',
+                          'Tab 或右键菜单关闭 · — 表示媒体或设备未提供数据',
                           style: TextStyle(
                             color: material.Colors.white70,
                             fontSize: 11,
