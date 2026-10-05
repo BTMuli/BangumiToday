@@ -1,11 +1,9 @@
 // Package imports:
-import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../core/services/bt_engine_client.dart';
-import '../../core/services/download_service.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../store/bt_download_store.dart';
@@ -15,11 +13,11 @@ import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_buttons.dart';
 import '../../widgets/common/bt_card.dart';
 import '../../widgets/common/bt_drawer.dart';
+import '../../widgets/download/manual_download_dialog.dart';
 import 'download_task_details.dart';
 
 part 'download_page/empty_states.dart';
 part 'download_page/header_widgets.dart';
-part 'download_page/manual_add_dialog.dart';
 part 'download_page/task_card.dart';
 
 class DownloadPage extends ConsumerStatefulWidget {
@@ -130,7 +128,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
               message: '手动添加',
               child: IconButton(
                 icon: const Icon(FluentIcons.add, size: 16),
-                onPressed: () => _showManualAddDialog(context),
+                onPressed: () => showManualDownloadDialog(context, ref),
               ),
             ),
             SizedBox(width: 8),
@@ -201,52 +199,6 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
 
   Future<void> _enableEngine(BuildContext context) async {
     await enableDownloadEngine(ref, context);
-  }
-
-  Future<void> _showManualAddDialog(BuildContext context) async {
-    var draft = await showDialog<_ManualDownloadDraft>(
-      context: context,
-      builder: (_) => const _ManualDownloadDialog(),
-    );
-    if (draft == null || !mounted || !context.mounted) return;
-
-    try {
-      var store = ref.read(btDownloadStoreProvider.notifier);
-      var uri = Uri.parse(draft.uri);
-      if (uri.scheme.toLowerCase() == 'magnet') {
-        await store.addMagnet(
-          uri: draft.uri,
-          savePath: draft.savePath,
-          displayName: draft.displayName,
-          manual: true,
-        );
-      } else if (_isRemoteTorrentUri(uri)) {
-        var torrentPath = await BTDownloadTool().downloadRssTorrent(
-          draft.uri,
-          draft.displayName ?? '手动添加',
-          context: context,
-        );
-        if (torrentPath.isEmpty || !mounted) return;
-        await store.addTorrentFile(
-          torrentPath: torrentPath,
-          savePath: draft.savePath,
-          displayName: draft.displayName,
-          manual: true,
-        );
-      } else {
-        await store.addHttp(
-          url: draft.uri,
-          savePath: draft.savePath,
-          displayName: draft.displayName,
-          manual: true,
-        );
-      }
-      if (!mounted || !context.mounted) return;
-      await BtInfobar.success(context, '下载任务已添加');
-    } catch (error) {
-      if (!mounted || !context.mounted) return;
-      await BtInfobar.error(context, error.toString());
-    }
   }
 
   void _exitSelection() {

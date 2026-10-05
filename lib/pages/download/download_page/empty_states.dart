@@ -48,7 +48,7 @@ class _EmptyDownloads extends ConsumerWidget {
                   ? '请检查引擎状态后重试'
                   : engineState == BtEngineClientState.stopped
                   ? '下载引擎未开启，点击右上角引擎状态开启'
-                  : '从 RSS 条目添加任务后会显示在这里',
+                  : '拖入 .torrent 种子文件，或从 RSS 条目添加下载任务',
               style: BTTypography.body(
                 context,
               ).copyWith(color: BTColors.textSecondary(context)),

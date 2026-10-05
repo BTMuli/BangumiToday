@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import 'core/utils/window_effect.dart';
 import 'store/app_store.dart';
+import 'widgets/download/manual_download_dialog.dart';
 import 'widgets/playback/playback_drop_target.dart';
 import 'widgets/shell/nav.dart';
 
@@ -18,6 +19,8 @@ class BTApp extends ConsumerStatefulWidget {
 }
 
 class _BTAppState extends ConsumerState<BTApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+
   /// 已应用的窗口材质深浅色，避免重复设置
   bool? _appliedWindowDark;
 
@@ -67,10 +70,22 @@ class _BTAppState extends ConsumerState<BTApp> {
     _syncWindowMaterial(context, appStore.themeMode);
     return FluentApp(
       title: 'BangumiToday',
+      navigatorKey: _navigatorKey,
       themeMode: appStore.themeMode,
       theme: getTheme(context, appStore),
       home: const NavWidget(),
-      builder: (context, child) => PlaybackDropTarget(child: child!),
+      builder: (context, child) => PlaybackDropTarget(
+        onTorrentDrop: (paths) async {
+          var dialogContext = _navigatorKey.currentState?.overlay?.context;
+          if (dialogContext == null || !dialogContext.mounted) return;
+          await showManualDownloadDialog(
+            dialogContext,
+            ref,
+            torrentPaths: paths,
+          );
+        },
+        child: child!,
+      ),
       debugShowCheckedModeBanner: false,
     );
   }

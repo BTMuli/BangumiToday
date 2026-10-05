@@ -8,6 +8,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 // Project imports:
 import '../../core/errors/playback_unavailable.dart';
+import '../../core/utils/download_paths.dart';
 import '../../core/utils/playback_paths.dart';
 import '../../pages/playback/playback_actions.dart';
 import '../../store/playback_store.dart';
@@ -18,10 +19,12 @@ class PlaybackDropTarget extends ConsumerStatefulWidget {
     super.key,
     required this.child,
     this.enabled = true,
+    this.onTorrentDrop,
   });
 
   final Widget child;
   final bool enabled;
+  final Future<void> Function(List<String> paths)? onTorrentDrop;
 
   @override
   ConsumerState<PlaybackDropTarget> createState() => _PlaybackDropTargetState();
@@ -91,9 +94,18 @@ class _PlaybackDropTargetState extends ConsumerState<PlaybackDropTarget> {
           ref.read(playbackStoreProvider).isClosed) {
         return;
       }
+      var torrents = DownloadPaths.droppedTorrents(uris);
+      var onTorrentDrop = widget.onTorrentDrop;
+      if (torrents.isNotEmpty && onTorrentDrop != null) {
+        _clearError();
+        await onTorrentDrop(torrents);
+        return;
+      }
       var filePath = PlaybackPaths.firstDroppedVideo(uris);
       if (filePath == null) {
-        throw const PlaybackUnavailable('未识别到支持的视频文件');
+        throw PlaybackUnavailable(
+          onTorrentDrop == null ? '未识别到支持的视频文件' : '未识别到 .torrent 种子或支持的视频文件',
+        );
       }
       _clearError();
       await openLocalPlaybackFile(ref, filePath);
@@ -160,12 +172,21 @@ class _PlaybackDropTargetState extends ConsumerState<PlaybackDropTarget> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: accent),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(FluentIcons.video, size: 24),
-                          SizedBox(width: 12),
-                          Text('松开以播放视频'),
+                          Icon(
+                            widget.onTorrentDrop == null
+                                ? FluentIcons.video
+                                : FluentIcons.download,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            widget.onTorrentDrop == null
+                                ? '松开以播放视频'
+                                : '松开以添加种子下载或播放视频',
+                          ),
                         ],
                       ),
                     ),
