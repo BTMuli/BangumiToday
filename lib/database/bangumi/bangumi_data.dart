@@ -7,6 +7,8 @@ import '../../tools/log_tool.dart';
 import '../app/app_config.dart';
 import '../bt_sqlite.dart';
 import '../drift/bt_database.dart';
+import '../drift/catalog_projection.dart';
+import '../drift/dataset_storage.dart';
 
 /// 负责bangumi-data相关处理
 /// 涉及 BangumiDataSite, BangumiDataItem, AppConfig三个表
@@ -51,10 +53,14 @@ class BtsBangumiData {
 
   /// 读取特定条目
   Future<BangumiDataItem?> readItem(String title) async {
-    var row = await _firstItemByTitle(title);
+    var row = await DatasetStorage(_db).readItem(title);
     if (row == null) return null;
     return _itemFromRow(row);
   }
+
+  /// 同名条目完整列表；readItem 保留返回最早本地 ID 的兼容语义。
+  Future<List<BangumiDataItem>> readItems(String title) async =>
+      (await DatasetStorage(_db).readItems(title)).map(_itemFromRow).toList();
 
   /// 读取当前仍在放送的条目，供首页日历使用。
   ///
@@ -90,46 +96,29 @@ class BtsBangumiData {
 
   /// 写入/更新站点元数据
   ///
-  /// `key` 是唯一约束而不是主键（主键是自增 `id`），所以先按 key 查一次，
-  /// 让既有行的 id 保持不变。
+  /// 直接按唯一 key UPSERT，保留已有行 ID。
   Future<void> writeSite(BangumiDataSiteFull site) async {
-    var existing = await _firstSite(site.key);
-    if (existing == null) {
-      await _db.into(_db.bangumiDataSite).insert(_siteCompanion(site));
-      BTLogTool.info('Write site data: ${site.key} - ${site.title}');
-      return;
-    }
-    var update = _db.update(_db.bangumiDataSite)
-      ..where((table) => table.key.equals(site.key));
-    await update.write(_siteCompanion(site));
-    BTLogTool.info('Update site data: ${site.key} - ${site.title}');
+    await DatasetStorage(_db).saveSites([_siteCompanion(site)]);
+    BTLogTool.info('Write site data: ${site.key} - ${site.title}');
   }
 
   /// 写入更新站点元数据列表
   Future<void> writeSiteList(Map<String, BangumiDataSite> siteMap) async {
-    for (var entry in siteMap.entries) {
-      var full = BangumiDataSiteFull.fromSite(entry.key, entry.value);
-      await _instance.writeSite(full);
-    }
+    await DatasetStorage(_db).saveSites([
+      for (var entry in siteMap.entries)
+        _siteCompanion(BangumiDataSiteFull.fromSite(entry.key, entry.value)),
+    ]);
   }
 
   /// 写入/更新条目
   Future<void> writeItem(BangumiDataItem item) async {
-    var existing = await _firstItemByTitle(item.title);
-    if (existing == null) {
-      await _db.into(_db.bangumiDataItem).insert(_itemCompanion(item));
-      BTLogTool.info('Write item data: ${item.title}');
-      return;
-    }
-    await _updateItem(item);
-    BTLogTool.info('Update item data: ${item.title}');
+    await writeItemBatch([item]);
+    BTLogTool.info('Write item data: ${item.title}');
   }
 
   /// 写入更新条目列表
   Future<void> writeItemList(List<BangumiDataItem> itemList) async {
-    for (var item in itemList) {
-      await _instance.writeItem(item);
-    }
+    await writeItemBatch(itemList);
   }
 
   /// 批量写入条目，按 [batchSize] 分批提交事务。
@@ -141,49 +130,32 @@ class BtsBangumiData {
     int batchSize = 200,
     void Function(int completed, int total)? onProgress,
   }) async {
-    var total = items.length;
-    if (total == 0) return;
-    var completed = 0;
-    for (var start = 0; start < total; start += batchSize) {
-      var end = start + batchSize;
-      if (end > total) end = total;
-      var batch = items.sublist(start, end);
-      await _db.transaction(() async {
-        for (var item in batch) {
-          if (await _firstItemByTitle(item.title) == null) {
-            await _db.into(_db.bangumiDataItem).insert(_itemCompanion(item));
-          } else {
-            await _updateItem(item);
-          }
-        }
-      });
-      completed += batch.length;
-      onProgress?.call(completed, total);
-    }
+    await DatasetStorage(_db).saveItems(
+      items.map(_itemCompanion).toList(),
+      batchSize: batchSize,
+      onProgress: onProgress,
+    );
   }
 
-  Future<void> _updateItem(BangumiDataItem item) {
-    var update = _db.update(_db.bangumiDataItem)
-      ..where((table) => table.title.equals(item.title));
-    return update.write(_itemCompanion(item));
-  }
-
-  Future<DataSiteRow?> _firstSite(String key) {
-    var query = _db.select(_db.bangumiDataSite)
-      ..where((table) => table.key.equals(key))
-      ..limit(1);
-    return query.getSingleOrNull();
-  }
+  /// 完整数据集、站点及版本原子更新，失败时保留上一份完整快照。
+  Future<void> replaceDataset(
+    BangumiDataJson data, {
+    required String version,
+    required String checkedAt,
+    void Function(int completed, int total)? onProgress,
+  }) => DatasetStorage(_db).replaceAll(
+    sites: [
+      for (var entry in data.siteMeta.entries)
+        _siteCompanion(BangumiDataSiteFull.fromSite(entry.key, entry.value)),
+    ],
+    items: data.items.map(_itemCompanion).toList(),
+    version: version,
+    checkedAt: checkedAt,
+    onProgress: onProgress,
+  );
 
   Future<DataSiteRow?> _firstSiteByTitle(String title) {
     var query = _db.select(_db.bangumiDataSite)
-      ..where((table) => table.title.equals(title))
-      ..limit(1);
-    return query.getSingleOrNull();
-  }
-
-  Future<DataItemRow?> _firstItemByTitle(String title) {
-    var query = _db.select(_db.bangumiDataItem)
       ..where((table) => table.title.equals(title))
       ..limit(1);
     return query.getSingleOrNull();
@@ -211,6 +183,7 @@ class BtsBangumiData {
   BangumiDataItemCompanion _itemCompanion(BangumiDataItem item) {
     var values = item.toSqlJson();
     return BangumiDataItemCompanion(
+      itemKey: Value(dataItemKey(values)!),
       title: Value(values['title'] as String),
       titleTranslate: Value(values['titleTranslate'] as String),
       type: Value(values['type'] as String),

@@ -3,10 +3,12 @@ import 'package:drift/drift.dart';
 
 /// `BangumiCollection` 表：登录用户的收藏缓存。
 ///
-/// 列名、类型必须与 `lib/database/bangumi/bangumi_collection.dart` 的建表
-/// 语句一致。`tags` 与 `subject` 是 JSON 文本，`updatedAt` 保持 TEXT
-/// （与其他表的毫秒整数不同），`private` 是 0/1。
+/// `tags` 与 `subject` 是 JSON 文本；标题投影供包含搜索使用。
 @DataClassName('CollectionRow')
+@TableIndex(
+  name: 'BangumiCollection_search',
+  columns: {#collectionType, #name, #nameCn},
+)
 class BangumiCollection extends Table {
   @override
   String get tableName => 'BangumiCollection';
@@ -43,6 +45,10 @@ class BangumiCollection extends Table {
 
   /// 条目数据（JSON 文本）
   TextColumn get subject => text().nullable()();
+
+  TextColumn get name => text().withDefault(const Constant(''))();
+  TextColumn get nameCn =>
+      text().named('nameCn').withDefault(const Constant(''))();
 
   @override
   Set<Column> get primaryKey => {subjectId};

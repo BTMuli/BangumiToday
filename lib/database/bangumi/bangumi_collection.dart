@@ -61,14 +61,7 @@ class BtsBangumiCollection {
     String keyword, {
     BangumiCollectionType? type,
   }) async {
-    var query = _db.select(_db.bangumiCollection)
-      ..where(
-        (table) => type == null
-            ? table.subject.like('%$keyword%')
-            : table.subject.like('%$keyword%') &
-                  table.collectionType.equals(type.value),
-      );
-    var rows = await query.get();
+    var rows = await CollectionStorage(_db).search(keyword, type: type?.value);
     return rows.map(_fromRow).toList();
   }
 

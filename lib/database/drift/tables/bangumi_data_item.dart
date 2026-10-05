@@ -3,16 +3,19 @@ import 'package:drift/drift.dart';
 
 /// `BangumiDataItem` 表：BangumiData 的条目离线库（本机约 8800 行）。
 ///
-/// `titleTranslate` 与 `sites` 是 JSON 文本；`id` 自增，迁移必须让
-/// `sqlite_sequence` 延续。与 `lib/database/bangumi/bangumi_data.dart` 的
-/// 建表语句一致。
+/// `titleTranslate` 与 `sites` 是 JSON 文本；同名条目由 itemKey 区分。
 @DataClassName('DataItemRow')
+@TableIndex(name: 'BangumiDataItem_title', columns: {#title})
+@TableIndex(name: 'BangumiDataItem_itemKey', columns: {#itemKey}, unique: true)
 class BangumiDataItem extends Table {
   @override
   String get tableName => 'BangumiDataItem';
 
   /// 自增主键
   IntColumn get id => integer().autoIncrement()();
+
+  TextColumn get itemKey =>
+      text().named('itemKey').withDefault(const Constant(''))();
 
   /// 作品标题
   TextColumn get title => text()();

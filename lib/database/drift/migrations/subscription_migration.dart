@@ -86,7 +86,7 @@ extension _SubscriptionMigration on BtDatabase {
     return sha256.convert(utf8.encode(jsonEncode(contents))).toString();
   }
 
-  Future<void> _backupV2Migration() async {
+  Future<void> _backupMigration() async {
     var filePath = _databasePath;
     if (filePath == null) return;
     var tables = await _rows(
@@ -178,7 +178,7 @@ extension _SubscriptionMigration on BtDatabase {
             "WHERE name != 'AppBmf' ORDER BY name",
           )
         : <LegacyRow>[];
-    await _backupV2Migration();
+    await _backupMigration();
     await customStatement('PRAGMA foreign_keys = OFF');
     try {
       await transaction(() async {
@@ -223,7 +223,9 @@ extension _SubscriptionMigration on BtDatabase {
         ]) {
           await migrator.createTable(table);
         }
-        for (var entity in allSchemaEntities.whereType<Index>()) {
+        for (var entity in allSchemaEntities.whereType<Index>().where(
+          (index) => index.entityName == 'AppSubscription_feedKey',
+        )) {
           await migrator.createIndex(entity);
         }
         await _insertConverted('AppSubscription', conversion.subscriptions);
@@ -312,7 +314,7 @@ extension _SubscriptionMigration on BtDatabase {
     [DateTime.now().millisecondsSinceEpoch],
   );
 
-  Future<void> _validateV2() async {
+  Future<void> _validateV2({bool includeProjections = false}) async {
     const subscriptionTables = {
       'AppBmf',
       'AppSubscription',
@@ -362,6 +364,13 @@ extension _SubscriptionMigration on BtDatabase {
         throw StateError('新版数据库主键或自增约束异常');
       }
       for (var column in table.$columns) {
+        if (!includeProjections &&
+            ((table.actualTableName == 'BangumiCollection' &&
+                    const {'name', 'nameCn'}.contains(column.$name)) ||
+                (table.actualTableName == 'BangumiDataItem' &&
+                    column.$name == 'itemKey'))) {
+          continue;
+        }
         var matches = actual.where((c) => c['name'] == column.$name);
         if (matches.length != 1) throw StateError('新版数据库缺列，拒绝自动修复');
         var row = matches.single;

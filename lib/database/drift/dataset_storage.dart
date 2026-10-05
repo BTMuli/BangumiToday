@@ -1,0 +1,134 @@
+// Package imports:
+import 'package:drift/drift.dart';
+
+// Project imports:
+import 'bt_database.dart';
+
+/// Offline BangumiData cache. Titles are lookup values, never identities.
+class DatasetStorage {
+  const DatasetStorage(this.db);
+  final BtDatabase db;
+
+  Future<List<DataItemRow>> readItems(String title) =>
+      (db.select(db.bangumiDataItem)
+            ..where((t) => t.title.equals(title))
+            ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+          .get();
+
+  Future<DataItemRow?> readItem(String title) =>
+      (db.select(db.bangumiDataItem)
+            ..where((t) => t.title.equals(title))
+            ..orderBy([(t) => OrderingTerm.asc(t.id)])
+            ..limit(1))
+          .getSingleOrNull();
+
+  Future<void> saveSites(List<BangumiDataSiteCompanion> sites) =>
+      db.transaction(() => _writeSites(sites));
+
+  Future<void> _writeSites(List<BangumiDataSiteCompanion> sites) =>
+      db.batch((batch) {
+        for (var row in sites) {
+          batch.insert(
+            db.bangumiDataSite,
+            row,
+            onConflict: DoUpdate((_) => row, target: [db.bangumiDataSite.key]),
+          );
+        }
+      });
+
+  /// Incremental writes retain other items. Each chunk commits atomically.
+  Future<void> saveItems(
+    List<BangumiDataItemCompanion> items, {
+    int batchSize = 200,
+    void Function(int completed, int total)? onProgress,
+  }) async {
+    _validateItems(items, batchSize);
+    await _writeItems(items, batchSize, onProgress);
+  }
+
+  void _validateItems(List<BangumiDataItemCompanion> items, int batchSize) {
+    if (batchSize <= 0) throw ArgumentError.value(batchSize, 'batchSize');
+    for (var item in items) {
+      if (!item.itemKey.present || item.itemKey.value.isEmpty) {
+        throw ArgumentError('数据集条目缺少身份键');
+      }
+    }
+  }
+
+  Future<void> _writeItems(
+    List<BangumiDataItemCompanion> items,
+    int batchSize,
+    void Function(int completed, int total)? onProgress,
+  ) async {
+    for (var start = 0; start < items.length; start += batchSize) {
+      var end = start + batchSize;
+      if (end > items.length) end = items.length;
+      await db.transaction(
+        () => db.batch((batch) {
+          for (var row in items.getRange(start, end)) {
+            batch.insert(
+              db.bangumiDataItem,
+              row,
+              onConflict: DoUpdate(
+                (_) => row,
+                target: [db.bangumiDataItem.itemKey],
+              ),
+            );
+          }
+        }),
+      );
+      onProgress?.call(end, items.length);
+    }
+  }
+
+  /// Replace a complete upstream snapshot. Chunking bounds statement batches,
+  /// but all items, sites, removals and version metadata share one transaction.
+  /// Progress reports staged rows; completion is successful only after return.
+  Future<void> replaceAll({
+    required List<BangumiDataSiteCompanion> sites,
+    required List<BangumiDataItemCompanion> items,
+    required String version,
+    required String checkedAt,
+    int batchSize = 200,
+    void Function(int completed, int total)? onProgress,
+  }) async {
+    _validateItems(items, batchSize);
+    var keys = items.map((i) => i.itemKey.value).toSet();
+    var siteKeys = sites.map((s) => s.key.value).toSet();
+    if (items.isEmpty ||
+        keys.length != items.length ||
+        siteKeys.length != sites.length ||
+        version.isEmpty) {
+      throw ArgumentError('数据集为空、身份重复或版本缺失，保留现有快照');
+    }
+    await db.transaction(() async {
+      await _writeSites(sites);
+      await _writeItems(items, batchSize, onProgress);
+      var table = db.bangumiDataItem;
+      var existing = await (db.selectOnly(
+        table,
+      )..addColumns([table.id, table.itemKey])).get();
+      var staleIds = existing
+          .where((r) => !keys.contains(r.read(table.itemKey)))
+          .map((r) => r.read(table.id)!)
+          .toList();
+      for (var start = 0; start < staleIds.length; start += batchSize) {
+        var ids = staleIds.skip(start).take(batchSize).toList();
+        await (db.delete(table)..where((t) => t.id.isIn(ids))).go();
+      }
+      var oldSites = await db.select(db.bangumiDataSite).get();
+      await db.batch((batch) {
+        for (var site in oldSites.where((s) => !siteKeys.contains(s.key))) {
+          batch.deleteWhere(db.bangumiDataSite, (t) => t.key.equals(site.key));
+        }
+        batch.insertAllOnConflictUpdate(db.appConfig, [
+          AppConfigCompanion.insert(key: 'bangumiDataVersion', value: version),
+          AppConfigCompanion.insert(
+            key: 'bangumiDataCheckTime',
+            value: checkedAt,
+          ),
+        ]);
+      });
+    });
+  }
+}

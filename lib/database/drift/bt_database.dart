@@ -11,6 +11,7 @@ import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 // Project imports:
 import '../database_process_lock.dart';
+import 'catalog_projection.dart';
 import 'migrations/legacy_subscription_converter.dart';
 import 'migrations/schema_v1.dart';
 import 'tables/app_bmf.dart';
@@ -25,6 +26,7 @@ import 'tables/bangumi_data_site.dart';
 import 'tables/bangumi_user.dart';
 
 part 'bt_database.g.dart';
+part 'migrations/catalog_migration.dart';
 part 'migrations/subscription_migration.dart';
 
 /// Schema owner. Conversion completes before business queries run.
@@ -67,26 +69,30 @@ class BtDatabase extends _$BtDatabase {
   }
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (_) => _migrateSubscriptions(),
+    onCreate: (_) async {
+      await _migrateSubscriptions();
+      await _migrateCatalog(backup: false);
+    },
     onUpgrade: (_, from, to) async {
-      if (from != 1 || to != 2) {
+      if (from < 1 || from > 2 || to != 3) {
         throw StateError('不支持的数据库版本，请使用匹配的客户端或迁移前快照');
       }
-      await _migrateSubscriptions();
+      if (from == 1) await _migrateSubscriptions();
+      await _migrateCatalog(backup: from == 2);
     },
     beforeOpen: (_) async {
-      await _validateV2();
+      await _validateV3();
       await customStatement('PRAGMA foreign_keys = ON');
       var enabled = await customSelect('PRAGMA foreign_keys').getSingle();
       if (enabled.read<int>('foreign_keys') != 1) {
         throw StateError('无法开启数据库外键约束');
       }
       await _resolveNoRssRecovery();
-      onMigration?.call('SQLite opened: schema v2');
+      onMigration?.call('SQLite opened: schema v3');
     },
   );
 

@@ -3206,6 +3206,26 @@ class $BangumiCollectionTable extends BangumiCollection
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _nameCnMeta = const VerificationMeta('nameCn');
+  @override
+  late final GeneratedColumn<String> nameCn = GeneratedColumn<String>(
+    'nameCn',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     subjectId,
@@ -3219,6 +3239,8 @@ class $BangumiCollectionTable extends BangumiCollection
     updatedAt,
     private,
     subject,
+    name,
+    nameCn,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3320,6 +3342,18 @@ class $BangumiCollectionTable extends BangumiCollection
         subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta),
       );
     }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    }
+    if (data.containsKey('nameCn')) {
+      context.handle(
+        _nameCnMeta,
+        nameCn.isAcceptableOrUnknown(data['nameCn']!, _nameCnMeta),
+      );
+    }
     return context;
   }
 
@@ -3373,6 +3407,14 @@ class $BangumiCollectionTable extends BangumiCollection
         DriftSqlType.string,
         data['${effectivePrefix}subject'],
       ),
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      nameCn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}nameCn'],
+      )!,
     );
   }
 
@@ -3415,6 +3457,8 @@ class CollectionRow extends DataClass implements Insertable<CollectionRow> {
 
   /// 条目数据（JSON 文本）
   final String? subject;
+  final String name;
+  final String nameCn;
   const CollectionRow({
     required this.subjectId,
     required this.subjectType,
@@ -3427,6 +3471,8 @@ class CollectionRow extends DataClass implements Insertable<CollectionRow> {
     required this.updatedAt,
     required this.private,
     this.subject,
+    required this.name,
+    required this.nameCn,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3446,6 +3492,8 @@ class CollectionRow extends DataClass implements Insertable<CollectionRow> {
     if (!nullToAbsent || subject != null) {
       map['subject'] = Variable<String>(subject);
     }
+    map['name'] = Variable<String>(name);
+    map['nameCn'] = Variable<String>(nameCn);
     return map;
   }
 
@@ -3466,6 +3514,8 @@ class CollectionRow extends DataClass implements Insertable<CollectionRow> {
       subject: subject == null && nullToAbsent
           ? const Value.absent()
           : Value(subject),
+      name: Value(name),
+      nameCn: Value(nameCn),
     );
   }
 
@@ -3486,6 +3536,8 @@ class CollectionRow extends DataClass implements Insertable<CollectionRow> {
       updatedAt: serializer.fromJson<String>(json['updatedAt']),
       private: serializer.fromJson<int>(json['private']),
       subject: serializer.fromJson<String?>(json['subject']),
+      name: serializer.fromJson<String>(json['name']),
+      nameCn: serializer.fromJson<String>(json['nameCn']),
     );
   }
   @override
@@ -3503,6 +3555,8 @@ class CollectionRow extends DataClass implements Insertable<CollectionRow> {
       'updatedAt': serializer.toJson<String>(updatedAt),
       'private': serializer.toJson<int>(private),
       'subject': serializer.toJson<String?>(subject),
+      'name': serializer.toJson<String>(name),
+      'nameCn': serializer.toJson<String>(nameCn),
     };
   }
 
@@ -3518,6 +3572,8 @@ class CollectionRow extends DataClass implements Insertable<CollectionRow> {
     String? updatedAt,
     int? private,
     Value<String?> subject = const Value.absent(),
+    String? name,
+    String? nameCn,
   }) => CollectionRow(
     subjectId: subjectId ?? this.subjectId,
     subjectType: subjectType ?? this.subjectType,
@@ -3530,6 +3586,8 @@ class CollectionRow extends DataClass implements Insertable<CollectionRow> {
     updatedAt: updatedAt ?? this.updatedAt,
     private: private ?? this.private,
     subject: subject.present ? subject.value : this.subject,
+    name: name ?? this.name,
+    nameCn: nameCn ?? this.nameCn,
   );
   CollectionRow copyWithCompanion(BangumiCollectionCompanion data) {
     return CollectionRow(
@@ -3548,6 +3606,8 @@ class CollectionRow extends DataClass implements Insertable<CollectionRow> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       private: data.private.present ? data.private.value : this.private,
       subject: data.subject.present ? data.subject.value : this.subject,
+      name: data.name.present ? data.name.value : this.name,
+      nameCn: data.nameCn.present ? data.nameCn.value : this.nameCn,
     );
   }
 
@@ -3564,7 +3624,9 @@ class CollectionRow extends DataClass implements Insertable<CollectionRow> {
           ..write('volStat: $volStat, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('private: $private, ')
-          ..write('subject: $subject')
+          ..write('subject: $subject, ')
+          ..write('name: $name, ')
+          ..write('nameCn: $nameCn')
           ..write(')'))
         .toString();
   }
@@ -3582,6 +3644,8 @@ class CollectionRow extends DataClass implements Insertable<CollectionRow> {
     updatedAt,
     private,
     subject,
+    name,
+    nameCn,
   );
   @override
   bool operator ==(Object other) =>
@@ -3597,7 +3661,9 @@ class CollectionRow extends DataClass implements Insertable<CollectionRow> {
           other.volStat == this.volStat &&
           other.updatedAt == this.updatedAt &&
           other.private == this.private &&
-          other.subject == this.subject);
+          other.subject == this.subject &&
+          other.name == this.name &&
+          other.nameCn == this.nameCn);
 }
 
 class BangumiCollectionCompanion extends UpdateCompanion<CollectionRow> {
@@ -3612,6 +3678,8 @@ class BangumiCollectionCompanion extends UpdateCompanion<CollectionRow> {
   final Value<String> updatedAt;
   final Value<int> private;
   final Value<String?> subject;
+  final Value<String> name;
+  final Value<String> nameCn;
   const BangumiCollectionCompanion({
     this.subjectId = const Value.absent(),
     this.subjectType = const Value.absent(),
@@ -3624,6 +3692,8 @@ class BangumiCollectionCompanion extends UpdateCompanion<CollectionRow> {
     this.updatedAt = const Value.absent(),
     this.private = const Value.absent(),
     this.subject = const Value.absent(),
+    this.name = const Value.absent(),
+    this.nameCn = const Value.absent(),
   });
   BangumiCollectionCompanion.insert({
     this.subjectId = const Value.absent(),
@@ -3637,6 +3707,8 @@ class BangumiCollectionCompanion extends UpdateCompanion<CollectionRow> {
     required String updatedAt,
     required int private,
     this.subject = const Value.absent(),
+    this.name = const Value.absent(),
+    this.nameCn = const Value.absent(),
   }) : subjectType = Value(subjectType),
        rate = Value(rate),
        collectionType = Value(collectionType),
@@ -3657,6 +3729,8 @@ class BangumiCollectionCompanion extends UpdateCompanion<CollectionRow> {
     Expression<String>? updatedAt,
     Expression<int>? private,
     Expression<String>? subject,
+    Expression<String>? name,
+    Expression<String>? nameCn,
   }) {
     return RawValuesInsertable({
       if (subjectId != null) 'subjectId': subjectId,
@@ -3670,6 +3744,8 @@ class BangumiCollectionCompanion extends UpdateCompanion<CollectionRow> {
       if (updatedAt != null) 'updatedAt': updatedAt,
       if (private != null) 'private': private,
       if (subject != null) 'subject': subject,
+      if (name != null) 'name': name,
+      if (nameCn != null) 'nameCn': nameCn,
     });
   }
 
@@ -3685,6 +3761,8 @@ class BangumiCollectionCompanion extends UpdateCompanion<CollectionRow> {
     Value<String>? updatedAt,
     Value<int>? private,
     Value<String?>? subject,
+    Value<String>? name,
+    Value<String>? nameCn,
   }) {
     return BangumiCollectionCompanion(
       subjectId: subjectId ?? this.subjectId,
@@ -3698,6 +3776,8 @@ class BangumiCollectionCompanion extends UpdateCompanion<CollectionRow> {
       updatedAt: updatedAt ?? this.updatedAt,
       private: private ?? this.private,
       subject: subject ?? this.subject,
+      name: name ?? this.name,
+      nameCn: nameCn ?? this.nameCn,
     );
   }
 
@@ -3737,6 +3817,12 @@ class BangumiCollectionCompanion extends UpdateCompanion<CollectionRow> {
     if (subject.present) {
       map['subject'] = Variable<String>(subject.value);
     }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (nameCn.present) {
+      map['nameCn'] = Variable<String>(nameCn.value);
+    }
     return map;
   }
 
@@ -3753,7 +3839,9 @@ class BangumiCollectionCompanion extends UpdateCompanion<CollectionRow> {
           ..write('volStat: $volStat, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('private: $private, ')
-          ..write('subject: $subject')
+          ..write('subject: $subject, ')
+          ..write('name: $name, ')
+          ..write('nameCn: $nameCn')
           ..write(')'))
         .toString();
   }
@@ -4188,6 +4276,18 @@ class $BangumiDataItemTable extends BangumiDataItem
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  static const VerificationMeta _itemKeyMeta = const VerificationMeta(
+    'itemKey',
+  );
+  @override
+  late final GeneratedColumn<String> itemKey = GeneratedColumn<String>(
+    'itemKey',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
   @override
   late final GeneratedColumn<String> title = GeneratedColumn<String>(
@@ -4289,6 +4389,7 @@ class $BangumiDataItemTable extends BangumiDataItem
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    itemKey,
     title,
     titleTranslate,
     type,
@@ -4314,6 +4415,12 @@ class $BangumiDataItemTable extends BangumiDataItem
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('itemKey')) {
+      context.handle(
+        _itemKeyMeta,
+        itemKey.isAcceptableOrUnknown(data['itemKey']!, _itemKeyMeta),
+      );
     }
     if (data.containsKey('title')) {
       context.handle(
@@ -4396,6 +4503,10 @@ class $BangumiDataItemTable extends BangumiDataItem
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      itemKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}itemKey'],
+      )!,
       title: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}title'],
@@ -4448,6 +4559,7 @@ class $BangumiDataItemTable extends BangumiDataItem
 class DataItemRow extends DataClass implements Insertable<DataItemRow> {
   /// 自增主键
   final int id;
+  final String itemKey;
 
   /// 作品标题
   final String title;
@@ -4480,6 +4592,7 @@ class DataItemRow extends DataClass implements Insertable<DataItemRow> {
   final String? sites;
   const DataItemRow({
     required this.id,
+    required this.itemKey,
     required this.title,
     this.titleTranslate,
     this.type,
@@ -4495,6 +4608,7 @@ class DataItemRow extends DataClass implements Insertable<DataItemRow> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['itemKey'] = Variable<String>(itemKey);
     map['title'] = Variable<String>(title);
     if (!nullToAbsent || titleTranslate != null) {
       map['titleTranslate'] = Variable<String>(titleTranslate);
@@ -4529,6 +4643,7 @@ class DataItemRow extends DataClass implements Insertable<DataItemRow> {
   BangumiDataItemCompanion toCompanion(bool nullToAbsent) {
     return BangumiDataItemCompanion(
       id: Value(id),
+      itemKey: Value(itemKey),
       title: Value(title),
       titleTranslate: titleTranslate == null && nullToAbsent
           ? const Value.absent()
@@ -4561,6 +4676,7 @@ class DataItemRow extends DataClass implements Insertable<DataItemRow> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return DataItemRow(
       id: serializer.fromJson<int>(json['id']),
+      itemKey: serializer.fromJson<String>(json['itemKey']),
       title: serializer.fromJson<String>(json['title']),
       titleTranslate: serializer.fromJson<String?>(json['titleTranslate']),
       type: serializer.fromJson<String?>(json['type']),
@@ -4578,6 +4694,7 @@ class DataItemRow extends DataClass implements Insertable<DataItemRow> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'itemKey': serializer.toJson<String>(itemKey),
       'title': serializer.toJson<String>(title),
       'titleTranslate': serializer.toJson<String?>(titleTranslate),
       'type': serializer.toJson<String?>(type),
@@ -4593,6 +4710,7 @@ class DataItemRow extends DataClass implements Insertable<DataItemRow> {
 
   DataItemRow copyWith({
     int? id,
+    String? itemKey,
     String? title,
     Value<String?> titleTranslate = const Value.absent(),
     Value<String?> type = const Value.absent(),
@@ -4605,6 +4723,7 @@ class DataItemRow extends DataClass implements Insertable<DataItemRow> {
     Value<String?> sites = const Value.absent(),
   }) => DataItemRow(
     id: id ?? this.id,
+    itemKey: itemKey ?? this.itemKey,
     title: title ?? this.title,
     titleTranslate: titleTranslate.present
         ? titleTranslate.value
@@ -4621,6 +4740,7 @@ class DataItemRow extends DataClass implements Insertable<DataItemRow> {
   DataItemRow copyWithCompanion(BangumiDataItemCompanion data) {
     return DataItemRow(
       id: data.id.present ? data.id.value : this.id,
+      itemKey: data.itemKey.present ? data.itemKey.value : this.itemKey,
       title: data.title.present ? data.title.value : this.title,
       titleTranslate: data.titleTranslate.present
           ? data.titleTranslate.value
@@ -4642,6 +4762,7 @@ class DataItemRow extends DataClass implements Insertable<DataItemRow> {
   String toString() {
     return (StringBuffer('DataItemRow(')
           ..write('id: $id, ')
+          ..write('itemKey: $itemKey, ')
           ..write('title: $title, ')
           ..write('titleTranslate: $titleTranslate, ')
           ..write('type: $type, ')
@@ -4659,6 +4780,7 @@ class DataItemRow extends DataClass implements Insertable<DataItemRow> {
   @override
   int get hashCode => Object.hash(
     id,
+    itemKey,
     title,
     titleTranslate,
     type,
@@ -4675,6 +4797,7 @@ class DataItemRow extends DataClass implements Insertable<DataItemRow> {
       identical(this, other) ||
       (other is DataItemRow &&
           other.id == this.id &&
+          other.itemKey == this.itemKey &&
           other.title == this.title &&
           other.titleTranslate == this.titleTranslate &&
           other.type == this.type &&
@@ -4689,6 +4812,7 @@ class DataItemRow extends DataClass implements Insertable<DataItemRow> {
 
 class BangumiDataItemCompanion extends UpdateCompanion<DataItemRow> {
   final Value<int> id;
+  final Value<String> itemKey;
   final Value<String> title;
   final Value<String?> titleTranslate;
   final Value<String?> type;
@@ -4701,6 +4825,7 @@ class BangumiDataItemCompanion extends UpdateCompanion<DataItemRow> {
   final Value<String?> sites;
   const BangumiDataItemCompanion({
     this.id = const Value.absent(),
+    this.itemKey = const Value.absent(),
     this.title = const Value.absent(),
     this.titleTranslate = const Value.absent(),
     this.type = const Value.absent(),
@@ -4714,6 +4839,7 @@ class BangumiDataItemCompanion extends UpdateCompanion<DataItemRow> {
   });
   BangumiDataItemCompanion.insert({
     this.id = const Value.absent(),
+    this.itemKey = const Value.absent(),
     required String title,
     this.titleTranslate = const Value.absent(),
     this.type = const Value.absent(),
@@ -4727,6 +4853,7 @@ class BangumiDataItemCompanion extends UpdateCompanion<DataItemRow> {
   }) : title = Value(title);
   static Insertable<DataItemRow> custom({
     Expression<int>? id,
+    Expression<String>? itemKey,
     Expression<String>? title,
     Expression<String>? titleTranslate,
     Expression<String>? type,
@@ -4740,6 +4867,7 @@ class BangumiDataItemCompanion extends UpdateCompanion<DataItemRow> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (itemKey != null) 'itemKey': itemKey,
       if (title != null) 'title': title,
       if (titleTranslate != null) 'titleTranslate': titleTranslate,
       if (type != null) 'type': type,
@@ -4755,6 +4883,7 @@ class BangumiDataItemCompanion extends UpdateCompanion<DataItemRow> {
 
   BangumiDataItemCompanion copyWith({
     Value<int>? id,
+    Value<String>? itemKey,
     Value<String>? title,
     Value<String?>? titleTranslate,
     Value<String?>? type,
@@ -4768,6 +4897,7 @@ class BangumiDataItemCompanion extends UpdateCompanion<DataItemRow> {
   }) {
     return BangumiDataItemCompanion(
       id: id ?? this.id,
+      itemKey: itemKey ?? this.itemKey,
       title: title ?? this.title,
       titleTranslate: titleTranslate ?? this.titleTranslate,
       type: type ?? this.type,
@@ -4786,6 +4916,9 @@ class BangumiDataItemCompanion extends UpdateCompanion<DataItemRow> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (itemKey.present) {
+      map['itemKey'] = Variable<String>(itemKey.value);
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
@@ -4824,6 +4957,7 @@ class BangumiDataItemCompanion extends UpdateCompanion<DataItemRow> {
   String toString() {
     return (StringBuffer('BangumiDataItemCompanion(')
           ..write('id: $id, ')
+          ..write('itemKey: $itemKey, ')
           ..write('title: $title, ')
           ..write('titleTranslate: $titleTranslate, ')
           ..write('type: $type, ')
@@ -4864,6 +4998,18 @@ abstract class _$BtDatabase extends GeneratedDatabase {
     'AppSubscription_feedKey',
     'CREATE INDEX AppSubscription_feedKey ON AppSubscription (feedKey)',
   );
+  late final Index bangumiCollectionSearch = Index(
+    'BangumiCollection_search',
+    'CREATE INDEX BangumiCollection_search ON BangumiCollection (collectionType, name, nameCn)',
+  );
+  late final Index bangumiDataItemTitle = Index(
+    'BangumiDataItem_title',
+    'CREATE INDEX BangumiDataItem_title ON BangumiDataItem (title)',
+  );
+  late final Index bangumiDataItemItemKey = Index(
+    'BangumiDataItem_itemKey',
+    'CREATE UNIQUE INDEX BangumiDataItem_itemKey ON BangumiDataItem (itemKey)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4880,6 +5026,9 @@ abstract class _$BtDatabase extends GeneratedDatabase {
     bangumiDataSite,
     bangumiDataItem,
     appSubscriptionFeedKey,
+    bangumiCollectionSearch,
+    bangumiDataItemTitle,
+    bangumiDataItemItemKey,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -6784,6 +6933,8 @@ typedef $$BangumiCollectionTableCreateCompanionBuilder =
       required String updatedAt,
       required int private,
       Value<String?> subject,
+      Value<String> name,
+      Value<String> nameCn,
     });
 typedef $$BangumiCollectionTableUpdateCompanionBuilder =
     BangumiCollectionCompanion Function({
@@ -6798,6 +6949,8 @@ typedef $$BangumiCollectionTableUpdateCompanionBuilder =
       Value<String> updatedAt,
       Value<int> private,
       Value<String?> subject,
+      Value<String> name,
+      Value<String> nameCn,
     });
 
 class $$BangumiCollectionTableFilterComposer
@@ -6861,6 +7014,16 @@ class $$BangumiCollectionTableFilterComposer
 
   ColumnFilters<String> get subject => $composableBuilder(
     column: $table.subject,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nameCn => $composableBuilder(
+    column: $table.nameCn,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6928,6 +7091,16 @@ class $$BangumiCollectionTableOrderingComposer
     column: $table.subject,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nameCn => $composableBuilder(
+    column: $table.nameCn,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$BangumiCollectionTableAnnotationComposer
@@ -6975,6 +7148,12 @@ class $$BangumiCollectionTableAnnotationComposer
 
   GeneratedColumn<String> get subject =>
       $composableBuilder(column: $table.subject, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get nameCn =>
+      $composableBuilder(column: $table.nameCn, builder: (column) => column);
 }
 
 class $$BangumiCollectionTableTableManager
@@ -7028,6 +7207,8 @@ class $$BangumiCollectionTableTableManager
                 Value<String> updatedAt = const Value.absent(),
                 Value<int> private = const Value.absent(),
                 Value<String?> subject = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> nameCn = const Value.absent(),
               }) => BangumiCollectionCompanion(
                 subjectId: subjectId,
                 subjectType: subjectType,
@@ -7040,6 +7221,8 @@ class $$BangumiCollectionTableTableManager
                 updatedAt: updatedAt,
                 private: private,
                 subject: subject,
+                name: name,
+                nameCn: nameCn,
               ),
           createCompanionCallback:
               ({
@@ -7054,6 +7237,8 @@ class $$BangumiCollectionTableTableManager
                 required String updatedAt,
                 required int private,
                 Value<String?> subject = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> nameCn = const Value.absent(),
               }) => BangumiCollectionCompanion.insert(
                 subjectId: subjectId,
                 subjectType: subjectType,
@@ -7066,6 +7251,8 @@ class $$BangumiCollectionTableTableManager
                 updatedAt: updatedAt,
                 private: private,
                 subject: subject,
+                name: name,
+                nameCn: nameCn,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -7330,6 +7517,7 @@ typedef $$BangumiDataSiteTableProcessedTableManager =
 typedef $$BangumiDataItemTableCreateCompanionBuilder =
     BangumiDataItemCompanion Function({
       Value<int> id,
+      Value<String> itemKey,
       required String title,
       Value<String?> titleTranslate,
       Value<String?> type,
@@ -7344,6 +7532,7 @@ typedef $$BangumiDataItemTableCreateCompanionBuilder =
 typedef $$BangumiDataItemTableUpdateCompanionBuilder =
     BangumiDataItemCompanion Function({
       Value<int> id,
+      Value<String> itemKey,
       Value<String> title,
       Value<String?> titleTranslate,
       Value<String?> type,
@@ -7367,6 +7556,11 @@ class $$BangumiDataItemTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get itemKey => $composableBuilder(
+    column: $table.itemKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7435,6 +7629,11 @@ class $$BangumiDataItemTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get itemKey => $composableBuilder(
+    column: $table.itemKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get title => $composableBuilder(
     column: $table.title,
     builder: (column) => ColumnOrderings(column),
@@ -7497,6 +7696,9 @@ class $$BangumiDataItemTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get itemKey =>
+      $composableBuilder(column: $table.itemKey, builder: (column) => column);
 
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
@@ -7567,6 +7769,7 @@ class $$BangumiDataItemTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> itemKey = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<String?> titleTranslate = const Value.absent(),
                 Value<String?> type = const Value.absent(),
@@ -7579,6 +7782,7 @@ class $$BangumiDataItemTableTableManager
                 Value<String?> sites = const Value.absent(),
               }) => BangumiDataItemCompanion(
                 id: id,
+                itemKey: itemKey,
                 title: title,
                 titleTranslate: titleTranslate,
                 type: type,
@@ -7593,6 +7797,7 @@ class $$BangumiDataItemTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> itemKey = const Value.absent(),
                 required String title,
                 Value<String?> titleTranslate = const Value.absent(),
                 Value<String?> type = const Value.absent(),
@@ -7605,6 +7810,7 @@ class $$BangumiDataItemTableTableManager
                 Value<String?> sites = const Value.absent(),
               }) => BangumiDataItemCompanion.insert(
                 id: id,
+                itemKey: itemKey,
                 title: title,
                 titleTranslate: titleTranslate,
                 type: type,

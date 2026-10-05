@@ -704,24 +704,11 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     var rawData = dataGet.data as BangumiDataJson;
     progress.update(title: '成功获取数据', text: '正在写入数据');
     try {
-      var sites = <BangumiDataSiteFull>[
-        for (var entry in rawData.siteMeta.entries)
-          BangumiDataSiteFull.fromSite(entry.key, entry.value),
-      ];
-      var siteTotal = sites.length;
-      for (var i = 0; i < siteTotal; i++) {
-        var site = sites[i];
-        progress.update(
-          title: '写入站点数据 ${i + 1}/$siteTotal',
-          text: site.title,
-          progress: siteTotal == 0 ? 0 : (i + 1) * 100 / siteTotal,
-        );
-        await sqliteBd.writeSite(site);
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
-      var items = rawData.items;
-      await sqliteBd.writeItemBatch(
-        items,
+      var timeNow = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      await sqliteBd.replaceDataset(
+        rawData,
+        version: remote,
+        checkedAt: timeNow.toString(),
         onProgress: (completed, total) {
           progress.update(
             title: '写入条目数据',
@@ -738,9 +725,6 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       return;
     }
     await BTNotifierTool.showMini(title: 'BangumiData', body: '数据更新完成');
-    await sqliteAc.writeBangumiDataVersion(remote);
-    var timeNow = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    await sqliteAc.writeBangumiDataCheckTime(timeNow.toString());
     progress.update(text: '已更新到最新版本');
     version = remote;
     setState(() {});
