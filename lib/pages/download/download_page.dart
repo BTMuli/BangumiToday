@@ -15,6 +15,7 @@ import '../../widgets/common/bt_card.dart';
 import '../../widgets/common/bt_drawer.dart';
 import '../../widgets/download/manual_download_dialog.dart';
 import 'download_task_details.dart';
+import 'download_task_helpers.dart';
 
 part 'download_page/empty_states.dart';
 part 'download_page/header_widgets.dart';
@@ -31,6 +32,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
   final TextEditingController _searchController = TextEditingController();
   var _tabIndex = 0;
   var _searchQuery = '';
+  var _sortField = DownloadTaskSortField.defaultOrder;
+  var _sortDescending = false;
   var _selecting = false;
   var _batchBusy = false;
   final Set<String> _selectedIds = {};
@@ -77,7 +80,8 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
     }
 
     return ScaffoldPage(
-      header: PageHeader(
+      padding: EdgeInsets.zero,
+      header: _DownloadHeader(
         title: Wrap(
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
@@ -131,16 +135,6 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
                 onPressed: () => showManualDownloadDialog(context, ref),
               ),
             ),
-            SizedBox(width: 8),
-            _DownloadSearchBox(
-              controller: _searchController,
-              query: _searchQuery,
-              onChanged: (value) => setState(() => _searchQuery = value),
-              onClear: () {
-                _searchController.clear();
-                setState(() => _searchQuery = '');
-              },
-            ),
           ],
         ),
         commandBar: Wrap(
@@ -150,26 +144,78 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             const _DownloadRates(),
-            _DownloadTabControl(
-              tabIndex: _tabIndex,
-              onChanged: (index) => setState(() => _tabIndex = index),
-            ),
             _DownloadEngineStatus(onEnable: () => _enableEngine(context)),
-            _DownloadRefreshButton(onRefresh: () => _refresh(context)),
           ],
         ),
       ),
       content: Container(
-        color: BTColors.surfaceSecondary(context).withValues(alpha: 0.34),
-        child: _DownloadTaskPane(
-          tabIndex: _tabIndex,
-          searchQuery: _searchQuery,
-          selecting: _selecting,
-          selectedIds: _selectedIds,
-          onToggleSelect: _toggleSelect,
+        color: BTColors.surfaceSecondary(context),
+        child: Column(
+          children: [
+            _DownloadToolbar(
+              leading: Wrap(
+                spacing: 16,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _DownloadSortControl(
+                    field: _sortField,
+                    descending: _sortDescending,
+                    enabled: _tabIndex == 0,
+                    onSort: _changeSort,
+                  ),
+                  _DownloadSearchBox(
+                    controller: _searchController,
+                    query: _searchQuery,
+                    onChanged: (value) => setState(() => _searchQuery = value),
+                    onClear: () {
+                      _searchController.clear();
+                      setState(() => _searchQuery = '');
+                    },
+                  ),
+                ],
+              ),
+              controls: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _DownloadTabControl(
+                    tabIndex: _tabIndex,
+                    onChanged: (index) => setState(() => _tabIndex = index),
+                  ),
+                  const SizedBox(width: 8),
+                  _DownloadRefreshButton(onRefresh: () => _refresh(context)),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _DownloadTaskPane(
+                tabIndex: _tabIndex,
+                searchQuery: _searchQuery,
+                sortField: _sortField,
+                sortDescending: _sortDescending,
+                selecting: _selecting,
+                selectedIds: _selectedIds,
+                onToggleSelect: _toggleSelect,
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  void _changeSort(DownloadTaskSortField field) {
+    setState(() {
+      if (_sortField != field) {
+        _sortField = field;
+        _sortDescending = false;
+      } else if (!_sortDescending) {
+        _sortDescending = true;
+      } else {
+        _sortField = DownloadTaskSortField.defaultOrder;
+        _sortDescending = false;
+      }
+    });
   }
 
   void _pruneSelection(BtDownloadState store) {
@@ -317,6 +363,7 @@ class _DownloadTabControl extends ConsumerWidget {
       btDownloadStoreProvider.select((store) => store.stoppedTasks.length),
     );
     return BTSegmentedControl(
+      compact: true,
       selectedIndex: tabIndex,
       options: ['进行中 $activeCount', '已停止 $stoppedCount'],
       onChanged: onChanged,
@@ -367,6 +414,8 @@ class _DownloadTaskPane extends ConsumerWidget {
   const _DownloadTaskPane({
     required this.tabIndex,
     required this.searchQuery,
+    required this.sortField,
+    required this.sortDescending,
     required this.selecting,
     required this.selectedIds,
     required this.onToggleSelect,
@@ -374,6 +423,8 @@ class _DownloadTaskPane extends ConsumerWidget {
 
   final int tabIndex;
   final String searchQuery;
+  final DownloadTaskSortField sortField;
+  final bool sortDescending;
   final bool selecting;
   final Set<String> selectedIds;
   final ValueChanged<String> onToggleSelect;
@@ -386,16 +437,29 @@ class _DownloadTaskPane extends ConsumerWidget {
       ),
     );
     var filteredTasks = _filterDownloadTasks(tasks, searchQuery);
+    if (tabIndex == 0) {
+      filteredTasks = sortDownloadTasks(
+        filteredTasks,
+        sortField,
+        descending: sortDescending,
+      );
+    }
     if (tasks.isEmpty) {
       return tabIndex == 0 ? const _EmptyDownloads() : const _EmptyStopped();
     }
     if (filteredTasks.isEmpty) {
       return _EmptySearchResults(query: searchQuery.trim());
     }
+    var itemIndices = {
+      for (var index = 0; index < filteredTasks.length; index++)
+        filteredTasks[index].id: index,
+    };
     return ListView.separated(
       padding: EdgeInsets.fromLTRB(20, 14, 20, 24),
       itemCount: filteredTasks.length,
       separatorBuilder: (_, _) => SizedBox(height: 14),
+      findItemIndexCallback: (key) =>
+          itemIndices[(key as ValueKey<String>).value],
       itemBuilder: (context, index) {
         var task = filteredTasks[index];
         return RepaintBoundary(
@@ -514,23 +578,9 @@ String _stateLabel(String state) {
   };
 }
 
-String _formatDuration(int seconds) {
-  var duration = Duration(seconds: seconds);
-  var hours = duration.inHours;
-  var minutes = duration.inMinutes.remainder(60);
-  var secs = duration.inSeconds.remainder(60);
-  if (hours > 0) return '$hours 小时 $minutes 分钟';
-  if (minutes > 0) return '$minutes 分钟 $secs 秒';
-  return '$secs 秒';
-}
-
 String _etaLabel(BtTaskSnapshot task) {
-  if (task.downloadRate <= 0 || task.totalBytes <= task.downloadedBytes) {
-    return '—';
-  }
-  var seconds = ((task.totalBytes - task.downloadedBytes) / task.downloadRate)
-      .ceil();
-  return _formatDuration(seconds);
+  var seconds = downloadTaskRemainingSeconds(task);
+  return seconds == null ? '—' : formatDownloadDuration(seconds);
 }
 
 String _seedStopReasonLabel(String reason) {

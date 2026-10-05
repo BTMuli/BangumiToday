@@ -198,7 +198,7 @@ class _DownloadTaskCard extends StatelessWidget {
                           label: '做种',
                           value:
                               '分享率 ${task.shareRatio.toStringAsFixed(2)} · '
-                              '${_formatDuration(task.seedingSeconds)}',
+                              '${formatDownloadDuration(task.seedingSeconds)}',
                           color: BTColors.successLight(context),
                         ),
                       if (task.seedStopReason != null)

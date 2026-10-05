@@ -316,12 +316,14 @@ class BTSegmentedControl extends StatefulWidget {
   final int selectedIndex;
   final List<String> options;
   final ValueChanged<int>? onChanged;
+  final bool compact;
 
   const BTSegmentedControl({
     super.key,
     required this.selectedIndex,
     required this.options,
     this.onChanged,
+    this.compact = false,
   });
 
   @override
@@ -357,7 +359,7 @@ class _BTSegmentedControlState extends State<BTSegmentedControl> {
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
     return Container(
-      padding: EdgeInsets.all(4),
+      padding: EdgeInsets.all(widget.compact ? 2 : 4),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context),
         borderRadius: BTRadius.mediumBR,
@@ -374,6 +376,7 @@ class _BTSegmentedControlState extends State<BTSegmentedControl> {
             _SegmentedOption(
               label: widget.options[i],
               selected: i == widget.selectedIndex,
+              compact: widget.compact,
               focusNode: _nodes[i],
               onTap: () => _select(i),
               onMove: (delta) => _move(i, delta),
@@ -388,6 +391,7 @@ class _SegmentedOption extends StatefulWidget {
   const _SegmentedOption({
     required this.label,
     required this.selected,
+    required this.compact,
     required this.focusNode,
     required this.onTap,
     required this.onMove,
@@ -395,6 +399,7 @@ class _SegmentedOption extends StatefulWidget {
 
   final String label;
   final bool selected;
+  final bool compact;
   final FocusNode focusNode;
   final VoidCallback onTap;
   final ValueChanged<int> onMove;
@@ -444,7 +449,10 @@ class _SegmentedOptionState extends State<_SegmentedOption> {
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: BTTheme.animationDurationFast,
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.compact ? 12 : 16,
+              vertical: widget.compact ? 4 : 8,
+            ),
             decoration: BoxDecoration(
               color: isSelected
                   ? accentColor

@@ -1,5 +1,36 @@
 part of '../download_page.dart';
 
+class _DownloadHeader extends StatelessWidget {
+  const _DownloadHeader({required this.title, required this.commandBar});
+
+  final Widget title;
+  final Widget commandBar;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: BTColors.surfaceTertiary(context),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: DefaultTextStyle.merge(
+                style: FluentTheme.of(context).typography.title,
+                child: title,
+              ),
+            ),
+            const SizedBox(width: 24),
+            Flexible(
+              child: Align(alignment: Alignment.centerRight, child: commandBar),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PageTitle extends StatelessWidget {
   const _PageTitle({required this.activeCount, required this.stoppedCount});
 
@@ -74,6 +105,109 @@ class _DownloadSearchBox extends StatelessWidget {
                 onPressed: onClear,
               ),
         onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+class _DownloadToolbar extends StatelessWidget {
+  const _DownloadToolbar({required this.leading, required this.controls});
+
+  final Widget leading;
+  final Widget controls;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+      decoration: BoxDecoration(
+        color: BTColors.surfaceTertiary(context),
+        border: Border(bottom: BorderSide(color: BTColors.divider(context))),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 720) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(alignment: Alignment.centerLeft, child: leading),
+                const SizedBox(height: 8),
+                Align(alignment: Alignment.centerRight, child: controls),
+              ],
+            );
+          }
+          return Row(children: [leading, const Spacer(), controls]);
+        },
+      ),
+    );
+  }
+}
+
+class _DownloadSortControl extends StatelessWidget {
+  const _DownloadSortControl({
+    required this.field,
+    required this.descending,
+    required this.enabled,
+    required this.onSort,
+  });
+
+  final DownloadTaskSortField field;
+  final bool descending;
+  final bool enabled;
+  final ValueChanged<DownloadTaskSortField> onSort;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('排序', style: BTTypography.caption(context)),
+        const SizedBox(width: 12),
+        _buildButton(DownloadTaskSortField.downloadRate, FluentIcons.download),
+        const SizedBox(width: 8),
+        _buildButton(DownloadTaskSortField.uploadRate, FluentIcons.upload),
+        const SizedBox(width: 8),
+        _buildButton(DownloadTaskSortField.remainingTime, FluentIcons.timer),
+      ],
+    );
+  }
+
+  Widget _buildButton(DownloadTaskSortField value, IconData icon) {
+    var selected = field == value;
+    var direction = descending ? '降序' : '升序';
+    var nextAction = selected
+        ? descending
+              ? '恢复默认排序'
+              : '切换降序'
+        : '按升序排序';
+    var tooltip = enabled
+        ? selected
+              ? '${value.label} · 当前$direction，点击$nextAction'
+              : '${value.label} · 点击$nextAction'
+        : '${value.label} · 仅进行中任务支持排序';
+    return Tooltip(
+      message: tooltip,
+      child: ToggleButton(
+        checked: selected && enabled,
+        onChanged: enabled ? (_) => onSort(value) : null,
+        child: SizedBox(
+          width: 28,
+          height: 16,
+          child: Row(
+            children: [
+              Icon(icon, size: 16),
+              const SizedBox(width: 4),
+              Icon(
+                selected && enabled
+                    ? descending
+                          ? FluentIcons.chevron_down
+                          : FluentIcons.chevron_up
+                    : FluentIcons.remove,
+                size: 8,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
