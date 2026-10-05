@@ -97,8 +97,8 @@ class SubjectRssStatProvider extends ChangeNotifier {
   String? get state => _state;
 
   /// set
-  void set(String value) {
-    if (_state == value) return;
+  void set(String value, {bool force = false}) {
+    if (_state == value && !force) return;
     _state = value;
     notifyListeners();
   }

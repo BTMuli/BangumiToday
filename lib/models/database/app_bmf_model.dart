@@ -2,6 +2,7 @@
 import 'package:json_annotation/json_annotation.dart';
 
 // Project imports:
+import '../app/rss_selection_behavior.dart';
 import 'app_subscription_model.dart';
 
 part 'app_bmf_model.g.dart';
@@ -54,6 +55,28 @@ class AppBmfModel {
     subscriptions = subscriptions
         .map((s) => s.copyWith(autoUpdate: value))
         .toList();
+  }
+
+  /// 搜索选择遵循应用设置；再次选择同一请求时保留其订阅状态。
+  AppBmfModel withSelectedRss(
+    String url, {
+    required RssSelectionBehavior behavior,
+  }) {
+    var draft = AppSubscriptionModel.forUrl(
+      url,
+      bmfId: id,
+      autoUpdate:
+          behavior == RssSelectionBehavior.add ||
+          (subscriptions.firstOrNull?.autoUpdate ?? true),
+    );
+    var existing = subscriptions
+        .where((subscription) => subscription.feedKey == draft.feedKey)
+        .firstOrNull;
+    return copyWith(
+      subscriptions: behavior == RssSelectionBehavior.replace
+          ? [existing ?? draft]
+          : [...subscriptions, if (existing == null) draft],
+    );
   }
 
   AppBmfModel copyWith({

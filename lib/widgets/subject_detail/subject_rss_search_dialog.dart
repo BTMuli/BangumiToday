@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 // Project imports:
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/tool_func.dart';
+import '../../models/app/rss_selection_behavior.dart';
 import '../../models/mikan/mikan_model.dart';
 import '../../models/rss/anibt_filters.dart';
 import '../../models/rss/anibt_search.dart';
@@ -24,6 +25,7 @@ class SubjectRssSearchDialog extends StatefulWidget {
   final String title;
   final String? currentRss;
   final bool selectOnly;
+  final RssSelectionBehavior selectionBehavior;
   final Future<bool> Function(BuildContext context, String rss) onSubscribe;
 
   const SubjectRssSearchDialog({
@@ -33,6 +35,7 @@ class SubjectRssSearchDialog extends StatefulWidget {
     required this.onSubscribe,
     this.currentRss,
     this.selectOnly = false,
+    this.selectionBehavior = RssSelectionBehavior.replace,
   });
 
   @override
@@ -141,7 +144,11 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
         var confirm = await showConfirm(
           context,
           title: '确认订阅？',
-          content: '将「$label」的 RSS 设为当前条目的 BMF 订阅',
+          content: widget.currentRss?.isNotEmpty == true
+              ? widget.selectionBehavior == RssSelectionBehavior.replace
+                    ? '将「$label」的 RSS 替换当前条目的全部已有源，只保留本次选择'
+                    : '将「$label」的 RSS 新增到当前条目，保留已有源'
+              : '将「$label」的 RSS 设为当前条目的 BMF 订阅',
         );
         if (!confirm || !mounted) return;
       }

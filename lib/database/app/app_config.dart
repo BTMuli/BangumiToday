@@ -9,6 +9,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import '../../core/constants/app_constants.dart';
 import '../../models/app/bt_download_config.dart';
 import '../../models/app/bt_tracker_config.dart';
+import '../../models/app/rss_selection_behavior.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
 import '../drift/bt_database.dart';
@@ -135,6 +136,18 @@ class BtsAppConfig {
   /// 写入关闭后最小化到托盘配置。
   Future<void> writeMinimizeToTray(bool value) async {
     await _instance.write('minimizeToTray', value.toString());
+  }
+
+  /// 读取搜索 RSS 的默认行为；未设置时默认替换。
+  Future<RssSelectionBehavior> readRssSelectionBehavior() async {
+    var value = await _instance.read('rssSelectionBehavior');
+    var behavior = RssSelectionBehavior.fromConfig(value);
+    if (value != behavior.name) await writeRssSelectionBehavior(behavior);
+    return behavior;
+  }
+
+  Future<void> writeRssSelectionBehavior(RssSelectionBehavior value) async {
+    await _instance.write('rssSelectionBehavior', value.name);
   }
 
   /// 读取是否使用系统代理配置。

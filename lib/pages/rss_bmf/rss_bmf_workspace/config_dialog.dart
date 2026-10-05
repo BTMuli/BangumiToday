@@ -85,6 +85,7 @@ class _BmfConfigDialogState extends ConsumerState<_BmfConfigDialog> {
   }
 
   Future<void> _searchRss() async {
+    var behavior = ref.read(appStoreProvider).rssSelectionBehavior;
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -92,10 +93,27 @@ class _BmfConfigDialogState extends ConsumerState<_BmfConfigDialog> {
       builder: (_) => SubjectRssSearchDialog(
         subjectId: widget.bmf.subject,
         title: _title.text.trim(),
+        currentRss: _subscriptions.firstOrNull?.url.text,
+        selectionBehavior: behavior,
         selectOnly: true,
         onSubscribe: (_, rss) async {
           if (!mounted) return false;
-          _add(rss);
+          var current = widget.bmf.copyWith(
+            subscriptions: [
+              for (var editor in _subscriptions)
+                editor.original.copyWith(
+                  url: editor.url.text.trim(),
+                  autoUpdate: editor.autoUpdate,
+                ),
+            ],
+          );
+          var selected = current.withSelectedRss(rss, behavior: behavior);
+          setState(() {
+            _removed.addAll(_subscriptions);
+            _subscriptions
+              ..clear()
+              ..addAll(selected.subscriptions.map(_SubscriptionEditor.new));
+          });
           return true;
         },
       ),

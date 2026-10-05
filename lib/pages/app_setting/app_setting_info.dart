@@ -11,6 +11,7 @@ import '../../core/services/download_service.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/get_theme_label.dart';
+import '../../models/app/rss_selection_behavior.dart';
 import '../../store/app_store.dart';
 import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
@@ -237,6 +238,24 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
     );
   }
 
+  Widget buildRssSelectionBehaviorInfo() {
+    var behavior = ref.watch(appStoreProvider).rssSelectionBehavior;
+    return ListTile(
+      leading: const BtIcon(MdiIcons.rss),
+      title: const Text('搜索 RSS 默认行为'),
+      subtitle: const Text('替换：只保留选中的源；新增：保留已有源并添加'),
+      trailing: BTSegmentedControl(
+        selectedIndex: behavior.index,
+        options: [for (var value in RssSelectionBehavior.values) value.label],
+        onChanged: (index) async {
+          await ref
+              .read(appStoreProvider.notifier)
+              .setRssSelectionBehavior(RssSelectionBehavior.values[index]);
+        },
+      ),
+    );
+  }
+
   /// 构建日志信息
   Widget buildLogInfo() {
     return ListTile(
@@ -394,12 +413,13 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
     return BTSettingSection(
       icon: FluentIcons.settings,
       title: '应用配置',
-      subtitle: '主题、缓存、日志与路径设置',
+      subtitle: '主题、RSS、缓存、日志与路径设置',
       initiallyExpanded: true,
       children: [
         buildThemeRow(),
         const BTSettingDivider(),
         buildMinimizeToTrayInfo(),
+        buildRssSelectionBehaviorInfo(),
         const BTSettingDivider(),
         buildCacheInfo(),
         buildImageCacheInfo(),

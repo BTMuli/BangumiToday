@@ -79,12 +79,12 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
   }
 
   void _onRssChanged() async {
-    var val = widget.rssProvider?.state;
     if (!_initialized) return;
     try {
-      await updateRss(val);
+      // 搜索回调已完成写入，只重新读取，避免用抽屉的旧源列表再次覆盖。
+      await init();
     } catch (error, stackTrace) {
-      BTLogTool.error(['更新 RSS 订阅失败', error.toString(), stackTrace.toString()]);
+      BTLogTool.error(['刷新 RSS 订阅失败', error.toString(), stackTrace.toString()]);
     }
   }
 

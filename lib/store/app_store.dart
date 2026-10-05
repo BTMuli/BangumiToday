@@ -6,6 +6,7 @@ import 'package:system_theme/system_theme.dart';
 // Project imports:
 import '../core/constants/app_constants.dart';
 import '../database/app/app_config.dart';
+import '../models/app/rss_selection_behavior.dart';
 import '../request/bangumi/bangumi_api.dart';
 import '../request/core/client.dart';
 import '../request/mikan/mikan_api.dart';
@@ -28,6 +29,7 @@ class BTAppSettings {
     this.bangumiUrl = BTAppConstants.bangumiApiBaseUrl,
     this.minimizeToTray = true,
     this.useSystemProxy = false,
+    this.rssSelectionBehavior = RssSelectionBehavior.replace,
     this.loaded = false,
   });
 
@@ -49,6 +51,9 @@ class BTAppSettings {
   /// 是否使用 Windows 系统代理。
   final bool useSystemProxy;
 
+  /// 搜索选中 RSS 时默认替换全部已有源，或保留已有源并新增。
+  final RssSelectionBehavior rssSelectionBehavior;
+
   /// 是否已从数据库读取完成。
   final bool loaded;
 
@@ -68,6 +73,7 @@ class BTAppSettings {
     String? bangumiUrl,
     bool? minimizeToTray,
     bool? useSystemProxy,
+    RssSelectionBehavior? rssSelectionBehavior,
     bool? loaded,
   }) {
     return BTAppSettings(
@@ -77,6 +83,7 @@ class BTAppSettings {
       bangumiUrl: bangumiUrl ?? this.bangumiUrl,
       minimizeToTray: minimizeToTray ?? this.minimizeToTray,
       useSystemProxy: useSystemProxy ?? this.useSystemProxy,
+      rssSelectionBehavior: rssSelectionBehavior ?? this.rssSelectionBehavior,
       loaded: loaded ?? this.loaded,
     );
   }
@@ -91,6 +98,7 @@ class BTAppSettings {
         bangumiUrl == other.bangumiUrl &&
         minimizeToTray == other.minimizeToTray &&
         useSystemProxy == other.useSystemProxy &&
+        rssSelectionBehavior == other.rssSelectionBehavior &&
         loaded == other.loaded;
   }
 
@@ -102,6 +110,7 @@ class BTAppSettings {
     bangumiUrl,
     minimizeToTray,
     useSystemProxy,
+    rssSelectionBehavior,
     loaded,
   );
 }
@@ -130,6 +139,7 @@ class BTAppStore extends Notifier<BTAppSettings> {
     var bangumiUrl = await sqlite.readBangumiUrl();
     var mikanRss = await sqlite.readMikanUrl();
     var useSystemProxy = await sqlite.readUseSystemProxy();
+    var rssSelectionBehavior = await sqlite.readRssSelectionBehavior();
 
     BtrBangumiApi.setBaseUrl(bangumiUrl);
     BtrMikanApi.setBaseUrl(mikanRss);
@@ -143,6 +153,7 @@ class BTAppStore extends Notifier<BTAppSettings> {
       bangumiUrl: bangumiUrl,
       minimizeToTray: minimizeToTray,
       useSystemProxy: useSystemProxy,
+      rssSelectionBehavior: rssSelectionBehavior,
       loaded: true,
     );
   }
@@ -171,6 +182,12 @@ class BTAppStore extends Notifier<BTAppSettings> {
   Future<void> setMinimizeToTray(bool value) async {
     await sqlite.writeMinimizeToTray(value);
     state = state.copyWith(minimizeToTray: value);
+  }
+
+  /// 设置搜索 RSS 的默认行为，写入成功后更新状态。
+  Future<void> setRssSelectionBehavior(RssSelectionBehavior value) async {
+    await sqlite.writeRssSelectionBehavior(value);
+    state = state.copyWith(rssSelectionBehavior: value);
   }
 
   /// 设置是否使用系统代理；写入失败时回滚客户端配置并保留原状态。

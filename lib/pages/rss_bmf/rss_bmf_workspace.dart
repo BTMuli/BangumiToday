@@ -399,6 +399,7 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
 
   /// 打开番剧 RSS 搜索，选中的 RSS 直接写回当前关联。
   Future<void> _searchRss(AppBmfModel bmf) async {
+    var behavior = ref.read(appStoreProvider).rssSelectionBehavior;
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -407,12 +408,16 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
         subjectId: bmf.subject,
         title: bmf.title ?? '未命名番剧',
         currentRss: bmf.rss,
+        selectionBehavior: behavior,
         selectOnly: true,
         onSubscribe: (dialogContext, rssUrl) async {
           var repo = ref.read(bmfRepositoryProvider);
           if (!dialogContext.mounted) return false;
           try {
-            await repo.updateModel(bmf.copyWith(rss: rssUrl));
+            var current = await repo.read(bmf.subject) ?? bmf;
+            var updated = current.withSelectedRss(rssUrl, behavior: behavior);
+            var scheduled = await repo.updateModel(updated);
+            if (!scheduled) await repo.refreshRss(updated);
           } on StateError catch (error) {
             if (dialogContext.mounted) {
               await BtInfobar.error(dialogContext, error.message);
@@ -420,7 +425,7 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
             return false;
           }
           if (dialogContext.mounted) {
-            await BtInfobar.success(dialogContext, 'RSS 订阅已添加');
+            await BtInfobar.success(dialogContext, 'RSS 订阅已${behavior.label}');
           }
           return true;
         },

@@ -203,6 +203,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     var repo = ref.read(bmfRepositoryProvider);
     var currentBmf = await repo.read(subject.id);
     if (!mounted) return;
+    var behavior = ref.read(appStoreProvider).rssSelectionBehavior;
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -211,6 +212,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
         subjectId: subject.id,
         title: subject.nameCn.isEmpty ? subject.name : subject.nameCn,
         currentRss: currentBmf?.rss,
+        selectionBehavior: behavior,
         onSubscribe: (dialogContext, rss) async {
           var check = await repo.checkRss(rss, excludeSubject: subject.id);
           if (!dialogContext.mounted || !mounted) return false;
@@ -218,19 +220,18 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
             await BtInfobar.error(dialogContext, '该RSS已经被其他BMF使用');
             return false;
           }
-          var bmf = await repo.read(subject.id);
-          bmf = bmf == null
-              ? AppBmfModel(
-                  subject: subject.id,
-                  title: subject.nameCn.isEmpty ? subject.name : subject.nameCn,
-                  airDate: subject.date,
-                  rss: rss,
-                )
-              : bmf.copyWith(rss: rss);
+          var bmf =
+              await repo.read(subject.id) ??
+              AppBmfModel(
+                subject: subject.id,
+                title: subject.nameCn.isEmpty ? subject.name : subject.nameCn,
+                airDate: subject.date,
+              );
+          bmf = bmf.withSelectedRss(rss, behavior: behavior);
           var scheduled = await repo.write(bmf);
           // 写入已按自动更新设置发起过一次拉取，只为关闭自动更新的订阅补一次。
           if (!scheduled) await repo.refreshRss(bmf);
-          if (mounted) rssProvider.set(rss);
+          if (mounted) rssProvider.set(rss, force: true);
           if (dialogContext.mounted) {
             await BtInfobar.success(dialogContext, '成功设置 RSS');
           }
