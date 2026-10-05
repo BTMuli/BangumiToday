@@ -22,6 +22,26 @@ class DatasetStorage {
             ..limit(1))
           .getSingleOrNull();
 
+  /// 读取与放送窗口 [start, end) 相交的条目，保留窗口内尚未首播的新番。
+  /// `begin`/`end` 为定长 ISO 8601 UTC 字符串；剧场版不进入日历。
+  Future<List<DataItemRow>> readItemsInAirWindow({
+    required DateTime start,
+    required DateTime end,
+  }) {
+    var startUtc = start.toUtc().toIso8601String();
+    var endUtc = end.toUtc().toIso8601String();
+    return (db.select(db.bangumiDataItem)..where(
+          (table) =>
+              table.type.equals('movie').not() &
+              table.begin.equals('').not() &
+              table.begin.isSmallerThanValue(endUtc) &
+              (table.end.isNull() |
+                  table.end.equals('') |
+                  table.end.isBiggerOrEqualValue(startUtc)),
+        ))
+        .get();
+  }
+
   Future<void> saveSites(List<BangumiDataSiteCompanion> sites) =>
       db.transaction(() => _writeSites(sites));
 

@@ -204,7 +204,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       _watchedIds = await loadWatchedIds(repository);
       _bmfIds = await loadBmfIds();
       _collectedIds = await loadCollectedIds();
-      var items = await sqliteBd.readItemsOnAir();
+      var items = await sqliteBd.readItemsForCalendar();
       if (!mounted) return;
       if (items.isEmpty) {
         await loadRemoteFallback(repository);

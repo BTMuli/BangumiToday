@@ -47,8 +47,8 @@ class BangumiCalendarData {
 
   /// 组装一周日历，索引 0=周一 ... 6=周日，按日本放送日归属。
   ///
-  /// [items] 为本地 bangumi-data 的在播条目；[siteMeta] 为 bangumi-data
-  /// 站点元数据，用于拼条目链接；[enrich] 为 bgm 条目（按 subject id 索引），
+  /// [items] 为本地 bangumi-data 在七天窗口内的候选条目；[siteMeta] 为站点
+  /// 元数据，用于拼条目链接；[enrich] 为 bgm 条目（按 subject id 索引），
   /// 缺失时仅生成候选条目，确认成人向标记后才能展示；
   /// [finishedIds] 为已确认放完的条目，直接不排进日历。
   ///
@@ -61,13 +61,14 @@ class BangumiCalendarData {
     Set<int> watchedIds = const {},
     Set<int> bmfIds = const {},
     Set<int> finishedIds = const {},
+    DateTime? at,
   }) {
     var days = List.generate(7, (_) => <BangumiCalendarItem>[]);
-    var dayStarts = _dayStarts();
+    var dayStarts = _dayStarts(at: at);
     var seen = <int>{};
     for (var item in items) {
       var id = subjectIdOf(item);
-      if (id == null || finishedIds.contains(id) || !seen.add(id)) continue;
+      if (id == null || finishedIds.contains(id)) continue;
       var detail = enrich[id];
       if (detail?.nsfw ?? false) continue;
       var anchor =
@@ -75,12 +76,22 @@ class BangumiCalendarData {
           DateTime.tryParse(item.begin);
       if (anchor == null) continue;
       var weekday = bangumiJstWeekday(anchor);
+      var day = dayStarts[weekday]!;
+      var firstAir = DateTime.tryParse(item.begin) ?? anchor;
+      if (!bangumiAirsOnDay(
+            firstAir: firstAir,
+            scheduleStart: anchor,
+            day: day,
+            lastAir: DateTime.tryParse(item.end),
+          ) ||
+          !seen.add(id)) {
+        continue;
+      }
       var bgm = detail?.subject;
       var period =
           parseBangumiBroadcastPeriod(item.broadcast) ??
           const Duration(days: 7);
       // 星期与时刻按当季排期，话数从首播日期（放送日期）算起
-      var firstAir = DateTime.tryParse(item.begin) ?? anchor;
       days[weekday - 1].add(
         BangumiCalendarItem(
           subject: _buildSubject(
@@ -94,7 +105,7 @@ class BangumiCalendarData {
           episode: bangumiEpisodeOnAir(
             firstAir: firstAir,
             period: period,
-            day: dayStarts[weekday] ?? dayStarts.values.first,
+            day: day,
             total: _totalEpisodes(bgm),
           ),
           watched: watchedIds.contains(id),
@@ -112,15 +123,12 @@ class BangumiCalendarData {
   ///
   /// 窗口与星期归属都按日本放送日算，所以取该星期当天的 JST 0 点；用 UTC
   /// 表示，避免设备时区影响深夜番的话数推算。
-  static Map<int, DateTime> _dayStarts() {
-    var jst = bangumiJstNow();
+  static Map<int, DateTime> _dayStarts({DateTime? at}) {
+    var start = bangumiCalendarStart(at: at);
+    var startWeekday = bangumiJstWeekday(start);
     return {
       for (var weekday = 1; weekday <= 7; weekday++)
-        weekday: DateTime.utc(
-          jst.year,
-          jst.month,
-          jst.day + (weekday - jst.weekday + 7) % 7,
-        ).subtract(const Duration(hours: bangumiJstOffsetHours)),
+        weekday: start.add(Duration(days: (weekday - startWeekday + 7) % 7)),
     };
   }
 

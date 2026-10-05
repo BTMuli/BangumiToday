@@ -2,6 +2,7 @@
 import 'package:drift/drift.dart';
 
 // Project imports:
+import '../../core/utils/bangumi_utils.dart';
 import '../../models/bangumi/bangumi_data_model.dart';
 import '../../tools/log_tool.dart';
 import '../app/app_config.dart';
@@ -62,24 +63,15 @@ class BtsBangumiData {
   Future<List<BangumiDataItem>> readItems(String title) async =>
       (await DatasetStorage(_db).readItems(title)).map(_itemFromRow).toList();
 
-  /// 读取当前仍在放送的条目，供首页日历使用。
+  /// 读取首页七个日本放送日内的候选条目，包括本周尚未首播的新番。
   ///
-  /// `begin`/`end` 都是定长 ISO 8601 UTC 字符串，可直接按字符串比较：
-  /// 已开播（`begin <= at`）且未结束（`end` 为空视为长期放送）。
-  /// 剧场版没有固定放送时段，不进日历。
-  Future<List<BangumiDataItem>> readItemsOnAir({DateTime? at}) async {
-    var now = (at ?? DateTime.now()).toUtc().toIso8601String();
-    var query = _db.select(_db.bangumiDataItem)
-      ..where(
-        (table) =>
-            table.type.equals('movie').not() &
-            table.begin.equals('').not() &
-            table.begin.isSmallerOrEqualValue(now) &
-            (table.end.isNull() |
-                table.end.equals('') |
-                table.end.isBiggerOrEqualValue(now)),
-      );
-    var rows = await query.get();
+  /// 窗口从 [at] 所在放送日的 0 点开始；分组时再核对每一天的首末播日期。
+  Future<List<BangumiDataItem>> readItemsForCalendar({DateTime? at}) async {
+    var start = bangumiCalendarStart(at: at);
+    var rows = await DatasetStorage(_db).readItemsInAirWindow(
+      start: start,
+      end: start.add(const Duration(days: 7)),
+    );
     return rows.map(_itemFromRow).toList();
   }
 

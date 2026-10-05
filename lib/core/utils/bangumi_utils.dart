@@ -42,6 +42,34 @@ DateTime bangumiJstNow() {
   );
 }
 
+/// 首页七天窗口的起点：日本放送日当天 0 点，用 UTC 表示。
+DateTime bangumiCalendarStart({DateTime? at}) {
+  var jst = (at ?? DateTime.now()).toUtc().add(
+    const Duration(hours: bangumiJstOffsetHours),
+  );
+  return DateTime.utc(
+    jst.year,
+    jst.month,
+    jst.day,
+  ).subtract(const Duration(hours: bangumiJstOffsetHours));
+}
+
+/// 排期是否覆盖 [day] 这个放送日（当天 JST 0 点，用 UTC 表示）。
+///
+/// 首播与当前排期起点都必须早于当天结束，末播不能早于当天开始。
+/// 按整天判断，保留当天已经播出的首话和最后一话。
+bool bangumiAirsOnDay({
+  required DateTime firstAir,
+  required DateTime scheduleStart,
+  required DateTime day,
+  DateTime? lastAir,
+}) {
+  var dayEnd = day.add(const Duration(days: 1));
+  return firstAir.isBefore(dayEnd) &&
+      scheduleStart.isBefore(dayEnd) &&
+      (lastAir == null || !lastAir.isBefore(day));
+}
+
 /// 放送时刻按日本放送日（JST）归属的星期，1=周一 ... 7=周日。
 ///
 /// 与 bgm.tv 日历的 air_weekday 口径一致：深夜番按日本当天日期归属，
