@@ -363,6 +363,56 @@ class SubscriptionStorage {
       .map((row) => row.read<int>('hasRecovery') != 0)
       .distinct();
 
+  Stream<int> watchRecoveryCount() {
+    var count = db.appMigrationRecovery.id.count();
+    return (db.selectOnly(db.appMigrationRecovery)..addColumns([count]))
+        .watchSingle()
+        .map((row) => row.read(count) ?? 0)
+        .distinct();
+  }
+
+  /// An explicit full cleanup also abandons unresolved archived state.
+  Future<int> clearRecovery() => db.transaction(() async {
+    var candidates = <int>{};
+    var column = db.appMigrationRecovery.candidateBmfIds;
+    var query = db.selectOnly(db.appMigrationRecovery)
+      ..addColumns([column])
+      ..where(db.appMigrationRecovery.resolvedAt.isNull());
+    for (var row in await query.get()) {
+      candidates.addAll(
+        (jsonDecode(row.read(column)!) as List).whereType<int>(),
+      );
+    }
+    var deleted = await db.delete(db.appMigrationRecovery).go();
+    await _resumeReviewedSubscriptions(candidates);
+    return deleted;
+  });
+
+  Future<void> _resumeReviewedSubscriptions(Set<int> candidates) async {
+    if (candidates.isEmpty) return;
+    for (var target in await readAll()) {
+      if (!candidates.contains(target.bmfId) ||
+          target.status != 'needsReview') {
+        continue;
+      }
+      var config = RssSourceConfig.decode(target.sourceConfig);
+      var identity = FeedIdentity.fromUrl(
+        target.url,
+        legacyBmfId: target.bmfId,
+        config: config,
+      );
+      if (!config.isSupported ||
+          !identity.isValid ||
+          identity.feedKey != target.feedKey ||
+          target.itemKeyVersion != rssItemKeyVersion) {
+        continue;
+      }
+      await (db.update(db.appSubscription)
+            ..where((s) => s.id.equals(target.id)))
+          .write(const AppSubscriptionCompanion(status: Value('active')));
+    }
+  }
+
   /// Explicit user decision; original payload is retained after resolution.
   Future<void> resolveRecovery(
     int recoveryId, {
@@ -412,22 +462,7 @@ class SubscriptionStorage {
       var blocked = remaining
           .expand((r) => (jsonDecode(r.candidateBmfIds) as List).cast<int>())
           .toSet();
-      for (var candidate in candidates.difference(blocked)) {
-        for (var target in await readAll(bmfId: candidate)) {
-          var config = RssSourceConfig.decode(target.sourceConfig);
-          if (!config.isSupported ||
-              !FeedIdentity.fromUrl(
-                target.url,
-                legacyBmfId: candidate,
-                config: config,
-              ).isValid) {
-            continue;
-          }
-          await (db.update(db.appSubscription)
-                ..where((s) => s.id.equals(target.id)))
-              .write(const AppSubscriptionCompanion(status: Value('active')));
-        }
-      }
+      await _resumeReviewedSubscriptions(candidates.difference(blocked));
     });
   }
 }

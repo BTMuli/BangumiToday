@@ -28,14 +28,32 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: Button(
-                      onPressed: () async {
-                        await showDialog<void>(
-                          context: context,
-                          builder: (_) => const _RecoveryDialog(),
-                        );
-                        if (mounted) await _refreshWorkspace();
-                      },
+                      onPressed: _clearingRecovery
+                          ? null
+                          : () async {
+                              await showDialog<void>(
+                                context: context,
+                                builder: (_) => const _RecoveryDialog(),
+                              );
+                              if (mounted) await _refreshWorkspace();
+                            },
                       child: const Text('待核对'),
+                    ),
+                  );
+                },
+              ),
+              StreamBuilder<int>(
+                stream: _recoveryCount,
+                builder: (context, snapshot) {
+                  var count = snapshot.data ?? 0;
+                  if (count == 0) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Button(
+                      onPressed: _clearingRecovery
+                          ? null
+                          : _clearRecoveryRecords,
+                      child: Text('清理旧记录（$count）'),
                     ),
                   );
                 },
@@ -50,20 +68,28 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
                           child: ProgressRing(strokeWidth: 2),
                         )
                       : const BtIcon(FluentIcons.refresh, size: 15),
-                  onPressed: _refreshing ? null : _refreshWorkspace,
+                  onPressed: _refreshing || _clearingRecovery
+                      ? null
+                      : _refreshWorkspace,
                 ),
               ),
             ],
           );
-          if (constraints.maxWidth < 680) {
+          if (constraints.maxWidth < 900) {
             return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    Expanded(child: identity),
-                    refresh,
-                  ],
-                ),
+                if (constraints.maxWidth < 560) ...[
+                  identity,
+                  const SizedBox(height: 8),
+                  Align(alignment: Alignment.centerRight, child: refresh),
+                ] else
+                  Row(
+                    children: [
+                      Expanded(child: identity),
+                      refresh,
+                    ],
+                  ),
                 const SizedBox(height: 12),
                 _buildSearchBox(),
               ],
@@ -84,6 +110,35 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
         },
       ),
     );
+  }
+
+  Future<void> _clearRecoveryRecords() async {
+    if (_clearingRecovery) return;
+    setState(() => _clearingRecovery = true);
+    int? deleted;
+    try {
+      var confirmed = await showConfirmAction(
+        context,
+        title: '清理全部旧记录',
+        content: '将永久删除所有已处理及待核对的旧记录，尚未分配的旧状态也会一并放弃。此操作无法撤销。',
+        confirmText: '全部清理',
+      );
+      if (!confirmed || !mounted) return;
+      deleted = await appSubscriptionStorage.clearRecovery();
+      if (!mounted) return;
+      await _refreshWorkspace();
+      if (mounted) await BtInfobar.success(context, '已清理 $deleted 条旧记录');
+    } catch (error) {
+      BTLogTool.warn('旧记录清理或工作台刷新失败：$error');
+      if (mounted) {
+        await BtInfobar.error(
+          context,
+          deleted == null ? '清理旧记录失败，请重试' : '旧记录已清理，工作台刷新失败，请手动刷新',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _clearingRecovery = false);
+    }
   }
 
   Widget _buildSearchBox() {

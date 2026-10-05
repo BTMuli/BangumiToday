@@ -62,11 +62,14 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
   final Map<int, int> _updateRevisions = {};
   late final Stream<bool> _hasUnresolvedRecovery = appSubscriptionStorage
       .watchHasUnresolvedRecovery();
+  late final Stream<int> _recoveryCount = appSubscriptionStorage
+      .watchRecoveryCount();
   String _loadedStatusSignature = '';
   String _loadedSubjectSignature = '';
   int _statusLoadGeneration = 0;
   int _subjectLoadGeneration = 0;
   bool _refreshing = false;
+  bool _clearingRecovery = false;
 
   int? selectedSubject;
   int _handledNavigationRequest = 0;
