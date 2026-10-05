@@ -24,6 +24,12 @@ class RssReleaseList extends ConsumerStatefulWidget {
   final Widget title;
   final List<Widget> leadingControls;
   final List<Widget> sourceControls;
+
+  /// 由来源页面提供搜索控件，以支持站点 RSS 搜索。
+  final Widget? searchControl;
+
+  /// 站点已完成筛选时，直接展示返回的资源。
+  final bool useLocalFilters;
   final bool refreshEnabled;
   final List<RssItem> items;
   final RssReleaseSource source;
@@ -37,6 +43,8 @@ class RssReleaseList extends ConsumerStatefulWidget {
     required this.title,
     this.leadingControls = const [],
     this.sourceControls = const [],
+    this.searchControl,
+    this.useLocalFilters = true,
     this.refreshEnabled = true,
     required this.items,
     required this.source,
@@ -150,11 +158,13 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
 
   @override
   Widget build(BuildContext context) {
-    var filtered = filterRssReleases(
-      _releases,
-      query: _searchController.text,
-      category: _category,
-    );
+    var filtered = widget.useLocalFilters
+        ? filterRssReleases(
+            _releases,
+            query: _searchController.text,
+            category: _category,
+          )
+        : _releases;
     return Column(
       children: [
         _buildToolbar(context, filtered.length),
@@ -197,28 +207,30 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          var search = TextBox(
-            controller: _searchController,
-            placeholder: '搜索资源标题、发布者或格式',
-            prefix: Padding(
-              padding: const EdgeInsets.only(left: 10),
-              child: Icon(
-                FluentIcons.search,
-                size: 14,
-                color: BTColors.textTertiary(context),
-              ),
-            ),
-            suffix: _searchController.text.isEmpty
-                ? null
-                : IconButton(
-                    icon: const Icon(FluentIcons.clear, size: 12),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() {});
-                    },
+          var search =
+              widget.searchControl ??
+              TextBox(
+                controller: _searchController,
+                placeholder: '搜索资源标题、发布者或格式',
+                prefix: Padding(
+                  padding: const EdgeInsets.only(left: 10),
+                  child: Icon(
+                    FluentIcons.search,
+                    size: 14,
+                    color: BTColors.textTertiary(context),
                   ),
-            onChanged: (_) => setState(() {}),
-          );
+                ),
+                suffix: _searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(FluentIcons.clear, size: 12),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {});
+                        },
+                      ),
+                onChanged: (_) => setState(() {}),
+              );
           var controls = Wrap(
             alignment: WrapAlignment.end,
             spacing: 8,
@@ -226,7 +238,7 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               ...widget.sourceControls,
-              if (_categories.isNotEmpty)
+              if (widget.useLocalFilters && _categories.isNotEmpty)
                 SizedBox(
                   width: 136,
                   child: BtSelect<String>(
@@ -257,11 +269,14 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
-                  '$count / ${_releases.length} 条资源',
+                  widget.useLocalFilters
+                      ? '$count / ${_releases.length} 条资源'
+                      : '$count 条资源',
                   style: BTTypography.caption(context),
                 ),
               ),
-              if (_category != null || _searchController.text.isNotEmpty)
+              if (widget.useLocalFilters &&
+                  (_category != null || _searchController.text.isNotEmpty))
                 Tooltip(
                   message: '清除搜索与分类筛选',
                   child: IconButton(

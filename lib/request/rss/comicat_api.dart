@@ -2,6 +2,7 @@
 import 'package:dio/dio.dart';
 
 // Project imports:
+import '../../domain/rss/comicat_feed.dart';
 import '../../models/app/response.dart';
 import '../../models/rss/rss.dart';
 import '../../tools/log_tool.dart';
@@ -22,10 +23,19 @@ class ComicatAPI {
     client.dio.options.baseUrl = baseUrl;
   }
 
-  /// 获取首页的 RSS
-  Future<BTResponse> getHomeRSS() async {
+  /// 获取首页、指定分类或关键词搜索的 RSS。
+  Future<BTResponse> getRSS({
+    ComicatFeed feed = const ComicatFeed.category(),
+  }) async {
     try {
-      var resp = await client.dio.get('/rss.xml');
+      var resp = await client.dio.get<String>(
+        feed.path,
+        options: Options(
+          responseType: ResponseType.plain,
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 300,
+        ),
+      );
       var channel = RssFeed.parse(resp.data.toString());
       return BTResponse.success(data: channel.items);
     } on DioException catch (e) {
