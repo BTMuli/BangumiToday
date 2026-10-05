@@ -454,12 +454,16 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
               child: store.current == null || store.video == null
                   ? _buildEmptyStage(posterUrl)
                   : material.Theme(
-                      data: material.ThemeData.dark().copyWith(
-                        colorScheme: material.ColorScheme.fromSeed(
-                          seedColor: FluentTheme.of(context).accentColor,
-                          brightness: material.Brightness.dark,
-                        ),
-                      ),
+                      data:
+                          material.ThemeData(
+                            brightness: material.Brightness.dark,
+                            fontFamily: 'SMonoSC',
+                          ).copyWith(
+                            colorScheme: material.ColorScheme.fromSeed(
+                              seedColor: FluentTheme.of(context).accentColor,
+                              brightness: material.Brightness.dark,
+                            ),
+                          ),
                       child: material.Material(
                         color: Colors.black,
                         child: Video(

@@ -238,8 +238,7 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
                   ),
                   child: DefaultTextStyle(
                     style: TextStyle(
-                      fontFamily: 'Consolas',
-                      fontFamilyFallback: const ['Cascadia Mono', 'monospace'],
+                      fontFamily: 'SMonoSC',
                       fontSize: constraints.maxWidth >= 1000 ? 16 : 13,
                       height: 1.5,
                       color: Colors.white,

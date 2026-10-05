@@ -1009,7 +1009,10 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                 focusNode: _focus,
                 autofocus: true,
                 child: material.Theme(
-                  data: material.ThemeData.dark(),
+                  data: material.ThemeData(
+                    brightness: material.Brightness.dark,
+                    fontFamily: 'SMonoSC',
+                  ),
                   child: FlyoutTarget(
                     controller: _contextMenu,
                     child: Listener(

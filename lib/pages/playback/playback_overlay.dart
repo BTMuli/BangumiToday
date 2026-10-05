@@ -350,7 +350,7 @@ class _PlaybackShortcutHelp extends StatelessWidget {
                                           shortcut.label,
                                           style: const TextStyle(
                                             color: Color(0xFF6DD8CF),
-                                            fontFamily: 'Consolas',
+                                            fontFamily: 'SMonoSC',
                                             fontSize: 12,
                                           ),
                                         ),
