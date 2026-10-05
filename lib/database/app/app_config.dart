@@ -192,6 +192,16 @@ class BtsAppConfig {
     await _instance.write('useDownloadSystemProxy', value.toString());
   }
 
+  /// 首页修仙模式，默认关闭。
+  Future<bool> readCalendarNightMode() async {
+    return await _instance.read('calendarNightMode') == 'true';
+  }
+
+  /// 保存首页修仙模式。
+  Future<void> writeCalendarNightMode(bool value) async {
+    await _instance.write('calendarNightMode', value.toString());
+  }
+
   /// 读取 bangumiDataVersion
   Future<String?> readBangumiDataVersion() async {
     return _instance.read('bangumiDataVersion');

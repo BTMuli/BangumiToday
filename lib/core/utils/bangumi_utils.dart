@@ -32,18 +32,41 @@ DateTime? parseBangumiBroadcastStart(String? broadcast) {
   return DateTime.tryParse(parts[1]);
 }
 
-/// 首页日期按系统本地时区计算，返回 [at] 所在日期偏移 [offset] 天的 0 点。
+/// 修仙模式的本地放送日换日时刻。
+const int bangumiNightModeStartHour = 6;
+
+/// 首页放送日按系统本地时区计算，修仙模式下凌晨 6 点前归属前一日。
 /// 使用日历日期构造，避免夏令时切换日按 24 小时累加导致日期偏移。
-DateTime bangumiCalendarDate({DateTime? at, int offset = 0}) {
+DateTime bangumiCalendarDate({
+  DateTime? at,
+  int offset = 0,
+  bool nightMode = false,
+}) {
   var local = (at ?? DateTime.now()).toLocal();
-  return DateTime(local.year, local.month, local.day + offset);
+  var previousDay = nightMode && local.hour < bangumiNightModeStartHour;
+  return DateTime(
+    local.year,
+    local.month,
+    local.day + offset - (previousDay ? 1 : 0),
+  );
 }
 
-/// 首页七天窗口的起点：本地当天 0 点，用 UTC 表示以便查询数据库。
-DateTime bangumiCalendarStart({DateTime? at}) =>
-    bangumiCalendarDate(at: at).toUtc();
+/// 首页窗口的放送日起点，用 UTC 表示；修仙模式为本地 6 点，否则为 0 点。
+DateTime bangumiCalendarStart({
+  DateTime? at,
+  int offset = 0,
+  bool nightMode = false,
+}) {
+  var date = bangumiCalendarDate(at: at, offset: offset, nightMode: nightMode);
+  return DateTime(
+    date.year,
+    date.month,
+    date.day,
+    nightMode ? bangumiNightModeStartHour : 0,
+  ).toUtc();
+}
 
-/// 排期是否覆盖 [day] 这个本地放送日（当天本地 0 点）。
+/// 排期是否覆盖 [day] 这个本地放送日（当天的 0 点或修仙模式下的 6 点）。
 ///
 /// 首播与当前排期起点都必须早于当天结束，末播不能早于当天开始。
 /// 按整天判断，保留当天已经播出的首话和最后一话。
@@ -53,7 +76,8 @@ bool bangumiAirsOnDay({
   required DateTime day,
   DateTime? lastAir,
 }) {
-  var dayEnd = bangumiCalendarDate(at: day, offset: 1);
+  var local = day.toLocal();
+  var dayEnd = DateTime(local.year, local.month, local.day + 1, local.hour);
   return firstAir.isBefore(dayEnd) &&
       scheduleStart.isBefore(dayEnd) &&
       (lastAir == null || !lastAir.isBefore(day));
@@ -78,7 +102,7 @@ Duration? parseBangumiBroadcastPeriod(String? broadcast) {
   return Duration(days: days);
 }
 
-/// 该档期在 [day]（当天 0 点）放送的是第几话。
+/// 该档期在 [day]（放送日起点）放送的是第几话。
 ///
 /// [firstAir] 是该条目的首播时间（bangumi-data 的 `begin`），**首播当天算第 1 话**：
 /// 第 n 话的放送时刻为 `firstAir + (n - 1) * period`，按 [day] 落在哪个周期里取 n。
@@ -101,11 +125,14 @@ int? bangumiEpisodeOnAir({
   return episode < 1 ? null : episode;
 }
 
-/// 把放送时刻折算成本地时间的 `HH:mm`；无法解析时返回 null。
-String? formatBangumiAirClock(DateTime? time) {
+/// 把放送时刻折算成本地时间；修仙模式将次日凌晨显示为 24:00–29:59。
+String? formatBangumiAirClock(DateTime? time, {bool nightMode = false}) {
   if (time == null) return null;
   var local = time.toLocal();
-  var hour = local.hour.toString().padLeft(2, '0');
+  var extendedHour =
+      local.hour +
+      (nightMode && local.hour < bangumiNightModeStartHour ? 24 : 0);
+  var hour = extendedHour.toString().padLeft(2, '0');
   var minute = local.minute.toString().padLeft(2, '0');
   return '$hour:$minute';
 }

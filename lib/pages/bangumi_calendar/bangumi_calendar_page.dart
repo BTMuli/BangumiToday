@@ -53,6 +53,12 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 是否只显示收藏与 BMF 订阅
   bool isShowCollection = false;
 
+  /// 修仙模式：本地凌晨 6 点换日。
+  bool isNightMode = false;
+
+  /// 正在切换并保存修仙模式。
+  bool _isChangingNightMode = false;
+
   /// 数据库-AppConfig
   final BtsAppConfig sqliteAc = BtsAppConfig();
 
@@ -71,7 +77,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 当前数据对应的时间，日期标题与分组共用，避免异步加载跨午夜后错位。
   DateTime _calendarAt = DateTime.now();
 
-  /// 本地午夜刷新日历。
+  /// 在本地放送日边界刷新日历。
   Timer? _dayChangeTimer;
 
   /// 日历滚动控制器
@@ -165,6 +171,10 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     _scrollController.addListener(syncActiveSlot);
     scheduleDayChange();
     Future.microtask(() async {
+      var nightMode = await sqliteAc.readCalendarNightMode();
+      if (!mounted) return;
+      setState(() => isNightMode = nightMode);
+      scheduleDayChange();
       await getData(freshTab: true);
       version = await sqliteAc.readBangumiDataVersion() ?? 'unknown';
       await checkDataUpdate();
@@ -186,15 +196,24 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
   /// [slot] 对应的日期。
   DateTime dateAt(int slot) {
-    return bangumiCalendarDate(at: _calendarAt, offset: slot);
+    return bangumiCalendarDate(
+      at: _calendarAt,
+      offset: slot,
+      nightMode: isNightMode,
+    );
   }
 
-  /// 在系统本地午夜刷新；跨日时若已有请求或刷新失败，稍后重试。
+  /// 在系统本地放送日边界刷新；跨日时若已有请求或刷新失败，稍后重试。
   void scheduleDayChange() {
     _dayChangeTimer?.cancel();
     var now = DateTime.now();
-    var delay = bangumiCalendarDate(at: now) == dateAt(0)
-        ? bangumiCalendarDate(at: now, offset: 1).difference(now)
+    var delay =
+        bangumiCalendarDate(at: now, nightMode: isNightMode) == dateAt(0)
+        ? bangumiCalendarStart(
+            at: now,
+            offset: 1,
+            nightMode: isNightMode,
+          ).difference(now)
         : const Duration(minutes: 1);
     _dayChangeTimer = Timer(delay, () async {
       if (!mounted) return;
@@ -212,10 +231,11 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 补齐详情、确认完结状态后再整组填充。这样不会先把候选条目画出来，又因为
   /// 已经放完而剔除掉，页面上不会出现数量先多后少。整周合并成一轮请求，已有
   /// 缓存的分组先落地。
-  Future<void> getData({bool freshTab = false}) async {
+  Future<void> getData({bool freshTab = false, bool? nightMode}) async {
     if (isRequesting) return;
     isRequesting = true;
     var calendarAt = DateTime.now();
+    var calendarNightMode = nightMode ?? isNightMode;
     if (freshTab) {
       _activeSlot.value = 0;
       if (_scrollController.hasClients) _scrollController.jumpTo(0);
@@ -226,9 +246,13 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       _watchedIds = await loadWatchedIds(repository);
       _bmfIds = await loadBmfIds();
       _collectedIds = await loadCollectedIds();
-      var items = await sqliteBd.readItemsForCalendar(at: calendarAt);
+      var items = await sqliteBd.readItemsForCalendar(
+        at: calendarAt,
+        nightMode: calendarNightMode,
+      );
       if (!mounted) return;
       _calendarAt = calendarAt;
+      isNightMode = calendarNightMode;
       if (items.isEmpty) {
         await loadRemoteFallback(repository);
         return;
@@ -294,6 +318,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       bmfIds: _bmfIds,
       finishedIds: _finishedIds,
       at: _calendarAt,
+      nightMode: isNightMode,
     );
     await applyDisplay();
   }
@@ -483,6 +508,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       enrich: _enrich,
       weekday: weekdayIndexAt(slot) + 1,
       at: _calendarAt,
+      nightMode: isNightMode,
     );
     if (pending.isEmpty) return;
     var finished = await enricher.confirmFinished(
@@ -495,6 +521,23 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     if (!mounted || generation != _enrichGeneration) return;
     // 只累加：确认放完的条目不再回到日历里，刷新后也不会又冒出来
     _finishedIds.addAll(finished);
+  }
+
+  /// 切换放送日边界，重新读取七天窗口并保留已有条目详情缓存。
+  Future<void> toggleNightMode(bool value) async {
+    if (isRequesting || _isChangingNightMode || isNightMode == value) return;
+    setState(() => _isChangingNightMode = true);
+    try {
+      await getData(freshTab: true, nightMode: value);
+      await sqliteAc.writeCalendarNightMode(isNightMode);
+    } catch (error) {
+      if (mounted) await BtInfobar.error(context, '修仙模式设置保存失败：$error');
+    } finally {
+      if (mounted) {
+        setState(() => _isChangingNightMode = false);
+        scheduleDayChange();
+      }
+    }
   }
 
   /// 读取「只显示收藏」需要的本地收藏 subject id；开关关闭时返回 null。
@@ -863,6 +906,8 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       const SizedBox(width: 8),
       buildCollectSwitch(context),
       const SizedBox(width: 8),
+      buildNightModeSwitch(context),
+      const SizedBox(width: 8),
       buildDataUpdate(context),
     ];
   }
@@ -933,6 +978,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
             isToday: slot == 0,
             data: getTabData(slot),
             collectedIds: _collectedIds,
+            nightMode: isNightMode,
             // 分组准备好之前是置空的，显示加载态；处理好之后才是空数据
             loading: !_readySlots.contains(slot),
           ),
@@ -1000,6 +1046,20 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
           unawaited(toggleShowCollection(v));
         },
         child: const Icon(FluentIcons.favorite_star, color: Colors.white),
+      ),
+    );
+  }
+
+  /// 构建修仙模式开关。
+  Widget buildNightModeSwitch(BuildContext context) {
+    return Tooltip(
+      message: '修仙模式：凌晨 6 点换日，凌晨放送归入前一日',
+      child: ToggleButton(
+        checked: isNightMode,
+        onChanged: isRequesting || _isChangingNightMode
+            ? null
+            : (value) => unawaited(toggleNightMode(value)),
+        child: const Icon(FluentIcons.clear_night, color: Colors.white),
       ),
     );
   }

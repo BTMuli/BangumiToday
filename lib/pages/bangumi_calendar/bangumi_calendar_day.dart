@@ -34,6 +34,9 @@ class BangumiCalendarDay extends StatelessWidget {
   /// 收藏筛选开启时的收藏 ID；null 表示显示全部条目。
   final Set<int>? collectedIds;
 
+  /// 是否以凌晨 6 点作为放送日边界。
+  final bool nightMode;
+
   /// 当前是否只展示收藏与 BMF 订阅条目。
   bool get collectionOnly => collectedIds != null;
 
@@ -49,6 +52,7 @@ class BangumiCalendarDay extends StatelessWidget {
     required this.data,
     required this.loading,
     this.collectedIds,
+    this.nightMode = false,
   });
 
   /// 月份/日期，如 `10/03`
@@ -159,6 +163,7 @@ class BangumiCalendarDay extends StatelessWidget {
                 episode: item.episode,
                 watched: item.watched,
                 inBmf: item.inBmf,
+                nightMode: nightMode,
                 bmfOnly:
                     collectionOnly &&
                     item.inBmf &&

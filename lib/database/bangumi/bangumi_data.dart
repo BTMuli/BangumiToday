@@ -65,12 +65,15 @@ class BtsBangumiData {
 
   /// 读取首页七个本地放送日内的候选条目，包括本周尚未首播的新番。
   ///
-  /// 窗口从 [at] 所在放送日的 0 点开始；分组时再核对每一天的首末播日期。
-  Future<List<BangumiDataItem>> readItemsForCalendar({DateTime? at}) async {
-    var date = bangumiCalendarDate(at: at);
+  /// 窗口从 [at] 所在放送日的 0 点或修仙模式下的 6 点开始。
+  Future<List<BangumiDataItem>> readItemsForCalendar({
+    DateTime? at,
+    bool nightMode = false,
+  }) async {
+    var now = at ?? DateTime.now();
     var rows = await DatasetStorage(_db).readItemsInAirWindow(
-      start: bangumiCalendarStart(at: date),
-      end: bangumiCalendarDate(at: date, offset: 7),
+      start: bangumiCalendarStart(at: now, nightMode: nightMode),
+      end: bangumiCalendarStart(at: now, offset: 7, nightMode: nightMode),
     );
     return rows.map(_itemFromRow).toList();
   }

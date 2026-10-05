@@ -62,9 +62,10 @@ class BangumiCalendarData {
     Set<int> bmfIds = const {},
     Set<int> finishedIds = const {},
     DateTime? at,
+    bool nightMode = false,
   }) {
     var days = List.generate(7, (_) => <BangumiCalendarItem>[]);
-    var dayStarts = _dayStarts(at: at);
+    var dayStarts = _dayStarts(at: at, nightMode: nightMode);
     var seen = <int>{};
     for (var item in items) {
       var id = subjectIdOf(item);
@@ -75,7 +76,10 @@ class BangumiCalendarData {
           parseBangumiBroadcastStart(item.broadcast) ??
           DateTime.tryParse(item.begin);
       if (anchor == null) continue;
-      var weekday = anchor.toLocal().weekday;
+      var weekday = bangumiCalendarDate(
+        at: anchor,
+        nightMode: nightMode,
+      ).weekday;
       var day = dayStarts[weekday]!;
       var firstAir = DateTime.tryParse(item.begin) ?? anchor;
       if (!bangumiAirsOnDay(
@@ -101,7 +105,7 @@ class BangumiCalendarData {
             siteMeta: siteMeta,
             bgm: bgm,
           ),
-          airClock: formatBangumiAirClock(anchor),
+          airClock: formatBangumiAirClock(anchor, nightMode: nightMode),
           episode: bangumiEpisodeOnAir(
             firstAir: firstAir,
             period: period,
@@ -122,13 +126,15 @@ class BangumiCalendarData {
   /// 每个星期在滚动窗口里的起始时刻（1=周一 ... 7=周日）。
   ///
   /// 窗口与星期归属都按系统本地日期计算，与卡片显示的放送时刻保持一致。
-  static Map<int, DateTime> _dayStarts({DateTime? at}) {
-    var start = bangumiCalendarDate(at: at);
+  static Map<int, DateTime> _dayStarts({DateTime? at, bool nightMode = false}) {
+    var now = at ?? DateTime.now();
+    var start = bangumiCalendarDate(at: now, nightMode: nightMode);
     return {
       for (var weekday = 1; weekday <= 7; weekday++)
-        weekday: bangumiCalendarDate(
-          at: start,
+        weekday: bangumiCalendarStart(
+          at: now,
           offset: (weekday - start.weekday + 7) % 7,
+          nightMode: nightMode,
         ),
     };
   }
@@ -156,9 +162,10 @@ class BangumiCalendarData {
     int? weekday,
     int maxLag = 8,
     DateTime? at,
+    bool nightMode = false,
   }) {
     var pending = <int, Duration>{};
-    var today = bangumiCalendarDate(at: at);
+    var today = bangumiCalendarStart(at: at, nightMode: nightMode);
     for (var item in items) {
       var id = subjectIdOf(item);
       if (id == null) continue;
@@ -170,7 +177,10 @@ class BangumiCalendarData {
       if (firstAir == null) continue;
       if (weekday != null) {
         var anchor = parseBangumiBroadcastStart(item.broadcast) ?? firstAir;
-        if (anchor.toLocal().weekday != weekday) continue;
+        if (bangumiCalendarDate(at: anchor, nightMode: nightMode).weekday !=
+            weekday) {
+          continue;
+        }
       }
       var period =
           parseBangumiBroadcastPeriod(item.broadcast) ??

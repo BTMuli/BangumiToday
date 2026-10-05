@@ -51,6 +51,9 @@ class BangumiCalendarCard extends ConsumerStatefulWidget {
   /// 收藏筛选开启时，是否仅因 BMF 订阅而显示。
   final bool bmfOnly;
 
+  /// 是否按修仙模式显示放送时间。
+  final bool nightMode;
+
   const BangumiCalendarCard({
     super.key,
     required this.data,
@@ -59,6 +62,7 @@ class BangumiCalendarCard extends ConsumerStatefulWidget {
     this.watched = false,
     this.inBmf = false,
     this.bmfOnly = false,
+    this.nightMode = false,
   });
 
   /// 为完整文字行、放送信息（时刻/话数）和操作按钮预留高度。
@@ -572,7 +576,9 @@ class _BangumiCalendarCardState extends ConsumerState<BangumiCalendarCard>
         if (hasAirInfo) ...[
           SizedBox(height: 6),
           Tooltip(
-            message: '放送日期与时刻为本地时间，话数按本地放送日推算',
+            message: widget.nightMode
+                ? '修仙模式：凌晨 6 点前归入前一日，24:00–29:59 表示次日凌晨'
+                : '放送日期与时刻为本地时间，话数按本地放送日推算',
             child: Row(
               children: [
                 if (hasAirTime) ...[
