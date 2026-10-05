@@ -85,6 +85,7 @@ class BtDatabase extends _$BtDatabase {
       if (enabled.read<int>('foreign_keys') != 1) {
         throw StateError('无法开启数据库外键约束');
       }
+      await _resolveNoRssRecovery();
       onMigration?.call('SQLite opened: schema v2');
     },
   );

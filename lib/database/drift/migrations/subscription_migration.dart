@@ -297,6 +297,21 @@ extension _SubscriptionMigration on BtDatabase {
     }
   }
 
+  /// Retain originals while resolving false alarms from earlier v2 migrations.
+  Future<void> _resolveNoRssRecovery() => customStatement(
+    'UPDATE AppMigrationRecovery SET resolvedAt = ? '
+    "WHERE migrationVersion = 2 AND kind = 'AppBmf' "
+    'AND resolvedAt IS NULL '
+    r"AND json_type(payload, '$.row') = 'object' "
+    r"AND json_type(payload, '$.row.rss') = 'null' "
+    r"AND json_type(payload, '$.reasons') = 'array' "
+    r"AND json_array_length(payload, '$.reasons') > 0 "
+    r"AND NOT EXISTS (SELECT 1 FROM json_each(payload, '$.reasons') "
+    "WHERE type != 'text' OR value NOT IN ("
+    "'mikanFieldsWithoutUrl', 'missingAutoUpdate', 'nonBooleanAutoUpdate'))",
+    [DateTime.now().millisecondsSinceEpoch],
+  );
+
   Future<void> _validateV2() async {
     const subscriptionTables = {
       'AppBmf',

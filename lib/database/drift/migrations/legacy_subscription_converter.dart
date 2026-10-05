@@ -81,7 +81,6 @@ class LegacySubscriptionConverter {
           !subjects.add(subject)) {
         throw StateError('Legacy AppBmf identity is missing or duplicated');
       }
-      originals[id] = row;
       result.bmf.add({
         'id': id,
         'subject': subject,
@@ -89,6 +88,9 @@ class LegacySubscriptionConverter {
         'airDate': bmfColumns.contains('airDate') ? row['airDate'] : '',
         'download': row['download'],
       });
+      // A null RSS means no subscription; old Mikan fields are irrelevant.
+      if (row['rss'] == null) continue;
+      originals[id] = row;
       var reasons = <String>[];
       var url = row['rss'] as String? ?? '';
       var mkId = row['mkBgmId'] as String?;
