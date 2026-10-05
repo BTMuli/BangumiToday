@@ -31,7 +31,7 @@ import '../domain/repositories/playback_subjects.dart';
 import '../models/playback/playback_chapter.dart';
 import '../models/playback/playback_completion.dart';
 import '../models/playback/playback_episode_layout.dart';
-import '../models/playback/playback_fit.dart';
+import '../models/playback/playback_geometry.dart';
 import '../models/playback/playback_history_group.dart';
 import '../models/playback/playback_item.dart';
 import '../models/playback/playback_rate.dart';
@@ -94,7 +94,6 @@ class PlaybackStore extends ChangeNotifier {
   );
   Future<void>? _preferencesFuture;
   bool _loudnessEnabled = Platform.isWindows;
-  PlaybackFit _fit = PlaybackFit.fit;
   PlaybackEpisodeLayout _episodeLayout = PlaybackEpisodeLayout.grid;
   double? _aspectRatio;
   Size? _videoSize;
@@ -142,7 +141,6 @@ class PlaybackStore extends ChangeNotifier {
   PlaybackUpscaler? get upscaler => _upscaler;
   PlaybackUpscaleMode get upscaleMode => _upscaleMode;
   bool get loudnessEnabled => _loudnessEnabled;
-  PlaybackFit get fit => _fit;
   PlaybackEpisodeLayout get episodeLayout => _episodeLayout;
   double? get aspectRatio => _aspectRatio;
 
@@ -348,7 +346,7 @@ class PlaybackStore extends ChangeNotifier {
         onChanged: _notify,
         onError: (error) => BTLogTool.warn('视频超分：$error'),
         onDiagnostics: diagnostics.event,
-      )..preferences(_upscaleMode, _fit);
+      )..preferences(_upscaleMode);
       for (var value in earlyLogs) {
         _upscaler!.log(value.prefix, value.level, value.text);
       }
@@ -626,7 +624,6 @@ class PlaybackStore extends ChangeNotifier {
     if (pending != null) return pending;
     var operation = () async {
       await _rateMemory.load();
-      _fit = PlaybackFit.parse(await settingsStore.read('playbackFit'));
       _episodeLayout = PlaybackEpisodeLayout.parse(
         await settingsStore.read('playbackEpisodeLayout'),
       );
@@ -689,16 +686,6 @@ class PlaybackStore extends ChangeNotifier {
     await player.setRate(rate);
   });
 
-  Future<void> setFit(PlaybackFit mode) => _serial(() async {
-    await _loadPreferences();
-    if (_closed || _fit == mode) return;
-    await settingsStore.write('playbackFit', mode.name);
-    if (_closed) return;
-    _fit = mode;
-    _upscaler?.preferences(_upscaleMode, _fit);
-    _notify();
-  });
-
   Future<void> setEpisodeLayout(PlaybackEpisodeLayout layout) =>
       _serial(() async {
         await _loadPreferences();
@@ -715,7 +702,7 @@ class PlaybackStore extends ChangeNotifier {
     await settingsStore.write('playbackUpscaleMode', mode.name);
     if (_closed) return;
     _upscaleMode = mode;
-    _upscaler?.preferences(_upscaleMode, _fit);
+    _upscaler?.preferences(_upscaleMode);
     _notify();
   });
 

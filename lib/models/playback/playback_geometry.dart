@@ -1,17 +1,3 @@
-enum PlaybackFit {
-  stretch('拉伸', '填满容器，不保持视频比例'),
-  tile('平铺', '保持比例并裁切画面，填满容器'),
-  fit('适配', '保持比例与完整画面，容器跟随视频调整');
-
-  const PlaybackFit(this.label, this.description);
-
-  final String label;
-  final String description;
-
-  static PlaybackFit parse(String? value) =>
-      values.where((mode) => mode.name == value).firstOrNull ?? fit;
-}
-
 /// Display dimensions include pixel aspect correction; rotation swaps axes.
 double? playbackAspectRatio({
   double? aspect,

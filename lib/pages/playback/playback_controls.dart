@@ -681,7 +681,6 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
       widget.store,
       widget.run,
       widget.pickSubtitle,
-      _setFit,
       _execute,
       widget.windowMode,
     ),
@@ -778,18 +777,6 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           }
         }
       }),
-    );
-  }
-
-  Future<void> _setFit(PlaybackFit mode) async {
-    await widget.store.setFit(mode);
-    if (!mounted) return;
-    // Fullscreen shares these parameters with the windowed Video surface.
-    widget.video.update(fit: _playbackBoxFit(widget.store.fit));
-    widget.overlay.show(
-      mode.label,
-      material.Icons.aspect_ratio_rounded,
-      detail: mode.description,
     );
   }
 
@@ -1218,24 +1205,12 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
   PlaybackStore store,
   Future<void> Function(Future<void> Function()) run,
   Future<void> Function() pickSubtitle,
-  Future<void> Function(PlaybackFit) setFit,
   ValueChanged<_PlaybackCommand> execute,
   PlaybackWindowMode? windowMode,
 ) => [
   MenuFlyoutSubItem(
     text: Text('播放速度 · ${PlaybackRateMemory.label(player.state.rate)}×'),
     items: (_) => _playbackRateItems(player, store, run, execute),
-  ),
-  MenuFlyoutSubItem(
-    text: Text('视频画幅 · ${store.fit.label}'),
-    items: (_) => [
-      for (var mode in PlaybackFit.values)
-        ToggleMenuFlyoutItem(
-          text: Text('${mode.label} · ${mode.description}'),
-          value: store.fit == mode,
-          onChanged: (_) => unawaited(run(() => setFit(mode))),
-        ),
-    ],
   ),
   if (Platform.isWindows)
     MenuFlyoutSubItem(
@@ -1348,12 +1323,6 @@ List<MenuFlyoutItemBase> _playbackRateItems(
       onChanged: (_) => unawaited(run(() => store.setRate(rate))),
     ),
 ];
-
-BoxFit _playbackBoxFit(PlaybackFit mode) => switch (mode) {
-  PlaybackFit.stretch => BoxFit.fill,
-  PlaybackFit.tile => BoxFit.cover,
-  PlaybackFit.fit => BoxFit.contain,
-};
 
 String _playbackTrackLabel(String id, String? title, String? language) {
   if (id == 'auto') return '自动选择';

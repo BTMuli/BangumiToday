@@ -1,9 +1,6 @@
 // Dart imports:
 import 'dart:math' as math;
 
-// Project imports:
-import 'playback_fit.dart';
-
 /// Quality changes the CNN size, independently of the requested output size.
 enum PlaybackUpscaleMode {
   off('关闭', ''),
@@ -76,7 +73,6 @@ bool playbackSoftwareRenderer(String renderer) {
 
 PlaybackUpscalePlan playbackUpscalePlan({
   required PlaybackUpscaleMode mode,
-  required PlaybackFit fit,
   required PlaybackVideoSource? source,
   required PlaybackViewport? viewport,
   required String? renderer,
@@ -120,9 +116,7 @@ PlaybackUpscalePlan playbackUpscalePlan({
   }
   var horizontal = viewport.width * viewport.dpr / source.width;
   var vertical = viewport.height * viewport.dpr / source.height;
-  var demand = fit == PlaybackFit.fit
-      ? math.min(horizontal, vertical)
-      : math.max(horizontal, vertical);
+  var demand = math.min(horizontal, vertical);
   if (!demand.isFinite || demand <= (previouslyEnabled ? 1.01 : 1.03)) {
     return const PlaybackUpscalePlan('当前无需放大');
   }

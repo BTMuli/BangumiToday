@@ -2,7 +2,6 @@
 import 'dart:async';
 
 // Project imports:
-import '../../models/playback/playback_fit.dart';
 import '../../models/playback/playback_upscale.dart';
 
 abstract class PlaybackUpscaleBackend {
@@ -34,7 +33,6 @@ class PlaybackUpscaler {
   final void Function(String)? onDiagnostics;
   final Duration debounce;
   PlaybackUpscaleMode mode = PlaybackUpscaleMode.off;
-  PlaybackFit fit = PlaybackFit.fit;
   PlaybackVideoSource? _source;
   PlaybackViewport? _viewport;
   String? renderer;
@@ -103,21 +101,17 @@ class PlaybackUpscaler {
     }
   }
 
-  void preferences(PlaybackUpscaleMode value, PlaybackFit framing) {
-    if (_closed || (mode == value && fit == framing)) return;
-    _trace(
-      'preferences old_mode=${mode.name} new_mode=${value.name} '
-      'old_fit=${fit.name} new_fit=${framing.name}',
-    );
+  void preferences(PlaybackUpscaleMode value) {
+    if (_closed || mode == value) return;
+    _trace('preferences old_mode=${mode.name} new_mode=${value.name}');
     // A deliberate quality change may retry after a recovered shader failure.
-    // Layout/fit changes never retry, and failed restoration still blocks work.
+    // Layout changes never retry, and failed restoration still blocks work.
     if (mode != value && !_restorationFailed) {
       _failed = false;
       _warned = false;
       warning = null;
     }
     mode = value;
-    fit = framing;
     _schedule(immediate: true);
   }
 
@@ -202,7 +196,6 @@ class PlaybackUpscaler {
         ? const PlaybackUpscalePlan('渲染器不支持所需 FBO')
         : playbackUpscalePlan(
             mode: mode,
-            fit: fit,
             source: _source,
             viewport: _viewport,
             renderer: renderer,
@@ -276,7 +269,7 @@ class PlaybackUpscaler {
         'old_output=${_pixels(_fixedOutput)} '
         'new_output=${_pixels(next.output)} '
         'actual=${_pixels(actualOutput)} source=$_source viewport=$_viewport '
-        'fit=${fit.name} resize_invalidated=$_resizeInvalidated',
+        'resize_invalidated=$_resizeInvalidated',
         generation: generation,
       );
       var outcome = 'superseded';

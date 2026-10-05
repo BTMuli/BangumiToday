@@ -23,7 +23,7 @@ import '../../core/theme/bt_theme.dart';
 import '../../core/utils/tool_func.dart';
 import '../../models/playback/playback_chapter.dart';
 import '../../models/playback/playback_episode_layout.dart';
-import '../../models/playback/playback_fit.dart';
+import '../../models/playback/playback_geometry.dart';
 import '../../models/playback/playback_history_group.dart';
 import '../../models/playback/playback_item.dart';
 import '../../models/playback/playback_on_top.dart';
@@ -433,9 +433,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
       var size = playbackSurfaceSize(
         constraints.maxWidth,
         constraints.maxHeight,
-        widget.windowMode == null &&
-                store.current != null &&
-                store.fit == PlaybackFit.fit
+        widget.windowMode == null && store.current != null
             ? store.aspectRatio
             : null,
       );
@@ -469,7 +467,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                         child: Video(
                           key: _videoKey,
                           controller: store.video!,
-                          fit: _playbackBoxFit(store.fit),
+                          fit: BoxFit.contain,
                           onEnterFullscreen:
                               widget.windowMode?.enterScreenFullscreen ??
                               defaultEnterNativeFullscreen,
