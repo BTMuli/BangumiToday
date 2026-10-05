@@ -3,9 +3,22 @@ import 'package:html/parser.dart' as html;
 
 // Project imports:
 import '../../core/utils/tool_func.dart';
+import '../../models/rss/anibt_filters.dart';
 import '../../models/rss/rss.dart';
 
-enum RssReleaseSource { mikan, comicat }
+enum RssReleaseSource {
+  anibt('AniBT'),
+  mikan('Mikan'),
+  comicat('Comicat'),
+  generic('通用 RSS');
+
+  const RssReleaseSource(this.label);
+
+  final String label;
+
+  static RssReleaseSource fromProvider(String? provider) =>
+      values.where((source) => source.name == provider).firstOrNull ?? generic;
+}
 
 /// 展示层投影：保留完整标题，仅从明确的返回字段和标题标记提取辅助信息。
 class RssReleaseData {
@@ -37,19 +50,41 @@ class RssReleaseData {
 
   String get key => item.guid ?? detailUrl ?? downloadUrl ?? title;
 
-  bool get canDownload => downloadUrl != null && _text(item.title) != null;
+  bool get canDownload => downloadUrl != null;
 
-  factory RssReleaseData.fromItem(RssItem item, RssReleaseSource source) {
-    var title = replaceEscape(item.title ?? '').trim();
+  bool get hasDescription => _text(item.description) != null;
+
+  List<String> get metadataLabels => {
+    ...categories,
+    if (author != null) '${item.anibt == null ? '发布者' : '字幕组'} $author',
+    ...tags,
+  }.toList();
+
+  factory RssReleaseData.fromItem(
+    RssItem item,
+    RssReleaseSource source, {
+    Uri? baseUrl,
+  }) {
+    var metadata = item.anibt;
+    var title = replaceEscape(
+      _text(metadata?.releaseTitle) ??
+          _text(item.title) ??
+          _text(item.torrent?.filename) ??
+          '',
+    ).trim();
     var categories = item.categories
         .map((category) => _text(category.value))
         .whereType<String>()
         .toSet()
         .toList();
     var description = html.parseFragment(item.description ?? '');
-    var detailUrl = _httpUrl(item.link) ?? _httpUrl(item.torrent?.link);
+    var detailUrl =
+        _httpUrl(metadata?.releasePageUrl) ??
+        _httpUrl(item.link) ??
+        _httpUrl(item.torrent?.link);
     String? imageUrl;
-    if (source == RssReleaseSource.comicat) {
+    if (source == RssReleaseSource.comicat ||
+        source == RssReleaseSource.generic) {
       for (var image in description.querySelectorAll('img')) {
         var src = _text(image.attributes['src']);
         if (src == null ||
@@ -59,15 +94,17 @@ class RssReleaseData {
         }
         var imageUri = Uri.tryParse(src);
         if (imageUri == null) continue;
-        var resolved = Uri.tryParse(
-          detailUrl ?? '',
-        )?.resolveUri(imageUri).toString();
+        var imageBase = detailUrl == null ? baseUrl : Uri.tryParse(detailUrl);
+        var resolved = imageBase?.resolveUri(imageUri).toString();
         imageUrl = _httpUrl(resolved ?? src);
         if (imageUrl != null) break;
       }
     }
-    var bytes = item.enclosure?.length;
-    if (bytes == null || bytes <= 0) bytes = item.torrent?.contentLength;
+    var bytes = [
+      metadata?.fileSize,
+      item.torrent?.contentLength,
+      item.enclosure?.length,
+    ].whereType<int>().where((size) => size > 0).firstOrNull;
     var descriptionText = (description.text ?? '').trim();
     var sizeMatch = RegExp(
       r'\[\s*(\d+(?:\.\d+)?\s*(?:[KMGT]i?B|B))\s*\]\s*$',
@@ -83,7 +120,9 @@ class RssReleaseData {
     }
     var enclosureUrl = _text(item.enclosure?.url);
     var magnet =
-        _magnetUrl(enclosureUrl) ?? _magnetUrl(item.torrent?.magnetUri);
+        _magnetUrl(item.torrent?.magnetUri) ??
+        _magnetUrl(enclosureUrl) ??
+        _magnetUrl(item.link);
     var torrentUrl = _httpUrl(enclosureUrl);
     var torrentType = item.enclosure?.type?.toLowerCase() ?? '';
     if (!torrentType.contains('bittorrent') &&
@@ -94,16 +133,41 @@ class RssReleaseData {
       item: item,
       title: title.isEmpty ? '未命名资源' : title,
       categories: categories,
-      tags: _titleTags(title),
-      author: _text(item.author),
+      tags: metadata == null ? _titleTags(title) : _anibtTags(metadata),
+      author: _text(metadata?.groupName) ?? _text(item.author),
       imageUrl: imageUrl,
-      summary: _text(summary),
+      // AniBT 的描述包含自动生成的元数据和发布说明，在详情中完整展示。
+      summary: metadata == null && source != RssReleaseSource.anibt
+          ? _text(summary)
+          : null,
       sizeLabel: sizeLabel,
-      publishedAt: parseDate(item.pubDate) ?? parseDate(item.dc?.date),
-      downloadUrl: torrentUrl ?? magnet,
+      publishedAt: [
+        if (metadata != null || source == RssReleaseSource.anibt)
+          item.torrent?.pubDate,
+        item.pubDate,
+        item.torrent?.pubDate,
+        item.dc?.date,
+      ].map(parseDate).whereType<DateTime>().firstOrNull,
+      downloadUrl: magnet ?? _httpUrl(metadata?.torrentUrl) ?? torrentUrl,
       detailUrl: detailUrl,
     );
   }
+
+  static List<String> _anibtTags(RssAnibtMetadata metadata) => {
+    ...[
+      metadata.episodeLabel,
+      metadata.version,
+      metadata.resolution,
+      ...metadata.languages.map(
+        (language) =>
+            AnibtFilters.languageLabels[language.toUpperCase()] ?? language,
+      ),
+      AnibtFilters.subtitleLabels[metadata.subtitle?.toUpperCase()] ??
+          metadata.subtitle,
+      metadata.format,
+      ...metadata.customTags,
+    ].map(_text).whereType<String>(),
+  }.toList();
 
   bool matches(String query) {
     var text = [

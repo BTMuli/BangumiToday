@@ -7,7 +7,7 @@ import 'package:html/parser.dart' as html;
 import 'package:html_unescape/html_unescape.dart';
 import 'package:markdown/markdown.dart' as md;
 
-/// AniBT 的描述保留 Markdown；Comicat 的 HTML 原样交给富文本组件。
+/// AniBT 的描述保留 Markdown；其他 RSS 的 HTML 原样交给富文本组件。
 String? rssDescriptionHtml(String? description, {bool isMarkdown = false}) {
   var text = description;
   if (text == null || text.trim().isEmpty) return null;

@@ -76,11 +76,9 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     super.dispose();
   }
 
-  Widget buildRssItem(BuildContext context, RssItem item) {
-    var fileSize = (item.enclosure?.length ?? 0) > 0
-        ? filesize(item.enclosure!.length)
-        : null;
-    var publishedAt = latestRssPublishedAt([item]);
+  Widget buildRssItem(BuildContext context, RssReleaseData release) {
+    var item = release.item;
+    var publishedAt = release.publishedAt;
     var dateLabel = publishedAt == null
         ? null
         : DateFormat('yyyy-MM-dd HH:mm').format(publishedAt.toLocal());
@@ -111,13 +109,33 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                MdiIcons.download,
-                size: 16,
-                color: isPending
-                    ? accentColor
-                    : BTColors.textSecondary(context),
-              ),
+              if (release.imageUrl != null)
+                ClipRRect(
+                  borderRadius: BTRadius.smallBR,
+                  child: CachedNetworkImage(
+                    imageUrl: release.imageUrl!,
+                    width: 48,
+                    height: 64,
+                    fit: BoxFit.cover,
+                    memCacheWidth: (48 * MediaQuery.devicePixelRatioOf(context))
+                        .round(),
+                    placeholder: (_, _) =>
+                        const SizedBox(width: 48, height: 64),
+                    errorWidget: (_, _, _) => Icon(
+                      MdiIcons.imageOffOutline,
+                      size: 16,
+                      color: BTColors.textTertiary(context),
+                    ),
+                  ),
+                )
+              else
+                Icon(
+                  MdiIcons.download,
+                  size: 16,
+                  color: isPending
+                      ? accentColor
+                      : BTColors.textSecondary(context),
+                ),
               SizedBox(width: 8),
               if (isPending) ...[
                 Container(
@@ -139,9 +157,9 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
               ],
               Expanded(
                 child: Tooltip(
-                  message: item.title ?? '',
+                  message: release.title,
                   child: Text(
-                    item.title ?? '',
+                    release.title,
                     style: BTTypography.body(context),
                     maxLines: widget.embedded ? 3 : 2,
                     overflow: TextOverflow.ellipsis,
@@ -150,6 +168,28 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
               ),
             ],
           ),
+          if (release.metadataLabels.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            LayoutBuilder(
+              builder: (context, constraints) => Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  for (var label in release.metadataLabels)
+                    AnibtTagChip(label: label, maxWidth: constraints.maxWidth),
+                ],
+              ),
+            ),
+          ],
+          if (release.summary != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              release.summary!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: BTTypography.caption(context),
+            ),
+          ],
           SizedBox(height: widget.embedded ? 8 : 4),
           Row(
             children: [
@@ -158,8 +198,11 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
                   spacing: 16,
                   runSpacing: 4,
                   children: [
-                    if (fileSize != null)
-                      Text(fileSize, style: BTTypography.caption(context)),
+                    if (release.sizeLabel != null)
+                      Text(
+                        release.sizeLabel!,
+                        style: BTTypography.caption(context),
+                      ),
                     if (dateLabel != null)
                       Text(dateLabel, style: BTTypography.caption(context)),
                   ],
@@ -175,10 +218,10 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
                   ),
                 ),
               _RssItemActions(
-                item: item,
+                release: release,
+                source: _data.source,
                 dir: widget.bmf.download,
-                subject: widget.bmf.subject,
-                rssLink: _data.rssUrl,
+                baseUrl: Uri.tryParse(release.detailUrl ?? _data.rssUrl),
                 onHandled: () => _data.markItemHandled(item),
               ),
             ],
@@ -199,8 +242,8 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     if (!widget.contentScrollable || _data.rssItems.length <= 6) {
       return Column(
         mainAxisSize: MainAxisSize.min,
-        children: _data.rssItems
-            .map((item) => buildRssItem(context, item))
+        children: _data.rssReleases
+            .map((release) => buildRssItem(context, release))
             .toList(),
       );
     }
@@ -209,9 +252,9 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
       height: widget.maxHeight,
       child: ListView.builder(
         shrinkWrap: true,
-        itemCount: _data.rssItems.length,
+        itemCount: _data.rssReleases.length,
         itemBuilder: (context, index) {
-          return buildRssItem(context, _data.rssItems[index]);
+          return buildRssItem(context, _data.rssReleases[index]);
         },
       ),
     );
@@ -236,13 +279,8 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     );
   }
 
-  String _sourceLabel(String provider) => switch (provider) {
-    'anibt' => 'AniBT',
-    'mikan' => 'Mikan',
-    'comicat' => 'Comicat',
-    'generic' => '通用 RSS',
-    _ => provider,
-  };
+  String _sourceLabel(String provider) =>
+      RssReleaseSource.fromProvider(provider).label;
 
   Future<void> _showSourceOptions() async {
     if (_sourceFlyout.isOpen) return;
@@ -315,6 +353,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
               ? BTTypography.caption(context)
               : BTTypography.subtitle(context),
         ),
+        Text(_data.source.label, style: BTTypography.caption(context)),
         if (!widget.embedded && _data.rssItems.isNotEmpty)
           _buildCountBadge(context, _data.rssItems.length),
         if (_data.pendingItemKeys.isNotEmpty)

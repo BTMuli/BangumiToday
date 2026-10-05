@@ -14,8 +14,8 @@ import '../../request/mikan/mikan_api.dart';
 import '../../store/app_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import '../../widgets/rss/rss_release_data.dart';
 import 'mikan_mirror_combo.dart';
-import 'rss_release_data.dart';
 import 'rss_release_list.dart';
 
 /// 负责 MikanProject RSS 页面的显示

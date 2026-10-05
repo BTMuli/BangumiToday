@@ -11,6 +11,7 @@ import '../../domain/rss/rss_item_key.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../models/database/app_subscription_model.dart';
 import '../../models/rss/rss.dart';
+import '../rss/rss_release_data.dart';
 
 /// One selected subscription, with state loaded from transactional storage.
 class BmfRssData extends ChangeNotifier {
@@ -22,6 +23,7 @@ class BmfRssData extends ChangeNotifier {
   AppSubscriptionModel? subscription;
   Set<String> pendingItemKeys = {};
   List<RssItem> rssItems = [];
+  List<RssReleaseData> rssReleases = [];
   int _generation = 0;
   bool _disposed = false;
 
@@ -33,6 +35,14 @@ class BmfRssData extends ChangeNotifier {
           ?.url ??
       '';
   String itemKey(RssItem item) => rssItemKey(item);
+
+  RssReleaseSource get source => RssReleaseSource.fromProvider(
+    (subscription ??
+            bmf.subscriptions
+                .where((s) => s.id == selectedSubscriptionId)
+                .firstOrNull)
+        ?.provider,
+  );
 
   void updateBmf(AppBmfModel model) {
     bmf = model;
@@ -47,6 +57,7 @@ class BmfRssData extends ChangeNotifier {
     selectedSubscriptionId = id;
     subscription = null;
     rssItems = [];
+    rssReleases = [];
     pendingItemKeys = {};
     _generation++;
     unawaited(load());
@@ -70,6 +81,15 @@ class BmfRssData extends ChangeNotifier {
     if (_disposed || generation != _generation) return;
     subscription = model;
     rssItems = items;
+    rssReleases = items
+        .map(
+          (item) => RssReleaseData.fromItem(
+            item,
+            source,
+            baseUrl: Uri.tryParse(rssUrl),
+          ),
+        )
+        .toList(growable: false);
     pendingItemKeys = model?.pendingItemKeys ?? {};
     notifyListeners();
   }

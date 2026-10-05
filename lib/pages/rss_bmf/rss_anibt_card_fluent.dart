@@ -16,9 +16,9 @@ import '../../store/bt_download_store.dart';
 import '../../store/nav_store.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/rss/anibt_tag_chip.dart';
+import '../../widgets/rss/rss_release_data.dart';
+import '../../widgets/rss/rss_release_detail_dialog.dart';
 import '../../widgets/rss/rss_release_surface.dart';
-import 'rss_release_data.dart';
-import 'rss_release_detail_dialog.dart';
 
 class RssAnibtCardFluent extends ConsumerStatefulWidget {
   final RssItem item;

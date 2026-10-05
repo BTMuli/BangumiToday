@@ -15,9 +15,9 @@ import '../../request/mikan/mikan_api.dart';
 import '../../store/bt_download_store.dart';
 import '../../ui/bt_infobar.dart';
 import '../../ui/bt_select.dart';
+import '../../widgets/rss/rss_release_data.dart';
+import '../../widgets/rss/rss_release_detail_dialog.dart';
 import '../../widgets/rss/rss_release_surface.dart';
-import 'rss_release_data.dart';
-import 'rss_release_detail_dialog.dart';
 
 /// Mikan / Comicat 共用资源列表，按可用字段调整每行内容。
 class RssReleaseList extends ConsumerStatefulWidget {

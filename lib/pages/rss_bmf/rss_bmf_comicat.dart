@@ -12,7 +12,7 @@ import '../../models/rss/rss.dart';
 import '../../request/rss/comicat_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
-import 'rss_release_data.dart';
+import '../../widgets/rss/rss_release_data.dart';
 import 'rss_release_list.dart';
 
 /// 负责 ComicatProject RSS 页面的显示

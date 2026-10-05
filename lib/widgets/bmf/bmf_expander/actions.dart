@@ -90,45 +90,54 @@ class _FileItemActions extends ConsumerWidget {
 }
 
 class _RssItemActions extends ConsumerWidget {
-  final RssItem item;
+  final RssReleaseData release;
+  final RssReleaseSource source;
   final String? dir;
-  final int? subject;
-  final String rssLink;
+  final Uri? baseUrl;
   final Future<void> Function()? onHandled;
+  final bool includeDetails;
 
   const _RssItemActions({
-    required this.item,
+    required this.release,
+    required this.source,
     required this.dir,
-    required this.subject,
-    required this.rssLink,
+    this.baseUrl,
     this.onHandled,
+    this.includeDetails = true,
   });
 
-  Future<String?> getSavePath(BuildContext context) async {
-    if (item.enclosure?.url == null || item.title == null) return null;
-    var urlReal = BtrMikanApi.rewriteUrl(item.enclosure!.url!);
-    var dtt = BTDownloadTool();
-    var savePath = await dtt.downloadRssTorrent(urlReal, item.title!);
-    return savePath.isEmpty ? null : savePath;
-  }
+  String _sourceUrl(String url) =>
+      source == RssReleaseSource.mikan ? BtrMikanApi.rewriteUrl(url) : url;
 
   Future<void> download(BuildContext context, WidgetRef ref) async {
-    if (item.enclosure?.url == null || item.title == null) return;
+    if (!release.canDownload) return;
     var saveDir = dir;
     if (saveDir == null || saveDir.isEmpty) {
       await BtInfobar.error(context, '未设置下载目录');
       return;
     }
-    var savePath = await getSavePath(context);
-    if (savePath == null) return;
     try {
-      await ref
-          .read(btDownloadStoreProvider.notifier)
-          .addTorrentFile(
-            torrentPath: savePath,
-            savePath: saveDir,
-            displayName: item.title,
-          );
+      var url = _sourceUrl(release.downloadUrl!);
+      var store = ref.read(btDownloadStoreProvider.notifier);
+      if (Uri.parse(url).scheme == 'magnet') {
+        await store.addMagnet(
+          uri: url,
+          savePath: saveDir,
+          displayName: release.title,
+        );
+      } else {
+        var torrentPath = await BTDownloadTool().downloadRssTorrent(
+          url,
+          release.title,
+          context: context,
+        );
+        if (!context.mounted || torrentPath.isEmpty) return;
+        await store.addTorrentFile(
+          torrentPath: torrentPath,
+          savePath: saveDir,
+          displayName: release.title,
+        );
+      }
       await onHandled?.call();
       if (context.mounted) await BtInfobar.success(context, '下载任务已添加');
     } catch (error) {
@@ -138,10 +147,58 @@ class _RssItemActions extends ConsumerWidget {
     }
   }
 
-  Future<void> openLink(BuildContext context) async {
-    if (item.link == null) return;
-    var linkReal = BtrMikanApi.rewriteUrl(item.link!);
-    await launchUrlString(linkReal);
+  Future<bool> _openDescriptionLink(BuildContext context, String url) async {
+    var uri = Uri.tryParse(url);
+    if (uri == null ||
+        !['http', 'https'].contains(uri.scheme) ||
+        uri.host.isEmpty) {
+      return false;
+    }
+    try {
+      var opened = await launchUrlString(_sourceUrl(url));
+      if (!opened && context.mounted) {
+        await BtInfobar.error(context, '无法打开链接');
+      }
+      return opened;
+    } catch (error) {
+      if (context.mounted) await BtInfobar.error(context, error.toString());
+      return false;
+    }
+  }
+
+  Future<void> _showDetails(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      dismissWithEsc: true,
+      builder: (dialogContext) => RssReleaseDetailDialog(
+        release: release,
+        markdownDescription:
+            source == RssReleaseSource.anibt || release.item.anibt != null,
+        baseUrl: baseUrl == null
+            ? null
+            : Uri.tryParse(_sourceUrl(baseUrl.toString())),
+        onTapUrl: (url) => _openDescriptionLink(dialogContext, url),
+        actions: Row(
+          children: [
+            const Spacer(),
+            _RssItemActions(
+              release: release,
+              source: source,
+              dir: dir,
+              baseUrl: baseUrl,
+              onHandled: onHandled,
+              includeDetails: false,
+            ),
+            const SizedBox(width: 12),
+            Button(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('关闭'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -149,18 +206,32 @@ class _RssItemActions extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (includeDetails &&
+            release.hasDescription &&
+            (source != RssReleaseSource.mikan || release.summary != null))
+          Tooltip(
+            message: '查看资源详情',
+            child: IconButton(
+              icon: BtIcon(FluentIcons.info, size: 14),
+              onPressed: () => _showDetails(context),
+            ),
+          ),
         Tooltip(
-          message: '内置下载',
+          message: release.canDownload ? '内置下载' : '该资源没有可用的种子或磁力链接',
           child: IconButton(
             icon: BtIcon(FluentIcons.download, size: 14),
-            onPressed: () async => await download(context, ref),
+            onPressed: release.canDownload
+                ? () => download(context, ref)
+                : null,
           ),
         ),
         Tooltip(
           message: '打开链接',
           child: IconButton(
             icon: BtIcon(FluentIcons.edge_logo, size: 14),
-            onPressed: () async => await openLink(context),
+            onPressed: release.detailUrl == null
+                ? null
+                : () => _openDescriptionLink(context, release.detailUrl!),
           ),
         ),
       ],

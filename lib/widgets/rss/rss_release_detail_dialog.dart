@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
-import '../../widgets/rss/anibt_tag_chip.dart';
+import 'anibt_tag_chip.dart';
 import 'rss_release_data.dart';
 import 'rss_release_description.dart';
 
@@ -36,11 +36,9 @@ class RssReleaseDetailDialog extends StatelessWidget {
         ? null
         : DateFormat('yyyy-MM-dd HH:mm').format(release.publishedAt!.toLocal());
     var metadata = [
-      ...release.categories,
-      if (release.author != null) '发布者 ${release.author}',
+      ...release.metadataLabels,
       if (release.sizeLabel != null) release.sizeLabel!,
       if (timestamp != null) '发布于 $timestamp',
-      ...release.tags,
     ];
     var accentHex = FluentTheme.of(
       context,
