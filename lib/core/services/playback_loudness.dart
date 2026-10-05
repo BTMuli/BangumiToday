@@ -13,11 +13,12 @@ abstract final class PlaybackLoudness {
   static const settingKey = 'playbackLoudnessEnabled';
   static const label = 'bangumi_loudness';
 
-  // RMS normalization lifts quiet passages with a bounded gain, coupled
-  // channels and peak headroom. The shorter window limits playback buffering.
+  // Peak normalization avoids pulling loud scenes down to a fixed RMS target.
+  // Smooth a 3.1-second neighbourhood and cap amplification at 3x. Alternative
+  // boundaries preserve gain after seeks instead of fading back in from 1x.
   // https://ffmpeg.org/ffmpeg-filters.html#dynaudnorm
   static const filter =
-      '@$label:lavfi=[dynaudnorm=f=150:g=15:p=0.95:m=5:r=0.15:n=1:t=0.01]';
+      '@$label:lavfi=[dynaudnorm=f=100:g=31:p=0.95:m=3:r=0:n=1:b=1:t=0]';
 
   static bool parse(String? value) => value != 'false';
 
