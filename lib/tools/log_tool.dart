@@ -90,7 +90,7 @@ class BTLogTool {
         BTDurableLogOutput(
           logDir,
           safeScope,
-          onError: (error) => debugPrint(sanitize('写入日志失败：$error')),
+          onError: (error) => debugPrint(sanitize('日志文件操作失败：$error')),
         ),
       ]),
       printer: PrettyPrinter(

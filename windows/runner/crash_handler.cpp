@@ -243,7 +243,6 @@ struct CrashArtifact {
   std::wstring name;
   std::wstring base;
   FILETIME time;
-  bool complete;
   bool partial;
 };
 
@@ -295,7 +294,6 @@ bool ParseCrashArtifact(const WIN32_FIND_DATAW& file, CrashArtifact* artifact) {
   // Legacy names used the process start time. Their file write time is a better
   // approximation of the crash; new names contain the actual crash time.
   artifact->time = timestamp.size() == 19 ? crash_time : file.ftLastWriteTime;
-  artifact->complete = complete;
   artifact->partial = partial;
   return true;
 }
@@ -315,20 +313,14 @@ void PruneCrashDumps(const std::wstring& directory,
   FindClose(search);
   // Never prune based on a partial directory listing.
   if (scan_error != ERROR_NO_MORE_FILES) return;
-  const CrashArtifact* latest = nullptr;
-  for (const auto& artifact : artifacts) {
-    if (!artifact.complete) continue;
-    if (!latest || CompareFileTime(&artifact.time, &latest->time) > 0)
-      latest = &artifact;
-  }
-  // If capture never produced a usable dump, retain its newest report only.
-  if (!latest) {
-    for (const auto& artifact : artifacts) {
-      if (!artifact.partial &&
-          (!latest || CompareFileTime(&artifact.time, &latest->time) > 0))
-        latest = &artifact;
-    }
-  }
+  FILETIME now{};
+  GetSystemTimeAsFileTime(&now);
+  ULARGE_INTEGER ticks{};
+  ticks.LowPart = now.dwLowDateTime;
+  ticks.HighPart = now.dwHighDateTime;
+  constexpr ULONGLONG kCrashRetentionTicks = 30ULL * 24 * 60 * 60 * 10000000;
+  ticks.QuadPart -= kCrashRetentionTicks;
+  const FILETIME cutoff{ticks.LowPart, ticks.HighPart};
   std::set<std::wstring> busy;
   for (const auto& artifact : artifacts) {
     // The helper keeps its report and partial dumps open without SHARE_DELETE.
@@ -346,7 +338,7 @@ void PruneCrashDumps(const std::wstring& directory,
   unsigned removed = 0;
   for (const auto& artifact : artifacts) {
     if (busy.count(artifact.base) ||
-        (latest && artifact.base == latest->base && !artifact.partial))
+        (!artifact.partial && CompareFileTime(&artifact.time, &cutoff) >= 0))
       continue;
     if (DeleteFileW((directory + L"\\" + artifact.name).c_str())) {
       ++removed;
@@ -367,7 +359,7 @@ void PruneCrashDumps(const std::wstring& directory,
   if (removed != 0) {
     char message[128]{};
     _snprintf_s(message, sizeof(message), _TRUNCATE,
-                "Crash dump retention removed %u old/partial files", removed);
+                "Crash dump retention removed %u expired/partial files", removed);
     if (report != INVALID_HANDLE_VALUE)
       WriteReport(report, message);
     else
@@ -580,8 +572,7 @@ bool RunCrashDumpHelper(int* exit_code) {
       const auto directory = separator == std::wstring::npos
                                  ? std::wstring(L".")
                                  : path.substr(0, separator);
-      // Publish a usable replacement before removing old evidence, then free
-      // the old full dump's space before starting another full-memory capture.
+      // Clean expired captures once the new triage dump is safely published.
       if (triage == ERROR_SUCCESS) PruneCrashDumps(directory, report);
       const auto full_type =
           static_cast<MINIDUMP_TYPE>(kCommonDumpFlags | MiniDumpWithFullMemory);

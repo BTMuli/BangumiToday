@@ -75,14 +75,15 @@ under Documents, accessible through the settings page's log-directory action:
     the last capture stage reached.
   - The failing process uses a log handle opened during startup and fixed
     buffers, avoiding string allocations on a possibly corrupted heap.
-  - Only the latest successfully captured crash is retained, including its full
-    dump, triage dump and text report. Once the new triage dump is published,
-    older sets are removed before the new full-memory capture starts. If both
-    captures fail, the previous usable set remains. Startup retries cleanup and
-    removes abandoned partial files; files belonging to an active capture or
-    held open by a reader are preserved for a later cleanup. Legacy dump names
-    are supported. Native logs, running markers and manual analysis files are
-    excluded from retention cleanup.
+  - Crash dumps and text reports are retained for 30 days. Native startup and
+    successful captures clean expired sets and abandoned partial files; files
+    belonging to an active capture or held open by a reader are preserved for
+    a later cleanup. Legacy dump names use the file's last-write time.
+  - The main Dart logger also cleans the directory at startup and hourly.
+    Daily Dart logs and native logs from normal runs are retained for 7 days.
+    Native logs and unclean-exit markers associated with crashes, and daily
+    Dart logs from those crash dates, are retained for 30 days. Active native
+    processes, subdirectories, links and manually saved analysis are excluded.
   A retained `.running` marker reports an unclean prior exit on the next launch,
   including termination paths that bypass exception handlers.
 
