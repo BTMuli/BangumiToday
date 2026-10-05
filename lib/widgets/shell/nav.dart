@@ -19,6 +19,7 @@ import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../pages/app_setting/app_setting_page.dart';
 import '../../pages/bangumi_calendar/bangumi_calendar_page.dart';
 import '../../pages/download/download_page.dart';
+import '../../pages/playback/playback_actions.dart';
 import '../../pages/playback/playback_page.dart';
 import '../../pages/rss_bmf/rss_bmf_page.dart';
 import '../../pages/user_collection/user_collection_page.dart';
@@ -123,11 +124,19 @@ class _NavWidgetState extends ConsumerState<NavWidget>
   /// 展示设置flyout
   void showOptionsFlyout() {
     flyoutMore.showFlyout(
+      placementMode: FlyoutPlacementMode.rightCenter,
+      additionalOffset: 8,
+      forceAvailableSpace: true,
       barrierDismissible: true,
       dismissOnPointerMoveAway: false,
       dismissWithEsc: true,
-      builder: (context) =>
-          MenuFlyout(items: [buildResetWinItem(), buildPinWinItem()]),
+      builder: (context) => MenuFlyout(
+        items: [
+          if (Platform.isWindows) buildPlaybackWinItem(),
+          buildResetWinItem(),
+          buildPinWinItem(),
+        ],
+      ),
     );
   }
 
@@ -205,6 +214,21 @@ class _NavWidgetState extends ConsumerState<NavWidget>
           expiresIn: at.expiresIn,
         );
     await freshUserInfo();
+  }
+
+  /// 构建打开播放窗口项
+  MenuFlyoutItem buildPlaybackWinItem() {
+    return MenuFlyoutItem(
+      leading: const Icon(FluentIcons.play),
+      text: const Text('打开播放窗口'),
+      onPressed: () async {
+        try {
+          await ref.read(playbackWindowServiceProvider).open();
+        } catch (error) {
+          if (mounted) await reportPlaybackError(context, ref, error);
+        }
+      },
+    );
   }
 
   /// 构建重置窗口大小项
@@ -335,11 +359,9 @@ class _NavWidgetState extends ConsumerState<NavWidget>
         displayMode: PaneDisplayMode.compact,
         items: [...constItems, ..._navItems],
         footerItems: [
-          PaneItemAction(
-            icon: FlyoutTarget(
-              controller: flyoutMore,
-              child: const Icon(FluentIcons.graph_symbol),
-            ),
+          _FlyoutPaneItemAction(
+            controller: flyoutMore,
+            icon: const Icon(FluentIcons.graph_symbol),
             title: const Text('更多设置'),
             onTap: showOptionsFlyout,
           ),
@@ -384,5 +406,43 @@ class _NavWidgetState extends ConsumerState<NavWidget>
       );
     }
     return entries;
+  }
+}
+
+/// 以完整导航按钮为锚点，避免 flyout 遮挡按钮边缘。
+class _FlyoutPaneItemAction extends PaneItemAction {
+  _FlyoutPaneItemAction({
+    required this.controller,
+    required super.icon,
+    required super.title,
+    required super.onTap,
+  });
+
+  final FlyoutController controller;
+
+  @override
+  Widget build({
+    required BuildContext context,
+    required bool selected,
+    required VoidCallback? onPressed,
+    required PaneDisplayMode? displayMode,
+    required int itemIndex,
+    bool? autofocus,
+    bool showTextOnTop = true,
+    int depth = 0,
+  }) {
+    return FlyoutTarget(
+      controller: controller,
+      child: super.build(
+        context: context,
+        selected: selected,
+        onPressed: onPressed,
+        displayMode: displayMode,
+        itemIndex: itemIndex,
+        autofocus: autofocus,
+        showTextOnTop: showTextOnTop,
+        depth: depth,
+      ),
+    );
   }
 }
