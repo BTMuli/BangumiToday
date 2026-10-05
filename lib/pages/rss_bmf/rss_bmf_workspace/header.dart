@@ -21,17 +21,25 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
           var refresh = Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Button(
-                onPressed: () async {
-                  await showDialog<void>(
-                    context: context,
-                    builder: (_) => const _RecoveryDialog(),
+              StreamBuilder<bool>(
+                stream: _hasUnresolvedRecovery,
+                builder: (context, snapshot) {
+                  if (snapshot.data != true) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Button(
+                      onPressed: () async {
+                        await showDialog<void>(
+                          context: context,
+                          builder: (_) => const _RecoveryDialog(),
+                        );
+                        if (mounted) await _refreshWorkspace();
+                      },
+                      child: const Text('待核对'),
+                    ),
                   );
-                  if (mounted) await _refreshWorkspace();
                 },
-                child: const Text('待核对'),
               ),
-              const SizedBox(width: 8),
               Tooltip(
                 message: '重新读取关联配置与本地缓存',
                 child: IconButton(

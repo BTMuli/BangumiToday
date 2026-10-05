@@ -60,6 +60,8 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
   final BmfFilterModel _filterModel = BmfFilterModel();
   final Map<int, int> _statusRevisions = {};
   final Map<int, int> _updateRevisions = {};
+  late final Stream<bool> _hasUnresolvedRecovery = appSubscriptionStorage
+      .watchHasUnresolvedRecovery();
   String _loadedStatusSignature = '';
   String _loadedSubjectSignature = '';
   int _statusLoadGeneration = 0;
@@ -431,7 +433,7 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
       var confirm = await showConfirm(
         context,
         title: '删除 BMF',
-        content: '确定删除 ${bmf.title ?? bmf.subject} 的关联配置吗？',
+        content: '确定删除 ${bmf.title ?? bmf.subject} 的关联配置及仅属于它的旧状态记录吗？',
       );
       if (!confirm || !mounted) return;
     }

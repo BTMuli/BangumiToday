@@ -353,6 +353,16 @@ class SubscriptionStorage {
     return query.get();
   }
 
+  Stream<bool> watchHasUnresolvedRecovery() => db
+      .customSelect(
+        'SELECT EXISTS (SELECT 1 FROM AppMigrationRecovery '
+        'WHERE resolvedAt IS NULL) AS hasRecovery',
+        readsFrom: {db.appMigrationRecovery},
+      )
+      .watchSingle()
+      .map((row) => row.read<int>('hasRecovery') != 0)
+      .distinct();
+
   /// Explicit user decision; original payload is retained after resolution.
   Future<void> resolveRecovery(
     int recoveryId, {
