@@ -358,9 +358,9 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     var itemKey = widget.store.current!.key;
     var position = player.state.position;
     try {
-      var image = await player.screenshot(
-        format: 'image/png',
-        includeLibassSubtitles: true,
+      var image = await PlaybackScreenshot.capture(
+        player,
+        rendered: widget.store.upscaler?.configuredMode != null,
       );
       if (!mounted ||
           widget.store.player != player ||

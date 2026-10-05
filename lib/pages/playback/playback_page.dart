@@ -19,6 +19,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 // Project imports:
 import '../../core/errors/playback_unavailable.dart';
+import '../../core/services/playback_screenshot.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/tool_func.dart';
 import '../../models/playback/playback_chapter.dart';

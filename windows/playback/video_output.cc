@@ -61,9 +61,14 @@ VideoOutput::VideoOutput(int64_t handle, VideoOutputConfiguration configuration,
             },
             nullptr,
         };
+        // GPU screenshots are dispatched through mpv_render_context_update.
+        // This worker never synchronously queries the mpv core, and processes
+        // update callbacks even when there is no new video frame.
+        int advanced_control = 1;
         mpv_render_param params[] = {
             {MPV_RENDER_PARAM_API_TYPE, MPV_RENDER_API_TYPE_OPENGL},
             {MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl_init_params},
+            {MPV_RENDER_PARAM_ADVANCED_CONTROL, &advanced_control},
             {MPV_RENDER_PARAM_INVALID, nullptr},
         };
         // Create render context.
