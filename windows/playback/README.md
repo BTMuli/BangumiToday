@@ -23,8 +23,38 @@ under Documents, accessible through the settings page's log-directory action:
   and aggregate render timing. GPU errors and slow-frame reports are limited
   to one report per five seconds, with normal timing reports every ten seconds.
 - The Windows runner records unhandled native exceptions and asks a separate
-  instance of the same executable to write `native-<pid>-<timestamp>.dmp`.
-  The helper runs before Flutter/plugin startup and has an eight-second budget.
+  instance of the same executable to collect a crash before Flutter/plugin
+  startup. The timestamp is the actual crash time, including milliseconds:
+  - `native-<pid>-<timestamp>.dmp.triage.dmp` is saved first, with thread stacks,
+    indirectly referenced memory, the complete virtual-memory map, process/thread
+    information, handles and unloaded modules. Its capture budget is 15 seconds.
+  - `native-<pid>-<timestamp>.dmp` then includes all accessible process memory,
+    including heaps, plus the same diagnostic information. Its capture budget
+    is 90 seconds. Full dumps can be several GB; retain them for investigating
+    invalid pointers and heap ownership, and use the triage file for quick stack
+    analysis. Inaccessible pages are skipped rather than failing the capture.
+  - The matching `.dmp.txt` records the application/Flutter SDK/engine identity,
+    UTC capture time, process and exception thread, process memory usage, exception
+    parameters, access type/address and the faulting virtual-memory region. Each
+    capture stage records its flags, result (Win32 error or DbgHelp HRESULT),
+    byte count and elapsed time. SDK identity is also embedded in both dumps.
+  - Dumps are written to `.partial` files and published only after writing and
+    flushing succeeds. A failed or canceled full dump leaves the completed
+    triage file intact and reports failure separately. The parent waits at most
+    120 seconds, keeping the exception pointers alive, then stops the helper and
+    removes partial files if termination is confirmed. A forced termination can
+    bypass DbgHelp's cancellation callback; the flushed text report identifies
+    the last capture stage reached.
+  - The failing process uses a log handle opened during startup and fixed
+    buffers, avoiding string allocations on a possibly corrupted heap.
+  - Only the latest successfully captured crash is retained, including its full
+    dump, triage dump and text report. Once the new triage dump is published,
+    older sets are removed before the new full-memory capture starts. If both
+    captures fail, the previous usable set remains. Startup retries cleanup and
+    removes abandoned partial files; files belonging to an active capture or
+    held open by a reader are preserved for a later cleanup. Legacy dump names
+    are supported. Native logs, running markers and manual analysis files are
+    excluded from retention cleanup.
   A retained `.running` marker reports an unclean prior exit on the next launch,
   including termination paths that bypass exception handlers.
 
@@ -110,3 +140,18 @@ Verification performed without starting the app or building the project:
   changes its exception definition. MSVC `/Zs`, `/W4`, `/WX` passes for the runner
   window and all six overlaid plugin translation units. Temporary checks are
   removed; closing and reopening real playback windows remains a manual check.
+- Enhanced crash capture passes MSVC `/Zs`, `/W4`, `/WX` and an isolated
+  non-UI process/helper check. Both dumps contain exception, memory-map, thread,
+  handle and build-identity streams; the full dump preserves the bytes of a
+  known heap allocation. Checks cover full-write failure, cancellation, retained
+  triage dumps, partial-file cleanup, existing-file preservation, invalid helper
+  arguments, missing processes, capture budgets and the production parent/helper
+  path with its pre-opened crash log. Isolated CMake configuration verifies SDK
+  and engine identity definitions. These checks use a temporary directory outside
+  the repository and do not build or launch the Flutter application.
+- Crash retention is checked with real files and the production helper in an
+  isolated non-UI harness: replacement after triage publication, full/partial
+  capture failures, legacy filename ordering, modern crash-time ordering,
+  active captures and reader locks, cleanup retries, orphaned partial files and
+  preservation of unrelated files and directories. MSVC `/Zs`, `/W4`, `/WX`
+  passes without building or starting the application.
