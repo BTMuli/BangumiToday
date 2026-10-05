@@ -31,8 +31,11 @@ class BangumiCalendarDay extends StatelessWidget {
   /// 分组是否还在准备中（准备完成前数据是置空的）
   final bool loading;
 
-  /// 当前是否只展示收藏条目。
-  final bool collectionOnly;
+  /// 收藏筛选开启时的收藏 ID；null 表示显示全部条目。
+  final Set<int>? collectedIds;
+
+  /// 当前是否只展示收藏与 BMF 订阅条目。
+  bool get collectionOnly => collectedIds != null;
 
   /// 空状态最小高度，保证滚动距离稳定
   static const double _emptyHeight = 180;
@@ -45,7 +48,7 @@ class BangumiCalendarDay extends StatelessWidget {
     required this.isToday,
     required this.data,
     required this.loading,
-    this.collectionOnly = false,
+    this.collectedIds,
   });
 
   /// 月份/日期，如 `10/03`
@@ -61,8 +64,8 @@ class BangumiCalendarDay extends StatelessWidget {
       return BTEmptyState.loading(message: '正在加载数据...');
     }
     return BTEmptyState.noData(
-      title: collectionOnly ? '暂无收藏番剧放送' : '暂无可显示的放送',
-      message: collectionOnly ? '可关闭「只显示收藏」查看其他放送条目' : '该日期暂无符合显示条件的番剧',
+      title: collectionOnly ? '暂无收藏或 BMF 番剧放送' : '暂无可显示的放送',
+      message: collectionOnly ? '可关闭收藏筛选查看其他放送条目' : '该日期暂无符合显示条件的番剧',
     );
   }
 
@@ -156,6 +159,10 @@ class BangumiCalendarDay extends StatelessWidget {
                 episode: item.episode,
                 watched: item.watched,
                 inBmf: item.inBmf,
+                bmfOnly:
+                    collectionOnly &&
+                    item.inBmf &&
+                    !collectedIds!.contains(item.subject.id),
               ),
             );
           },

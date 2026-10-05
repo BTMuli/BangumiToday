@@ -220,6 +220,7 @@ class BangumiCalendarData {
   ///
   /// 准备详情时将 [onlyVerified] 设为 false，保留待确认条目以便补全；
   /// 已知成人向条目始终排除，即使它在收藏或订阅列表中。
+  /// [collectedIds] 非空时显示收藏与 BMF 订阅的并集。
   static List<BangumiCalendarItem> filterItems(
     List<BangumiCalendarItem> day, {
     required Map<int, BangumiCalendarSubject> enrich,
@@ -229,7 +230,9 @@ class BangumiCalendarData {
     return [
       for (var item in day)
         if (!(enrich[item.subject.id]?.nsfw ?? onlyVerified) &&
-            (collectedIds == null || collectedIds.contains(item.subject.id)))
+            (collectedIds == null ||
+                collectedIds.contains(item.subject.id) ||
+                item.inBmf))
           item,
     ];
   }

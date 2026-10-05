@@ -50,7 +50,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 请求数据，索引 0=周一 ... 6=周日，按本地放送日归属
   List<List<BangumiCalendarItem>> calendarData = List.generate(7, (_) => []);
 
-  /// 是否只显示收藏
+  /// 是否只显示收藏与 BMF 订阅
   bool isShowCollection = false;
 
   /// 数据库-AppConfig
@@ -298,7 +298,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     await applyDisplay();
   }
 
-  /// 按就绪状态、成人向标记与「只显示收藏」生成展示用的分组。
+  /// 按就绪状态、成人向标记与收藏/BMF 筛选生成展示用的分组。
   ///
   /// 还没准备好的分组一律置空：先置空、准备好再整组填充，避免先渲染出候选
   /// 条目、再把已完结的剔除掉，页面上不会出现数量先多后少。
@@ -316,7 +316,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     realignActiveSlot(anchor);
   }
 
-  /// 筛出当前收藏范围内的非成人向条目；展示时还必须确认标记。
+  /// 筛出收藏与 BMF 订阅范围内的非成人向条目；展示时还必须确认标记。
   List<BangumiCalendarItem> filterDay(
     List<BangumiCalendarItem> day, {
     bool onlyVerified = false,
@@ -932,7 +932,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
             date: dateAt(slot),
             isToday: slot == 0,
             data: getTabData(slot),
-            collectionOnly: _collectedIds != null,
+            collectedIds: _collectedIds,
             // 分组准备好之前是置空的，显示加载态；处理好之后才是空数据
             loading: !_readySlots.contains(slot),
           ),
@@ -992,7 +992,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 构建收藏按钮
   Widget buildCollectSwitch(BuildContext context) {
     return Tooltip(
-      message: '只显示收藏',
+      message: '只显示收藏与 BMF 订阅',
       child: ToggleButton(
         checked: isShowCollection,
         onChanged: (v) {

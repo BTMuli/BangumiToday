@@ -48,6 +48,9 @@ class BangumiCalendarCard extends ConsumerStatefulWidget {
   /// 是否在 BMF 订阅列表里
   final bool inBmf;
 
+  /// 收藏筛选开启时，是否仅因 BMF 订阅而显示。
+  final bool bmfOnly;
+
   const BangumiCalendarCard({
     super.key,
     required this.data,
@@ -55,6 +58,7 @@ class BangumiCalendarCard extends ConsumerStatefulWidget {
     this.episode,
     this.watched = false,
     this.inBmf = false,
+    this.bmfOnly = false,
   });
 
   /// 为完整文字行、放送信息（时刻/话数）和操作按钮预留高度。
@@ -482,8 +486,21 @@ class _BangumiCalendarCardState extends ConsumerState<BangumiCalendarCard>
       child: Stack(
         children: [
           Positioned.fill(child: buildCoverImage(context)),
-          if (widget.watched)
-            Positioned(left: 6, top: 6, child: buildCoverChip(context, '看过')),
+          if (widget.watched || (_inBmf && widget.bmfOnly))
+            Positioned(
+              left: 6,
+              right: 6,
+              top: 6,
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: [
+                  if (widget.watched) buildCoverChip(context, '看过'),
+                  if (_inBmf && widget.bmfOnly)
+                    buildCoverChip(context, 'BMF · 未收藏'),
+                ],
+              ),
+            ),
           if (data.rating != null || data.collection?.doing != null)
             Positioned(
               left: 0,
