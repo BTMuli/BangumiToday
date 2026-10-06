@@ -152,8 +152,8 @@ class PlaybackWindowMode extends ChangeNotifier {
     );
   }
 
-  /// 按当前倍率调整窗口，保留左上角位置；溢出时只移动必要距离。
-  Future<Size> _fitToVideo(Rect current) async {
+  /// 按当前倍率调整窗口；[center] 为 true 时居中，否则只在溢出时移动。
+  Future<Size> _fitToVideo(Rect current, {bool center = false}) async {
     var area = await _workArea(current);
     var pixel = _videoSize ?? defaultVideoSize;
     // 停止播放时基准是 16:9，不沿用上一个视频的比例。
@@ -168,12 +168,17 @@ class PlaybackWindowMode extends ChangeNotifier {
       ),
       area: area,
       aspectRatio: ratio,
+      center: center,
     );
   }
 
   /// 把窗口调整到视频像素尺寸的 [scale] 倍，返回实际尺寸与是否受屏幕限制。
+  /// 默认保留左上角位置；[center] 为 true 时在工作区居中。
   /// 未载入视频时以 1080p 为基准，数字键在停止播放后仍然生效。
-  Future<({Size size, bool clamped})?> setVideoScale(double scale) async {
+  Future<({Size size, bool clamped})?> setVideoScale(
+    double scale, {
+    bool center = false,
+  }) async {
     if (_disposed || !scale.isFinite || scale <= 0) return null;
     var pixel = _videoSize ?? defaultVideoSize;
     var dpr = _devicePixelRatio;
@@ -184,7 +189,10 @@ class PlaybackWindowMode extends ChangeNotifier {
       // 显式选定的倍率重新接管窗口尺寸。
       _userSized = false;
       _videoScale = scale;
-      applied = await _fitToVideo(await windowManager.getBounds());
+      applied = await _fitToVideo(
+        await windowManager.getBounds(),
+        center: center,
+      );
     });
     var size = applied;
     if (size == null) return null;

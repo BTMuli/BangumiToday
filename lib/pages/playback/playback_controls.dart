@@ -391,7 +391,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
   Future<void> _applyWindowScale(_PlaybackCommand command) async {
     var mode = widget.windowMode;
     var overlay = widget.overlay;
-    if (mode == null || mode.screenFullscreen) {
+    if (mode == null) {
       overlay.show(
         '当前窗口不支持调整尺寸',
         material.Icons.aspect_ratio_rounded,
@@ -404,8 +404,14 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
       _PlaybackCommand.scaleOneHalf => (1.5, '1.5 倍'),
       _ => (1.0, '原始像素'),
     };
+    var fullscreen = isFullscreen(context);
+    if (fullscreen) {
+      overlay.closeMenus();
+      // 原生退出回调与尺寸调整使用同一窗口操作队列，先恢复窗口再缩放。
+      await exitFullscreen(context);
+    }
     var base = mode.scaleBaseSize;
-    var applied = await mode.setVideoScale(scale);
+    var applied = await mode.setVideoScale(scale, center: fullscreen);
     if (applied == null) {
       overlay.show('暂时无法调整窗口尺寸', material.Icons.aspect_ratio_rounded);
       return;
