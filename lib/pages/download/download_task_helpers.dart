@@ -1,6 +1,42 @@
 // Project imports:
 import '../../core/services/bt_engine/protocol.dart';
 
+class DownloadTaskGroup {
+  DownloadTaskGroup({
+    required this.subjectId,
+    required List<BtTaskSnapshot> tasks,
+  }) : tasks = List.unmodifiable(tasks);
+
+  final int? subjectId;
+  final List<BtTaskSnapshot> tasks;
+
+  String get key =>
+      subjectId == null ? 'task_${tasks.single.id}' : 'subject_$subjectId';
+}
+
+/// Merge linked tasks in their current order; unlinked tasks stay separate.
+List<DownloadTaskGroup> groupDownloadTasks(
+  List<BtTaskSnapshot> tasks,
+  Map<String, int?> subjectIds,
+) {
+  var groupedTasks = <String, List<BtTaskSnapshot>>{};
+  var groupedSubjects = <String, int?>{};
+  for (var task in tasks) {
+    var id = subjectIds[task.id];
+    var subjectId = id != null && id > 0 ? id : null;
+    var key = subjectId == null ? 'task_${task.id}' : 'subject_$subjectId';
+    (groupedTasks[key] ??= []).add(task);
+    groupedSubjects[key] = subjectId;
+  }
+  return [
+    for (var entry in groupedTasks.entries)
+      DownloadTaskGroup(
+        subjectId: groupedSubjects[entry.key],
+        tasks: entry.value,
+      ),
+  ];
+}
+
 enum DownloadTaskSortField {
   defaultOrder('默认排序'),
   downloadRate('下载速度'),

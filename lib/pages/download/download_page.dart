@@ -22,6 +22,7 @@ import 'download_task_helpers.dart';
 
 part 'download_page/empty_states.dart';
 part 'download_page/header_widgets.dart';
+part 'download_page/subject_group.dart';
 part 'download_page/task_card.dart';
 
 class DownloadPage extends ConsumerStatefulWidget {
@@ -199,6 +200,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
                 selecting: _selecting,
                 selectedIds: _selectedIds,
                 onToggleSelect: _toggleSelect,
+                onToggleGroupSelect: _toggleGroupSelect,
               ),
             ),
           ],
@@ -261,6 +263,18 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
     if (_batchBusy) return;
     setState(() {
       if (!_selectedIds.remove(id)) _selectedIds.add(id);
+    });
+  }
+
+  void _toggleGroupSelect(Iterable<String> taskIds) {
+    if (_batchBusy) return;
+    var ids = taskIds.toSet();
+    setState(() {
+      if (ids.every(_selectedIds.contains)) {
+        _selectedIds.removeAll(ids);
+      } else {
+        _selectedIds.addAll(ids);
+      }
     });
   }
 
@@ -422,6 +436,7 @@ class _DownloadTaskPane extends ConsumerWidget {
     required this.selecting,
     required this.selectedIds,
     required this.onToggleSelect,
+    required this.onToggleGroupSelect,
   });
 
   final int tabIndex;
@@ -431,6 +446,7 @@ class _DownloadTaskPane extends ConsumerWidget {
   final bool selecting;
   final Set<String> selectedIds;
   final ValueChanged<String> onToggleSelect;
+  final ValueChanged<Iterable<String>> onToggleGroupSelect;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -453,26 +469,46 @@ class _DownloadTaskPane extends ConsumerWidget {
     if (filteredTasks.isEmpty) {
       return _EmptySearchResults(query: searchQuery.trim());
     }
+    var subjectIds = {
+      for (var task in filteredTasks)
+        task.id: ref.watch(
+          downloadTaskSubjectProvider((
+            taskId: task.id,
+            savePath: task.savePath,
+            manual: task.manual,
+          )),
+        ),
+    };
+    var groups = groupDownloadTasks(filteredTasks, subjectIds);
     var itemIndices = {
-      for (var index = 0; index < filteredTasks.length; index++)
-        filteredTasks[index].id: index,
+      for (var index = 0; index < groups.length; index++)
+        groups[index].key: index,
     };
     return ListView.separated(
       padding: EdgeInsets.fromLTRB(20, 14, 20, 24),
-      itemCount: filteredTasks.length,
+      itemCount: groups.length,
       separatorBuilder: (_, _) => SizedBox(height: 14),
       findItemIndexCallback: (key) =>
           itemIndices[(key as ValueKey<String>).value],
       itemBuilder: (context, index) {
-        var task = filteredTasks[index];
+        var group = groups[index];
+        var task = group.tasks.first;
         return RepaintBoundary(
-          key: ValueKey(task.id),
-          child: _DownloadTaskTile(
-            taskId: task.id,
-            selectionMode: selecting,
-            selected: selectedIds.contains(task.id),
-            onSelect: () => onToggleSelect(task.id),
-          ),
+          key: ValueKey(group.key),
+          child: group.subjectId == null
+              ? _DownloadTaskTile(
+                  taskId: task.id,
+                  selectionMode: selecting,
+                  selected: selectedIds.contains(task.id),
+                  onSelect: () => onToggleSelect(task.id),
+                )
+              : _DownloadSubjectGroup(
+                  group: group,
+                  selectionMode: selecting,
+                  selectedIds: selectedIds,
+                  onToggleSelect: onToggleSelect,
+                  onToggleGroupSelect: onToggleGroupSelect,
+                ),
         );
       },
     );
@@ -502,12 +538,14 @@ class _DownloadTaskTile extends ConsumerWidget {
     required this.selectionMode,
     required this.selected,
     required this.onSelect,
+    this.grouped = false,
   });
 
   final String taskId;
   final bool selectionMode;
   final bool selected;
   final VoidCallback onSelect;
+  final bool grouped;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -523,37 +561,10 @@ class _DownloadTaskTile extends ConsumerWidget {
       btDownloadStoreProvider.select((store) => store.isTaskBusy(taskId)),
     );
     if (task == null) return const SizedBox.shrink();
-    var subjectId = ref.watch(
-      downloadTaskSubjectProvider((
-        taskId: task.id,
-        savePath: task.savePath,
-        manual: task.manual,
-      )),
-    );
-    var subject = subjectId == null
-        ? null
-        : ref.watch(downloadSubjectDetailsProvider(subjectId)).value;
-    var subjectTitle = subject == null
-        ? '条目 #$subjectId'
-        : subject.nameCn.isNotEmpty
-        ? subject.nameCn
-        : subject.name;
     return _DownloadTaskCard(
       task: task,
       busy: busy,
-      subjectTitle: subjectId == null ? null : subjectTitle,
-      coverUrl: subject?.images.common,
-      onOpenSubject: subjectId == null
-          ? null
-          : () => ref
-                .read(navStoreProvider.notifier)
-                .addNavItemB(
-                  subject: subjectId,
-                  paneTitle: subject?.nameCn.isNotEmpty == true
-                      ? subject!.nameCn
-                      : subject?.name,
-                  type: '动画',
-                ),
+      grouped: grouped,
       selectionMode: selectionMode,
       selected: selected,
       onSelect: onSelect,

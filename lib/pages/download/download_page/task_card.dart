@@ -5,18 +5,14 @@ class _DownloadTaskCard extends StatelessWidget {
     required this.task,
     required this.busy,
     required this.onAction,
-    this.subjectTitle,
-    this.coverUrl,
-    this.onOpenSubject,
+    this.grouped = false,
     this.selectionMode = false,
     this.selected = false,
     this.onSelect,
   });
 
   final BtTaskSnapshot task;
-  final String? subjectTitle;
-  final String? coverUrl;
-  final VoidCallback? onOpenSubject;
+  final bool grouped;
   final bool busy;
   final bool selectionMode;
   final bool selected;
@@ -32,6 +28,223 @@ class _DownloadTaskCard extends StatelessWidget {
     var title = _taskTitle(task);
     var stateColor = _taskStateColor(context, task.state);
     var accentColor = FluentTheme.of(context).accentColor;
+    var content = ClipRRect(
+      borderRadius: grouped ? BorderRadius.zero : BTRadius.largeBR,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 4,
+            child: ColoredBox(color: stateColor),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(20, 15, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    if (selectionMode) ...[
+                      Checkbox(
+                        checked: selected,
+                        onChanged: (_) => onSelect?.call(),
+                      ),
+                      SizedBox(width: 4),
+                    ],
+                    if (!grouped) ...[
+                      _TaskCover(
+                        url: null,
+                        state: task.state,
+                        color: stateColor,
+                        linked: false,
+                        onPressed: null,
+                      ),
+                      SizedBox(width: 11),
+                    ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: BTTypography.bodyStrong(context),
+                          ),
+                          SizedBox(height: 4),
+                          if (task.manual)
+                            Text(
+                              task.state == 'completed'
+                                  ? '手动任务 · 已归档，不跟踪文件'
+                                  : '手动任务 · 完成后不跟踪文件',
+                              style: BTTypography.caption(context),
+                            ),
+                          Row(
+                            children: [
+                              Icon(
+                                FluentIcons.folder_open,
+                                size: 12,
+                                color: BTColors.textTertiary(context),
+                              ),
+                              SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  task.savePath,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: BTTypography.caption(context),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    _TaskStateBadge(state: task.state, color: stateColor),
+                    if (!selectionMode) ...[
+                      SizedBox(width: 8),
+                      _TaskActions(task: task, busy: busy, onAction: onAction),
+                    ],
+                  ],
+                ),
+                SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BTRadius.roundBR,
+                        child: ProgressBar(
+                          value: progress,
+                          strokeWidth: 6,
+                          activeColor: stateColor,
+                          backgroundColor: stateColor.withValues(alpha: 0.1),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    SizedBox(
+                      width: 50,
+                      child: Text(
+                        '${progress.toStringAsFixed(1)}%',
+                        textAlign: TextAlign.right,
+                        style: BTTypography.bodyStrong(
+                          context,
+                        ).copyWith(color: stateColor),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 13),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _TaskMetric(
+                      icon: FluentIcons.database,
+                      label: '已下载',
+                      value:
+                          '${BTFileTool.formatSize(task.downloadedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
+                      color: stateColor,
+                    ),
+                    _TaskMetric(
+                      icon: FluentIcons.download,
+                      label: '下载',
+                      value: '${BTFileTool.formatSize(task.downloadRate)}/s',
+                      color: FluentTheme.of(context).accentColor,
+                    ),
+                    if (task.sourceKind != 'http') ...[
+                      _TaskMetric(
+                        icon: FluentIcons.upload,
+                        label: '上传',
+                        value: '${BTFileTool.formatSize(task.uploadRate)}/s',
+                        color: BTColors.successLight(context),
+                      ),
+                      _TaskMetric(
+                        icon: FluentIcons.people,
+                        label: '连接',
+                        value: '${task.peers} Peer · ${task.seeds} Seed',
+                        color: BTColors.info,
+                      ),
+                    ],
+                    if (task.state == 'downloading' &&
+                        task.downloadRate > 0 &&
+                        task.totalBytes > task.downloadedBytes)
+                      _TaskMetric(
+                        icon: FluentIcons.timer,
+                        label: '预计耗时',
+                        value: _etaLabel(task),
+                        color: BTColors.warningLight(context),
+                      ),
+                    if (task.state == 'seeding' || task.uploadedBytes > 0)
+                      _TaskMetric(
+                        icon: FluentIcons.share,
+                        label: '做种',
+                        value:
+                            '分享率 ${task.shareRatio.toStringAsFixed(2)} · '
+                            '${formatDownloadDuration(task.seedingSeconds)}',
+                        color: BTColors.successLight(context),
+                      ),
+                    if (task.seedStopReason != null)
+                      _TaskMetric(
+                        icon: FluentIcons.check_mark,
+                        label: '停止',
+                        value: _seedStopReasonLabel(task.seedStopReason!),
+                        color: BTColors.textSecondary(context),
+                      ),
+                    if (task.pauseReason == 'constrainedUploadTotalLimit')
+                      _TaskMetric(
+                        icon: FluentIcons.pause,
+                        label: '暂停',
+                        value: '已达到受限时累计上传上限',
+                        color: BTColors.textSecondary(context),
+                      ),
+                  ],
+                ),
+                if (task.lastError != null) ...[
+                  SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: BTColors.errorLight(
+                        context,
+                      ).withValues(alpha: 0.08),
+                      borderRadius: BTRadius.smallBR,
+                      border: Border.all(
+                        color: BTColors.errorLight(
+                          context,
+                        ).withValues(alpha: 0.18),
+                      ),
+                    ),
+                    child: Text(
+                      '${task.lastError!.code}: ${task.lastError!.message}',
+                      style: BTTypography.caption(
+                        context,
+                      ).copyWith(color: BTColors.errorLight(context)),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (grouped) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: selectionMode ? onSelect : null,
+        child: ColoredBox(
+          color: selected
+              ? accentColor.withValues(alpha: 0.06)
+              : Colors.transparent,
+          child: content,
+        ),
+      );
+    }
     return BTCard(
       padding: EdgeInsets.zero,
       useAcrylic: false,
@@ -40,246 +253,7 @@ class _DownloadTaskCard extends StatelessWidget {
       borderColor: selected ? accentColor : stateColor.withValues(alpha: 0.18),
       backgroundColor: selected ? accentColor.withValues(alpha: 0.06) : null,
       onTap: selectionMode ? onSelect : null,
-      child: ClipRRect(
-        borderRadius: BTRadius.largeBR,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 4,
-              child: ColoredBox(color: stateColor),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(20, 15, 14, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      if (selectionMode) ...[
-                        Checkbox(
-                          checked: selected,
-                          onChanged: (_) => onSelect?.call(),
-                        ),
-                        SizedBox(width: 4),
-                      ],
-                      _TaskCover(
-                        url: coverUrl,
-                        state: task.state,
-                        color: stateColor,
-                        linked: onOpenSubject != null,
-                        onPressed: selectionMode ? null : onOpenSubject,
-                      ),
-                      SizedBox(width: 11),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: BTTypography.bodyStrong(context),
-                            ),
-                            SizedBox(height: 4),
-                            if (subjectTitle != null) ...[
-                              Tooltip(
-                                message: '打开条目：$subjectTitle',
-                                child: HyperlinkButton(
-                                  onPressed: selectionMode
-                                      ? onSelect
-                                      : onOpenSubject,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(FluentIcons.video, size: 12),
-                                      SizedBox(width: 5),
-                                      Flexible(
-                                        child: Text(
-                                          subjectTitle!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      SizedBox(width: 5),
-                                      Icon(
-                                        FluentIcons.open_in_new_window,
-                                        size: 10,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                            ],
-                            if (task.manual)
-                              Text(
-                                task.state == 'completed'
-                                    ? '手动任务 · 已归档，不跟踪文件'
-                                    : '手动任务 · 完成后不跟踪文件',
-                                style: BTTypography.caption(context),
-                              ),
-                            Row(
-                              children: [
-                                Icon(
-                                  FluentIcons.folder_open,
-                                  size: 12,
-                                  color: BTColors.textTertiary(context),
-                                ),
-                                SizedBox(width: 5),
-                                Expanded(
-                                  child: Text(
-                                    task.savePath,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: BTTypography.caption(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      _TaskStateBadge(state: task.state, color: stateColor),
-                      if (!selectionMode) ...[
-                        SizedBox(width: 8),
-                        _TaskActions(
-                          task: task,
-                          busy: busy,
-                          onAction: onAction,
-                        ),
-                      ],
-                    ],
-                  ),
-                  SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BTRadius.roundBR,
-                          child: ProgressBar(
-                            value: progress,
-                            strokeWidth: 6,
-                            activeColor: stateColor,
-                            backgroundColor: stateColor.withValues(alpha: 0.1),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      SizedBox(
-                        width: 50,
-                        child: Text(
-                          '${progress.toStringAsFixed(1)}%',
-                          textAlign: TextAlign.right,
-                          style: BTTypography.bodyStrong(
-                            context,
-                          ).copyWith(color: stateColor),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 13),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _TaskMetric(
-                        icon: FluentIcons.database,
-                        label: '已下载',
-                        value:
-                            '${BTFileTool.formatSize(task.downloadedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
-                        color: stateColor,
-                      ),
-                      _TaskMetric(
-                        icon: FluentIcons.download,
-                        label: '下载',
-                        value: '${BTFileTool.formatSize(task.downloadRate)}/s',
-                        color: FluentTheme.of(context).accentColor,
-                      ),
-                      if (task.sourceKind != 'http') ...[
-                        _TaskMetric(
-                          icon: FluentIcons.upload,
-                          label: '上传',
-                          value: '${BTFileTool.formatSize(task.uploadRate)}/s',
-                          color: BTColors.successLight(context),
-                        ),
-                        _TaskMetric(
-                          icon: FluentIcons.people,
-                          label: '连接',
-                          value: '${task.peers} Peer · ${task.seeds} Seed',
-                          color: BTColors.info,
-                        ),
-                      ],
-                      if (task.state == 'downloading' &&
-                          task.downloadRate > 0 &&
-                          task.totalBytes > task.downloadedBytes)
-                        _TaskMetric(
-                          icon: FluentIcons.timer,
-                          label: '预计耗时',
-                          value: _etaLabel(task),
-                          color: BTColors.warningLight(context),
-                        ),
-                      if (task.state == 'seeding' || task.uploadedBytes > 0)
-                        _TaskMetric(
-                          icon: FluentIcons.share,
-                          label: '做种',
-                          value:
-                              '分享率 ${task.shareRatio.toStringAsFixed(2)} · '
-                              '${formatDownloadDuration(task.seedingSeconds)}',
-                          color: BTColors.successLight(context),
-                        ),
-                      if (task.seedStopReason != null)
-                        _TaskMetric(
-                          icon: FluentIcons.check_mark,
-                          label: '停止',
-                          value: _seedStopReasonLabel(task.seedStopReason!),
-                          color: BTColors.textSecondary(context),
-                        ),
-                      if (task.pauseReason == 'constrainedUploadTotalLimit')
-                        _TaskMetric(
-                          icon: FluentIcons.pause,
-                          label: '暂停',
-                          value: '已达到受限时累计上传上限',
-                          color: BTColors.textSecondary(context),
-                        ),
-                    ],
-                  ),
-                  if (task.lastError != null) ...[
-                    SizedBox(height: 12),
-                    Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 11,
-                        vertical: 9,
-                      ),
-                      decoration: BoxDecoration(
-                        color: BTColors.errorLight(
-                          context,
-                        ).withValues(alpha: 0.08),
-                        borderRadius: BTRadius.smallBR,
-                        border: Border.all(
-                          color: BTColors.errorLight(
-                            context,
-                          ).withValues(alpha: 0.18),
-                        ),
-                      ),
-                      child: Text(
-                        '${task.lastError!.code}: ${task.lastError!.message}',
-                        style: BTTypography.caption(
-                          context,
-                        ).copyWith(color: BTColors.errorLight(context)),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: content,
     );
   }
 }
