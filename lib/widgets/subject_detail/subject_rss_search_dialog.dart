@@ -20,6 +20,29 @@ import '../rss/anibt_tag_chip.dart';
 
 enum _RssSearchSource { mikan, anibt }
 
+class _RssSearchSelection {
+  final _RssSearchSource source;
+  final String animeId;
+  final String title;
+  final String rss;
+  final String? groupId;
+  final String? groupName;
+
+  const _RssSearchSelection({
+    required this.source,
+    required this.animeId,
+    required this.title,
+    required this.rss,
+    this.groupId,
+    this.groupName,
+  });
+
+  String get label => groupName == null ? title : '$title / $groupName';
+
+  bool matches(_RssSearchSource source, String animeId) =>
+      this.source == source && this.animeId == animeId;
+}
+
 class SubjectRssSearchDialog extends StatefulWidget {
   final int subjectId;
   final String title;
@@ -49,6 +72,7 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
   _RssSearchSource _source = _RssSearchSource.anibt;
   List<MikanSearchItemModel> _mikanItems = [];
   List<AnibtSearchItem> _anibtItems = [];
+  _RssSearchSelection? _selection;
   bool _loading = false;
   bool _saving = false;
   String? _error;
@@ -76,6 +100,7 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
     setState(() {
       _mikanItems = [];
       _anibtItems = [];
+      _selection = null;
       _error = null;
       _loading = false;
     });
@@ -136,6 +161,11 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
     unawaited(_search());
   }
 
+  void _select(_RssSearchSelection? selection) {
+    if (_saving) return;
+    setState(() => _selection = selection);
+  }
+
   Future<void> _subscribe(String rss, String label) async {
     if (_saving) return;
     setState(() => _saving = true);
@@ -185,10 +215,16 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
             item: item,
             api: _anibtApi,
             subjectId: widget.subjectId,
-            currentRss: widget.currentRss,
-            selectOnly: widget.selectOnly,
+            selection:
+                _selection?.matches(
+                      _RssSearchSource.anibt,
+                      item.bgmId.toString(),
+                    ) ==
+                    true
+                ? _selection
+                : null,
             enabled: !_saving,
-            onSubscribe: _subscribe,
+            onSelected: _select,
           );
         }
         var item = _mikanItems[index];
@@ -197,12 +233,118 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
           item: item,
           api: _mikanApi,
           subjectId: widget.subjectId,
-          currentRss: widget.currentRss,
-          selectOnly: widget.selectOnly,
+          selection:
+              _selection?.matches(_RssSearchSource.mikan, item.id) == true
+              ? _selection
+              : null,
           enabled: !_saving,
-          onSubscribe: _subscribe,
+          onSelected: _select,
         );
       },
+    );
+  }
+
+  Widget _actionBar() {
+    var selection = _selection;
+    var source = selection?.source == _RssSearchSource.mikan
+        ? 'Mikan'
+        : 'AniBT';
+    var scope = '$source · ${selection?.groupName ?? '全部字幕组'}';
+    var info = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (selection == null) ...[
+          const Text('尚未选择 RSS'),
+          const SizedBox(height: 4),
+          const Text('请选择整个番剧或字幕组', style: TextStyle(fontSize: 12)),
+        ] else ...[
+          Tooltip(
+            message: selection.title,
+            child: Text(
+              '已选：${selection.title}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Tooltip(
+            message: scope,
+            child: Text(
+              scope,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Tooltip(
+            message: selection.rss,
+            child: Text(
+              selection.rss,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        ],
+      ],
+    );
+    var buttons = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      children: [
+        Button(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: const Text('关闭'),
+        ),
+        FilledButton(
+          onPressed: _saving || selection == null
+              ? null
+              : () => _subscribe(selection.rss, selection.label),
+          child: Text(
+            _saving
+                ? '处理中…'
+                : widget.selectOnly
+                ? '确认使用'
+                : '确认订阅',
+          ),
+        ),
+      ],
+    );
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (_, constraints) {
+              if (constraints.maxWidth < 480) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    info,
+                    const SizedBox(height: 12),
+                    Align(alignment: Alignment.centerRight, child: buttons),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: info),
+                  const SizedBox(width: 16),
+                  buttons,
+                ],
+              );
+            },
+          ),
+          if (_saving) ...[const SizedBox(height: 8), const ProgressBar()],
+        ],
+      ),
     );
   }
 
@@ -259,19 +401,13 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
                 ],
               ),
               const SizedBox(height: 12),
-              const Text('展开番剧选择 RSS，展开字幕组查看资源详情。'),
+              const Text('选择整个番剧或字幕组后，在底部确认；展开字幕组查看资源详情。'),
               const SizedBox(height: 12),
               Expanded(child: _results()),
-              if (_saving) ...[const SizedBox(height: 8), const ProgressBar()],
             ],
           ),
         ),
-        actions: [
-          Button(
-            onPressed: _saving ? null : () => Navigator.of(context).pop(),
-            child: const Text('关闭'),
-          ),
-        ],
+        actions: [_actionBar()],
       ),
     );
   }
@@ -281,20 +417,18 @@ class _AnibtAnimeResult extends StatefulWidget {
   final AnibtSearchItem item;
   final AnibtAPI api;
   final int subjectId;
-  final String? currentRss;
-  final bool selectOnly;
+  final _RssSearchSelection? selection;
   final bool enabled;
-  final Future<void> Function(String rss, String label) onSubscribe;
+  final ValueChanged<_RssSearchSelection?> onSelected;
 
   const _AnibtAnimeResult({
     super.key,
     required this.item,
     required this.api,
     required this.subjectId,
-    required this.currentRss,
-    required this.selectOnly,
+    required this.selection,
     required this.enabled,
-    required this.onSubscribe,
+    required this.onSelected,
   });
 
   @override
@@ -304,24 +438,12 @@ class _AnibtAnimeResult extends StatefulWidget {
 class _AnibtAnimeResultState extends State<_AnibtAnimeResult>
     with AutomaticKeepAliveClientMixin {
   List<AnibtAnimeGroup> _groups = [];
-  String? _selectedSlug;
   bool _loading = false;
   bool _loaded = false;
   String? _error;
 
   @override
   bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    var rss = Uri.tryParse(widget.currentRss ?? '');
-    if (rss?.host == 'anibt.net' &&
-        rss?.path == '/rss/anime.xml' &&
-        rss?.queryParameters['bgmId'] == widget.item.bgmId.toString()) {
-      _selectedSlug = rss?.queryParameters['groupSlug'];
-    }
-  }
 
   Future<void> _loadGroups() async {
     if (_loading || _loaded) return;
@@ -338,22 +460,33 @@ class _AnibtAnimeResultState extends State<_AnibtAnimeResult>
       } else {
         _groups = response.data!;
         _loaded = true;
-        if (!_groups.any((group) => group.slug == _selectedSlug)) {
-          _selectedSlug = null;
-        }
       }
     });
+  }
+
+  void _select(AnibtAnimeGroup? group, bool selected) {
+    widget.onSelected(
+      selected
+          ? _RssSearchSelection(
+              source: _RssSearchSource.anibt,
+              animeId: widget.item.bgmId.toString(),
+              title: widget.item.title,
+              rss: AnibtAPI.animeRssUrl(
+                bgmId: widget.item.bgmId,
+                groupSlug: group?.slug,
+              ),
+              groupId: group?.slug,
+              groupName: group?.name,
+            )
+          : null,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     var item = widget.item;
-    var selectedGroups = _groups.where((group) => group.slug == _selectedSlug);
-    var selectedGroup = selectedGroups.firstOrNull;
-    var rss = AnibtAPI.animeRssUrl(bgmId: item.bgmId, groupSlug: _selectedSlug);
-    var canSubscribe =
-        widget.enabled && (_selectedSlug == null || selectedGroup != null);
+    var selection = widget.selection;
     return Expander(
       onStateChanged: (expanded) {
         if (expanded) unawaited(_loadGroups());
@@ -377,9 +510,9 @@ class _AnibtAnimeResultState extends State<_AnibtAnimeResult>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Checkbox(
-            checked: _selectedSlug == null,
+            checked: selection != null && selection.groupId == null,
             onChanged: widget.enabled
-                ? (_) => setState(() => _selectedSlug = null)
+                ? (checked) => _select(null, checked ?? false)
                 : null,
             content: const Text('整个番剧（全部字幕组）'),
           ),
@@ -407,32 +540,13 @@ class _AnibtAnimeResultState extends State<_AnibtAnimeResult>
                 child: _AnibtGroupResult(
                   key: ValueKey(group.slug),
                   group: group,
-                  selected: _selectedSlug == group.slug,
+                  selected: selection?.groupId == group.slug,
                   onSelected: widget.enabled
-                      ? (selected) => setState(() {
-                          _selectedSlug = selected ? group.slug : null;
-                        })
+                      ? (selected) => _select(group, selected)
                       : null,
                 ),
               );
             }),
-          const SizedBox(height: 12),
-          Text(rss, style: const TextStyle(fontSize: 12)),
-          const SizedBox(height: 8),
-          FilledButton(
-            onPressed: canSubscribe
-                ? () => widget.onSubscribe(
-                    rss,
-                    selectedGroup == null
-                        ? item.title
-                        : '${item.title} / ${selectedGroup.name}',
-                  )
-                : null,
-            child: Text(
-              '${widget.selectOnly ? '使用' : '订阅'}'
-              '${_selectedSlug == null ? '番剧' : '字幕组'} RSS',
-            ),
-          ),
         ],
       ),
     );
@@ -579,20 +693,18 @@ class _MikanAnimeResult extends StatefulWidget {
   final MikanSearchItemModel item;
   final BtrMikanApi api;
   final int subjectId;
-  final String? currentRss;
-  final bool selectOnly;
+  final _RssSearchSelection? selection;
   final bool enabled;
-  final Future<void> Function(String rss, String label) onSubscribe;
+  final ValueChanged<_RssSearchSelection?> onSelected;
 
   const _MikanAnimeResult({
     super.key,
     required this.item,
     required this.api,
     required this.subjectId,
-    required this.currentRss,
-    required this.selectOnly,
+    required this.selection,
     required this.enabled,
-    required this.onSubscribe,
+    required this.onSelected,
   });
 
   @override
@@ -602,22 +714,12 @@ class _MikanAnimeResult extends StatefulWidget {
 class _MikanAnimeResultState extends State<_MikanAnimeResult>
     with AutomaticKeepAliveClientMixin {
   MikanBangumiDetailModel? _detail;
-  String? _selectedGroupId;
   bool _loading = false;
   bool _loaded = false;
   String? _error;
 
   @override
   bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    var rss = Uri.tryParse(widget.currentRss ?? '');
-    if (rss == null) return;
-    if (rss.queryParameters['bangumiId'] != widget.item.id) return;
-    _selectedGroupId = rss.queryParameters['subgroupid'];
-  }
 
   Future<void> _loadDetail() async {
     if (_loading || _loaded) return;
@@ -636,17 +738,24 @@ class _MikanAnimeResultState extends State<_MikanAnimeResult>
       }
       _detail = detail;
       _loaded = true;
-      if (!detail.groups.any((group) => group.id == _selectedGroupId)) {
-        _selectedGroupId = null;
-      }
     });
   }
 
-  /// 当前选中的字幕组，未选中时订阅整个番剧
-  String get _rssUrl {
-    return BtrMikanApi.bangumiRssUrl(
-      bangumiId: widget.item.id,
-      groupId: _selectedGroupId,
+  void _select(MikanGroupModel? group, bool selected) {
+    widget.onSelected(
+      selected
+          ? _RssSearchSelection(
+              source: _RssSearchSource.mikan,
+              animeId: widget.item.id,
+              title: widget.item.title,
+              rss: BtrMikanApi.bangumiRssUrl(
+                bangumiId: widget.item.id,
+                groupId: group?.id,
+              ),
+              groupId: group?.id,
+              groupName: group?.name,
+            )
+          : null,
     );
   }
 
@@ -656,11 +765,7 @@ class _MikanAnimeResultState extends State<_MikanAnimeResult>
     var item = widget.item;
     var detail = _detail;
     var groups = detail?.groups ?? const <MikanGroupModel>[];
-    var selected = groups
-        .where((group) => group.id == _selectedGroupId)
-        .firstOrNull;
-    var canSubscribe =
-        widget.enabled && (_selectedGroupId == null || selected != null);
+    var selection = widget.selection;
     return Expander(
       onStateChanged: (expanded) {
         if (expanded) unawaited(_loadDetail());
@@ -674,8 +779,6 @@ class _MikanAnimeResultState extends State<_MikanAnimeResult>
             [
               'Mikan ${item.id}',
               if (detail != null && detail.bgmId == widget.subjectId) '当前条目',
-              if (_selectedGroupId != null && selected != null)
-                '已选 ${selected.name}',
             ].join(' · '),
             style: const TextStyle(fontSize: 12),
           ),
@@ -685,9 +788,9 @@ class _MikanAnimeResultState extends State<_MikanAnimeResult>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Checkbox(
-            checked: _selectedGroupId == null,
+            checked: selection != null && selection.groupId == null,
             onChanged: widget.enabled
-                ? (_) => setState(() => _selectedGroupId = null)
+                ? (checked) => _select(null, checked ?? false)
                 : null,
             content: const Text('整个番剧（全部字幕组）'),
           ),
@@ -715,32 +818,13 @@ class _MikanAnimeResultState extends State<_MikanAnimeResult>
                 child: _MikanGroupResult(
                   key: ValueKey(group.id),
                   group: group,
-                  selected: _selectedGroupId == group.id,
+                  selected: selection?.groupId == group.id,
                   onSelected: widget.enabled
-                      ? (selected) => setState(() {
-                          _selectedGroupId = selected ? group.id : null;
-                        })
+                      ? (selected) => _select(group, selected)
                       : null,
                 ),
               );
             }),
-          const SizedBox(height: 12),
-          Text(_rssUrl, style: const TextStyle(fontSize: 12)),
-          const SizedBox(height: 8),
-          FilledButton(
-            onPressed: canSubscribe
-                ? () => widget.onSubscribe(
-                    _rssUrl,
-                    selected == null
-                        ? item.title
-                        : '${item.title} / ${selected.name}',
-                  )
-                : null,
-            child: Text(
-              '${widget.selectOnly ? '使用' : '订阅'}'
-              '${_selectedGroupId == null ? '番剧' : '字幕组'} RSS',
-            ),
-          ),
         ],
       ),
     );
