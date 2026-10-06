@@ -23,27 +23,30 @@ import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../bmf/bmf_expander.dart';
 
-class SubjectBmfDrawer extends ConsumerStatefulWidget {
+/// 下载与订阅面板，也供每日放送页的抽屉复用。
+class SubjectBmfPanel extends ConsumerStatefulWidget {
   final int subjectId;
   final String title;
   final String? airDate;
   final Future<void> Function() onSearchRss;
   final SubjectRssStatProvider? rssProvider;
+  final bool embedded;
 
-  const SubjectBmfDrawer({
+  const SubjectBmfPanel({
     super.key,
     required this.subjectId,
     required this.title,
     required this.airDate,
     required this.onSearchRss,
     this.rssProvider,
+    this.embedded = false,
   });
 
   @override
-  ConsumerState<SubjectBmfDrawer> createState() => _SubjectBmfDrawerState();
+  ConsumerState<SubjectBmfPanel> createState() => _SubjectBmfPanelState();
 }
 
-class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
+class _SubjectBmfPanelState extends ConsumerState<SubjectBmfPanel> {
   late ProgressController progress = ProgressController();
   final BTFileTool fileTool = BTFileTool();
 
@@ -66,7 +69,7 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
   }
 
   @override
-  void didUpdateWidget(SubjectBmfDrawer oldWidget) {
+  void didUpdateWidget(SubjectBmfPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.rssProvider, widget.rssProvider)) {
       _removeRssListener?.call();
@@ -83,7 +86,7 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
   void _onRssChanged() async {
     if (!_initialized) return;
     try {
-      // 搜索回调已完成写入，只重新读取，避免用抽屉的旧源列表再次覆盖。
+      // 搜索回调已完成写入，只重新读取，避免用面板的旧源列表再次覆盖。
       await init();
     } catch (error, stackTrace) {
       BTLogTool.error(['刷新 RSS 订阅失败', error.toString(), stackTrace.toString()]);
@@ -93,8 +96,16 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
   Future<void> init() async {
     var repo = ref.read(bmfRepositoryProvider);
     var bmfGet = await repo.read(widget.subjectId);
+    if (!mounted) return;
     if (bmfGet == null) {
-      _initialized = true;
+      setState(() {
+        bmf = AppBmfModel(
+          subject: widget.subjectId,
+          title: widget.title,
+          airDate: widget.airDate,
+        );
+        _initialized = true;
+      });
       return;
     }
     AppBmfModel resolvedBmf = bmfGet;
@@ -160,7 +171,7 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
         content: '',
       );
       if (res == null) return;
-      bmf.title = title;
+      bmf.title = res;
       setState(() {});
       var repo = ref.read(bmfRepositoryProvider);
       await repo.write(bmf);
@@ -280,95 +291,142 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    var screenHeight = MediaQuery.of(context).size.height;
-    var titleBarHeight = 48;
-    var paddingHeight = 24;
-    var maxExpanderHeight =
-        (screenHeight - titleBarHeight - paddingHeight) * 0.35;
-
-    return Column(
-      children: [
-        _buildTitleBar(context),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(12),
-            child: Column(
-              children: [
-                if (bmf.download != null && bmf.download!.isNotEmpty)
-                  BmfFileExpander(
-                    downloadDir: bmf.download!,
-                    subject: bmf.subject,
-                    maxHeight: maxExpanderHeight,
-                    onDelete: deleteFolder,
-                  ),
-                if (bmf.download != null && bmf.download!.isNotEmpty)
-                  SizedBox(height: 8),
-                if (bmf.rss != null && bmf.rss!.isNotEmpty)
-                  BmfRssExpander(
-                    bmf: bmf,
-                    isConfig: false,
-                    maxHeight: maxExpanderHeight,
-                    onDelete: deleteRss,
-                  ),
-                if (bmf.id == -1)
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Column(
-                      children: [
-                        Icon(
-                          FluentIcons.info,
-                          size: 32,
-                          color: BTColors.textTertiary(context),
-                        ),
-                        SizedBox(height: 12),
-                        Text(
-                          '暂无 BMF 配置',
-                          style: BTTypography.body(
-                            context,
-                          ).copyWith(color: BTColors.textSecondary(context)),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          '粘贴 RSS 或选择下载目录',
-                          style: BTTypography.caption(context),
-                        ),
-                        SizedBox(height: 16),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.center,
+    return Container(
+      clipBehavior: widget.embedded ? Clip.antiAlias : Clip.none,
+      decoration: widget.embedded
+          ? BoxDecoration(
+              color: BTColors.surfacePrimary(context),
+              borderRadius: BTRadius.mediumBR,
+              border: Border.all(color: BTColors.divider(context)),
+            )
+          : null,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          var maxExpanderHeight = (constraints.maxHeight * 0.65).clamp(
+            180.0,
+            480.0,
+          );
+          var hasRss = bmf.rss?.isNotEmpty == true;
+          var hasDirectory = bmf.download?.isNotEmpty == true;
+          return Column(
+            children: [
+              _buildTitleBar(context),
+              Expanded(
+                child: SingleChildScrollView(
+                  primary: false,
+                  padding: const EdgeInsets.all(12),
+                  child: !_initialized
+                      ? const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(child: ProgressRing()),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Button(
-                              key: const ValueKey('bmf-empty-rss'),
-                              onPressed: () async {
-                                var input = await showInput(
-                                  context,
-                                  title: '设置 RSS',
-                                  content: '建议精准到字幕组',
-                                );
-                                await updateRss(input);
-                              },
-                              child: const Text('粘贴 RSS'),
-                            ),
-                            Button(
-                              key: const ValueKey('bmf-empty-folder'),
-                              onPressed: updateFolder,
-                              child: const Text('选择下载目录'),
-                            ),
+                            if (hasRss)
+                              BmfRssExpander(
+                                bmf: bmf,
+                                isConfig: false,
+                                maxHeight: maxExpanderHeight,
+                                onDelete: deleteRss,
+                                contentScrollable: false,
+                              )
+                            else
+                              _buildEmptyRss(context),
+                            const SizedBox(height: 12),
+                            if (hasDirectory)
+                              BmfFileExpander(
+                                downloadDir: bmf.download!,
+                                subject: bmf.subject,
+                                maxHeight: maxExpanderHeight,
+                                onDelete: deleteFolder,
+                              )
+                            else
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    '下载目录',
+                                    style: BTTypography.caption(context),
+                                  ),
+                                  Button(
+                                    key: const ValueKey('bmf-empty-folder'),
+                                    onPressed: updateFolder,
+                                    child: const Text('选择目录'),
+                                  ),
+                                ],
+                              ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildEmptyRss(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Column(
+        children: [
+          Icon(MdiIcons.rss, size: 28, color: BTColors.textTertiary(context)),
+          const SizedBox(height: 12),
+          Text('暂无 RSS 订阅', style: BTTypography.body(context)),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              FilledButton(onPressed: searchRss, child: const Text('搜索订阅')),
+              Button(
+                key: const ValueKey('bmf-empty-rss'),
+                onPressed: () async {
+                  var input = await showInput(
+                    context,
+                    title: '设置 RSS',
+                    content: '建议精准到字幕组',
+                  );
+                  await updateRss(input);
+                },
+                child: const Text('粘贴 RSS'),
+              ),
+            ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildTitleBar(BuildContext context) {
+    var actions = <Widget>[
+      _buildTitleBarButton(
+        icon: MdiIcons.bookEdit,
+        tooltip: '设置标题',
+        onPressed: bmf.id != -1 ? updateTitle : null,
+      ),
+      _buildTitleBarButton(
+        icon: MdiIcons.rss,
+        tooltip: '设置 RSS',
+        onPressed: searchRss,
+      ),
+      _buildTitleBarButton(
+        icon: MdiIcons.folder,
+        tooltip: '设置下载目录',
+        onPressed: updateFolder,
+      ),
+      if (bmf.id != -1)
+        _buildTitleBarButton(
+          icon: MdiIcons.delete,
+          tooltip: '删除 BMF',
+          onPressed: deleteBmf,
+        ),
+    ];
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -380,54 +438,36 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Tooltip(
-              message: '点击复制标题',
-              child: GestureDetector(
-                onTap: () async {
-                  await Clipboard.setData(
-                    ClipboardData(text: bmf.title ?? widget.title),
-                  );
-                  if (context.mounted) {
-                    await BtInfobar.success(context, '已复制到剪贴板');
-                  }
-                },
-                child: Text(
-                  bmf.title ?? widget.title,
-                  style: BTTypography.subtitle(
-                    context,
-                  ).copyWith(fontWeight: FontWeight.w600),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+      child: widget.embedded
+          ? Wrap(alignment: WrapAlignment.end, children: actions)
+          : Row(
+              children: [
+                Expanded(
+                  child: Tooltip(
+                    message: '点击复制标题',
+                    child: GestureDetector(
+                      onTap: () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: bmf.title ?? widget.title),
+                        );
+                        if (context.mounted) {
+                          await BtInfobar.success(context, '已复制到剪贴板');
+                        }
+                      },
+                      child: Text(
+                        bmf.title ?? widget.title,
+                        style: BTTypography.subtitle(
+                          context,
+                        ).copyWith(fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                ...actions,
+              ],
             ),
-          ),
-          _buildTitleBarButton(
-            icon: MdiIcons.bookEdit,
-            tooltip: '设置标题',
-            onPressed: bmf.id != -1 ? updateTitle : null,
-          ),
-          _buildTitleBarButton(
-            icon: MdiIcons.rss,
-            tooltip: '设置 RSS',
-            onPressed: searchRss,
-          ),
-          _buildTitleBarButton(
-            icon: MdiIcons.folder,
-            tooltip: '设置下载目录',
-            onPressed: updateFolder,
-          ),
-          if (bmf.id != -1)
-            _buildTitleBarButton(
-              icon: MdiIcons.delete,
-              tooltip: '删除 BMF',
-              onPressed: deleteBmf,
-            ),
-        ],
-      ),
     );
   }
 

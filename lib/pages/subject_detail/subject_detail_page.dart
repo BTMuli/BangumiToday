@@ -16,17 +16,12 @@ import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_content_frame.dart';
-import '../../widgets/common/bt_drawer.dart';
-import '../../widgets/subject_detail/subject_bmf_drawer.dart';
 import '../../widgets/subject_detail/subject_rss_search_dialog.dart';
 import '../subject_search/subject_search_page.dart';
-import 'subject_detail_action_bar.dart';
-import 'subject_detail_layout_a.dart';
-import 'subject_detail_layout_current.dart';
-import 'subject_detail_layout_switcher.dart';
+import 'subject_detail_layout.dart';
 import 'subject_detail_refreshable.dart';
+import 'subject_detail_resources.dart';
 import 'subject_detail_view_data.dart';
-import 'subject_layout_mode.dart';
 import 'subject_stat_providers.dart';
 
 part 'subject_detail_page/header.dart';
@@ -71,6 +66,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   final GlobalKey _collectionKey = GlobalKey();
   final GlobalKey _episodesKey = GlobalKey();
   final GlobalKey _relationsKey = GlobalKey();
+  final GlobalKey _resourcesKey = GlobalKey();
 
   /// 当id改变时, 重新加载数据
   @override
@@ -137,10 +133,9 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
 
   /// 重新拉取收藏 / 章节 / 关联三个子模块的接口数据。
   ///
-  /// 未挂载的子模块（例如方案 A 里没展开过的折叠节）会被跳过，
-  /// 它们本来就还没有数据，首次展开时才会请求。
-  Future<void> _refreshSubModules() async {
-    for (var key in [_collectionKey, _episodesKey, _relationsKey]) {
+  /// 未访问过的页签会被跳过，首次进入时才会请求。
+  Future<void> _refreshSubModules({List<GlobalKey>? keys}) async {
+    for (var key in keys ?? [_collectionKey, _episodesKey, _relationsKey]) {
       var state = key.currentState;
       if (state is! SubjectDetailRefreshable) continue;
       // State 与 mixin 无继承关系，`is` 不会做类型提升，这里显式转换。
@@ -148,24 +143,11 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     }
   }
 
-  bool _subjectHasBmf(int subjectId) {
-    var list = ref
-        .read(bmfListProvider)
-        .maybeWhen(data: (items) => items, orElse: () => const <AppBmfModel>[]);
-    for (var item in list) {
-      if (item.subject == subjectId) return subjectDetailBmfConfigured(item);
-    }
-    return false;
-  }
-
   Future<void> _prefetchFirstScreen(int generation) async {
     var subjectId = int.tryParse(widget.id);
     if (subjectId == null) return;
     var repository = ref.read(bangumiRepositoryProvider);
     var user = ref.read(bgmUserStoreProvider).user;
-    var layoutA =
-        ref.read(subjectDetailLayoutModeProvider) == SubjectDetailLayoutMode.a;
-    var hasBmf = _subjectHasBmf(subjectId);
     BangumiUserSubjectCollection? local;
     if (user != null) {
       local = await repository.getLocalCollection(subjectId);
@@ -175,14 +157,11 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
       }
       unawaited(repository.getCollectionSubject(user.id.toString(), subjectId));
     }
-    var watching = hasBmf || local?.type == BangumiCollectionType.doing;
-    if (!layoutA || watching) {
-      unawaited(repository.getEpisodeList(subjectId, offset: 0, limit: 100));
-      if (user != null && local != null) {
-        unawaited(
-          repository.getCollectionEpisodes(subjectId, offset: 0, limit: 100),
-        );
-      }
+    unawaited(repository.getEpisodeList(subjectId, offset: 0, limit: 100));
+    if (user != null && local != null) {
+      unawaited(
+        repository.getCollectionEpisodes(subjectId, offset: 0, limit: 100),
+      );
     }
   }
 
@@ -276,9 +255,9 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
       content: Stack(
         fit: StackFit.expand,
         children: [
-          BTContentFrame(child: buildContent()),
+          BTContentFrame(maxWidth: 1440, child: buildContent()),
           // 手动刷新不会卸载内容树，接口数据没变化时页面看不出动静，
-          // 用顶部进度条让刷新过程在两种布局下都可见。
+          // 用顶部进度条显示刷新过程。
           if (_refreshing)
             const Positioned(
               top: 0,

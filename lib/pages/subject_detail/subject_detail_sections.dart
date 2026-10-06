@@ -7,69 +7,6 @@ import '../../core/utils/tool_func.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import 'subject_detail_view_data.dart';
 
-Widget subjectDetailSurfaceCard(BuildContext context, Widget child) {
-  var isDark = FluentTheme.of(context).brightness == Brightness.dark;
-  return Container(
-    padding: EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: isDark
-          ? BTColors.surfaceSecondary(context)
-          : BTColors.surfacePrimary(context),
-      borderRadius: BTRadius.largeBR,
-      border: Border.all(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.black.withValues(alpha: 0.04),
-      ),
-      boxShadow: BTTheme.shadow(context, level: BTShadowLevel.medium),
-    ),
-    child: child,
-  );
-}
-
-class SubjectDetailSection extends StatefulWidget {
-  const SubjectDetailSection({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.content,
-    this.initiallyExpanded = false,
-  });
-
-  final IconData icon;
-  final String title;
-  final Widget content;
-  final bool initiallyExpanded;
-
-  @override
-  State<SubjectDetailSection> createState() => _SubjectDetailSectionState();
-}
-
-class _SubjectDetailSectionState extends State<SubjectDetailSection> {
-  /// Fluent [Expander] still builds [content] when collapsed; keep the
-  /// heavy children (剧集 / 关联 / 图表) out of the tree until first open.
-  late bool _contentMounted = widget.initiallyExpanded;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expander(
-      initiallyExpanded: widget.initiallyExpanded,
-      leading: Icon(
-        widget.icon,
-        size: 18,
-        color: FluentTheme.of(context).accentColor,
-      ),
-      header: Text(widget.title, style: BTTypography.subtitle(context)),
-      onStateChanged: (open) {
-        if (open && !_contentMounted) {
-          setState(() => _contentMounted = true);
-        }
-      },
-      content: _contentMounted ? widget.content : const SizedBox.shrink(),
-    );
-  }
-}
-
 class SubjectDetailSummaryBody extends StatelessWidget {
   const SubjectDetailSummaryBody({super.key, required this.view});
 

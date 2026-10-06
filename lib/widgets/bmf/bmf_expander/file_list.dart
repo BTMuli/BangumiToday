@@ -2,113 +2,27 @@ part of '../bmf_expander.dart';
 
 extension _BmfFileList on _BmfFileExpanderState {
   Widget buildFileItem(BuildContext context, String file) {
-    var fileState = _dirState?.stateFor(file);
-    var isIncomplete = fileState?.isIncomplete ?? false;
-    var isVideo = PlaybackPaths.isVideo(file);
-    var statusLabel = fileState?.statusLabel ?? '下载中';
-    var fileSize = _fileSizes[file];
-
-    return Container(
-      margin: EdgeInsets.only(bottom: widget.embedded ? 8 : 6),
-      padding: EdgeInsets.symmetric(
-        horizontal: widget.embedded ? 12 : 10,
-        vertical: widget.embedded ? 12 : 8,
-      ),
-      decoration: BoxDecoration(
-        color: BTColors.surfaceSecondary(context),
-        borderRadius: widget.embedded ? BTRadius.mediumBR : BTRadius.smallBR,
-        border: Border.all(color: BTColors.divider(context)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                isVideo ? FluentIcons.video : FluentIcons.document,
-                size: 16,
-                color: isIncomplete
-                    ? FluentTheme.of(context).accentColor
-                    : BTColors.textSecondary(context),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: Tooltip(
-                  message: file,
-                  child: Text(
-                    file,
-                    style: BTTypography.body(context),
-                    maxLines: widget.embedded ? 3 : 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: widget.embedded ? 8 : 6),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 4,
-                      children: [
-                        if (fileSize != null)
-                          Text(
-                            filesize(fileSize),
-                            style: BTTypography.caption(
-                              context,
-                            ).copyWith(color: BTColors.textTertiary(context)),
-                          ),
-                        if (isIncomplete)
-                          Text(
-                            statusLabel,
-                            style: BTTypography.caption(
-                              context,
-                            ).copyWith(color: _statusColor(context, fileState)),
-                          ),
-                      ],
-                    ),
-                    if (isIncomplete) ...[
-                      const SizedBox(height: 6),
-                      ProgressBar(
-                        value: fileState?.progress == null
-                            ? null
-                            : fileState!.progress! * 100,
-                        strokeWidth: 2,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              _FileItemActions(
-                file: file,
-                subject: widget.subject,
-                dir: widget.downloadDir,
-                isVideo: isVideo,
-                canOpen: isVideo && !isIncomplete,
-                isIncomplete: isIncomplete,
-                onDelete: refreshFiles,
-              ),
-            ],
-          ),
-        ],
+    var state = _dirState?.stateFor(file);
+    var incomplete = state?.isIncomplete ?? false;
+    var video = PlaybackPaths.isVideo(file);
+    return Padding(
+      padding: EdgeInsets.only(bottom: widget.embedded ? 8 : 6),
+      child: BmfFileItem(
+        file: file,
+        fileSize: _fileSizes[file],
+        state: state,
+        spacious: widget.embedded,
+        actions: _FileItemActions(
+          file: file,
+          subject: widget.subject,
+          dir: widget.downloadDir,
+          isVideo: video,
+          canOpen: video && !incomplete,
+          isIncomplete: incomplete,
+          onDelete: refreshFiles,
+        ),
       ),
     );
-  }
-
-  Color _statusColor(BuildContext context, BtFileDownloadState? fileState) {
-    if (fileState == null || fileState.isActive) {
-      return FluentTheme.of(context).accentColor;
-    }
-    if (fileState.isPaused) return BTColors.warningLight(context);
-    if (fileState.isFailed) return BTColors.errorLight(context);
-    return FluentTheme.of(context).accentColor;
   }
 
   Widget buildContent() {

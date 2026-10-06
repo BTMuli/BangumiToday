@@ -3,16 +3,10 @@ part of '../subject_detail_page.dart';
 extension _SubjectDetailHeader on _SubjectDetailPageState {
   /// 构建顶部栏
   Widget buildHeader() {
-    String? title;
-    if (data == null) {
-      title = 'ID: ${widget.id}';
-    } else {
-      title = data?.nameCn == '' ? data?.name : data?.nameCn;
-    }
     var theme = FluentTheme.of(context);
     return Padding(
       padding: EdgeInsetsDirectional.only(
-        bottom: 18,
+        bottom: 8,
         end: PageHeader.horizontalPadding(context),
       ),
       child: Row(
@@ -35,13 +29,10 @@ extension _SubjectDetailHeader on _SubjectDetailPageState {
           ),
           Expanded(
             child: DefaultTextStyle.merge(
-              style: theme.typography.title,
-              child: Tooltip(
-                message: title,
-                child: Text(
-                  '${data?.type.label ?? '条目'}详情：$title',
-                  overflow: TextOverflow.ellipsis,
-                ),
+              style: theme.typography.subtitle,
+              child: Text(
+                '${data?.type.label ?? '条目'}详情',
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
@@ -66,8 +57,6 @@ extension _SubjectDetailHeader on _SubjectDetailPageState {
               onPressed: _refreshing ? null : refresh,
             ),
           ),
-          SizedBox(width: 8),
-          const SubjectDetailLayoutSwitcher(),
         ],
       ),
     );

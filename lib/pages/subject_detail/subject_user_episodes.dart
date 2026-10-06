@@ -321,21 +321,6 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
     if (mounted) setState(() {});
   }
 
-  /// buildEpHint 用于表示章节的提示信息
-  Widget buildEpHint(BangumiEpType type) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        color: FluentTheme.of(context).accentColor,
-      ),
-      child: Text(
-        '${type.label} →',
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-      ),
-    );
-  }
-
   /// 加载失败：左侧刷新按钮 + 异常描述
   Widget _buildLoadError(BuildContext context) {
     return Align(
@@ -365,31 +350,41 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
     );
   }
 
-  /// buildList
-  List<Widget> buildList() {
+  /// 每种章节类型独立渲染标题与按钮格，正片优先。
+  List<Widget> _buildGroups(BuildContext context) {
     var res = <Widget>[];
-    var ordered = List<BangumiEpisode>.of(episodes)
-      ..sort(
-        (a, b) => a.type == b.type
-            ? a.sort.compareTo(b.sort)
-            : b.type.value.compareTo(a.type.value),
-      );
-    var curType = ordered[0].type;
-    if (curType != BangumiEpType.main) {
-      res.add(buildEpHint(curType));
+    var groups = <BangumiEpType, List<BangumiEpisode>>{};
+    for (var episode in episodes) {
+      groups.putIfAbsent(episode.type, () => []).add(episode);
     }
-    for (var i = 0; i < ordered.length; i++) {
-      if (curType != ordered[i].type) {
-        curType = ordered[i].type;
-        res.add(buildEpHint(curType));
-      }
-      var userEp = _userEpById[ordered[i].id];
+    for (var type in BangumiEpType.values) {
+      var group = groups[type];
+      if (group == null) continue;
+      group.sort((a, b) => a.sort.compareTo(b.sort));
       res.add(
-        SubjectEpisode(
-          ordered[i],
-          subject: subjectId,
-          user: userEp,
-          key: ValueKey(ordered[i].id),
+        Padding(
+          key: ValueKey('subject-episode-group-${type.name}'),
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSummary(context, type, group),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (var episode in group)
+                    SubjectEpisode(
+                      episode,
+                      subject: subjectId,
+                      user: _userEpById[episode.id],
+                      key: ValueKey(episode.id),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -425,12 +420,16 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
       if (!widget.showSummary) return const SizedBox.shrink();
       return Text('暂无剧集', style: BTTypography.caption(context));
     }
-    var summary = widget.showSummary ? _buildSummary(context) : null;
     var showGridNow = widget.showGrid || _gridExpanded;
+    var mains = episodes.where((ep) => ep.type == BangumiEpType.main).toList()
+      ..sort((a, b) => a.sort.compareTo(b.sort));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (summary != null) ...[summary, SizedBox(height: 8)],
+        if (!showGridNow && widget.showSummary && mains.isNotEmpty) ...[
+          _buildSummary(context, BangumiEpType.main, mains),
+          const SizedBox(height: 8),
+        ],
         if (!showGridNow)
           Button(
             key: const ValueKey('subject-episodes-expand'),
@@ -438,16 +437,26 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
             child: const Text('展开全部'),
           )
         else
-          Wrap(spacing: 8, runSpacing: 8, children: buildList()),
+          ..._buildGroups(context),
       ],
     );
   }
 
-  Widget _buildSummary(BuildContext context) {
-    var mains = episodes.where((ep) => ep.type == BangumiEpType.main).toList();
+  Widget _buildSummary(
+    BuildContext context,
+    BangumiEpType type,
+    List<BangumiEpisode> group,
+  ) {
+    var label = type == BangumiEpType.main ? '正片' : type.label;
+    if (!widget.showSummary) {
+      return Text(
+        '$label · ${group.length} 集',
+        style: BTTypography.bodyStrong(context),
+      );
+    }
     var done = 0;
     BangumiEpisode? next;
-    for (var ep in mains) {
+    for (var ep in group) {
       var userEp = _userEpById[ep.id];
       var marked = userEp?.type == BangumiEpisodeCollectionType.done;
       if (marked) {
@@ -456,11 +465,10 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
         next ??= ep;
       }
     }
-    var total = mains.isNotEmpty ? mains.length : widget.subject.totalEpisodes;
-    if (total <= 0) total = widget.subject.eps;
+    var total = group.length;
     var ratio = total <= 0 ? 0.0 : (done / total).clamp(0.0, 1.0);
     var nextLabel = '';
-    if (next != null) {
+    if (next != null && type == BangumiEpType.main) {
       var name = next.nameCn.isEmpty ? next.name : next.nameCn;
       nextLabel = '下一话 EP${next.sort.toStringAsFixed(0)}';
       if (next.airDate.isNotEmpty) {
@@ -470,12 +478,14 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
       }
     }
     return Column(
-      key: const ValueKey('subject-episodes-summary'),
+      key: ValueKey('subject-episodes-summary-${type.name}'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('正片 $done/$total', style: BTTypography.bodyStrong(context)),
-        SizedBox(height: 6),
-        SizedBox(height: 6, child: ProgressBar(value: ratio * 100)),
+        Text('$label $done/$total', style: BTTypography.bodyStrong(context)),
+        if (type == BangumiEpType.main) ...[
+          const SizedBox(height: 6),
+          SizedBox(height: 6, child: ProgressBar(value: ratio * 100)),
+        ],
         if (nextLabel.isNotEmpty) ...[
           SizedBox(height: 6),
           Text(nextLabel, style: BTTypography.caption(context)),

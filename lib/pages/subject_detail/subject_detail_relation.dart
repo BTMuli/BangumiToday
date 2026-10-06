@@ -12,12 +12,14 @@ import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
+import 'subject_detail_colors.dart';
 import 'subject_detail_refreshable.dart';
 
 class SubjectDetailRelation extends ConsumerStatefulWidget {
   final int subjectId;
+  final ValueChanged<int>? onCountChanged;
 
-  const SubjectDetailRelation(this.subjectId, {super.key});
+  const SubjectDetailRelation(this.subjectId, {super.key, this.onCountChanged});
 
   @override
   ConsumerState<SubjectDetailRelation> createState() =>
@@ -29,6 +31,8 @@ class _SubjectDetailRelationState extends ConsumerState<SubjectDetailRelation>
   int get subjectId => widget.subjectId;
 
   List<BangumiSubjectRelation> relations = [];
+  bool _loading = true;
+  String? _loadError;
 
   @override
   bool get wantKeepAlive => true;
@@ -41,20 +45,29 @@ class _SubjectDetailRelationState extends ConsumerState<SubjectDetailRelation>
     });
   }
 
-  Future<void> load() async {
+  Future<void> load({bool reportError = false}) async {
     var repository = ref.read(bangumiRepositoryProvider);
     var resp = await repository.getSubjectRelations(subjectId);
+    if (!mounted) return;
     if (resp.code != 0 || resp.data == null) {
-      if (mounted) await showRespErr(resp, context);
+      setState(() {
+        _loading = false;
+        _loadError = resp.message;
+      });
+      if (reportError) await showRespErr(resp, context);
       return;
     }
-    relations = resp.data!;
-    setState(() {});
+    setState(() {
+      relations = resp.data!;
+      _loading = false;
+      _loadError = null;
+    });
+    widget.onCountChanged?.call(relations.length);
   }
 
   /// 重新拉取关联条目（由详情页刷新按钮触发）
   @override
-  Future<void> refresh() => load();
+  Future<void> refresh() => load(reportError: true);
 
   Widget buildCardInfo(BangumiSubjectRelation data) {
     return Padding(
@@ -131,7 +144,7 @@ class _SubjectDetailRelationState extends ConsumerState<SubjectDetailRelation>
       errorBuilder: (context, {err}) => Container(
         width: 80,
         height: 120,
-        color: BTColors.surfaceSecondary(context),
+        color: SubjectDetailColors.card(context),
         child: Icon(
           FluentIcons.photo_error,
           size: 20,
@@ -150,7 +163,7 @@ class _SubjectDetailRelationState extends ConsumerState<SubjectDetailRelation>
       height: 120,
       margin: EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: BTColors.surfaceSecondary(context),
+        color: SubjectDetailColors.card(context),
         borderRadius: BTRadius.mediumBR,
         border: Border.all(
           color: isDark
@@ -170,6 +183,15 @@ class _SubjectDetailRelationState extends ConsumerState<SubjectDetailRelation>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    if (_loading) {
+      return const Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox.square(
+          dimension: 24,
+          child: ProgressRing(strokeWidth: 2),
+        ),
+      );
+    }
     if (relations.isEmpty) {
       return Row(
         children: [
@@ -179,50 +201,19 @@ class _SubjectDetailRelationState extends ConsumerState<SubjectDetailRelation>
             color: BTColors.textTertiary(context),
           ),
           SizedBox(width: 8),
-          Text('暂无关联条目', style: BTTypography.body(context)),
-          const Spacer(),
-          Tooltip(
-            message: '刷新',
-            child: IconButton(
-              icon: Icon(FluentIcons.refresh, size: 14),
-              onPressed: load,
+          Expanded(
+            child: Text(
+              _loadError == null ? '暂无关联条目' : '关联条目加载失败：$_loadError',
+              style: BTTypography.body(context),
             ),
           ),
         ],
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              '共 ${relations.length} 个关联条目',
-              style: BTTypography.caption(context),
-            ),
-            const Spacer(),
-            Tooltip(
-              message: '刷新',
-              child: IconButton(
-                icon: Icon(FluentIcons.refresh, size: 14),
-                onPressed: load,
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: 8),
-        ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: 400),
-          child: SingleChildScrollView(
-            padding: EdgeInsets.zero,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 0,
-              children: relations.map(buildRelationCard).toList(),
-            ),
-          ),
-        ),
-      ],
+    return Wrap(
+      spacing: 8,
+      runSpacing: 0,
+      children: relations.map(buildRelationCard).toList(),
     );
   }
 }

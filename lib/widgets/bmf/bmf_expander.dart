@@ -2,11 +2,9 @@
 import 'dart:async';
 
 // Package imports:
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -17,7 +15,6 @@ import '../../core/services/download_service.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/playback_paths.dart';
-import '../../core/utils/tool_func.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../pages/playback/playback_actions.dart';
 import '../../request/mikan/mikan_api.dart';
@@ -27,9 +24,9 @@ import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
-import '../rss/anibt_tag_chip.dart';
 import '../rss/rss_release_data.dart';
 import '../rss/rss_release_detail_dialog.dart';
+import 'bmf_resource_item.dart';
 import 'bmf_rss_data.dart';
 
 part 'bmf_expander/actions.dart';

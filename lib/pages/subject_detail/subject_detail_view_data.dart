@@ -11,7 +11,7 @@ import 'subject_user_episodes.dart';
 typedef SubjectDetailContextMenuBuilder =
     Widget Function(BuildContext context, EditableTextState state);
 
-/// 详情页布局共用的数据和入口。
+/// 详情页的数据和子模块入口。
 class SubjectDetailViewData {
   const SubjectDetailViewData({
     required this.subject,
@@ -19,7 +19,6 @@ class SubjectDetailViewData {
     required this.collectProvider,
     required this.onTagTap,
     required this.contextMenuBuilder,
-    required this.openBmfDrawer,
     this.collectionKey,
     this.episodesKey,
     this.relationsKey,
@@ -30,7 +29,6 @@ class SubjectDetailViewData {
   final SubjectCollectStatProvider collectProvider;
   final ValueChanged<String> onTagTap;
   final SubjectDetailContextMenuBuilder contextMenuBuilder;
-  final VoidCallback openBmfDrawer;
   final Key? collectionKey;
   final Key? episodesKey;
   final Key? relationsKey;
@@ -58,7 +56,11 @@ class SubjectDetailViewData {
     );
   }
 
-  Widget buildRelations() {
-    return SubjectDetailRelation(subject.id, key: relationsKey);
+  Widget buildRelations({ValueChanged<int>? onCountChanged}) {
+    return SubjectDetailRelation(
+      subject.id,
+      key: relationsKey,
+      onCountChanged: onCountChanged,
+    );
   }
 }

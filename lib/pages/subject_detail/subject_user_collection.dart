@@ -284,6 +284,10 @@ class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
   /// 构建Flyout
   void buildFlyout() {
     controller.showFlyout(
+      autoModeConfiguration: FlyoutAutoConfiguration(
+        preferredMode: FlyoutPlacementMode.bottomLeft,
+      ),
+      additionalOffset: 8,
       barrierDismissible: true,
       dismissOnPointerMoveAway: false,
       dismissWithEsc: true,
@@ -537,7 +541,10 @@ class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
   /// buildCollection
   Widget buildCollection() {
     var color = getBgColor();
-    return Row(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         FlyoutTarget(
           controller: controller,
@@ -545,6 +552,7 @@ class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
             style: ButtonStyle(backgroundColor: WidgetStatePropertyAll(color)),
             onPressed: buildFlyout,
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(collectionType.icon, size: 20),
                 SizedBox(width: 8),
@@ -553,7 +561,6 @@ class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
             ),
           ),
         ),
-        SizedBox(width: 8),
         buildRateBox(),
       ],
     );

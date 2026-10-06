@@ -23,7 +23,7 @@ import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/common/bt_drawer.dart';
-import '../../widgets/subject_detail/subject_bmf_drawer.dart';
+import '../../widgets/subject_detail/subject_bmf_panel.dart';
 import '../../widgets/subject_detail/subject_rss_search_dialog.dart';
 
 class BangumiCalendarCard extends ConsumerStatefulWidget {
@@ -237,7 +237,7 @@ class _BangumiCalendarCardState extends ConsumerState<BangumiCalendarCard>
     await showBTDrawer(
       context: context,
       width: 420,
-      child: SubjectBmfDrawer(
+      child: SubjectBmfPanel(
         subjectId: data.id,
         title: displayTitle,
         airDate: data.airDate,

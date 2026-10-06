@@ -77,157 +77,34 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
   }
 
   Widget buildRssItem(BuildContext context, RssReleaseData release) {
-    var item = release.item;
-    var publishedAt = release.publishedAt;
-    var dateLabel = publishedAt == null
-        ? null
-        : DateFormat('yyyy-MM-dd HH:mm').format(publishedAt.toLocal());
-    var isPending = _data.pendingItemKeys.contains(_data.itemKey(item));
-    var accentColor = FluentTheme.of(context).accentColor;
-
-    return Container(
-      margin: EdgeInsets.only(bottom: widget.embedded ? 8 : 6),
-      padding: EdgeInsets.symmetric(
-        horizontal: widget.embedded ? 12 : 10,
-        vertical: widget.embedded ? 12 : 8,
-      ),
-      decoration: BoxDecoration(
-        color: isPending
-            ? Color.alphaBlend(
-                accentColor.withValues(alpha: 0.12),
-                BTColors.surfaceSecondary(context),
-              )
-            : BTColors.surfaceSecondary(context),
-        borderRadius: widget.embedded ? BTRadius.mediumBR : BTRadius.smallBR,
-        border: Border.all(
-          color: isPending ? accentColor : BTColors.divider(context),
+    var pending = _data.pendingItemKeys.contains(_data.itemKey(release.item));
+    return Padding(
+      padding: EdgeInsets.only(bottom: widget.embedded ? 8 : 6),
+      child: BmfRssItem(
+        release: release,
+        isPending: pending,
+        spacious: widget.embedded,
+        actions: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (pending)
+              Tooltip(
+                message: '标记为已处理',
+                child: IconButton(
+                  icon: BtIcon(FluentIcons.check_mark, size: 14),
+                  onPressed: () => _data.markItemHandled(release.item),
+                ),
+              ),
+            _RssItemActions(
+              release: release,
+              source: _data.source,
+              dir: widget.bmf.download,
+              subjectId: widget.bmf.subject,
+              baseUrl: Uri.tryParse(release.detailUrl ?? _data.rssUrl),
+              onHandled: () => _data.markItemHandled(release.item),
+            ),
+          ],
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (release.imageUrl != null)
-                ClipRRect(
-                  borderRadius: BTRadius.smallBR,
-                  child: CachedNetworkImage(
-                    imageUrl: release.imageUrl!,
-                    width: 48,
-                    height: 64,
-                    fit: BoxFit.cover,
-                    memCacheWidth: (48 * MediaQuery.devicePixelRatioOf(context))
-                        .round(),
-                    placeholder: (_, _) =>
-                        const SizedBox(width: 48, height: 64),
-                    errorWidget: (_, _, _) => Icon(
-                      MdiIcons.imageOffOutline,
-                      size: 16,
-                      color: BTColors.textTertiary(context),
-                    ),
-                  ),
-                )
-              else
-                Icon(
-                  MdiIcons.download,
-                  size: 16,
-                  color: isPending
-                      ? accentColor
-                      : BTColors.textSecondary(context),
-                ),
-              SizedBox(width: 8),
-              if (isPending) ...[
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: accentColor,
-                    borderRadius: BTRadius.roundBR,
-                  ),
-                  child: Text(
-                    '新',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 7),
-              ],
-              Expanded(
-                child: Tooltip(
-                  message: release.title,
-                  child: Text(
-                    release.title,
-                    style: BTTypography.body(context),
-                    maxLines: widget.embedded ? 3 : 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (release.metadataLabels.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            LayoutBuilder(
-              builder: (context, constraints) => Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: [
-                  for (var label in release.metadataLabels)
-                    AnibtTagChip(label: label, maxWidth: constraints.maxWidth),
-                ],
-              ),
-            ),
-          ],
-          if (release.summary != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              release.summary!,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: BTTypography.caption(context),
-            ),
-          ],
-          SizedBox(height: widget.embedded ? 8 : 4),
-          Row(
-            children: [
-              Expanded(
-                child: Wrap(
-                  spacing: 16,
-                  runSpacing: 4,
-                  children: [
-                    if (release.sizeLabel != null)
-                      Text(
-                        release.sizeLabel!,
-                        style: BTTypography.caption(context),
-                      ),
-                    if (dateLabel != null)
-                      Text(dateLabel, style: BTTypography.caption(context)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (isPending)
-                Tooltip(
-                  message: '标记为已处理',
-                  child: IconButton(
-                    icon: BtIcon(FluentIcons.check_mark, size: 14),
-                    onPressed: () => _data.markItemHandled(item),
-                  ),
-                ),
-              _RssItemActions(
-                release: release,
-                source: _data.source,
-                dir: widget.bmf.download,
-                subjectId: widget.bmf.subject,
-                baseUrl: Uri.tryParse(release.detailUrl ?? _data.rssUrl),
-                onHandled: () => _data.markItemHandled(item),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
