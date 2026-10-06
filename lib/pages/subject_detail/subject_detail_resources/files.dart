@@ -194,7 +194,7 @@ extension _ResourceFiles on _SubjectDetailResourcesState {
                     }),
                   ),
                   _iconAction(
-                    '移除目录记录',
+                    '移除下载目录',
                     FluentIcons.delete,
                     _busy ? null : () => _run(_removeDirectory),
                   ),

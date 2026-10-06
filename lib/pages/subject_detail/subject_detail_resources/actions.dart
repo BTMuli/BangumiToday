@@ -76,11 +76,28 @@ extension _ResourceActions on _SubjectDetailResourcesState {
     var confirmed = await showConfirm(
       context,
       title: '清除下载与订阅配置',
-      content: '删除该条目的订阅及下载目录记录，已下载的文件会保留。',
+      content: '确定清除该条目的订阅及下载目录记录吗？',
     );
     if (!confirmed || !mounted) return;
-    await ref.read(bmfRepositoryProvider).delete(widget.subjectId);
+    var model = await _currentModel();
+    if (!mounted) return;
+    var deleteDirectory = await _confirmDirectoryDeletion(model.download);
+    if (!mounted) return;
+    var repo = ref.read(bmfRepositoryProvider);
+    if (deleteDirectory) await _fileTool.deleteDir(model.download!);
+    await repo.delete(widget.subjectId);
     if (mounted) await _loadModel();
+  }
+
+  Future<bool> _confirmDirectoryDeletion(String? directory) async {
+    if (directory == null || directory.isEmpty) return false;
+    return showConfirmAction(
+      context,
+      title: '删除下载目录',
+      content: '是否同时删除下载目录及其中的所有文件？\n$directory',
+      confirmText: '删除目录',
+      cancelText: '保留文件',
+    );
   }
 
   Future<void> _removeSubscription(int id) async {
@@ -107,11 +124,16 @@ extension _ResourceActions on _SubjectDetailResourcesState {
     var confirmed = await showConfirm(
       context,
       title: '移除下载目录',
-      content: '移除下载目录记录，已下载的文件会保留。',
+      content: '确定移除该条目的下载目录记录吗？',
     );
     if (!confirmed || !mounted) return;
     var model = await _currentModel();
-    await ref.read(bmfRepositoryProvider).write(model.copyWith(download: null));
+    if (!mounted) return;
+    var deleteDirectory = await _confirmDirectoryDeletion(model.download);
+    if (!mounted) return;
+    var repo = ref.read(bmfRepositoryProvider);
+    if (deleteDirectory) await _fileTool.deleteDir(model.download!);
+    await repo.write(model.copyWith(download: null));
     if (mounted) await _loadModel();
   }
 
