@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 
 // Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../core/container.dart';
@@ -16,7 +15,9 @@ import '../core/services/bt_engine_client.dart';
 import '../core/services/file_service.dart';
 import '../core/services/notification_service.dart';
 import '../core/services/windows_firewall_rule.dart';
+import '../core/utils/download_subject.dart';
 import '../database/app/app_config.dart';
+import '../database/app/download_subjects.dart';
 import '../models/app/bt_download_config.dart';
 import '../models/database/app_bmf_model.dart';
 import '../providers/bmf_providers.dart';
@@ -396,6 +397,7 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
     required String savePath,
     String? displayName,
     bool manual = false,
+    int? subjectId,
   }) async {
     _lastStoreError = null;
     _publish();
@@ -407,6 +409,7 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
         displayName: displayName,
         manual: manual,
       );
+      await _recordSubject(task, subjectId);
       await _client.refreshTasks();
       return task;
     } catch (error) {
@@ -421,6 +424,7 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
     required String savePath,
     String? displayName,
     bool manual = false,
+    int? subjectId,
   }) async {
     _lastStoreError = null;
     _publish();
@@ -432,6 +436,7 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
         displayName: displayName,
         manual: manual,
       );
+      await _recordSubject(task, subjectId);
       await _client.refreshTasks();
       return task;
     } catch (error) {
@@ -473,6 +478,7 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
   Future<void> recheck(String id) => _runTask(id, () => _client.recheck(id));
   Future<void> remove(String id) async {
     await _runTask(id, () => _client.remove(id, deleteData: false));
+    await _forgetSubject(id);
   }
 
   /// 应用启动后自动继续下载或做种未完成的暂停任务，返回恢复的数量。
@@ -582,6 +588,7 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
           }
         }
         await _client.remove(id, deleteData: false);
+        await _forgetSubject(id);
       }
     } catch (error) {
       _lastStoreError = error.toString();
@@ -762,6 +769,19 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
   }
 
   static Future<void> _handleCompletionClick(BtTaskSnapshot task) async {
+    if (!task.manual) {
+      try {
+        var subjectId = await downloadSubjectsStorage.read(task.id);
+        if (subjectId != null && subjectId > 0) {
+          globalContainer
+              .read(navStoreProvider.notifier)
+              .addNavItemB(subject: subjectId, type: '动画');
+          return;
+        }
+      } catch (error) {
+        BTLogTool.warn('读取下载任务条目关联失败：$error');
+      }
+    }
     var bmf = await _findMatchingBmf(task.savePath);
     if (bmf != null) {
       globalContainer
@@ -776,16 +796,42 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
     if (savePath.isEmpty) return null;
     try {
       var bmfList = await globalContainer.read(bmfRepositoryProvider).readAll();
-      var target = path.normalize(savePath).toLowerCase();
-      for (var bmf in bmfList) {
-        var downloadDir = bmf.download;
-        if (downloadDir == null || downloadDir.isEmpty) continue;
-        if (path.normalize(downloadDir).toLowerCase() == target) return bmf;
-      }
+      var subjectId = findDownloadSubject(
+        manual: false,
+        savePath: savePath,
+        directories: bmfList.map(
+          (bmf) => (subject: bmf.subject, directory: bmf.download),
+        ),
+      );
+      return bmfList.where((bmf) => bmf.subject == subjectId).firstOrNull;
     } catch (error) {
       BTLogTool.warn('匹配 BMF 下载目录失败：$error');
     }
     return null;
+  }
+
+  Future<void> _recordSubject(BtTaskSnapshot task, int? subjectId) async {
+    if (task.manual) return;
+    try {
+      // 重复添加时保留已有的明确关联。
+      subjectId ??= await downloadSubjectsStorage.read(task.id);
+      if (subjectId == null || subjectId <= 0) {
+        subjectId = (await _findMatchingBmf(task.savePath))?.subject;
+      }
+      if (subjectId != null && subjectId > 0) {
+        await downloadSubjectsStorage.write(task.id, subjectId);
+      }
+    } catch (error) {
+      BTLogTool.warn('保存下载任务条目关联失败：$error');
+    }
+  }
+
+  Future<void> _forgetSubject(String taskId) async {
+    try {
+      await downloadSubjectsStorage.delete(taskId);
+    } catch (error) {
+      BTLogTool.warn('清理下载任务条目关联失败：$error');
+    }
   }
 
   Future<void> _startEngine() async {

@@ -123,6 +123,7 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
           uri: downloadUrl,
           savePath: directory,
           displayName: release.title,
+          subjectId: release.item.anibt?.bgmId,
         );
       } else {
         var torrent = await BTDownloadTool().downloadRssTorrent(
@@ -135,6 +136,7 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
           torrentPath: torrent,
           savePath: directory,
           displayName: release.title,
+          subjectId: release.item.anibt?.bgmId,
         );
       }
       if (mounted) await BtInfobar.success(context, '下载任务已添加');

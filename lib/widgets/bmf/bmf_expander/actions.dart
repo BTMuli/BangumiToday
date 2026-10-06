@@ -93,6 +93,7 @@ class _RssItemActions extends ConsumerWidget {
   final RssReleaseData release;
   final RssReleaseSource source;
   final String? dir;
+  final int subjectId;
   final Uri? baseUrl;
   final Future<void> Function()? onHandled;
   final bool includeDetails;
@@ -101,6 +102,7 @@ class _RssItemActions extends ConsumerWidget {
     required this.release,
     required this.source,
     required this.dir,
+    required this.subjectId,
     this.baseUrl,
     this.onHandled,
     this.includeDetails = true,
@@ -124,6 +126,7 @@ class _RssItemActions extends ConsumerWidget {
           uri: url,
           savePath: saveDir,
           displayName: release.title,
+          subjectId: subjectId,
         );
       } else {
         var torrentPath = await BTDownloadTool().downloadRssTorrent(
@@ -136,6 +139,7 @@ class _RssItemActions extends ConsumerWidget {
           torrentPath: torrentPath,
           savePath: saveDir,
           displayName: release.title,
+          subjectId: subjectId,
         );
       }
       await onHandled?.call();
@@ -186,6 +190,7 @@ class _RssItemActions extends ConsumerWidget {
               release: release,
               source: source,
               dir: dir,
+              subjectId: subjectId,
               baseUrl: baseUrl,
               onHandled: onHandled,
               includeDetails: false,

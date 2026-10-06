@@ -5,12 +5,18 @@ class _DownloadTaskCard extends StatelessWidget {
     required this.task,
     required this.busy,
     required this.onAction,
+    this.subjectTitle,
+    this.coverUrl,
+    this.onOpenSubject,
     this.selectionMode = false,
     this.selected = false,
     this.onSelect,
   });
 
   final BtTaskSnapshot task;
+  final String? subjectTitle;
+  final String? coverUrl;
+  final VoidCallback? onOpenSubject;
   final bool busy;
   final bool selectionMode;
   final bool selected;
@@ -59,18 +65,12 @@ class _DownloadTaskCard extends StatelessWidget {
                         ),
                         SizedBox(width: 4),
                       ],
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: stateColor.withValues(alpha: 0.11),
-                          borderRadius: BTRadius.mediumBR,
-                        ),
-                        child: Icon(
-                          _taskStateIcon(task.state),
-                          size: 17,
-                          color: stateColor,
-                        ),
+                      _TaskCover(
+                        url: coverUrl,
+                        state: task.state,
+                        color: stateColor,
+                        linked: onOpenSubject != null,
+                        onPressed: selectionMode ? null : onOpenSubject,
                       ),
                       SizedBox(width: 11),
                       Expanded(
@@ -84,6 +84,36 @@ class _DownloadTaskCard extends StatelessWidget {
                               style: BTTypography.bodyStrong(context),
                             ),
                             SizedBox(height: 4),
+                            if (subjectTitle != null) ...[
+                              Tooltip(
+                                message: '打开条目：$subjectTitle',
+                                child: HyperlinkButton(
+                                  onPressed: selectionMode
+                                      ? onSelect
+                                      : onOpenSubject,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(FluentIcons.video, size: 12),
+                                      SizedBox(width: 5),
+                                      Flexible(
+                                        child: Text(
+                                          subjectTitle!,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      SizedBox(width: 5),
+                                      Icon(
+                                        FluentIcons.open_in_new_window,
+                                        size: 10,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                            ],
                             if (task.manual)
                               Text(
                                 task.state == 'completed'
@@ -249,6 +279,57 @@ class _DownloadTaskCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _TaskCover extends StatelessWidget {
+  const _TaskCover({
+    required this.url,
+    required this.state,
+    required this.color,
+    required this.linked,
+    required this.onPressed,
+  });
+
+  final String? url;
+  final String state;
+  final Color color;
+  final bool linked;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    var width = linked ? 56.0 : 36.0;
+    var height = linked ? 76.0 : 36.0;
+    var placeholder = ColoredBox(
+      color: color.withValues(alpha: 0.11),
+      child: Center(child: Icon(_taskStateIcon(state), size: 17, color: color)),
+    );
+    var image = ClipRRect(
+      borderRadius: BTRadius.mediumBR,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: url == null || url!.isEmpty
+            ? placeholder
+            : CachedNetworkImage(
+                imageUrl: url!,
+                fit: BoxFit.cover,
+                memCacheWidth: (width * MediaQuery.devicePixelRatioOf(context))
+                    .round(),
+                placeholder: (_, _) => placeholder,
+                errorWidget: (_, _, _) => placeholder,
+              ),
+      ),
+    );
+    if (onPressed == null) return image;
+    return Tooltip(
+      message: '打开条目',
+      child: GestureDetector(
+        onTap: onPressed,
+        child: MouseRegion(cursor: SystemMouseCursors.click, child: image),
       ),
     );
   }

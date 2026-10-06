@@ -1,4 +1,5 @@
 // Package imports:
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,7 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/services/bt_engine_client.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
+import '../../providers/download_subject_providers.dart';
 import '../../store/bt_download_store.dart';
+import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_engine_switch.dart';
 import '../../ui/bt_infobar.dart';
@@ -520,9 +523,37 @@ class _DownloadTaskTile extends ConsumerWidget {
       btDownloadStoreProvider.select((store) => store.isTaskBusy(taskId)),
     );
     if (task == null) return const SizedBox.shrink();
+    var subjectId = ref.watch(
+      downloadTaskSubjectProvider((
+        taskId: task.id,
+        savePath: task.savePath,
+        manual: task.manual,
+      )),
+    );
+    var subject = subjectId == null
+        ? null
+        : ref.watch(downloadSubjectDetailsProvider(subjectId)).value;
+    var subjectTitle = subject == null
+        ? '条目 #$subjectId'
+        : subject.nameCn.isNotEmpty
+        ? subject.nameCn
+        : subject.name;
     return _DownloadTaskCard(
       task: task,
       busy: busy,
+      subjectTitle: subjectId == null ? null : subjectTitle,
+      coverUrl: subject?.images.common,
+      onOpenSubject: subjectId == null
+          ? null
+          : () => ref
+                .read(navStoreProvider.notifier)
+                .addNavItemB(
+                  subject: subjectId,
+                  paneTitle: subject?.nameCn.isNotEmpty == true
+                      ? subject!.nameCn
+                      : subject?.name,
+                  type: '动画',
+                ),
       selectionMode: selectionMode,
       selected: selected,
       onSelect: onSelect,

@@ -221,6 +221,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
                 release: release,
                 source: _data.source,
                 dir: widget.bmf.download,
+                subjectId: widget.bmf.subject,
                 baseUrl: Uri.tryParse(release.detailUrl ?? _data.rssUrl),
                 onHandled: () => _data.markItemHandled(item),
               ),

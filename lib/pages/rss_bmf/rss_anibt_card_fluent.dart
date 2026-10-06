@@ -126,6 +126,7 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
               uri: magnet,
               savePath: saveDir,
               displayName: releaseTitle,
+              subjectId: metadata?.bgmId,
             );
       } else {
         var torrentPath = await BTDownloadTool().downloadRssTorrent(
@@ -140,6 +141,7 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
               torrentPath: torrentPath,
               savePath: saveDir,
               displayName: releaseTitle,
+              subjectId: metadata?.bgmId,
             );
       }
       if (mounted) await BtInfobar.success(context, '下载任务已添加');
