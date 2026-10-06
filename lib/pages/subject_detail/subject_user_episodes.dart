@@ -11,6 +11,7 @@ import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/episode_mark_providers.dart';
+import '../../providers/subject_playback_providers.dart';
 import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import 'subject_detail_refreshable.dart';
@@ -79,6 +80,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
   String? _loadError;
 
   bool _gridExpanded = false;
+  bool _playbackFilesActive = true;
 
   late bool _loading = widget.subject.type == BangumiSubjectType.anime;
 
@@ -160,7 +162,21 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
 
   /// 重新拉取章节列表与用户章节状态（由详情页刷新按钮触发）
   @override
-  Future<void> refresh() => _loads.refresh();
+  Future<void> refresh() {
+    ref.invalidate(subjectPlaybackFilesProvider(subjectId));
+    ref.invalidate(subjectFileEpisodesProvider(subjectId));
+    return _loads.refresh();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    var active = TickerMode.valuesOf(context).enabled;
+    if (active && !_playbackFilesActive) {
+      ref.invalidate(subjectPlaybackFilesProvider(subjectId));
+    }
+    _playbackFilesActive = active;
+  }
 
   Future<void> _refreshEpisodes() async {
     if (!mounted) return;

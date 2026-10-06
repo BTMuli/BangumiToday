@@ -5,6 +5,15 @@ import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../datasources/bangumi_local_data_source.dart';
 
+EpisodeMarkEpisode episodeMarkChapter(BangumiEpisode episode) =>
+    EpisodeMarkEpisode(
+      id: episode.id,
+      type: episode.type.value,
+      sort: episode.sort,
+      withinSubject: episode.ep,
+      name: episode.nameCn.isEmpty ? episode.name : episode.nameCn,
+    );
+
 EpisodeMarkEpisode episodeMarkProgress(BangumiUserEpisodeCollection value) =>
     EpisodeMarkEpisode(
       id: value.episode.id,
@@ -37,17 +46,7 @@ class BangumiEpisodeMarkGateway implements EpisodeMarkGateway {
     return EpisodeMarkPage(
       total: page.total,
       offset: page.offset,
-      episodes: List.unmodifiable(
-        page.data.map(
-          (episode) => EpisodeMarkEpisode(
-            id: episode.id,
-            type: episode.type.value,
-            sort: episode.sort,
-            withinSubject: episode.ep,
-            name: episode.nameCn.isEmpty ? episode.name : episode.nameCn,
-          ),
-        ),
-      ),
+      episodes: List.unmodifiable(page.data.map(episodeMarkChapter)),
     );
   }
 

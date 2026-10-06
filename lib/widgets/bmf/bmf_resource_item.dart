@@ -165,6 +165,7 @@ class BmfFileItem extends StatelessWidget {
     this.state,
     this.stateUnknown = false,
     this.spacious = false,
+    this.subtitle,
   });
 
   final String file;
@@ -173,6 +174,7 @@ class BmfFileItem extends StatelessWidget {
   final BtFileDownloadState? state;
   final bool stateUnknown;
   final bool spacious;
+  final Widget? subtitle;
   final Widget actions;
 
   @override
@@ -215,6 +217,7 @@ class BmfFileItem extends StatelessWidget {
               ),
             ],
           ),
+          if (subtitle != null) ...[const SizedBox(height: 6), subtitle!],
           SizedBox(height: spacious ? 8 : 6),
           Row(
             children: [

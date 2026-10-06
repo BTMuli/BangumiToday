@@ -8,6 +8,7 @@ import 'package:path/path.dart' as path;
 import '../../core/errors/playback_unavailable.dart';
 import '../../core/services/bt_engine/protocol.dart';
 import '../../core/utils/playback_paths.dart';
+import '../../domain/repositories/playback_episode_links.dart';
 import '../../domain/repositories/playback_library.dart';
 import '../../models/playback/playback_item.dart';
 
@@ -16,7 +17,13 @@ import '../../models/playback/playback_item.dart';
 /// 不把预分配的磁盘空间当作已下载数据：文件必须存在、非空，
 /// 且在有对应任务时匹配的文件已完成下载和校验。
 class PlaybackLibraryImpl implements PlaybackLibrary {
-  PlaybackLibraryImpl({required this.tasks, required this.taskFiles});
+  PlaybackLibraryImpl({
+    required this.tasks,
+    required this.taskFiles,
+    required this.links,
+  });
+
+  final PlaybackEpisodeLinks links;
 
   /// 当前引擎任务快照读取器。
   final List<BtTaskSnapshot> Function() tasks;
@@ -88,6 +95,7 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
   Future<List<PlaybackItem>> discover(String dir, {int? subject}) async {
     var directory = Directory(dir);
     if (!await directory.exists()) return [];
+    var linked = await links.readAll();
     var items = <PlaybackItem>[];
     var cachedFiles = <String, List<BtTaskFileDetail>>{};
     await for (var entity in directory.list(
@@ -101,7 +109,8 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
           PlaybackItem(
             filePath: path.absolute(entity.path),
             title: path.basename(entity.path),
-            subject: subject,
+            subject:
+                linked[PlaybackItem.pathKey(entity.path)]?.subject ?? subject,
             sizeBytes: size,
           ),
         );

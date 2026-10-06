@@ -13,6 +13,7 @@ import '../models/playback/playback_item.dart';
 import '../store/bgm_user_hive.dart';
 import '../store/playback_store.dart';
 import 'bangumi_providers.dart';
+import 'playback_episode_link_providers.dart';
 
 export '../models/playback/episode_mark_state.dart';
 
@@ -50,6 +51,7 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
         ref.read(bangumiLocalDataSourceProvider),
       ),
       accountSession: currentAccount,
+      links: ref.read(playbackEpisodeLinksProvider),
     );
     var progressSubscription = service.progressChanges.listen((value) {
       if (!_closed && value.account == currentAccount()) {

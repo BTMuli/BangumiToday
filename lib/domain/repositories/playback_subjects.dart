@@ -2,6 +2,6 @@
 ///
 /// 播放入口只依赖该契约，不再直接查询 BMF 表。
 abstract class PlaybackSubjectResolver {
-  /// 视频路径所属订阅的 Bangumi 条目 ID，未匹配时为 null。
+  /// 视频显式关联或所属订阅的 Bangumi 条目 ID，未匹配时为 null。
   Future<int?> subjectForFile(String filePath);
 }

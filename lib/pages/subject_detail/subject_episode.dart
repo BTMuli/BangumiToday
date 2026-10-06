@@ -8,9 +8,12 @@ import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/episode_mark_providers.dart';
+import '../../providers/subject_playback_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import '../playback/playback_actions.dart';
+import 'subject_episode_files_dialog.dart';
 
 /// Subject的单个Episode组件
 class SubjectEpisode extends ConsumerStatefulWidget {
@@ -105,9 +108,20 @@ class _SubjectEpisodeState extends ConsumerState<SubjectEpisode> {
     }
   }
 
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
   /// 构建Flyout
   void buildFlyout() {
     controller.showFlyout(
+      autoModeConfiguration: FlyoutAutoConfiguration(
+        preferredMode: FlyoutPlacementMode.bottomLeft,
+      ),
+      additionalOffset: 6,
+      forceAvailableSpace: true,
       barrierDismissible: true,
       dismissOnPointerMoveAway: false,
       dismissWithEsc: true,
@@ -289,8 +303,47 @@ class _SubjectEpisodeState extends ConsumerState<SubjectEpisode> {
   /// 构建Flyout-通用
   Widget buildFlyoutCommon(BuildContext context) {
     var color = FluentTheme.of(context).accentColor;
+    var files =
+        ref
+            .read(subjectEpisodeFilesProvider(widget.subject))
+            .value
+            ?.where((link) => link.episode == episode.id)
+            .toList() ??
+        [];
+    var pageContext = this.context;
     return MenuFlyout(
       items: [
+        MenuFlyoutItem(
+          leading: Icon(FluentIcons.link, color: color),
+          text: Text('本地文件${files.isEmpty ? '' : '（${files.length}）'}'),
+          onPressed: () => showSubjectEpisodeFiles(
+            pageContext,
+            subject: widget.subject,
+            episode: episode,
+          ),
+        ),
+        if (files.isNotEmpty)
+          MenuFlyoutItem(
+            leading: Icon(FluentIcons.play, color: color),
+            text: const Text('播放关联文件'),
+            onPressed: () async {
+              if (files.length == 1) {
+                await openLocalPlayback(
+                  pageContext,
+                  ref,
+                  files.single.filePath,
+                  subject: widget.subject,
+                );
+              } else {
+                await showSubjectEpisodeFiles(
+                  pageContext,
+                  subject: widget.subject,
+                  episode: episode,
+                );
+              }
+            },
+          ),
+        const MenuFlyoutSeparator(),
         buildEpStat(context, BangumiEpisodeCollectionType.none),
         buildEpStat(context, BangumiEpisodeCollectionType.wish),
         buildEpStat(context, BangumiEpisodeCollectionType.done),
@@ -332,6 +385,10 @@ class _SubjectEpisodeState extends ConsumerState<SubjectEpisode> {
   @override
   Widget build(BuildContext context) {
     var bgColor = getBgColor();
+    var fileData = ref.watch(subjectEpisodeFilesProvider(widget.subject));
+    var files = (fileData.value ?? [])
+        .where((link) => link.episode == episode.id)
+        .length;
     return FlyoutTarget(
       controller: controller,
       child: Button(
@@ -339,8 +396,24 @@ class _SubjectEpisodeState extends ConsumerState<SubjectEpisode> {
         onPressed: userEpisode == null ? buildFlyout : updateTypeQ,
         onLongPress: buildFlyout,
         child: Tooltip(
-          message: episode.nameCn.isEmpty ? episode.name : episode.nameCn,
-          child: Text(text, style: TextStyle(fontSize: 16)),
+          message: [
+            episode.nameCn.isEmpty ? episode.name : episode.nameCn,
+            if (files > 0) '已匹配 $files 个文件，长按可播放或修正',
+            if (fileData.isLoading) '正在匹配本地文件…',
+            if (fileData.hasError) '本地文件匹配失败，长按查看或重试',
+            if (files == 0 && !fileData.isLoading && !fileData.hasError)
+              '未找到匹配文件，长按可设置目录或手动修正',
+          ].join('\n'),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(text, style: TextStyle(fontSize: 16)),
+              if (files > 0) ...[
+                const SizedBox(width: 4),
+                const Icon(FluentIcons.link, size: 10),
+              ],
+            ],
+          ),
         ),
       ),
     );

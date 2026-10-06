@@ -43,6 +43,7 @@ import '../models/playback/playback_subtitle.dart';
 import '../models/playback/playback_upscale.dart';
 import '../providers/bangumi_providers.dart';
 import '../providers/bmf_providers.dart';
+import '../providers/playback_episode_link_providers.dart';
 import '../tools/log_tool.dart';
 import 'bt_download_store.dart';
 
@@ -54,12 +55,14 @@ final playbackStoreProvider = ChangeNotifierProvider<PlaybackStore>((ref) {
     library: PlaybackLibraryImpl(
       tasks: () => downloads.tasks,
       taskFiles: (id, offset) => downloads.taskFiles(id, offset: offset),
+      links: ref.read(playbackEpisodeLinksProvider),
     ),
     cover: BangumiPlaybackCoverResolver(ref.read(bangumiRepositoryProvider)),
     historyStore: AppPlaybackHistoryStore(),
     settingsStore: AppPlaybackSettingsStore(),
     subjectResolver: BmfPlaybackSubjectResolver(
       ref.read(bmfRepositoryProvider),
+      ref.read(playbackEpisodeLinksProvider),
     ),
   );
 });

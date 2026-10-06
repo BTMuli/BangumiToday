@@ -70,6 +70,14 @@ extension _ResourceFiles on _SubjectDetailResourcesState {
         fileDetailsByTaskId: detailsById,
         dirFileNames: files,
       );
+      var filesChanged =
+          _files.length != files.length ||
+          Iterable<int>.generate(
+            files.length,
+          ).any((i) => _files[i] != files[i]);
+      if (filesChanged) {
+        ref.invalidate(subjectPlaybackFilesProvider(widget.subjectId));
+      }
       _update(() {
         _files = files;
         _fileSizes = sizes;
@@ -122,10 +130,24 @@ extension _ResourceFiles on _SubjectDetailResourcesState {
   Widget _buildFiles() {
     var directory = _bmf.download;
     if (directory == null || directory.isEmpty) {
-      return _emptyState(
-        '尚未设置下载目录',
-        action: () => _run(_chooseDirectory),
-        label: '选择目录',
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Button(
+              onPressed: () =>
+                  showSubjectEpisodeFiles(context, subject: widget.subjectId),
+              child: const Text('章节文件与自动匹配'),
+            ),
+          ),
+          Expanded(
+            child: _emptyState(
+              '尚未设置下载目录，也可直接选择视频文件关联章节',
+              action: () => _run(_chooseDirectory),
+              label: '选择目录',
+            ),
+          ),
+        ],
       );
     }
     return Column(
@@ -143,10 +165,24 @@ extension _ResourceFiles on _SubjectDetailResourcesState {
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  Button(
+                    onPressed: () => showSubjectEpisodeFiles(
+                      context,
+                      subject: widget.subjectId,
+                    ),
+                    child: const Text('章节文件与自动匹配'),
+                  ),
                   _iconAction(
                     '刷新文件',
                     FluentIcons.refresh,
-                    _refreshingFiles ? null : _refreshFiles,
+                    _refreshingFiles
+                        ? null
+                        : () async {
+                            ref.invalidate(
+                              subjectPlaybackFilesProvider(widget.subjectId),
+                            );
+                            await _refreshFiles();
+                          },
                   ),
                   _iconAction(
                     '打开下载目录',
@@ -201,6 +237,22 @@ extension _ResourceFiles on _SubjectDetailResourcesState {
     var state = _dirState?.stateFor(file);
     var incomplete = state?.isIncomplete == true || _fileStateUnknown;
     var video = PlaybackPaths.isVideo(file);
+    var filePath = PlaybackPaths.resolveTaskPath(directory, file);
+    var links =
+        ref.watch(playbackEpisodeLinkSnapshotProvider).value ?? const {};
+    var linked = links[PlaybackItem.pathKey(filePath)];
+    var chapters = video
+        ? ref.watch(subjectFileEpisodesProvider(widget.subjectId))
+        : null;
+    var effective = resolvePlaybackEpisodeFiles(
+      subject: widget.subjectId,
+      files: [filePath],
+      episodes: (chapters?.value ?? []).map(episodeMarkChapter),
+      manualLinks: links,
+    )[PlaybackItem.pathKey(filePath)];
+    var chapter = chapters?.value
+        ?.where((episode) => episode.id == effective?.episode)
+        .firstOrNull;
     return BmfFileItem(
       file: file,
       backgroundColor: SubjectDetailColors.card(context),
@@ -208,9 +260,39 @@ extension _ResourceFiles on _SubjectDetailResourcesState {
       state: state,
       stateUnknown: _fileStateUnknown,
       spacious: true,
+      subtitle: !video
+          ? null
+          : Text(
+              chapter != null
+                  ? '${linked == null ? '自动匹配' : '手动修正'}：'
+                        '${subjectFileEpisodeLabel(chapter)}'
+                  : chapters?.isLoading == true
+                  ? '正在匹配章节…'
+                  : chapters?.hasError == true
+                  ? '章节信息加载失败，请重试'
+                  : linked?.subject != null &&
+                        linked?.subject != widget.subjectId
+                  ? '已关联其他条目'
+                  : linked != null
+                  ? '关联章节已不存在，请重新关联'
+                  : '未能自动匹配，可手动修正',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: BTTypography.caption(context),
+            ),
       actions: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (video)
+            _iconAction(
+              '查看章节匹配或手动修正',
+              FluentIcons.link,
+              () => showSubjectEpisodeFiles(
+                context,
+                subject: widget.subjectId,
+                filePath: filePath,
+              ),
+            ),
           if (video && !incomplete) ...[
             _iconAction(
               '应用内播放',
