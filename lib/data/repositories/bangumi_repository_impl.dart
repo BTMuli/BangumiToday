@@ -4,6 +4,7 @@ import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_subject.dart';
+import '../../tools/log_tool.dart';
 import '../datasources/bangumi_local_data_source.dart';
 import '../datasources/bangumi_remote_data_source.dart';
 
@@ -51,7 +52,25 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
 
   @override
   Future<BTResponse<BangumiSubject>> getSubjectDetail(String id) async {
-    return await _remoteDataSource.getSubjectDetail(id);
+    var remote = await _remoteDataSource.getSubjectDetail(id);
+    var subject = remote.data;
+    if (remote.code != 0 || subject == null || subject.nameCn.isNotEmpty) {
+      return remote;
+    }
+    // Bangumi 没有译名时沿用首页的 bangumi-data，保留接口原始缓存。
+    try {
+      var nameCn = await _localDataSource.getSubjectNameCn(subject.id);
+      if (nameCn != null && nameCn.isNotEmpty) {
+        return BTResponse(
+          code: remote.code,
+          message: remote.message,
+          data: BangumiSubject.fromJson(subject.toJson()..['name_cn'] = nameCn),
+        );
+      }
+    } catch (error) {
+      BTLogTool.warn('读取条目 ${subject.id} 的本地中文标题失败：$error');
+    }
+    return remote;
   }
 
   @override

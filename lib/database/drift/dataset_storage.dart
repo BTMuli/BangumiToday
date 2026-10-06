@@ -22,6 +22,30 @@ class DatasetStorage {
             ..limit(1))
           .getSingleOrNull();
 
+  /// 按 Bangumi 站点 ID 取首个非空简体译名，避免原名差异或同名作品误匹配。
+  Future<String?> readSubjectNameCn(int subjectId) async {
+    var row = await db
+        .customSelect(
+          '''
+      SELECT title.value AS name_cn
+      FROM BangumiDataItem AS item,
+           json_each(item.titleTranslate, '\$."zh-Hans"') AS title
+      WHERE title.type = 'text' AND title.value != ''
+        AND EXISTS (
+          SELECT 1 FROM json_each(item.sites) AS site
+          WHERE json_extract(site.value, '\$.site') = 'bangumi'
+            AND json_extract(site.value, '\$.id') = ?
+        )
+      ORDER BY item.id, title.key
+      LIMIT 1
+      ''',
+          variables: [Variable(subjectId.toString())],
+          readsFrom: {db.bangumiDataItem},
+        )
+        .getSingleOrNull();
+    return row?.read<String>('name_cn');
+  }
+
   /// 读取与放送窗口 [start, end) 相交的条目，保留窗口内尚未首播的新番。
   /// `begin`/`end` 为定长 ISO 8601 UTC 字符串；剧场版不进入日历。
   Future<List<DataItemRow>> readItemsInAirWindow({

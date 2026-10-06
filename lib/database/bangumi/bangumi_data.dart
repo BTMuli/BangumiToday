@@ -63,6 +63,10 @@ class BtsBangumiData {
   Future<List<BangumiDataItem>> readItems(String title) async =>
       (await DatasetStorage(_db).readItems(title)).map(_itemFromRow).toList();
 
+  /// 与首页共用的简体译名，按 Bangumi 条目 ID 查找。
+  Future<String?> readSubjectNameCn(int subjectId) =>
+      DatasetStorage(_db).readSubjectNameCn(subjectId);
+
   /// 读取首页七个本地放送日内的候选条目，包括本周尚未首播的新番。
   ///
   /// 窗口从 [at] 所在放送日的 0 点或修仙模式下的 6 点开始。

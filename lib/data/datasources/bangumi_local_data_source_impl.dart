@@ -1,14 +1,23 @@
 // Project imports:
 import '../../database/bangumi/bangumi_collection.dart';
+import '../../database/bangumi/bangumi_data.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import 'bangumi_local_data_source.dart';
 
 class BTBangumiLocalDataSourceImpl implements BTBangumiLocalDataSource {
   final BtsBangumiCollection _db;
+  final BtsBangumiData _dataset;
 
-  BTBangumiLocalDataSourceImpl({BtsBangumiCollection? db})
-    : _db = db ?? BtsBangumiCollection();
+  BTBangumiLocalDataSourceImpl({
+    BtsBangumiCollection? db,
+    BtsBangumiData? dataset,
+  }) : _db = db ?? BtsBangumiCollection(),
+       _dataset = dataset ?? BtsBangumiData();
+
+  @override
+  Future<String?> getSubjectNameCn(int subjectId) =>
+      _dataset.readSubjectNameCn(subjectId);
 
   @override
   Future<List<BangumiUserSubjectCollection>> getCollections() async {

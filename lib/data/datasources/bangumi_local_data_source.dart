@@ -3,6 +3,8 @@ import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 
 abstract class BTBangumiLocalDataSource {
+  Future<String?> getSubjectNameCn(int subjectId);
+
   Future<List<BangumiUserSubjectCollection>> getCollections();
 
   Future<List<BangumiUserSubjectCollection>> getByType(
