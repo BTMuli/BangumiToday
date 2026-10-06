@@ -241,6 +241,7 @@ class _BangumiCalendarCardState extends ConsumerState<BangumiCalendarCard>
         subjectId: data.id,
         title: displayTitle,
         airDate: data.airDate,
+        onSearchRss: searchRss,
       ),
     );
     if (!mounted) return;

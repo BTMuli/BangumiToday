@@ -26,6 +26,7 @@ extension _SubjectDetailContent on _SubjectDetailPageState {
         subjectId: subject.id,
         title: title,
         airDate: subject.date,
+        onSearchRss: searchRss,
         rssProvider: rssProvider,
       ),
     );

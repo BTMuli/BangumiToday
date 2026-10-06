@@ -27,6 +27,7 @@ class SubjectBmfDrawer extends ConsumerStatefulWidget {
   final int subjectId;
   final String title;
   final String? airDate;
+  final Future<void> Function() onSearchRss;
   final SubjectRssStatProvider? rssProvider;
 
   const SubjectBmfDrawer({
@@ -34,6 +35,7 @@ class SubjectBmfDrawer extends ConsumerStatefulWidget {
     required this.subjectId,
     required this.title,
     required this.airDate,
+    required this.onSearchRss,
     this.rssProvider,
   });
 
@@ -171,6 +173,11 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
         await BtInfobar.success(context, '[${bmf.subject}]已设置标题：${bmf.title}');
       }
     }
+  }
+
+  Future<void> searchRss() async {
+    await widget.onSearchRss();
+    if (mounted) await init();
   }
 
   Future<void> updateRss(String? newRss) async {
@@ -406,14 +413,7 @@ class _SubjectBmfDrawerState extends ConsumerState<SubjectBmfDrawer> {
           _buildTitleBarButton(
             icon: MdiIcons.rss,
             tooltip: '设置 RSS',
-            onPressed: () async {
-              var input = await showInput(
-                context,
-                title: '设置 RSS',
-                content: '建议精准到字幕组',
-              );
-              await updateRss(input);
-            },
+            onPressed: searchRss,
           ),
           _buildTitleBarButton(
             icon: MdiIcons.folder,
