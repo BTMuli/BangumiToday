@@ -1399,14 +1399,10 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
     items: (_) => [
       for (var track in player.state.tracks.subtitle)
         ToggleMenuFlyoutItem(
-          text: _PlaybackMenuLabel(
-            track.id == 'auto' && store.automaticSubtitles
-                ? _playbackAutomaticSubtitleLabel(player)
-                : playbackSubtitleTrackLabel(
-                    track.id,
-                    track.title,
-                    track.language,
-                  ),
+          text: _playbackSubtitleMenuLabel(
+            player,
+            track,
+            automatic: store.automaticSubtitles,
           ),
           value: track.id == 'auto'
               ? store.automaticSubtitles
@@ -1470,16 +1466,21 @@ String _playbackTrackLabel(String id, String? title, String? language) {
   ].join(' · ');
 }
 
-String _playbackAutomaticSubtitleLabel(Player player) {
-  var selected = player.state.tracks.subtitle.firstWhere(
-    (track) => track.id == player.state.track.subtitle.id,
-    orElse: () => player.state.track.subtitle,
+Widget _playbackSubtitleMenuLabel(
+  Player player,
+  SubtitleTrack track, {
+  required bool automatic,
+}) {
+  var selecting = track.id == 'auto' && automatic;
+  if (selecting) {
+    track = player.state.tracks.subtitle.firstWhere(
+      (track) => track.id == player.state.track.subtitle.id,
+      orElse: () => player.state.track.subtitle,
+    );
+  }
+  var label = playbackSubtitleLabel(track.id, track.title, track.language);
+  return _PlaybackMenuLabel(
+    selecting && track.id != 'auto' ? '自动选择 · ${label.title}' : label.title,
+    description: label.description,
   );
-  if (selected.id == 'auto') return '自动选择';
-  var label = playbackSubtitleTrackLabel(
-    selected.id,
-    selected.title,
-    selected.language,
-  );
-  return '自动选择 · $label';
 }

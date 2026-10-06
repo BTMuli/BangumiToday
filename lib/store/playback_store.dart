@@ -645,7 +645,12 @@ class PlaybackStore extends ChangeNotifier {
     }
     var id = preferredPlaybackSubtitle(
       player.state.tracks.subtitle.map(
-        (track) => (id: track.id, title: track.title, language: track.language),
+        (track) => (
+          id: track.id,
+          title: track.title,
+          language: track.language,
+          isDefault: track.isDefault,
+        ),
       ),
     );
     if (player.state.track.subtitle.id == id) return;
