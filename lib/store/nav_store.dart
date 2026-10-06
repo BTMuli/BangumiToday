@@ -202,7 +202,7 @@ class BTNavNotifier extends Notifier<BTNavState> {
   /// 下载管理只在 Windows 注册到主导航，其他平台返回 false。
   bool goToDownload() {
     if (!Platform.isWindows) return false;
-    goIndex(3);
+    goIndex(2);
     return true;
   }
 

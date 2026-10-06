@@ -288,6 +288,12 @@ class _NavWidgetState extends ConsumerState<NavWidget>
         title: const Text('RSS & BMF'),
         body: const RssBmfPage(),
       ),
+      if (Platform.isWindows)
+        PaneItem(
+          icon: const Icon(FluentIcons.cloud_download),
+          title: const Text('下载管理'),
+          body: const DownloadPage(),
+        ),
       _user.user == null
           ? PaneItemAction(
               icon: const Icon(FluentIcons.account_management),
@@ -305,12 +311,6 @@ class _NavWidgetState extends ConsumerState<NavWidget>
               title: Text(_user.user!.nickname),
               body: const UserCollectionPage(),
             ),
-      if (Platform.isWindows)
-        PaneItem(
-          icon: const Icon(FluentIcons.cloud_download),
-          title: const Text('下载管理'),
-          body: const DownloadPage(),
-        ),
       if (!Platform.isWindows)
         PaneItem(
           icon: const Icon(FluentIcons.play),
