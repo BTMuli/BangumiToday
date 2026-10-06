@@ -43,6 +43,11 @@ class AnibtAPI {
             .toList(),
       );
 
+  /// https://wiki.anibt.net/docs/open-api/torrent.md
+  static String releaseTorrentUrl(String releaseId) => Uri.parse(
+    baseUrl,
+  ).replace(pathSegments: ['api', 'torrent', '$releaseId.torrent']).toString();
+
   /// https://wiki.anibt.net/docs/open-api/anime-groups.md
   Future<BTResponse<List<AnibtAnimeGroup>>> getAnimeGroups(int bgmId) =>
       _getData(

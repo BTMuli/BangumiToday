@@ -3,10 +3,13 @@ import 'dart:async';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 // Project imports:
 import '../../core/constants/app_constants.dart';
+import '../../core/services/download_directory.dart';
+import '../../core/services/download_service.dart';
 import '../../core/utils/tool_func.dart';
 import '../../models/app/rss_selection_behavior.dart';
 import '../../models/mikan/mikan_model.dart';
@@ -14,6 +17,7 @@ import '../../models/rss/anibt_filters.dart';
 import '../../models/rss/anibt_search.dart';
 import '../../request/mikan/mikan_api.dart';
 import '../../request/rss/anibt_api.dart';
+import '../../store/bt_download_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../rss/anibt_tag_chip.dart';
@@ -540,6 +544,7 @@ class _AnibtAnimeResultState extends State<_AnibtAnimeResult>
                 child: _AnibtGroupResult(
                   key: ValueKey(group.slug),
                   group: group,
+                  subjectId: item.bgmId,
                   selected: selection?.groupId == group.slug,
                   onSelected: widget.enabled
                       ? (selected) => _select(group, selected)
@@ -561,12 +566,14 @@ String _anibtUpdatedAt(int? milliseconds) {
 
 class _AnibtGroupResult extends StatelessWidget {
   final AnibtAnimeGroup group;
+  final int subjectId;
   final bool selected;
   final ValueChanged<bool>? onSelected;
 
   const _AnibtGroupResult({
     super.key,
     required this.group,
+    required this.subjectId,
     required this.selected,
     required this.onSelected,
   });
@@ -619,8 +626,12 @@ class _AnibtGroupResult extends StatelessWidget {
                     primary: false,
                     itemCount: group.items.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (_, index) =>
-                        _AnibtReleasePreview(item: group.items[index]),
+                    itemBuilder: (_, index) => _AnibtReleasePreview(
+                      key: ValueKey(group.items[index].releaseId),
+                      item: group.items[index],
+                      subjectId: subjectId,
+                      enabled: onSelected != null,
+                    ),
                   ),
                 ),
               ],
@@ -631,8 +642,15 @@ class _AnibtGroupResult extends StatelessWidget {
 
 class _AnibtReleasePreview extends StatelessWidget {
   final AnibtGroupRelease item;
+  final int subjectId;
+  final bool enabled;
 
-  const _AnibtReleasePreview({required this.item});
+  const _AnibtReleasePreview({
+    super.key,
+    required this.item,
+    required this.subjectId,
+    required this.enabled,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -648,14 +666,35 @@ class _AnibtReleasePreview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Tooltip(
-          message: item.title,
-          child: Text(
-            item.title,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Tooltip(
+                message: item.title,
+                child: Text(
+                  item.title,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _RssPreviewDownloadButton(
+              title: item.title,
+              subjectId: subjectId,
+              magnet: item.magnet,
+              torrentUrl: item.torrentStorageId?.trim().isNotEmpty == true
+                  ? AnibtAPI.releaseTorrentUrl(item.releaseId)
+                  : null,
+              source: _RssSearchSource.anibt,
+              enabled: enabled,
+            ),
+          ],
         ),
         const SizedBox(height: 6),
         LayoutBuilder(
@@ -818,6 +857,7 @@ class _MikanAnimeResultState extends State<_MikanAnimeResult>
                 child: _MikanGroupResult(
                   key: ValueKey(group.id),
                   group: group,
+                  subjectId: detail?.bgmId,
                   selected: selection?.groupId == group.id,
                   onSelected: widget.enabled
                       ? (selected) => _select(group, selected)
@@ -833,12 +873,14 @@ class _MikanAnimeResultState extends State<_MikanAnimeResult>
 
 class _MikanGroupResult extends StatelessWidget {
   final MikanGroupModel group;
+  final int? subjectId;
   final bool selected;
   final ValueChanged<bool>? onSelected;
 
   const _MikanGroupResult({
     super.key,
     required this.group,
+    required this.subjectId,
     required this.selected,
     required this.onSelected,
   });
@@ -885,8 +927,12 @@ class _MikanGroupResult extends StatelessWidget {
                 primary: false,
                 itemCount: group.items.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (_, index) =>
-                    _MikanEpisodePreview(item: group.items[index]),
+                itemBuilder: (_, index) => _MikanEpisodePreview(
+                  key: ValueKey(group.items[index].link),
+                  item: group.items[index],
+                  subjectId: subjectId,
+                  enabled: onSelected != null,
+                ),
               ),
             ),
     );
@@ -895,8 +941,15 @@ class _MikanGroupResult extends StatelessWidget {
 
 class _MikanEpisodePreview extends StatelessWidget {
   final MikanEpisodeModel item;
+  final int? subjectId;
+  final bool enabled;
 
-  const _MikanEpisodePreview({required this.item});
+  const _MikanEpisodePreview({
+    super.key,
+    required this.item,
+    required this.subjectId,
+    required this.enabled,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -905,14 +958,33 @@ class _MikanEpisodePreview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Tooltip(
-          message: item.title,
-          child: Text(
-            item.title,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Tooltip(
+                message: item.title,
+                child: Text(
+                  item.title,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _RssPreviewDownloadButton(
+              title: item.title,
+              subjectId: subjectId,
+              magnet: item.magnet,
+              torrentUrl: item.torrent,
+              source: _RssSearchSource.mikan,
+              enabled: enabled,
+            ),
+          ],
         ),
         const SizedBox(height: 6),
         LayoutBuilder(
@@ -931,6 +1003,122 @@ class _MikanEpisodePreview extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _RssPreviewDownloadButton extends ConsumerStatefulWidget {
+  final String title;
+  final int? subjectId;
+  final String? magnet;
+  final String? torrentUrl;
+  final _RssSearchSource source;
+  final bool enabled;
+
+  const _RssPreviewDownloadButton({
+    required this.title,
+    required this.subjectId,
+    required this.magnet,
+    required this.torrentUrl,
+    required this.source,
+    required this.enabled,
+  });
+
+  @override
+  ConsumerState<_RssPreviewDownloadButton> createState() =>
+      _RssPreviewDownloadButtonState();
+}
+
+class _RssPreviewDownloadButtonState
+    extends ConsumerState<_RssPreviewDownloadButton>
+    with AutomaticKeepAliveClientMixin {
+  bool _downloading = false;
+
+  @override
+  bool get wantKeepAlive => _downloading;
+
+  String? get _downloadUrl {
+    var magnet = widget.magnet?.trim();
+    if (Uri.tryParse(magnet ?? '')?.scheme == 'magnet') return magnet;
+    var torrent = widget.torrentUrl?.trim();
+    var uri = Uri.tryParse(torrent ?? '');
+    if (uri == null ||
+        !['http', 'https'].contains(uri.scheme) ||
+        uri.host.isEmpty) {
+      return null;
+    }
+    return widget.source == _RssSearchSource.mikan
+        ? BtrMikanApi.rewriteUrl(torrent!)
+        : torrent;
+  }
+
+  Future<void> _download() async {
+    var url = _downloadUrl;
+    if (_downloading || !widget.enabled || url == null) return;
+    setState(() => _downloading = true);
+    updateKeepAlive();
+    try {
+      var directory = await pickDownloadDirectory();
+      if (!mounted || directory == null || directory.isEmpty) return;
+      var store = ref.read(btDownloadStoreProvider.notifier);
+      if (Uri.parse(url).scheme == 'magnet') {
+        await store.addMagnet(
+          uri: url,
+          savePath: directory,
+          displayName: widget.title,
+          subjectId: widget.subjectId,
+        );
+      } else {
+        var torrentPath = await BTDownloadTool().downloadRssTorrent(
+          url,
+          widget.title,
+          context: context,
+        );
+        if (!mounted || torrentPath.isEmpty) return;
+        await store.addTorrentFile(
+          torrentPath: torrentPath,
+          savePath: directory,
+          displayName: widget.title,
+          subjectId: widget.subjectId,
+        );
+      }
+      if (mounted) await BtInfobar.success(context, '下载任务已添加');
+    } catch (error) {
+      if (mounted) await BtInfobar.error(context, error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _downloading = false);
+        updateKeepAlive();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    var available = _downloadUrl != null;
+    return Tooltip(
+      message: available ? '添加下载任务' : '暂无可用的种子或磁力链接',
+      child: Button(
+        onPressed: widget.enabled && available && !_downloading
+            ? _download
+            : null,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_downloading)
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: ProgressRing(strokeWidth: 2),
+              )
+            else
+              const Icon(FluentIcons.download, size: 14),
+            const SizedBox(width: 6),
+            Text(_downloading ? '添加中' : '下载'),
+          ],
+        ),
+      ),
     );
   }
 }

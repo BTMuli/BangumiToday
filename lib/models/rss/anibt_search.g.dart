@@ -50,6 +50,8 @@ AnibtGroupRelease _$AnibtGroupReleaseFromJson(Map<String, dynamic> json) =>
           .map((e) => e as String)
           .toList(),
       publishedAt: (json['publishedAt'] as num).toInt(),
+      magnet: json['magnet'] as String?,
+      torrentStorageId: json['torrentStorageId'] as String?,
       size: (json['size'] as num?)?.toInt(),
       resolution: json['resolution'] as String?,
       subtitle: json['subtitle'] as String?,
@@ -59,6 +61,8 @@ Map<String, dynamic> _$AnibtGroupReleaseToJson(AnibtGroupRelease instance) =>
     <String, dynamic>{
       'releaseId': instance.releaseId,
       'title': instance.title,
+      'magnet': instance.magnet,
+      'torrentStorageId': instance.torrentStorageId,
       'size': instance.size,
       'resolution': instance.resolution,
       'subtitle': instance.subtitle,

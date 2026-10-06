@@ -51,6 +51,8 @@ class AnibtAnimeGroup {
 class AnibtGroupRelease {
   final String releaseId;
   final String title;
+  final String? magnet;
+  final String? torrentStorageId;
   final int? size;
   final String? resolution;
   final String? subtitle;
@@ -63,6 +65,8 @@ class AnibtGroupRelease {
     required this.title,
     required this.languages,
     required this.publishedAt,
+    this.magnet,
+    this.torrentStorageId,
     this.size,
     this.resolution,
     this.subtitle,
