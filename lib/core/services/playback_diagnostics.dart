@@ -32,18 +32,23 @@ class PlaybackDiagnostics {
   int _outputDrops = 0;
   int _decoderDrops = 0;
   String? _lastLog;
+  String? _lastLogLevel;
   Duration _lastLogTime = Duration.zero;
   int _suppressedLogs = 0;
   String? _lastFailure;
   Duration _lastFailureTime = Duration.zero;
 
-  String get contextText {
+  String get _nativeHandle {
     var native = player.platform;
+    return native is NativePlayer
+        ? native.ctx.address.toRadixString(16).padLeft(16, '0').toUpperCase()
+        : 'unknown';
+  }
+
+  String get contextText {
     return {
       ...context(),
-      'native_handle': native is NativePlayer
-          ? native.ctx.address.toRadixString(16).padLeft(16, '0').toUpperCase()
-          : null,
+      'native_handle': _nativeHandle,
       'media_revision': _revision,
     }.toString();
   }
@@ -79,6 +84,18 @@ class PlaybackDiagnostics {
     }
   }
 
+  void upscaleEvent(String name) {
+    // Step records are numerous. Keep correlation fields here and the full
+    // playback/metrics snapshot on apply, output observation and failures.
+    if (name.contains(' step=') && !name.contains(' failed ')) {
+      BTLogTool.info(
+        '$name native_handle=$_nativeHandle media_revision=$_revision',
+      );
+    } else {
+      event(name);
+    }
+  }
+
   void log(PlayerLog value) {
     // v 仍供超分检测能力；只落盘 info 以上，避免逐帧调试日志。
     if (!const {'fatal', 'error', 'warn', 'info'}.contains(value.level)) return;
@@ -91,6 +108,7 @@ class PlaybackDiagnostics {
     }
     _flushSuppressed();
     _lastLog = message;
+    _lastLogLevel = value.level;
     _lastLogTime = now;
     if (value.level == 'fatal' || value.level == 'error') {
       BTLogTool.error('$message ${_snapshot()}');
@@ -114,7 +132,12 @@ class PlaybackDiagnostics {
 
   void _flushSuppressed() {
     if (_suppressedLogs == 0) return;
-    BTLogTool.warn('mpv 重复日志合并 $_suppressedLogs 次：$_lastLog');
+    var message = 'mpv 重复日志合并 $_suppressedLogs 次：$_lastLog';
+    if (_lastLogLevel == 'info') {
+      BTLogTool.info(message);
+    } else {
+      BTLogTool.warn(message);
+    }
     _suppressedLogs = 0;
   }
 

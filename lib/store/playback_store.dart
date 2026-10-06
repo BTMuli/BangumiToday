@@ -15,6 +15,7 @@ import '../core/services/native_playback_upscale_backend.dart';
 import '../core/services/playback_assets.dart';
 import '../core/services/playback_audio.dart';
 import '../core/services/playback_audio_metadata.dart';
+import '../core/services/playback_cache.dart';
 import '../core/services/playback_chapters.dart';
 import '../core/services/playback_diagnostics.dart';
 import '../core/services/playback_loudness.dart';
@@ -331,6 +332,7 @@ class PlaybackStore extends ChangeNotifier {
       onChanged: _notify,
     );
     try {
+      await PlaybackCache.configure(player);
       await PlaybackSubtitles.configure(player);
       await PlaybackAudio.apply(player, false);
       await chapters.initialize();
@@ -386,7 +388,7 @@ class PlaybackStore extends ChangeNotifier {
         loadShaders: assets.load,
         onChanged: _notify,
         onError: (error) => BTLogTool.warn('视频超分：$error'),
-        onDiagnostics: diagnostics.event,
+        onDiagnostics: diagnostics.upscaleEvent,
       )..preferences(_upscaleMode);
       for (var value in earlyLogs) {
         _upscaler!.log(value.prefix, value.level, value.text);

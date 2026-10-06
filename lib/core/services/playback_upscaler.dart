@@ -24,6 +24,7 @@ class PlaybackUpscaler {
     required this.onError,
     this.onDiagnostics,
     this.debounce = const Duration(milliseconds: 150),
+    this.viewportGrace = const Duration(seconds: 1),
   });
 
   final PlaybackUpscaleBackend backend;
@@ -32,6 +33,7 @@ class PlaybackUpscaler {
   final void Function(Object) onError;
   final void Function(String)? onDiagnostics;
   final Duration debounce;
+  final Duration viewportGrace;
   PlaybackUpscaleMode mode = PlaybackUpscaleMode.off;
   PlaybackVideoSource? _source;
   PlaybackViewport? _viewport;
@@ -62,6 +64,10 @@ class PlaybackUpscaler {
   Future<void>? _closeFuture;
   Timer? _timer;
   Timer? _confirmation;
+  Timer? _viewportRelease;
+  Timer? _outputDeadline;
+  Completer<bool>? _outputReady;
+  PlaybackPixels? _awaitingOutput;
   final _forwardedErrors = <String>{};
 
   String _pixels(PlaybackPixels? value) =>
@@ -130,7 +136,21 @@ class PlaybackUpscaler {
   }
 
   void viewport(PlaybackViewport? value) {
-    if (_closed || _viewport == value) return;
+    if (_closed) return;
+    if (value == null && _viewportRelease != null) return;
+    _viewportRelease?.cancel();
+    _viewportRelease = null;
+    if (value == null && _viewport != null && _mediaReady) {
+      // Fullscreen/routes can temporarily detach both reporters. Keep the
+      // installed chain through that handoff instead of recompiling it.
+      _viewportRelease = Timer(viewportGrace, () {
+        _viewportRelease = null;
+        _viewport = null;
+        _schedule();
+      });
+      return;
+    }
+    if (_viewport == value) return;
     _viewport = value;
     _schedule();
   }
@@ -142,6 +162,9 @@ class PlaybackUpscaler {
       'expected=${_pixels(_applied?.output ?? _applying?.output)}',
     );
     actualOutput = value;
+    if (value != null && value == _awaitingOutput) {
+      _cancelOutputWait(ready: true);
+    }
     if (value == _applied?.output) _confirmation?.cancel();
     onChanged();
   }
@@ -162,6 +185,10 @@ class PlaybackUpscaler {
     _generation++;
     _timer?.cancel();
     _confirmation?.cancel();
+    if (_viewportRelease != null) _viewport = null;
+    _viewportRelease?.cancel();
+    _viewportRelease = null;
+    _cancelOutputWait();
     _pending = null;
     _pendingReady = false;
     await _flight;
@@ -217,6 +244,7 @@ class PlaybackUpscaler {
     _generation++;
     _timer?.cancel();
     _confirmation?.cancel();
+    _cancelOutputWait();
     if (immediate) {
       _start();
     } else {
@@ -249,6 +277,51 @@ class PlaybackUpscaler {
 
   bool _current(int generation) =>
       !_closed && _mediaReady && generation == _generation;
+
+  void _cancelOutputWait({bool ready = false}) {
+    _outputDeadline?.cancel();
+    _outputDeadline = null;
+    _awaitingOutput = null;
+    var pending = _outputReady;
+    _outputReady = null;
+    pending?.complete(ready);
+  }
+
+  Future<bool> _waitForOutput(PlaybackPixels output) {
+    if (actualOutput == output) return Future.value(true);
+    _cancelOutputWait();
+    var ready = _outputReady = Completer<bool>();
+    _awaitingOutput = output;
+    _trace('waiting_for_output=${_pixels(output)} before_shader_install');
+    _outputDeadline = Timer(const Duration(seconds: 3), _cancelOutputWait);
+    return ready.future;
+  }
+
+  Future<bool> _resizeOutput(PlaybackUpscalePlan next, int generation) async {
+    // Only source-size changes invalidate media_kit's fixed-size cache.
+    if (_resizeInvalidated) {
+      _applied = null;
+      await _step(
+        'invalidate_output',
+        () => backend.resize(null),
+        generation: generation,
+      );
+      _fixedOutput = null;
+      if (!_current(generation)) return false;
+    }
+    if (_fixedOutput != next.output) {
+      _applied = null;
+      await _step(
+        'resize:${_pixels(next.output)}',
+        () => backend.resize(next.output),
+        generation: generation,
+      );
+      _fixedOutput = next.output;
+      if (!_current(generation)) return false;
+    }
+    _resizeInvalidated = false;
+    return true;
+  }
 
   Future<void> _drain() async {
     while (!_closed && _mediaReady && _pendingReady && _pending != null) {
@@ -300,15 +373,27 @@ class PlaybackUpscaler {
             }
             _baselineDumbMode = baseline;
           }
+          List<String>? shaders;
           if (_loadedMode != next.mode) {
-            var shaders = await _step(
+            var loaded = await _step(
               'load_shaders:${next.mode.name}',
               () => loadShaders(next.mode),
               generation: generation,
             );
             if (!_current(generation)) continue;
-            _paths = shaders;
-            _dirty = true;
+            shaders = loaded;
+            _paths = loaded;
+          }
+          _dirty = true;
+          if (!await _resizeOutput(next, generation)) continue;
+          var selectedShaders = shaders;
+          if (selectedShaders != null) {
+            // Installing first compiles the chain at the old dimensions and
+            // again after resize. SetSize acceptance is asynchronous: wait
+            // for its first published frame, including during paused playback.
+            var ready = await _waitForOutput(next.output!);
+            if (!_current(generation)) continue;
+            if (!ready) throw StateError('超分安装前未能确认目标纹理尺寸');
             // Invalidate before mutating. A superseded partial chain must be
             // reloaded even if the latest preference returns to the old mode.
             _loadedMode = null;
@@ -319,10 +404,10 @@ class PlaybackUpscaler {
               generation: generation,
             );
             if (!_current(generation)) continue;
-            _trace('shader_chain=$shaders', generation: generation);
+            _trace('shader_chain=$selectedShaders', generation: generation);
             await _step(
               'install_shaders',
-              () => backend.shaders(shaders),
+              () => backend.shaders(selectedShaders),
               generation: generation,
             );
             if (!_current(generation)) continue;
@@ -333,38 +418,15 @@ class PlaybackUpscaler {
             );
             if (!_current(generation)) continue;
             if (configured is! List ||
-                configured.length != shaders.length ||
+                configured.length != selectedShaders.length ||
                 [
-                  for (var i = 0; i < shaders.length; i++)
-                    configured[i] != shaders[i],
+                  for (var i = 0; i < selectedShaders.length; i++)
+                    configured[i] != selectedShaders[i],
                 ].any((different) => different)) {
               throw StateError('着色器链路读回与已验证清单不一致');
             }
             _loadedMode = next.mode;
           }
-          // Only a source-size change invalidates media_kit's fixed-size cache.
-          // Quality switches reuse the texture; layout changes resize directly.
-          if (_resizeInvalidated) {
-            _applied = null;
-            await _step(
-              'invalidate_output',
-              () => backend.resize(null),
-              generation: generation,
-            );
-            _fixedOutput = null;
-            if (!_current(generation)) continue;
-          }
-          if (_fixedOutput != next.output) {
-            _applied = null;
-            await _step(
-              'resize:${_pixels(next.output)}',
-              () => backend.resize(next.output),
-              generation: generation,
-            );
-            _fixedOutput = next.output;
-            if (!_current(generation)) continue;
-          }
-          _resizeInvalidated = false;
           await _step('redraw', backend.redraw, generation: generation);
           if (!_current(generation)) continue;
         }
@@ -393,6 +455,7 @@ class PlaybackUpscaler {
         _pending = null;
         _timer?.cancel();
         _confirmation?.cancel();
+        _cancelOutputWait();
         if (_mediaReady) _showFailure();
       } finally {
         _trace(
@@ -520,6 +583,8 @@ class PlaybackUpscaler {
     _pending = null;
     _timer?.cancel();
     _confirmation?.cancel();
+    _viewportRelease?.cancel();
+    _cancelOutputWait();
     await _flight;
     await _resetWork;
     backend.close();

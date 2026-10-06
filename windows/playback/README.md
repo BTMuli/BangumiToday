@@ -27,7 +27,8 @@ under Documents, accessible through the settings page's log-directory action:
   `slow_frames` count attempts taking at least 20, 33 and 50 ms respectively;
   they are overlapping thresholds, not mpv's dropped-frame counters.
   Stage averages/maxima separate retired-texture cleanup, update, resize,
-  surface lock/context/recreation, mpv rendering, swap, snapshot allocation,
+  surface lock/context/recreation, mpv rendering, swap (`glFinish` completion
+  wait, not a window presentation), snapshot allocation,
   handle sharing, copy submission, previous-copy wait, GPU completion wait
   and frame storage/publication. Nested resize/recreation and update/context
   times overlap.
@@ -50,6 +51,19 @@ under Documents, accessible through the settings page's log-directory action:
   output requests, observed dimensions, confirmation timeouts, superseded work
   and recovery. Step completion confirms command acceptance/configuration;
   observed output and native publication timing establish frame availability.
+  Routine supersampling step records keep only correlation fields; apply,
+  output observations and failures retain full playback snapshots. Repeated
+  informational mpv messages remain informational when summarized.
+- The player explicitly configures writable shader and demuxer caches under
+  `BangumiToday/cache/playback` before renderer creation. Compiled shader
+  programs can be reused across playback sessions. Supersampling first waits
+  for the requested texture dimensions before installing a new shader chain,
+  avoiding compilation at both the old and new sizes. A one-second viewport
+  handoff grace period avoids unloading shaders for brief route/fullscreen
+  transitions; persistent hiding, media reset and explicit disable still restore
+  normal playback. Pending dimension waits cancel on superseding work, reset
+  and disposal, and time out into normal playback after three seconds.
+  Shader-cache behavior follows the [mpv manual](https://mpv.io/manual/master/#options-gpu-shader-cache).
 - The Windows runner records unhandled native exceptions and asks a separate
   instance of the same executable to collect a crash before Flutter/plugin
   startup. The timestamp is the actual crash time, including milliseconds:
@@ -143,6 +157,12 @@ Synchronization references:
 
 Verification performed without starting the app or building the project:
 
+- Coordinator functional checks cover size-confirmation ordering, transient and
+  persistent viewport loss, repeated detach notifications, reattachment,
+  cancellation on disable/reset/close, superseding and stale output observations,
+  and timeout/resize-failure recovery. The bundled libmpv accepts and reads back
+  both cache directories with Unicode and spaces without opening media or a
+  renderer. Temporary checks are removed after verification.
 - Dart analysis and format check for the changed coordinator.
 - MSVC `/Zs`, `/W4`, `/WX` checks for all six overlaid plugin translation units.
 - Isolated CMake configuration verifies header/source substitution and rejection
