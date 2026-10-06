@@ -240,12 +240,33 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
       );
     }
 
-    if (!widget.contentScrollable || _data.rssItems.length <= 6) {
+    var groups = _data.rssGroups;
+    var count = groups.isEmpty ? _data.rssReleases.length : groups.length;
+
+    Widget buildEntry(int index) {
+      if (groups.isEmpty) {
+        return buildRssItem(context, _data.rssReleases[index]);
+      }
+      var group = groups[index];
+      var pendingCount = group.releases.where((release) {
+        return _data.pendingItemKeys.contains(_data.itemKey(release.item));
+      }).length;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: _RssSubtitleGroup(
+          key: ValueKey((_data.selectedSubscriptionId, group.key)),
+          group: group,
+          pendingCount: pendingCount,
+          maxHeight: widget.maxHeight,
+          itemBuilder: (release) => buildRssItem(context, release),
+        ),
+      );
+    }
+
+    if (!widget.contentScrollable || count <= 6) {
       return Column(
         mainAxisSize: MainAxisSize.min,
-        children: _data.rssReleases
-            .map((release) => buildRssItem(context, release))
-            .toList(),
+        children: List.generate(count, buildEntry),
       );
     }
 
@@ -253,10 +274,8 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
       height: widget.maxHeight,
       child: ListView.builder(
         shrinkWrap: true,
-        itemCount: _data.rssReleases.length,
-        itemBuilder: (context, index) {
-          return buildRssItem(context, _data.rssReleases[index]);
-        },
+        itemCount: count,
+        itemBuilder: (_, index) => buildEntry(index),
       ),
     );
   }
@@ -479,6 +498,84 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
       leading: Icon(MdiIcons.rss, size: 18, color: accentColor),
       header: header,
       content: buildContent(),
+    );
+  }
+}
+
+class _RssSubtitleGroup extends StatefulWidget {
+  final RssReleaseGroup group;
+  final int pendingCount;
+  final double maxHeight;
+  final Widget Function(RssReleaseData release) itemBuilder;
+
+  const _RssSubtitleGroup({
+    super.key,
+    required this.group,
+    required this.pendingCount,
+    required this.maxHeight,
+    required this.itemBuilder,
+  });
+
+  @override
+  State<_RssSubtitleGroup> createState() => _RssSubtitleGroupState();
+}
+
+class _RssSubtitleGroupState extends State<_RssSubtitleGroup>
+    with AutomaticKeepAliveClientMixin {
+  bool _expanded = false;
+
+  @override
+  bool get wantKeepAlive => _expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    var group = widget.group;
+    return Expander(
+      onStateChanged: (expanded) {
+        setState(() => _expanded = expanded);
+        updateKeepAlive();
+      },
+      header: Row(
+        children: [
+          Expanded(
+            child: Tooltip(
+              message: group.name,
+              child: Text(
+                '${group.name} · ${group.releases.length} 条资源',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: BTTypography.body(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          if (widget.pendingCount > 0) ...[
+            const SizedBox(width: 8),
+            Text(
+              '${widget.pendingCount} 条更新',
+              style: TextStyle(
+                color: FluentTheme.of(context).accentColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+      content: !_expanded
+          ? const SizedBox.shrink()
+          : ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: widget.maxHeight),
+              child: ListView.builder(
+                shrinkWrap: true,
+                primary: false,
+                itemCount: group.releases.length,
+                itemBuilder: (_, index) =>
+                    widget.itemBuilder(group.releases[index]),
+              ),
+            ),
     );
   }
 }

@@ -282,6 +282,98 @@ class RssReleaseData {
   }
 }
 
+class RssReleaseGroup {
+  final String key;
+  final String name;
+  final List<RssReleaseData> releases;
+
+  const RssReleaseGroup({
+    required this.key,
+    required this.name,
+    required this.releases,
+  });
+}
+
+/// 仅将未限定字幕组的单番剧订阅按字幕组展示。
+bool isWholeAnimeRss(String url, RssReleaseSource source) {
+  var uri = Uri.tryParse(url);
+  if (uri == null) return false;
+  var path = switch (source) {
+    RssReleaseSource.mikan => '/rss/bangumi',
+    RssReleaseSource.anibt => '/rss/anime.xml',
+    _ => null,
+  };
+  if (path == null || uri.path.toLowerCase() != path) return false;
+  var parameters = {
+    for (var entry in uri.queryParameters.entries)
+      entry.key.toLowerCase(): entry.value.trim(),
+  };
+  var id = source == RssReleaseSource.mikan
+      ? parameters['bangumiid']
+      : parameters['bgmid'] ?? parameters['bangumiid'];
+  if ((int.tryParse(id ?? '') ?? 0) <= 0) return false;
+  return [
+    'groupslug',
+    'subgroupslug',
+    'subgroupid',
+  ].every((key) => parameters[key]?.isNotEmpty != true);
+}
+
+/// 保留资源及字幕组首次出现的顺序，缺少分组信息的资源也完整保留。
+List<RssReleaseGroup> groupRssReleases(
+  List<RssReleaseData> releases,
+  RssReleaseSource source,
+) {
+  var groups = <String, List<RssReleaseData>>{};
+  var names = <String, String>{};
+  for (var release in releases) {
+    var metadata = release.item.anibt;
+    var name = source == RssReleaseSource.anibt
+        ? RssReleaseData._text(metadata?.groupName)
+        : source == RssReleaseSource.mikan
+        ? _mikanGroupName(release.title)
+        : null;
+    var slug = source == RssReleaseSource.anibt
+        ? RssReleaseData._text(metadata?.groupSlug)
+        : null;
+    var key = slug != null
+        ? 'slug:$slug'
+        : name != null
+        ? 'name:$name'
+        : 'unknown';
+    if (name != null) {
+      names[key] = name;
+    } else {
+      names.putIfAbsent(key, () => slug ?? '未识别字幕组');
+    }
+    groups.putIfAbsent(key, () => []).add(release);
+  }
+  return [
+    for (var entry in groups.entries)
+      RssReleaseGroup(
+        key: entry.key,
+        name: names[entry.key]!,
+        releases: List.unmodifiable(entry.value),
+      ),
+  ];
+}
+
+/// Mikan RSS 没有字幕组字段，只读取标题开头明确的括号标记。
+String? _mikanGroupName(String title) {
+  var prefix = RegExp(r'^\s*(?:\[([^\[\]]+)\]|【([^【】]+)】|［([^［］]+)］)');
+  var remaining = title;
+  while (true) {
+    var match = prefix.firstMatch(remaining);
+    if (match == null) return null;
+    var name = [match[1], match[2], match[3]].whereType<String>().first.trim();
+    // 部分发布把新番月份放在字幕组标记前，不能将其当作字幕组。
+    if (!RegExp(r'^(?:\d{4}年)?\d{1,2}月(?:新番|番)$').hasMatch(name)) {
+      return name.isEmpty ? null : name;
+    }
+    remaining = remaining.substring(match.end);
+  }
+}
+
 /// 按发布时间从新到旧；相同时间保留返回顺序，缺失时间置后。
 List<RssReleaseData> filterRssReleases(
   List<RssReleaseData> releases, {

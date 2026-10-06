@@ -24,6 +24,7 @@ class BmfRssData extends ChangeNotifier {
   Set<String> pendingItemKeys = {};
   List<RssItem> rssItems = [];
   List<RssReleaseData> rssReleases = [];
+  List<RssReleaseGroup> rssGroups = [];
   int _generation = 0;
   bool _disposed = false;
 
@@ -58,6 +59,7 @@ class BmfRssData extends ChangeNotifier {
     subscription = null;
     rssItems = [];
     rssReleases = [];
+    rssGroups = [];
     pendingItemKeys = {};
     _generation++;
     unawaited(load());
@@ -90,6 +92,9 @@ class BmfRssData extends ChangeNotifier {
           ),
         )
         .toList(growable: false);
+    rssGroups = isWholeAnimeRss(rssUrl, source)
+        ? groupRssReleases(rssReleases, source)
+        : [];
     pendingItemKeys = model?.pendingItemKeys ?? {};
     notifyListeners();
   }
