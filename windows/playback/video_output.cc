@@ -199,17 +199,30 @@ void VideoOutput::ProcessRender(bool force, double queue_ms,
       RetireSampledTextures();
     }
     uint64_t updates;
+    mpv_render_frame_info next_frame{};
     {
       ScopedPlaybackTiming timing(&sample, PlaybackRenderStage::update);
       if (surface_manager_) surface_manager_->MakeCurrent(true, &sample);
       updates = mpv_render_context_update(render_context_);
+      // Read the deadline while the update's GL context is already current.
+      // This render API query never synchronously waits for the mpv core.
+      const auto result = (force || (updates & MPV_RENDER_UPDATE_FRAME))
+                              ? mpv_render_context_get_info(
+                                    render_context_,
+                                    {MPV_RENDER_PARAM_NEXT_FRAME_INFO,
+                                     &next_frame})
+                              : 0;
       if (surface_manager_) surface_manager_->MakeCurrent(false, &sample);
+      if (result < 0) {
+        throw std::runtime_error("Unable to get the next video frame deadline.");
+      }
     }
     if (!force && !(updates & MPV_RENDER_UPDATE_FRAME)) return;
     {
       ScopedPlaybackTiming timing(&sample, PlaybackRenderStage::resize);
       CheckAndResize(&sample);
     }
+    if (SkipLateFrame(&sample, next_frame)) return;
     if (!Render(&sample)) return;
   } catch (const std::exception& error) {
     sample.finished = PlaybackRenderClock::now();
@@ -225,6 +238,46 @@ void VideoOutput::ProcessRender(bool force, double queue_ms,
   sample.finished = PlaybackRenderClock::now();
   sample.elapsed_ms = PlaybackRenderMilliseconds(sample.finished - started);
   RecordRender(sample, true);
+}
+
+bool VideoOutput::SkipLateFrame(PlaybackRenderSample* sample,
+                               const mpv_render_frame_info& frame) {
+  const auto now = mpv_get_time_ns(handle_);
+  sample->target_time_ns = frame.target_time;
+  sample->frame_flags = frame.flags;
+  if (frame.target_time > 0 && now > frame.target_time)
+    sample->lateness_ms = (now - frame.target_time) / 1'000'000.0;
+  if (!frame_scheduler_.ShouldSkip(frame, now, sample->force,
+                                   texture_update_pending_))
+    return false;
+
+  // Acknowledge the frame to mpv, allowing its audio clock to advance the VO.
+  // This deliberately bypasses Draw/Read, glFinish, snapshot allocation and
+  // the GPU copy. A skipped frame must never notify Flutter of a new texture.
+  int skip = 1;
+  int block = 0;
+  mpv_render_param params[]{
+      {MPV_RENDER_PARAM_SKIP_RENDERING, &skip},
+      {MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block},
+      {MPV_RENDER_PARAM_INVALID, nullptr},
+  };
+  ScopedPlaybackTiming timing(sample, PlaybackRenderStage::mpv_render);
+  if (surface_manager_) surface_manager_->MakeCurrent(true, sample);
+  const auto result = mpv_render_context_render(render_context_, params);
+  if (surface_manager_) surface_manager_->MakeCurrent(false, sample);
+  if (result < 0) {
+    throw std::runtime_error("Unable to skip the overdue video frame.");
+  }
+  ++deadline_skips_;
+  ++render_statistics_.deadline_skips;
+  render_statistics_.skip_lateness_max_ms =
+      (std::max)(render_statistics_.skip_lateness_max_ms, sample->lateness_ms);
+  // Only aggregate records, including a skip-only interval. Avoid per-frame
+  // logging while catching up and keep the existing queue's disposal fairness.
+  const auto finished = PlaybackRenderClock::now();
+  if (finished - statistics_since_ >= std::chrono::seconds(10))
+    FlushRenderStatistics(finished);
+  return true;
 }
 
 void VideoOutput::LogRenderSample(const PlaybackRenderSample& sample,
@@ -245,6 +298,8 @@ void VideoOutput::LogRenderSample(const PlaybackRenderSample& sample,
       "VideoOutput %s handle=%p sequence=%llu size_request=%llu "
       "texture=%lld size=%lldx%lld force=%d requests=%llu gpu_polls=%llu "
       "queue_ms=%.2f render_ms=%.2f age_ms=%.2f "
+      "target_time_ns=%lld frame_flags=%llu "
+      "lateness_ms=%.2f output_lateness_ms=%.2f "
       "failed_stage=%s stages_ms={%s} error=%s",
       kind, handle_, sample.sequence, sample.size_request,
       static_cast<long long>(sample.texture),
@@ -252,6 +307,8 @@ void VideoOutput::LogRenderSample(const PlaybackRenderSample& sample,
       static_cast<long long>(sample.height), sample.force ? 1 : 0,
       sample.requests, sample.gpu_polls, sample.queue_ms, sample.elapsed_ms,
       PlaybackRenderMilliseconds(PlaybackRenderClock::now() - sample.finished),
+      static_cast<long long>(sample.target_time_ns), sample.frame_flags,
+      sample.lateness_ms, sample.output_lateness_ms,
       sample.failed_stage ? sample.failed_stage : "none", stages,
       error ? error : "none");
   BangumiNativeLog(message, error != nullptr);
@@ -262,6 +319,11 @@ void VideoOutput::RecordRender(PlaybackRenderSample& sample, bool success,
   sample.texture = texture_id_;
   sample.width = width();
   sample.height = height();
+  if (success && sample.target_time_ns > 0) {
+    const auto now = mpv_get_time_ns(handle_);
+    if (now > sample.target_time_ns)
+      sample.output_lateness_ms = (now - sample.target_time_ns) / 1'000'000.0;
+  }
   render_statistics_.Record(sample, success);
   if (!success) {
     ++render_errors_;
@@ -284,14 +346,15 @@ void VideoOutput::RecordRender(PlaybackRenderSample& sample, bool success,
 void VideoOutput::FlushRenderStatistics(
     PlaybackRenderClock::time_point finished) {
   const auto& stats = render_statistics_;
-  if (stats.attempts == 0) return;
+  if (stats.attempts == 0 && stats.deadline_skips == 0) return;
+  const auto divisor = stats.attempts ? stats.attempts : uint64_t{1};
   char stages[1536]{};
   size_t used = 0;
   for (size_t i = 0; i < stats.totals.size(); ++i) {
     const auto count = _snprintf_s(
         stages + used, sizeof(stages) - used, _TRUNCATE, "%s=%.2f/%.2f ",
         PlaybackRenderStageName(static_cast<PlaybackRenderStage>(i)),
-        stats.totals[i] / stats.attempts, stats.maxima[i]);
+        stats.totals[i] / divisor, stats.maxima[i]);
     if (count < 0) break;
     used += static_cast<size_t>(count);
   }
@@ -302,17 +365,22 @@ void VideoOutput::FlushRenderStatistics(
               "render_avg_ms=%.2f render_max_ms=%.2f "
               "over_20ms=%llu over_33ms=%llu slow_frames=%llu "
               "errors_total=%llu queue_avg_ms=%.2f queue_max_ms=%.2f "
+              "deadline_skips=%llu deadline_skips_total=%llu "
+              "skip_lateness_max_ms=%.2f lateness_max_ms=%.2f "
+              "output_lateness_max_ms=%.2f "
               "stages_avg_max_ms={%s}",
               handle_, static_cast<long long>(texture_id_),
               static_cast<long long>(width()), static_cast<long long>(height()),
               stats.attempts, stats.frames, stats.failures,
               PlaybackRenderMilliseconds(finished - statistics_since_),
-              stats.total_ms / stats.attempts, stats.worst.elapsed_ms,
+              stats.total_ms / divisor, stats.worst.elapsed_ms,
               stats.over_20, stats.over_33, stats.over_50, render_errors_,
-              stats.queue_total_ms / stats.attempts, stats.queue_max_ms,
+              stats.queue_total_ms / divisor, stats.queue_max_ms,
+              stats.deadline_skips, deadline_skips_, stats.skip_lateness_max_ms,
+              stats.lateness_max_ms, stats.output_lateness_max_ms,
               stages);
   BangumiNativeLog(message);
-  LogRenderSample(stats.worst, "worst");
+  if (stats.attempts) LogRenderSample(stats.worst, "worst");
   if (stats.queue_max_ms >= 50 &&
       stats.longest_queue.sequence != stats.worst.sequence)
     LogRenderSample(stats.longest_queue, "queue_worst");

@@ -54,6 +54,22 @@ under Documents, accessible through the settings page's log-directory action:
   Routine supersampling step records keep only correlation fields; apply,
   output observations and failures retain full playback snapshots. Repeated
   informational mpv messages remain informational when summarized.
+- High-load catch-up uses the next frame's display deadline. A timed video
+  frame more than 5 ms overdue is acknowledged with `SKIP_RENDERING`, avoiding
+  GL rendering, `glFinish`, snapshot allocation and GPU copy for stale content.
+  Initial/resized output, forced changes, redraws, repeats and untimed/vsync
+  frames remain renderable. At most eight consecutive frames are skipped so
+  persistent lateness cannot suppress every image. Callback coalescing and
+  render/resize/disposal fairness remain in the same render queue.
+  The pinned mpv `413ff0b1cd` implementation reports nanosecond deadlines even
+  though `render.h` retains an outdated microsecond comment; comparison uses
+  `mpv_get_time_ns`. Headers and the import library come from the same pinned
+  archive as the bundled DLL. No synchronous core property reads are added.
+  Aggregate `deadline_skips`/`deadline_skips_total` and worst-frame
+  `target_time_ns`/`frame_flags`/`lateness_ms` identify catch-up. The
+  `output_lateness_ms` values measure completion/publication delay relative to
+  the deadline, before Flutter's subsequent sampling and actual presentation.
+  Skips are counted separately, preserving `attempts = frames + failures`.
 - The player explicitly configures writable shader and demuxer caches under
   `BangumiToday/cache/playback` before renderer creation. Compiled shader
   programs can be reused across playback sessions. Supersampling first waits
@@ -153,10 +169,25 @@ performance on the target GPU.
 Synchronization references:
 
 - [Microsoft: Flush is asynchronous; use an event query for completion](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-flush).
+- [Pinned mpv: frame deadlines and skip acknowledgement](https://github.com/mpv-player/mpv/blob/413ff0b1cd/video/out/vo_libmpv.c).
 - [Flutter 3.48.0-0.4.pre: shared-handle import and descriptor release](https://github.com/flutter/flutter/blob/3.48.0-0.4.pre/engine/src/flutter/shell/platform/windows/external_texture_d3d.cc).
 
 Verification performed without starting the app or building the project:
 
+- Frame-deadline catch-up passes MSVC `/Zs`, `/W4`, `/WX` for all six renderer
+  translation units. Temporary functional checks cover the lateness boundary,
+  first/forced/redraw/repeat/vsync protection, recovery and the eight-skip
+  starvation bound, plus separate skip/render/error statistics. A headless
+  synthetic source confirms nanosecond deadlines and skip acknowledgements
+  against the pinned DLL. At 2x speed with a simulated 100 ms output delay,
+  catch-up reduces median submission lateness from about 111 ms to below 1 ms
+  and median completion lateness from about 211 ms to about 100 ms, by skipping
+  stale frames. The remaining 100 ms is the simulated GPU cost, not eliminated
+  by skipping; this check does not establish real RTX 4070 performance.
+  A separate native link/clock check and isolated CMake configuration verify
+  the pinned SDK include priority, import-library and bundled-DLL replacement,
+  scheduler header overlay and existing exception protection. All temporary
+  verification sources and artifacts are removed afterward.
 - Coordinator functional checks cover size-confirmation ordering, transient and
   persistent viewport loss, repeated detach notifications, reattachment,
   cancellation on disable/reset/close, superseding and stale output observations,

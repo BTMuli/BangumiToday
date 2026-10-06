@@ -51,8 +51,12 @@ struct PlaybackRenderSample {
   int64_t texture = 0;
   int64_t width = 0;
   int64_t height = 0;
+  int64_t target_time_ns = 0;
+  uint64_t frame_flags = 0;
   double elapsed_ms = 0;
   double queue_ms = 0;
+  double lateness_ms = 0;
+  double output_lateness_ms = 0;
   const char* failed_stage = nullptr;
   bool force = false;
 };
@@ -90,6 +94,10 @@ struct PlaybackRenderStatistics {
   uint64_t attempts = 0;
   uint64_t frames = 0;
   uint64_t failures = 0;
+  uint64_t deadline_skips = 0;
+  double skip_lateness_max_ms = 0;
+  double lateness_max_ms = 0;
+  double output_lateness_max_ms = 0;
   uint64_t over_20 = 0;
   uint64_t over_33 = 0;
   uint64_t over_50 = 0;
@@ -113,6 +121,9 @@ struct PlaybackRenderStatistics {
     total_ms += sample.elapsed_ms;
     queue_total_ms += sample.queue_ms;
     queue_max_ms = (std::max)(queue_max_ms, sample.queue_ms);
+    lateness_max_ms = (std::max)(lateness_max_ms, sample.lateness_ms);
+    output_lateness_max_ms =
+        (std::max)(output_lateness_max_ms, sample.output_lateness_ms);
     for (size_t i = 0; i < totals.size(); ++i) {
       totals[i] += sample.stages[i];
       maxima[i] = (std::max)(maxima[i], sample.stages[i]);

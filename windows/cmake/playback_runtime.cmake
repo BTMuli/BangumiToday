@@ -38,7 +38,10 @@ set(_bangumi_libmpv_dll_hash "")
 if(EXISTS "${BANGUMI_LIBMPV_DLL}")
     file(SHA256 "${BANGUMI_LIBMPV_DLL}" _bangumi_libmpv_dll_hash)
 endif()
-if(NOT _bangumi_libmpv_dll_hash STREQUAL BANGUMI_LIBMPV_DLL_SHA256)
+if(NOT _bangumi_libmpv_dll_hash STREQUAL BANGUMI_LIBMPV_DLL_SHA256 OR
+   NOT EXISTS "${BANGUMI_LIBMPV_DIR}/include/mpv/client.h" OR
+   NOT EXISTS "${BANGUMI_LIBMPV_DIR}/include/mpv/render.h" OR
+   NOT EXISTS "${BANGUMI_LIBMPV_DIR}/libmpv.dll.a")
     file(MAKE_DIRECTORY "${BANGUMI_LIBMPV_DIR}")
     execute_process(
         COMMAND "${CMAKE_COMMAND}" -E tar xf "${BANGUMI_LIBMPV_ARCHIVE}"
@@ -52,6 +55,22 @@ endif()
 if(NOT _bangumi_libmpv_dll_hash STREQUAL BANGUMI_LIBMPV_DLL_SHA256)
     message(FATAL_ERROR "The playback runtime DLL failed SHA-256 verification")
 endif()
+
+# Compile and link against the same pinned runtime we ship. The plugin's older
+# SDK lacks mpv_get_time_ns, needed for this runtime's nanosecond deadlines.
+target_include_directories(media_kit_video_plugin BEFORE PRIVATE
+    "${BANGUMI_LIBMPV_DIR}/include/mpv")
+get_target_property(_bangumi_playback_link_libraries
+    media_kit_video_plugin LINK_LIBRARIES)
+set(_bangumi_playback_runtime_links "")
+foreach(_bangumi_library IN LISTS _bangumi_playback_link_libraries)
+    get_filename_component(_bangumi_library_name "${_bangumi_library}" NAME)
+    if(NOT _bangumi_library_name STREQUAL "libmpv.dll.a")
+        list(APPEND _bangumi_playback_runtime_links "${_bangumi_library}")
+    endif()
+endforeach()
+set_property(TARGET media_kit_video_plugin PROPERTY LINK_LIBRARIES
+    ${_bangumi_playback_runtime_links} "${BANGUMI_LIBMPV_DIR}/libmpv.dll.a")
 
 # The generated plugin list already contains the old DLL. Replace only that
 # entry so installation never copies two different DLLs to the same filename.

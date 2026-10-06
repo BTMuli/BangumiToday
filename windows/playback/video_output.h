@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "angle_surface_manager.h"
+#include "frame_scheduler.h"
 #include "render_diagnostics.h"
 #include "render_queue.h"
 #include "thread_pool.h"
@@ -121,6 +122,9 @@ class VideoOutput {
 
   bool Render(PlaybackRenderSample* sample);
 
+  bool SkipLateFrame(PlaybackRenderSample* sample,
+                     const mpv_render_frame_info& frame);
+
   void CheckAndResize(PlaybackRenderSample* sample);
 
   void Resize(int64_t required_width, int64_t required_height,
@@ -148,6 +152,7 @@ class VideoOutput {
   // Set before draining accepted work on the render thread.
   std::atomic<bool> destroyed_{false};
   PlaybackRenderQueue render_queue_;
+  PlaybackFrameScheduler frame_scheduler_;
   std::chrono::steady_clock::time_point statistics_since_ =
       std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point last_render_error_{};
@@ -155,6 +160,7 @@ class VideoOutput {
   uint64_t render_sequence_ = 0;
   uint64_t size_request_ = 0;
   uint64_t render_errors_ = 0;
+  uint64_t deadline_skips_ = 0;
   PlaybackRenderStatistics render_statistics_;
 
   std::shared_ptr<PlaybackTextureStore> texture_store_ =
