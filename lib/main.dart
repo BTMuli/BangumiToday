@@ -27,6 +27,7 @@ import 'core/services/bt_engine_client.dart';
 import 'core/services/desktop_tray_service.dart';
 import 'core/services/download_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/playback_shader_cache_service.dart';
 import 'core/services/playback_window_service.dart';
 import 'core/services/system_proxy_watch_service.dart';
 import 'core/services/windows_app_protocol.dart';
@@ -142,6 +143,7 @@ Future<void> _exitApplication() async {
   await _runExitStep('隐藏主窗口', windowManager.hide);
   await _runExitStep('系统托盘', BTDesktopTrayService.instance.dispose);
   await _runExitStep('系统代理监听', SystemProxyWatchService.instance.stop);
+  await _runExitStep('Shader 缓存维护', PlaybackShaderCacheService.instance.stop);
   await _runExitStep('Windows 协议还原', restoreWindowsAppProtocol);
   await _runExitStep('BMF RSS 服务', () async {
     BmfRssService.instance.stop();
@@ -250,6 +252,9 @@ Future<void> _initBackgroundServices() async {
   }
 
   unawaited(_runOptionalService('应用缓存', BTCacheManager.instance.init));
+  unawaited(
+    _runOptionalService('Shader 缓存', PlaybackShaderCacheService.instance.start),
+  );
 
   unawaited(
     _runOptionalService(

@@ -9,6 +9,7 @@ import 'package:path/path.dart' as path;
 import '../../tools/log_tool.dart';
 import 'file_service.dart';
 import 'native_upscale_adapter.dart';
+import 'playback_shader_cache_service.dart';
 
 /// Configure writable caches before creating the renderer or opening media.
 abstract final class PlaybackCache {
@@ -16,9 +17,9 @@ abstract final class PlaybackCache {
     var adapter = NativeUpscaleAdapter(player.platform as NativePlayer);
     try {
       var root = await BTFileTool().getAppDataPath('cache/playback');
-      var shaders = Directory(path.join(root, 'shaders'));
+      var shaders = await PlaybackShaderCacheService.instance
+          .prepareDirectory();
       var demuxer = Directory(path.join(root, 'demuxer'));
-      await shaders.create(recursive: true);
       await demuxer.create(recursive: true);
       await adapter.command(['set', 'gpu-shader-cache-dir', shaders.path]);
       await adapter.command(['set', 'gpu-shader-cache', 'yes']);

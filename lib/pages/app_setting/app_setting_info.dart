@@ -9,6 +9,7 @@ import '../../controller/progress_controller.dart';
 import '../../core/cache/cache_manager.dart';
 import '../../core/services/download_service.dart';
 import '../../core/services/file_service.dart';
+import '../../core/services/playback_shader_cache_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/get_theme_label.dart';
 import '../../models/app/rss_selection_behavior.dart';
@@ -19,6 +20,8 @@ import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_buttons.dart';
 import '../../widgets/common/bt_setting_section.dart';
+
+enum _CacheScope { all, images, shaders }
 
 class AppConfigInfoWidget extends ConsumerStatefulWidget {
   const AppConfigInfoWidget({super.key});
@@ -53,6 +56,9 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
   /// 图片缓存大小
   int _imageCacheSize = 0;
 
+  /// Shader 缓存大小
+  int _shaderCacheSize = 0;
+
   /// 是否正在计算缓存
   bool _calculatingCache = false;
 
@@ -73,11 +79,13 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
       var downloadSize = await fileTool.getDirSize(BTDownloadTool.downloadDir);
       var cacheSize = await BTCacheManager.instance.getDiskCacheBytes();
       var imageSize = await _getImageCacheSize();
+      var shaderSize = await PlaybackShaderCacheService.instance.getSize();
 
       if (mounted) {
         setState(() {
-          _cacheSize = downloadSize + cacheSize + imageSize;
+          _cacheSize = downloadSize + cacheSize + imageSize + shaderSize;
           _imageCacheSize = imageSize;
+          _shaderCacheSize = shaderSize;
         });
       }
     } catch (e) {
@@ -358,39 +366,73 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
         tooltip: '清除图片缓存',
         onPressed: _imageCacheSize == 0 || _calculatingCache || _clearingCache
             ? null
-            : () => _clearCache(imagesOnly: true),
+            : () => _clearCache(scope: _CacheScope.images),
+      ),
+    );
+  }
+
+  /// 构建 Shader 缓存信息
+  Widget buildShaderCacheInfo() {
+    return ListTile(
+      leading: const BtIcon(FluentIcons.video),
+      title: const Text('Shader 缓存'),
+      subtitle: Text(
+        _calculatingCache
+            ? '正在计算 Shader 缓存大小...'
+            : '缓存大小：${BTFileTool.formatSize(_shaderCacheSize)}\n'
+                  '自动清理：30 天未更新或超过 128 MiB',
+      ),
+      trailing: BTIconButton(
+        icon: FluentIcons.delete,
+        tooltip: '清除 Shader 缓存',
+        onPressed: _shaderCacheSize == 0 || _calculatingCache || _clearingCache
+            ? null
+            : () => _clearCache(scope: _CacheScope.shaders),
       ),
     );
   }
 
   /// 清除缓存
-  Future<void> _clearCache({bool imagesOnly = false}) async {
+  Future<void> _clearCache({_CacheScope scope = _CacheScope.all}) async {
     if (_clearingCache || _calculatingCache) return;
     setState(() => _clearingCache = true);
-    var title = imagesOnly ? '清除图片缓存' : '清除全部缓存';
+    var (title, content) = switch (scope) {
+      _CacheScope.all => (
+        '清除全部缓存',
+        '确定要清除全部缓存吗？\n这将清除：\n• 应用数据缓存\n• 图片缓存\n• Shader 缓存\n• 下载文件',
+      ),
+      _CacheScope.images => ('清除图片缓存', '确定要清除图片缓存吗？\n封面和头像将在下次使用时重新加载。'),
+      _CacheScope.shaders => (
+        '清除 Shader 缓存',
+        '确定要清除 Shader 缓存吗？\n后续使用时会按需重新编译，首次加载可能稍慢。\n不会关闭视频超分。',
+      ),
+    };
     try {
-      var check = await showConfirm(
-        context,
-        title: title,
-        content: imagesOnly
-            ? '确定要清除图片缓存吗？\n封面和头像将在下次使用时重新加载。'
-            : '确定要清除全部缓存吗？\n这将清除：\n• 应用数据缓存\n• 图片缓存\n• 下载文件',
-      );
+      var check = await showConfirm(context, title: title, content: content);
       if (!check || !mounted) return;
 
       progress = ProgressWidget.show(context, title: title, text: '正在清除缓存...');
 
-      if (!imagesOnly) {
+      if (scope == _CacheScope.all) {
         await BTCacheManager.instance.clear();
         progress.update(text: '已清除应用缓存');
       }
 
-      await DefaultCacheManager().emptyCache();
-      PaintingBinding.instance.imageCache.clear();
-      PaintingBinding.instance.imageCache.clearLiveImages();
-      progress.update(text: '已清除图片缓存');
+      if (scope != _CacheScope.shaders) {
+        await DefaultCacheManager().emptyCache();
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
+        progress.update(text: '已清除图片缓存');
+      }
 
-      if (!imagesOnly) {
+      var shaderFailures = 0;
+      if (scope != _CacheScope.images) {
+        var result = await PlaybackShaderCacheService.instance.clear();
+        shaderFailures = result.failedFiles;
+        progress.update(text: '已清理 Shader 缓存');
+      }
+
+      if (scope == _CacheScope.all) {
         await fileTool.clearDir(BTDownloadTool.downloadDir);
         progress.update(text: '已清除下载文件');
       }
@@ -398,7 +440,19 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
       progress.end();
       await _calculateCacheSize();
       if (mounted) {
-        await BtInfobar.success(context, imagesOnly ? '图片缓存已清除' : '缓存已清除');
+        if (shaderFailures > 0) {
+          await BtInfobar.info(
+            context,
+            '其余缓存已清除，$shaderFailures 个 Shader 缓存文件暂时无法清除，请稍后重试',
+          );
+        } else {
+          var message = switch (scope) {
+            _CacheScope.all => '缓存已清除',
+            _CacheScope.images => '图片缓存已清除',
+            _CacheScope.shaders => 'Shader 缓存已清除',
+          };
+          await BtInfobar.success(context, message);
+        }
       }
     } catch (e) {
       if (progress.isShow) progress.end();
@@ -423,6 +477,7 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
         const BTSettingDivider(),
         buildCacheInfo(),
         buildImageCacheInfo(),
+        buildShaderCacheInfo(),
         buildLogInfo(),
         const BTSettingDivider(),
         buildDownloadInfo(),

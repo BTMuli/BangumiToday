@@ -72,8 +72,15 @@ under Documents, accessible through the settings page's log-directory action:
   Skips are counted separately, preserving `attempts = frames + failures`.
 - The player explicitly configures writable shader and demuxer caches under
   `BangumiToday/cache/playback` before renderer creation. Compiled shader
-  programs can be reused across playback sessions. Supersampling first waits
-  for the requested texture dimensions before installing a new shader chain,
+  programs can be reused across playback sessions. Settings report shader cache
+  size separately from images and support independent clearing; clearing all
+  caches includes compiled shaders. The main engine prunes shader caches at
+  startup and hourly: files last written at least 30 days ago are removed, then
+  the oldest files are evicted until at most 128 MiB remain. Locked or changed
+  files are retried later. Only SHA-256-named files in the existing shader cache
+  directory are managed; shader sources, links and subdirectories are preserved.
+  Supersampling first waits for the requested texture dimensions before
+  installing a new shader chain,
   avoiding compilation at both the old and new sizes. A one-second viewport
   handoff grace period avoids unloading shaders for brief route/fullscreen
   transitions; persistent hiding, media reset and explicit disable still restore
@@ -174,6 +181,11 @@ Synchronization references:
 
 Verification performed without starting the app or building the project:
 
+- Shader-cache functional checks cover absent directories, the 30-day expiry
+  boundary, oldest-first eviction, exact capacity, oversized entries, size
+  reporting, independent clearing, preservation of sources/other caches/links,
+  rejection of linked roots and occupied-file retries. The checks use temporary
+  directories and are removed afterward. Changed Dart files pass static analysis.
 - Frame-deadline catch-up passes MSVC `/Zs`, `/W4`, `/WX` for all six renderer
   translation units. Temporary functional checks cover the lateness boundary,
   first/forced/redraw/repeat/vsync protection, recovery and the eight-skip
