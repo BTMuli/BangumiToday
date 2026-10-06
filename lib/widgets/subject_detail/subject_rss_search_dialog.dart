@@ -15,6 +15,7 @@ import '../../models/app/rss_selection_behavior.dart';
 import '../../models/mikan/mikan_model.dart';
 import '../../models/rss/anibt_filters.dart';
 import '../../models/rss/anibt_search.dart';
+import '../../providers/bmf_providers.dart';
 import '../../request/mikan/mikan_api.dart';
 import '../../request/rss/anibt_api.dart';
 import '../../store/bt_download_store.dart';
@@ -544,7 +545,7 @@ class _AnibtAnimeResultState extends State<_AnibtAnimeResult>
                 child: _AnibtGroupResult(
                   key: ValueKey(group.slug),
                   group: group,
-                  subjectId: item.bgmId,
+                  subjectId: widget.subjectId,
                   selected: selection?.groupId == group.slug,
                   onSelected: widget.enabled
                       ? (selected) => _select(group, selected)
@@ -857,7 +858,7 @@ class _MikanAnimeResultState extends State<_MikanAnimeResult>
                 child: _MikanGroupResult(
                   key: ValueKey(group.id),
                   group: group,
-                  subjectId: detail?.bgmId,
+                  subjectId: widget.subjectId,
                   selected: selection?.groupId == group.id,
                   onSelected: widget.enabled
                       ? (selected) => _select(group, selected)
@@ -873,7 +874,7 @@ class _MikanAnimeResultState extends State<_MikanAnimeResult>
 
 class _MikanGroupResult extends StatelessWidget {
   final MikanGroupModel group;
-  final int? subjectId;
+  final int subjectId;
   final bool selected;
   final ValueChanged<bool>? onSelected;
 
@@ -941,7 +942,7 @@ class _MikanGroupResult extends StatelessWidget {
 
 class _MikanEpisodePreview extends StatelessWidget {
   final MikanEpisodeModel item;
-  final int? subjectId;
+  final int subjectId;
   final bool enabled;
 
   const _MikanEpisodePreview({
@@ -1009,7 +1010,7 @@ class _MikanEpisodePreview extends StatelessWidget {
 
 class _RssPreviewDownloadButton extends ConsumerStatefulWidget {
   final String title;
-  final int? subjectId;
+  final int subjectId;
   final String? magnet;
   final String? torrentUrl;
   final _RssSearchSource source;
@@ -1058,7 +1059,12 @@ class _RssPreviewDownloadButtonState
     setState(() => _downloading = true);
     updateKeepAlive();
     try {
-      var directory = await pickDownloadDirectory();
+      var bmf = await ref.read(bmfRepositoryProvider).read(widget.subjectId);
+      if (!mounted) return;
+      var directory = bmf?.download;
+      if (directory == null || directory.isEmpty) {
+        directory = await pickDownloadDirectory();
+      }
       if (!mounted || directory == null || directory.isEmpty) return;
       var store = ref.read(btDownloadStoreProvider.notifier);
       if (Uri.parse(url).scheme == 'magnet') {
