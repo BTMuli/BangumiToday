@@ -3,12 +3,10 @@ part of '../subject_episode_files_dialog.dart';
 extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
   Widget _buildFilesHeader() {
     var episode = widget.episode;
-    var file = episode == null ? widget.filePath ?? _selectedFile : null;
+    var file = widget.filePath;
     var target = episode != null
         ? subjectFileEpisodeLabel(episode)
-        : file == null
-        ? null
-        : path.basename(file);
+        : path.basename(file!);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -32,44 +30,38 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                _editingFile
-                    ? '文件关联剧集'
-                    : episode != null
-                    ? '剧集关联文件'
-                    : '章节文件与自动匹配',
+                _editingFile ? '文件关联剧集' : '剧集关联文件',
                 style: BTTypography.title(context),
               ),
             ),
           ],
         ),
-        if (target != null) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: _filePanelDecoration(),
-            child: Row(
-              children: [
-                Icon(
-                  file == null ? FluentIcons.video : FluentIcons.page,
-                  size: 16,
-                  color: BTColors.textSecondary(context),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Tooltip(
-                    message: file ?? target,
-                    child: Text(
-                      target,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: BTTypography.bodyStrong(context),
-                    ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: _filePanelDecoration(),
+          child: Row(
+            children: [
+              Icon(
+                file == null ? FluentIcons.video : FluentIcons.page,
+                size: 16,
+                color: BTColors.textSecondary(context),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Tooltip(
+                  message: file ?? target,
+                  child: Text(
+                    target,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: BTTypography.bodyStrong(context),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ],
     );
   }
@@ -183,12 +175,7 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
     );
   }
 
-  Widget _buildEmptyFiles(
-    bool loading,
-    bool canChoose,
-    Map<String, PlaybackEpisodeLink> links,
-    List<BangumiEpisode> episodes,
-  ) => LayoutBuilder(
+  Widget _buildEmptyFiles(bool loading, bool canChoose) => LayoutBuilder(
     builder: (_, constraints) {
       var compact = constraints.maxHeight < 200;
       var minimal = constraints.maxHeight < 140;
@@ -242,9 +229,7 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
                     child: _fileActionLabel(FluentIcons.folder_open, '选择目录'),
                   ),
                   Button(
-                    onPressed: canChoose
-                        ? () => _run(() => _pickFile(links, episodes))
-                        : null,
+                    onPressed: canChoose ? () => _run(_pickFile) : null,
                     child: _fileActionLabel(FluentIcons.add, '添加文件'),
                   ),
                 ],
@@ -400,7 +385,6 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
     PlaybackEpisodeLink? linked,
     double rowExtent, {
     required bool enabled,
-    int maxRows = 6,
   }) {
     if (episodes.isEmpty) {
       return Container(
@@ -473,10 +457,7 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
         }
         var height = top + gap;
         return SizedBox(
-          height: height.clamp(
-            tileExtent + gap * 2,
-            tileExtent * maxRows + gap * (maxRows + 1),
-          ),
+          height: height.clamp(tileExtent + gap * 2, tileExtent * 6 + gap * 7),
           child: Container(
             decoration: _filePanelDecoration(),
             clipBehavior: Clip.antiAlias,
@@ -489,10 +470,9 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
                   tileExtent + gap,
                   viewport.maxHeight,
                   topPadding: selectedTop,
-                  controller: _episodeScrollController,
                 );
                 return CustomScrollView(
-                  controller: _episodeScrollController,
+                  controller: _listScrollController,
                   primary: false,
                   slivers: [
                     SliverPadding(

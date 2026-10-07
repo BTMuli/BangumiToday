@@ -8,7 +8,6 @@ import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../../core/services/download_directory.dart';
-import '../../core/services/episode_mark_service.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/playback_episode_files.dart';
@@ -38,6 +37,19 @@ String subjectFileEpisodeLabel(BangumiEpisode episode) {
 Future<void> showSubjectEpisodeFiles(
   BuildContext context, {
   required int subject,
+  required BangumiEpisode episode,
+}) => _showSubjectFileAssociation(context, subject: subject, episode: episode);
+
+Future<void> showSubjectFileEpisodes(
+  BuildContext context, {
+  required int subject,
+  required String filePath,
+}) =>
+    _showSubjectFileAssociation(context, subject: subject, filePath: filePath);
+
+Future<void> _showSubjectFileAssociation(
+  BuildContext context, {
+  required int subject,
   BangumiEpisode? episode,
   String? filePath,
 }) => showDialog<void>(
@@ -56,7 +68,7 @@ class _SubjectEpisodeFilesDialog extends ConsumerStatefulWidget {
     required this.subject,
     this.episode,
     this.filePath,
-  });
+  }) : assert((episode != null) != (filePath != null));
 
   final int subject;
   final BangumiEpisode? episode;
@@ -72,9 +84,7 @@ class _SubjectEpisodeFilesDialogState
   final _files = <String, String>{};
   final _automaticFiles = <String>{};
   final _listScrollController = ScrollController();
-  final _episodeScrollController = ScrollController();
-  final _revealSignatures =
-      <ScrollController, (String?, int, int, double, double, double)>{};
+  (String?, int, int, double, double, double)? _revealSignature;
   static const _fileRowExtent = 64.0;
   String? _directory;
   String? _selectedFile;
@@ -83,7 +93,7 @@ class _SubjectEpisodeFilesDialogState
   bool _busy = false;
   String? _error;
 
-  bool get _editingFile => widget.episode == null && widget.filePath != null;
+  bool get _editingFile => widget.filePath != null;
 
   @override
   void initState() {
@@ -97,7 +107,6 @@ class _SubjectEpisodeFilesDialogState
   @override
   void dispose() {
     _listScrollController.dispose();
-    _episodeScrollController.dispose();
     super.dispose();
   }
 
@@ -108,21 +117,19 @@ class _SubjectEpisodeFilesDialogState
     double rowExtent,
     double viewportHeight, {
     double topPadding = 0,
-    ScrollController? controller,
   }) {
-    var scrollController = controller ?? _listScrollController;
     var signature = (key, index, count, rowExtent, viewportHeight, topPadding);
-    if (_revealSignatures[scrollController] == signature) return;
-    _revealSignatures[scrollController] = signature;
+    if (_revealSignature == signature) return;
+    _revealSignature = signature;
     if (index < 0) return;
     // Lazy lists have not built distant rows; use their exact fixed extent.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
-          _revealSignatures[scrollController] != signature ||
-          !scrollController.hasClients) {
+          _revealSignature != signature ||
+          !_listScrollController.hasClients) {
         return;
       }
-      var position = scrollController.position;
+      var position = _listScrollController.position;
       if (!position.hasContentDimensions) return;
       var top = topPadding + index * rowExtent;
       if (top >= position.pixels &&
@@ -130,7 +137,7 @@ class _SubjectEpisodeFilesDialogState
         return;
       }
       var offset = top - (position.viewportDimension - rowExtent) / 2;
-      scrollController.jumpTo(
+      _listScrollController.jumpTo(
         offset.clamp(position.minScrollExtent, position.maxScrollExtent),
       );
     });
@@ -192,7 +199,6 @@ class _SubjectEpisodeFilesDialogState
         _directory = directory;
         _files.clear();
         _automaticFiles.clear();
-        if (widget.filePath != null) _addFile(widget.filePath!);
         if (_selectedFile != null) _addFile(_selectedFile!);
         for (var file in files) {
           _addFile(file);
@@ -201,22 +207,14 @@ class _SubjectEpisodeFilesDialogState
         for (var link in links.values) {
           if (link.subject == widget.subject) _addFile(link.filePath);
         }
-        if (_selectedFile == null && widget.episode != null) {
-          _selectedFile = links.values
-              .where(
-                (link) =>
-                    link.subject == widget.subject &&
-                    link.episode == widget.episode!.id,
-              )
-              .firstOrNull
-              ?.filePath;
-        }
-        var linked = _selectedFile == null
-            ? null
-            : links[PlaybackItem.pathKey(_selectedFile!)];
-        if (widget.episode == null && linked?.subject == widget.subject) {
-          _selectedEpisode = linked!.episode ?? 0;
-        }
+        _selectedFile ??= links.values
+            .where(
+              (link) =>
+                  link.subject == widget.subject &&
+                  link.episode == widget.episode!.id,
+            )
+            .firstOrNull
+            ?.filePath;
       });
     } catch (error) {
       if (mounted) setState(() => _error = '加载文件关联失败：$error');
@@ -225,27 +223,10 @@ class _SubjectEpisodeFilesDialogState
     }
   }
 
-  void _selectFile(
-    String file,
-    Map<String, PlaybackEpisodeLink> links,
-    List<BangumiEpisode> episodes,
-  ) {
-    var linked = links[PlaybackItem.pathKey(file)];
-    var inferred = EpisodeMarkService.matchingEpisode(
-      PlaybackItem(
-        filePath: file,
-        title: path.basename(file),
-        subject: widget.subject,
-      ),
-      episodes.map(episodeMarkChapter),
-    );
+  void _selectFile(String file) {
     setState(() {
       _selectedFile = file;
-      _selectedEpisode =
-          widget.episode?.id ??
-          (linked?.subject == widget.subject
-              ? linked?.episode ?? 0
-              : inferred?.id);
+      _selectedEpisode = widget.episode!.id;
     });
   }
 
@@ -264,14 +245,11 @@ class _SubjectEpisodeFilesDialogState
     }
   }
 
-  Future<void> _pickFile(
-    Map<String, PlaybackEpisodeLink> links,
-    List<BangumiEpisode> episodes,
-  ) async {
+  Future<void> _pickFile() async {
     var file = await pickPlaybackFile();
     if (file == null || !mounted) return;
     _addFile(file.path);
-    _selectFile(file.path, links, episodes);
+    _selectFile(file.path);
   }
 
   Future<void> _save() async {
@@ -376,14 +354,14 @@ class _SubjectEpisodeFilesDialogState
       manualLinks: links,
     );
     var linkedFiles = matched.values.where(
-      (link) => widget.episode == null || link.episode == widget.episode!.id,
+      (link) => _editingFile || link.episode == widget.episode!.id,
     );
     var files =
         <String, String>{
           ..._files,
           for (var link in linkedFiles) link.key: link.filePath,
         }.values.toList()..sort((a, b) {
-          if (widget.episode != null) {
+          if (!_editingFile) {
             bool belongs(String file) {
               return matched[PlaybackItem.pathKey(file)]?.episode ==
                   widget.episode!.id;
@@ -397,7 +375,7 @@ class _SubjectEpisodeFilesDialogState
     // A chapter opened for playback immediately selects its inferred file.
     var selected =
         _selectedFile ??
-        (widget.episode == null ? null : linkedFiles.firstOrNull?.filePath);
+        (_editingFile ? widget.filePath : linkedFiles.firstOrNull?.filePath);
     var linked = selected == null
         ? null
         : links[PlaybackItem.pathKey(selected)];
@@ -437,10 +415,10 @@ class _SubjectEpisodeFilesDialogState
     var canSelectEpisode =
         canChoose && !chapterData.hasError && !linkData.hasError;
     var pendingRemoval =
-        widget.episode != null && selected != null && selectedEpisode == 0;
+        !_editingFile && selected != null && selectedEpisode == 0;
     var canRemove =
         canSelectEpisode &&
-        widget.episode != null &&
+        !_editingFile &&
         (pendingRemoval || effective?.episode == widget.episode!.id);
     // Only the list scrolls; surrounding controls retain their positions.
     var body = Column(
@@ -461,12 +439,7 @@ class _SubjectEpisodeFilesDialogState
           const SizedBox(height: 8),
           if (loading) ...[const ProgressBar(), const SizedBox(height: 8)],
         ] else ...[
-          Text(
-            widget.episode == null
-                ? '视频会自动匹配章节；需要调整时，选择文件后修正关联。'
-                : '选择文件关联到本集；一集可关联多个文件。',
-            style: BTTypography.caption(context),
-          ),
+          Text('选择文件关联到本集；一集可关联多个文件。', style: BTTypography.caption(context)),
           const SizedBox(height: 16),
           _buildDirectoryBar(canChoose),
           const SizedBox(height: 16),
@@ -480,25 +453,22 @@ class _SubjectEpisodeFilesDialogState
                 _fileBadge('已匹配 ${linkedFiles.length}', highlighted: true),
                 if (unmatchedCount > 0) _fileBadge('未匹配 $unmatchedCount'),
                 if (excludedCount > 0) _fileBadge('不匹配 $excludedCount'),
-                if (widget.episode != null)
-                  Tooltip(
-                    message: pendingRemoval ? '撤销本次移除' : '移除选中文件与本集的关联，保存修正后生效',
-                    child: Button(
-                      onPressed: canRemove
-                          ? () => pendingRemoval
-                                ? _selectEpisode(widget.episode!.id)
-                                : _removeEpisodeFile(selected!)
-                          : null,
-                      child: _fileActionLabel(
-                        pendingRemoval ? FluentIcons.undo : FluentIcons.remove,
-                        pendingRemoval ? '撤销移除' : '移除关联',
-                      ),
+                Tooltip(
+                  message: pendingRemoval ? '撤销本次移除' : '移除选中文件与本集的关联，保存修正后生效',
+                  child: Button(
+                    onPressed: canRemove
+                        ? () => pendingRemoval
+                              ? _selectEpisode(widget.episode!.id)
+                              : _removeEpisodeFile(selected!)
+                        : null,
+                    child: _fileActionLabel(
+                      pendingRemoval ? FluentIcons.undo : FluentIcons.remove,
+                      pendingRemoval ? '撤销移除' : '移除关联',
                     ),
                   ),
+                ),
                 Button(
-                  onPressed: canChoose
-                      ? () => _run(() => _pickFile(links, episodes))
-                      : null,
+                  onPressed: canChoose ? () => _run(_pickFile) : null,
                   child: _fileActionLabel(FluentIcons.add, '添加文件'),
                 ),
               ],
@@ -508,7 +478,6 @@ class _SubjectEpisodeFilesDialogState
           if (loading) ...[const ProgressBar(), const SizedBox(height: 8)],
         ],
         Flexible(
-          flex: _editingFile ? 1 : 3,
           child: _editingFile
               ? _buildEpisodeGrid(
                   episodes,
@@ -519,7 +488,7 @@ class _SubjectEpisodeFilesDialogState
                   enabled: canSelectEpisode,
                 )
               : files.isEmpty
-              ? _buildEmptyFiles(loading, canChoose, links, episodes)
+              ? _buildEmptyFiles(loading, canChoose)
               : _buildFileList(
                   files,
                   selected,
@@ -529,27 +498,7 @@ class _SubjectEpisodeFilesDialogState
                   rowExtent,
                 ),
         ),
-        if (!_editingFile && selected != null && widget.episode == null) ...[
-          const SizedBox(height: 12),
-          _buildEpisodeToolbar(
-            episodes.length,
-            selectedEpisode,
-            enabled: canSelectEpisode,
-          ),
-          const SizedBox(height: 8),
-          Flexible(
-            child: _buildEpisodeGrid(
-              episodes,
-              validEpisode ? selectedEpisode : null,
-              effective?.episode,
-              linked,
-              rowExtent,
-              enabled: canSelectEpisode,
-              maxRows: 3,
-            ),
-          ),
-        ],
-        if (widget.episode == null && selected != null) ...[
+        if (_editingFile) ...[
           const SizedBox(height: 8),
           Text(
             selectedEpisode == 0 && !unchanged
@@ -604,7 +553,7 @@ class _SubjectEpisodeFilesDialogState
                 var file = files.firstWhere(
                   (file) => PlaybackItem.pathKey(file) == key,
                 );
-                _selectFile(file, links, episodes);
+                _selectFile(file);
               },
               child: body,
             ),
@@ -615,7 +564,7 @@ class _SubjectEpisodeFilesDialogState
           runSpacing: 8,
           children: [
             if (linked?.subject == widget.subject &&
-                (widget.episode == null ||
+                (_editingFile ||
                     linked!.excluded ||
                     linked.episode == widget.episode!.id))
               Button(
