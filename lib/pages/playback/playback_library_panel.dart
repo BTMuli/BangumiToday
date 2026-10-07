@@ -813,9 +813,15 @@ IconData _playbackLayoutIcon(PlaybackEpisodeLayout layout) => switch (layout) {
   );
 }
 
-Widget _playbackLibraryFlyout(Widget panel, Size size) => FlyoutContent(
-  padding: EdgeInsets.zero,
-  child: SizedBox(width: size.width, height: size.height, child: panel),
+Widget _playbackLibraryFlyout(Widget panel, Size size) => DisableAcrylic(
+  // useAcrylic alone does not remove fluent_ui's BackdropFilter.
+  child: FlyoutContent(
+    padding: EdgeInsets.zero,
+    useAcrylic: false,
+    child: RepaintBoundary(
+      child: SizedBox(width: size.width, height: size.height, child: panel),
+    ),
+  ),
 );
 
 /// 列表行的行内操作：纯图标，与标记按钮一起在悬停或选中时出现。

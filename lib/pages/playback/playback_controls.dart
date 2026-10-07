@@ -563,8 +563,10 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
       ],
       bottomButtonBar: [
         if (bottomWidth > 420)
-          const MaterialDesktopPositionIndicator(
-            style: TextStyle(color: Colors.white, fontSize: 12),
+          const RepaintBoundary(
+            child: MaterialDesktopPositionIndicator(
+              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
           ),
         if (bottomWidth > 420) const SizedBox(width: 12),
         if (bottomWidth > 820)
@@ -820,8 +822,37 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           await _contextMenu.showFlyout<void>(
             position: position,
             placementMode: placement,
-            builder: (_) =>
-                MenuFlyout(items: items(), constraints: menuConstraints),
+            // FlyoutContent.useAcrylic only changes tint opacity in fluent_ui
+            // 4.16.1. DisableAcrylic removes the actual video backdrop filter
+            // and MenuFlyout carries it into every submenu's overlay entry.
+            builder: (menuContext) {
+              var menu = DisableAcrylic(
+                child: RepaintBoundary(
+                  child: MenuFlyout(
+                    items: items(),
+                    constraints: menuConstraints,
+                  ),
+                ),
+              );
+              if (widget.store.upscaleMode == PlaybackUpscaleMode.off) {
+                return menu;
+              }
+              // Submenus inherit the nearest Flyout's transitions. Override
+              // them here while the outer route keeps its main-menu animation.
+              var parent = Flyout.of(menuContext);
+              return Flyout(
+                root: parent.widget.root,
+                rootFlyout: parent.rootFlyout,
+                menuKey: parent.widget.menuKey,
+                additionalOffset: parent.additionalOffset,
+                margin: parent.margin,
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+                transitionBuilder: (_, _, _, child) => child,
+                placementMode: parent.placementMode,
+                builder: (_) => menu,
+              );
+            },
           );
         } finally {
           if (mounted) {
@@ -980,15 +1011,17 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _PlaybackSeekBar(
-                            key: ValueKey(widget.store.current!.key),
-                            player: widget.player,
-                            chapters: _availableChapters,
-                            onChapter: (chapter) => unawaited(
-                              widget.run(() => _seekChapter(chapter)),
+                          RepaintBoundary(
+                            child: _PlaybackSeekBar(
+                              key: ValueKey(widget.store.current!.key),
+                              player: widget.player,
+                              chapters: _availableChapters,
+                              onChapter: (chapter) => unawaited(
+                                widget.run(() => _seekChapter(chapter)),
+                              ),
+                              run: widget.run,
+                              onInteraction: _seekInteraction,
                             ),
-                            run: widget.run,
-                            onInteraction: _seekInteraction,
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1104,11 +1137,13 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                                   right: 16,
                                   top: constraints.maxHeight >= 300 ? 64 : 8,
                                   bottom: constraints.maxHeight >= 300 ? 92 : 8,
-                                  child: _PlaybackVideoInfo(
-                                    key: ValueKey(item.key),
-                                    player: widget.player,
-                                    item: item,
-                                    store: widget.store,
+                                  child: RepaintBoundary(
+                                    child: _PlaybackVideoInfo(
+                                      key: ValueKey(item.key),
+                                      player: widget.player,
+                                      item: item,
+                                      store: widget.store,
+                                    ),
                                   ),
                                 ),
                               Positioned.fill(

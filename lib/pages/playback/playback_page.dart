@@ -477,21 +477,24 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                               defaultExitNativeFullscreen,
                           controls: (video) => _PlaybackViewportReporter(
                             store: store,
-                            child: _PlaybackVideoControls(
-                              video: video,
-                              store: store,
-                              player: store.player!,
-                              overlay: _overlay,
-                              run: _run,
-                              pickFile: _pickFile,
-                              stopPlayback: _stopPlayback,
-                              pickSubtitle: _pickSubtitle,
-                              windowMode: widget.windowMode,
-                              // 只有内嵌播放页会显示侧栏；独立窗口始终用浮出层。
-                              sidebarVisible:
-                                  widget.windowMode == null && _sidebarVisible,
-                              buildLibraryPanel: (section) =>
-                                  _buildLibraryPanel(section: section),
+                            child: RepaintBoundary(
+                              child: _PlaybackVideoControls(
+                                video: video,
+                                store: store,
+                                player: store.player!,
+                                overlay: _overlay,
+                                run: _run,
+                                pickFile: _pickFile,
+                                stopPlayback: _stopPlayback,
+                                pickSubtitle: _pickSubtitle,
+                                windowMode: widget.windowMode,
+                                // 只有内嵌播放页会显示侧栏；独立窗口始终用浮出层。
+                                sidebarVisible:
+                                    widget.windowMode == null &&
+                                    _sidebarVisible,
+                                buildLibraryPanel: (section) =>
+                                    _buildLibraryPanel(section: section),
+                              ),
                             ),
                           ),
                         ),
