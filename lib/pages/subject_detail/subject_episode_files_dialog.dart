@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 import '../../core/services/download_directory.dart';
 import '../../core/services/episode_mark_service.dart';
 import '../../core/services/file_service.dart';
+import '../../core/theme/bt_theme.dart';
 import '../../core/utils/playback_episode_files.dart';
 import '../../core/utils/playback_paths.dart';
 import '../../data/repositories/episode_mark_gateway_impl.dart';
@@ -24,6 +25,8 @@ import '../../providers/subject_playback_providers.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_select.dart';
 import '../playback/playback_actions.dart';
+
+part 'subject_episode_files_dialog/widgets.dart';
 
 String subjectFileEpisodeLabel(BangumiEpisode episode) {
   var number = episode.sort == episode.sort.truncateToDouble()
@@ -69,16 +72,17 @@ class _SubjectEpisodeFilesDialogState
     extends ConsumerState<_SubjectEpisodeFilesDialog> {
   final _files = <String, String>{};
   final _automaticFiles = <String>{};
-  final _fileScrollController = ScrollController();
-  (String?, int, int, double, double)? _revealSignature;
-  static const _fileRowExtent = 56.0;
+  final _listScrollController = ScrollController();
+  (String?, int, int, double, double, double)? _revealSignature;
+  static const _fileRowExtent = 64.0;
   String? _directory;
   String? _selectedFile;
   int? _selectedEpisode;
   bool _loadingFiles = true;
   bool _busy = false;
   String? _error;
-  String? _notice;
+
+  bool get _editingFile => widget.episode == null && widget.filePath != null;
 
   @override
   void initState() {
@@ -91,19 +95,19 @@ class _SubjectEpisodeFilesDialogState
 
   @override
   void dispose() {
-    _fileScrollController.dispose();
+    _listScrollController.dispose();
     super.dispose();
   }
 
-  void _revealSelectedFile(
-    List<String> files,
-    String? selected,
+  void _revealSelectedRow(
+    String? key,
+    int index,
+    int count,
     double rowExtent,
-    double viewportHeight,
-  ) {
-    var key = selected == null ? null : PlaybackItem.pathKey(selected);
-    var index = files.indexWhere((file) => PlaybackItem.pathKey(file) == key);
-    var signature = (key, index, files.length, rowExtent, viewportHeight);
+    double viewportHeight, {
+    double topPadding = 0,
+  }) {
+    var signature = (key, index, count, rowExtent, viewportHeight, topPadding);
     if (_revealSignature == signature) return;
     _revealSignature = signature;
     if (index < 0) return;
@@ -111,20 +115,27 @@ class _SubjectEpisodeFilesDialogState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
           _revealSignature != signature ||
-          !_fileScrollController.hasClients) {
+          !_listScrollController.hasClients) {
         return;
       }
-      var position = _fileScrollController.position;
+      var position = _listScrollController.position;
       if (!position.hasContentDimensions) return;
-      var top = index * rowExtent;
+      var top = topPadding + index * rowExtent;
       if (top >= position.pixels &&
           top + rowExtent <= position.pixels + position.viewportDimension) {
         return;
       }
       var offset = top - (position.viewportDimension - rowExtent) / 2;
-      _fileScrollController.jumpTo(
+      _listScrollController.jumpTo(
         offset.clamp(position.minScrollExtent, position.maxScrollExtent),
       );
+    });
+  }
+
+  void _selectEpisode(int? episode) {
+    if (_busy || episode == null) return;
+    setState(() {
+      _selectedEpisode = episode;
     });
   }
 
@@ -140,6 +151,18 @@ class _SubjectEpisodeFilesDialogState
       _error = null;
     });
     try {
+      if (_editingFile) {
+        // The fixed file only needs its saved link; do not scan other files.
+        var links = await ref.read(playbackEpisodeLinksProvider).readAll();
+        if (!mounted) return;
+        var linked = links[PlaybackItem.pathKey(widget.filePath!)];
+        setState(() {
+          _selectedEpisode = linked?.subject == widget.subject
+              ? linked!.episode ?? 0
+              : null;
+        });
+        return;
+      }
       var repository = ref.read(bmfRepositoryProvider);
       var storage = ref.read(playbackEpisodeLinksProvider);
       var model = await repository.read(widget.subject);
@@ -219,7 +242,6 @@ class _SubjectEpisodeFilesDialogState
           (linked?.subject == widget.subject
               ? linked?.episode ?? 0
               : inferred?.id);
-      _notice = null;
     });
   }
 
@@ -228,7 +250,6 @@ class _SubjectEpisodeFilesDialogState
     setState(() {
       _busy = true;
       _error = null;
-      _notice = null;
     });
     try {
       await action();
@@ -253,14 +274,45 @@ class _SubjectEpisodeFilesDialogState
     var file = _selectedFile!;
     var episode = _selectedEpisode == 0 ? null : _selectedEpisode!;
     var storage = ref.read(playbackEpisodeLinksProvider);
-    var existing = (await storage.readAll())[PlaybackItem.pathKey(file)];
+    var links = await storage.readAll();
     if (!mounted) return;
+    var key = PlaybackItem.pathKey(file);
+    var existing = links[key];
+    var removing = widget.episode != null && episode == null;
+    if (removing) {
+      var chapters = ref
+          .read(subjectFileEpisodesProvider(widget.subject))
+          .value;
+      var current = resolvePlaybackEpisodeFiles(
+        subject: widget.subject,
+        files:
+            _automaticFiles.contains(key) || existing?.subject == widget.subject
+            ? [file]
+            : const [],
+        episodes: (chapters ?? const <BangumiEpisode>[]).map(
+          episodeMarkChapter,
+        ),
+        manualLinks: links,
+      )[key];
+      if (current?.episode != widget.episode!.id) {
+        setState(() {
+          _selectedEpisode = widget.episode!.id;
+          _error = '文件关联已变化，未移除；请重新选择。';
+        });
+        return;
+      }
+    }
     if (existing != null &&
-        (existing.subject != widget.subject || existing.episode != episode)) {
+        (existing.subject != widget.subject ||
+            (episode != null &&
+                existing.episode != null &&
+                existing.episode != episode))) {
       var confirmed = await showConfirm(
         context,
         title: '修改文件关联',
-        content: '该文件已关联其他章节，确定改为当前章节吗？',
+        content:
+            '该文件已关联${existing.subject != widget.subject ? '其他条目' : '其他剧集'}，'
+            '确定改为${episode == null ? '不匹配' : '当前剧集'}吗？',
       );
       if (!confirmed || !mounted) return;
     }
@@ -271,9 +323,20 @@ class _SubjectEpisodeFilesDialogState
         episode: episode,
       ),
     );
-    if (mounted) {
-      setState(() => _notice = episode == null ? '已设为不对应章节' : '已保存关联');
+    if (mounted && removing) {
+      setState(() {
+        _selectedFile = null;
+        _selectedEpisode = widget.episode!.id;
+      });
     }
+  }
+
+  void _removeEpisodeFile(String file) {
+    if (_busy) return;
+    setState(() {
+      _selectedFile = file;
+      _selectedEpisode = 0;
+    });
   }
 
   Future<void> _chooseDirectory() async {
@@ -298,11 +361,13 @@ class _SubjectEpisodeFilesDialogState
     var links = linkData.value ?? const <String, PlaybackEpisodeLink>{};
     var matched = resolvePlaybackEpisodeFiles(
       subject: widget.subject,
-      files: _files.values.where(
-        (file) =>
-            _automaticFiles.contains(PlaybackItem.pathKey(file)) ||
-            links[PlaybackItem.pathKey(file)]?.subject == widget.subject,
-      ),
+      files: _editingFile
+          ? [widget.filePath!]
+          : _files.values.where(
+              (file) =>
+                  _automaticFiles.contains(PlaybackItem.pathKey(file)) ||
+                  links[PlaybackItem.pathKey(file)]?.subject == widget.subject,
+            ),
       episodes: episodes.map(episodeMarkChapter),
       manualLinks: links,
     );
@@ -354,266 +419,308 @@ class _SubjectEpisodeFilesDialogState
     var canSave =
         !_busy &&
         !loading &&
+        !chapterData.hasError &&
         !linkData.hasError &&
         selected != null &&
         validEpisode &&
         !unchanged;
-    return ContentDialog(
-      constraints: const BoxConstraints(maxWidth: 760),
-      title: Text(
-        widget.episode == null
-            ? '章节文件与自动匹配'
-            : '${subjectFileEpisodeLabel(widget.episode!)} · 本地文件',
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      content: SizedBox(
-        height: (MediaQuery.sizeOf(context).height - 260)
-            .clamp(180, 430)
-            .toDouble(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              '下载目录中的视频会自动匹配章节，无需逐集保存。'
-              '一个章节可有多个文件，也可没有文件；附加内容可设为不对应章节。',
-            ),
-            const SizedBox(height: 12),
-            Row(
+    var excludedCount = files.where((file) {
+      var link = links[PlaybackItem.pathKey(file)];
+      return link?.subject == widget.subject && link!.excluded;
+    }).length;
+    var unmatchedCount = files.length - matched.length - excludedCount;
+    var canChoose = !_busy && !loading;
+    var canSelectEpisode =
+        canChoose && !chapterData.hasError && !linkData.hasError;
+    var pendingRemoval =
+        widget.episode != null && selected != null && selectedEpisode == 0;
+    var canRemove =
+        canSelectEpisode &&
+        widget.episode != null &&
+        (pendingRemoval || effective?.episode == widget.episode!.id);
+    // Only the list scrolls; surrounding controls retain their positions.
+    var body = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_editingFile) ...[
+          Text(
+            '选择该文件对应的剧集；附加内容可选择“不匹配”。',
+            style: BTTypography.caption(context),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('选择剧集', style: BTTypography.bodyStrong(context)),
+              _fileBadge('${episodes.length} 集'),
+              _buildUnmatchedEpisodeAction(
+                selectedEpisode == 0,
+                enabled: canSelectEpisode,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (loading) ...[const ProgressBar(), const SizedBox(height: 8)],
+        ] else ...[
+          Text(
+            widget.episode == null
+                ? '视频会自动匹配章节；需要调整时，选择文件后修正关联。'
+                : '选择文件关联到本集；一集可关联多个文件。',
+            style: BTTypography.caption(context),
+          ),
+          const SizedBox(height: 16),
+          _buildDirectoryBar(canChoose),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('视频文件', style: BTTypography.bodyStrong(context)),
+              if (files.isNotEmpty) ...[
+                _fileBadge('已匹配 ${linkedFiles.length}', highlighted: true),
+                if (unmatchedCount > 0) _fileBadge('未匹配 $unmatchedCount'),
+                if (excludedCount > 0) _fileBadge('不匹配 $excludedCount'),
+                if (widget.episode != null)
+                  Tooltip(
+                    message: pendingRemoval ? '撤销本次移除' : '移除选中文件与本集的关联，保存修正后生效',
+                    child: Button(
+                      onPressed: canRemove
+                          ? () => pendingRemoval
+                                ? _selectEpisode(widget.episode!.id)
+                                : _removeEpisodeFile(selected!)
+                          : null,
+                      child: _fileActionLabel(
+                        pendingRemoval ? FluentIcons.undo : FluentIcons.remove,
+                        pendingRemoval ? '撤销移除' : '移除关联',
+                      ),
+                    ),
+                  ),
+                Button(
+                  onPressed: canChoose
+                      ? () => _run(() => _pickFile(links, episodes))
+                      : null,
+                  child: _fileActionLabel(FluentIcons.add, '添加文件'),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (loading) ...[const ProgressBar(), const SizedBox(height: 8)],
+        ],
+        Flexible(
+          child: _editingFile
+              ? _buildEpisodeGrid(
+                  episodes,
+                  validEpisode ? selectedEpisode : null,
+                  effective?.episode,
+                  linked,
+                  rowExtent,
+                  enabled: canSelectEpisode,
+                )
+              : files.isEmpty
+              ? _buildEmptyFiles(loading, canChoose, links, episodes)
+              : _buildFileList(
+                  files,
+                  selected,
+                  links,
+                  matched,
+                  episodes,
+                  rowExtent,
+                ),
+        ),
+        if (_editingFile) ...[
+          const SizedBox(height: 8),
+          Text(
+            selectedEpisode == 0 && !unchanged
+                ? '已选择不匹配，保存修正后生效。'
+                : unchanged
+                ? linked == null
+                      ? '自动匹配已生效，无需保存。'
+                      : '当前关联已保存。'
+                : '选择剧集后保存关联。',
+            style: BTTypography.caption(context),
+          ),
+        ],
+        if (!_editingFile && selected != null && widget.episode == null) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: _filePanelDecoration(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: Text(
-                    '已匹配 ${linkedFiles.length} 个文件 · '
-                    '${files.length - matched.length} 个未匹配',
-                  ),
-                ),
                 Tooltip(
-                  message: '重新扫描目录',
-                  child: IconButton(
-                    icon: const Icon(FluentIcons.refresh, size: 16),
-                    onPressed: _busy || loading
-                        ? null
-                        : () => _run(() async {
-                            ref.invalidate(
-                              subjectPlaybackFilesProvider(widget.subject),
-                            );
-                            await _loadFiles();
-                          }),
+                  message: selected,
+                  child: Text(
+                    path.basename(selected),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: BTTypography.caption(context),
                   ),
                 ),
-                Button(
-                  onPressed: _busy || loading
-                      ? null
-                      : () => _run(_chooseDirectory),
-                  child: const Text('选择目录…'),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text('关联章节', style: BTTypography.bodyStrong(context)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: BtSelect<int>(
+                        value: validEpisode ? selectedEpisode : null,
+                        isExpanded: true,
+                        items: [
+                          const ComboBoxItem(
+                            value: 0,
+                            child: Text(
+                              '不对应章节（附加内容）',
+                              textAlign: TextAlign.start,
+                            ),
+                          ),
+                          for (var episode in episodes)
+                            ComboBoxItem(
+                              value: episode.id,
+                              child: Text(
+                                subjectFileEpisodeLabel(episode),
+                                textAlign: TextAlign.start,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: _busy || loading || chapterData.hasError
+                            ? null
+                            : (value) => setState(() {
+                                _selectedFile = selected;
+                                _selectedEpisode = value;
+                              }),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Button(
-                  onPressed: _busy || loading
-                      ? null
-                      : () => _run(() => _pickFile(links, episodes)),
-                  child: const Text('选择其他文件…'),
+                const SizedBox(height: 8),
+                Text(
+                  unchanged
+                      ? linked == null
+                            ? '自动匹配已生效，无需保存。'
+                            : '当前关联已保存。'
+                      : '选择对应章节后保存；附加内容可设为不对应章节。',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: BTTypography.caption(context),
                 ),
               ],
             ),
-            if (_directory != null) ...[
-              const SizedBox(height: 8),
-              Text(_directory!, maxLines: 1, overflow: TextOverflow.ellipsis),
-            ],
-            const SizedBox(height: 8),
-            if (loading) const ProgressBar(),
-            Expanded(
-              child: files.isEmpty
-                  ? const Center(child: Text('暂无视频文件，请选择本地文件'))
-                  : RadioGroup<String>(
-                      groupValue: selected == null
-                          ? null
-                          : PlaybackItem.pathKey(selected),
-                      onChanged: (key) {
-                        if (_busy || key == null) return;
-                        var file = files.firstWhere(
-                          (file) => PlaybackItem.pathKey(file) == key,
-                        );
-                        _selectFile(file, links, episodes);
-                      },
-                      child: LayoutBuilder(
-                        builder: (_, constraints) {
-                          _revealSelectedFile(
-                            files,
-                            selected,
-                            rowExtent,
-                            constraints.maxHeight,
-                          );
-                          return ListView.builder(
-                            controller: _fileScrollController,
-                            padding: EdgeInsets.zero,
-                            itemExtent: rowExtent,
-                            itemCount: files.length,
-                            itemBuilder: (_, index) {
-                              var file = files[index];
-                              var link = links[PlaybackItem.pathKey(file)];
-                              var effective =
-                                  matched[PlaybackItem.pathKey(file)];
-                              var chapter = episodes
-                                  .where((e) => e.id == effective?.episode)
-                                  .firstOrNull;
-                              var chapterLabel = chapter == null
-                                  ? null
-                                  : subjectFileEpisodeLabel(chapter);
-                              var label = link == null
-                                  ? chapter == null
-                                        ? '未能自动匹配，可手动选择章节'
-                                        : '自动匹配：$chapterLabel'
-                                  : link.subject != widget.subject
-                                  ? '已关联其他条目'
-                                  : link.excluded
-                                  ? '不对应章节，不参与自动匹配'
-                                  : chapter == null
-                                  ? '关联章节已不存在'
-                                  : '手动修正：$chapterLabel';
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 4,
-                                ),
-                                child: Tooltip(
-                                  message: file,
-                                  child: RadioButton<String>(
-                                    value: PlaybackItem.pathKey(file),
-                                    enabled: !_busy,
-                                    content: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          path.basename(file),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        Text(
-                                          label,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: FluentTheme.of(
-                                            context,
-                                          ).typography.caption,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ),
+          ),
+        ],
+        if (chapterData.hasError || linkData.hasError) ...[
+          const SizedBox(height: 12),
+          _buildFileError(
+            '加载关联数据失败：'
+            '${chapterData.error ?? linkData.error}',
+            action: Button(
+              onPressed: _busy
+                  ? null
+                  : () {
+                      ref.invalidate(
+                        subjectFileEpisodesProvider(widget.subject),
+                      );
+                      ref.invalidate(playbackEpisodeLinkSnapshotProvider);
+                      unawaited(_loadFiles());
+                    },
+              child: const Text('重试'),
             ),
-            const SizedBox(height: 8),
-            if (widget.episode == null)
-              BtSelect<int>(
-                value: validEpisode ? selectedEpisode : null,
-                isExpanded: true,
-                items: [
-                  const ComboBoxItem(value: 0, child: Text('不对应章节')),
-                  for (var episode in episodes)
-                    ComboBoxItem(
-                      value: episode.id,
-                      child: Text(
-                        subjectFileEpisodeLabel(episode),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-                onChanged: _busy || selected == null
-                    ? null
-                    : (value) => setState(() {
-                        _selectedFile = selected;
-                        _selectedEpisode = value;
-                      }),
-              ),
-            if (chapterData.hasError || linkData.hasError) ...[
-              const SizedBox(height: 8),
-              Text(
-                '加载关联数据失败：'
-                '${chapterData.error ?? linkData.error}',
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
+          ),
+        ],
+        if (_error != null) ...[
+          const SizedBox(height: 12),
+          _buildFileError(_error!),
+        ],
+      ],
+    );
+    return ContentDialog(
+      constraints: BoxConstraints(
+        maxWidth: _editingFile ? 560 : 720,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+      ),
+      title: _buildFilesHeader(),
+      content: _editingFile
+          ? body
+          : RadioGroup<String>(
+              groupValue: selected == null
+                  ? null
+                  : PlaybackItem.pathKey(selected),
+              onChanged: (key) {
+                if (_busy || key == null) return;
+                var file = files.firstWhere(
+                  (file) => PlaybackItem.pathKey(file) == key,
+                );
+                _selectFile(file, links, episodes);
+              },
+              child: body,
+            ),
+      actions: [
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (linked?.subject == widget.subject &&
+                (widget.episode == null ||
+                    linked!.excluded ||
+                    linked.episode == widget.episode!.id))
               Button(
                 onPressed: _busy
                     ? null
-                    : () {
-                        ref.invalidate(
-                          subjectFileEpisodesProvider(widget.subject),
-                        );
-                        ref.invalidate(playbackEpisodeLinkSnapshotProvider);
-                        unawaited(_loadFiles());
-                      },
-                child: const Text('重试'),
-              ),
-            ],
-            if (_error != null || _notice != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _error ?? _notice!,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        if (linked?.subject == widget.subject &&
-            (widget.episode == null ||
-                linked!.excluded ||
-                linked.episode == widget.episode!.id))
-          Button(
-            onPressed: _busy
-                ? null
-                : () => _run(() async {
-                    await ref
-                        .read(playbackEpisodeLinksProvider)
-                        .remove(linked!);
-                    if (mounted) {
-                      setState(() {
-                        _selectedEpisode = widget.episode?.id;
-                        _notice = '已清除手动修正';
-                      });
-                    }
-                  }),
-            child: Text(
-              _automaticFiles.contains(linked!.key) ? '恢复自动匹配' : '解除手动关联',
-            ),
-          ),
-        Button(
-          onPressed: _busy || selected == null
-              ? null
-              : () => _run(
-                  () => openLocalPlayback(
-                    context,
-                    ref,
-                    selected,
-                    subject: widget.subject,
-                  ),
+                    : () => _run(() async {
+                        await ref
+                            .read(playbackEpisodeLinksProvider)
+                            .remove(linked!);
+                        if (mounted) {
+                          setState(() {
+                            _selectedEpisode = widget.episode?.id;
+                          });
+                        }
+                      }),
+                child: Text(
+                  _editingFile || _automaticFiles.contains(linked!.key)
+                      ? '恢复自动匹配'
+                      : '解除手动关联',
                 ),
-          child: const Text('播放文件'),
-        ),
-        FilledButton(
-          onPressed: canSave
-              ? () => _run(() async {
-                  _selectedFile = selected;
-                  _selectedEpisode = selectedEpisode;
-                  await _save();
-                })
-              : null,
-          child: Text(unchanged && linked == null ? '自动匹配已生效' : '保存修正'),
-        ),
-        Button(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('关闭'),
+              ),
+            if (selected != null) ...[
+              Button(
+                onPressed: _busy
+                    ? null
+                    : () => _run(
+                        () => openLocalPlayback(
+                          context,
+                          ref,
+                          selected,
+                          subject: widget.subject,
+                        ),
+                      ),
+                child: _fileActionLabel(FluentIcons.play, '播放文件'),
+              ),
+              FilledButton(
+                onPressed: canSave
+                    ? () => _run(() async {
+                        _selectedFile = selected;
+                        _selectedEpisode = selectedEpisode;
+                        await _save();
+                      })
+                    : null,
+                child: const Text('保存修正'),
+              ),
+            ],
+            Button(
+              onPressed: _busy ? null : () => Navigator.of(context).pop(),
+              child: const Text('关闭'),
+            ),
+          ],
         ),
       ],
     );
