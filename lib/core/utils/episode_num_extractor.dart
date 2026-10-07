@@ -33,8 +33,15 @@ final _batchPattern = RegExp(
   caseSensitive: false,
 );
 final _specialPattern = RegExp(
-  r'\b(?:SP|OVA|OAD|(?:NC)?(?:OP|ED)|PV|CM|TRAILER|TEASER|PREVIEW|'
-  r'SAMPLE)(?:\d+)?\b|特别篇|特別篇|特典|预告|預告|予告',
+  r'(?<![A-Za-z0-9])(?:SP|OVA|OAD|(?:NC)?(?:OP|ED)|PV|CM|MENU|MENUS|'
+  r'EXTRA|EXTRAS|BONUS|CREDITLESS|TRAILER|TEASER|PREVIEW|SAMPLE)'
+  r'(?:\d+)?(?![A-Za-z0-9])|特别篇|特別篇|特典|预告|預告|予告|菜单|菜單',
+  caseSensitive: false,
+);
+final _extraDirectoryPattern = RegExp(
+  r'^(?:MENU|MENUS|EXTRAS?|BONUS|CREDITLESS|TRAILERS?|TEASERS?|'
+  r'PREVIEWS?|SAMPLES?|(?:NC)?OP(?:[ &+_-]*(?:NC)?ED)?|(?:NC)?ED|PV|CM|'
+  r'特典|菜单|菜單|预告|預告|予告)$',
   caseSensitive: false,
 );
 final _fractionalSpecialPattern = RegExp(
@@ -95,19 +102,29 @@ final _episodePatterns = [
   ),
 ];
 
+/// Extra filenames and dedicated extra directories never imply a chapter.
+/// Collection/season names in parent directories are not episode evidence.
+bool isPlaybackExtra(String filePath) {
+  var parts = filePath.split(RegExp(r'[/\\]'));
+  var name = parts.last.replaceFirst(RegExp(r'\.[A-Za-z0-9]+$'), '');
+  // SP13.5 can identify a numbered recap; other extras need a manual link.
+  return _specialPattern.hasMatch(
+        name.replaceAll(_fractionalSpecialPattern, ' '),
+      ) ||
+      parts
+          .take(parts.length - 1)
+          .any((part) => _extraDirectoryPattern.hasMatch(part.trim()));
+}
+
 /// Conservative filename evidence; display labels are not mapping evidence.
 EpisodeNumberResult extractEpisodeNumber(String filePath) {
   var name = filePath.split(RegExp(r'[/\\]')).last;
   name = name.replaceFirst(RegExp(r'\.[A-Za-z0-9]+$'), '');
+  if (isPlaybackExtra(filePath)) {
+    return const EpisodeNumberResult(EpisodeNumberKind.special);
+  }
   if (_batchPattern.hasMatch(name.replaceAll(_seasonPattern, ' '))) {
     return const EpisodeNumberResult(EpisodeNumberKind.batch);
-  }
-  // An explicit SP13.5 can identify a numbered recap. Other extras still
-  // require a manual link even when an ordinary episode number is present.
-  if (_specialPattern.hasMatch(
-    name.replaceAll(_fractionalSpecialPattern, ' '),
-  )) {
-    return const EpisodeNumberResult(EpisodeNumberKind.special);
   }
   var candidates = <double, String>{};
   var seasons = <int>{};

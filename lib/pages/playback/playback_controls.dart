@@ -286,7 +286,10 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           command == _PlaybackCommand.next
               ? material.Icons.skip_next_rounded
               : material.Icons.skip_previous_rounded,
-          detail: PlaybackLabel.fromName(store.current!.title).title,
+          detail: PlaybackLabel.fromName(
+            store.current!.title,
+            filePath: store.current!.filePath,
+          ).title,
         );
       case _PlaybackCommand.fullscreen:
       case _PlaybackCommand.escape:
@@ -436,7 +439,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     var store = widget.store;
     var player = widget.player;
     var item = store.current!;
-    var label = PlaybackLabel.fromName(item.title);
+    var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
     var accent = FluentTheme.of(context).accentColor;
     // Reserve the audio output button before choosing optional controls.
     var bottomWidth = width - 52;

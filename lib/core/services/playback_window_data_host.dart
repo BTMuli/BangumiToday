@@ -99,6 +99,11 @@ class PlaybackWindowDataHost {
         ];
       case 'subjects.resolve':
         return subjects.subjectForFile(playbackString(body, 'filePath'));
+      case 'library.nextEpisode':
+        return library.nextEpisodeIndex(
+          (body['items'] as List).map(decodePlaybackItem).toList(),
+          playbackInt(body, 'index'),
+        );
       case 'cover.resolve':
         var subject = playbackInt(body, 'subject', minimum: 1);
         await cover.resolve(subject);

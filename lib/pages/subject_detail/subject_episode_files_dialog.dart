@@ -188,7 +188,7 @@ class _SubjectEpisodeFilesDialogState
             ? null
             : links[PlaybackItem.pathKey(_selectedFile!)];
         if (widget.episode == null && linked?.subject == widget.subject) {
-          _selectedEpisode = linked!.episode;
+          _selectedEpisode = linked!.episode ?? 0;
         }
       });
     } catch (error) {
@@ -216,7 +216,9 @@ class _SubjectEpisodeFilesDialogState
       _selectedFile = file;
       _selectedEpisode =
           widget.episode?.id ??
-          (linked?.subject == widget.subject ? linked?.episode : inferred?.id);
+          (linked?.subject == widget.subject
+              ? linked?.episode ?? 0
+              : inferred?.id);
       _notice = null;
     });
   }
@@ -249,7 +251,7 @@ class _SubjectEpisodeFilesDialogState
 
   Future<void> _save() async {
     var file = _selectedFile!;
-    var episode = _selectedEpisode!;
+    var episode = _selectedEpisode == 0 ? null : _selectedEpisode!;
     var storage = ref.read(playbackEpisodeLinksProvider);
     var existing = (await storage.readAll())[PlaybackItem.pathKey(file)];
     if (!mounted) return;
@@ -269,7 +271,9 @@ class _SubjectEpisodeFilesDialogState
         episode: episode,
       ),
     );
-    if (mounted) setState(() => _notice = '已保存关联');
+    if (mounted) {
+      setState(() => _notice = episode == null ? '已设为不对应章节' : '已保存关联');
+    }
   }
 
   Future<void> _chooseDirectory() async {
@@ -330,14 +334,19 @@ class _SubjectEpisodeFilesDialogState
         : links[PlaybackItem.pathKey(selected)];
     var selectedEpisode =
         _selectedEpisode ??
-        (selected == null
+        (linked?.subject == widget.subject && linked!.excluded
+            ? 0
+            : selected == null
             ? null
             : matched[PlaybackItem.pathKey(selected)]?.episode);
-    var validEpisode = episodes.any((e) => e.id == selectedEpisode);
+    var validEpisode =
+        selectedEpisode == 0 || episodes.any((e) => e.id == selectedEpisode);
     var effective = selected == null
         ? null
         : matched[PlaybackItem.pathKey(selected)];
-    var unchanged = effective != null && effective.episode == selectedEpisode;
+    var unchanged = selectedEpisode == 0
+        ? linked?.subject == widget.subject && linked!.excluded
+        : effective != null && effective.episode == selectedEpisode;
     var loading = _loadingFiles || chapterData.isLoading || linkData.isLoading;
     var rowExtent = MediaQuery.textScalerOf(
       context,
@@ -367,12 +376,17 @@ class _SubjectEpisodeFilesDialogState
           children: [
             const Text(
               '下载目录中的视频会自动匹配章节，无需逐集保存。'
-              '识别失败或有误时再手动修正。',
+              '一个章节可有多个文件，也可没有文件；附加内容可设为不对应章节。',
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: Text('已匹配 ${linkedFiles.length} 个文件')),
+                Expanded(
+                  child: Text(
+                    '已匹配 ${linkedFiles.length} 个文件 · '
+                    '${files.length - matched.length} 个未匹配',
+                  ),
+                ),
                 Tooltip(
                   message: '重新扫描目录',
                   child: IconButton(
@@ -452,6 +466,8 @@ class _SubjectEpisodeFilesDialogState
                                         : '自动匹配：$chapterLabel'
                                   : link.subject != widget.subject
                                   ? '已关联其他条目'
+                                  : link.excluded
+                                  ? '不对应章节，不参与自动匹配'
                                   : chapter == null
                                   ? '关联章节已不存在'
                                   : '手动修正：$chapterLabel';
@@ -499,6 +515,7 @@ class _SubjectEpisodeFilesDialogState
                 value: validEpisode ? selectedEpisode : null,
                 isExpanded: true,
                 items: [
+                  const ComboBoxItem(value: 0, child: Text('不对应章节')),
                   for (var episode in episodes)
                     ComboBoxItem(
                       value: episode.id,
@@ -550,7 +567,9 @@ class _SubjectEpisodeFilesDialogState
       ),
       actions: [
         if (linked?.subject == widget.subject &&
-            (widget.episode == null || linked?.episode == widget.episode!.id))
+            (widget.episode == null ||
+                linked!.excluded ||
+                linked.episode == widget.episode!.id))
           Button(
             onPressed: _busy
                 ? null

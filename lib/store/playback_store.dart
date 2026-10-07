@@ -23,7 +23,9 @@ import '../core/services/playback_loudness.dart';
 import '../core/services/playback_screenshot.dart';
 import '../core/services/playback_subtitles.dart';
 import '../core/services/playback_upscaler.dart';
+import '../data/repositories/episode_mark_gateway_impl.dart';
 import '../data/repositories/playback_cover_impl.dart';
+import '../data/repositories/playback_episodes.dart';
 import '../data/repositories/playback_history_impl.dart';
 import '../data/repositories/playback_library_impl.dart';
 import '../data/repositories/playback_settings_impl.dart';
@@ -58,6 +60,10 @@ final playbackStoreProvider = ChangeNotifierProvider<PlaybackStore>((ref) {
       tasks: () => downloads.tasks,
       taskFiles: (id, offset) => downloads.taskFiles(id, offset: offset),
       links: ref.read(playbackEpisodeLinksProvider),
+      episodes: (subject) async => (await loadPlaybackEpisodes(
+        ref.read(bangumiRepositoryProvider),
+        subject,
+      )).map(episodeMarkChapter).toList(),
     ),
     cover: BangumiPlaybackCoverResolver(ref.read(bangumiRepositoryProvider)),
     historyStore: AppPlaybackHistoryStore(),
@@ -475,18 +481,42 @@ class PlaybackStore extends ChangeNotifier {
         diagnostics.event('视频播放完成');
         var snapshot = _session.finish(position: position, duration: duration);
         if (snapshot == null) return;
+        var items = playlist;
+        var finishedIndex = index;
         unawaited(
           _serial(() async {
-            if (_session.id != snapshot.sessionId) return;
-            await historyStore.write(snapshot.historyItem);
-            if (_closed) return;
-            // Broadcast asynchronously; UI/network work must never join the
-            // playback queue or delay the next episode.
-            _completions.add(snapshot);
-            if (index + 1 < playlist.length) await _openIndex(index + 1);
-            await refreshHistory();
-            _notify();
-          }).catchError((Object _) {}),
+                if (_session.id != snapshot.sessionId) return;
+                await historyStore.write(snapshot.historyItem);
+                if (_closed) return;
+                // Broadcast asynchronously; UI/network work must never join the
+                // playback queue or delay the next episode.
+                _completions.add(snapshot);
+                await refreshHistory();
+                _notify();
+              })
+              .then((_) async {
+                if (_closed || _session.id != snapshot.sessionId) return;
+                // Resolve chapters outside the operation queue: a manual file
+                // change remains responsive while matching data is loading.
+                var nextIndex = await library.nextEpisodeIndex(
+                  items,
+                  finishedIndex,
+                );
+                if (nextIndex == null) return;
+                await _serial(() async {
+                  if (_closed || _session.id != snapshot.sessionId) return;
+                  var nextKey = items[nextIndex].key;
+                  var liveIndex = playlist.indexWhere(
+                    (item) => item.key == nextKey,
+                  );
+                  if (liveIndex >= 0) await _openIndex(liveIndex);
+                });
+              })
+              .catchError((Object failure) {
+                if (_closed || _session.id != snapshot.sessionId) return;
+                error = '自动切换下一集失败：$failure';
+                _notify();
+              }),
         );
       }),
     ]);

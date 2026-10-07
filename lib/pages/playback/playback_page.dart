@@ -336,7 +336,9 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
 
   Widget _buildHeader(PlaybackStore store) {
     var current = store.current;
-    var label = current == null ? null : PlaybackLabel.fromName(current.title);
+    var label = current == null
+        ? null
+        : PlaybackLabel.fromName(current.title, filePath: current.filePath);
     return SizedBox(
       height: 48,
       child: Row(

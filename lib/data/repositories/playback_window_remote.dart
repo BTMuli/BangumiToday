@@ -28,6 +28,19 @@ class RemotePlaybackLibrary implements PlaybackLibrary {
         .map((item) => decodePlaybackItem(item, includeSize: true))
         .toList();
   }
+
+  @override
+  Future<int?> nextEpisodeIndex(
+    List<PlaybackItem> items,
+    int currentIndex,
+  ) async {
+    var result = await call('library.nextEpisode', {
+      'items': [for (var item in items) item.toRow()],
+      'index': currentIndex,
+    });
+    if (result == null) return null;
+    return playbackInt({'index': result}, 'index');
+  }
 }
 
 class RemotePlaybackHistory implements PlaybackHistoryStore {

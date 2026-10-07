@@ -2,6 +2,7 @@
 import 'package:path/path.dart' as path;
 
 // Project imports:
+import '../../core/utils/episode_num_extractor.dart';
 import '../../core/utils/playback_episode_number.dart';
 
 /// Display labels only; the original filename remains available in tooltips.
@@ -18,14 +19,16 @@ class PlaybackLabel {
   final String? episode;
   final String? episodeNumber;
 
-  factory PlaybackLabel.fromName(String name) {
+  factory PlaybackLabel.fromName(String name, {String? filePath}) {
     var base = path.basenameWithoutExtension(name);
     var extension = path.extension(name).replaceFirst('.', '').toUpperCase();
     var resolution = RegExp(
       r'(?<!\d)(2160|1080|720|480)[pi](?![a-z0-9])',
       caseSensitive: false,
     ).firstMatch(base)?.group(0)?.toUpperCase();
-    var parsed = PlaybackEpisodeNumber.parse(base);
+    var parsed = isPlaybackExtra(filePath ?? name)
+        ? null
+        : PlaybackEpisodeNumber.parse(base);
     var episodeNumber = parsed?.label;
     var episode = parsed == null
         ? null

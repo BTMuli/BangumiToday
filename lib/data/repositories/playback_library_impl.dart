@@ -7,7 +7,10 @@ import 'package:path/path.dart' as path;
 // Project imports:
 import '../../core/errors/playback_unavailable.dart';
 import '../../core/services/bt_engine/protocol.dart';
+import '../../core/utils/episode_num_extractor.dart';
+import '../../core/utils/playback_episode_files.dart';
 import '../../core/utils/playback_paths.dart';
+import '../../domain/repositories/episode_mark_gateway.dart';
 import '../../domain/repositories/playback_episode_links.dart';
 import '../../domain/repositories/playback_library.dart';
 import '../../models/playback/playback_item.dart';
@@ -21,9 +24,40 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
     required this.tasks,
     required this.taskFiles,
     required this.links,
+    required this.episodes,
   });
 
   final PlaybackEpisodeLinks links;
+  final Future<List<EpisodeMarkEpisode>> Function(int subject) episodes;
+
+  @override
+  Future<int?> nextEpisodeIndex(
+    List<PlaybackItem> items,
+    int currentIndex,
+  ) async {
+    if (currentIndex < 0 || currentIndex >= items.length) return null;
+    var current = items[currentIndex];
+    var subject = current.subject;
+    var manual = await links.readAll();
+    var link = manual[current.key];
+    if (link != null && (link.subject != subject || link.excluded)) return null;
+    if (link == null) {
+      var evidence = extractEpisodeNumber(current.filePath);
+      if (evidence.kind != EpisodeNumberKind.single &&
+          evidence.kind != EpisodeNumberKind.unknown) {
+        return null;
+      }
+    }
+    var chapters = subject == null
+        ? const <EpisodeMarkEpisode>[]
+        : await episodes(subject);
+    return nextPlaybackEpisodeIndex(
+      items: items,
+      currentIndex: currentIndex,
+      episodes: chapters,
+      manualLinks: await links.readAll(),
+    );
+  }
 
   /// 当前引擎任务快照读取器。
   final List<BtTaskSnapshot> Function() tasks;

@@ -273,6 +273,8 @@ extension _ResourceFiles on _SubjectDetailResourcesState {
                   : linked?.subject != null &&
                         linked?.subject != widget.subjectId
                   ? '已关联其他条目'
+                  : linked?.excluded == true
+                  ? '不对应章节'
                   : linked != null
                   ? '关联章节已不存在，请重新关联'
                   : '未能自动匹配，可手动修正',

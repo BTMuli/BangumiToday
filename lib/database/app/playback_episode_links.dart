@@ -53,7 +53,7 @@ class PlaybackEpisodeLinksStorage implements PlaybackEpisodeLinks {
   @override
   Future<void> write(PlaybackEpisodeLink link) async {
     if (link.subject <= 0 ||
-        link.episode <= 0 ||
+        (link.episode != null && link.episode! <= 0) ||
         !PlaybackPaths.isVideo(link.filePath)) {
       throw ArgumentError('请选择视频文件和有效章节');
     }

@@ -1,3 +1,6 @@
+// Project imports:
+import 'episode_num_extractor.dart';
+
 /// Filename numbering for display and playback order only.
 /// Bangumi chapter matching keeps its separate, conservative evidence rules.
 class PlaybackEpisodeNumber {
@@ -80,6 +83,7 @@ class PlaybackEpisodeNumber {
 
   /// Parse a basename without its file extension, excluding release metadata.
   static PlaybackEpisodeNumber? parse(String name) {
+    if (isPlaybackExtra('$name.mkv')) return null;
     if (_extras.hasMatch(name.replaceAll(_fractionalSpecial, ' '))) return null;
     var numbers = <double>{};
     var seasons = <int>{};
@@ -119,5 +123,12 @@ class PlaybackEpisodeNumber {
     return _metadata(number)
         ? null
         : PlaybackEpisodeNumber(number: number, start: trailing.start);
+  }
+
+  /// Keep extra-directory context when ordering or advancing local files.
+  static PlaybackEpisodeNumber? fromPath(String filePath) {
+    if (isPlaybackExtra(filePath)) return null;
+    var name = filePath.split(RegExp(r'[/\\]')).last;
+    return parse(name.replaceFirst(RegExp(r'\.[A-Za-z0-9]+$'), ''));
   }
 }

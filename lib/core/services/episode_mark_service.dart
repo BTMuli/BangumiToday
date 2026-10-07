@@ -131,6 +131,10 @@ class EpisodeMarkService {
     return link != null && link.subject != item.subject;
   }
 
+  bool _excluded(PlaybackItem item) =>
+      _links[item.key]?.subject == item.subject &&
+      _links[item.key]?.excluded == true;
+
   static EpisodeMarkEpisode? _matchingEpisode(
     EpisodeNumberResult evidence,
     Iterable<EpisodeMarkEpisode> episodes, {
@@ -195,7 +199,7 @@ class EpisodeMarkService {
     var marked = <String>{};
     var loading = <String>{};
     for (var entry in _items.entries) {
-      if (_linkConflict(entry.value)) continue;
+      if (_linkConflict(entry.value) || _excluded(entry.value)) continue;
       var subject = entry.value.subject;
       if (_loadingSubjects.contains(subject)) loading.add(entry.key);
       var episode = matchingEpisode(
@@ -240,13 +244,16 @@ class EpisodeMarkService {
           .where((item) => item.subject == subject)
           .every(
             (item) =>
+                _linkConflict(item) ||
+                _excluded(item) ||
                 matchingEpisode(
-                  item,
-                  _progress[subject]?.values ?? const <EpisodeMarkEpisode>[],
-                  complete: false,
-                  episodeId: _linkedEpisode(item),
-                )?.done !=
-                null,
+                      item,
+                      _progress[subject]?.values ??
+                          const <EpisodeMarkEpisode>[],
+                      complete: false,
+                      episodeId: _linkedEpisode(item),
+                    )?.done !=
+                    null,
           );
 
   /// Fetch each subject once for the whole playlist, independently of playback.
@@ -374,6 +381,9 @@ class EpisodeMarkService {
       if (_linkConflict(item)) {
         return const EpisodeMarkResolution(message: '文件已关联其他条目，请重新打开文件后标记');
       }
+      if (_excluded(item)) {
+        return const EpisodeMarkResolution(message: '该文件已设为不对应章节');
+      }
       var linkedEpisode = _linkedEpisode(item);
       var evidence = extractEpisodeNumber(item.filePath);
       if (linkedEpisode == null &&
@@ -488,6 +498,7 @@ class EpisodeMarkService {
       _links = await links.readAll();
       if (!_current(candidate.account) ||
           _linkConflict(candidate.item) ||
+          _excluded(candidate.item) ||
           _linkedEpisode(candidate.item) != candidate.linkedEpisode) {
         return const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.expired);
       }

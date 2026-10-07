@@ -72,8 +72,8 @@ class PlaybackPaths {
   static int episodeCompare(String a, String b) {
     var leftName = path.basename(a);
     var rightName = path.basename(b);
-    var left = PlaybackEpisodeNumber.parse(path.withoutExtension(leftName));
-    var right = PlaybackEpisodeNumber.parse(path.withoutExtension(rightName));
+    var left = PlaybackEpisodeNumber.fromPath(a);
+    var right = PlaybackEpisodeNumber.fromPath(b);
     if (left != null && right != null) {
       var order = left.compareTo(right);
       if (order != 0) return order;

@@ -354,8 +354,8 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   Widget _episodeRow(PlaybackStore store, int index) {
     var item = store.playlist[index];
     var selected = store.index == index;
-    var label = PlaybackLabel.fromName(item.title);
-    var number = label.episodeNumber ?? '${index + 1}';
+    var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
+    var number = label.episodeNumber ?? '—';
     var accent = FluentTheme.of(context).accentColor;
     var meta = [
       if (item.sizeBytes != null) filesize(item.sizeBytes!),
@@ -479,8 +479,8 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   Widget _episodeCell(PlaybackStore store, int index) {
     var item = store.playlist[index];
     var selected = store.index == index;
-    var number =
-        PlaybackLabel.fromName(item.title).episodeNumber ?? '${index + 1}';
+    var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
+    var number = label.episodeNumber;
     var accent = FluentTheme.of(context).accentColor;
     return Tooltip(
       message: item.title,
@@ -489,7 +489,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
             _showItemMenu(item, details.globalPosition),
         child: HoverButton(
           key: ValueKey((item.subject, item.key)),
-          semanticLabel: '第 $number 集',
+          semanticLabel: number == null ? item.title : '第 $number 集',
           onPressed: () {
             if (!store.loading && !selected) {
               unawaited(widget.run(() => store.jump(index)));
@@ -511,7 +511,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
               children: [
                 Center(
                   child: Text(
-                    number,
+                    number ?? '视频',
                     style: BTTypography.bodyStrong(context).copyWith(
                       color: selected ? accent : BTColors.textPrimary(context),
                     ),
@@ -602,7 +602,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   }
 
   Widget _historyEpisode(PlaybackStore store, PlaybackItem item) {
-    var label = PlaybackLabel.fromName(item.title);
+    var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
     var progress = item.completed
         ? '已播完'
         : '${_PlaybackPageState._time(item.positionMs)} / '
@@ -673,7 +673,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
     bool expanded,
   ) {
     var item = group.latest;
-    var label = PlaybackLabel.fromName(item.title);
+    var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
     if (group.subject != null) unawaited(store.resolveCover(group.subject!));
     return Tooltip(
       message: '${item.filePath}\n${group.items.length} 条播放记录',
