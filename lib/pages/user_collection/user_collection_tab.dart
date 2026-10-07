@@ -1,4 +1,5 @@
 // Dart imports:
+import 'dart:async';
 import 'dart:math';
 
 // Package imports:
@@ -51,6 +52,8 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
 
   /// 数据
   List<BangumiUserSubjectCollection> data = [];
+  Timer? _initialLoad;
+  int _loadRevision = 0;
 
   /// 展示数据
   List<BangumiUserSubjectCollection> get showData {
@@ -70,12 +73,17 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration.zero, () async => await loadData());
+    pageController.onChanged = (_) async {
+      if (mounted) setState(() {});
+    };
+    _initialLoad = Timer(Duration.zero, () => unawaited(loadData()));
   }
 
   /// dispose
   @override
   void dispose() {
+    _initialLoad?.cancel();
+    _loadRevision++;
     searchController.dispose();
     pageController.dispose();
     super.dispose();
@@ -83,19 +91,19 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
 
   /// 获取数据
   Future<void> loadData() async {
+    if (!mounted) return;
+    var revision = ++_loadRevision;
     var list = await ref
         .read(bangumiRepositoryProvider)
         .getLocalCollections(type: type);
+    if (!mounted || revision != _loadRevision) return;
     list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    if (list.isNotEmpty) {
-      data = list;
-      setState(() {});
-    }
-    pageController = BtcPageController(
+    data = list;
+    pageController.reset(
       total: (list.length / limit).ceil(),
-      cur: 1,
-      onChanged: (page) async => setState(() {}),
+      cur: list.isEmpty ? 0 : 1,
     );
+    setState(() {});
   }
 
   /// 跳转
@@ -111,6 +119,7 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
 
   /// 刷新收藏
   Future<void> freshCollection() async {
+    if (!mounted) return;
     progress = ProgressWidget.show(
       context,
       title: '刷新收藏信息',
@@ -125,12 +134,17 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
     const limitC = 50;
     var offsetC = 0;
     var repository = ref.read(bangumiRepositoryProvider);
+    var username = ref.read(bgmUserStoreProvider).user!.id.toString();
     var resp = await repository.getCollectionSubjects(
-      username: ref.read(bgmUserStoreProvider).user!.id.toString(),
+      username: username,
       limit: limitC,
       offset: offsetC,
       collectionType: type,
     );
+    if (!mounted) {
+      progress.end();
+      return;
+    }
     if (resp.code != 0 || resp.data == null) {
       progress.end();
       if (mounted) await showRespErr(resp, context);
@@ -160,11 +174,15 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
         progress: (cnt / total) * 100,
       );
       resp = await repository.getCollectionSubjects(
-        username: ref.read(bgmUserStoreProvider).user!.id.toString(),
+        username: username,
         limit: limitC,
         offset: offsetC,
         collectionType: type,
       );
+      if (!mounted) {
+        progress.end();
+        return;
+      }
       if (resp.code != 0 || resp.data == null) {
         progress.end();
         if (mounted) await showRespErr(resp, context);
@@ -227,7 +245,7 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
               title: '是否从API刷新数据',
               content: '将从 bangumi.tv 获取数据',
             );
-            if (!check) return;
+            if (!check || !mounted) return;
             await freshCollection();
           },
         ),

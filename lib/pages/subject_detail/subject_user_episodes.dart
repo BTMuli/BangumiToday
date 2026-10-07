@@ -81,6 +81,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
 
   bool _gridExpanded = false;
   bool _playbackFilesActive = true;
+  bool _playbackFilesRefreshPending = false;
 
   late bool _loading = widget.subject.type == BangumiSubjectType.anime;
 
@@ -172,8 +173,13 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
   void didChangeDependencies() {
     super.didChangeDependencies();
     var active = TickerMode.valuesOf(context).enabled;
-    if (active && !_playbackFilesActive) {
-      ref.invalidate(subjectPlaybackFilesProvider(subjectId));
+    if (active && !_playbackFilesActive && !_playbackFilesRefreshPending) {
+      _playbackFilesRefreshPending = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _playbackFilesRefreshPending = false;
+        if (!mounted || !_playbackFilesActive) return;
+        ref.invalidate(subjectPlaybackFilesProvider(subjectId));
+      });
     }
     _playbackFilesActive = active;
   }
