@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gitmoji Commit"
+  short_description: "用 gitmoji 表情符号编写规范、原子化的 git 提交信息"
+  default_prompt: "Use $gitmoji-commit to draft and apply a gitmoji-style commit message."

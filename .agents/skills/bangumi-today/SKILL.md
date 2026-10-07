@@ -83,7 +83,8 @@ Accessors (`lib/database/app/*.dart`, `lib/database/bangumi/*.dart`) hold no DDL
 ## Git & commits
 
 - Do not commit on your own initiative: finish the change, clean up throwaway files, and report; only commit when the user explicitly asks. See AGENTS.md.
-- Commit messages use Gitmoji (`<emoji> <description>`), e.g. `🐛` fix, `✨` feature, `♻️` refactor, `💄` UI. No Conventional Commit prefixes. See AGENTS.md.
+- Commit language and style are fixed in AGENTS.md: Chinese subjects and bodies, with a concise imperative description in the subject. Do not read Git history to infer them or imitate past wording.
+- Commit messages use Gitmoji (`<emoji> <description>`), with no Conventional Commit prefixes. Use the project [gitmoji-commit skill](../gitmoji-commit/SKILL.md) and its selection reference to choose from official semantics according to the commit's primary intent and staged diff; compare specific-purpose icons before generic ones. See AGENTS.md.
 - `lint-staged` runs on commit; committing many files at once spawns heavy processes that can freeze the machine - keep each commit to at most ~10 files and use `amend` for the remainder.
 
 ## Plan documents (docs/)
