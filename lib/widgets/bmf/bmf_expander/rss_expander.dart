@@ -414,33 +414,10 @@ class _RssSubtitleGroupState extends State<_RssSubtitleGroup>
         setState(() => _expanded = expanded);
         updateKeepAlive();
       },
-      header: Row(
-        children: [
-          Expanded(
-            child: Tooltip(
-              message: group.name,
-              child: Text(
-                '${group.name} · ${group.releases.length} 条资源',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: BTTypography.body(
-                  context,
-                ).copyWith(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ),
-          if (widget.pendingCount > 0) ...[
-            const SizedBox(width: 8),
-            Text(
-              '${widget.pendingCount} 条更新',
-              style: TextStyle(
-                color: FluentTheme.of(context).accentColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ],
+      header: RssGroupHeader(
+        name: group.name,
+        count: group.releases.length,
+        pendingCount: widget.pendingCount,
       ),
       content: !_expanded
           ? const SizedBox.shrink()

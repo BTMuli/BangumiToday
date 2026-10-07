@@ -33,6 +33,7 @@ import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bmf/bmf_resource_item.dart';
 import '../../widgets/bmf/bmf_rss_data.dart';
+import '../../widgets/rss/rss_group_header.dart';
 import '../../widgets/rss/rss_refresh_status.dart';
 import '../../widgets/rss/rss_release_data.dart';
 import '../../widgets/rss/rss_release_detail_dialog.dart';

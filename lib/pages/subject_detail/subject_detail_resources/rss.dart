@@ -161,24 +161,54 @@ extension _ResourceRss on _SubjectDetailResourcesState {
               _rss.pendingItemKeys.contains(_rss.itemKey(release.item)),
         )
         .length;
-    return Button(
-      onPressed: () => _update(() {
-        if (collapsed) {
-          _collapsedGroups.remove((id, group.key));
-        } else {
-          _collapsedGroups.add((id, group.key));
-        }
-      }),
-      child: Row(
-        children: [
-          Icon(
-            collapsed ? FluentIcons.chevron_right : FluentIcons.chevron_down,
-            size: 12,
+    return Semantics(
+      expanded: !collapsed,
+      child: Button(
+        style: ButtonStyle(
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           ),
-          const SizedBox(width: 10),
-          Expanded(child: Text('${group.name} · ${group.releases.length} 条资源')),
-          if (pending > 0) _badge('$pending 条更新'),
-        ],
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BTRadius.mediumBR,
+              side: BorderSide(color: BTColors.divider(context)),
+            ),
+          ),
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.isPressed) return BTColors.surfaceTertiary(context);
+            if (states.isHovered) {
+              return Color.lerp(
+                SubjectDetailColors.card(context),
+                FluentTheme.of(context).accentColor,
+                0.08,
+              );
+            }
+            return SubjectDetailColors.card(context);
+          }),
+        ),
+        onPressed: () => _update(() {
+          if (collapsed) {
+            _collapsedGroups.remove((id, group.key));
+          } else {
+            _collapsedGroups.add((id, group.key));
+          }
+        }),
+        child: Row(
+          children: [
+            Icon(
+              collapsed ? FluentIcons.chevron_right : FluentIcons.chevron_down,
+              size: 12,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: RssGroupHeader(
+                name: group.name,
+                count: group.releases.length,
+                pendingCount: pending,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
