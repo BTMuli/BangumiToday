@@ -46,6 +46,15 @@ class _RssSearchSelection {
 
   bool matches(_RssSearchSource source, String animeId) =>
       this.source == source && this.animeId == animeId;
+
+  _RssSearchSelection withGroupName(String name) => _RssSearchSelection(
+    source: source,
+    animeId: animeId,
+    title: title,
+    rss: rss,
+    groupId: groupId,
+    groupName: name,
+  );
 }
 
 class SubjectRssSearchDialog extends StatefulWidget {
@@ -148,9 +157,35 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
             ...items.where((item) => item.bgmId == widget.subjectId),
             ...items.where((item) => item.bgmId != widget.subjectId),
           ];
+          _selection = _currentAnibtSelection();
         }
       });
     }
+  }
+
+  _RssSearchSelection? _currentAnibtSelection() {
+    var rss = widget.currentRss?.trim() ?? '';
+    var uri = Uri.tryParse(rss);
+    if (uri == null ||
+        !['http', 'https'].contains(uri.scheme) ||
+        uri.host != 'anibt.net' ||
+        uri.path != '/rss/anime.xml') {
+      return null;
+    }
+    var item = _anibtItems
+        .where((item) => item.bgmId.toString() == uri.queryParameters['bgmId'])
+        .firstOrNull;
+    if (item == null) return null;
+    var groupSlug = uri.queryParameters['groupSlug'];
+    if (groupSlug?.isEmpty == true) groupSlug = null;
+    return _RssSearchSelection(
+      source: _RssSearchSource.anibt,
+      animeId: item.bgmId.toString(),
+      title: item.title,
+      rss: rss,
+      groupId: groupSlug,
+      groupName: groupSlug,
+    );
   }
 
   /// 当前 RSS 对应的蜜柑番剧 ID
@@ -467,6 +502,15 @@ class _AnibtAnimeResultState extends State<_AnibtAnimeResult>
         _loaded = true;
       }
     });
+    var selection = widget.selection;
+    if (_loaded && selection?.groupId != null) {
+      var group = _groups
+          .where((group) => group.slug == selection!.groupId)
+          .firstOrNull;
+      if (group != null && selection!.groupName != group.name) {
+        widget.onSelected(selection.withGroupName(group.name));
+      }
+    }
   }
 
   void _select(AnibtAnimeGroup? group, bool selected) {
