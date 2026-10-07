@@ -819,40 +819,22 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     unawaited(
       widget.run(() async {
         try {
+          // Only suppress motion for an installed upscale shader chain. Set
+          // transitions on the route so the root and all submenus inherit them.
+          var upscaling = widget.store.upscaler?.configuredMode != null;
           await _contextMenu.showFlyout<void>(
             position: position,
             placementMode: placement,
+            transitionDuration: upscaling ? Duration.zero : null,
+            transitionBuilder: upscaling ? (_, _, _, child) => child : null,
             // FlyoutContent.useAcrylic only changes tint opacity in fluent_ui
             // 4.16.1. DisableAcrylic removes the actual video backdrop filter
             // and MenuFlyout carries it into every submenu's overlay entry.
-            builder: (menuContext) {
-              var menu = DisableAcrylic(
-                child: RepaintBoundary(
-                  child: MenuFlyout(
-                    items: items(),
-                    constraints: menuConstraints,
-                  ),
-                ),
-              );
-              if (widget.store.upscaleMode == PlaybackUpscaleMode.off) {
-                return menu;
-              }
-              // Submenus inherit the nearest Flyout's transitions. Override
-              // them here while the outer route keeps its main-menu animation.
-              var parent = Flyout.of(menuContext);
-              return Flyout(
-                root: parent.widget.root,
-                rootFlyout: parent.rootFlyout,
-                menuKey: parent.widget.menuKey,
-                additionalOffset: parent.additionalOffset,
-                margin: parent.margin,
-                transitionDuration: Duration.zero,
-                reverseTransitionDuration: Duration.zero,
-                transitionBuilder: (_, _, _, child) => child,
-                placementMode: parent.placementMode,
-                builder: (_) => menu,
-              );
-            },
+            builder: (_) => DisableAcrylic(
+              child: RepaintBoundary(
+                child: MenuFlyout(items: items(), constraints: menuConstraints),
+              ),
+            ),
           );
         } finally {
           if (mounted) {
