@@ -374,13 +374,9 @@ class PlaybackUpscaler {
           if (_dirty) await _restore(generation: generation);
           if (!_current(generation)) continue;
         } else if (next.mode.isJanai) {
-          // The AnimeJaNai chain is a fixed 2x filter installed by the backend;
-          // it needs no shader assets, no renderer dumb-mode change and no
-          // texture resize. A shader preset that is still installed has to be
-          // torn down first, otherwise both would upscale the same frame.
-          // Installing it is still verified by reading the filter list back, so
-          // a filter that failed to load is reported instead of being treated
-          // as configured.
+          // The filter produces fixed 2x frames. media_kit_video observes the
+          // decoder's video-params, so explicitly request the planned viewport
+          // texture size and let mpv scale the filtered frame to that target.
           if (_dirty && !(_loadedMode?.isJanai ?? false)) {
             await _restore(generation: generation);
           }
@@ -422,6 +418,7 @@ class PlaybackUpscaler {
             }
             _loadedMode = next.mode;
           }
+          if (!await _resizeOutput(next, generation)) continue;
           await _step('redraw', backend.redraw, generation: generation);
           if (!_current(generation)) continue;
         } else {
@@ -605,13 +602,10 @@ class PlaybackUpscaler {
   }
 
   void _watchOutput(int generation, PlaybackUpscalePlan next) {
-    // The AI chain upscales inside the decoder pipeline and does not resize the
-    // renderer texture, so the size confirmation only applies to shader modes.
-    if (next.mode.isJanai) {
+    if (next.enabled && next.mode.isJanai) {
       _dropTimer ??= Timer.periodic(const Duration(seconds: 2), (_) {
         unawaited(_checkDrops());
       });
-      return;
     }
     if (!next.enabled || actualOutput == next.output) return;
     _trace(
@@ -627,7 +621,8 @@ class PlaybackUpscaler {
         generation: generation,
       );
       _failed = true;
-      onError(StateError('超分纹理尺寸未能确认'));
+      _lastFailure = StateError('超分纹理尺寸未能确认');
+      onError(_lastFailure!);
       _schedule(immediate: true);
     });
   }

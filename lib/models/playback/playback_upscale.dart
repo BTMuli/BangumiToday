@@ -59,6 +59,8 @@ class PlaybackUpscalePlan {
     this.mode = PlaybackUpscaleMode.off,
   });
   final String reason;
+
+  /// Final renderer texture size, independently of a filter's model output.
   final PlaybackPixels? output;
   final PlaybackUpscaleMode mode;
   bool get enabled => output != null;
@@ -106,29 +108,6 @@ PlaybackUpscalePlan playbackUpscalePlan({
   if (['pq', 'st2084', 'hlg', 'arib-std-b67'].contains(gamma)) {
     return const PlaybackUpscalePlan('HDR 暂未开放');
   }
-  if (mode.isJanai) {
-    // AnimeJaNai is a fixed 2x chain with its own admitted contract: SDR video
-    // within a 3840x2160 output budget, which caps the source at 1920x1080.
-    if (![
-      'bt.1886',
-      'srgb',
-      'linear',
-      'gamma1.8',
-      'gamma2.2',
-      'gamma2.8',
-      'prophoto',
-    ].contains(gamma)) {
-      return const PlaybackUpscalePlan('等待确认 SDR 色彩');
-    }
-    if (source.width > 1920 || source.height > 1080) {
-      return const PlaybackUpscalePlan('AI 超分上限为 1080p，保持普通播放');
-    }
-    return PlaybackUpscalePlan(
-      '已配置 · 2× 至 ${source.width * 2}×${source.height * 2}',
-      output: (width: source.width * 2, height: source.height * 2),
-      mode: mode,
-    );
-  }
   if (![
     'bt.1886',
     'srgb',
@@ -139,6 +118,12 @@ PlaybackUpscalePlan playbackUpscalePlan({
     'prophoto',
   ].contains(gamma)) {
     return const PlaybackUpscalePlan('等待确认 SDR 色彩');
+  }
+  // The AI filter produces fixed 2x frames within its own 4K budget. The final
+  // texture uses the same viewport policy as Anime4K; mpv scales the filtered
+  // frame to that target when its dimensions differ from the model output.
+  if (mode.isJanai && (source.width > 1920 || source.height > 1080)) {
+    return const PlaybackUpscalePlan('AI 超分上限为 1080p，保持普通播放');
   }
   if (viewport == null ||
       [
