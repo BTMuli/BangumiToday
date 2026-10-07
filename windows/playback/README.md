@@ -66,10 +66,15 @@ under Documents, accessible through the settings page's log-directory action:
   frames remain renderable. At most eight consecutive frames are skipped so
   persistent lateness cannot suppress every image. Callback coalescing and
   render/resize/disposal fairness remain in the same render queue.
-  The pinned mpv `413ff0b1cd` implementation reports nanosecond deadlines even
-  though `render.h` retains an outdated microsecond comment; comparison uses
-  `mpv_get_time_ns`. Headers and the import library come from the same pinned
-  archive as the bundled DLL. No synchronous core property reads are added.
+  The pinned AnimeJaNai runtime `d6d93599d5` (the fork's build of `vo_libmpv`)
+  reports nanosecond deadlines even though `render.h` retains an outdated
+  microsecond comment; comparison uses `mpv_get_time_ns`. The deadline,
+  skip-acknowledgement and `ao-reload` behaviours below were measured on the
+  previous pinned runtime (`413ff0b1cd`) and are inherited from the same
+  upstream `vo_libmpv` implementation, but they have not been re-measured
+  against the new runtime yet — that re-run is part of the AnimeJaNai P0/P1
+  acceptance. Headers and the import library come from the same pinned archive
+  as the bundled DLL. No synchronous core property reads are added.
   Aggregate `deadline_skips`/`deadline_skips_total` and worst-frame
   `target_time_ns`/`frame_flags`/`lateness_ms` identify catch-up. The
   `output_lateness_ms` values measure completion/publication delay relative to
@@ -190,7 +195,7 @@ performance on the target GPU.
 Synchronization references:
 
 - [Microsoft: Flush is asynchronous; use an event query for completion](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-flush).
-- [Pinned mpv: frame deadlines and skip acknowledgement](https://github.com/mpv-player/mpv/blob/413ff0b1cd/video/out/vo_libmpv.c).
+- [Pinned mpv fork: frame deadlines and skip acknowledgement](https://github.com/the-database/mpv/blob/d6d93599d59069b715013a6e77e898056499b905/video/out/vo_libmpv.c).
 - [Flutter 3.48.0-0.4.pre: shared-handle import and descriptor release](https://github.com/flutter/flutter/blob/3.48.0-0.4.pre/engine/src/flutter/shell/platform/windows/external_texture_d3d.cc).
 
 Verification performed without starting the app or building the project:
@@ -262,11 +267,11 @@ Verification performed without starting the app or building the project:
   preservation of unrelated files and directories. MSVC `/Zs`, `/W4`, `/WX`
   passes without building or starting the application.
 
-## AnimeJaNai inference preparation
+## AnimeJaNai inference
 
-The independent [inference target](inference/README.md) provides a pinned,
-original DirectML GPU tensor session and actual-adapter CUDA capability query.
-It is not wired into this renderer. Its P0 performance and complete-frame gates
-remain open; ordinary playback and the existing Anime4K path remain the shipped
-behavior. See the [implementation progress](../../docs/feat/animejanai-onnx.md)
-for measured limits and the remaining D3D11, TensorRT and product work.
+The [DirectML inference bridge](inference/README.md) is wired through the pinned
+mpv filter, the aji shim and the application's two AI modes. Build preparation
+and bundle verification include its locked runtime, models and app-local CRT.
+Real mpv/ANGLE/Flutter playback, device alignment and release acceptance remain
+open; TensorRT and optional resource installation are still pending. See the
+[implementation status](../../docs/feat/animejanai-onnx.md) for scope and limits.
