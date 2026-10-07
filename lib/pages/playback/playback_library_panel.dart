@@ -582,13 +582,22 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   Widget _historyRow(PlaybackStore store, PlaybackHistoryGroup group) {
     var expanded =
         group.items.length > 1 && _expandedHistory.contains(group.key);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _historySummary(store, group, expanded),
-        if (expanded)
-          for (var item in group.items) _historyEpisode(store, item),
-      ],
+    return Container(
+      margin: const EdgeInsets.only(bottom: _gap),
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: BTColors.surfacePrimary(context),
+        borderRadius: BTRadius.largeBR,
+        border: Border.all(color: BTColors.divider(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _historySummary(store, group, expanded),
+          if (expanded)
+            for (var item in group.items) _historyEpisode(store, item),
+        ],
+      ),
     );
   }
 
@@ -605,7 +614,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
         '${date.hour.toString().padLeft(2, '0')}:'
         '${date.minute.toString().padLeft(2, '0')}';
     return Padding(
-      padding: const EdgeInsets.only(left: 12, bottom: 4),
+      padding: const EdgeInsets.only(left: 12, right: 4, bottom: 4),
       child: Tooltip(
         message: item.filePath,
         child: HoverButton(
@@ -672,7 +681,6 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
         key: ValueKey(group.key),
         onPressed: () => resumeLocalPlayback(context, ref, item),
         builder: (context, states) => Container(
-          margin: const EdgeInsets.only(bottom: 4),
           padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
           decoration: BoxDecoration(
             color: states.isHovered
