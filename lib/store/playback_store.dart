@@ -1,6 +1,7 @@
 // Dart imports:
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
@@ -19,6 +20,7 @@ import '../core/services/playback_cache.dart';
 import '../core/services/playback_chapters.dart';
 import '../core/services/playback_diagnostics.dart';
 import '../core/services/playback_loudness.dart';
+import '../core/services/playback_screenshot.dart';
 import '../core/services/playback_subtitles.dart';
 import '../core/services/playback_upscaler.dart';
 import '../data/repositories/playback_cover_impl.dart';
@@ -643,6 +645,30 @@ class PlaybackStore extends ChangeNotifier {
     await _player?.pause();
     await _save();
   });
+
+  /// Capture before queued media changes reset the renderer. Once copied, the
+  /// image belongs to this request even if another episode starts afterwards.
+  Future<({Uint8List image, Duration position})?> captureScreenshot() async {
+    var player = _player;
+    if (_closed || loading || player == null || current == null) return null;
+    var sessionId = _session.id;
+    var capturedPosition = player.state.position;
+    ({Uint8List image, Duration position})? screenshot;
+    await _serial(() async {
+      if (_session.id != sessionId || _player != player || current == null) {
+        return;
+      }
+      var image = await PlaybackScreenshot.capture(
+        player,
+        rendered: _upscaler?.configuredMode != null,
+      );
+      if (image == null || image.isEmpty) {
+        throw const PlaybackUnavailable('当前没有可截取的视频画面');
+      }
+      screenshot = (image: image, position: capturedPosition);
+    });
+    return screenshot;
+  }
 
   Future<void> _autoSelectSubtitle() async {
     var player = _player;

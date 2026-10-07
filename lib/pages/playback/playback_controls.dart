@@ -354,32 +354,22 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
   Future<void> _copyScreenshot() async {
     if (_takingScreenshot) return;
     _takingScreenshot = true;
-    var player = widget.player;
-    var itemKey = widget.store.current!.key;
-    var position = player.state.position;
+    var overlay = widget.overlay;
     try {
-      var image = await PlaybackScreenshot.capture(
-        player,
-        rendered: widget.store.upscaler?.configuredMode != null,
-      );
-      if (!mounted ||
-          widget.store.player != player ||
-          widget.store.current?.key != itemKey) {
-        return;
-      }
-      if (image == null || image.isEmpty) {
-        throw const PlaybackUnavailable('当前没有可截取的视频画面');
-      }
+      var screenshot = await widget.store.captureScreenshot();
+      if (screenshot == null) return;
       var systemClipboard = clipboard.SystemClipboard.instance;
       if (systemClipboard == null) {
         throw const PlaybackUnavailable('当前平台不支持复制图片到剪贴板');
       }
-      var item = clipboard.DataWriterItem()..add(clipboard.Formats.png(image));
+      // The captured bytes remain valid after a playlist or controls change.
+      var item = clipboard.DataWriterItem()
+        ..add(clipboard.Formats.png(screenshot.image));
       await systemClipboard.write([item]);
-      widget.overlay.show(
+      overlay.show(
         '截图已复制到剪贴板',
         material.Icons.photo_camera_outlined,
-        detail: _playbackTime(position),
+        detail: _playbackTime(screenshot.position),
       );
     } finally {
       _takingScreenshot = false;
