@@ -33,6 +33,7 @@ class PlaybackWindowDataHost {
   final void Function() onHistoryChanged;
   static const allowedSettings = {
     'playbackHiResEnabled',
+    'playbackAudioExclusiveEnabled',
     'playbackUpscaleMode',
     'playbackRememberedRate',
     'playbackLoudnessEnabled',

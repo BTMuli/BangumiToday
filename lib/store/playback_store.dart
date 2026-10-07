@@ -111,6 +111,8 @@ class PlaybackStore extends ChangeNotifier {
   bool _loudnessEnabled = Platform.isWindows;
   bool _hiResEnabled = false;
   bool _hiResConfigured = false;
+  bool _audioExclusiveEnabled = false;
+  bool _audioExclusiveConfigured = false;
   PlaybackAudioSource? _audioSource;
   PlaybackAudioOutput? _audioOutput;
   String? _hiResFailure;
@@ -170,11 +172,14 @@ class PlaybackStore extends ChangeNotifier {
   PlaybackUpscaleMode get upscaleMode => _upscaleMode;
   bool get loudnessEnabled => _loudnessEnabled;
   bool get hiResEnabled => _hiResEnabled;
+  bool get audioExclusiveEnabled => _audioExclusiveEnabled;
+  bool get canEnableAudioExclusive => PlaybackAudio.supported && _hiResEnabled;
   PlaybackHiResState get hiRes => PlaybackHiResState(
     source: _audioSource,
     output: _audioOutput,
     requested: _hiResEnabled,
     configured: _hiResConfigured,
+    exclusiveRequested: _hiResEnabled && _audioExclusiveEnabled,
     supported: PlaybackAudio.supported,
     rate: _player?.state.rate ?? 1,
     failure: _hiResFailure,
@@ -314,6 +319,8 @@ class PlaybackStore extends ChangeNotifier {
           'upscale': _upscaleMode.name,
           'loudness': loudnessActive,
           'hires_requested': _hiResEnabled,
+          'audio_exclusive_requested': _audioExclusiveEnabled,
+          'audio_exclusive_configured': _audioExclusiveConfigured,
           'hires_status': hiRes.status,
           'texture': rect == null ? null : '${rect.width}x${rect.height}',
           'upscale_configured': _upscaler?.configuredMode?.name,
@@ -746,6 +753,8 @@ class PlaybackStore extends ChangeNotifier {
       await _rateMemory.load();
       _hiResEnabled =
           await settingsStore.read(PlaybackAudio.settingKey) == 'true';
+      _audioExclusiveEnabled =
+          await settingsStore.read(PlaybackAudio.exclusiveSettingKey) == 'true';
       _episodeLayout = PlaybackEpisodeLayout.parse(
         await settingsStore.read('playbackEpisodeLayout'),
       );
@@ -829,6 +838,23 @@ class PlaybackStore extends ChangeNotifier {
     _scheduleAudioRefresh();
   });
 
+  Future<void> setAudioExclusiveEnabled(bool enabled) => _serial(() async {
+    await _loadPreferences();
+    if (_closed ||
+        _audioExclusiveEnabled == enabled ||
+        (enabled && !canEnableAudioExclusive)) {
+      return;
+    }
+    await settingsStore.write(PlaybackAudio.exclusiveSettingKey, '$enabled');
+    if (_closed) return;
+    _audioExclusiveEnabled = enabled;
+    _hiResBlockedSource = null;
+    _hiResFailure = null;
+    await _refreshAudio();
+    _diagnostics?.event('独占输出偏好改变：enabled=$enabled，${hiRes.status}');
+    _notify();
+  });
+
   void _scheduleAudioRefresh({
     Duration delay = const Duration(milliseconds: 150),
   }) {
@@ -848,26 +874,37 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> _configureHiRes(bool enabled) async {
     var player = _player;
-    if (player == null || _hiResConfigured == enabled) return;
+    var exclusive = enabled && _audioExclusiveEnabled;
+    if (player == null ||
+        (_hiResConfigured == enabled &&
+            _audioExclusiveConfigured == exclusive)) {
+      return;
+    }
     var previous = _hiResConfigured;
-    _wasapiFormat = null;
+    var previousExclusive = _audioExclusiveConfigured;
+    // Shared HiRes can keep the current device open when only its filters
+    // change. Retain its accepted format unless the access mode changes.
+    if (previousExclusive != exclusive) _wasapiFormat = null;
+    _diagnostics?.event('HiRes 输出配置开始：enabled=$enabled，exclusive=$exclusive');
     try {
       if (Platform.isWindows) {
         await PlaybackLoudness.apply(player, _loudnessEnabled && !enabled);
       }
-      await PlaybackAudio.apply(player, enabled);
+      await PlaybackAudio.apply(player, exclusive);
     } catch (_) {
       if (!_closed) {
-        await PlaybackAudio.apply(player, previous);
+        await PlaybackAudio.apply(player, previousExclusive);
         if (Platform.isWindows) {
-          await PlaybackLoudness.apply(player, loudnessActive);
+          await PlaybackLoudness.apply(player, _loudnessEnabled && !previous);
         }
       }
       rethrow;
     }
     if (_closed) return;
     _hiResConfigured = enabled;
+    _audioExclusiveConfigured = exclusive;
     _hiResConfiguredAt = enabled ? DateTime.now() : null;
+    _diagnostics?.event('HiRes 输出配置完成：enabled=$enabled，exclusive=$exclusive');
   }
 
   String? _audioSourceKey(PlaybackAudioSource? source) => source == null
@@ -906,8 +943,8 @@ class PlaybackStore extends ChangeNotifier {
         if (!settled) {
           _audioOutput = null;
           _scheduleAudioRefresh(delay: const Duration(seconds: 1));
-        } else if (hiRes.outputMismatch != null && player.state.rate == 1) {
-          _hiResFailure = hiRes.outputMismatch;
+        } else if (hiRes.deviceMismatch != null && player.state.rate == 1) {
+          _hiResFailure = hiRes.deviceMismatch;
           _hiResBlockedSource = key;
           await _configureHiRes(false);
           _diagnostics?.event('HiRes 回退共享输出：$_hiResFailure');
@@ -924,7 +961,6 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _resetAudio() async {
     _audioRefreshTimer?.cancel();
     _audioMetadata.clear();
-    _wasapiFormat = null;
     _audioSource = null;
     _audioOutput = null;
     _hiResFailure = null;

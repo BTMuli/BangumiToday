@@ -1373,17 +1373,37 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
           ),
       ],
     ),
-  if (Platform.isWindows)
-    ToggleMenuFlyoutItem(
-      text: _PlaybackMenuLabel(
-        '响度均衡',
-        description: store.loudnessPausedForHiRes ? 'HiRes 输出下暂停' : null,
-      ),
-      value: store.loudnessEnabled,
-      onChanged: store.loudnessPausedForHiRes
-          ? null
-          : (enabled) =>
-                unawaited(run(() => store.setLoudnessEnabled(enabled))),
+  if (Platform.isWindows || Platform.isMacOS)
+    MenuFlyoutSubItem(
+      text: const Text('音频设置'),
+      items: (_) => [
+        if (Platform.isWindows)
+          ToggleMenuFlyoutItem(
+            text: _PlaybackMenuLabel(
+              '响度均衡',
+              description: store.loudnessPausedForHiRes ? 'HiRes 输出下暂停' : null,
+            ),
+            value: store.loudnessEnabled,
+            onChanged: store.loudnessPausedForHiRes
+                ? null
+                : (enabled) =>
+                      unawaited(run(() => store.setLoudnessEnabled(enabled))),
+          ),
+        ToggleMenuFlyoutItem(
+          text: _PlaybackMenuLabel(
+            '独占输出',
+            description: store.canEnableAudioExclusive
+                ? '保持源格式，会影响其他应用声音'
+                : '开启 HiRes 后可用',
+          ),
+          value: store.audioExclusiveEnabled,
+          onChanged: store.canEnableAudioExclusive
+              ? (enabled) => unawaited(
+                  run(() => store.setAudioExclusiveEnabled(enabled)),
+                )
+              : null,
+        ),
+      ],
     ),
   if (windowMode != null)
     MenuFlyoutSubItem(

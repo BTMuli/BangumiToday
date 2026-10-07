@@ -113,7 +113,8 @@ class PlaybackAudioOutput {
   String get description =>
       '${playbackAudioRate(sampleRate)} · $format'
       '${devicePrecision == null ? '' : '（有效 $devicePrecision 位）'} · '
-      '$channels 声道 · $driver';
+      '$channels 声道 · $driver'
+      '${exclusive == null ? '' : ' · ${exclusive! ? '独占' : '共享'}'}';
 }
 
 /// mpv's pinned WASAPI backend reports the accepted WAVEFORMAT here. Its
@@ -168,6 +169,7 @@ class PlaybackHiResState {
     this.output,
     this.requested = false,
     this.configured = false,
+    this.exclusiveRequested = false,
     this.supported = true,
     this.rate = 1,
     this.failure,
@@ -177,13 +179,15 @@ class PlaybackHiResState {
   final PlaybackAudioOutput? output;
   final bool requested;
   final bool configured;
+  final bool exclusiveRequested;
   final bool supported;
   final double rate;
   final String? failure;
 
   bool get available => supported && (source?.hiRes ?? false);
 
-  String? get outputMismatch {
+  /// Device failures must still recover while playing at a different rate.
+  String? get deviceMismatch {
     var input = source;
     var actual = output;
     if (input == null || actual == null || actual.sampleRate <= 0) {
@@ -192,18 +196,30 @@ class PlaybackHiResState {
     if (!const {'wasapi', 'coreaudio'}.contains(actual.driver)) {
       return '当前输出设备不支持此 HiRes 模式';
     }
-    if (actual.driver == 'wasapi' && actual.exclusive != true) {
-      return actual.exclusive == false ? '设备未进入独占输出' : '等待设备独占格式确认';
+    if (actual.driver == 'wasapi' && actual.exclusive != exclusiveRequested) {
+      var mode = exclusiveRequested ? '独占' : '共享';
+      return actual.exclusive == null ? '等待设备$mode格式确认' : '设备未进入$mode输出';
     }
+    // A shared device uses the system mix format. Conversion is reported as
+    // a fidelity limitation, not a device failure requiring audio recovery.
+    return exclusiveRequested ? _formatMismatch : null;
+  }
+
+  String? get _formatMismatch {
+    var input = source;
+    var actual = output;
+    if (input == null || actual == null) return null;
     if (actual.sampleRate != input.sampleRate) return '设备未保持源采样率';
     if (input.requiredPrecision == 0 ||
         actual.precision < input.requiredPrecision) {
       return '设备输出精度不足或无法确认';
     }
     if (actual.channels != input.channels) return '设备未保持源声道数';
-    if (rate != 1) return '倍速播放中';
     return null;
   }
+
+  String? get outputMismatch =>
+      deviceMismatch ?? _formatMismatch ?? (rate == 1 ? null : '倍速播放中');
 
   bool get active =>
       requested &&
@@ -219,10 +235,14 @@ class PlaybackHiResState {
     if (!source!.hiRes) {
       return source!.minimumBits == 0 ? '源精度无法确认' : '当前音源为普通解析度';
     }
-    if (!requested) return 'HiRes 音源 · 点击启用源格式输出';
+    if (!requested) return 'HiRes 音源 · 点击启用 HiRes';
     if (failure != null) return 'HiRes 输出失败：$failure';
-    if (!configured) return '正在切换 HiRes 输出';
-    return outputMismatch ?? 'HiRes 已启用 · 保持源采样率和精度';
+    var mode = exclusiveRequested ? '独占输出' : '共享输出';
+    if (!configured) return '正在切换 HiRes $mode';
+    var mismatch = outputMismatch;
+    return mismatch == null
+        ? 'HiRes 已启用 · $mode · 保持源采样率和精度'
+        : 'HiRes $mode · $mismatch';
   }
 
   String get tooltip =>

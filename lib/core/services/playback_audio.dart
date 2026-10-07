@@ -11,6 +11,7 @@ import 'playback_audio_metadata.dart';
 
 abstract final class PlaybackAudio {
   static const settingKey = 'playbackHiResEnabled';
+  static const exclusiveSettingKey = 'playbackAudioExclusiveEnabled';
   static bool get supported => Platform.isWindows || Platform.isMacOS;
 
   static Future<({PlaybackAudioSource? source, PlaybackAudioOutput? output})>
