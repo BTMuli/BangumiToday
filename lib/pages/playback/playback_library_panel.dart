@@ -580,18 +580,19 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   }
 
   Widget _historyRow(PlaybackStore store, PlaybackHistoryGroup group) {
-    var expanded = _expandedHistory.contains(group.key);
+    var expanded =
+        group.items.length > 1 && _expandedHistory.contains(group.key);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _historySummary(store, group, expanded),
         if (expanded)
-          for (var item in group.items) _historyEpisode(item),
+          for (var item in group.items) _historyEpisode(store, item),
       ],
     );
   }
 
-  Widget _historyEpisode(PlaybackItem item) {
+  Widget _historyEpisode(PlaybackStore store, PlaybackItem item) {
     var label = PlaybackLabel.fromName(item.title);
     var progress = item.completed
         ? '已播完'
@@ -639,6 +640,14 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
                         style: BTTypography.caption(context),
                       ),
                     ],
+                  ),
+                ),
+                Tooltip(
+                  message: '删除此播放记录',
+                  child: IconButton(
+                    icon: const Icon(FluentIcons.delete, size: 14),
+                    onPressed: () =>
+                        widget.run(() => store.removeHistory(item.filePath)),
                   ),
                 ),
               ],
@@ -728,7 +737,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
                   ),
                 ),
               Tooltip(
-                message: '移除此条目的播放记录',
+                message: '删除此条目的全部播放记录',
                 child: IconButton(
                   icon: const Icon(FluentIcons.delete, size: 14),
                   onPressed: () =>
