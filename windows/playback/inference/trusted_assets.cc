@@ -14,6 +14,19 @@
 
 namespace bangumi::inference {
 namespace {
+std::string Describe(const std::filesystem::path& path) {
+  const std::wstring name = path.filename().wstring();
+  if (name.empty()) return {};
+  const int length = WideCharToMultiByte(CP_UTF8, 0, name.c_str(),
+                                         static_cast<int>(name.size()), nullptr,
+                                         0, nullptr, nullptr);
+  if (length <= 0) return {};
+  std::string result(static_cast<size_t>(length), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, name.c_str(), static_cast<int>(name.size()),
+                      result.data(), length, nullptr, nullptr);
+  return result;
+}
+
 class File final {
  public:
   explicit File(const std::filesystem::path& path) {
@@ -22,7 +35,8 @@ class File final {
     handle = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
                          OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
     if (handle == INVALID_HANDLE_VALUE)
-      throw std::runtime_error("Cannot open locked inference asset");
+      throw std::runtime_error("Cannot open locked inference asset: " +
+                               Describe(path));
   }
   ~File() {
     if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
@@ -89,8 +103,9 @@ HANDLE Verify(const std::filesystem::path& path, bool model) {
                   (path.filename() == L"DirectML.dll" &&
                    Match(detail::kDirectml, length.QuadPart, digest));
   if (!valid)
-    throw std::runtime_error(
-        "Inference asset failed the compiled SHA-256 lock");
+    throw std::runtime_error("Inference asset failed the compiled SHA-256 "
+                             "lock: " +
+                             Describe(path));
   const auto handle = file.handle;
   file.handle = INVALID_HANDLE_VALUE;
   return handle;

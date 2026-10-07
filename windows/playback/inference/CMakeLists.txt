@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 project(bangumi_playback_inference LANGUAGES CXX)
 
-# This is the independent native P0 target. It is deliberately not linked into
-# the app until the frame, renderer and performance acceptance gates pass.
+# Build standalone for native checks, or as an application subdirectory.
 if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
   message(FATAL_ERROR "Playback inference requires Windows x64")
 endif()
@@ -54,8 +53,45 @@ foreach(_id performance balanced onnxruntime directml)
   endif()
 endforeach()
 configure_file(trusted_assets_data.h.in trusted_assets_data.h @ONLY)
+
+# Frame conversion kernels: compiled by the pinned SDK shader compiler at build
+# time so the player needs no runtime shader compiler.
+if(NOT PLAYBACK_FXC_EXECUTABLE)
+  set(_fxc_candidates
+    "$ENV{WindowsSdkVerBinPath}x64/fxc.exe"
+    "$ENV{WindowsSdkDir}bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64/fxc.exe"
+    "C:/Program Files (x86)/Windows Kits/10/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64/fxc.exe")
+  foreach(_candidate IN LISTS _fxc_candidates)
+    if(EXISTS "${_candidate}")
+      set(PLAYBACK_FXC_EXECUTABLE "${_candidate}")
+      break()
+    endif()
+  endforeach()
+endif()
+if(NOT PLAYBACK_FXC_EXECUTABLE)
+  message(FATAL_ERROR
+    "fxc.exe from the Windows SDK is required for the frame shaders; "
+    "pass -DPLAYBACK_FXC_EXECUTABLE=<path>")
+endif()
+set(_frame_shader "${CMAKE_CURRENT_SOURCE_DIR}/shaders/frame_shaders.hlsl")
+add_custom_command(
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/frame_shaders_data.h"
+  COMMAND ${CMAKE_COMMAND}
+    -DFXC=${PLAYBACK_FXC_EXECUTABLE}
+    -DSHADER_SOURCE=${_frame_shader}
+    -DOUTPUT_HEADER=${CMAKE_CURRENT_BINARY_DIR}/frame_shaders_data.h
+    -DGENERATED_DIR=${CMAKE_CURRENT_BINARY_DIR}/shaders
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_frame_shaders.cmake"
+  DEPENDS "${_frame_shader}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_frame_shaders.cmake"
+  COMMENT "Compiling AnimeJaNai frame shaders"
+  VERBATIM)
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/shaders")
+
 add_library(bangumi_dml_session STATIC
-  dml_session.cc trusted_assets.cc gpu_capabilities.cc)
+  dml_session.cc trusted_assets.cc gpu_capabilities.cc frame_contract.cc
+  frame_budget.cc node_placement.cc interop.cc frame_converter.cc
+  frame_pipeline.cc
+  "${CMAKE_CURRENT_BINARY_DIR}/frame_shaders_data.h")
 target_compile_features(bangumi_dml_session PUBLIC cxx_std_17)
 target_compile_definitions(bangumi_dml_session PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
 target_compile_options(bangumi_dml_session PRIVATE /W4 /WX /EHsc /utf-8)
@@ -63,4 +99,12 @@ target_include_directories(bangumi_dml_session PUBLIC "${CMAKE_CURRENT_SOURCE_DI
 target_include_directories(bangumi_dml_session PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 target_include_directories(bangumi_dml_session SYSTEM PRIVATE
   "${PLAYBACK_ORT_SDK_DIR}/build/native/include" "${PLAYBACK_DML_SDK_DIR}/include")
-target_link_libraries(bangumi_dml_session PUBLIC d3d12 d3d11 dxgi bcrypt)
+target_link_libraries(bangumi_dml_session PUBLIC d3d12 d3d11 dxgi bcrypt shell32)
+
+# The shim loaded by the pinned mpv filter (see aji_abi.h).
+add_library(bangumi_ajishim SHARED aji_bridge.cc aji_abi.h)
+target_compile_features(bangumi_ajishim PRIVATE cxx_std_17)
+target_compile_definitions(bangumi_ajishim PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+target_compile_options(bangumi_ajishim PRIVATE /W4 /WX /EHsc /utf-8)
+target_include_directories(bangumi_ajishim PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(bangumi_ajishim PRIVATE bangumi_dml_session)

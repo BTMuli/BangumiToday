@@ -1,2 +1,3 @@
 # Keep upstream shader bytes stable for the bundled integrity manifest.
 assets/shaders/anime4k/**/*.glsl -text -whitespace
+windows/licenses/msvc-runtime/NOTICE.md text eol=lf

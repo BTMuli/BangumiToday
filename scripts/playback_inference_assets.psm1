@@ -7,7 +7,8 @@ function Get-PlaybackInferenceLock {
     if ($lock.schemaVersion -ne 1 -or $lock.phase -ne 'p0-prerequisites') {
         throw 'Unsupported inference dependency lock'
     }
-    foreach ($asset in @($lock.packages) + @($lock.files)) {
+    foreach ($asset in @($lock.packages) + @($lock.files) +
+        @($lock.vcredist.package, $lock.vcredist.container, $lock.vcredist.cabinet)) {
         if ($asset.bytes -le 0 -or $asset.sha256 -cnotmatch '^[0-9a-f]{64}$') {
             throw "Invalid locked size or digest: $($asset.id)"
         }
@@ -42,7 +43,7 @@ function Get-InferenceTarget {
 function Save-InferenceDownload {
     param([string]$Url, [string]$Path, [long]$Bytes, [string]$Sha256)
     $uri = [Uri]$Url
-    if ($uri.Scheme -ne 'https' -or $uri.Host -notin @('raw.githubusercontent.com', 'api.nuget.org')) {
+    if ($uri.Scheme -ne 'https' -or $uri.Host -notin @('raw.githubusercontent.com', 'api.nuget.org', 'download.visualstudio.microsoft.com')) {
         throw "Untrusted inference source: $Url"
     }
     if (Test-Path -LiteralPath $Path) {

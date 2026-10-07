@@ -157,17 +157,16 @@ struct DmlSession::State final {
     if (options) api->ReleaseSessionOptions(options);
     if (memory_info) api->ReleaseMemoryInfo(memory_info);
     if (environment) api->ReleaseEnv(environment);
-    if (completion) CloseHandle(completion);
   }
+  InteropContext* interop = nullptr;
   std::shared_ptr<Runtime> runtime;
-  ComPtr<ID3D12Device> device;
-  ComPtr<ID3D12CommandQueue> queue;
   ComPtr<IDMLDevice> dml_device;
-  ComPtr<ID3D12Fence> fence;
   ComPtr<ID3D12Resource> input, output;
-  HANDLE completion = nullptr;
-  OrtEnv* environment = nullptr;
+  // Kept so an abnormal teardown can poll completion through the fence alone,
+  // without dereferencing a context that may already be gone.
+  ComPtr<ID3D12Fence> fence;
   std::unique_ptr<LockedAsset> model;
+  OrtEnv* environment = nullptr;
   OrtSessionOptions* options = nullptr;
   OrtSession* session = nullptr;
   OrtMemoryInfo* memory_info = nullptr;
@@ -176,56 +175,41 @@ struct DmlSession::State final {
   OrtValue* output_value = nullptr;
   void* input_allocation = nullptr;
   void* output_allocation = nullptr;
+  uint32_t width = 0, height = 0;
   uint64_t input_size = 0, output_size = 0;
+  bool profiling_requested = false;
   std::atomic<uint64_t> last_ticket{0};
   bool failed = false;
   LUID luid{};
   std::mutex mutex;
 };
 
-DmlSession::DmlSession(const std::filesystem::path& runtime_directory,
-                       const std::filesystem::path& model,
-                       ID3D11Device* playback_device, uint32_t width,
-                       uint32_t height) {
-  if (!playback_device || !model.is_absolute() || !width || !height ||
-      uint64_t{width} * height * 4 > 3840ull * 2160 || width * 2 > 4096 ||
-      height * 2 > 4096) {
-    throw std::invalid_argument("Invalid JaNai device, path or input budget");
+DmlSession::DmlSession(InteropContext& interop,
+                       const std::filesystem::path& runtime_directory,
+                       const std::filesystem::path& model, uint32_t width,
+                       uint32_t height, const Options& options) {
+  if (!model.is_absolute() || !width || !height ||
+      uint64_t{width} * 2 * (height * 2) * 3 * 2 > 3840ull * 2160 * 3 * 2) {
+    throw std::invalid_argument("Invalid JaNai model path or input budget");
   }
   state_ = std::make_unique<State>(GetRuntime(runtime_directory));
   auto& state = *state_;
+  state.interop = &interop;
+  state.fence = interop.fence();
+  state.width = width;
+  state.height = height;
   state.model = LockedAsset::Model(model);
   auto api = state.runtime->api;
   auto check = [&](OrtStatus* status) { state.runtime->CheckOrt(status); };
-  ComPtr<IDXGIDevice> dxgi_device;
-  ComPtr<IDXGIAdapter> adapter;
-  DXGI_ADAPTER_DESC adapter_info{};
-  Check(playback_device->QueryInterface(IID_PPV_ARGS(&dxgi_device)),
-        "DXGI device");
-  Check(dxgi_device->GetAdapter(&adapter), "Playback adapter");
-  Check(adapter->GetDesc(&adapter_info), "Playback adapter description");
-  ComPtr<IDXGIAdapter1> hardware_adapter;
-  DXGI_ADAPTER_DESC1 hardware_info{};
-  Check(adapter.As(&hardware_adapter), "Playback hardware adapter");
-  Check(hardware_adapter->GetDesc1(&hardware_info), "Playback adapter flags");
-  if (hardware_info.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) {
-    throw std::runtime_error("Software playback adapters cannot run JaNai");
-  }
-  state.luid = adapter_info.AdapterLuid;
-  Check(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0,
-                          IID_PPV_ARGS(&state.device)),
-        "D3D12 playback adapter");
-  D3D12_COMMAND_QUEUE_DESC queue_description{};
-  queue_description.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-  Check(state.device->CreateCommandQueue(&queue_description,
-                                         IID_PPV_ARGS(&state.queue)),
-        "D3D12 inference queue");
-  Check(state.runtime->create_device(state.device.Get(),
+  state.luid = interop.adapter_luid();
+
+  Check(state.runtime->create_device(interop.device(),
                                      DML_CREATE_DEVICE_FLAG_NONE,
                                      IID_PPV_ARGS(&state.dml_device)),
         "DirectML device");
-  check(api->CreateEnv(ORT_LOGGING_LEVEL_WARNING, "BangumiToday.JaNai",
-                       &state.environment));
+  check(api->CreateEnv(
+      static_cast<OrtLoggingLevel>(options.log_severity), "BangumiToday.JaNai",
+      &state.environment));
   check(api->CreateSessionOptions(&state.options));
   check(api->SetSessionExecutionMode(state.options, ORT_SEQUENTIAL));
   check(api->DisableMemPattern(state.options));
@@ -234,8 +218,15 @@ DmlSession::DmlSession(const std::filesystem::path& runtime_directory,
                                    "session.disable_cpu_ep_fallback", "1"));
   check(api->AddFreeDimensionOverrideByName(state.options, "height", height));
   check(api->AddFreeDimensionOverrideByName(state.options, "width", width));
+  if (!options.placement_profile.empty()) {
+    if (!options.placement_profile.is_absolute())
+      throw std::invalid_argument("Placement profile path must be absolute");
+    check(api->EnableProfiling(state.options,
+                               options.placement_profile.c_str()));
+    state.profiling_requested = true;
+  }
   check(state.runtime->dml->SessionOptionsAppendExecutionProvider_DML1(
-      state.options, state.dml_device.Get(), state.queue.Get()));
+      state.options, state.dml_device.Get(), interop.queue()));
   check(api->CreateSession(state.environment, model.c_str(), state.options,
                            &state.session));
 
@@ -284,8 +275,8 @@ DmlSession::DmlSession(const std::filesystem::path& runtime_directory,
   }
   state.input_size = uint64_t{width} * height * 3 * 2;
   state.output_size = state.input_size * 4;
-  state.input = TensorBuffer(state.device.Get(), state.input_size);
-  state.output = TensorBuffer(state.device.Get(), state.output_size);
+  state.input = TensorBuffer(interop.device(), state.input_size);
+  state.output = TensorBuffer(interop.device(), state.output_size);
   check(state.runtime->dml->CreateGPUAllocationFromD3DResource(
       state.input.Get(), &state.input_allocation));
   check(state.runtime->dml->CreateGPUAllocationFromD3DResource(
@@ -304,12 +295,6 @@ DmlSession::DmlSession(const std::filesystem::path& runtime_directory,
   check(api->CreateIoBinding(state.session, &state.binding));
   check(api->BindInput(state.binding, "input", state.input_value));
   check(api->BindOutput(state.binding, "output", state.output_value));
-  Check(state.device->CreateFence(0, D3D12_FENCE_FLAG_NONE,
-                                  IID_PPV_ARGS(&state.fence)),
-        "Inference fence");
-  state.completion = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-  if (!state.completion)
-    throw std::runtime_error("Cannot create inference completion event");
 }
 
 DmlSession::~DmlSession() {
@@ -323,7 +308,12 @@ DmlSession::~DmlSession() {
     auto pending = state_.release();
     try {
       std::thread([pending]() {
+        // Poll the fence itself: the interop context may already be gone, and
+        // a device removal reports UINT64_MAX instead of a value.
         while (pending->fence->GetCompletedValue() < pending->last_ticket) {
+          const uint64_t completed = pending->fence->GetCompletedValue();
+          if (completed == std::numeric_limits<uint64_t>::max()) break;
+          if (completed >= pending->last_ticket) break;
           std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         delete pending;
@@ -335,53 +325,73 @@ DmlSession::~DmlSession() {
     }
   }
 }
+
 ID3D12Resource* DmlSession::input() const { return state_->input.Get(); }
 ID3D12Resource* DmlSession::output() const { return state_->output.Get(); }
-ID3D12Device* DmlSession::device() const { return state_->device.Get(); }
-ID3D12CommandQueue* DmlSession::queue() const { return state_->queue.Get(); }
 uint64_t DmlSession::input_bytes() const { return state_->input_size; }
 uint64_t DmlSession::output_bytes() const { return state_->output_size; }
+uint32_t DmlSession::width() const { return state_->width; }
+uint32_t DmlSession::height() const { return state_->height; }
 LUID DmlSession::adapter_luid() const { return state_->luid; }
 
 uint64_t DmlSession::Run() {
   std::lock_guard<std::mutex> lock(state_->mutex);
   if (state_->failed)
     throw std::runtime_error("JaNai session requires recovery");
-  if (state_->last_ticket && !Complete(state_->last_ticket)) {
-    throw std::runtime_error("Cannot reuse an in-flight JaNai tensor");
+  // Runs may overlap. The shared queue executes them in submission order, so a
+  // later input copy can never overtake an earlier read of the same tensor,
+  // and DirectML sessions are built for a queue depth above one. The caller
+  // must order its own writes to the tensor on the GPU (FramePipeline does
+  // this with the shared fence) rather than relying on a CPU wait here.
+  auto status = state_->runtime->api->RunWithBinding(
+      state_->session, nullptr, state_->binding);
+  uint64_t ticket = 0;
+  try {
+    // Publish the run on the shared fence even when Run failed, because a
+    // failed run may still have submitted GPU work over these tensors.
+    ticket = state_->interop->SignalQueue();
+  } catch (...) {
+    state_->failed = true;
+    state_->runtime->CheckOrt(status);
+    throw;
   }
-  const auto ticket = state_->last_ticket + 1;
   state_->last_ticket = ticket;
-  auto status = state_->runtime->api->RunWithBinding(state_->session, nullptr,
-                                                     state_->binding);
-  const auto signal = state_->queue->Signal(state_->fence.Get(), ticket);
-  state_->failed = status || FAILED(signal);
-  // Even a failed Run may have submitted GPU work. The fence and destructor's
-  // lease cover those buffers before propagating the error to the coordinator.
-  state_->runtime->CheckOrt(status);
-  Check(signal, "Signal inference completion");
+  if (status) {
+    state_->failed = true;
+    state_->runtime->CheckOrt(status);
+  }
   return ticket;
 }
 
 bool DmlSession::Complete(uint64_t ticket) const {
   if (ticket > state_->last_ticket)
     throw std::invalid_argument("Unknown inference ticket");
-  const auto completed = state_->fence->GetCompletedValue();
-  if (completed == std::numeric_limits<uint64_t>::max()) {
-    throw std::runtime_error("JaNai GPU device was removed");
-  }
-  return completed >= ticket;
+  return state_->interop->Complete(ticket);
 }
 
 void DmlSession::Wait(uint64_t ticket, uint32_t timeout_ms) {
   std::lock_guard<std::mutex> lock(state_->mutex);
   if (Complete(ticket)) return;
-  Check(state_->fence->SetEventOnCompletion(ticket, state_->completion),
-        "Wait inference fence");
-  if (WaitForSingleObject(state_->completion, timeout_ms) != WAIT_OBJECT_0) {
-    throw std::runtime_error("JaNai inference timed out");
-  }
+  state_->interop->Wait(ticket, timeout_ms);
   if (!Complete(ticket))
     throw std::runtime_error("JaNai inference did not complete");
+}
+
+std::filesystem::path DmlSession::EndPlacementProfiling() {
+  std::lock_guard<std::mutex> lock(state_->mutex);
+  if (!state_->profiling_requested) return {};
+  state_->profiling_requested = false;
+  auto api = state_->runtime->api;
+  OrtAllocator* allocator = nullptr;
+  state_->runtime->CheckOrt(api->GetAllocatorWithDefaultOptions(&allocator));
+  char* path = nullptr;
+  state_->runtime->CheckOrt(
+      api->SessionEndProfiling(state_->session, allocator, &path));
+  std::filesystem::path result;
+  if (path) {
+    result = std::filesystem::path(path);
+    allocator->Free(allocator, path);
+  }
+  return result;
 }
 }  // namespace bangumi::inference

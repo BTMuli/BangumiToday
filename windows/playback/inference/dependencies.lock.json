@@ -150,6 +150,51 @@
       "sha256": "9c9e6d822561c6c41b90e6994b3e8857cf1d66dbfb1e0c4c799c7c89b4e92da1"
     },
     {
+      "id": "crt-msvcp140",
+      "group": "runtime",
+      "provider": "vcredist",
+      "source": "msvcp140.dll",
+      "path": "msvcp140.dll",
+      "bytes": 642720,
+      "sha256": "639342ea9a67c0009122238ce070a8257e2e04d367d627509fec29f8442afb42"
+    },
+    {
+      "id": "crt-msvcp140-1",
+      "group": "runtime",
+      "provider": "vcredist",
+      "source": "msvcp140_1.dll",
+      "path": "msvcp140_1.dll",
+      "bytes": 35920,
+      "sha256": "456aebccb449fcba35f1109c259ba0aa10923e660f4de812a490d35f37f54fc9"
+    },
+    {
+      "id": "crt-vcruntime140",
+      "group": "runtime",
+      "provider": "vcredist",
+      "source": "vcruntime140.dll",
+      "path": "vcruntime140.dll",
+      "bytes": 178848,
+      "sha256": "19c293ac482fdb882cd29d2b0e6d807419efdcada04068f03e5723670895e17d"
+    },
+    {
+      "id": "crt-vcruntime140-1",
+      "group": "runtime",
+      "provider": "vcredist",
+      "source": "vcruntime140_1.dll",
+      "path": "vcruntime140_1.dll",
+      "bytes": 50256,
+      "sha256": "a253a12e4a8e9e23ebfe0ced829f7751e4f42c60066986bf20515ced8dcc68cd"
+    },
+    {
+      "id": "crt-notice",
+      "group": "licenses",
+      "provider": "repo",
+      "source": "windows/licenses/msvc-runtime/NOTICE.md",
+      "path": "licenses/MSVCRuntime.txt",
+      "bytes": 777,
+      "sha256": "4dbbfea193c42c6362923aff391730690b79ae37f7066265c6a2235446d8d3e4"
+    },
+    {
       "id": "model-license",
       "group": "licenses",
       "source": "LICENSE",
@@ -193,5 +238,26 @@
       "bytes": 4577,
       "sha256": "2c95795c13ff48a58b6ed916f37901c23d964b5d9d601af422f17ad2172e7950"
     }
-  ]
+  ],
+  "vcredist": {
+    "version": "14.51.36231.0",
+    "package": {
+      "id": "vcredist",
+      "url": "https://download.visualstudio.microsoft.com/download/pr/c1bd4f2c-3672-468e-8480-7ed419dbb641/90E48ADE404E4576D023ABFA374F323555F233982A8805EA9AC63DCA9491A16B/VC_redist.x64.exe",
+      "bytes": 18779992,
+      "sha256": "90e48ade404e4576d023abfa374f323555f233982a8805ea9ac63dca9491a16b"
+    },
+    "container": {
+      "id": "crt-container",
+      "offset": 685168,
+      "bytes": 18084433,
+      "sha256": "cd24cc6cc26c6ae43bd91abbbc84621ad54831f9fe07dcf7dde1a6554d2ecaef"
+    },
+    "cabinet": {
+      "id": "crt-cabinet",
+      "name": "a4",
+      "bytes": 1056739,
+      "sha256": "99fda37db1ad396ca1049cf83e3ea5cb60c7aae315f4b94efc599c26bd54839b"
+    }
+  }
 }
