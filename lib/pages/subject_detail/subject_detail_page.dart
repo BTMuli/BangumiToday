@@ -103,7 +103,16 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
       await showRespErr(result, context);
       return;
     }
-    setState(() => data = result.data);
+    _applySubject(result.data!);
+  }
+
+  void _applySubject(BangumiSubject subject) {
+    setState(() => data = subject);
+    var title = subject.nameCn.trim();
+    if (title.isEmpty) title = subject.name.trim();
+    ref
+        .read(navStoreProvider.notifier)
+        .updateSubjectTitle(subject: subject.id, title: title);
   }
 
   /// 刷新页面：保留当前内容，重新拉取条目详情与各子模块接口。
@@ -124,7 +133,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
         await showRespErr(result, context);
         return;
       }
-      setState(() => data = result.data);
+      _applySubject(result.data!);
       await _refreshSubModules();
     } finally {
       if (mounted) setState(() => _refreshing = false);

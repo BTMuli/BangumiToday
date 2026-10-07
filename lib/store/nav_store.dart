@@ -246,6 +246,21 @@ class BTNavNotifier extends Notifier<BTNavState> {
     );
   }
 
+  /// 同步已打开条目的名称，不创建条目或切换当前页面。
+  void updateSubjectTitle({required int subject, required String title}) {
+    if (title.trim().isEmpty) return;
+    var param = 'subjectDetail_$subject';
+    if (_navIndexOf(state, BtmAppNavItemType.subject, null, param) == -1) {
+      return;
+    }
+    state = _addNavItemB(
+      state,
+      subject: subject,
+      paneTitle: title,
+      jump: false,
+    );
+  }
+
   BTNavState _addNavItemB(
     BTNavState draft, {
     String type = '条目',
@@ -253,9 +268,18 @@ class BTNavNotifier extends Notifier<BTNavState> {
     String? paneTitle,
     bool jump = true,
   }) {
-    var title = '$type详情 $subject';
-    if (paneTitle != null && paneTitle.isNotEmpty) title = paneTitle;
     var param = 'subjectDetail_$subject';
+    var findIndex = _navIndexOf(draft, BtmAppNavItemType.subject, null, param);
+    var title = paneTitle?.trim() ?? '';
+    // 通知和深链接可能只有 ID，重复打开时保留已经解析出的名称。
+    if (title.isEmpty) {
+      title = findIndex == -1
+          ? '$type详情 $subject'
+          : draft.navItems[findIndex].title;
+    }
+    if (findIndex != -1 && draft.navItems[findIndex].title == title) {
+      return jump ? _goIndex(draft, findIndex + draft.topNavCount) : draft;
+    }
     var pane = PaneItem(
       icon: NavItemIcon(
         title: title,
@@ -342,7 +366,8 @@ class BTNavNotifier extends Notifier<BTNavState> {
     }
 
     if (!jump) {
-      if (next.curIndex == next.topNavCount + next.navItems.length - 1) {
+      if (findIndex == -1 &&
+          next.curIndex == next.topNavCount + next.navItems.length - 1) {
         next = next.copyWith(curIndex: next.curIndex + 1);
       }
       return next;

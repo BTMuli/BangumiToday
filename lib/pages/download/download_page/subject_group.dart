@@ -42,7 +42,11 @@ class _DownloadSubjectGroup extends ConsumerWidget {
     void openSubject() {
       ref
           .read(navStoreProvider.notifier)
-          .addNavItemB(subject: subjectId, paneTitle: title, type: '动画');
+          .addNavItemB(
+            subject: subjectId,
+            paneTitle: subject == null ? null : title,
+            type: '动画',
+          );
     }
 
     void toggleSelection() {
