@@ -261,3 +261,12 @@ Verification performed without starting the app or building the project:
   active captures and reader locks, cleanup retries, orphaned partial files and
   preservation of unrelated files and directories. MSVC `/Zs`, `/W4`, `/WX`
   passes without building or starting the application.
+
+## AnimeJaNai inference preparation
+
+The independent [inference target](inference/README.md) provides a pinned,
+original DirectML GPU tensor session and actual-adapter CUDA capability query.
+It is not wired into this renderer. Its P0 performance and complete-frame gates
+remain open; ordinary playback and the existing Anime4K path remain the shipped
+behavior. See the [implementation progress](../../docs/feat/animejanai-onnx.md)
+for measured limits and the remaining D3D11, TensorRT and product work.
