@@ -99,4 +99,16 @@ abstract final class PlaybackAudio {
       adapter.close();
     }
   }
+
+  /// The pinned mpv also uses this command when WASAPI has no live AO to
+  /// receive device notifications. Reapplying unchanged options does not
+  /// restart a missing output.
+  static Future<void> reopenOutput(Player player) async {
+    var adapter = NativeUpscaleAdapter(player.platform as NativePlayer);
+    try {
+      await adapter.command(['ao-reload']);
+    } finally {
+      adapter.close();
+    }
+  }
 }

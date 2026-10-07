@@ -23,6 +23,7 @@ import '../core/services/playback_loudness.dart';
 import '../core/services/playback_screenshot.dart';
 import '../core/services/playback_subtitles.dart';
 import '../core/services/playback_upscaler.dart';
+import '../core/utils/playback_audio_recovery.dart';
 import '../data/repositories/episode_mark_gateway_impl.dart';
 import '../data/repositories/playback_cover_impl.dart';
 import '../data/repositories/playback_episodes.dart';
@@ -117,8 +118,11 @@ class PlaybackStore extends ChangeNotifier {
   PlaybackAudioOutput? _audioOutput;
   String? _hiResFailure;
   String? _hiResBlockedSource;
-  DateTime? _hiResConfiguredAt;
+  String? _lastAudioSourceKey;
+  final _audioClock = Stopwatch()..start();
+  final _audioRecovery = PlaybackAudioRecovery();
   Timer? _audioRefreshTimer;
+  Timer? _audioWatchdog;
   final _audioMetadata = PlaybackAudioMetadata();
   PlaybackWasapiFormat? _wasapiFormat;
   PlaybackEpisodeLayout _episodeLayout = PlaybackEpisodeLayout.grid;
@@ -903,7 +907,18 @@ class PlaybackStore extends ChangeNotifier {
     if (_closed) return;
     _hiResConfigured = enabled;
     _audioExclusiveConfigured = exclusive;
-    _hiResConfiguredAt = enabled ? DateTime.now() : null;
+    if (enabled) {
+      _audioRecovery.configured(_audioClock.elapsed);
+      _audioWatchdog ??= Timer.periodic(const Duration(seconds: 5), (_) {
+        if (_player?.state.playing == true && !completed) {
+          _scheduleAudioRefresh();
+        }
+      });
+    } else {
+      _audioRecovery.reset();
+      _audioWatchdog?.cancel();
+      _audioWatchdog = null;
+    }
     _diagnostics?.event('HiRes 输出配置完成：enabled=$enabled，exclusive=$exclusive');
   }
 
@@ -914,6 +929,7 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _refreshAudio() async {
     var player = _player;
     if (_closed || player == null || current == null) return;
+    var sessionId = _session.id;
     var before = hiRes.tooltip;
     var params = await PlaybackAudio.read(
       player,
@@ -921,33 +937,32 @@ class PlaybackStore extends ChangeNotifier {
       metadata: _audioMetadata,
       deviceFormat: _wasapiFormat,
     );
-    if (_closed) return;
+    if (_closed || sessionId != _session.id) return;
     _audioSource = params.source;
     _audioOutput = params.output;
-    var key = _audioSourceKey(params.source);
+    var key = _audioSourceKey(params.source) ?? _lastAudioSourceKey;
+    _lastAudioSourceKey = key;
     if (_hiResBlockedSource != key) _hiResFailure = null;
     var desired =
         _hiResEnabled &&
         PlaybackAudio.supported &&
-        (params.source?.hiRes ?? false) &&
-        _hiResBlockedSource != key;
+        (params.source?.hiRes ?? _hiResConfigured) &&
+        (_hiResBlockedSource == null || _hiResBlockedSource != key);
     try {
       await _configureHiRes(desired);
       if (_closed) return;
       if (_hiResConfigured) {
-        // Reconfiguration is asynchronous. Do not judge the previous shared
-        // device's format while WASAPI/CoreAudio is opening the new stream.
-        var settled =
-            DateTime.now().difference(_hiResConfiguredAt!) >=
-            const Duration(milliseconds: 900);
-        if (!settled) {
-          _audioOutput = null;
-          _scheduleAudioRefresh(delay: const Duration(seconds: 1));
-        } else if (hiRes.deviceMismatch != null && player.state.rate == 1) {
-          _hiResFailure = hiRes.deviceMismatch;
+        var recovery = _audioRecovery.check(_audioClock.elapsed, hiRes);
+        if (recovery.retry) {
+          _scheduleAudioRefresh(delay: const Duration(milliseconds: 500));
+        } else if (recovery.failure != null) {
+          _hiResFailure = recovery.failure;
           _hiResBlockedSource = key;
           await _configureHiRes(false);
+          if (_closed) return;
+          await PlaybackAudio.reopenOutput(player);
           _diagnostics?.event('HiRes 回退共享输出：$_hiResFailure');
+          _scheduleAudioRefresh(delay: const Duration(milliseconds: 500));
         }
       }
     } catch (failure) {
@@ -960,6 +975,10 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> _resetAudio() async {
     _audioRefreshTimer?.cancel();
+    _audioWatchdog?.cancel();
+    _audioWatchdog = null;
+    _audioRecovery.reset();
+    _lastAudioSourceKey = null;
     _audioMetadata.clear();
     _audioSource = null;
     _audioOutput = null;
@@ -1160,6 +1179,7 @@ class PlaybackStore extends ChangeNotifier {
     _saveTimer?.cancel();
     _audioRefreshTimer?.cancel();
     var pending = _operation;
+    _audioWatchdog?.cancel();
     var drained = await _shutdownStep(
       '等待播放操作',
       () => pending,
