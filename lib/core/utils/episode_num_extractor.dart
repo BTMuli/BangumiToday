@@ -26,6 +26,12 @@ class EpisodeNumberResult {
   };
 }
 
+// Dots before resolution tokens separate release metadata, not decimals.
+final _resolutionPattern = RegExp(
+  r'(?<![A-Za-z0-9])(?:360|480|576|720|1080|1440|2160|4320)[pi]'
+  r'(?![A-Za-z0-9])',
+  caseSensitive: false,
+);
 final _batchPattern = RegExp(
   r'\b(?:BATCH|COMPLETE)\b|合集|全集|'
   r'(?:\bEP?\s*)?\d{1,4}(?:\.\d+)?(?:v\d+)?\s*[-+~～至]\s*'
@@ -106,7 +112,9 @@ final _episodePatterns = [
 /// Collection/season names in parent directories are not episode evidence.
 bool isPlaybackExtra(String filePath) {
   var parts = filePath.split(RegExp(r'[/\\]'));
-  var name = parts.last.replaceFirst(RegExp(r'\.[A-Za-z0-9]+$'), '');
+  var name = parts.last
+      .replaceFirst(RegExp(r'\.[A-Za-z0-9]+$'), '')
+      .replaceAll(_resolutionPattern, ' ');
   // SP13.5 can identify a numbered recap; other extras need a manual link.
   return _specialPattern.hasMatch(
         name.replaceAll(_fractionalSpecialPattern, ' '),
@@ -119,7 +127,9 @@ bool isPlaybackExtra(String filePath) {
 /// Conservative filename evidence; display labels are not mapping evidence.
 EpisodeNumberResult extractEpisodeNumber(String filePath) {
   var name = filePath.split(RegExp(r'[/\\]')).last;
-  name = name.replaceFirst(RegExp(r'\.[A-Za-z0-9]+$'), '');
+  name = name
+      .replaceFirst(RegExp(r'\.[A-Za-z0-9]+$'), '')
+      .replaceAll(_resolutionPattern, ' ');
   if (isPlaybackExtra(filePath)) {
     return const EpisodeNumberResult(EpisodeNumberKind.special);
   }
