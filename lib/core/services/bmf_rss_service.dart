@@ -75,7 +75,9 @@ class BmfRssService {
   static final BmfRssService instance = BmfRssService._();
   factory BmfRssService() => instance;
 
-  static const defaultFreshnessWindow = Duration(minutes: 30);
+  static const defaultFreshnessWindow = Duration(minutes: 15);
+  // Check deadlines often enough that a slow fetch cannot cost another cycle.
+  static const defaultCheckInterval = Duration(minutes: 1);
   static const defaultConcurrency = 4;
   static const defaultTimeout = Duration(seconds: 15);
   static const defaultMaxAttempts = 4;
@@ -83,6 +85,7 @@ class BmfRssService {
   final BtrMikanApi _api = BtrMikanApi();
   final AsyncSingleFlight _startGuard = AsyncSingleFlight();
   final AsyncSingleFlight _bulkRefreshGuard = AsyncSingleFlight();
+  final AsyncSingleFlight _forcedRefreshGuard = AsyncSingleFlight();
   final KeyedRequestPool<BTResponse> _requests = KeyedRequestPool(
     maxConcurrent: defaultConcurrency,
   );
@@ -94,6 +97,7 @@ class BmfRssService {
   bool _isInitialized = false;
   bool _cancelRequested = false;
   int _refreshEpoch = 0;
+  Duration _freshnessWindow = defaultFreshnessWindow;
   RssRefreshMetrics? lastRefreshMetrics;
 
   SubscriptionStorage get _storage => appSubscriptionStorage;
@@ -102,13 +106,15 @@ class BmfRssService {
   bool get isInitialized => _isInitialized;
 
   Future<void> start({
-    Duration refreshInterval = const Duration(minutes: 15),
+    Duration refreshInterval = defaultFreshnessWindow,
+    Duration checkInterval = defaultCheckInterval,
   }) async {
     if (_isInitialized) return;
     await _startGuard.run(() async {
+      _freshnessWindow = refreshInterval;
       await _refreshAll(respectAutoUpdate: true);
       _refreshTimer = Timer.periodic(
-        refreshInterval,
+        checkInterval,
         (_) => unawaited(_timerRefresh()),
       );
       _isInitialized = true;
@@ -144,10 +150,14 @@ class BmfRssService {
       var groups = <String, List<AppSubscriptionModel>>{};
       var cacheHits = 0;
       var backoff = 0;
-      var freshness = const RssFreshness(window: defaultFreshnessWindow);
+      var freshness = RssFreshness(window: _freshnessWindow);
       for (var subscription in subscriptions) {
         var cache = caches[subscription.feedKey];
         if (!force && freshness.isFresh(cache, started)) {
+          if (subscription.hasBaseline) {
+            cacheHits++;
+            continue;
+          }
           try {
             await _apply(
               subscription.feedKey,
@@ -211,11 +221,13 @@ class BmfRssService {
         peakConcurrency: peak,
         elapsedMs: DateTime.now().difference(started).inMilliseconds,
       );
-      BTLogTool.info(
-        'BMF RSS 刷新：${subscriptions.length} 个订阅，'
-        '缓存 $cacheHits，退避 $backoff，请求 ${successes + failures} 个 feed，'
-        '成功 $successes，失败 $failures，峰值并发 $peak',
-      );
+      if (successes + failures > 0) {
+        BTLogTool.info(
+          'BMF RSS 刷新：${subscriptions.length} 个订阅，'
+          '缓存 $cacheHits，退避 $backoff，请求 ${successes + failures} 个 feed，'
+          '成功 $successes，失败 $failures，峰值并发 $peak',
+        );
+      }
     });
   }
 
@@ -372,8 +384,13 @@ class BmfRssService {
     return response;
   }
 
-  Future<void> refreshNow() =>
-      _refreshAll(respectAutoUpdate: false, force: true);
+  Future<void> refreshNow() => _forcedRefreshGuard.run(() async {
+    // A forced refresh must not be swallowed by an in-flight cache check.
+    if (_bulkRefreshGuard.isRunning) {
+      await _bulkRefreshGuard.run(() async {});
+    }
+    await _refreshAll(respectAutoUpdate: false, force: true);
+  });
   void cancelPendingRefresh() {
     _cancelRequested = true;
     _refreshEpoch++;

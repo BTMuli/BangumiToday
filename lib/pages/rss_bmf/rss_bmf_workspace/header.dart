@@ -59,7 +59,7 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
                 },
               ),
               Tooltip(
-                message: '重新读取关联配置与本地缓存',
+                message: '刷新所有 RSS 订阅与关联配置',
                 child: IconButton(
                   icon: _refreshing
                       ? const SizedBox(
@@ -70,7 +70,7 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
                       : const BtIcon(FluentIcons.refresh, size: 15),
                   onPressed: _refreshing || _clearingRecovery
                       ? null
-                      : _refreshWorkspace,
+                      : () => _refreshWorkspace(refreshRss: true),
                 ),
               ),
             ],

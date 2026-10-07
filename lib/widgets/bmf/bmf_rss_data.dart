@@ -25,6 +25,7 @@ class BmfRssData extends ChangeNotifier {
   List<RssItem> rssItems = [];
   List<RssReleaseData> rssReleases = [];
   List<RssReleaseGroup> rssGroups = [];
+  DateTime? lastUpdated;
   int _generation = 0;
   bool _disposed = false;
 
@@ -61,6 +62,7 @@ class BmfRssData extends ChangeNotifier {
     rssReleases = [];
     rssGroups = [];
     pendingItemKeys = {};
+    lastUpdated = null;
     _generation++;
     unawaited(load());
   }
@@ -82,6 +84,9 @@ class BmfRssData extends ChangeNotifier {
     }
     if (_disposed || generation != _generation) return;
     subscription = model;
+    lastUpdated = cache != null && cache.lastSuccessAt > 0
+        ? DateTime.fromMillisecondsSinceEpoch(cache.lastSuccessAt)
+        : null;
     rssItems = items;
     rssReleases = items
         .map(

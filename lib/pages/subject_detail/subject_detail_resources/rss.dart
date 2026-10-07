@@ -93,6 +93,7 @@ extension _ResourceRss on _SubjectDetailResourcesState {
               ),
               if (_rss.pendingItemKeys.isNotEmpty)
                 _badge('${_rss.pendingItemKeys.length} 条更新'),
+              RssRefreshStatus(lastUpdated: _rss.lastUpdated),
               _iconAction(
                 '刷新订阅',
                 FluentIcons.refresh,

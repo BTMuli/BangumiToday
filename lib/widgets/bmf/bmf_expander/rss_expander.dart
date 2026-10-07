@@ -251,6 +251,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
               : BTTypography.subtitle(context),
         ),
         Text(_data.source.label, style: BTTypography.caption(context)),
+        RssRefreshStatus(lastUpdated: _data.lastUpdated),
         if (!widget.embedded && _data.rssItems.isNotEmpty)
           _buildCountBadge(context, _data.rssItems.length),
         if (_data.pendingItemKeys.isNotEmpty)

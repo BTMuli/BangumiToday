@@ -18,8 +18,7 @@ class RssFreshness {
       return false;
     }
     var age = now.millisecondsSinceEpoch - cache.lastSuccessAt;
-    var ttl = Duration(minutes: cache.ttlMinutes);
-    var freshness = ttl > window ? ttl : window;
-    return age >= 0 && age < freshness.inMilliseconds;
+    // A feed's advisory TTL must not extend the client's polling window.
+    return age >= 0 && age < window.inMilliseconds;
   }
 }
