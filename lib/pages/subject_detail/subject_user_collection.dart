@@ -359,18 +359,6 @@ class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
     );
   }
 
-  /// 删除收藏
-  /// todo 目前官方API不支持删除收藏，暂时不实现
-  MenuFlyoutItem buildFlyoutDelete(BuildContext context) {
-    return MenuFlyoutItem(
-      leading: const Icon(FluentIcons.delete),
-      text: const Text('删除收藏'),
-      onPressed: () async {
-        await BtInfobar.error(context, '暂不支持删除收藏');
-      },
-    );
-  }
-
   MenuFlyoutItem buildFlyoutItemDetail(BuildContext context) {
     var color = FluentTheme.of(context).accentColor;
     return MenuFlyoutItem(
@@ -427,7 +415,6 @@ class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
             buildSubjStat(context, BangumiCollectionType.dropped),
           ],
         ),
-        buildFlyoutDelete(context),
         buildFlyoutItemDetail(context),
       ],
     );
