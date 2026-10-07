@@ -27,6 +27,9 @@ class PlaybackDiagnostics {
   final _health = PlaybackHealthMonitor();
   late final Timer _timer;
   final _properties = <String, String>{};
+  final _propertyIssues = <String, String>{};
+  String? _mpvVersion;
+  Duration? _lastSamplingWarning;
   Duration _lastProperties = Duration.zero;
   Duration _lastSnapshot = Duration.zero;
   Duration? _propertiesSampledAt;
@@ -58,12 +61,21 @@ class PlaybackDiagnostics {
     }.toString();
   }
 
-  Future<String> readProperty(String name) {
-    if (_closed) return Future.value('');
+  Future<String> readProperty(String name) async =>
+      (await _readProperty(name)).value;
+
+  Future<NativePlaybackPropertyValue> _readProperty(String name) {
+    if (_closed) {
+      return Future.value(const NativePlaybackPropertyValue(issue: 'closed'));
+    }
     return _reader
             ?.read(name)
-            .timeout(const Duration(milliseconds: 500), onTimeout: () => '') ??
-        Future.value('');
+            .timeout(
+              const Duration(milliseconds: 500),
+              onTimeout: () =>
+                  const NativePlaybackPropertyValue(issue: 'timeout_500ms'),
+            ) ??
+        Future.value(const NativePlaybackPropertyValue(issue: 'unsupported'));
   }
 
   void opening(String file, Duration resume) {
@@ -72,6 +84,8 @@ class PlaybackDiagnostics {
     _active = true;
     _health.reset();
     _properties.clear();
+    _propertyIssues.clear();
+    _lastSamplingWarning = null;
     _propertiesSampledAt = null;
     _outputDrops = _decoderDrops = 0;
     _lastProperties = _lastSnapshot = _clock.elapsed;
@@ -85,6 +99,7 @@ class PlaybackDiagnostics {
     _revision++;
     _reader?.invalidate();
     _properties.clear();
+    _propertyIssues.clear();
     _propertiesSampledAt = null;
     _health.reset();
     _flushSuppressed();
@@ -173,7 +188,8 @@ class PlaybackDiagnostics {
         'playing=${state.playing} buffering=${state.buffering} '
         'completed=${state.completed} rate=${state.rate} '
         'frame_budget_ms=$budget metrics_age_ms=$age '
-        'video=${state.videoParams} metrics=$_properties $contextText';
+        'video=${state.videoParams} metrics=$_properties '
+        'metric_issues=$_propertyIssues $contextText';
   }
 
   void _tick() {
@@ -189,7 +205,10 @@ class PlaybackDiagnostics {
     )) {
       BTLogTool.warn('$event ${_snapshot()}');
     }
-    if (now - _lastProperties >= const Duration(seconds: 5)) {
+    var interval = state.playing || state.buffering
+        ? const Duration(seconds: 5)
+        : const Duration(seconds: 30);
+    if (now - _lastProperties >= interval) {
       _lastProperties = now;
       unawaited(_readProperties());
     }
@@ -208,13 +227,14 @@ class PlaybackDiagnostics {
     _reading = true;
     var revision = _revision;
     var started = _clock.elapsed;
-    String? property;
     String? slowestProperty;
     var slowest = Duration.zero;
     var values = <String, String>{};
+    var issues = <String, String>{};
+    var failures = <String, String>{};
     try {
-      for (var name in const [
-        'mpv-version',
+      var names = [
+        if (_mpvVersion == null) 'mpv-version',
         'hwdec-current',
         'current-vo',
         'current-ao',
@@ -224,51 +244,74 @@ class PlaybackDiagnostics {
         'decoder-frame-drop-count',
         'avsync',
         'demuxer-cache-duration',
-      ]) {
-        if (_closed || revision != _revision || native.disposed) return;
-        property = name;
-        var propertyStarted = _clock.elapsed;
-        values[name] = await readProperty(name);
-        var elapsed = _clock.elapsed - propertyStarted;
-        if (elapsed > slowest) {
-          slowest = elapsed;
-          slowestProperty = name;
-        }
-      }
+      ];
+      await Future.wait(
+        names.map((name) async {
+          var propertyStarted = _clock.elapsed;
+          var result = await _readProperty(name);
+          values[name] = result.value;
+          var failure = result.failure;
+          if (failure != null) {
+            issues[name] = failure;
+            // MPV_ERROR_PROPERTY_UNAVAILABLE is normal during open/stop and
+            // for absent audio/hardware decoding. Preserve it in the snapshot.
+            if (result.errorCode != -10) failures[name] = failure;
+          }
+          var elapsed = _clock.elapsed - propertyStarted;
+          if (elapsed > slowest) {
+            slowest = elapsed;
+            slowestProperty = name;
+          }
+        }),
+      );
       if (_closed || revision != _revision) return;
+      var version = values['mpv-version'];
+      if (version != null && version.isNotEmpty) _mpvVersion = version;
+      if (_mpvVersion != null) values['mpv-version'] = _mpvVersion!;
       _properties
         ..clear()
         ..addAll(values);
+      _propertyIssues
+        ..clear()
+        ..addAll(issues);
       _propertiesSampledAt = _clock.elapsed;
-      var output = int.tryParse(_properties['frame-drop-count'] ?? '') ?? 0;
-      var decoder =
-          int.tryParse(_properties['decoder-frame-drop-count'] ?? '') ?? 0;
-      if (output > _outputDrops || decoder > _decoderDrops) {
+      var output = int.tryParse(_properties['frame-drop-count'] ?? '');
+      var decoder = int.tryParse(_properties['decoder-frame-drop-count'] ?? '');
+      if ((output != null && output > _outputDrops) ||
+          (decoder != null && decoder > _decoderDrops)) {
         BTLogTool.warn(
           '播放掉帧：output=$output (previous=$_outputDrops) '
           'decoder=$decoder (previous=$_decoderDrops) ${_snapshot()}',
         );
       }
-      _outputDrops = output;
-      _decoderDrops = decoder;
-    } catch (error, stackTrace) {
-      if (!_closed && revision == _revision) {
-        BTLogTool.warn([
-          '读取播放诊断失败：property=$property error=$error $contextText',
-          stackTrace.toString(),
-        ]);
-      }
-    } finally {
-      var elapsed = (_clock.elapsed - started).inMilliseconds;
-      if (!_closed && revision == _revision && elapsed >= 200) {
-        BTLogTool.warn(
-          '读取播放诊断耗时 ${elapsed}ms '
+      if (output != null) _outputDrops = output;
+      if (decoder != null) _decoderDrops = decoder;
+      if (failures.isNotEmpty || slowest >= const Duration(milliseconds: 400)) {
+        _samplingWarning(
+          '读取播放诊断异常：elapsed_ms='
+          '${(_clock.elapsed - started).inMilliseconds} '
           'slowest_property=$slowestProperty '
-          'slowest_ms=${slowest.inMilliseconds} ${_snapshot()}',
+          'slowest_ms=${slowest.inMilliseconds} failures=$failures '
+          '${_snapshot()}',
         );
       }
+    } catch (error, stackTrace) {
+      if (!_closed && revision == _revision) {
+        _samplingWarning('读取播放诊断失败：error=$error $contextText\n$stackTrace');
+      }
+    } finally {
       _reading = false;
     }
+  }
+
+  void _samplingWarning(String message) {
+    var now = _clock.elapsed;
+    var previous = _lastSamplingWarning;
+    if (previous != null && now - previous < const Duration(seconds: 30)) {
+      return;
+    }
+    _lastSamplingWarning = now;
+    BTLogTool.warn(message);
   }
 
   void close() {

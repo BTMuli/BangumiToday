@@ -7,6 +7,21 @@ import 'package:ffi/ffi.dart';
 import 'package:media_kit/generated/libmpv/bindings.dart' as mpv;
 import 'package:media_kit/media_kit.dart';
 
+class NativePlaybackPropertyValue {
+  const NativePlaybackPropertyValue({
+    this.value = '',
+    this.errorCode,
+    this.issue,
+  });
+
+  final String value;
+  final int? errorCode;
+  final String? issue;
+
+  String? get failure =>
+      issue ?? (errorCode == null ? null : 'mpv_error=$errorCode');
+}
+
 /// Queues reads without waiting for mpv's playback/render thread on the UI
 /// isolate. A separate weak client keeps replies out of media_kit's event loop.
 class NativePlaybackPropertyReader {
@@ -17,7 +32,8 @@ class NativePlaybackPropertyReader {
   final NativePlayer _player;
   Pointer<mpv.mpv_handle> _client = nullptr;
   Future<void>? _opening;
-  final _requests = <int, ({String name, Completer<String> result})>{};
+  final _requests =
+      <int, ({String name, Completer<NativePlaybackPropertyValue> result})>{};
   final _byName = <String, int>{};
   final _closedResult = Completer<void>();
   Timer? _poll;
@@ -38,21 +54,27 @@ class NativePlaybackPropertyReader {
     }
   });
 
-  Future<String> read(String property) async {
+  Future<NativePlaybackPropertyValue> read(String property) async {
     if (property.isEmpty || property.contains('\u0000')) {
       throw ArgumentError.value(property, 'property');
     }
-    if (_closed || _player.disposed) return '';
+    if (_closed || _player.disposed) {
+      return const NativePlaybackPropertyValue(issue: 'closed');
+    }
     var generation = _generation;
     await (_opening ??= _open());
-    if (_closed || _player.disposed || generation != _generation) return '';
+    if (_closed || _player.disposed || generation != _generation) {
+      return const NativePlaybackPropertyValue(issue: 'cancelled');
+    }
     var existing = _byName[property];
     if (existing != null) return _requests[existing]!.result.future;
     // A timed-out caller cannot cancel a native read. Keep it in flight and
     // coalesce retries so a busy core cannot build an unbounded request queue.
-    if (_requests.length >= 64) return '';
+    if (_requests.length >= 64) {
+      return const NativePlaybackPropertyValue(issue: 'queue_full');
+    }
     var id = ++_nextId;
-    var result = Completer<String>();
+    var result = Completer<NativePlaybackPropertyValue>();
     var name = property.toNativeUtf8();
     int status;
     try {
@@ -65,7 +87,7 @@ class NativePlaybackPropertyReader {
     } finally {
       calloc.free(name);
     }
-    if (status < 0) return '';
+    if (status < 0) return NativePlaybackPropertyValue(errorCode: status);
     _requests[id] = (name: property, result: result);
     _byName[property] = id;
     _poll ??= Timer.periodic(const Duration(milliseconds: 16), (_) => _drain());
@@ -95,7 +117,14 @@ class NativePlaybackPropertyReader {
           if (string != nullptr) value = string.toDartString();
         }
       }
-      if (!request.result.isCompleted) request.result.complete(value);
+      if (!request.result.isCompleted) {
+        request.result.complete(
+          NativePlaybackPropertyValue(
+            value: value,
+            errorCode: event.error < 0 ? event.error : null,
+          ),
+        );
+      }
     }
     if (_requests.isEmpty) {
       _poll?.cancel();
@@ -109,7 +138,11 @@ class NativePlaybackPropertyReader {
     _generation++;
     _byName.clear();
     for (var request in _requests.values) {
-      if (!request.result.isCompleted) request.result.complete('');
+      if (!request.result.isCompleted) {
+        request.result.complete(
+          const NativePlaybackPropertyValue(issue: 'cancelled'),
+        );
+      }
     }
   }
 

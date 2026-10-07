@@ -119,6 +119,7 @@ class _PlaybackWindow with WindowListener {
           center: true,
         ),
       );
+      BTLogTool.info('播放器窗口握手：generation=${identity.generation}');
       _receive(await call('bootstrap', {'windowId': window.windowId}));
       await _restoreSize();
       await mode.centerWindow(area: await _displayUnderCursor());

@@ -95,6 +95,8 @@ struct PlaybackRenderStatistics {
   uint64_t frames = 0;
   uint64_t failures = 0;
   uint64_t deadline_skips = 0;
+  double skip_total_ms = 0;
+  double skip_queue_max_ms = 0;
   double skip_lateness_max_ms = 0;
   double lateness_max_ms = 0;
   double output_lateness_max_ms = 0;
@@ -108,6 +110,19 @@ struct PlaybackRenderStatistics {
   std::array<double, PlaybackRenderSample::stage_count> maxima{};
   PlaybackRenderSample worst{};
   PlaybackRenderSample longest_queue{};
+  PlaybackRenderSample worst_skip{};
+  PlaybackRenderSample longest_skip_queue{};
+
+  void RecordSkip(const PlaybackRenderSample& sample) {
+    ++deadline_skips;
+    skip_total_ms += sample.elapsed_ms;
+    skip_queue_max_ms = (std::max)(skip_queue_max_ms, sample.queue_ms);
+    skip_lateness_max_ms = (std::max)(skip_lateness_max_ms, sample.lateness_ms);
+    if (deadline_skips == 1 || sample.elapsed_ms > worst_skip.elapsed_ms)
+      worst_skip = sample;
+    if (deadline_skips == 1 || sample.queue_ms > longest_skip_queue.queue_ms)
+      longest_skip_queue = sample;
+  }
 
   void Record(const PlaybackRenderSample& sample, bool success) {
     ++attempts;

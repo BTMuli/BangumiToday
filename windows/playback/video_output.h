@@ -115,6 +115,8 @@ class VideoOutput {
   void RecordRender(PlaybackRenderSample& sample, bool success,
                     const char* error = nullptr);
 
+  void RecordSkip(PlaybackRenderSample& sample);
+
   void FlushRenderStatistics(PlaybackRenderClock::time_point finished);
 
   void LogRenderSample(const PlaybackRenderSample& sample, const char* kind,

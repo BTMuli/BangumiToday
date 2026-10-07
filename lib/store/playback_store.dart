@@ -142,6 +142,7 @@ class PlaybackStore extends ChangeNotifier {
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   Timer? _saveTimer;
   Future<void> _operation = Future.value();
+  String? _operationFile;
   List<PlaybackItem> playlist = [];
   List<PlaybackItem> history = [];
   List<PlaybackHistoryGroup> historyGroups = [];
@@ -283,15 +284,16 @@ class PlaybackStore extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
-  Future<void> _serial(Future<void> Function() action) {
+  Future<void> _serial(Future<void> Function() action, {String? file}) {
     var next = _operation.then((_) async {
       if (_closed) return;
+      _operationFile = file ?? current?.filePath;
       await action();
     });
     _operation = next.catchError((Object e, StackTrace s) {
       error = e.toString();
       BTLogTool.error([
-        '播放操作失败：file=${current?.filePath}',
+        '播放操作失败：file=$_operationFile',
         e.toString(),
         s.toString(),
       ]);
@@ -565,10 +567,11 @@ class PlaybackStore extends ChangeNotifier {
       if (_closed) return;
       await _openSelection(discovered, filePath);
     },
+    file: filePath,
   );
 
   Future<void> open(List<PlaybackItem> items, String selectedPath) =>
-      _serial(() => _openSelection(items, selectedPath));
+      _serial(() => _openSelection(items, selectedPath), file: selectedPath);
 
   Future<void> _openSelection(
     List<PlaybackItem> items,
@@ -624,6 +627,7 @@ class PlaybackStore extends ChangeNotifier {
     var nextPlaylist = items ?? playlist;
     if (nextIndex < 0 || nextIndex >= nextPlaylist.length) return;
     var item = nextPlaylist[nextIndex];
+    _operationFile = item.filePath;
     BTLogTool.info('准备播放：${item.filePath}');
     await library.ensureReady(item.filePath);
     if (_closed) return;

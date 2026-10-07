@@ -222,7 +222,12 @@ void VideoOutput::ProcessRender(bool force, double queue_ms,
       ScopedPlaybackTiming timing(&sample, PlaybackRenderStage::resize);
       CheckAndResize(&sample);
     }
-    if (SkipLateFrame(&sample, next_frame)) return;
+    if (SkipLateFrame(&sample, next_frame)) {
+      sample.finished = PlaybackRenderClock::now();
+      sample.elapsed_ms = PlaybackRenderMilliseconds(sample.finished - started);
+      RecordSkip(sample);
+      return;
+    }
     if (!Render(&sample)) return;
   } catch (const std::exception& error) {
     sample.finished = PlaybackRenderClock::now();
@@ -268,16 +273,22 @@ bool VideoOutput::SkipLateFrame(PlaybackRenderSample* sample,
   if (result < 0) {
     throw std::runtime_error("Unable to skip the overdue video frame.");
   }
-  ++deadline_skips_;
-  ++render_statistics_.deadline_skips;
-  render_statistics_.skip_lateness_max_ms =
-      (std::max)(render_statistics_.skip_lateness_max_ms, sample->lateness_ms);
-  // Only aggregate records, including a skip-only interval. Avoid per-frame
-  // logging while catching up and keep the existing queue's disposal fairness.
-  const auto finished = PlaybackRenderClock::now();
-  if (finished - statistics_since_ >= std::chrono::seconds(10))
-    FlushRenderStatistics(finished);
   return true;
+}
+
+void VideoOutput::RecordSkip(PlaybackRenderSample& sample) {
+  sample.texture = texture_id_;
+  sample.width = width();
+  sample.height = height();
+  ++deadline_skips_;
+  render_statistics_.RecordSkip(sample);
+  // Skipping still calls the renderer and can block. Record the complete
+  // attempt after its scoped stage timing ends, including skip-only intervals.
+  if (sample.finished - statistics_since_ >= std::chrono::seconds(10) ||
+      ((sample.elapsed_ms >= 50 || sample.queue_ms >= 50) &&
+       sample.finished - last_slow_report_ >= std::chrono::seconds(5))) {
+    FlushRenderStatistics(sample.finished);
+  }
 }
 
 void VideoOutput::LogRenderSample(const PlaybackRenderSample& sample,
@@ -366,6 +377,7 @@ void VideoOutput::FlushRenderStatistics(
               "over_20ms=%llu over_33ms=%llu slow_frames=%llu "
               "errors_total=%llu queue_avg_ms=%.2f queue_max_ms=%.2f "
               "deadline_skips=%llu deadline_skips_total=%llu "
+              "skip_avg_ms=%.2f skip_max_ms=%.2f skip_queue_max_ms=%.2f "
               "skip_lateness_max_ms=%.2f lateness_max_ms=%.2f "
               "output_lateness_max_ms=%.2f "
               "stages_avg_max_ms={%s}",
@@ -376,15 +388,26 @@ void VideoOutput::FlushRenderStatistics(
               stats.total_ms / divisor, stats.worst.elapsed_ms,
               stats.over_20, stats.over_33, stats.over_50, render_errors_,
               stats.queue_total_ms / divisor, stats.queue_max_ms,
-              stats.deadline_skips, deadline_skips_, stats.skip_lateness_max_ms,
-              stats.lateness_max_ms, stats.output_lateness_max_ms,
-              stages);
+              stats.deadline_skips, deadline_skips_,
+              stats.deadline_skips
+                  ? stats.skip_total_ms / stats.deadline_skips
+                  : 0,
+              stats.worst_skip.elapsed_ms, stats.skip_queue_max_ms,
+              stats.skip_lateness_max_ms, stats.lateness_max_ms,
+              stats.output_lateness_max_ms, stages);
   BangumiNativeLog(message);
   if (stats.attempts) LogRenderSample(stats.worst, "worst");
   if (stats.queue_max_ms >= 50 &&
       stats.longest_queue.sequence != stats.worst.sequence)
     LogRenderSample(stats.longest_queue, "queue_worst");
-  if (stats.over_50 > 0 || stats.failures > 0 || stats.queue_max_ms >= 50)
+  if (stats.worst_skip.elapsed_ms >= 50)
+    LogRenderSample(stats.worst_skip, "skip_worst");
+  if (stats.skip_queue_max_ms >= 50 &&
+      (stats.worst_skip.elapsed_ms < 50 ||
+       stats.longest_skip_queue.sequence != stats.worst_skip.sequence))
+    LogRenderSample(stats.longest_skip_queue, "skip_queue_worst");
+  if (stats.over_50 > 0 || stats.failures > 0 || stats.queue_max_ms >= 50 ||
+      stats.worst_skip.elapsed_ms >= 50 || stats.skip_queue_max_ms >= 50)
     last_slow_report_ = finished;
   statistics_since_ = finished;
   render_statistics_ = {};

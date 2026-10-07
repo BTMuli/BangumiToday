@@ -142,12 +142,14 @@ class PlaybackWindowService extends ChangeNotifier {
       ),
     );
     _session = session;
+    BTLogTool.info('创建播放器窗口会话：generation=${identity.generation}');
     unawaited(session.ready.future.catchError((Object _) {}));
     _notify();
     try {
       await session.channel.setMethodCallHandler(
         (call) => _handle(session, call),
       );
+      BTLogTool.info('播放器窗口通道已注册：${identity.hostChannel}');
       session.window = await WindowController.create(
         WindowConfiguration(arguments: identity.encode()),
       );
@@ -226,6 +228,7 @@ class PlaybackWindowService extends ChangeNotifier {
     var body = session.identity.read(call.arguments).body;
     switch (call.method) {
       case 'bootstrap':
+        BTLogTool.info('播放器窗口 bootstrap：${session.identity.generation}');
         return _presentation();
       case 'ready':
         var id = playbackString(body, 'windowId');
@@ -365,6 +368,7 @@ class PlaybackWindowService extends ChangeNotifier {
     _finishClose(session, failure: StateError('播放器窗口已经关闭'));
     await session.data.close();
     await session.channel.setMethodCallHandler(null);
+    BTLogTool.info('播放器窗口通道已注销：generation=${session.identity.generation}');
     if (identical(_session, session)) {
       _session = null;
       ref.read(episodeMarkProvider.notifier).discardWindowWork();
