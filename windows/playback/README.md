@@ -15,8 +15,10 @@ under Documents, accessible through the settings page's log-directory action:
 - Main and child Dart engines write separate daily files, including Debug builds.
   Records are appended synchronously; warnings/errors also flush to disk.
 - Each Player records media opens, state changes, errors and a snapshot every
-  15 seconds. Five-second mpv samples include hardware decoding, output/decoder
-  drops, A/V sync and cache duration. Three-second position stalls, prolonged
+  15 seconds. Batched asynchronous mpv samples run every five seconds during
+  playback/buffering and every thirty seconds while paused. They include
+  hardware decoding, output/decoder drops, A/V sync and cache duration;
+  the stable mpv version is cached. Three-second position stalls, prolonged
   buffering and delayed Dart event-loop ticks produce warnings; pauses and
   completed playback are excluded from position-stall detection.
 - `native-<pid>.log` records ANGLE/D3D errors, renderer initialization/disposal
@@ -45,8 +47,11 @@ under Documents, accessible through the settings page's log-directory action:
 - Dart diagnostics include the matching `native_handle`, media revision, actual
   texture dimensions, installed shader mode, FPS/rate frame budget and cached
   metric age. mpv warnings/errors carry this snapshot; rate/loudness changes
-  are recorded. Slow property reads identify the slowest property, and cached
-  metrics are published together only for the current media revision.
+  are recorded. `metric_issues` distinguishes unavailable properties, native
+  errors and timeouts from successful empty values. Sampling warnings use
+  errors or a single read taking at least 400 ms, with a thirty-second limit;
+  batch wall time alone is not treated as a blocked UI isolate. Cached metrics
+  are published together only for the current media revision.
   Supersampling logs use a generation to link configuration steps, shader lists,
   output requests, observed dimensions, confirmation timeouts, superseded work
   and recovery. Step completion confirms command acceptance/configuration;
@@ -70,6 +75,15 @@ under Documents, accessible through the settings page's log-directory action:
   `output_lateness_ms` values measure completion/publication delay relative to
   the deadline, before Flutter's subsequent sampling and actual presentation.
   Skips are counted separately, preserving `attempts = frames + failures`.
+  `skip_avg_ms`, `skip_max_ms`, `skip_queue_max_ms` and slow `skip_worst` /
+  `skip_queue_worst` samples include the complete skip call and its scheduling
+  delay, so skipped work is also visible in degraded or skip-only intervals.
+- D3D completion polling uses a private high-resolution waitable timer rather
+  than rounding each `Sleep(1)` to the system timer tick. It retains the 100 ms
+  GPU completion timeout and publishes only completed immutable snapshots.
+  Unsupported systems fall back to `Sleep(1)` without busy-spinning or changing
+  global timer resolution. See Microsoft's
+  [CreateWaitableTimerExW documentation](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-createwaitabletimerexw).
 - The player explicitly configures writable shader and demuxer caches under
   `BangumiToday/cache/playback` before renderer creation. Compiled shader
   programs can be reused across playback sessions. Settings report shader cache
