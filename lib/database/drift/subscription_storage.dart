@@ -2,7 +2,6 @@
 import 'dart:convert';
 
 // Package imports:
-import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 
 // Project imports:
@@ -58,7 +57,6 @@ class SubscriptionStorage {
         db.appBmf,
       )..where((b) => b.subject.equals(subject))).getSingleOrNull();
       if (parent == null) return;
-      // Unlike removing one RSS, deleting the BMF must not archive new state.
       await (db.delete(
         db.appSubscription,
       )..where((s) => s.bmfId.equals(parent.id))).go();
@@ -134,8 +132,9 @@ class SubscriptionStorage {
           throw StateError('订阅已变化，请重新打开编辑窗口');
         }
       }
+      // Explicit RSS edits discard the old request's state. Recovery records
+      // are reserved for legacy data that could not be migrated safely.
       for (var old in existing.where((s) => !requestedIds.contains(s.id))) {
-        await _archiveState(old, 'subscriptionRemoved');
         await (db.delete(
           db.appSubscription,
         )..where((s) => s.id.equals(old.id))).go();
@@ -154,7 +153,6 @@ class SubscriptionStorage {
         );
         var old = byId[draft.id];
         var changed = old != null && old.feedKey != identity.feedKey;
-        if (changed) await _archiveState(old, 'requestIdentityChanged');
         var state = !identity.isValid || !config.isSupported
             ? 'needsReview'
             : changed || old == null
@@ -189,32 +187,6 @@ class SubscriptionStorage {
       }
       await pruneUnusedCaches();
     });
-  }
-
-  Future<void> _archiveState(
-    AppSubscriptionModel subscription,
-    String reason,
-  ) async {
-    if (subscription.pendingItemKeys.isEmpty) return;
-    var row = subscription.toJson();
-    var payload = jsonEncode({
-      'row': row,
-      'reasons': [reason],
-    });
-    var digest = sha256.convert(utf8.encode(payload)).toString();
-    await db
-        .into(db.appMigrationRecovery)
-        .insert(
-          AppMigrationRecoveryCompanion.insert(
-            migrationVersion: 2,
-            kind: 'subscriptionState',
-            legacyKey: 'subscription:${subscription.id}:$digest',
-            payload: payload,
-            candidateBmfIds: Value(jsonEncode([subscription.bmfId])),
-            createdAt: DateTime.now().millisecondsSinceEpoch,
-          ),
-          mode: InsertMode.insertOrIgnore,
-        );
   }
 
   /// Re-read current pending inside the same transaction as the cache update.
