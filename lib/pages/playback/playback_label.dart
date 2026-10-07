@@ -1,6 +1,9 @@
 // Package imports:
 import 'package:path/path.dart' as path;
 
+// Project imports:
+import '../../core/utils/playback_episode_number.dart';
+
 /// Display labels only; the original filename remains available in tooltips.
 class PlaybackLabel {
   const PlaybackLabel({
@@ -22,47 +25,25 @@ class PlaybackLabel {
       r'(?<!\d)(2160|1080|720|480)[pi](?![a-z0-9])',
       caseSensitive: false,
     ).firstMatch(base)?.group(0)?.toUpperCase();
-    var seasonEpisode = RegExp(
-      r'S(\d{1,2})[ ._-]*E(\d{1,3})(?!\d)',
-      caseSensitive: false,
-    );
-    var episodePatterns = [
-      RegExp(r'第\s*(\d{1,3}(?:\.\d+)?)\s*[话話集]'),
-      RegExp(
-        r'(?:^|[\s_.-])(?:Episode|EP?)\s*(\d{1,3}(?:\.\d+)?)(?!\d)',
-        caseSensitive: false,
-      ),
-      RegExp(r'\s-\s*(\d{1,3}(?:\.\d+)?)(?=\s|\[|【|$)'),
-      RegExp(r'\[(\d{1,2}(?:\.\d+)?)\]'),
-    ];
-    String? episode;
-    String? episodeNumber;
-    var seasonMatch = seasonEpisode.firstMatch(base);
-    if (seasonMatch != null) {
-      episodeNumber = int.parse(seasonMatch[2]!).toString();
-      episode =
-          '第 ${int.parse(seasonMatch[1]!)} 季 · '
-          '第 ${int.parse(seasonMatch[2]!)} 集';
-    } else {
-      for (var pattern in episodePatterns) {
-        var match = pattern.firstMatch(base);
-        if (match == null) continue;
-        var number = match[1]!;
-        episodeNumber = (int.tryParse(number) ?? number).toString();
-        episode = '第 ${int.tryParse(number) ?? number} 集';
-        break;
-      }
-    }
+    var parsed = PlaybackEpisodeNumber.parse(base);
+    var episodeNumber = parsed?.label;
+    var episode = parsed == null
+        ? null
+        : [
+            if (parsed.season != null) '第 ${parsed.season} 季',
+            '第 ${parsed.label} 集',
+          ].join(' · ');
     var title = base
         .replaceAll(RegExp(r'\[[^\]]*\]|【[^】]*】'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
-    var episodeMatch = seasonEpisode.firstMatch(title);
-    episodeMatch ??= episodePatterns
-        .map((pattern) => pattern.firstMatch(title))
-        .whereType<RegExpMatch>()
-        .firstOrNull;
-    if (episodeMatch != null) title = title.substring(0, episodeMatch.start);
+    var episodeMatch = PlaybackEpisodeNumber.parse(title);
+    if (parsed != null &&
+        episodeMatch != null &&
+        episodeMatch.number == parsed.number &&
+        episodeMatch.season == parsed.season) {
+      title = title.substring(0, episodeMatch.start);
+    }
     title = title.replaceAll(RegExp(r'[\s_.-]+$'), '').trim();
     if (title.isEmpty) title = base;
     return PlaybackLabel(

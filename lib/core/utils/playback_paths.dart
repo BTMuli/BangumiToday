@@ -6,6 +6,7 @@ import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../errors/playback_unavailable.dart';
+import 'playback_episode_number.dart';
 
 /// 播放资源的纯路径与命名规则。
 ///
@@ -64,6 +65,23 @@ class PlaybackPaths {
       throw const PlaybackUnavailable('文件路径超出下载目录');
     }
     return resolved;
+  }
+
+  /// Compare episode numbers before release groups, titles or directories.
+  /// Extras and unnumbered files follow numbered episodes in natural order.
+  static int episodeCompare(String a, String b) {
+    var leftName = path.basename(a);
+    var rightName = path.basename(b);
+    var left = PlaybackEpisodeNumber.parse(path.withoutExtension(leftName));
+    var right = PlaybackEpisodeNumber.parse(path.withoutExtension(rightName));
+    if (left != null && right != null) {
+      var order = left.compareTo(right);
+      if (order != 0) return order;
+    } else if (left != null || right != null) {
+      return left != null ? -1 : 1;
+    }
+    var order = naturalCompare(leftName, rightName);
+    return order != 0 ? order : naturalCompare(a, b);
   }
 
   static int naturalCompare(String a, String b) {

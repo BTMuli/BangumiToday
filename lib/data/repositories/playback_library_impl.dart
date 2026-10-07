@@ -118,7 +118,7 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
         // Pending downloads are omitted until a subsequent refresh.
       }
     }
-    items.sort((a, b) => PlaybackPaths.naturalCompare(a.filePath, b.filePath));
+    items.sort((a, b) => PlaybackPaths.episodeCompare(a.filePath, b.filePath));
     return items;
   }
 }

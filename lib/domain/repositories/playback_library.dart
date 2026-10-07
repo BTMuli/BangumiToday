@@ -10,6 +10,6 @@ abstract class PlaybackLibrary {
   /// 校验单个文件是否可以播放，不满足时抛出 [PlaybackUnavailable]。
   Future<void> ensureReady(String filePath);
 
-  /// 扫描目录下的可播放文件，按自然顺序返回。
+  /// 扫描目录下的可播放文件，优先按季号、集数排序，同集按文件名自然排序。
   Future<List<PlaybackItem>> discover(String dir, {int? subject});
 }
