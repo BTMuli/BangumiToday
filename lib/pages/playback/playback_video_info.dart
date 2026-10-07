@@ -77,11 +77,7 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
         _readDisplayFps(),
         ..._propertyNames.map((name) async {
           try {
-            var value = await native
-                // The mounted surface already owns an initialized player.
-                // Avoid leaving pending initialization waits during shutdown.
-                .getProperty(name, waitForInitialization: false)
-                .timeout(const Duration(milliseconds: 500));
+            var value = await widget.store.readVideoProperty(name);
             return MapEntry(name, value);
           } catch (_) {
             // Missing stream data is displayed as —.

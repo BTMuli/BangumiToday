@@ -8,6 +8,7 @@ import 'package:media_kit/media_kit.dart';
 // Project imports:
 import '../../tools/log_tool.dart';
 import '../utils/playback_health.dart';
+import 'native_playback_property_reader.dart';
 
 /// 每个 Player 只有一个采样器，与界面和信息面板的开关无关。
 class PlaybackDiagnostics {
@@ -18,6 +19,10 @@ class PlaybackDiagnostics {
 
   final Player player;
   final Map<String, Object?> Function() context;
+  late final NativePlaybackPropertyReader? _reader =
+      player.platform is NativePlayer
+      ? NativePlaybackPropertyReader(player.platform as NativePlayer)
+      : null;
   final _clock = Stopwatch()..start();
   final _health = PlaybackHealthMonitor();
   late final Timer _timer;
@@ -53,8 +58,17 @@ class PlaybackDiagnostics {
     }.toString();
   }
 
+  Future<String> readProperty(String name) {
+    if (_closed) return Future.value('');
+    return _reader
+            ?.read(name)
+            .timeout(const Duration(milliseconds: 500), onTimeout: () => '') ??
+        Future.value('');
+  }
+
   void opening(String file, Duration resume) {
     _revision++;
+    _reader?.invalidate();
     _active = true;
     _health.reset();
     _properties.clear();
@@ -69,6 +83,7 @@ class PlaybackDiagnostics {
     event('清空当前播放，停止诊断采样');
     _active = false;
     _revision++;
+    _reader?.invalidate();
     _properties.clear();
     _propertiesSampledAt = null;
     _health.reset();
@@ -213,10 +228,7 @@ class PlaybackDiagnostics {
         if (_closed || revision != _revision || native.disposed) return;
         property = name;
         var propertyStarted = _clock.elapsed;
-        values[name] = await native.getProperty(
-          name,
-          waitForInitialization: false,
-        );
+        values[name] = await readProperty(name);
         var elapsed = _clock.elapsed - propertyStarted;
         if (elapsed > slowest) {
           slowest = elapsed;
@@ -265,6 +277,7 @@ class PlaybackDiagnostics {
     _closed = true;
     _revision++;
     _timer.cancel();
+    unawaited(_reader?.close());
     _flushSuppressed();
     _clock.stop();
   }

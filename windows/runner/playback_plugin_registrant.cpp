@@ -82,6 +82,13 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
         channel_(std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
             registrar->messenger(), "bangumi_today/playback_window_frame",
             &flutter::StandardMethodCodec::GetInstance())) {
+    display_delegate_ = registrar_->RegisterTopLevelWindowProcDelegate(
+        [this](HWND, UINT message, WPARAM, LPARAM) -> std::optional<LRESULT> {
+          if (message == WM_DISPLAYCHANGE || message == WM_SETTINGCHANGE) {
+            display_rate_cached_ = false;
+          }
+          return std::nullopt;
+        });
     channel_->SetMethodCallHandler([this](const auto& call, auto result) {
       if (call.method_name() != "setFullscreenFrame" &&
           call.method_name() != "getDisplayRefreshRate") {
@@ -95,9 +102,16 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
         return;
       }
       if (call.method_name() == "getDisplayRefreshRate") {
-        const auto rate = PlaybackDisplayRefreshRate(window);
-        result->Success(rate ? flutter::EncodableValue(*rate)
-                             : flutter::EncodableValue());
+        const auto monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
+        // DisplayConfig can enter the display driver. OSD's one-second ticks
+        // only read the cache; monitor/topology changes refresh it once.
+        if (!display_rate_cached_ || display_monitor_ != monitor) {
+          display_rate_ = PlaybackDisplayRefreshRate(window);
+          display_monitor_ = monitor;
+          display_rate_cached_ = true;
+        }
+        result->Success(display_rate_ ? flutter::EncodableValue(*display_rate_)
+                                      : flutter::EncodableValue());
         return;
       }
       const auto* fullscreen = call.arguments()
@@ -138,9 +152,17 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
     });
   }
 
+  ~PlaybackWindowFramePlugin() override {
+    registrar_->UnregisterTopLevelWindowProcDelegate(display_delegate_);
+  }
+
  private:
   flutter::PluginRegistrarWindows* registrar_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
+  int display_delegate_ = -1;
+  HMONITOR display_monitor_ = nullptr;
+  std::optional<double> display_rate_;
+  bool display_rate_cached_ = false;
 };
 
 void RegisterWindowFramePlugin(flutter::PluginRegistry* registry) {

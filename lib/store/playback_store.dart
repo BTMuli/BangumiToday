@@ -152,6 +152,9 @@ class PlaybackStore extends ChangeNotifier {
   bool get isClosed => _closed;
 
   Player? get player => _player;
+
+  Future<String> readVideoProperty(String name) =>
+      _diagnostics?.readProperty(name) ?? Future.value('');
   List<PlaybackChapter> get chapters => _chapters?.chapters ?? const [];
   bool get automaticSubtitles => !_manualSubtitles;
   VideoController? get video => _video;
