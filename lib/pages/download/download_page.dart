@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/services/bt_engine_client.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
+import '../../providers/download_list_providers.dart';
 import '../../providers/download_subject_providers.dart';
 import '../../store/bt_download_store.dart';
 import '../../store/nav_store.dart';

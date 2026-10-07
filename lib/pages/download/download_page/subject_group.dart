@@ -1,6 +1,6 @@
 part of '../download_page.dart';
 
-class _DownloadSubjectGroup extends ConsumerStatefulWidget {
+class _DownloadSubjectGroup extends ConsumerWidget {
   const _DownloadSubjectGroup({
     required this.group,
     required this.selectionMode,
@@ -16,16 +16,7 @@ class _DownloadSubjectGroup extends ConsumerStatefulWidget {
   final ValueChanged<Iterable<String>> onToggleGroupSelect;
 
   @override
-  ConsumerState<_DownloadSubjectGroup> createState() =>
-      _DownloadSubjectGroupState();
-}
-
-class _DownloadSubjectGroupState extends ConsumerState<_DownloadSubjectGroup> {
-  var _expanded = true;
-
-  @override
-  Widget build(BuildContext context) {
-    var group = widget.group;
+  Widget build(BuildContext context, WidgetRef ref) {
     var tasks = group.tasks;
     var subjectId = group.subjectId!;
     var subject = ref.watch(downloadSubjectDetailsProvider(subjectId)).value;
@@ -35,12 +26,18 @@ class _DownloadSubjectGroupState extends ConsumerState<_DownloadSubjectGroup> {
         ? subject.nameCn
         : subject.name;
     var selectedCount = tasks
-        .where((task) => widget.selectedIds.contains(task.id))
+        .where((task) => selectedIds.contains(task.id))
         .length;
     var downloadRate = tasks.fold(0, (sum, task) => sum + task.downloadRate);
     var uploadRate = tasks.fold(0, (sum, task) => sum + task.uploadRate);
     var accentColor = FluentTheme.of(context).accentColor;
-    var expanded = _expanded || widget.selectionMode;
+    var collapsed = ref.watch(
+      downloadCollapsedSubjectsProvider.select(
+        (subjects) => subjects.contains(subjectId),
+      ),
+    );
+    // 批量选择只临时展开，不改变用户记录的折叠状态。
+    var expanded = selectionMode || !collapsed;
 
     void openSubject() {
       ref
@@ -49,7 +46,7 @@ class _DownloadSubjectGroupState extends ConsumerState<_DownloadSubjectGroup> {
     }
 
     void toggleSelection() {
-      widget.onToggleGroupSelect(tasks.map((task) => task.id));
+      onToggleGroupSelect(tasks.map((task) => task.id));
     }
 
     return BTCard(
@@ -64,12 +61,14 @@ class _DownloadSubjectGroupState extends ConsumerState<_DownloadSubjectGroup> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             HoverButton(
-              semanticLabel: widget.selectionMode
+              semanticLabel: selectionMode
                   ? '选择 $title 的全部任务'
                   : '$title，${expanded ? '收起任务' : '展开任务'}',
-              onPressed: widget.selectionMode
+              onPressed: selectionMode
                   ? toggleSelection
-                  : () => setState(() => _expanded = !_expanded),
+                  : () => ref
+                        .read(downloadCollapsedSubjectsProvider.notifier)
+                        .toggle(subjectId),
               builder: (context, states) => AnimatedContainer(
                 duration: BTTheme.animationDurationFast,
                 color: states.isHovered || states.isFocused
@@ -78,7 +77,7 @@ class _DownloadSubjectGroupState extends ConsumerState<_DownloadSubjectGroup> {
                 padding: const EdgeInsets.fromLTRB(20, 14, 14, 14),
                 child: Row(
                   children: [
-                    if (widget.selectionMode) ...[
+                    if (selectionMode) ...[
                       Checkbox(
                         checked: selectedCount == 0
                             ? false
@@ -94,9 +93,7 @@ class _DownloadSubjectGroupState extends ConsumerState<_DownloadSubjectGroup> {
                       state: tasks.first.state,
                       color: accentColor,
                       linked: true,
-                      onPressed: widget.selectionMode
-                          ? toggleSelection
-                          : openSubject,
+                      onPressed: selectionMode ? toggleSelection : openSubject,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -106,7 +103,7 @@ class _DownloadSubjectGroupState extends ConsumerState<_DownloadSubjectGroup> {
                           Tooltip(
                             message: '打开条目：$title',
                             child: HyperlinkButton(
-                              onPressed: widget.selectionMode
+                              onPressed: selectionMode
                                   ? toggleSelection
                                   : openSubject,
                               child: Row(
@@ -151,7 +148,7 @@ class _DownloadSubjectGroupState extends ConsumerState<_DownloadSubjectGroup> {
                         ],
                       ),
                     ),
-                    if (!widget.selectionMode) ...[
+                    if (!selectionMode) ...[
                       const SizedBox(width: 8),
                       Tooltip(
                         message: expanded ? '收起任务' : '展开任务',
@@ -184,9 +181,9 @@ class _DownloadSubjectGroupState extends ConsumerState<_DownloadSubjectGroup> {
                   child: _DownloadTaskTile(
                     taskId: task.id,
                     grouped: true,
-                    selectionMode: widget.selectionMode,
-                    selected: widget.selectedIds.contains(task.id),
-                    onSelect: () => widget.onToggleSelect(task.id),
+                    selectionMode: selectionMode,
+                    selected: selectedIds.contains(task.id),
+                    onSelect: () => onToggleSelect(task.id),
                   ),
                 ),
               ],
