@@ -8,6 +8,17 @@ abstract class PlaybackUpscaleBackend {
   Future<void> command(List<String> arguments);
   Future<Object?> read(String property);
   Future<void> shaders(List<String> paths);
+
+  /// Installs or clears the AnimeJaNai filter chain. `slot` selects the model
+  /// (1 smooth, 2 high quality); null clears the chain and restores the decoder
+  /// configuration used for plain playback.
+  Future<void> janai(int? slot);
+
+  /// The installed video filter entries as mpv reports them: one map per filter
+  /// with at least `name`, plus `enabled` and `params` when mpv provides them.
+  /// Verification reads this structure rather than a serialized string, so a
+  /// value that merely contains the filter name cannot pass the check.
+  Future<List<Map<Object?, Object?>>> filterList();
   Future<void> resize(PlaybackPixels? size);
   Future<void> redraw();
   void close();
@@ -46,10 +57,15 @@ class PlaybackUpscaler {
   bool _closed = false;
   bool _mediaReady = false;
   bool _dirty = false;
+  bool _janaiDirty = false;
   PlaybackUpscaleMode? _loadedMode;
   PlaybackUpscaleMode? get configuredMode => _loadedMode;
   bool _restorationFailed = false;
   bool _unsupported = false;
+
+  /// Reason of the last failed apply, surfaced so a failure can be diagnosed
+  /// from the playback UI instead of only from the log.
+  Object? _lastFailure;
   String? _baselineDumbMode;
   bool _resizeInvalidated = false;
   PlaybackPixels? _fixedOutput;
@@ -66,6 +82,11 @@ class PlaybackUpscaler {
   Timer? _confirmation;
   Timer? _viewportRelease;
   Timer? _outputDeadline;
+  Timer? _dropTimer;
+  bool _readingDrops = false;
+  ({num dropped, num frame, num position})? _dropBaseline;
+  int _dropWindows = 0;
+  int _dropEpoch = 0;
   Completer<bool>? _outputReady;
   PlaybackPixels? _awaitingOutput;
   final _forwardedErrors = <String>{};
@@ -115,6 +136,7 @@ class PlaybackUpscaler {
     if (mode != value && !_restorationFailed) {
       _failed = false;
       _warned = false;
+      _lastFailure = null;
       warning = null;
     }
     mode = value;
@@ -182,6 +204,7 @@ class PlaybackUpscaler {
   Future<void> _resetMedia() async {
     if (_closed) return;
     _mediaReady = false;
+    _stopDropMonitor();
     _generation++;
     _timer?.cancel();
     _confirmation?.cancel();
@@ -350,7 +373,70 @@ class PlaybackUpscaler {
         if (!next.enabled) {
           if (_dirty) await _restore(generation: generation);
           if (!_current(generation)) continue;
+        } else if (next.mode.isJanai) {
+          // The AnimeJaNai chain is a fixed 2x filter installed by the backend;
+          // it needs no shader assets, no renderer dumb-mode change and no
+          // texture resize. A shader preset that is still installed has to be
+          // torn down first, otherwise both would upscale the same frame.
+          // Installing it is still verified by reading the filter list back, so
+          // a filter that failed to load is reported instead of being treated
+          // as configured.
+          if (_dirty && !(_loadedMode?.isJanai ?? false)) {
+            await _restore(generation: generation);
+          }
+          if (!_current(generation)) continue;
+          _dirty = true;
+          if (_loadedMode != next.mode) {
+            _stopDropMonitor();
+            _janaiDirty = true;
+            _loadedMode = null;
+            _applied = null;
+            await _step(
+              'install_janai:${next.mode.name}',
+              () => backend.janai(next.mode.janaiSlot),
+              generation: generation,
+            );
+            if (!_current(generation)) continue;
+            // Verification inspects mpv's structured filter list: an entry has
+            // to be the AnimeJaNai filter, be enabled, and name the requested
+            // model slot when mpv reports the parameters.
+            var filters = await _step(
+              'verify_vf',
+              backend.filterList,
+              generation: generation,
+            );
+            if (!_current(generation)) continue;
+            var expectedSlot = next.mode.janaiSlot;
+            var installed = filters.any((entry) {
+              if (entry['name'] != 'animejanai') return false;
+              if (entry['enabled'] != true) return false;
+              var params = entry['params'];
+              return expectedSlot != null &&
+                  params is Map &&
+                  params['slot'].toString() == expectedSlot.toString() &&
+                  params['conf'] is String &&
+                  (params['conf'] as String).isNotEmpty;
+            });
+            if (!installed) {
+              throw StateError('AI 滤镜未生效：$filters');
+            }
+            _loadedMode = next.mode;
+          }
+          await _step('redraw', backend.redraw, generation: generation);
+          if (!_current(generation)) continue;
         } else {
+          // Leaving an AnimeJaNai mode has to clear its filter chain; otherwise
+          // the shader preset would stack on top of the AI upscaler.
+          if (_janaiDirty) {
+            await _step(
+              'clear_janai',
+              () => backend.janai(null),
+              generation: generation,
+            );
+            _janaiDirty = false;
+            if (!_current(generation)) continue;
+            _loadedMode = null;
+          }
           if (_baselineDumbMode == null) {
             var baseline = await _step(
               'read_gpu_dumb_mode',
@@ -441,6 +527,7 @@ class PlaybackUpscaler {
         _watchOutput(generation, next);
       } catch (error) {
         outcome = 'failed';
+        _lastFailure = error;
         onError(error);
         if (_closed) return;
         _failed = true;
@@ -469,6 +556,7 @@ class PlaybackUpscaler {
   }
 
   Future<void> _restore({int? generation}) async {
+    _stopDropMonitor();
     var operation = generation ?? _generation;
     // Try every part of recovery even when clearing the shader list fails.
     Object? failure;
@@ -478,6 +566,15 @@ class PlaybackUpscaler {
         () => backend.shaders(const []),
         generation: operation,
       ),
+      if (_janaiDirty)
+        () async {
+          await _step(
+            'restore_janai',
+            () => backend.janai(null),
+            generation: operation,
+          );
+          _janaiDirty = false;
+        },
       () async {
         await _step(
           'restore_output',
@@ -508,6 +605,14 @@ class PlaybackUpscaler {
   }
 
   void _watchOutput(int generation, PlaybackUpscalePlan next) {
+    // The AI chain upscales inside the decoder pipeline and does not resize the
+    // renderer texture, so the size confirmation only applies to shader modes.
+    if (next.mode.isJanai) {
+      _dropTimer ??= Timer.periodic(const Duration(seconds: 2), (_) {
+        unawaited(_checkDrops());
+      });
+      return;
+    }
     if (!next.enabled || actualOutput == next.output) return;
     _trace(
       'output confirmation pending actual=${_pixels(actualOutput)} '
@@ -533,9 +638,87 @@ class PlaybackUpscaler {
     );
     if (!_warned) {
       _warned = true;
-      warning = _restorationFailed ? '超分清理失败，请关闭并重新打开播放器' : '超分暂不可用，已恢复普通播放';
+      var reason = _lastFailure?.toString() ?? '';
+      if (reason.length > 80) reason = '${reason.substring(0, 80)}…';
+      warning = _restorationFailed
+          ? '超分清理失败，请关闭并重新打开播放器'
+          : reason.isEmpty
+          ? '超分暂不可用，已恢复普通播放'
+          : '超分暂不可用：$reason';
     }
     onChanged();
+  }
+
+  void _stopDropMonitor() {
+    _dropTimer?.cancel();
+    _dropTimer = null;
+    _dropBaseline = null;
+    _dropWindows = 0;
+    _dropEpoch++;
+  }
+
+  Future<void> _checkDrops() async {
+    if (_readingDrops ||
+        _closed ||
+        !_mediaReady ||
+        _failed ||
+        !(_loadedMode?.isJanai ?? false)) {
+      return;
+    }
+    _readingDrops = true;
+    var epoch = _dropEpoch;
+    try {
+      var values = await Future.wait([
+        backend.read('frame-drop-count'),
+        backend.read('estimated-frame-number'),
+        backend.read('time-pos'),
+        backend.read('pause'),
+        backend.read('seeking'),
+      ]);
+      if (_closed || epoch != _dropEpoch || _failed) return;
+      var dropped = values[0];
+      var frame = values[1];
+      var position = values[2];
+      var previous = _dropBaseline;
+      _dropBaseline = null;
+      if (dropped is! num ||
+          frame is! num ||
+          position is! num ||
+          !dropped.isFinite ||
+          !frame.isFinite ||
+          !position.isFinite ||
+          dropped < 0 ||
+          frame < 0 ||
+          values[3] != false ||
+          values[4] != false) {
+        _dropWindows = 0;
+        return;
+      }
+      _dropBaseline = (dropped: dropped, frame: frame, position: position);
+      // Ignore pause, seek, counter resets and windows with too few frames.
+      if (previous == null ||
+          position <= previous.position ||
+          position - previous.position > 4 ||
+          frame - previous.frame < 10 ||
+          dropped < previous.dropped) {
+        _dropWindows = 0;
+        return;
+      }
+      var rate = (dropped - previous.dropped) / (frame - previous.frame);
+      _dropWindows = rate > 0.01 ? _dropWindows + 1 : 0;
+      if (_dropWindows < 3) return;
+      _lastFailure = StateError('AI 超分连续三个窗口的播放丢帧率超过 1%');
+      _failed = true;
+      onError(_lastFailure!);
+      _schedule(immediate: true);
+    } catch (error) {
+      if (epoch != _dropEpoch || _closed) return;
+      _dropBaseline = null;
+      _dropWindows = 0;
+      _trace('drop_monitor unavailable error=$error');
+    } finally {
+      _readingDrops = false;
+    }
   }
 
   /// Log evidence is scoped to this Player and an installed/applying chain.
@@ -566,10 +749,15 @@ class PlaybackUpscaler {
         (lower.contains('shader') ||
             lower.contains('glsl') ||
             lower.contains('framebuffer'));
-    if (!shaderFileError && !shaderError && !unsupported) return;
+    var janaiError =
+        _janaiDirty &&
+        prefix.contains('animejanai') &&
+        (level == 'error' || level == 'fatal');
+    if (!shaderFileError && !shaderError && !unsupported && !janaiError) return;
     if (shaderFileError) _forwardedErrors.add(text.trim());
     _failed = true;
-    onError(StateError(text.trim()));
+    _lastFailure = StateError(text.trim());
+    onError(_lastFailure!);
     _schedule(immediate: true);
   }
 
@@ -579,6 +767,7 @@ class PlaybackUpscaler {
   /// commands before closing the adapter and letting Store dispose the Player.
   Future<void> close() => _closeFuture ??= () async {
     _closed = true;
+    _stopDropMonitor();
     _generation++;
     _pending = null;
     _timer?.cancel();

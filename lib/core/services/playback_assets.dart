@@ -98,7 +98,11 @@ class PlaybackAnime4kAssets {
   };
 
   Future<List<String>> load(PlaybackUpscaleMode mode) {
-    if (mode == PlaybackUpscaleMode.off) return Future.value(const []);
+    // The AnimeJaNai modes install a native filter chain instead of shader
+    // presets, so they need no renderer assets.
+    if (mode == PlaybackUpscaleMode.off || mode.isJanai) {
+      return Future.value(const []);
+    }
     var previous = _verified[mode];
     if (previous != null) return previous;
     var work = _load(mode);

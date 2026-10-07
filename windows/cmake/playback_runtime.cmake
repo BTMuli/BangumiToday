@@ -1,15 +1,20 @@
-# media_kit's Windows libmpv has its normalization filters disabled. Bundle a
-# pinned LGPL build with dynaudnorm while retaining the plugin's ANGLE DLLs.
-set(BANGUMI_LIBMPV_RELEASE "2026-10-03-413ff0b1cd")
+# The bundled Windows libmpv must carry the AnimeJaNai filter (`vf_animejanai`),
+# which only exists in the pinned `the-database/mpv` fork, and its normalization
+# filters (`dynaudnorm`) which media_kit's own libmpv build disables. The
+# published `mpv-dev` package of `the-database/mpv-winbuild` is a GPL build
+# (mpv with rubberband / x264 / x265); see windows/licenses/libmpv/NOTICE.md.
+# The LGPL variant (`mpv-dev-lgpl-*`, produced by that repository's workflow
+# with `lgpl=true`) can replace these constants once it exists.
+set(BANGUMI_LIBMPV_RELEASE "2026-10-07-d6d93599d5")
 set(BANGUMI_LIBMPV_ARCHIVE_NAME
-    "mpv-dev-lgpl-x86_64-20261003-git-413ff0b1cd.7z")
+    "mpv-dev-x86_64-20261007-git-d6d93599d5.7z")
 set(BANGUMI_LIBMPV_ARCHIVE_SHA256
-    "12a9966bad239672c97276f01a9e625504e0b1d1fdcff95256066eeb8ffb1f21")
+    "077cb75fed47b185428f97224e1d798e2d4c2f4063fd8cda2662b74f2892327c")
 set(BANGUMI_LIBMPV_DLL_SHA256
-    "6209dfe89b45d726bedc3b932e9321e9d1a49b64b2e1fefdf8c2973e384e7001")
+    "90de8f89fa1421eaec510e5cfe11de75846b445489864220ec811fd0f08b4649")
 set(BANGUMI_LIBMPV_ARCHIVE
     "${CMAKE_BINARY_DIR}/${BANGUMI_LIBMPV_ARCHIVE_NAME}")
-set(BANGUMI_LIBMPV_DIR "${CMAKE_BINARY_DIR}/libmpv-lgpl-20261003")
+set(BANGUMI_LIBMPV_DIR "${CMAKE_BINARY_DIR}/libmpv-ajan-20261007")
 set(BANGUMI_LIBMPV_DLL "${BANGUMI_LIBMPV_DIR}/libmpv-2.dll")
 
 if(DEFINED FLUTTER_TARGET_PLATFORM AND
@@ -23,7 +28,7 @@ if(EXISTS "${BANGUMI_LIBMPV_ARCHIVE}")
 endif()
 if(NOT _bangumi_libmpv_archive_hash STREQUAL BANGUMI_LIBMPV_ARCHIVE_SHA256)
     file(DOWNLOAD
-        "https://github.com/zhongfly/mpv-winbuild/releases/download/${BANGUMI_LIBMPV_RELEASE}/${BANGUMI_LIBMPV_ARCHIVE_NAME}"
+        "https://github.com/the-database/mpv-winbuild/releases/download/${BANGUMI_LIBMPV_RELEASE}/${BANGUMI_LIBMPV_ARCHIVE_NAME}"
         "${BANGUMI_LIBMPV_ARCHIVE}"
         EXPECTED_HASH "SHA256=${BANGUMI_LIBMPV_ARCHIVE_SHA256}"
         TLS_VERIFY ON

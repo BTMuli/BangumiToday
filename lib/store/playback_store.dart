@@ -389,12 +389,14 @@ class PlaybackStore extends ChangeNotifier {
     }
     _player = player;
     _chapters = chapters;
-    // The full libmpv build adds decoders to hwdec=auto. Keep the original
-    // D3D11 copy-back path for media_kit_video's ANGLE texture output.
+    // Start with plain decoding even when an AI preference is saved. The
+    // coordinator switches only after checking the media's supported range.
     _video = VideoController(
       player,
       configuration: VideoControllerConfiguration(
-        hwdec: Platform.isWindows ? 'd3d11va-copy' : null,
+        hwdec: Platform.isWindows
+            ? NativePlaybackUpscaleBackend.plainDecoder
+            : null,
       ),
     );
     if (Platform.isWindows) {

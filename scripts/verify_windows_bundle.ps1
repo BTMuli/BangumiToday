@@ -130,3 +130,25 @@ if ($EngineRuntimePath) {
 
 $fileCount = (Get-ChildItem -LiteralPath $engineRoot -Recurse -File).Count
 Write-Output "Verified bt_download runtime in '$engineRoot' ($fileCount files, SPDX-2.3 SBOM)."
+
+$inferenceRoot = Join-Path $bundleRoot 'playback_inference'
+& (Join-Path $PSScriptRoot 'verify_playback_inference_prerequisites.ps1') -RuntimeDirectory $inferenceRoot
+Import-Module (Join-Path $PSScriptRoot 'playback_inference_assets.psm1') -Force
+$inferenceLock = Get-PlaybackInferenceLock
+foreach ($file in $inferenceLock.files | Where-Object { $_.PSObject.Properties['provider'] -and $_.provider -eq 'vcredist' }) {
+    Assert-InferenceFile -Path (Join-Path $bundleRoot $file.source) -Bytes $file.bytes -Sha256 $file.sha256
+}
+foreach ($binary in @('aji.dll', 'libmpv-2.dll')) {
+    $imports = @(Get-InferencePeImports -Path (Join-Path $bundleRoot $binary))
+    if ($imports.Count -eq 0) { throw "Bundled playback binary has no imports: $binary" }
+}
+$configuration = Get-Content -LiteralPath (Join-Path $bundleRoot 'animejanai.conf') -Encoding UTF8
+foreach ($setting in @('runtime_dir=playback_inference', 'model_dir=playback_inference/models', 'default_slot=1')) {
+    if ($configuration -notcontains $setting) { throw "Missing AnimeJaNai setting: $setting" }
+}
+foreach ($slot in @(@{ Number = 1; Id = 'performance' }, @{ Number = 2; Id = 'balanced' })) {
+    $model = $inferenceLock.files | Where-Object { $_.id -eq $slot.Id }
+    $setting = 'slot' + $slot.Number + '=' + [IO.Path]::GetFileName($model.path)
+    if ($configuration -notcontains $setting) { throw "Incorrect AnimeJaNai model slot: $setting" }
+}
+Write-Output 'Verified bundled AnimeJaNai runtime, model slots, shim and app-local CRT.'

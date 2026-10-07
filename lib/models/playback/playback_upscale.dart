@@ -2,15 +2,32 @@
 import 'dart:math' as math;
 
 /// Quality changes the CNN size, independently of the requested output size.
+///
+/// The first four modes install GLSL shader presets through the renderer; the
+/// two `janai` modes enable the AnimeJaNai inference filter instead, which is a
+/// fixed 2x chain fed by the pinned mpv runtime and the native shim.
 enum PlaybackUpscaleMode {
   off('关闭', ''),
   light('轻量', '优先流畅'),
   standard('标准', '画质与性能均衡'),
-  high('高质量', '1080p → 4K · 较高 GPU 开销');
+  high('高质量', '1080p → 4K · 较高 GPU 开销'),
+  janaiSmooth('AI 流畅', 'AnimeJaNai 2× · Performance 模型'),
+  janaiQuality('AI 高质量', 'AnimeJaNai 2× · Balanced 模型');
 
   const PlaybackUpscaleMode(this.label, this.description);
   final String label;
   final String description;
+
+  /// Whether this mode runs the AnimeJaNai inference filter.
+  bool get isJanai => this == janaiSmooth || this == janaiQuality;
+
+  /// The filter slot that selects the model, or null for shader modes.
+  /// Slot 1 is the smooth (Performance) model, slot 2 the high quality one.
+  int? get janaiSlot => switch (this) {
+    janaiSmooth => 1,
+    janaiQuality => 2,
+    _ => null,
+  };
 
   static PlaybackUpscaleMode parse(String? value) =>
       values.where((mode) => mode.name == value).firstOrNull ?? off;
@@ -88,6 +105,29 @@ PlaybackUpscalePlan playbackUpscalePlan({
   var gamma = source.gamma?.toLowerCase();
   if (['pq', 'st2084', 'hlg', 'arib-std-b67'].contains(gamma)) {
     return const PlaybackUpscalePlan('HDR 暂未开放');
+  }
+  if (mode.isJanai) {
+    // AnimeJaNai is a fixed 2x chain with its own admitted contract: SDR video
+    // within a 3840x2160 output budget, which caps the source at 1920x1080.
+    if (![
+      'bt.1886',
+      'srgb',
+      'linear',
+      'gamma1.8',
+      'gamma2.2',
+      'gamma2.8',
+      'prophoto',
+    ].contains(gamma)) {
+      return const PlaybackUpscalePlan('等待确认 SDR 色彩');
+    }
+    if (source.width > 1920 || source.height > 1080) {
+      return const PlaybackUpscalePlan('AI 超分上限为 1080p，保持普通播放');
+    }
+    return PlaybackUpscalePlan(
+      '已配置 · 2× 至 ${source.width * 2}×${source.height * 2}',
+      output: (width: source.width * 2, height: source.height * 2),
+      mode: mode,
+    );
   }
   if (![
     'bt.1886',

@@ -38,6 +38,10 @@ jobs:
       - name: 拉取依赖
         run: flutter pub get
 
+      - name: 准备推理资源
+        shell: pwsh
+        run: ./scripts/prepare_playback_inference.ps1
+
       - name: 构建下载引擎
         shell: pwsh
         working-directory: repos/bt_download

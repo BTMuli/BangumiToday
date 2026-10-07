@@ -134,6 +134,33 @@ class NativeUpscaleAdapter {
     });
   }
 
+  /// Sets one scalar string property. MPV_FORMAT_STRING keeps the value opaque,
+  /// so filter chains and option strings need no path escaping.
+  Future<void> setString(String property, String value) {
+    if (property.isEmpty ||
+        property.contains('\u0000') ||
+        value.contains('\u0000')) {
+      throw ArgumentError('Invalid mpv string property');
+    }
+    return _withPlayer(() {
+      var name = property.toNativeUtf8();
+      var text = value.toNativeUtf8();
+      try {
+        _checkResult(
+          'set $property',
+          _player.mpv.mpv_set_property_string(
+            _player.ctx,
+            name.cast(),
+            text.cast(),
+          ),
+        );
+      } finally {
+        calloc.free(text);
+        calloc.free(name);
+      }
+    });
+  }
+
   /// Copies a native property into Dart values before freeing mpv-owned data.
   Future<Object?> read(String property) {
     if (property.isEmpty || property.contains('\u0000')) {

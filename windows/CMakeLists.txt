@@ -75,6 +75,10 @@ set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
 
+# The AnimeJaNai shim and its inference package install next to the executable,
+# so this include has to follow the bundle directory definitions above.
+include(cmake/playback_inference.cmake)
+
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
         COMPONENT Runtime)
 

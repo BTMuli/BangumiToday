@@ -485,6 +485,7 @@ try {
     }
 
     $env:BT_DOWNLOAD_RUNTIME_DIR = $resolvedEngineRuntimePath
+    & (Join-Path $PSScriptRoot 'scripts/prepare_playback_inference.ps1')
     $flutterPath = (Get-Command flutter -ErrorAction Stop).Source
     Invoke-NativeCommand -FilePath $flutterPath `
         -Arguments @(
