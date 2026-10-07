@@ -23,7 +23,6 @@ import '../../providers/app_providers.dart';
 import '../../providers/playback_episode_link_providers.dart';
 import '../../providers/subject_playback_providers.dart';
 import '../../ui/bt_dialog.dart';
-import '../../ui/bt_select.dart';
 import '../playback/playback_actions.dart';
 
 part 'subject_episode_files_dialog/widgets.dart';
@@ -73,7 +72,9 @@ class _SubjectEpisodeFilesDialogState
   final _files = <String, String>{};
   final _automaticFiles = <String>{};
   final _listScrollController = ScrollController();
-  (String?, int, int, double, double, double)? _revealSignature;
+  final _episodeScrollController = ScrollController();
+  final _revealSignatures =
+      <ScrollController, (String?, int, int, double, double, double)>{};
   static const _fileRowExtent = 64.0;
   String? _directory;
   String? _selectedFile;
@@ -96,6 +97,7 @@ class _SubjectEpisodeFilesDialogState
   @override
   void dispose() {
     _listScrollController.dispose();
+    _episodeScrollController.dispose();
     super.dispose();
   }
 
@@ -106,19 +108,21 @@ class _SubjectEpisodeFilesDialogState
     double rowExtent,
     double viewportHeight, {
     double topPadding = 0,
+    ScrollController? controller,
   }) {
+    var scrollController = controller ?? _listScrollController;
     var signature = (key, index, count, rowExtent, viewportHeight, topPadding);
-    if (_revealSignature == signature) return;
-    _revealSignature = signature;
+    if (_revealSignatures[scrollController] == signature) return;
+    _revealSignatures[scrollController] = signature;
     if (index < 0) return;
     // Lazy lists have not built distant rows; use their exact fixed extent.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
-          _revealSignature != signature ||
-          !_listScrollController.hasClients) {
+          _revealSignatures[scrollController] != signature ||
+          !scrollController.hasClients) {
         return;
       }
-      var position = _listScrollController.position;
+      var position = scrollController.position;
       if (!position.hasContentDimensions) return;
       var top = topPadding + index * rowExtent;
       if (top >= position.pixels &&
@@ -126,7 +130,7 @@ class _SubjectEpisodeFilesDialogState
         return;
       }
       var offset = top - (position.viewportDimension - rowExtent) / 2;
-      _listScrollController.jumpTo(
+      scrollController.jumpTo(
         offset.clamp(position.minScrollExtent, position.maxScrollExtent),
       );
     });
@@ -449,18 +453,10 @@ class _SubjectEpisodeFilesDialogState
             style: BTTypography.caption(context),
           ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text('选择剧集', style: BTTypography.bodyStrong(context)),
-              _fileBadge('${episodes.length} 集'),
-              _buildUnmatchedEpisodeAction(
-                selectedEpisode == 0,
-                enabled: canSelectEpisode,
-              ),
-            ],
+          _buildEpisodeToolbar(
+            episodes.length,
+            selectedEpisode,
+            enabled: canSelectEpisode,
           ),
           const SizedBox(height: 8),
           if (loading) ...[const ProgressBar(), const SizedBox(height: 8)],
@@ -512,6 +508,7 @@ class _SubjectEpisodeFilesDialogState
           if (loading) ...[const ProgressBar(), const SizedBox(height: 8)],
         ],
         Flexible(
+          flex: _editingFile ? 1 : 3,
           child: _editingFile
               ? _buildEpisodeGrid(
                   episodes,
@@ -532,7 +529,27 @@ class _SubjectEpisodeFilesDialogState
                   rowExtent,
                 ),
         ),
-        if (_editingFile) ...[
+        if (!_editingFile && selected != null && widget.episode == null) ...[
+          const SizedBox(height: 12),
+          _buildEpisodeToolbar(
+            episodes.length,
+            selectedEpisode,
+            enabled: canSelectEpisode,
+          ),
+          const SizedBox(height: 8),
+          Flexible(
+            child: _buildEpisodeGrid(
+              episodes,
+              validEpisode ? selectedEpisode : null,
+              effective?.episode,
+              linked,
+              rowExtent,
+              enabled: canSelectEpisode,
+              maxRows: 3,
+            ),
+          ),
+        ],
+        if (widget.episode == null && selected != null) ...[
           const SizedBox(height: 8),
           Text(
             selectedEpisode == 0 && !unchanged
@@ -543,77 +560,6 @@ class _SubjectEpisodeFilesDialogState
                       : '当前关联已保存。'
                 : '选择剧集后保存关联。',
             style: BTTypography.caption(context),
-          ),
-        ],
-        if (!_editingFile && selected != null && widget.episode == null) ...[
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: _filePanelDecoration(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Tooltip(
-                  message: selected,
-                  child: Text(
-                    path.basename(selected),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: BTTypography.caption(context),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text('关联章节', style: BTTypography.bodyStrong(context)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: BtSelect<int>(
-                        value: validEpisode ? selectedEpisode : null,
-                        isExpanded: true,
-                        items: [
-                          const ComboBoxItem(
-                            value: 0,
-                            child: Text(
-                              '不对应章节（附加内容）',
-                              textAlign: TextAlign.start,
-                            ),
-                          ),
-                          for (var episode in episodes)
-                            ComboBoxItem(
-                              value: episode.id,
-                              child: Text(
-                                subjectFileEpisodeLabel(episode),
-                                textAlign: TextAlign.start,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                        ],
-                        onChanged: _busy || loading || chapterData.hasError
-                            ? null
-                            : (value) => setState(() {
-                                _selectedFile = selected;
-                                _selectedEpisode = value;
-                              }),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  unchanged
-                      ? linked == null
-                            ? '自动匹配已生效，无需保存。'
-                            : '当前关联已保存。'
-                      : '选择对应章节后保存；附加内容可设为不对应章节。',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: BTTypography.caption(context),
-                ),
-              ],
-            ),
           ),
         ],
         if (chapterData.hasError || linkData.hasError) ...[

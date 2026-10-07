@@ -131,18 +131,23 @@ extension _ResourceFiles on _SubjectDetailResourcesState {
     var directory = _bmf.download;
     if (directory == null || directory.isEmpty) {
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Button(
-              onPressed: () =>
-                  showSubjectEpisodeFiles(context, subject: widget.subjectId),
-              child: const Text('章节文件与自动匹配'),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _iconAction(
+                '章节文件与自动匹配',
+                FluentIcons.link,
+                () =>
+                    showSubjectEpisodeFiles(context, subject: widget.subjectId),
+              ),
             ),
           ),
           Expanded(
             child: _emptyState(
-              '尚未设置下载目录，也可直接选择视频文件关联章节',
+              '尚未设置下载目录，也可添加视频文件关联剧集',
               action: () => _run(_chooseDirectory),
               label: '选择目录',
             ),
@@ -165,12 +170,13 @@ extension _ResourceFiles on _SubjectDetailResourcesState {
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Button(
-                    onPressed: () => showSubjectEpisodeFiles(
+                  _iconAction(
+                    '章节文件与自动匹配',
+                    FluentIcons.link,
+                    () => showSubjectEpisodeFiles(
                       context,
                       subject: widget.subjectId,
                     ),
-                    child: const Text('章节文件与自动匹配'),
                   ),
                   _iconAction(
                     '刷新文件',

@@ -3,7 +3,7 @@ part of '../subject_episode_files_dialog.dart';
 extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
   Widget _buildFilesHeader() {
     var episode = widget.episode;
-    var file = _editingFile ? widget.filePath : null;
+    var file = episode == null ? widget.filePath ?? _selectedFile : null;
     var target = episode != null
         ? subjectFileEpisodeLabel(episode)
         : file == null
@@ -332,6 +332,21 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
     rowExtent,
   );
 
+  Widget _buildEpisodeToolbar(
+    int count,
+    int? selected, {
+    required bool enabled,
+  }) => Wrap(
+    spacing: 8,
+    runSpacing: 4,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      Text('选择剧集', style: BTTypography.bodyStrong(context)),
+      _fileBadge('$count 集'),
+      _buildUnmatchedEpisodeAction(selected == 0, enabled: enabled),
+    ],
+  );
+
   Widget _buildUnmatchedEpisodeAction(bool checked, {required bool enabled}) =>
       Semantics(
         selected: checked,
@@ -385,6 +400,7 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
     PlaybackEpisodeLink? linked,
     double rowExtent, {
     required bool enabled,
+    int maxRows = 6,
   }) {
     if (episodes.isEmpty) {
       return Container(
@@ -457,7 +473,10 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
         }
         var height = top + gap;
         return SizedBox(
-          height: height.clamp(tileExtent + gap * 2, tileExtent * 6 + gap * 7),
+          height: height.clamp(
+            tileExtent + gap * 2,
+            tileExtent * maxRows + gap * (maxRows + 1),
+          ),
           child: Container(
             decoration: _filePanelDecoration(),
             clipBehavior: Clip.antiAlias,
@@ -470,9 +489,10 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
                   tileExtent + gap,
                   viewport.maxHeight,
                   topPadding: selectedTop,
+                  controller: _episodeScrollController,
                 );
                 return CustomScrollView(
-                  controller: _listScrollController,
+                  controller: _episodeScrollController,
                   primary: false,
                   slivers: [
                     SliverPadding(
