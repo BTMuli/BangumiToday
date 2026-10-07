@@ -105,20 +105,20 @@ class _PlaybackWindow with WindowListener {
       ],
     );
     container.read(episodeMarkProvider);
-    await window.setWindowMethodHandler(_handle);
-    windowManager.addListener(this);
-    await windowManager.setPreventClose(true);
-    // 播放器窗口只有视频画面：显示前去掉标题栏与边框，避免先闪出一帧普通窗口。
-    await mode.applyFramelessWindow();
-    await windowManager.waitUntilReadyToShow(
-      const WindowOptions(
-        title: 'BangumiToday · 播放器',
-        size: Size(1120, 720),
-        minimumSize: PlaybackWindowMode.minimumSize,
-        center: true,
-      ),
-    );
     try {
+      await window.setWindowMethodHandler(_handle);
+      windowManager.addListener(this);
+      await windowManager.setPreventClose(true);
+      // 播放器窗口只有视频画面：显示前去掉标题栏与边框，避免先闪出一帧普通窗口。
+      await mode.applyFramelessWindow();
+      await windowManager.waitUntilReadyToShow(
+        const WindowOptions(
+          title: 'BangumiToday · 播放器',
+          size: Size(1120, 720),
+          minimumSize: PlaybackWindowMode.minimumSize,
+          center: true,
+        ),
+      );
       _receive(await call('bootstrap', {'windowId': window.windowId}));
       await _restoreSize();
       await mode.centerWindow(area: await _displayUnderCursor());
@@ -142,13 +142,28 @@ class _PlaybackWindow with WindowListener {
       await windowManager.focus();
     } catch (error, stackTrace) {
       BTLogTool.error(['播放器窗口初始化失败：$error', stackTrace.toString()]);
-      // Before opening media, this engine owns no native Player. Report that
-      // cleanup explicitly so the main owner can safely retire the generation.
-      await call('failed', {'message': error.toString()});
+      _closing = _exiting = true;
+      marking.invalidate();
+      // Settle any native resources before reporting the generation closed,
+      // including a late initialization failure after the ready handshake.
+      await _reportStartup('failed', {'message': error.toString()});
       await store.waitForShutdownSettlement();
-      await call('closed', {});
+      await _reportStartup('closed', {});
       await _nativeClose();
       return;
+    }
+  }
+
+  Future<void> _reportStartup(String method, Map<String, Object?> body) async {
+    try {
+      await call(method, body).timeout(const Duration(seconds: 2));
+    } catch (error) {
+      // The host may already have retired this channel. Local cleanup must
+      // still run even when failure/closed notifications cannot be delivered.
+      BTLogTool.warn(
+        '播放器启动回报失败：method=$method '
+        'generation=${identity.generation} error=$error',
+      );
     }
   }
 
