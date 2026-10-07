@@ -21,7 +21,7 @@ class EpisodeMarkCandidate {
   final PlaybackItem item;
   final String account;
   final EpisodeMarkEpisode episode;
-  final int number;
+  final double number;
   final int? linkedEpisode;
 
   int get subject => item.subject!;
@@ -139,6 +139,21 @@ class EpisodeMarkService {
     if (evidence.kind != EpisodeNumberKind.single &&
         evidence.kind != EpisodeNumberKind.unknown) {
       return null;
+    }
+    var number = evidence.number;
+    if (number != null && number != number.truncateToDouble()) {
+      // Fractional broadcast numbers can belong to a main chapter or a recap
+      // listed as a special. Never infer them from subject-relative numbering
+      // or an incomplete list that could hide another chapter with this sort.
+      if (!complete) return null;
+      return episodes
+          .where(
+            (episode) =>
+                episode.id > 0 &&
+                (episode.type == 0 || episode.type == 1) &&
+                episode.sort == number,
+          )
+          .singleOrNull;
     }
     var mainEpisodes = episodes.where((episode) => episode.type == 0).toList();
     var validEpisodes = mainEpisodes
@@ -385,7 +400,7 @@ class EpisodeMarkService {
               ? '关联章节已不存在，请在条目详情重新关联文件'
               : evidence.kind == EpisodeNumberKind.unknown
               ? evidence.reason
-              : '没有唯一匹配的正片章节，请手动选择',
+              : '没有唯一匹配的章节，请手动选择',
         );
       }
       var done = await gateway.isDone(episode.id);
@@ -397,7 +412,7 @@ class EpisodeMarkService {
           item: item,
           account: account,
           episode: episode,
-          number: evidence.number ?? episode.sort.toInt(),
+          number: evidence.number ?? episode.sort,
           linkedEpisode: linkedEpisode,
         ),
       );

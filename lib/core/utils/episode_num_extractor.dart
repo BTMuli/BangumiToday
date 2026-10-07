@@ -9,7 +9,7 @@ class EpisodeNumberResult {
   });
 
   final EpisodeNumberKind kind;
-  final int? number;
+  final double? number;
   final String? evidence;
 
   /// Only explicit season/episode pairs imply season-relative numbering.
@@ -20,7 +20,7 @@ class EpisodeNumberResult {
     EpisodeNumberKind.single => '明确的单集编号',
     EpisodeNumberKind.ambiguous => '文件名存在多个集数候选',
     EpisodeNumberKind.batch => '合集文件不能对应单个章节',
-    EpisodeNumberKind.special => '特别篇或小数集需要手动选择章节',
+    EpisodeNumberKind.special => '特别篇或不明确的编号需要手动选择章节',
     EpisodeNumberKind.seasonal => '文件名只有季信息，没有可靠的单集编号',
     EpisodeNumberKind.unknown => '文件名没有可靠的单集编号',
   };
@@ -28,27 +28,35 @@ class EpisodeNumberResult {
 
 final _batchPattern = RegExp(
   r'\b(?:BATCH|COMPLETE)\b|合集|全集|'
-  r'(?:\bEP?\s*)?\d{1,4}(?:v\d+)?\s*[-+~～至]\s*'
-  r'(?:EP?\s*)?\d{1,4}',
+  r'(?:\bEP?\s*)?\d{1,4}(?:\.\d+)?(?:v\d+)?\s*[-+~～至]\s*'
+  r'(?:EP?\s*)?\d{1,4}(?:\.\d+)?',
   caseSensitive: false,
 );
 final _specialPattern = RegExp(
   r'\b(?:SP|OVA|OAD|(?:NC)?(?:OP|ED)|PV|CM|TRAILER|TEASER|PREVIEW|'
-  r'SAMPLE)(?:\d+)?\b|特别篇|特別篇|特典|预告|預告|予告|'
+  r'SAMPLE)(?:\d+)?\b|特别篇|特別篇|特典|预告|預告|予告',
+  caseSensitive: false,
+);
+final _fractionalSpecialPattern = RegExp(
+  r'(?<![A-Za-z0-9])SP[ ._-]*(\d{1,4}\.\d*[1-9]\d*)(?:v\d+)?'
+  r'(?![\dA-Za-z]|\.\d)',
+  caseSensitive: false,
+);
+final _unparsedFractionalPattern = RegExp(
   r'(?:S\d{1,2}[ ._-]*E|\d{1,2}x|\b(?:Episode|EP?)[ ._-]*|'
-  r'第\s*|[\s\[【_-])\d+\.\d+(?:v\d+)?'
+  r'第\s*|^|[\s\[【_-])\d+\.\d+(?:v\d+)?'
   r'(?=[话話集\s\[\]【】()._-]|$)',
   caseSensitive: false,
 );
 final _seasonEpisodePatterns = [
   RegExp(
-    r'(?<![A-Za-z0-9])S(\d{1,2})[ ._-]*E(\d{1,4})(?:v\d+)?'
-    r'(?![\dA-Za-z])',
+    r'(?<![A-Za-z0-9])S(\d{1,2})[ ._-]*E'
+    r'(\d{1,4}(?:\.\d+)?)(?:v\d+)?(?![\dA-Za-z]|\.\d)',
     caseSensitive: false,
   ),
   RegExp(
-    r'(?<![A-Za-z0-9])(\d{1,2})x(\d{1,4})(?:v\d+)?'
-    r'(?![\dA-Za-z])',
+    r'(?<![A-Za-z0-9])(\d{1,2})x'
+    r'(\d{1,4}(?:\.\d+)?)(?:v\d+)?(?![\dA-Za-z]|\.\d)',
     caseSensitive: false,
   ),
 ];
@@ -61,17 +69,28 @@ final _seasonPattern = RegExp(
 );
 final _episodePatterns = [
   RegExp(
-    r'(?<![A-Za-z0-9])(?:Episode|EP?)[ ._-]*(\d{1,4})(?:v\d+)?'
-    r'(?![\dA-Za-z])',
-    caseSensitive: false,
-  ),
-  RegExp(r'第\s*(\d{1,4})(?:v\d+)?\s*[话話集]', caseSensitive: false),
-  RegExp(
-    r'(?:\s-\s*|\s—\s*)(\d{1,4})(?:v\d+)?(?=$|[\s\[【(])',
+    r'(?<![A-Za-z0-9])(?:Episode|EP?)[ ._-]*'
+    r'(\d{1,4}(?:\.\d+)?)(?:v\d+)?(?![\dA-Za-z]|\.\d)',
     caseSensitive: false,
   ),
   RegExp(
-    r'\[\s*(\d{1,4})(?:v\d+)?\s*\]|【\s*(\d{1,4})(?:v\d+)?\s*】',
+    r'(?<![\d.])(?:第\s*)?(\d{1,4}(?:\.\d+)?)(?:v\d+)?\s*[话話集]',
+    caseSensitive: false,
+  ),
+  RegExp(
+    r'(?:\s-\s*|\s—\s*)(\d{1,4}(?:\.\d+)?)(?:v\d+)?'
+    r'(?=$|[\s\[【(])',
+    caseSensitive: false,
+  ),
+  RegExp(
+    r'\[\s*(\d{1,4}(?:\.\d+)?)(?:v\d+)?\s*\]|'
+    r'【\s*(\d{1,4}(?:\.\d+)?)(?:v\d+)?\s*】',
+    caseSensitive: false,
+  ),
+  _fractionalSpecialPattern,
+  RegExp(
+    r'(?:^|[\s_-])(\d{1,4}\.\d+)(?:v\d+)?'
+    r'(?=$|[\s\[\]【】()_-])',
     caseSensitive: false,
   ),
 ];
@@ -83,10 +102,14 @@ EpisodeNumberResult extractEpisodeNumber(String filePath) {
   if (_batchPattern.hasMatch(name.replaceAll(_seasonPattern, ' '))) {
     return const EpisodeNumberResult(EpisodeNumberKind.batch);
   }
-  if (_specialPattern.hasMatch(name)) {
+  // An explicit SP13.5 can identify a numbered recap. Other extras still
+  // require a manual link even when an ordinary episode number is present.
+  if (_specialPattern.hasMatch(
+    name.replaceAll(_fractionalSpecialPattern, ' '),
+  )) {
     return const EpisodeNumberResult(EpisodeNumberKind.special);
   }
-  var candidates = <int, String>{};
+  var candidates = <double, String>{};
   var seasons = <int>{};
   var hasSeason = _seasonPattern.hasMatch(name);
   var invalidPair = false;
@@ -94,7 +117,7 @@ EpisodeNumberResult extractEpisodeNumber(String filePath) {
     name = name.replaceAllMapped(pattern, (match) {
       hasSeason = true;
       var season = int.parse(match[1]!);
-      var number = int.parse(match[2]!);
+      var number = double.parse(match[2]!);
       if (season <= 0 || number <= 0) {
         invalidPair = true;
       } else {
@@ -107,15 +130,21 @@ EpisodeNumberResult extractEpisodeNumber(String filePath) {
   // Strip title season markers before scanning ordinary episode numbers.
   name = name.replaceAll(_seasonPattern, ' ');
   for (var pattern in _episodePatterns) {
-    for (var match in pattern.allMatches(name)) {
-      var number = int.parse(match[1] ?? match[2]!);
+    name = name.replaceAllMapped(pattern, (match) {
+      var number = double.parse(match[1] ?? match[2]!);
       if (number <= 0 ||
           (number >= 1900 && number <= 2099) ||
           {360, 480, 576, 720, 1080, 1440, 2160, 4320}.contains(number)) {
-        continue;
+        return match[0]!;
       }
       candidates[number] = match.group(0)!;
-    }
+      return ' ';
+    });
+  }
+  // Keep unsupported fractional markers from falling back to an integer
+  // candidate or the unnumbered single-chapter inference.
+  if (_unparsedFractionalPattern.hasMatch(name)) {
+    return const EpisodeNumberResult(EpisodeNumberKind.special);
   }
   if (invalidPair || seasons.length > 1 || candidates.length > 1) {
     return const EpisodeNumberResult(EpisodeNumberKind.ambiguous);
