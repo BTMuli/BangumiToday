@@ -347,12 +347,7 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
                             '请求：$requestedSize   实际：$textureSize',
                             pink,
                           ),
-                          _line(
-                            'GPU',
-                            '${_value(upscale.renderer)}'
-                                '   纹理上限：—   pass 耗时：—',
-                            blue,
-                          ),
+                          _line('GPU', _value(upscale.renderer), blue),
                         ],
                         _line(
                           '帧统计',
