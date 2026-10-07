@@ -16,6 +16,7 @@ import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/rss/rss_release_data.dart';
 import 'mikan_mirror_combo.dart';
+import 'rss_auto_refresh.dart';
 import 'rss_release_list.dart';
 
 /// 负责 MikanProject RSS 页面的显示
@@ -59,6 +60,24 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
   bool _mikanLoaded = false;
   bool _userLoaded = false;
   bool _loadFailed = false;
+  DateTime? _mikanUpdated;
+  DateTime? _userUpdated;
+  DateTime? _searchUpdated;
+  DateTime? _mikanAttempt;
+  DateTime? _userAttempt;
+  DateTime? _searchAttempt;
+
+  DateTime? get _lastUpdated => _isSearch
+      ? _searchUpdated
+      : useUserRSS
+      ? _userUpdated
+      : _mikanUpdated;
+
+  DateTime? get _lastAttempt => _isSearch
+      ? _searchAttempt
+      : useUserRSS
+      ? _userAttempt
+      : _mikanAttempt;
 
   /// mikan 镜像
   String get mikanRss => ref.read(appStoreProvider).mikanRss;
@@ -86,13 +105,25 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
   /// 刷新
   Future<void> refreshUserRSS() => _refreshRSS(personal: true);
 
-  Future<void> _refreshRSS({required bool personal, bool notify = true}) async {
+  Future<void> _refreshRSS({
+    required bool personal,
+    bool notify = true,
+    bool reportErrors = true,
+  }) async {
     if (!mounted) return;
     var requestId = ++_requestId;
     var query = _query;
     setState(() {
       _refreshing = true;
       _loadFailed = false;
+      var at = DateTime.now();
+      if (query.isNotEmpty) {
+        _searchAttempt = at;
+      } else if (personal) {
+        _userAttempt = at;
+      } else {
+        _mikanAttempt = at;
+      }
     });
     var resGet = query.isNotEmpty
         ? await mikanAPI.searchRSS(query)
@@ -108,17 +139,20 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
         if (query.isNotEmpty) {
           _searchItems = resGet.data!;
           _searchLoaded = true;
+          _searchUpdated = DateTime.now();
         } else if (personal) {
           userItems = resGet.data!;
           _userLoaded = true;
+          _userUpdated = DateTime.now();
         } else {
           rssItems = resGet.data!;
           _mikanLoaded = true;
+          _mikanUpdated = DateTime.now();
         }
       }
     });
     if (!success) {
-      await showRespErr(resGet, context);
+      if (reportErrors) await showRespErr(resGet, context);
       return;
     }
     if (notify) {
@@ -140,6 +174,8 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
       if (_query != query) {
         _searchItems = [];
         _searchLoaded = false;
+        _searchUpdated = null;
+        _searchAttempt = null;
       }
       _query = query;
     });
@@ -160,6 +196,12 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
       _mikanLoaded = false;
       _userLoaded = false;
       _searchLoaded = false;
+      _mikanUpdated = null;
+      _userUpdated = null;
+      _searchUpdated = null;
+      _mikanAttempt = null;
+      _userAttempt = null;
+      _searchAttempt = null;
     });
     await _refreshRSS(personal: useUserRSS, notify: false);
   }
@@ -211,6 +253,8 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
       _query = '';
       userItems = [];
       _userLoaded = false;
+      _userUpdated = null;
+      _userAttempt = null;
       useUserRSS = true;
     });
     await BtInfobar.success(context, 'Token 已保存');
@@ -363,6 +407,7 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
               : _mikanLoaded) ||
           _loadFailed,
       loadFailed: _loadFailed,
+      lastUpdated: _lastUpdated,
       onRefresh: useUserRSS ? refreshUserRSS : refreshMikanRSS,
     );
   }
@@ -374,14 +419,22 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
     ref.listen(appStoreProvider.select((store) => store.mikanRss), (_, _) {
       unawaited(_reloadMirror());
     });
-    return ScaffoldPage(
-      padding: EdgeInsets.zero,
-      content: buildContent(
-        _isSearch
-            ? _searchItems
-            : useUserRSS
-            ? userItems
-            : rssItems,
+    return RssAutoRefresh(
+      enabled: _initialized,
+      refreshing: _refreshing,
+      lastUpdated: _lastUpdated,
+      lastAttempt: _lastAttempt,
+      onRefresh: () =>
+          _refreshRSS(personal: useUserRSS, notify: false, reportErrors: false),
+      child: ScaffoldPage(
+        padding: EdgeInsets.zero,
+        content: buildContent(
+          _isSearch
+              ? _searchItems
+              : useUserRSS
+              ? userItems
+              : rssItems,
+        ),
       ),
     );
   }

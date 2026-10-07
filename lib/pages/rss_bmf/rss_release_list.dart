@@ -15,6 +15,7 @@ import '../../request/mikan/mikan_api.dart';
 import '../../store/bt_download_store.dart';
 import '../../ui/bt_infobar.dart';
 import '../../ui/bt_select.dart';
+import '../../widgets/rss/rss_refresh_status.dart';
 import '../../widgets/rss/rss_release_data.dart';
 import '../../widgets/rss/rss_release_detail_dialog.dart';
 import '../../widgets/rss/rss_release_surface.dart';
@@ -40,6 +41,7 @@ class RssReleaseList extends ConsumerStatefulWidget {
   final bool refreshing;
   final bool loaded;
   final bool loadFailed;
+  final DateTime? lastUpdated;
   final Future<void> Function() onRefresh;
 
   const RssReleaseList({
@@ -57,6 +59,7 @@ class RssReleaseList extends ConsumerStatefulWidget {
     required this.refreshing,
     required this.loaded,
     required this.loadFailed,
+    this.lastUpdated,
     required this.onRefresh,
   });
 
@@ -274,6 +277,7 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               ...widget.leadingControls,
+              RssRefreshStatus(lastUpdated: widget.lastUpdated),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(

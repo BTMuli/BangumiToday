@@ -13,8 +13,10 @@ import '../../models/rss/rss.dart';
 import '../../request/rss/anibt_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import '../../widgets/rss/rss_refresh_status.dart';
 import 'anibt_filter_dialog.dart';
 import 'rss_anibt_card_fluent.dart';
+import 'rss_auto_refresh.dart';
 
 class RssBmfAnibt extends StatefulWidget {
   const RssBmfAnibt({super.key});
@@ -36,6 +38,8 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
   bool _loadFailed = false;
   bool _localFallback = false;
   int _requestId = 0;
+  DateTime? _lastUpdated;
+  DateTime? _lastAttempt;
 
   @override
   bool get wantKeepAlive => true;
@@ -49,28 +53,20 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
   bool get _usesLocalResults => _localFallback || _filters.usesLocalResults;
 
   @override
-  void initState() {
-    super.initState();
-    unawaited(
-      Future<void>.delayed(Duration.zero, () => refresh(notify: false)),
-    );
-  }
-
-  @override
   void dispose() {
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> refresh({bool notify = true}) async {
+  Future<void> refresh({bool notify = true, bool reportErrors = true}) async {
     if (!mounted) return;
     var requestId = ++_requestId;
     var filters = _filters;
     setState(() {
       _refreshing = true;
+      _lastAttempt = DateTime.now();
       _loadFailed = false;
-      _localFallback = false;
     });
     var resGet = await anibtAPI.getMagnetsRSS(filters: filters);
     if (!mounted || requestId != _requestId) return;
@@ -90,14 +86,15 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
       _refreshing = false;
       _loaded = true;
       _loadFailed = !success;
-      _localFallback = localFallback;
       if (success) {
+        _localFallback = localFallback;
+        _lastUpdated = DateTime.now();
         rssItems = resGet.data!;
         _updateVisibleItems();
       }
     });
     if (!success) {
-      await showRespErr(resGet, context);
+      if (reportErrors) await showRespErr(resGet, context);
       return;
     }
     if (notify) await BtInfobar.success(context, '已刷新 AniBT 列表');
@@ -127,6 +124,9 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
         rssItems = [];
         _visibleItems = [];
         _loaded = false;
+        _lastUpdated = null;
+        _lastAttempt = null;
+        _localFallback = false;
       }
       _filters = filters;
       if (onlyLocalChange) _updateVisibleItems();
@@ -189,6 +189,7 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
                 overflow: TextOverflow.ellipsis,
                 style: BTTypography.caption(context),
               ),
+              RssRefreshStatus(lastUpdated: _lastUpdated),
             ],
           ),
         ),
@@ -330,7 +331,7 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
 
   Widget buildContent() {
     var items = _visibleItems;
-    if (_refreshing || !_loaded || _loadFailed || items.isEmpty) {
+    if (items.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -365,48 +366,73 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
       );
     }
 
-    return ListView.separated(
-      key: const PageStorageKey('anibt-rss-list'),
-      controller: _scrollController,
-      // Build and repaint only viewport rows and the nearby scroll cache.
-      addRepaintBoundaries: true,
-      padding: const EdgeInsets.all(12),
-      itemCount: items.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) => RssAnibtCardFluent(
-        key: ValueKey(
-          items[index].guid ??
-              items[index].anibt?.releasePageUrl ??
-              items[index].link ??
-              items[index],
+    return Column(
+      children: [
+        if (_refreshing) const ProgressBar(),
+        if (_loadFailed)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: InfoBar(
+              title: const Text('刷新失败，当前显示上次加载的资源'),
+              severity: InfoBarSeverity.warning,
+              action: Button(
+                onPressed: _refreshing ? null : refresh,
+                child: const Text('重试'),
+              ),
+            ),
+          ),
+        Expanded(
+          child: ListView.separated(
+            key: const PageStorageKey('anibt-rss-list'),
+            controller: _scrollController,
+            // Build and repaint only viewport rows and the nearby scroll cache.
+            addRepaintBoundaries: true,
+            padding: const EdgeInsets.all(12),
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            itemBuilder: (context, index) => RssAnibtCardFluent(
+              key: ValueKey(
+                items[index].guid ??
+                    items[index].anibt?.releasePageUrl ??
+                    items[index].link ??
+                    items[index],
+              ),
+              item: items[index],
+              filters: _filters,
+              onTagSelected: (tag) =>
+                  unawaited(_applyFilters(_filters.toggleTag(tag))),
+            ),
+          ),
         ),
-        item: items[index],
-        filters: _filters,
-        onTagSelected: (tag) =>
-            unawaited(_applyFilters(_filters.toggleTag(tag))),
-      ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return ScaffoldPage.withPadding(
-      padding: EdgeInsets.zero,
-      header: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            buildTitle(),
-            const SizedBox(height: 8),
-            _buildSearchBar(),
-          ],
+    return RssAutoRefresh(
+      refreshing: _refreshing,
+      lastUpdated: _lastUpdated,
+      lastAttempt: _lastAttempt,
+      onRefresh: () => refresh(notify: false, reportErrors: false),
+      child: ScaffoldPage.withPadding(
+        padding: EdgeInsets.zero,
+        header: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              buildTitle(),
+              const SizedBox(height: 8),
+              _buildSearchBar(),
+            ],
+          ),
         ),
-      ),
-      content: ColoredBox(
-        color: BTColors.surfaceSecondary(context),
-        child: buildContent(),
+        content: ColoredBox(
+          color: BTColors.surfaceSecondary(context),
+          child: buildContent(),
+        ),
       ),
     );
   }

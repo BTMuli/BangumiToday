@@ -13,6 +13,7 @@ import '../../request/rss/comicat_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/rss/rss_release_data.dart';
+import 'rss_auto_refresh.dart';
 import 'rss_release_list.dart';
 
 /// 负责 ComicatProject RSS 页面的显示
@@ -40,19 +41,12 @@ class _RssBmfComicatState extends State<RssBmfComicat>
   bool _refreshing = false;
   bool _loaded = false;
   bool _loadFailed = false;
+  DateTime? _lastUpdated;
+  DateTime? _lastAttempt;
 
   /// 保存状态
   @override
   bool get wantKeepAlive => true;
-
-  /// 初始化
-  @override
-  void initState() {
-    super.initState();
-    unawaited(
-      Future<void>.delayed(Duration.zero, () => refresh(notify: false)),
-    );
-  }
 
   @override
   void dispose() {
@@ -61,11 +55,12 @@ class _RssBmfComicatState extends State<RssBmfComicat>
   }
 
   /// 刷新数据
-  Future<void> refresh({bool notify = true}) async {
+  Future<void> refresh({bool notify = true, bool reportErrors = true}) async {
     if (!mounted) return;
     var requestId = ++_requestId;
     setState(() {
       _refreshing = true;
+      _lastAttempt = DateTime.now();
       _loadFailed = false;
     });
     var resGet = await comicatAPI.getRSS(feed: _feed);
@@ -75,10 +70,13 @@ class _RssBmfComicatState extends State<RssBmfComicat>
       _refreshing = false;
       _loaded = true;
       _loadFailed = !success;
-      if (success) rssItems = resGet.data!;
+      if (success) {
+        rssItems = resGet.data!;
+        _lastUpdated = DateTime.now();
+      }
     });
     if (!success) {
-      await showRespErr(resGet, context);
+      if (reportErrors) await showRespErr(resGet, context);
       return;
     }
     if (notify) await BtInfobar.success(context, '已刷新 Comicat 列表');
@@ -92,6 +90,8 @@ class _RssBmfComicatState extends State<RssBmfComicat>
         rssItems = [];
         _loaded = false;
         _loadFailed = false;
+        _lastUpdated = null;
+        _lastAttempt = null;
       });
     }
     await refresh(notify: false);
@@ -215,6 +215,7 @@ class _RssBmfComicatState extends State<RssBmfComicat>
       refreshing: _refreshing,
       loaded: _loaded,
       loadFailed: _loadFailed,
+      lastUpdated: _lastUpdated,
       onRefresh: refresh,
     );
   }
@@ -223,6 +224,12 @@ class _RssBmfComicatState extends State<RssBmfComicat>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return ScaffoldPage(padding: EdgeInsets.zero, content: buildContent());
+    return RssAutoRefresh(
+      refreshing: _refreshing,
+      lastUpdated: _lastUpdated,
+      lastAttempt: _lastAttempt,
+      onRefresh: () => refresh(notify: false, reportErrors: false),
+      child: ScaffoldPage(padding: EdgeInsets.zero, content: buildContent()),
+    );
   }
 }
