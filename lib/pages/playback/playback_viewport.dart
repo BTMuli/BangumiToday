@@ -45,7 +45,10 @@ class _PlaybackViewportReporterState extends State<_PlaybackViewportReporter>
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      var current = ModalRoute.of(context)?.isCurrent ?? true;
+      // Flyouts change isCurrent while the video remains visible beneath them.
+      // Overlay and NavPageStack disable tickers for fully covered/hidden pages;
+      // offstage also excludes a route's temporary layout during transitions.
+      var offstage = ModalRoute.of(context)?.offstage ?? false;
       var enabled = TickerMode.valuesOf(context).enabled;
       var fullscreen = isFullscreen(context);
       var viewport = (
@@ -56,7 +59,7 @@ class _PlaybackViewportReporterState extends State<_PlaybackViewportReporter>
       var revision = ++_revision;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || revision != _revision) return;
-        if (!current ||
+        if (offstage ||
             !enabled ||
             [
               viewport.width,
