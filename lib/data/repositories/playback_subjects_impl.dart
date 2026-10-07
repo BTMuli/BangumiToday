@@ -15,6 +15,22 @@ class BmfPlaybackSubjectResolver implements PlaybackSubjectResolver {
   final PlaybackEpisodeLinks _links;
 
   @override
+  Future<String> directoryForFile(String filePath, {int? subject}) async {
+    var resolved = subject ?? await subjectForFile(filePath);
+    var association = resolved == null ? null : await _bmf.read(resolved);
+    var root = association?.download;
+    if (root != null &&
+        root.isNotEmpty &&
+        path.isWithin(
+          PlaybackItem.pathKey(root),
+          PlaybackItem.pathKey(filePath),
+        )) {
+      return path.normalize(path.absolute(root));
+    }
+    return path.dirname(filePath);
+  }
+
+  @override
   Future<int?> subjectForFile(String filePath) async {
     var key = PlaybackItem.pathKey(filePath);
     var linked = (await _links.readAll())[key];

@@ -100,6 +100,11 @@ class PlaybackWindowDataHost {
         ];
       case 'subjects.resolve':
         return subjects.subjectForFile(playbackString(body, 'filePath'));
+      case 'subjects.directory':
+        return subjects.directoryForFile(
+          playbackString(body, 'filePath'),
+          subject: playbackSubject(body),
+        );
       case 'library.nextEpisode':
         return library.nextEpisodeIndex(
           (body['items'] as List).map(decodePlaybackItem).toList(),

@@ -86,6 +86,16 @@ class RemotePlaybackSettings implements PlaybackSettingsStore {
 class RemotePlaybackSubjects implements PlaybackSubjectResolver {
   RemotePlaybackSubjects(this.call);
   final PlaybackWindowCall call;
+
+  @override
+  Future<String> directoryForFile(String filePath, {int? subject}) async {
+    var result = await call('subjects.directory', {
+      'filePath': filePath,
+      'subject': subject,
+    });
+    return playbackString({'directory': result}, 'directory');
+  }
+
   @override
   Future<int?> subjectForFile(String filePath) async {
     return await call('subjects.resolve', {'filePath': filePath}) as int?;

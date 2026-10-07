@@ -554,18 +554,25 @@ class PlaybackStore extends ChangeNotifier {
   }
 
   /// Opens a single local file, resolving its Bangumi subject when the caller
-  /// does not know it, and rebuilds the playlist from the file's directory.
+  /// does not know it, and rebuilds the playlist from its download root.
   Future<void> openLocalFile(String filePath, {int? subject}) => _serial(
     () async {
       var resolved = subject ?? await subjectResolver.subjectForFile(filePath);
       await library.ensureReady(filePath);
       if (_closed) return;
-      var discovered = await library.discover(
-        path.dirname(filePath),
+      var directory = await subjectResolver.directoryForFile(
+        filePath,
         subject: resolved,
       );
       if (_closed) return;
-      await _openSelection(discovered, filePath);
+      var discovered = await library.discover(directory, subject: resolved);
+      if (_closed) return;
+      await _openSelection(
+        discovered,
+        filePath,
+        sourceDirectory: directory,
+        sourceSubject: resolved,
+      );
     },
     file: filePath,
   );
@@ -575,21 +582,29 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> _openSelection(
     List<PlaybackItem> items,
-    String selectedPath,
-  ) async {
+    String selectedPath, {
+    String? sourceDirectory,
+    int? sourceSubject,
+  }) async {
     if (items.isEmpty) throw const PlaybackUnavailable('没有可播放的视频');
     var selected = PlaybackItem.pathKey(selectedPath);
     var selectedIndex = items.indexWhere((item) => item.key == selected);
     if (selectedIndex < 0) {
       throw const PlaybackUnavailable('所选视频尚未就绪');
     }
-    if (current?.key == selected && !completed) return;
+    var keepCurrent = current?.key == selected && !completed;
     await library.ensureReady(items[selectedIndex].filePath);
     if (_closed) return;
-    await _save();
+    if (!keepCurrent) await _save();
     if (_closed) return;
-    _sourceDir = path.dirname(selectedPath);
-    _sourceSubject = _firstSubject(items);
+    _sourceDir = sourceDirectory ?? path.dirname(selectedPath);
+    _sourceSubject = sourceSubject ?? _firstSubject(items);
+    if (keepCurrent) {
+      playlist = List.unmodifiable(items);
+      index = selectedIndex;
+      _notify();
+      return;
+    }
     await _openIndex(selectedIndex, items: List.unmodifiable(items));
   }
 
