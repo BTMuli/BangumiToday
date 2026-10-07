@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <functional>
 
+#include "gpu_copy_wait.h"
 #include "render_diagnostics.h"
 #include "utils.h"
 
@@ -88,6 +89,7 @@ class ANGLESurfaceManager {
   Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d_11_texture_2D_;
   Microsoft::WRL::ComPtr<ID3D11Query> copy_completion_;
   bool copy_pending_ = false;
+  PlaybackGpuCopyWait copy_wait_;
   // ANGLE
   EGLSurface surface_ = EGL_NO_SURFACE;
   EGLDisplay display_ = EGL_NO_DISPLAY;

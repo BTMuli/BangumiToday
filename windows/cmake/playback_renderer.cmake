@@ -64,6 +64,8 @@ function(bangumi_configure_playback_renderer)
         "${_overlay_dir}/render_queue.h" COPYONLY)
     configure_file("${_override_dir}/frame_scheduler.h"
         "${_overlay_dir}/frame_scheduler.h" COPYONLY)
+    configure_file("${_override_dir}/gpu_copy_wait.h"
+        "${_overlay_dir}/gpu_copy_wait.h" COPYONLY)
     configure_file("${_override_dir}/native_log.h"
         "${_overlay_dir}/native_log.h" COPYONLY)
     configure_file("${_override_dir}/render_diagnostics.h"

@@ -202,7 +202,7 @@ void ANGLESurfaceManager::WaitForCopy(PlaybackRenderSample* sample,
       BangumiNativeGraphicsError(detail);
       throw std::runtime_error("Timed out copying the video frame.");
     }
-    ::Sleep(1);
+    copy_wait_.Wait();
   }
 }
 
