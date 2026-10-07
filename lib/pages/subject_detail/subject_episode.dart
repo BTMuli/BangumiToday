@@ -118,7 +118,7 @@ class _SubjectEpisodeState extends ConsumerState<SubjectEpisode> {
   void buildFlyout() {
     controller.showFlyout(
       autoModeConfiguration: FlyoutAutoConfiguration(
-        preferredMode: FlyoutPlacementMode.bottomLeft,
+        preferredMode: FlyoutPlacementMode.topLeft,
       ),
       additionalOffset: 6,
       forceAvailableSpace: true,
