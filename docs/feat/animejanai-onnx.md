@@ -543,6 +543,40 @@ GPU 标识及 compute capability、输入 shape、精度、构建选项和桥 AB
 
 ## 10. 性能与正确性验收
 
+### 10.1 社区 benchmark 与推荐档位
+
+已接入 [AnimeJaNai benchmark 目录](https://benchmarks.animejan.ai/) 的
+[公开 JSON](https://benchmarks.animejan.ai/benchmarks.json)。主包内置核对日
+2026-10-08 获取的快照（`generated_at=2026-10-07T19:13:27.984Z`），保留
+59 份 TensorRT 样本；设置页支持手动更新与离线缓存，失败时保留已有数据。
+显卡匹配在本机完成，不上传用户硬件配置。
+
+- 上游 benchmark slots 1010 / 1011 分别使用相同的 HD V3.1 Standard
+  Balanced / Performance 模型，映射本项目“AI 高质量”/“AI 流畅”。仅采用
+  已核实的 3.4～3.7 版本 TensorRT 记录；排除旧 VapourSynth 基线、DirectML
+  和未经核实的新版本，不把上游 Quality 档映射为本项目 Balanced 模型。
+- 按完整 GPU 型号匹配，保留 Ti、SUPER、Laptop GPU 与显存型号后缀。
+  设置页以检测到的显卡展示 720p / 1080p、24 fps 参考；播放器优先读取原生
+  状态中的实际显卡，未启用时使用 ANGLE renderer 的显卡，片源尺寸与帧率
+  读取 mpv 当前实际视频轨道和 `video-dec-params`，避免误选 media_kit 的
+  `auto` / `no` 占位轨道或误用滤镜输出的 2 倍尺寸。轨道 / 参数事件异步更新
+  选项标题中的推荐标记，媒体切换与关闭使在途读取失效；未知帧率不按 24 fps 猜测。
+- 同型号多份样本展示范围与数量，推荐使用最低 FPS。门槛为
+  `benchmark FPS >= 2 × 源 fps × 播放倍率`，优先选择满足门槛的最高档位。
+  裁剪或其他未测试尺寸使用能覆盖输入的 720p / 1080p 测试尺寸，不按像素数
+  外推性能；未知型号、未测量或余量不足时明确提示，不猜测推荐。
+- `-1` 是过慢 / 失败而未完成的测试，不等于缺失或 0 fps 实测；保留该状态，
+  对存在此类样本的档位暂不推荐。推荐与硬件 / 驱动 / 组件准入分开，复用
+  当前支持清单，不自动启用 TensorRT、下载组件或修改用户档位。
+- 上游以 `--vo=null` 离屏计时；结果不包含本项目 ANGLE / Flutter 完整渲染
+  成本。社区推荐只用于初始选档，不能代替下文真实播放预算与掉帧验收。
+
+对应源码：[benchmark 计时](https://github.com/the-database/mpv-AnimeJaNai/blob/main/AnimeJaNaiBenchmark/Program.cs)、
+[固定模型映射](https://github.com/the-database/animejanai-inference/blob/v0.9.0/src/aji_conf.cpp)。
+纯逻辑与缓存 / HTTP 更新验证通过；界面显示与完整播放仍由开发者手工验收。
+
+### 10.2 本项目端到端验收
+
 以下阈值是本项目拟定的交付目标，尚无实测结果。帧预算按
 `1000 / (源 fps × 播放倍率)` 计算，分别统计准备期和稳定播放期；长 seek、
 暂停及缓存不足不能误算成推理过慢。

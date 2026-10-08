@@ -1,7 +1,9 @@
 // Dart imports:
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
+
+// Flutter imports:
+import 'package:flutter/services.dart';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
@@ -19,9 +21,12 @@ import '../core/services/playback_audio_metadata.dart';
 import '../core/services/playback_cache.dart';
 import '../core/services/playback_chapters.dart';
 import '../core/services/playback_diagnostics.dart';
+import '../core/services/playback_janai_benchmarks.dart';
+import '../core/services/playback_janai_video_source.dart';
 import '../core/services/playback_loudness.dart';
 import '../core/services/playback_screenshot.dart';
 import '../core/services/playback_subtitles.dart';
+import '../core/services/playback_tensorrt_gpu.dart';
 import '../core/services/playback_tensorrt_resources.dart';
 import '../core/services/playback_upscaler.dart';
 import '../core/utils/playback_audio_recovery.dart';
@@ -44,6 +49,7 @@ import '../models/playback/playback_geometry.dart';
 import '../models/playback/playback_hires.dart';
 import '../models/playback/playback_history_group.dart';
 import '../models/playback/playback_item.dart';
+import '../models/playback/playback_janai_benchmark.dart';
 import '../models/playback/playback_rate.dart';
 import '../models/playback/playback_subtitle.dart';
 import '../models/playback/playback_upscale.dart';
@@ -131,6 +137,7 @@ class PlaybackStore extends ChangeNotifier {
   Size? _videoSize;
   Player? _player;
   PlaybackDiagnostics? _diagnostics;
+  PlaybackJanaiVideoSource? _janaiVideoSource;
   PlaybackChapters? _chapters;
   bool _manualSubtitles = true;
   VideoController? _video;
@@ -181,6 +188,67 @@ class PlaybackStore extends ChangeNotifier {
   PlaybackTensorRtResources? _tensorRtResources;
   PlaybackTensorRtResources get tensorRtResources =>
       _tensorRtResources ??= PlaybackTensorRtResources(onChanged: _notify);
+
+  PlaybackJanaiBenchmarks? _janaiBenchmarks;
+  PlaybackJanaiBenchmarks get janaiBenchmarks =>
+      _janaiBenchmarks ??= PlaybackJanaiBenchmarks(
+        directory: tensorRtResources.dataDirectory,
+        onChanged: _notify,
+        loadBundled: () =>
+            rootBundle.loadString('assets/benchmarks/animejanai.json'),
+      );
+
+  /// Use the actual renderer's adapter, not the first detected CUDA device.
+  PlaybackJanaiRecommendation get janaiRecommendation {
+    var catalog = janaiBenchmarks.catalog;
+    if (catalog == null) {
+      return PlaybackJanaiRecommendation(
+        janaiBenchmarks.error ?? '正在读取 benchmark',
+      );
+    }
+    var native = _upscaler?.janaiStatus;
+    var gpu = native?.gpuName ?? '';
+    if (gpu.isEmpty) {
+      gpu = PlaybackJanaiBenchmarkCatalog.rendererGpu(
+        _upscaler?.renderer ?? '',
+      );
+    }
+    var detected = tensorRtResources.gpu;
+    var supported = native != null && native.gpuName.isNotEmpty
+        ? native.gpuVendor == 0x10de &&
+              PlaybackTensorRtGpu(
+                name: native.gpuName,
+                sm: native.gpuSm,
+                driver: native.gpuDriver,
+              ).supported
+        : gpu.isEmpty ||
+              (detected?.supported == true &&
+                  PlaybackJanaiBenchmarkCatalog.gpuKey(gpu) ==
+                      PlaybackJanaiBenchmarkCatalog.gpuKey(detected!.name));
+    var state = !loading && current != null ? _player?.state : null;
+    var source = state == null ? null : _janaiVideoSource?.parameters;
+    var trackId = source?.trackId ?? state?.track.video.id;
+    var track = state?.tracks.video
+        .where(
+          (track) =>
+              track.id == trackId && track.id != 'auto' && track.id != 'no',
+        )
+        .firstOrNull;
+    if (track == null &&
+        state?.track.video.id == trackId &&
+        trackId != 'auto' &&
+        trackId != 'no') {
+      track = state?.track.video;
+    }
+    return catalog.recommend(
+      gpu: gpu,
+      supported: supported,
+      width: source?.width ?? track?.w ?? 0,
+      height: source?.height ?? track?.h ?? 0,
+      fps: source?.fps ?? track?.fps ?? 0,
+      rate: state?.rate ?? 1,
+    );
+  }
 
   Future<void> downloadTensorRt() async {
     if (_closed || !Platform.isWindows) return;
@@ -391,12 +459,23 @@ class PlaybackStore extends ChangeNotifier {
       player.platform as NativePlayer,
       onChanged: _notify,
     );
+    var janaiSource = PlaybackJanaiVideoSource(
+      read: diagnostics.readProperty,
+      onChanged: _notify,
+    );
     try {
       await PlaybackCache.configure(player);
       await PlaybackSubtitles.configure(player);
       await PlaybackAudio.apply(player, false);
       await chapters.initialize();
       var native = player.platform as NativePlayer;
+      if (Platform.isWindows) {
+        for (var property in ['current-tracks/video', 'video-dec-params']) {
+          await native.observeProperty(property, (_) async {
+            unawaited(janaiSource.refresh());
+          });
+        }
+      }
       for (var property in ['audio-out-params', 'current-tracks/audio']) {
         await native.observeProperty(property, (_) async {
           _scheduleAudioRefresh();
@@ -409,6 +488,7 @@ class PlaybackStore extends ChangeNotifier {
       BTLogTool.error(['初始化播放器失败：$error', stackTrace.toString()]);
       diagnostics.close();
       chapters.close();
+      janaiSource.close();
       await logs.cancel();
       await _disposePlayer(player);
       rethrow;
@@ -416,12 +496,14 @@ class PlaybackStore extends ChangeNotifier {
     if (_closed) {
       diagnostics.close();
       chapters.close();
+      janaiSource.close();
       await logs.cancel();
       await _disposePlayer(player);
       return;
     }
     _player = player;
     _chapters = chapters;
+    _janaiVideoSource = janaiSource;
     // Keep the same GPU decoder for plain playback, Anime4K and AnimeJaNai.
     // The coordinator only changes filters after checking the media's range.
     _video = VideoController(
@@ -488,6 +570,7 @@ class PlaybackStore extends ChangeNotifier {
         _scheduleAudioRefresh();
       }),
       player.stream.tracks.listen((_) {
+        if (Platform.isWindows) unawaited(janaiSource.refresh());
         if (_closed || completed || _manualSubtitles || current == null) return;
         var sessionId = _session.id;
         unawaited(
@@ -507,6 +590,7 @@ class PlaybackStore extends ChangeNotifier {
       }),
       player.stream.videoParams.listen((value) {
         if (_closed || current == null) return;
+        if (Platform.isWindows) unawaited(janaiSource.refresh());
         var source = _videoSource(value);
         _upscaler?.source(source);
         var ratio = playbackAspectRatio(
@@ -702,6 +786,7 @@ class PlaybackStore extends ChangeNotifier {
     try {
       _manualSubtitles = true;
       _chapters?.reset();
+      _janaiVideoSource?.reset();
       await _upscaler?.resetMedia();
       if (_closed) return;
       await _player!.stop();
@@ -710,6 +795,7 @@ class PlaybackStore extends ChangeNotifier {
       playlist = nextPlaylist;
       index = nextIndex;
       _session.begin(item);
+      _janaiVideoSource?.reset(active: true);
       _manualSubtitles = false;
       position = previous?.resumePosition ?? Duration.zero;
       duration = Duration(milliseconds: previous?.durationMs ?? 0);
@@ -726,9 +812,11 @@ class PlaybackStore extends ChangeNotifier {
       await _autoSelectSubtitle();
       await _chapters?.refresh();
       _upscaler?.mediaReady(_videoSource(_player!.state.videoParams));
+      if (Platform.isWindows) unawaited(_janaiVideoSource?.refresh());
       _updateTexture();
     } catch (e) {
       index = -1;
+      _janaiVideoSource?.reset();
       _manualSubtitles = true;
       _chapters?.reset();
       _session.clear();
@@ -827,6 +915,7 @@ class PlaybackStore extends ChangeNotifier {
         await settingsStore.read('playbackEpisodeLayout'),
       );
       if (Platform.isWindows) {
+        unawaited(janaiBenchmarks.initialize());
         await tensorRtResources.initialize();
         _loudnessEnabled = PlaybackLoudness.parse(
           await settingsStore.read(PlaybackLoudness.settingKey),
@@ -1113,6 +1202,7 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _stop({bool refreshHistory = true}) async {
     await _save(refreshHistory: refreshHistory);
     loading = true;
+    _janaiVideoSource?.reset();
     try {
       _manualSubtitles = true;
       _chapters?.reset();
@@ -1260,8 +1350,10 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _shutdown() async {
     // Refuse newly queued work before waiting for the current operation.
     _closed = true;
+    _janaiBenchmarks?.dispose();
     _tensorRtResources?.dispose();
     _diagnostics?.close();
+    _janaiVideoSource?.close();
     _chapters?.close();
     _session.close();
     _saveTimer?.cancel();
@@ -1390,6 +1482,7 @@ class PlaybackStore extends ChangeNotifier {
 
   @override
   void dispose() {
+    _janaiBenchmarks?.dispose();
     _tensorRtResources?.dispose();
     _disposed = true;
     unawaited(

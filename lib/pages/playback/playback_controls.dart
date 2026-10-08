@@ -1323,10 +1323,15 @@ class _PlaybackHiResButton extends StatelessWidget {
 
 /// Descriptions occupy their own line; long track names wrap within the menu.
 class _PlaybackMenuLabel extends StatelessWidget {
-  const _PlaybackMenuLabel(this.title, {this.description});
+  const _PlaybackMenuLabel(
+    this.title, {
+    this.description,
+    this.descriptionMaxLines = 1,
+  });
 
   final String title;
   final String? description;
+  final int descriptionMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -1346,7 +1351,7 @@ class _PlaybackMenuLabel extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             detail,
-            maxLines: 1,
+            maxLines: descriptionMaxLines,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
@@ -1358,6 +1363,21 @@ class _PlaybackMenuLabel extends StatelessWidget {
     );
   }
 }
+
+Widget _playbackJanaiMenuLabel(
+  PlaybackStore store, {
+  required PlaybackUpscaleMode mode,
+}) => ListenableBuilder(
+  listenable: store,
+  builder: (_, _) {
+    var recommendation = store.janaiRecommendation;
+    return _PlaybackMenuLabel(
+      '${mode.label}${mode == recommendation.mode ? ' · 推荐' : ''}',
+      description: '${mode.description}\n${recommendation.description(mode)}',
+      descriptionMaxLines: 3,
+    );
+  },
+);
 
 List<MenuFlyoutItemBase> _playbackSettingsItems(
   Player player,
@@ -1374,36 +1394,41 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
   if (Platform.isWindows)
     MenuFlyoutSubItem(
       text: Text('视频超分 · ${store.upscaleMode.label}'),
-      items: (_) => [
-        ToggleMenuFlyoutItem(
-          text: _PlaybackMenuLabel(
-            '启用 TensorRT',
-            description: store.tensorRtResources.configurationHint,
-          ),
-          value: store.tensorRtEnabled,
-          onChanged: store.tensorRtResources.canEnable || store.tensorRtEnabled
-              ? (enabled) =>
-                    unawaited(run(() => store.setTensorRtEnabled(enabled)))
-              : null,
-        ),
-        const MenuFlyoutSeparator(),
-        for (var mode in PlaybackUpscaleMode.values)
+      items: (_) {
+        return [
           ToggleMenuFlyoutItem(
             text: _PlaybackMenuLabel(
-              mode.label,
-              description: mode == PlaybackUpscaleMode.off
-                  ? null
-                  : mode.description,
+              '启用 TensorRT',
+              description: store.tensorRtResources.configurationHint,
             ),
-            value: store.upscaleMode == mode,
+            value: store.tensorRtEnabled,
             onChanged:
-                mode.isJanai &&
-                    (!store.tensorRtEnabled ||
-                        !store.tensorRtResources.canEnable)
-                ? null
-                : (_) => unawaited(run(() => store.setUpscaleMode(mode))),
+                store.tensorRtResources.canEnable || store.tensorRtEnabled
+                ? (enabled) =>
+                      unawaited(run(() => store.setTensorRtEnabled(enabled)))
+                : null,
           ),
-      ],
+          const MenuFlyoutSeparator(),
+          for (var mode in PlaybackUpscaleMode.values)
+            ToggleMenuFlyoutItem(
+              text: mode.isJanai
+                  ? _playbackJanaiMenuLabel(store, mode: mode)
+                  : _PlaybackMenuLabel(
+                      mode.label,
+                      description: mode == PlaybackUpscaleMode.off
+                          ? null
+                          : mode.description,
+                    ),
+              value: store.upscaleMode == mode,
+              onChanged:
+                  mode.isJanai &&
+                      (!store.tensorRtEnabled ||
+                          !store.tensorRtResources.canEnable)
+                  ? null
+                  : (_) => unawaited(run(() => store.setUpscaleMode(mode))),
+            ),
+        ];
+      },
     ),
   if (Platform.isWindows || Platform.isMacOS)
     MenuFlyoutSubItem(
