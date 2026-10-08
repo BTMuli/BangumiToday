@@ -157,6 +157,7 @@ class PlaybackStore extends ChangeNotifier {
   List<PlaybackHistoryGroup> historyGroups = [];
   int index = -1;
   bool loading = false;
+  String? _openingStatus;
   String? error;
   Duration position = Duration.zero;
   Duration duration = Duration.zero;
@@ -174,6 +175,9 @@ class PlaybackStore extends ChangeNotifier {
 
   Stream<PlaybackCompletion> get completions => _completions.stream;
   bool get isClosed => _closed;
+  bool get isOpening => _openingStatus != null;
+  String? get openingStatus => _openingStatus;
+  String? get openingFile => isOpening ? _operationFile : null;
 
   Player? get player => _player;
 
@@ -385,11 +389,24 @@ class PlaybackStore extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  /// Preparation starts before media loading and must still allow saving the
+  /// previous item's position. Keep this separate from [loading].
+  void _setOpeningStatus(String? value) {
+    if (_openingStatus == value || (_closed && value != null)) return;
+    if (_openingStatus == null && value != null) error = null;
+    _openingStatus = value;
+    _notify();
+  }
+
   Future<void> _serial(Future<void> Function() action, {String? file}) {
     var next = _operation.then((_) async {
       if (_closed) return;
       _operationFile = file ?? current?.filePath;
-      await action();
+      try {
+        await action();
+      } finally {
+        _setOpeningStatus(null);
+      }
     });
     _operation = next.catchError((Object e, StackTrace s) {
       error = e.toString();
@@ -686,6 +703,7 @@ class PlaybackStore extends ChangeNotifier {
   /// does not know it, and rebuilds the playlist from its download root.
   Future<void> openLocalFile(String filePath, {int? subject}) => _serial(
     () async {
+      _setOpeningStatus('正在准备视频…');
       var resolved = subject ?? await subjectResolver.subjectForFile(filePath);
       await library.ensureReady(filePath);
       if (_closed) return;
@@ -694,6 +712,7 @@ class PlaybackStore extends ChangeNotifier {
         subject: resolved,
       );
       if (_closed) return;
+      _setOpeningStatus('正在扫描播放列表…');
       var discovered = await library.discover(directory, subject: resolved);
       if (_closed) return;
       await _openSelection(
@@ -715,6 +734,7 @@ class PlaybackStore extends ChangeNotifier {
     String? sourceDirectory,
     int? sourceSubject,
   }) async {
+    _setOpeningStatus('正在准备视频…');
     if (items.isEmpty) throw const PlaybackUnavailable('没有可播放的视频');
     var selected = PlaybackItem.pathKey(selectedPath);
     var selectedIndex = items.indexWhere((item) => item.key == selected);
@@ -773,13 +793,17 @@ class PlaybackStore extends ChangeNotifier {
     var item = nextPlaylist[nextIndex];
     _operationFile = item.filePath;
     BTLogTool.info('准备播放：${item.filePath}');
+    _setOpeningStatus('正在读取播放记录…');
     await library.ensureReady(item.filePath);
     if (_closed) return;
     var previous = await historyStore.read(item.filePath);
+    _setOpeningStatus('正在加载播放设置…');
     await _loadPreferences();
     if (_closed) return;
+    _setOpeningStatus('正在初始化播放器…');
     await _initializePlayer();
     if (_closed) return;
+    _setOpeningStatus('正在打开视频…');
     loading = true;
     error = null;
     _notify();
@@ -808,6 +832,7 @@ class PlaybackStore extends ChangeNotifier {
       _chapters?.reset(active: true);
       await _player!.open(Media(item.filePath, start: position));
       if (_closed) return;
+      _setOpeningStatus('正在恢复播放状态…');
       _scheduleAudioRefresh();
       await _autoSelectSubtitle();
       await _chapters?.refresh();
@@ -1415,6 +1440,7 @@ class PlaybackStore extends ChangeNotifier {
     index = -1;
     playlist = [];
     loading = false;
+    _openingStatus = null;
     _notify();
     // Hidden retained windows have already unmounted Video when media cleared.
     if (!_disposed && player != null && finalItem != null) {

@@ -164,8 +164,11 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
       );
       return;
     }
-    if (store.loading) {
-      overlay.show('正在加载视频…', material.Icons.hourglass_top_rounded);
+    if (store.loading || store.isOpening) {
+      overlay.show(
+        store.openingStatus ?? '正在加载视频…',
+        material.Icons.hourglass_top_rounded,
+      );
       return;
     }
     switch (command) {
@@ -566,7 +569,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           _videoButton(
             material.Icons.skip_previous_rounded,
             '上一个视频',
-            store.index > 0 && !store.loading
+            store.index > 0 && !store.loading && !store.isOpening
                 ? () => _execute(_PlaybackCommand.previous)
                 : null,
           ),
@@ -586,7 +589,9 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           _videoButton(
             material.Icons.skip_next_rounded,
             '下一个视频',
-            store.index + 1 < store.playlist.length && !store.loading
+            store.index + 1 < store.playlist.length &&
+                    !store.loading &&
+                    !store.isOpening
                 ? () => _execute(_PlaybackCommand.next)
                 : null,
           ),
@@ -1019,17 +1024,18 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         child: StreamBuilder<bool>(
           stream: widget.player.stream.buffering,
           initialData: widget.player.state.buffering,
-          builder: (_, snapshot) => snapshot.data == true
-              ? const Center(
-                  child: SizedBox.square(
-                    dimension: 32,
-                    child: material.CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  ),
-                )
-              : const SizedBox.shrink(),
+          builder: (_, snapshot) {
+            var status = widget.store.openingStatus;
+            if (status != null) {
+              return _PlaybackLoadingIndicator(
+                message: status,
+                filePath: widget.store.openingFile,
+              );
+            }
+            return snapshot.data == true
+                ? const _PlaybackLoadingIndicator(message: '正在缓冲视频…')
+                : const SizedBox.shrink();
+          },
         ),
       ),
     ],

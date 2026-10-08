@@ -49,6 +49,7 @@ part 'playback_video_info.dart';
 part 'playback_tensorrt_progress.dart';
 part 'playback_viewport.dart';
 part 'playback_library_panel.dart';
+part 'playback_loading.dart';
 
 class PlaybackPage extends ConsumerStatefulWidget {
   const PlaybackPage({super.key, this.independent = false, this.windowMode});
@@ -393,7 +394,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
             message: '打开本地视频',
             child: IconButton(
               icon: const Icon(material.Icons.video_file_outlined, size: 19),
-              onPressed: () => _run(_pickFile),
+              onPressed: store.isOpening ? null : () => _run(_pickFile),
             ),
           ),
           if (current != null)
@@ -513,7 +514,15 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   Widget _buildEmptyStage(String? posterUrl) {
     var mode = widget.windowMode;
     var hasPoster = posterUrl != null && posterUrl.isNotEmpty;
-    var content = hasPoster ? _buildPosterStage(posterUrl) : _buildBlankStage();
+    var status = _store.openingStatus;
+    var content = status != null
+        ? _PlaybackLoadingIndicator(
+            message: status,
+            filePath: _store.openingFile,
+          )
+        : hasPoster
+        ? _buildPosterStage(posterUrl)
+        : _buildBlankStage();
     if (mode == null) return content;
     // 无边框窗口没有标题栏：空态仍要能拖动、置顶、最小化和关闭。
     return Stack(

@@ -192,6 +192,27 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
             ),
           ),
           Container(height: 1, color: BTColors.divider(context)),
+          if (store.openingStatus case var status?)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  const SizedBox.square(
+                    dimension: 16,
+                    child: ProgressRing(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      status,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: BTTypography.caption(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(child: _showHistory ? _history(store) : _playlist(store)),
         ],
       ),
@@ -371,7 +392,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
           key: ValueKey((item.subject, item.key)),
           semanticLabel: '第 $number 集',
           onPressed: () {
-            if (!store.loading && !selected) {
+            if (!store.loading && !store.isOpening && !selected) {
               unawaited(widget.run(() => store.jump(index)));
             }
           },
@@ -491,7 +512,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
           key: ValueKey((item.subject, item.key)),
           semanticLabel: number == null ? item.title : '第 $number 集',
           onPressed: () {
-            if (!store.loading && !selected) {
+            if (!store.loading && !store.isOpening && !selected) {
               unawaited(widget.run(() => store.jump(index)));
             }
           },
@@ -619,7 +640,9 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
         message: item.filePath,
         child: HoverButton(
           key: ValueKey('history:${item.key}'),
-          onPressed: () => resumeLocalPlayback(context, ref, item),
+          onPressed: store.isOpening
+              ? null
+              : () => resumeLocalPlayback(context, ref, item),
           builder: (context, states) => Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -679,7 +702,9 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
       message: '${item.filePath}\n${group.items.length} 条播放记录',
       child: HoverButton(
         key: ValueKey(group.key),
-        onPressed: () => resumeLocalPlayback(context, ref, item),
+        onPressed: store.isOpening
+            ? null
+            : () => resumeLocalPlayback(context, ref, item),
         builder: (context, states) => Container(
           padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
           decoration: BoxDecoration(
