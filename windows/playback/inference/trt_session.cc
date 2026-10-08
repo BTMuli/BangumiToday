@@ -86,22 +86,16 @@ void Check(bool success, const char* message) {
   if (!success) throw std::runtime_error(message);
 }
 
-ComPtr<ID3D11Texture2D> CudaTexture(ID3D11Texture2D* source) {
+void ValidateCudaTexture(ID3D11Texture2D* source, uint32_t width,
+                         uint32_t height) {
   D3D11_TEXTURE2D_DESC description{};
   source->GetDesc(&description);
   Check(description.Format == DXGI_FORMAT_R16_FLOAT &&
             description.ArraySize == 1 && description.MipLevels == 1 &&
-            description.SampleDesc.Count == 1,
-        "CUDA texture must be planar FP16");
-  // Register a private RGB intermediate, never a decoder's NV12/P010 texture
-  // or a shared D3D12 resource. Copies stay on the playback device.
-  description.MiscFlags = 0;
-  ComPtr<ID3D11Device> device;
-  source->GetDevice(&device);
-  ComPtr<ID3D11Texture2D> result;
-  Check(SUCCEEDED(device->CreateTexture2D(&description, nullptr, &result)),
-        "Cannot create CUDA RGB intermediate");
-  return result;
+            description.SampleDesc.Count == 1 &&
+            description.Width == width && description.Height == height &&
+            description.MiscFlags == 0,
+        "CUDA texture must be private planar FP16 of the fixed tensor shape");
 }
 }  // namespace
 
@@ -124,8 +118,6 @@ struct TrtSession::State {
   std::unique_ptr<nvinfer1::IExecutionContext> execution;
   ComPtr<ID3D11Texture2D> source;
   ComPtr<ID3D11Texture2D> destination;
-  ComPtr<ID3D11Texture2D> cuda_input;
-  ComPtr<ID3D11Texture2D> cuda_output;
   uint32_t width = 0;
   uint32_t height = 0;
   bool pending = false;
@@ -352,16 +344,25 @@ void TrtSession::Attach(ID3D11Texture2D* input, ID3D11Texture2D* output) {
   auto& state = *state_;
   Check(input && output && !state.source,
         "Invalid TensorRT texture attachment");
+  ValidateCudaTexture(input, state.width, state.height * 3);
+  ValidateCudaTexture(output, state.width * 2, state.height * 6);
+  ComPtr<ID3D11Device> input_device;
+  ComPtr<ID3D11Device> output_device;
+  input->GetDevice(&input_device);
+  output->GetDevice(&output_device);
+  Check(input_device.Get() == output_device.Get(),
+        "TensorRT textures must use the same playback device");
   CudaScope scope(state.cuda, state.context);
   state.source = input;
   state.destination = output;
-  state.cuda_input = CudaTexture(input);
-  state.cuda_output = CudaTexture(output);
+  // The converter owns private RGB textures on this playback device. CUDA
+  // maps them directly, avoiding a second pair of textures and full-frame
+  // D3D11 copies before packing and after unpacking each frame.
   for (size_t i = 0; i < state.graphics.size(); ++i) {
     CudaApi::Check(
         state.cuda.cuGraphicsD3D11RegisterResource(
             &state.graphics[i],
-            i == 0 ? state.cuda_input.Get() : state.cuda_output.Get(),
+            i == 0 ? state.source.Get() : state.destination.Get(),
             CU_GRAPHICS_REGISTER_FLAGS_NONE),
         "Register CUDA D3D11 RGB texture");
   }
@@ -369,13 +370,14 @@ void TrtSession::Attach(ID3D11Texture2D* input, ID3D11Texture2D* output) {
 
 void TrtSession::Run(ID3D11DeviceContext* context) {
   auto& state = *state_;
+  Check(context && state.source && state.destination,
+        "Missing TensorRT conversion textures or playback context");
   CudaScope scope(state.cuda, state.context);
   Check(!state.completion_failed, "CUDA completion event could not be recorded");
   state.CollectTiming();
   const bool measuring = !state.timing_pending;
   // The CUDA stream orders tensor reuse; graphics map/unmap orders the D3D11
-  // copies. No CPU wait is needed before submitting another frame.
-  context->CopyResource(state.cuda_input.Get(), state.source.Get());
+  // conversion shaders. No CPU wait is needed before submitting another frame.
   context->Flush();
   CudaApi::Check(
       state.cuda.cuGraphicsMapResources(2, state.graphics.data(), state.stream),
@@ -430,8 +432,7 @@ void TrtSession::Run(ID3D11DeviceContext* context) {
         state.cuda.cuEventRecord(state.completion, state.stream) != CUDA_SUCCESS;
     throw;
   }
-  // CUDA unmap orders subsequent graphics commands after all CUDA writes.
-  context->CopyResource(state.destination.Get(), state.cuda_output.Get());
+  // CUDA unmap orders the converter's following D3D11 reads after CUDA writes.
 }
 double TrtSession::last_gpu_ms() const { return state_->gpu_ms; }
 bool TrtSession::uses_cuda_graph() const { return state_->graph != nullptr; }

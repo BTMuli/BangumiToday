@@ -20,6 +20,9 @@ class TrtSession final {
   ~TrtSession();
   TrtSession(const TrtSession&) = delete;
   TrtSession& operator=(const TrtSession&) = delete;
+  // Private R16_FLOAT textures of width x (height * 3) and
+  // (width * 2) x (height * 6), on the same playback device. The converter's
+  // graphics accesses are ordered by CUDA map/unmap in Run.
   void Attach(ID3D11Texture2D* input, ID3D11Texture2D* output);
   void Run(ID3D11DeviceContext* context);
   double last_gpu_ms() const;

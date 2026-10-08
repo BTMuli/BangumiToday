@@ -156,24 +156,22 @@ void YuvToPlanarRgb(uint3 id : SV_DispatchThreadID)
 }
 
 [numthreads(8, 8, 1)]
-void PlanarRgbToLuma(uint3 id : SV_DispatchThreadID)
-{
-    if (id.x >= 2 * g_visible_width || id.y >= 2 * g_visible_height)
-        return;
-    const float3 rgb = PlanarRgbAt(id.xy);
-    g_luma_out[id.xy] = StoreLuma(Luma(rgb));
-}
-
-[numthreads(8, 8, 1)]
-void PlanarRgbToChroma(uint3 id : SV_DispatchThreadID)
+void PlanarRgbToYuv(uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= g_visible_width || id.y >= g_visible_height)
         return;
-    // Box filter over the 2x2 luma quad that this chroma sample covers.
+    // Each thread reads one 2x2 quad once, writes its four luma samples and
+    // reuses those RGB values for the same box-filtered chroma sample.
     const uint2 origin = id.xy * 2;
-    const float3 rgb = (PlanarRgbAt(origin) + PlanarRgbAt(origin + uint2(1, 0)) +
-                        PlanarRgbAt(origin + uint2(0, 1)) + PlanarRgbAt(origin + uint2(1, 1))) *
-                       0.25f;
+    const float3 rgb00 = PlanarRgbAt(origin);
+    const float3 rgb10 = PlanarRgbAt(origin + uint2(1, 0));
+    const float3 rgb01 = PlanarRgbAt(origin + uint2(0, 1));
+    const float3 rgb11 = PlanarRgbAt(origin + uint2(1, 1));
+    g_luma_out[origin] = StoreLuma(Luma(rgb00));
+    g_luma_out[origin + uint2(1, 0)] = StoreLuma(Luma(rgb10));
+    g_luma_out[origin + uint2(0, 1)] = StoreLuma(Luma(rgb01));
+    g_luma_out[origin + uint2(1, 1)] = StoreLuma(Luma(rgb11));
+    const float3 rgb = (rgb00 + rgb10 + rgb01 + rgb11) * 0.25f;
     const float luminance = Luma(rgb);
     const float cb = (rgb.b - luminance) / (2.0f * (1.0f - g_kb));
     const float cr = (rgb.r - luminance) / (2.0f * (1.0f - g_kr));

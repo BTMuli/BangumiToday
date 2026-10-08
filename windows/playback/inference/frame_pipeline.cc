@@ -202,8 +202,9 @@ std::unique_ptr<FramePipeline> FramePipeline::Create(
   state.interop = InteropContext::Create(playback_device);
 
   std::string converter_reason;
-  state.converter =
-      FrameConverter::Create(playback_device, plan, color, &converter_reason);
+  const bool use_tensorrt = config.trt_resources && !config.trt_engine.empty();
+  state.converter = FrameConverter::Create(playback_device, plan, color,
+                                           &converter_reason, !use_tensorrt);
   if (!state.converter) return report(converter_reason);
 
   const DXGI_FORMAT output_format = config.frame.format == PixelFormat::kP010
@@ -212,10 +213,12 @@ std::unique_ptr<FramePipeline> FramePipeline::Create(
   state.output =
       CreateOutputFrame(playback_device, output_format, plan.visible_width * 2,
                         plan.visible_height * 2);
-  state.planar_rgb =
-      OpenSharedTexture(state.converter->planar_rgb(), state.interop->device());
-  state.model_output_rgb = OpenSharedTexture(
-      state.converter->model_output_rgb(), state.interop->device());
+  if (!use_tensorrt) {
+    state.planar_rgb = OpenSharedTexture(state.converter->planar_rgb(),
+                                        state.interop->device());
+    state.model_output_rgb = OpenSharedTexture(
+        state.converter->model_output_rgb(), state.interop->device());
+  }
   state.out_luma =
       OpenSharedTexture(state.converter->out_luma(), state.interop->device());
   state.out_chroma =
@@ -224,7 +227,7 @@ std::unique_ptr<FramePipeline> FramePipeline::Create(
       OpenSharedTexture(state.output.Get(), state.interop->device());
 
   try {
-    if (config.trt_resources && !config.trt_engine.empty()) {
+    if (use_tensorrt) {
       state.trt_session = std::make_unique<TrtSession>(config.trt_resources,
           config.trt_engine, QueryGpuCapabilities(playback_device),
           plan.model_width, plan.model_height);

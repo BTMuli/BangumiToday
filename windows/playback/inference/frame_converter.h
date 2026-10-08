@@ -5,7 +5,8 @@
 // planar FP16 RGB for the model; stage 2 turns the model's 2x output into
 // limited-range luma and 4:2:0 chroma planes of the visible output size. All
 // colour work stays on the playback device; the D3D12 side only copies these
-// shared textures to and from the DirectML tensors.
+// shared textures to and from the DirectML tensors. TensorRT maps private RGB
+// textures directly through CUDA; only the output YUV planes stay shared.
 #pragma once
 
 #include <d3d11.h>
@@ -22,10 +23,11 @@ class FrameConverter final {
  public:
   // Returns nullptr when the playback device cannot run the verified path;
   // `reason` then carries a short user-facing explanation.
-  static std::unique_ptr<FrameConverter> Create(ID3D11Device* device,
-                                                const FramePlan& plan,
-                                                const ColorConversion& color,
-                                                std::string* reason);
+  // DirectML needs shared RGB textures; TensorRT registers private RGB textures
+  // with CUDA so no additional D3D11 texture copies are needed each frame.
+  static std::unique_ptr<FrameConverter> Create(
+      ID3D11Device* device, const FramePlan& plan, const ColorConversion& color,
+      std::string* reason, bool share_model_textures = true);
   ~FrameConverter();
   FrameConverter(const FrameConverter&) = delete;
   FrameConverter& operator=(const FrameConverter&) = delete;
@@ -36,7 +38,7 @@ class FrameConverter final {
                           ID3D11ShaderResourceView* luma,
                           ID3D11ShaderResourceView* chroma);
   // Model output planes -> luma and chroma output planes. The model output
-  // texture must be filled and fenced by the D3D12 side first.
+  // texture must be filled and handed back by D3D12 or CUDA first.
   void ConvertFromPlanarRgb(ID3D11DeviceContext* context);
 
   ID3D11Texture2D* planar_rgb() const;
