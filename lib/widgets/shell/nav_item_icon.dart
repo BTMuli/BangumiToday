@@ -113,34 +113,31 @@ class _NavItemIconState extends State<NavItemIcon> {
     var glyph = _firstChar;
     return FlyoutTarget(
       controller: _menuController,
-      child: Tooltip(
-        message: widget.title,
-        child: Focus(
-          focusNode: _focusNode,
-          onFocusChange: (value) => setState(() => _focused = value),
-          onKeyEvent: _onKey,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onSecondaryTap: _openMenu,
-            child: Container(
-              width: widget.size,
-              height: widget.size,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(4),
-                border: _focused
-                    ? Border.all(color: color.withValues(alpha: 0.7))
-                    : null,
-              ),
-              child: Text(
-                glyph,
-                style: TextStyle(
-                  color: color,
-                  fontSize: widget.size * 0.62,
-                  fontWeight: FontWeight.w600,
-                  height: 1,
-                ),
+      child: Focus(
+        focusNode: _focusNode,
+        onFocusChange: (value) => setState(() => _focused = value),
+        onKeyEvent: _onKey,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onSecondaryTap: _openMenu,
+          child: Container(
+            width: widget.size,
+            height: widget.size,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(4),
+              border: _focused
+                  ? Border.all(color: color.withValues(alpha: 0.7))
+                  : null,
+            ),
+            child: Text(
+              glyph,
+              style: TextStyle(
+                color: color,
+                fontSize: widget.size * 0.62,
+                fontWeight: FontWeight.w600,
+                height: 1,
               ),
             ),
           ),
