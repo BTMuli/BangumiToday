@@ -307,6 +307,9 @@ bool FramePipeline::fallback_recommended() const {
   return state_->budget.snapshot().fallback_recommended;
 }
 bool FramePipeline::uses_tensorrt() const { return state_->trt_session != nullptr; }
+bool FramePipeline::uses_cuda_graph() const {
+  return state_->trt_session && state_->trt_session->uses_cuda_graph();
+}
 
 std::filesystem::path FramePipeline::EndPlacementProfiling() {
   return state_->session ? state_->session->EndPlacementProfiling()
@@ -426,9 +429,11 @@ uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
     state.interop->WaitOnD3D11(state.context4.Get(), state.previous_ticket);
 
   state.converter->ConvertToPlanarRgb(context, luma, chroma);
-  const uint64_t input_ready =
-      state.interop->SignalFromD3D11(state.context4.Get());
-  context->Flush();
+  uint64_t input_ready = 0;
+  if (!state.trt_session) {
+    input_ready = state.interop->SignalFromD3D11(state.context4.Get());
+    context->Flush();
+  }
   const Clock::time_point after_input = Clock::now();
 
   if (state.trt_session) {

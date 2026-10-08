@@ -23,6 +23,7 @@ class TrtSession final {
   void Attach(ID3D11Texture2D* input, ID3D11Texture2D* output);
   void Run(ID3D11DeviceContext* context);
   double last_gpu_ms() const;
+  bool uses_cuda_graph() const;
 
  private:
   struct State;

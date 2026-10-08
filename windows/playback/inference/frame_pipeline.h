@@ -108,6 +108,7 @@ class FramePipeline final {
   FrameBudgetMonitor::Snapshot performance() const;
   bool fallback_recommended() const;
   bool uses_tensorrt() const;
+  bool uses_cuda_graph() const;
   // Stops placement profiling and returns the file holding it; empty when the
   // pipeline was created without a placement profile path.
   std::filesystem::path EndPlacementProfiling();

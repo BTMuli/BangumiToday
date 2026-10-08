@@ -27,6 +27,9 @@ class CudaApi final {
   X(cuDevicePrimaryCtxRetain) X(cuDevicePrimaryCtxRelease) \
   X(cuCtxPushCurrent) X(cuCtxPopCurrent) \
   X(cuStreamCreate) X(cuStreamDestroy) \
+  X(cuStreamBeginCapture) X(cuStreamEndCapture) \
+  X(cuGraphInstantiateWithFlags) X(cuGraphLaunch) \
+  X(cuGraphDestroy) X(cuGraphExecDestroy) \
   X(cuMemAlloc) X(cuMemFree) X(cuMemsetD8Async) X(cuMemcpy2DAsync) \
   X(cuGraphicsD3D11RegisterResource) X(cuGraphicsUnregisterResource) \
   X(cuGraphicsMapResources) X(cuGraphicsUnmapResources) \

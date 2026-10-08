@@ -111,6 +111,8 @@ struct TrtSession::State {
   int device = -1;
   CUstream stream = nullptr;
   std::array<CUevent, 2> events{};
+  CUevent completion = nullptr;
+  CUgraphExec graph = nullptr;
   CUdeviceptr input = 0;
   CUdeviceptr output = 0;
   std::array<CUgraphicsResource, 2> graphics{};
@@ -129,14 +131,56 @@ struct TrtSession::State {
   bool pending = false;
   bool mapped = false;
   bool completion_failed = false;
+  bool timing_pending = false;
   double gpu_ms = 0;
+
+  void CollectTiming() {
+    if (!timing_pending) return;
+    const auto result = cuda.cuEventQuery(events[1]);
+    if (result == CUDA_ERROR_NOT_READY) return;
+    CudaApi::Check(result, "CUDA timing completion");
+    float elapsed = 0;
+    CudaApi::Check(cuda.cuEventElapsedTime(&elapsed, events[0], events[1]),
+                   "CUDA inference timing");
+    gpu_ms = elapsed;
+    timing_pending = false;
+  }
+
+  void CaptureGraph() {
+    // Shape updates were flushed by warmup. Only capture inference: graphics
+    // arrays can change on every map, while these GPU tensor addresses and the
+    // execution context remain fixed for the session's entire lifetime.
+    if (cuda.cuStreamBeginCapture(stream, CU_STREAM_CAPTURE_MODE_THREAD_LOCAL) !=
+        CUDA_SUCCESS)
+      return;
+    CUgraph captured = nullptr;
+    const bool enqueued = execution->enqueueV3(stream);
+    const auto ended = cuda.cuStreamEndCapture(stream, &captured);
+    if (enqueued && ended == CUDA_SUCCESS && captured) {
+      CUgraphExec instance = nullptr;
+      if (cuda.cuGraphInstantiateWithFlags(&instance, captured, 0) == CUDA_SUCCESS)
+        graph = instance;
+      else if (instance)
+        cuda.cuGraphExecDestroy(instance);
+    }
+    if (captured) cuda.cuGraphDestroy(captured);
+    // Unsupported capture keeps the same warmed TensorRT context usable for
+    // ordinary enqueueV3 inference; it never changes backend or model.
+  }
+
+  void Enqueue() {
+    if (graph)
+      CudaApi::Check(cuda.cuGraphLaunch(graph, stream), "TensorRT graph launch");
+    else
+      Check(execution->enqueueV3(stream), "TensorRT inference failed");
+  }
 
   void Wait() {
     if (!pending) return;
     Check(!completion_failed, "CUDA completion event could not be recorded");
     const auto deadline = Clock::now() + std::chrono::seconds(30);
     for (;;) {
-      const auto result = cuda.cuEventQuery(events[1]);
+      const auto result = cuda.cuEventQuery(completion);
       if (result == CUDA_SUCCESS) break;
       if (result != CUDA_ERROR_NOT_READY)
         CudaApi::Check(result, "CUDA completion");
@@ -145,10 +189,7 @@ struct TrtSession::State {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     pending = false;
-    float elapsed = 0;
-    CudaApi::Check(cuda.cuEventElapsedTime(&elapsed, events[0], events[1]),
-                   "CUDA inference timing");
-    gpu_ms = elapsed;
+    CollectTiming();
   }
 
   ~State() {
@@ -159,6 +200,7 @@ struct TrtSession::State {
       if (mapped) cuda.cuGraphicsUnmapResources(2, graphics.data(), stream);
       for (auto resource : graphics)
         if (resource) cuda.cuGraphicsUnregisterResource(resource);
+      if (graph) cuda.cuGraphExecDestroy(graph);
       execution.reset();
       engine.reset();
       runtime.reset();
@@ -166,6 +208,7 @@ struct TrtSession::State {
       if (output) cuda.cuMemFree(output);
       for (auto event : events)
         if (event) cuda.cuEventDestroy(event);
+      if (completion) cuda.cuEventDestroy(completion);
       if (stream) cuda.cuStreamDestroy(stream);
     } catch (...) {
       // A device error makes resource retirement best effort. The caller keeps
@@ -249,6 +292,9 @@ TrtSession::TrtSession(std::shared_ptr<TrtResources> resources,
     for (auto& event : state.events)
       CudaApi::Check(state.cuda.cuEventCreate(&event, CU_EVENT_DEFAULT),
                      "CUDA event");
+    CudaApi::Check(state.cuda.cuEventCreate(&state.completion,
+                                           CU_EVENT_DISABLE_TIMING),
+                   "CUDA completion event");
     const size_t tensor_bytes = size_t{width} * height * 3 * 2;
     CudaApi::Check(state.cuda.cuMemAlloc(&state.input, tensor_bytes),
                    "CUDA input");
@@ -268,7 +314,20 @@ TrtSession::TrtSession(std::shared_ptr<TrtResources> resources,
     Check(state.execution->enqueueV3(state.stream), "TensorRT warmup failed");
     CudaApi::Check(state.cuda.cuEventRecord(state.events[1], state.stream),
                    "Warmup end");
+    state.timing_pending = true;
+    CudaApi::Check(state.cuda.cuEventRecord(state.completion, state.stream),
+                   "Warmup completion");
     state.Wait();
+    state.CaptureGraph();
+    // Warm the captured launch too, outside the graphics-context lock.
+    if (state.graph) {
+      state.pending = true;
+      state.Enqueue();
+      CudaApi::Check(state.cuda.cuEventRecord(state.completion, state.stream),
+                     "Graph warmup completion");
+      state.Wait();
+    }
+    state.gpu_ms = 0;
   } catch (...) {
     // Constructor failures bypass ~TrtSession. Keep resources alive if CUDA
     // accepted work but its completion cannot be established.
@@ -311,16 +370,22 @@ void TrtSession::Attach(ID3D11Texture2D* input, ID3D11Texture2D* output) {
 void TrtSession::Run(ID3D11DeviceContext* context) {
   auto& state = *state_;
   CudaScope scope(state.cuda, state.context);
-  state.Wait();
+  Check(!state.completion_failed, "CUDA completion event could not be recorded");
+  state.CollectTiming();
+  const bool measuring = !state.timing_pending;
+  // The CUDA stream orders tensor reuse; graphics map/unmap orders the D3D11
+  // copies. No CPU wait is needed before submitting another frame.
   context->CopyResource(state.cuda_input.Get(), state.source.Get());
   context->Flush();
   CudaApi::Check(
       state.cuda.cuGraphicsMapResources(2, state.graphics.data(), state.stream),
       "Map D3D11 textures to CUDA");
   state.mapped = true;
+  state.pending = true;
   try {
-    CudaApi::Check(state.cuda.cuEventRecord(state.events[0], state.stream),
-                   "CUDA start");
+    if (measuring)
+      CudaApi::Check(state.cuda.cuEventRecord(state.events[0], state.stream),
+                     "CUDA start");
     std::array<CUarray, 2> arrays{};
     for (size_t i = 0; i < arrays.size(); ++i)
       CudaApi::Check(state.cuda.cuGraphicsSubResourceGetMappedArray(
@@ -335,8 +400,7 @@ void TrtSession::Run(ID3D11DeviceContext* context) {
     copy.Height = size_t{state.height} * 3;
     CudaApi::Check(state.cuda.cuMemcpy2DAsync(&copy, state.stream),
                    "Pack FP16 NCHW");
-    Check(state.execution->enqueueV3(state.stream),
-          "TensorRT inference failed");
+    state.Enqueue();
     copy = {};
     copy.srcMemoryType = CU_MEMORYTYPE_DEVICE;
     copy.srcDevice = state.output;
@@ -346,24 +410,29 @@ void TrtSession::Run(ID3D11DeviceContext* context) {
     copy.Height = size_t{state.height} * 6;
     CudaApi::Check(state.cuda.cuMemcpy2DAsync(&copy, state.stream),
                    "Unpack FP16 RGB");
-    CudaApi::Check(state.cuda.cuEventRecord(state.events[1], state.stream),
-                   "CUDA end");
-    state.pending = true;
+    if (measuring) {
+      CudaApi::Check(state.cuda.cuEventRecord(state.events[1], state.stream),
+                     "CUDA end");
+      state.timing_pending = true;
+    }
     CudaApi::Check(state.cuda.cuGraphicsUnmapResources(2, state.graphics.data(),
                                                        state.stream),
                    "Release textures to D3D11");
     state.mapped = false;
+    CudaApi::Check(state.cuda.cuEventRecord(state.completion, state.stream),
+                   "CUDA frame completion");
   } catch (...) {
-    state.completion_failed =
-        state.cuda.cuEventRecord(state.events[1], state.stream) != CUDA_SUCCESS;
-    state.pending = true;
-    if (state.cuda.cuGraphicsUnmapResources(2, state.graphics.data(),
+    if (state.mapped &&
+        state.cuda.cuGraphicsUnmapResources(2, state.graphics.data(),
                                             state.stream) == CUDA_SUCCESS)
       state.mapped = false;
+    state.completion_failed =
+        state.cuda.cuEventRecord(state.completion, state.stream) != CUDA_SUCCESS;
     throw;
   }
   // CUDA unmap orders subsequent graphics commands after all CUDA writes.
   context->CopyResource(state.destination.Get(), state.cuda_output.Get());
 }
 double TrtSession::last_gpu_ms() const { return state_->gpu_ms; }
+bool TrtSession::uses_cuda_graph() const { return state_->graph != nullptr; }
 }  // namespace bangumi::inference

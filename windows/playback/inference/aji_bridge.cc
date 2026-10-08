@@ -298,6 +298,10 @@ void DescribePlan(aji_ctx& state) {
   text += "  slot: " + std::to_string(state.slot) + "\n";
   text += "  model: " + FromWide(model.filename().wstring()) + "\n";
   if (state.pipeline) {
+    if (state.pipeline->uses_tensorrt())
+      text += state.pipeline->uses_cuda_graph()
+                  ? "  CUDA graph: enabled\n"
+                  : "  CUDA graph: unavailable (ordinary TensorRT enqueue)\n";
     text += "  input: " + std::to_string(state.plan.visible_width) + "x" +
             std::to_string(state.plan.visible_height) + " (" +
             (state.pipeline_format == PixelFormat::kP010 ? "P010" : "NV12") +
