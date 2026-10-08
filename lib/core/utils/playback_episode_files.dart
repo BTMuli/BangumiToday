@@ -4,6 +4,7 @@ import 'package:path/path.dart' as path;
 // Project imports:
 import '../../domain/repositories/episode_mark_gateway.dart';
 import '../../models/playback/playback_episode_link.dart';
+import '../../models/playback/playback_episode_rule.dart';
 import '../../models/playback/playback_item.dart';
 import '../services/episode_mark_service.dart';
 import 'playback_episode_number.dart';
@@ -16,6 +17,7 @@ Map<String, PlaybackEpisodeLink> resolvePlaybackEpisodeFiles({
   required Iterable<String> files,
   required Iterable<EpisodeMarkEpisode> episodes,
   required Map<String, PlaybackEpisodeLink> manualLinks,
+  Iterable<PlaybackEpisodeRule> rules = const [],
 }) {
   var chapters = episodes.toList();
   var result = <String, PlaybackEpisodeLink>{};
@@ -34,6 +36,7 @@ Map<String, PlaybackEpisodeLink> resolvePlaybackEpisodeFiles({
       item,
       chapters,
       episodeId: manual?.episode,
+      rules: rules,
     );
     if (chapter == null) continue;
     result[item.key] = PlaybackEpisodeLink(
@@ -52,6 +55,7 @@ int? nextPlaybackEpisodeIndex({
   required int currentIndex,
   required Iterable<EpisodeMarkEpisode> episodes,
   required Map<String, PlaybackEpisodeLink> manualLinks,
+  Iterable<PlaybackEpisodeRule> rules = const [],
 }) {
   if (currentIndex < 0 || currentIndex >= items.length) return null;
   var current = items[currentIndex];
@@ -80,6 +84,7 @@ int? nextPlaybackEpisodeIndex({
         .map((item) => item.filePath),
     episodes: chapters,
     manualLinks: manualLinks,
+    rules: rules,
   );
   var chapterById = {for (var chapter in chapters) chapter.id: chapter};
   var chapter = chapterById[matched[current.key]?.episode];

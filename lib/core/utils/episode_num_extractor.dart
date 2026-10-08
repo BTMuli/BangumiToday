@@ -34,10 +34,29 @@ final _resolutionPattern = RegExp(
 );
 final _batchPattern = RegExp(
   r'\b(?:BATCH|COMPLETE)\b|合集|全集|'
-  r'(?:\bEP?\s*)?\d{1,4}(?:\.\d+)?(?:v\d+)?\s*[-+~～至]\s*'
-  r'(?:EP?\s*)?\d{1,4}(?:\.\d+)?',
+  r'(?=(?<![\d.])(?:\bEP?\s*)?(\d{1,4}(?:\.\d+)?)'
+  r'(?:v\d+)?(\s*[-+~～至]\s*)'
+  r'(?:EP?\s*)?(\d{1,4}(?:\.\d+)?)(?![\d.]))',
   caseSensitive: false,
 );
+
+// Only a title's bare sequel digit followed by a spaced, smaller episode can
+// bypass range detection. Compact, bracketed and explicit EP ranges remain
+// batches.
+bool _isEpisodeBatch(String name) =>
+    _batchPattern.allMatches(name).any((match) {
+      if (match[1] == null ||
+          match[2]!.trim() != '-' ||
+          double.parse(match[1]!) <= double.parse(match[3]!)) {
+        return true;
+      }
+      var prefix = name.substring(0, match.start).trimRight();
+      return !(RegExp(r'^[1-9]$').hasMatch(match[1]!) &&
+          name.startsWith(match[1]!, match.start) &&
+          RegExp(r'^\s+-\s+$').hasMatch(match[2]!) &&
+          prefix.isNotEmpty &&
+          !RegExp(r'[-+~～至\[【(]$').hasMatch(prefix));
+    });
 final _specialPattern = RegExp(
   r'(?<![A-Za-z0-9])(?:SP|OVA|OAD|(?:NC)?(?:OP|ED)|PV|CM|MENU|MENUS|'
   r'EXTRA|EXTRAS|BONUS|CREDITLESS|TRAILER|TEASER|PREVIEW|SAMPLE)'
@@ -133,7 +152,7 @@ EpisodeNumberResult extractEpisodeNumber(String filePath) {
   if (isPlaybackExtra(filePath)) {
     return const EpisodeNumberResult(EpisodeNumberKind.special);
   }
-  if (_batchPattern.hasMatch(name.replaceAll(_seasonPattern, ' '))) {
+  if (_isEpisodeBatch(name.replaceAll(_seasonPattern, ' '))) {
     return const EpisodeNumberResult(EpisodeNumberKind.batch);
   }
   var candidates = <double, String>{};

@@ -39,9 +39,13 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
     var current = items[currentIndex];
     var subject = current.subject;
     var manual = await links.readAll();
+    var rules = await links.readRules();
     var link = manual[current.key];
     if (link != null && (link.subject != subject || link.excluded)) return null;
-    if (link == null) {
+    if (link == null &&
+        !rules.any(
+          (rule) => rule.subject == subject && rule.appliesTo(current.filePath),
+        )) {
       var evidence = extractEpisodeNumber(current.filePath);
       if (evidence.kind != EpisodeNumberKind.single &&
           evidence.kind != EpisodeNumberKind.unknown) {
@@ -56,6 +60,7 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
       currentIndex: currentIndex,
       episodes: chapters,
       manualLinks: await links.readAll(),
+      rules: await links.readRules(),
     );
   }
 

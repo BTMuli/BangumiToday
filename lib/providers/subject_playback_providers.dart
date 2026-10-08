@@ -83,11 +83,19 @@ final subjectPlaybackFilesProvider = FutureProvider.autoDispose
 final subjectEpisodeFilesProvider = FutureProvider.autoDispose
     .family<List<PlaybackEpisodeLink>, int>((ref, subject) async {
       var manual = ref.watch(playbackEpisodeLinkSnapshotProvider);
+      var rules = ref.watch(playbackEpisodeRuleSnapshotProvider);
+      var ruleFuture = rules.hasValue
+          ? Future.value(rules.value!)
+          : ref.watch(playbackEpisodeRuleSnapshotProvider.future);
       var fileFuture = ref.watch(subjectPlaybackFilesProvider(subject).future);
       var chapterFuture = ref.watch(
         subjectFileEpisodesProvider(subject).future,
       );
-      var (files, chapters) = await (fileFuture, chapterFuture).wait;
+      var (files, chapters, savedRules) = await (
+        fileFuture,
+        chapterFuture,
+        ruleFuture,
+      ).wait;
       return resolvePlaybackEpisodeFiles(
         subject: subject,
         files: files
@@ -95,5 +103,6 @@ final subjectEpisodeFilesProvider = FutureProvider.autoDispose
             .map((file) => file.filePath),
         episodes: chapters.map(episodeMarkChapter),
         manualLinks: manual.value ?? const {},
+        rules: savedRules,
       ).values.toList();
     });

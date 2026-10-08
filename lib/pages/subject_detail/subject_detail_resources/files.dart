@@ -228,6 +228,7 @@ extension _ResourceFiles on _SubjectDetailResourcesState {
       files: [filePath],
       episodes: (chapters?.value ?? []).map(episodeMarkChapter),
       manualLinks: links,
+      rules: ref.watch(subjectEpisodeRulesProvider(widget.subjectId)),
     )[PlaybackItem.pathKey(filePath)];
     var chapter = chapters?.value
         ?.where((episode) => episode.id == effective?.episode)

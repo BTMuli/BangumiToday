@@ -23,6 +23,7 @@ import '../../providers/playback_episode_link_providers.dart';
 import '../../providers/subject_playback_providers.dart';
 import '../../ui/bt_dialog.dart';
 import '../playback/playback_actions.dart';
+import 'subject_episode_rules_dialog.dart';
 
 part 'subject_episode_files_dialog/widgets.dart';
 
@@ -257,6 +258,7 @@ class _SubjectEpisodeFilesDialogState
     var episode = _selectedEpisode == 0 ? null : _selectedEpisode!;
     var storage = ref.read(playbackEpisodeLinksProvider);
     var links = await storage.readAll();
+    var rules = await storage.readRules();
     if (!mounted) return;
     var key = PlaybackItem.pathKey(file);
     var existing = links[key];
@@ -275,6 +277,7 @@ class _SubjectEpisodeFilesDialogState
           episodeMarkChapter,
         ),
         manualLinks: links,
+        rules: rules,
       )[key];
       if (current?.episode != widget.episode!.id) {
         setState(() {
@@ -341,6 +344,8 @@ class _SubjectEpisodeFilesDialogState
     var episodes = chapterData.value ?? const <BangumiEpisode>[];
     var linkData = ref.watch(playbackEpisodeLinkSnapshotProvider);
     var links = linkData.value ?? const <String, PlaybackEpisodeLink>{};
+    var ruleData = ref.watch(playbackEpisodeRuleSnapshotProvider);
+    var rules = ref.watch(subjectEpisodeRulesProvider(widget.subject));
     var matched = resolvePlaybackEpisodeFiles(
       subject: widget.subject,
       files: _editingFile
@@ -352,6 +357,7 @@ class _SubjectEpisodeFilesDialogState
             ),
       episodes: episodes.map(episodeMarkChapter),
       manualLinks: links,
+      rules: rules,
     );
     var linkedFiles = matched.values.where(
       (link) => _editingFile || link.episode == widget.episode!.id,
@@ -394,7 +400,11 @@ class _SubjectEpisodeFilesDialogState
     var unchanged = selectedEpisode == 0
         ? linked?.subject == widget.subject && linked!.excluded
         : effective != null && effective.episode == selectedEpisode;
-    var loading = _loadingFiles || chapterData.isLoading || linkData.isLoading;
+    var loading =
+        _loadingFiles ||
+        chapterData.isLoading ||
+        linkData.isLoading ||
+        ruleData.isLoading;
     var rowExtent = MediaQuery.textScalerOf(
       context,
     ).scale(_fileRowExtent).clamp(_fileRowExtent, double.infinity);
@@ -403,6 +413,7 @@ class _SubjectEpisodeFilesDialogState
         !loading &&
         !chapterData.hasError &&
         !linkData.hasError &&
+        !ruleData.hasError &&
         selected != null &&
         validEpisode &&
         !unchanged;
@@ -413,7 +424,10 @@ class _SubjectEpisodeFilesDialogState
     var unmatchedCount = files.length - matched.length - excludedCount;
     var canChoose = !_busy && !loading;
     var canSelectEpisode =
-        canChoose && !chapterData.hasError && !linkData.hasError;
+        canChoose &&
+        !chapterData.hasError &&
+        !linkData.hasError &&
+        !ruleData.hasError;
     var pendingRemoval =
         !_editingFile && selected != null && selectedEpisode == 0;
     var canRemove =
@@ -511,11 +525,11 @@ class _SubjectEpisodeFilesDialogState
             style: BTTypography.caption(context),
           ),
         ],
-        if (chapterData.hasError || linkData.hasError) ...[
+        if (chapterData.hasError || linkData.hasError || ruleData.hasError) ...[
           const SizedBox(height: 12),
           _buildFileError(
             '加载关联数据失败：'
-            '${chapterData.error ?? linkData.error}',
+            '${chapterData.error ?? linkData.error ?? ruleData.error}',
             action: Button(
               onPressed: _busy
                   ? null
@@ -524,6 +538,7 @@ class _SubjectEpisodeFilesDialogState
                         subjectFileEpisodesProvider(widget.subject),
                       );
                       ref.invalidate(playbackEpisodeLinkSnapshotProvider);
+                      ref.invalidate(playbackEpisodeRuleSnapshotProvider);
                       unawaited(_loadFiles());
                     },
               child: const Text('重试'),
@@ -563,6 +578,25 @@ class _SubjectEpisodeFilesDialogState
           spacing: 8,
           runSpacing: 8,
           children: [
+            Button(
+              onPressed: canSelectEpisode
+                  ? () => _run(() async {
+                      var changed = await showSubjectEpisodeRules(
+                        context,
+                        subject: widget.subject,
+                        episodes: episodes,
+                        filePath: selected,
+                        target: episodes
+                            .where((episode) => episode.id == selectedEpisode)
+                            .firstOrNull,
+                      );
+                      if (mounted && _editingFile && changed == true) {
+                        setState(() => _selectedEpisode = null);
+                      }
+                    })
+                  : null,
+              child: const Text('匹配规则'),
+            ),
             if (linked?.subject == widget.subject &&
                 (_editingFile ||
                     linked!.excluded ||

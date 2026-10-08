@@ -6,6 +6,7 @@ import '../../domain/repositories/episode_mark_gateway.dart';
 import '../../domain/repositories/playback_episode_links.dart';
 import '../../models/playback/episode_mark_state.dart';
 import '../../models/playback/playback_episode_link.dart';
+import '../../models/playback/playback_episode_rule.dart';
 import '../../models/playback/playback_item.dart';
 import '../utils/episode_num_extractor.dart';
 
@@ -16,6 +17,7 @@ class EpisodeMarkCandidate {
     required this.episode,
     required this.number,
     this.linkedEpisode,
+    this.ruleSignature,
   });
 
   final PlaybackItem item;
@@ -23,6 +25,7 @@ class EpisodeMarkCandidate {
   final EpisodeMarkEpisode episode;
   final double number;
   final int? linkedEpisode;
+  final String? ruleSignature;
 
   int get subject => item.subject!;
 }
@@ -75,6 +78,10 @@ class EpisodeMarkService {
         // Explicit actions reread storage and report failures to the caller.
       },
     );
+    _ruleSubscription = links.watchRules().listen((value) {
+      _rules = value;
+      _notifyProgress();
+    }, onError: (Object _) {});
   }
 
   final EpisodeMarkGateway gateway;
@@ -82,7 +89,9 @@ class EpisodeMarkService {
   final PlaybackEpisodeLinks links;
   late final StreamSubscription<Map<String, PlaybackEpisodeLink>>
   _linkSubscription;
+  late final StreamSubscription<List<PlaybackEpisodeRule>> _ruleSubscription;
   Map<String, PlaybackEpisodeLink> _links = {};
+  List<PlaybackEpisodeRule> _rules = [];
   final _pages = <String, Future<List<EpisodeMarkEpisode>>>{};
   final _writes = <String, Future<EpisodeMarkWriteResult>>{};
   final _refreshes = StreamController<EpisodeMarkRefresh>.broadcast();
@@ -110,6 +119,7 @@ class EpisodeMarkService {
     Iterable<EpisodeMarkEpisode> episodes, {
     bool complete = true,
     int? episodeId,
+    Iterable<PlaybackEpisodeRule> rules = const [],
   }) {
     if ((item.subject ?? 0) <= 0) return null;
     // Explicit links also support specials, fractional sorts and plain names.
@@ -117,9 +127,39 @@ class EpisodeMarkService {
     if (episodeId != null) {
       return episodes.where((episode) => episode.id == episodeId).singleOrNull;
     }
+    var applicable = rules.where(
+      (rule) => rule.subject == item.subject && rule.appliesTo(item.filePath),
+    );
+    EpisodeMarkEpisode? matched;
+    for (var rule in applicable) {
+      if (!complete) return null;
+      var number = rule.numberFor(item.filePath);
+      var chapter = number == null
+          ? null
+          : episodes
+                .where(
+                  (episode) =>
+                      episode.id > 0 &&
+                      episode.type == rule.type &&
+                      episode.sort == number,
+                )
+                .singleOrNull;
+      // Invalid, stale or conflicting rules must not trigger generic inference.
+      if (chapter == null || (matched != null && matched.id != chapter.id)) {
+        return null;
+      }
+      matched = chapter;
+    }
+    if (matched != null) return matched;
     var evidence = extractEpisodeNumber(item.filePath);
     return _matchingEpisode(evidence, episodes, complete: complete);
   }
+
+  String _ruleSignature(PlaybackItem item) => [
+    for (var rule in _rules)
+      if (rule.subject == item.subject && rule.appliesTo(item.filePath))
+        '${rule.id}:${rule.pattern}:${rule.offset}:${rule.type}',
+  ].join('\n');
 
   int? _linkedEpisode(PlaybackItem item) {
     var link = _links[item.key];
@@ -207,6 +247,7 @@ class EpisodeMarkService {
         _progress[subject]?.values ?? const <EpisodeMarkEpisode>[],
         complete: _loadedSubjects.contains(subject),
         episodeId: _linkedEpisode(entry.value),
+        rules: _rules,
       );
       if (episode?.done == null) continue;
       checked.add(entry.key);
@@ -252,6 +293,7 @@ class EpisodeMarkService {
                           const <EpisodeMarkEpisode>[],
                       complete: false,
                       episodeId: _linkedEpisode(item),
+                      rules: _rules,
                     )?.done !=
                     null,
           );
@@ -265,8 +307,10 @@ class EpisodeMarkService {
     var account = _progressAccount;
     if (_closed || account == null) return;
     var linked = await links.readAll();
+    var rules = await links.readRules();
     if (!_current(account)) return;
     _links = linked;
+    _rules = rules;
     _items.clear();
     for (var item in items) {
       if ((item.subject ?? 0) > 0) {
@@ -377,6 +421,7 @@ class EpisodeMarkService {
     }
     try {
       _links = await links.readAll();
+      _rules = await links.readRules();
       if (!_current(account)) return const EpisodeMarkResolution();
       if (_linkConflict(item)) {
         return const EpisodeMarkResolution(message: '文件已关联其他条目，请重新打开文件后标记');
@@ -387,6 +432,7 @@ class EpisodeMarkService {
       var linkedEpisode = _linkedEpisode(item);
       var evidence = extractEpisodeNumber(item.filePath);
       if (linkedEpisode == null &&
+          _ruleSignature(item).isEmpty &&
           evidence.kind != EpisodeNumberKind.single &&
           evidence.kind != EpisodeNumberKind.unknown) {
         return EpisodeMarkResolution(message: evidence.reason);
@@ -403,7 +449,13 @@ class EpisodeMarkService {
         if (identical(_pages[key], future)) await _pages.remove(key);
       }
       if (!_current(account)) return const EpisodeMarkResolution();
-      var episode = matchingEpisode(item, episodes, episodeId: linkedEpisode);
+      var ruleSignature = linkedEpisode == null ? _ruleSignature(item) : null;
+      var episode = matchingEpisode(
+        item,
+        episodes,
+        episodeId: linkedEpisode,
+        rules: _rules,
+      );
       if (episode == null) {
         return EpisodeMarkResolution(
           message: linkedEpisode != null
@@ -422,8 +474,9 @@ class EpisodeMarkService {
           item: item,
           account: account,
           episode: episode,
-          number: evidence.number ?? episode.sort,
+          number: episode.sort,
           linkedEpisode: linkedEpisode,
+          ruleSignature: ruleSignature,
         ),
       );
     } catch (error) {
@@ -496,16 +549,25 @@ class EpisodeMarkService {
         return const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.expired);
       }
       _links = await links.readAll();
+      _rules = await links.readRules();
       if (!_current(candidate.account) ||
           _linkConflict(candidate.item) ||
           _excluded(candidate.item) ||
-          _linkedEpisode(candidate.item) != candidate.linkedEpisode) {
+          _linkedEpisode(candidate.item) != candidate.linkedEpisode ||
+          (candidate.ruleSignature != null &&
+              _ruleSignature(candidate.item) != candidate.ruleSignature)) {
         return const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.expired);
       }
       if (!done) {
         await gateway.markDone(
           candidate.episode.id,
-          authScope: () => _current(candidate.account),
+          authScope: () =>
+              _current(candidate.account) &&
+              !_linkConflict(candidate.item) &&
+              !_excluded(candidate.item) &&
+              _linkedEpisode(candidate.item) == candidate.linkedEpisode &&
+              (candidate.ruleSignature == null ||
+                  _ruleSignature(candidate.item) == candidate.ruleSignature),
         );
       }
       if (!_current(candidate.account)) {
@@ -553,6 +615,7 @@ class EpisodeMarkService {
   void close() {
     _closed = true;
     unawaited(_linkSubscription.cancel());
+    unawaited(_ruleSubscription.cancel());
     _pages.clear();
     _progressLoads.clear();
     unawaited(_progressChanges.close());
