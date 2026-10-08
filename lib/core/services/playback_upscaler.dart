@@ -531,6 +531,9 @@ class PlaybackUpscaler {
               generation: generation,
             );
             if (!_current(generation)) continue;
+            // mpv returns yes/no choices as MPV_FORMAT_FLAG, while auto is
+            // a string. Keep the command form for restoring the same option.
+            if (baseline is bool) baseline = baseline ? 'yes' : 'no';
             if (baseline is! String ||
                 !['yes', 'no', 'auto'].contains(baseline)) {
               throw StateError('无法确认渲染器的普通播放配置');

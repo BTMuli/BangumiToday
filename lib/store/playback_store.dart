@@ -487,6 +487,12 @@ class PlaybackStore extends ChangeNotifier {
       await chapters.initialize();
       var native = player.platform as NativePlayer;
       if (Platform.isWindows) {
+        // Use the shader-capable pipeline from the first frame. mpv's simple
+        // path samples the padded D3D11 decoder texture differently (e.g.
+        // 1088 vs 1080 lines), shifting the picture when shaders are toggled.
+        // Set this before VideoController creates the rendering context so
+        // ordinary playback and upscale recovery share the same cropping.
+        await native.setProperty('gpu-dumb-mode', 'no');
         for (var property in ['current-tracks/video', 'video-dec-params']) {
           await native.observeProperty(property, (_) async {
             unawaited(janaiSource.refresh());
