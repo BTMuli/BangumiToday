@@ -25,6 +25,12 @@ class TrtSession final {
   // graphics accesses are ordered by CUDA map/unmap in Run.
   void Attach(ID3D11Texture2D* input, ID3D11Texture2D* output);
   void Run(ID3D11DeviceContext* context);
+  // Host API timings, separate from asynchronous GPU event measurements.
+  struct SubmissionTiming {
+    double map_ms = 0;
+    double unmap_ms = 0;
+  };
+  SubmissionTiming last_submission_timing() const;
   double last_gpu_ms() const;
   bool uses_cuda_graph() const;
 

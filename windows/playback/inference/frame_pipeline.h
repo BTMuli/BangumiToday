@@ -9,8 +9,9 @@
 //
 // Every hand-off is ordered by the interop context's shared fence, and no step
 // reads pixels back to the CPU. One frame is in flight at a time: the next
-// submission waits for the previous ticket on the GPU and never blocks the
-// calling thread.
+// submission waits for the previous ticket on the GPU. Command allocator
+// backpressure can block the caller, outside the playback context lock for
+// the final output-frame copy.
 #pragma once
 
 #include <d3d11.h>
@@ -84,6 +85,12 @@ class FramePipeline final {
 
   // Wall-clock timing of the last submitted frame, for diagnostics only.
   struct Timing {
+    // Host-side contention on the context shared with decoding and ANGLE.
+    double context_wait_ms = 0;
+    double context_hold_ms = 0;
+    double interop_submit_ms = 0;
+    double cuda_map_ms = 0;
+    double cuda_unmap_ms = 0;
     double to_model_input_ms = 0;
     double to_model_output_ms = 0;
     double to_output_planes_ms = 0;

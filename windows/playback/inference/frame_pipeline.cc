@@ -417,78 +417,90 @@ uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
   }
 
   const Clock::time_point start = Clock::now();
+  Clock::time_point lock_acquired;
+  Clock::time_point after_input;
+  Clock::time_point after_copy_out;
+  Clock::time_point after_planes;
+  uint64_t planes_ready = 0;
 
   // ANGLE, the decoder and CUDA graphics interop use this same immediate
   // context. Per-call protection does not keep shader/view bindings together
   // with their dispatch, or protect CUDA's internal context access. Hold the
   // device's shared critical section through the complete graphics hand-off;
   // a private pipeline mutex would not synchronize with the other users.
-  const ScopedContextLock context_lock(state.multithread.Get());
+  {
+    const ScopedContextLock context_lock(state.multithread.Get());
+    lock_acquired = Clock::now();
 
-  // Depth one: the previous frame's copies are finished before its shared
-  // textures are rewritten. This is a GPU-side wait, so the caller never
-  // blocks on inference.
-  if (state.previous_ticket)
-    state.interop->WaitOnD3D11(state.context4.Get(), state.previous_ticket);
+    // Depth one: the previous frame's copies are finished before its shared
+    // textures are rewritten. This is a GPU-side wait, so the caller never
+    // blocks on inference.
+    if (state.previous_ticket)
+      state.interop->WaitOnD3D11(state.context4.Get(), state.previous_ticket);
 
-  state.converter->ConvertToPlanarRgb(context, luma, chroma);
-  uint64_t input_ready = 0;
-  if (!state.trt_session) {
-    input_ready = state.interop->SignalFromD3D11(state.context4.Get());
+    state.converter->ConvertToPlanarRgb(context, luma, chroma);
+    uint64_t input_ready = 0;
+    if (!state.trt_session) {
+      input_ready = state.interop->SignalFromD3D11(state.context4.Get());
+      context->Flush();
+    }
+    after_input = Clock::now();
+
+    if (state.trt_session) {
+      state.trt_session->Run(context);
+    } else {
+      state.interop->Submit(input_ready, [&](ID3D12GraphicsCommandList* list) {
+        if (measuring) state.interop->WriteTimestamp(list, measurement_base);
+        state.Transition(list, state.planar_rgb.Get(),
+                         D3D12_RESOURCE_STATE_COPY_SOURCE);
+        state.Transition(list, state.session->input(),
+                         D3D12_RESOURCE_STATE_COPY_DEST);
+        D3D12_TEXTURE_COPY_LOCATION source =
+            Subresource(state.planar_rgb.Get(), 0);
+        D3D12_TEXTURE_COPY_LOCATION destination = Footprint(
+            state.session->input(), DXGI_FORMAT_R16_FLOAT, plan.model_width,
+            plan.model_height * 3, plan.model_width * 2);
+        list->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+        // DirectML expects the tensors in the common state.
+        state.Transition(list, state.session->input(),
+                         D3D12_RESOURCE_STATE_COMMON);
+        if (measuring)
+          state.interop->WriteTimestamp(list, measurement_base + 1);
+      });
+
+      const uint64_t inference_done = state.session->Run();
+
+      const uint64_t model_output_ready = state.interop->Submit(
+          inference_done, [&](ID3D12GraphicsCommandList* list) {
+            if (measuring)
+              state.interop->WriteTimestamp(list, measurement_base + 2);
+            state.Transition(list, state.session->output(),
+                             D3D12_RESOURCE_STATE_COPY_SOURCE);
+            state.Transition(list, state.model_output_rgb.Get(),
+                             D3D12_RESOURCE_STATE_COPY_DEST);
+            D3D12_TEXTURE_COPY_LOCATION source =
+                Footprint(state.session->output(), DXGI_FORMAT_R16_FLOAT,
+                          plan.model_output_width, plan.model_output_height * 3,
+                          plan.model_output_width * 2);
+            D3D12_TEXTURE_COPY_LOCATION destination =
+                Subresource(state.model_output_rgb.Get(), 0);
+            list->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+            state.Transition(list, state.session->output(),
+                             D3D12_RESOURCE_STATE_COMMON);
+          });
+      state.interop->WaitOnD3D11(state.context4.Get(), model_output_ready);
+    }
+    after_copy_out = Clock::now();
+    state.converter->ConvertFromPlanarRgb(context);
+    planes_ready = state.interop->SignalFromD3D11(state.context4.Get());
     context->Flush();
+    after_planes = Clock::now();
   }
-  const Clock::time_point after_input = Clock::now();
+  const Clock::time_point lock_released = Clock::now();
 
-  if (state.trt_session) {
-    state.trt_session->Run(context);
-  } else {
-    state.interop->Submit(input_ready, [&](ID3D12GraphicsCommandList* list) {
-      if (measuring) state.interop->WriteTimestamp(list, measurement_base);
-      state.Transition(list, state.planar_rgb.Get(),
-                       D3D12_RESOURCE_STATE_COPY_SOURCE);
-      state.Transition(list, state.session->input(),
-                       D3D12_RESOURCE_STATE_COPY_DEST);
-      D3D12_TEXTURE_COPY_LOCATION source =
-          Subresource(state.planar_rgb.Get(), 0);
-      D3D12_TEXTURE_COPY_LOCATION destination = Footprint(
-          state.session->input(), DXGI_FORMAT_R16_FLOAT, plan.model_width,
-          plan.model_height * 3, plan.model_width * 2);
-      list->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
-      // DirectML expects the tensors in the common state.
-      state.Transition(list, state.session->input(),
-                       D3D12_RESOURCE_STATE_COMMON);
-      if (measuring) state.interop->WriteTimestamp(list, measurement_base + 1);
-    });
-
-    const uint64_t inference_done = state.session->Run();
-
-    const uint64_t model_output_ready = state.interop->Submit(
-        inference_done, [&](ID3D12GraphicsCommandList* list) {
-          if (measuring)
-            state.interop->WriteTimestamp(list, measurement_base + 2);
-          state.Transition(list, state.session->output(),
-                           D3D12_RESOURCE_STATE_COPY_SOURCE);
-          state.Transition(list, state.model_output_rgb.Get(),
-                           D3D12_RESOURCE_STATE_COPY_DEST);
-          D3D12_TEXTURE_COPY_LOCATION source =
-              Footprint(state.session->output(), DXGI_FORMAT_R16_FLOAT,
-                        plan.model_output_width, plan.model_output_height * 3,
-                        plan.model_output_width * 2);
-          D3D12_TEXTURE_COPY_LOCATION destination =
-              Subresource(state.model_output_rgb.Get(), 0);
-          list->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
-          state.Transition(list, state.session->output(),
-                           D3D12_RESOURCE_STATE_COMMON);
-        });
-    state.interop->WaitOnD3D11(state.context4.Get(), model_output_ready);
-  }
-  const Clock::time_point after_copy_out = Clock::now();
-  state.converter->ConvertFromPlanarRgb(context);
-  const uint64_t planes_ready =
-      state.interop->SignalFromD3D11(state.context4.Get());
-  context->Flush();
-  const Clock::time_point after_planes = Clock::now();
-
+  // Only D3D12 work remains. Release the playback context before recording
+  // this batch or waiting for a command allocator, so backpressure cannot
+  // keep ANGLE and decoding locked out. The shared fence orders plane access.
   const uint64_t ticket =
       state.interop->Submit(planes_ready, [&](ID3D12GraphicsCommandList* list) {
         if (measuring && state.trt_session) {
@@ -533,6 +545,14 @@ uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
   state.timing.to_model_output_ms = Milliseconds(start, after_copy_out);
   state.timing.to_output_planes_ms = Milliseconds(start, after_planes);
   state.timing.to_frame_ms = Milliseconds(start, end);
+  state.timing.context_wait_ms = Milliseconds(start, lock_acquired);
+  state.timing.context_hold_ms = Milliseconds(lock_acquired, lock_released);
+  state.timing.interop_submit_ms = Milliseconds(after_planes, end);
+  if (state.trt_session) {
+    const auto cuda_timing = state.trt_session->last_submission_timing();
+    state.timing.cuda_map_ms = cuda_timing.map_ms;
+    state.timing.cuda_unmap_ms = cuda_timing.unmap_ms;
+  }
   return ticket;
 }
 

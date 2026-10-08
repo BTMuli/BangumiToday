@@ -125,6 +125,7 @@ struct TrtSession::State {
   bool completion_failed = false;
   bool timing_pending = false;
   double gpu_ms = 0;
+  SubmissionTiming submission_timing;
 
   void CollectTiming() {
     if (!timing_pending) return;
@@ -379,9 +380,13 @@ void TrtSession::Run(ID3D11DeviceContext* context) {
   // The CUDA stream orders tensor reuse; graphics map/unmap orders the D3D11
   // conversion shaders. No CPU wait is needed before submitting another frame.
   context->Flush();
+  const auto map_started = Clock::now();
   CudaApi::Check(
       state.cuda.cuGraphicsMapResources(2, state.graphics.data(), state.stream),
       "Map D3D11 textures to CUDA");
+  state.submission_timing.map_ms =
+      std::chrono::duration<double, std::milli>(Clock::now() - map_started)
+          .count();
   state.mapped = true;
   state.pending = true;
   try {
@@ -417,9 +422,13 @@ void TrtSession::Run(ID3D11DeviceContext* context) {
                      "CUDA end");
       state.timing_pending = true;
     }
+    const auto unmap_started = Clock::now();
     CudaApi::Check(state.cuda.cuGraphicsUnmapResources(2, state.graphics.data(),
                                                        state.stream),
                    "Release textures to D3D11");
+    state.submission_timing.unmap_ms =
+        std::chrono::duration<double, std::milli>(Clock::now() - unmap_started)
+            .count();
     state.mapped = false;
     CudaApi::Check(state.cuda.cuEventRecord(state.completion, state.stream),
                    "CUDA frame completion");
@@ -435,5 +444,8 @@ void TrtSession::Run(ID3D11DeviceContext* context) {
   // CUDA unmap orders the converter's following D3D11 reads after CUDA writes.
 }
 double TrtSession::last_gpu_ms() const { return state_->gpu_ms; }
+TrtSession::SubmissionTiming TrtSession::last_submission_timing() const {
+  return state_->submission_timing;
+}
 bool TrtSession::uses_cuda_graph() const { return state_->graph != nullptr; }
 }  // namespace bangumi::inference

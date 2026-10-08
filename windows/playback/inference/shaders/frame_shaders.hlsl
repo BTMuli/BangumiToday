@@ -46,6 +46,11 @@ Texture2D<float> g_model_rgb : register(t0);
 RWTexture2D<float> g_luma_out : register(u0);
 RWTexture2D<float2> g_chroma_out : register(u1);
 
+// An 8x8 luma group spans at most five chroma centres on each axis. Including
+// the cubic halo needs eight samples, loaded once per group rather than
+// sixteen texture reads per luma pixel. Keep FP32 values and the tap order.
+groupshared float2 g_chroma_tile[8][8];
+
 // Round half away from zero, matching the CPU reference exactly. Quantisation
 // ties are practically unreachable in 8/10-bit code space, but both sides must
 // agree on the rule.
@@ -65,11 +70,8 @@ void CubicWeights(float fraction, out float4 weights)
 
 // Separable cubic chroma interpolation at the sample location described by the
 // frame's chroma offsets, with edge replication outside the coded texture.
-float2 SampleChroma(int2 position)
+float2 SampleChroma(int2 position, int2 tile_origin)
 {
-    uint chroma_width = 0;
-    uint chroma_height = 0;
-    g_chroma.GetDimensions(chroma_width, chroma_height);
     const float x = (float(position.x) - g_chroma_x_offset) * 0.5f;
     const float y = (float(position.y) - g_chroma_y_offset) * 0.5f;
     const float base_x = floor(x);
@@ -78,15 +80,13 @@ float2 SampleChroma(int2 position)
     float4 weights_y = 0;
     CubicWeights(x - base_x, weights_x);
     CubicWeights(y - base_y, weights_y);
-    const int2 origin = int2(base_x, base_y) - 1;
+    const int2 origin = int2(base_x, base_y) - 1 - tile_origin;
     float2 result = 0;
     [unroll] for (int row = 0; row < 4; ++row)
     {
-        const int sample_y = clamp(origin.y + row, 0, (int)chroma_height - 1);
         [unroll] for (int column = 0; column < 4; ++column)
         {
-            const int sample_x = clamp(origin.x + column, 0, (int)chroma_width - 1);
-            result += g_chroma.Load(int3(sample_x, sample_y, 0)).rg *
+            result += g_chroma_tile[origin.y + row][origin.x + column] *
                       (weights_x[column] * weights_y[row]);
         }
     }
@@ -132,8 +132,22 @@ float StoreChroma(float normalized)
 }
 
 [numthreads(8, 8, 1)]
-void YuvToPlanarRgb(uint3 id : SV_DispatchThreadID)
+void YuvToPlanarRgb(uint3 id : SV_DispatchThreadID,
+                    uint3 group : SV_GroupID, uint3 thread : SV_GroupThreadID)
 {
+    const uint2 first_pixel = min(group.xy * 8,
+                                  uint2(g_visible_width, g_visible_height) - 1);
+    const int2 tile_origin = int2(floor((float2(first_pixel) -
+        float2(g_chroma_x_offset, g_chroma_y_offset)) * 0.5f)) - 1;
+    uint chroma_width = 0;
+    uint chroma_height = 0;
+    g_chroma.GetDimensions(chroma_width, chroma_height);
+    const int2 sample_position = clamp(tile_origin + int2(thread.xy),
+        int2(0, 0), int2(chroma_width, chroma_height) - 1);
+    g_chroma_tile[thread.y][thread.x] =
+        g_chroma.Load(int3(sample_position, 0)).rg;
+    // Even padded dispatch threads must reach this barrier before returning.
+    GroupMemoryBarrierWithGroupSync();
     if (id.x >= g_model_width || id.y >= g_model_height)
         return;
     // Padding replicates the last visible sample so the model never sees a
@@ -142,7 +156,7 @@ void YuvToPlanarRgb(uint3 id : SV_DispatchThreadID)
     const int y = min((int)id.y, (int)g_visible_height - 1);
     const float luma_raw = g_luma.Load(int3(x, y, 0)).r * g_max_code;
     const float luminance = (luma_raw - g_y_offset) / g_y_scale;
-    const float2 chroma_raw = SampleChroma(int2(x, y)) * g_max_code;
+    const float2 chroma_raw = SampleChroma(int2(x, y), tile_origin) * g_max_code;
     const float cb = (chroma_raw.x - g_c_offset) / g_c_scale;
     const float cr = (chroma_raw.y - g_c_offset) / g_c_scale;
     const float red = luminance + 2.0f * (1.0f - g_kr) * cr;

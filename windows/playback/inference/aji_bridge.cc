@@ -373,6 +373,16 @@ void PublishStats(aji_ctx& state, const char* phase, bool force) noexcept try {
     stream << "framesInferred=" << state.frames_inferred << "\n";
     stream << "framesFailed=" << state.frames_failed << "\n";
     stream << "lastGpuMs=" << state.last_gpu_ms << "\n";
+    // Keep host API blocking separate from GPU execution; these are the last
+    // successful submission, published at the existing one-second cadence.
+    const auto timing = state.pipeline ? state.pipeline->last_timing()
+                                       : FramePipeline::Timing{};
+    stream << "cpuContextWaitMs=" << timing.context_wait_ms << "\n";
+    stream << "cpuContextHoldMs=" << timing.context_hold_ms << "\n";
+    stream << "cpuCudaMapMs=" << timing.cuda_map_ms << "\n";
+    stream << "cpuCudaUnmapMs=" << timing.cuda_unmap_ms << "\n";
+    stream << "cpuInteropSubmitMs=" << timing.interop_submit_ms << "\n";
+    stream << "cpuFrameSubmitMs=" << timing.to_frame_ms << "\n";
     stream << "ticket=" << state.last_ticket << "\n";
     stream << "reason=" << state.status_reason << "\n";
   }
