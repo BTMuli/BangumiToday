@@ -63,9 +63,11 @@ NV12、P010 各 120 帧排队输出，与各自同步参考逐字节一致。
 - DirectML 会话禁用 CPU EP 回退和 memory pattern；不支持完整 GPU 图时创建失败。
 - slot 1 为 Performance（AI 流畅），slot 2 为 Balanced（AI 高质量）。
   TensorRT 引擎后台构建通过 aji_poll 完成通知；插值和预缩放暂未实现。
-- 播放器初始使用普通解码，仅在视频满足 AI 条件后先设 `hwdec=d3d11va`，再设
-  `vf=animejanai=slot=N:conf=animejanai.conf`。固定滤镜必须收到 `conf` 或 `engine`
-  才加载 `aji.dll`，仅给 slot 会旁路复制。关闭时先清 vf，再恢复 `d3d11va-copy`。
+- 普通播放、Anime4K 和 AI 统一使用 `hwdec=d3d11va`，切档不修改硬解配置。
+  视频满足 AI 条件后设置 `vf=animejanai=slot=N:conf=animejanai.conf`；固定滤镜
+  必须收到 `conf` 或 `engine` 才加载 `aji.dll`，仅给 slot 会旁路复制。关闭时清 vf。
+  暂停时由 mpv 自身刷新滤镜画面；着色器和纹理尺寸通过渲染更新回调重绘，
+  不再追加 `seek 0`，避免重复定位。
 - Dart 通过 `MPV_FORMAT_NODE` 读回 vf，校验名称、enabled、slot 与非空 conf。
   安装开始即记录待清理状态，部分安装失败也会撤销滤镜并恢复普通播放。
 - AI 与 Anime4K 共用最终纹理策略：按视口物理像素、源比例、启停滞回及输出预算

@@ -422,13 +422,13 @@ class PlaybackStore extends ChangeNotifier {
     }
     _player = player;
     _chapters = chapters;
-    // Start with plain decoding even when an AI preference is saved. The
-    // coordinator switches only after checking the media's supported range.
+    // Keep the same GPU decoder for plain playback, Anime4K and AnimeJaNai.
+    // The coordinator only changes filters after checking the media's range.
     _video = VideoController(
       player,
       configuration: VideoControllerConfiguration(
         hwdec: Platform.isWindows
-            ? NativePlaybackUpscaleBackend.plainDecoder
+            ? NativePlaybackUpscaleBackend.hardwareDecoder
             : null,
       ),
     );

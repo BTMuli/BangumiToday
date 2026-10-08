@@ -18,9 +18,10 @@ This runtime is what makes the AnimeJaNai upscaling filter available: media_kit'
 own libmpv build and upstream mpv do not contain `vf_animejanai`, which exists
 only in `the-database/mpv`. The build also keeps the FFmpeg audio filters used
 for loudness equalization. The media_kit Dart and video plugins, and their ANGLE
-runtime, are retained; Windows still explicitly uses D3D11 copy-back decoding
-(`d3d11va-copy`) for the embedded ANGLE renderer instead of this runtime's
-automatic decoder selection.
+runtime, are retained; Windows explicitly uses D3D11 GPU decoding (`d3d11va`)
+for plain playback, Anime4K and AnimeJaNai with the embedded ANGLE renderer
+instead of this runtime's automatic decoder selection. Upscaling changes leave
+the decoder configuration unchanged.
 
 ## License
 

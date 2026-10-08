@@ -15,8 +15,8 @@ abstract class PlaybackUpscaleBackend {
   Future<void> shaders(List<String> paths);
 
   /// Installs or clears the AnimeJaNai filter chain. `slot` selects the model
-  /// (1 smooth, 2 high quality); null clears the chain and restores the decoder
-  /// configuration used for plain playback.
+  /// (1 smooth, 2 high quality); null clears the chain. All modes share the
+  /// decoder configured at Player creation.
   Future<void> janai(int? slot);
   Future<PlaybackJanaiStatus?> janaiStatus();
 
@@ -25,8 +25,11 @@ abstract class PlaybackUpscaleBackend {
   /// Verification reads this structure rather than a serialized string, so a
   /// value that merely contains the filter name cannot pass the check.
   Future<List<Map<Object?, Object?>>> filterList();
+
+  /// Rendering options and texture resizing redraw through libmpv's update
+  /// callback. Filter changes refresh paused frames in mpv itself; an extra
+  /// seek here would redundantly reset decoding and could move the picture.
   Future<void> resize(PlaybackPixels? size);
-  Future<void> redraw();
   void close();
 }
 
@@ -464,8 +467,6 @@ class PlaybackUpscaler {
             _loadedMode = next.mode;
           }
           if (!await _resizeOutput(next, generation)) continue;
-          await _step('redraw', backend.redraw, generation: generation);
-          if (!_current(generation)) continue;
         } else {
           // Leaving an AnimeJaNai mode has to clear its filter chain; otherwise
           // the shader preset would stack on top of the AI upscaler.
@@ -555,8 +556,6 @@ class PlaybackUpscaler {
             }
             _loadedMode = next.mode;
           }
-          await _step('redraw', backend.redraw, generation: generation);
-          if (!_current(generation)) continue;
         }
         _applied = next;
         outcome = 'configured';
@@ -632,7 +631,6 @@ class PlaybackUpscaler {
           () => backend.command(['set', 'gpu-dumb-mode', _baselineDumbMode!]),
           generation: operation,
         ),
-      () => _step('restore_redraw', backend.redraw, generation: operation),
     ]) {
       try {
         await action();

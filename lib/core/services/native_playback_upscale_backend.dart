@@ -25,13 +25,9 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
   }) : tensorRtEnabled = tensorRtEnabled ?? (() => true),
        adapter = NativeUpscaleAdapter(player.platform as NativePlayer);
 
-  /// Decoder used while the AnimeJaNai filter is installed: the clip and the
-  /// filter share one D3D11 device instead of copying frames back to memory.
-  static const janaiDecoder = 'd3d11va';
-
-  /// Decoder used for plain playback and shader presets, matching the ANGLE
-  /// texture output that media_kit_video expects.
-  static const plainDecoder = 'd3d11va-copy';
+  /// Shared by plain playback, shader presets and AnimeJaNai. Keep decoded
+  /// frames on the GPU and avoid decoder reinitialization when changing modes.
+  static const hardwareDecoder = 'd3d11va';
 
   /// The shim configuration the filter must be given. The pinned filter only
   /// loads its inference shim when `conf` (or `engine`) is set; without it the
@@ -118,8 +114,8 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
   Future<void> shaders(List<String> paths) =>
       adapter.setStringList('glsl-shaders', paths);
 
-  /// Enable texture decoding before installing the filter. Clear the filter
-  /// before returning to copy-back decoding during recovery.
+  /// Only change the filter chain. The decoder stays on the shared GPU path;
+  /// mpv refreshes a paused frame when vf changes, without an extra seek here.
   @override
   Future<void> janai(int? slot) async {
     if (slot == null) {
@@ -142,12 +138,7 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
         ? null
         : '@${PlaybackUpscaleBackend.janaiFilterLabel}:'
               'animejanai=slot=$slot:conf=${await _janaiConfiguration()}';
-    if (slot == null) await adapter.setString('vf', '');
-    var decoder = slot == null ? plainDecoder : janaiDecoder;
-    if (await adapter.read('hwdec') != decoder) {
-      await adapter.setString('hwdec', decoder);
-    }
-    if (slot != null) await adapter.setString('vf', filter!);
+    await adapter.setString('vf', filter ?? '');
     for (var file in _files.toList()) {
       if (slot != null && (file == _config || file == _status)) continue;
       if (await file.exists()) await file.delete();
@@ -216,15 +207,6 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
   @override
   Future<void> resize(PlaybackPixels? size) =>
       video.setSize(width: size?.width, height: size?.height);
-
-  @override
-  Future<void> redraw() async {
-    if (!player.state.playing && !player.state.completed) {
-      // A zero relative seek redraws the paused frame without restoring a
-      // captured absolute position over a concurrent user seek.
-      await adapter.command(['seek', '0', 'relative+exact']);
-    }
-  }
 
   @override
   void close() => adapter.close();
