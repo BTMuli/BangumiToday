@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:async';
+
 // Flutter imports:
 import 'package:flutter/foundation.dart';
 
@@ -18,6 +21,12 @@ class ProgressController extends ChangeNotifier {
 
   /// isShow
   bool isShow = false;
+
+  /// 任务支持取消时显示操作按钮，完成后可置空以停止接受取消。
+  VoidCallback? onCancel;
+
+  final String cancelText;
+  bool _ended = false;
 
   /// close
   void Function()? close;
@@ -47,6 +56,8 @@ class ProgressController extends ChangeNotifier {
     this.text = '请稍后',
     this.progress,
     this.onTaskbar = false,
+    this.onCancel,
+    this.cancelText = '取消',
   }) {
     if (onTaskbar && defaultTargetPlatform == TargetPlatform.windows) {
       WindowsTaskbar.setProgressMode(TaskbarProgressMode.indeterminate);
@@ -57,6 +68,7 @@ class ProgressController extends ChangeNotifier {
 
   /// 更新
   void update({String? title, String? text, double? progress}) {
+    if (_ended) return;
     if (title != null) this.title = title;
     if (text != null) this.text = text;
     this.progress = progress;
@@ -73,11 +85,36 @@ class ProgressController extends ChangeNotifier {
 
   /// 结束
   void end() {
+    if (_ended) return;
+    _ended = true;
+    isShow = false;
+    onCancel = null;
     if (onTaskbar) {
       WindowsTaskbar.setProgressMode(TaskbarProgressMode.noProgress);
     }
-    if (close != null) close!();
-    notifyListeners();
+    var closeDialog = close;
+    close = null;
+    closeDialog?.call();
+  }
+
+  void cancel() {
+    var cancelTask = onCancel;
+    if (_ended || cancelTask == null) return;
+    onCancel = null;
+    try {
+      cancelTask();
+    } finally {
+      end();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ended = true;
+    isShow = false;
+    close = null;
+    onCancel = null;
+    super.dispose();
   }
 }
 
@@ -96,19 +133,26 @@ class ProgressWidget extends StatefulWidget {
     String? text,
     double? progress,
     bool onTaskbar = false,
+    VoidCallback? onCancel,
+    String cancelText = '取消',
   }) {
     var controller = ProgressController(
       title: title ?? '加载中',
       text: text ?? '请稍后',
       progress: progress,
       onTaskbar: onTaskbar,
-    );
-    showDialog(
-      barrierDismissible: false,
-      context: context,
-      builder: (context) => ProgressWidget(controller),
+      onCancel: onCancel,
+      cancelText: cancelText,
     );
     controller.isShow = true;
+    unawaited(
+      showDialog<void>(
+        barrierDismissible: false,
+        dismissWithEsc: onCancel == null,
+        context: context,
+        builder: (context) => ProgressWidget(controller),
+      ),
+    );
     return controller;
   }
 
@@ -124,21 +168,34 @@ class _ProgressWidgetState extends State<ProgressWidget> {
   @override
   void initState() {
     super.initState();
-    widget.controller.close = () {
-      if (widget.controller.isShow) {
-        Navigator.of(context).pop();
-        widget.controller.isShow = false;
-        return;
-      }
-    };
-    widget.controller.addListener(() {
-      setState(() {});
-    });
+    controller.close = _closeDialog;
+    controller.addListener(_onUpdate);
+    // 快速失败或取消可能发生在弹窗第一帧之前。
+    if (controller._ended) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _closeDialog());
+    }
+  }
+
+  void _onUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  void _closeDialog() {
+    if (!mounted) return;
+    var route = ModalRoute.of(context);
+    if (route == null || !route.isActive) return;
+    var navigator = Navigator.of(context);
+    if (route.isCurrent) {
+      navigator.pop();
+    } else {
+      navigator.removeRoute(route);
+    }
   }
 
   @override
   void dispose() {
-    widget.controller.dispose();
+    controller.removeListener(_onUpdate);
+    controller.dispose();
     super.dispose();
   }
 
@@ -146,6 +203,14 @@ class _ProgressWidgetState extends State<ProgressWidget> {
   Widget build(BuildContext context) {
     return ContentDialog(
       title: Text(controller.title),
+      actions: controller.onCancel == null
+          ? null
+          : [
+              Button(
+                onPressed: controller.cancel,
+                child: Text(controller.cancelText),
+              ),
+            ],
       content: SizedBox(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,8 +220,6 @@ class _ProgressWidgetState extends State<ProgressWidget> {
             Text(
               controller.text,
               style: FluentTheme.of(context).typography.body,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
             ),
             SizedBox(height: 10),
             SizedBox(

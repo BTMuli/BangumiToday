@@ -14,6 +14,7 @@ import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
 import '../../store/app_store.dart' as app_store;
+import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
@@ -44,6 +45,14 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
 
   /// 是否正在刷新授权
   bool _refreshingAuth = false;
+
+  bool _isLoggingIn = false;
+
+  @override
+  void dispose() {
+    if (_isLoggingIn) BangumiOAuthCoordinator.instance.cancel();
+    super.dispose();
+  }
 
   /// 刷新用户信息
   Future<void> freshUserInfo() async {
@@ -112,35 +121,47 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
 
   /// 认证用户
   Future<void> oauthUser() async {
-    if (progress.isShow) {
-      progress.update(title: '处理用户授权', text: '正在前往授权页面', progress: null);
-    } else {
-      progress = ProgressWidget.show(context, title: '前往授权页面');
-    }
-    progress.update(text: '等待授权回调');
-    var res = await BangumiOAuthCoordinator.instance.authorize(
-      apiOauth,
-      onProgress: (text) => progress.update(text: text),
+    var coordinator = BangumiOAuthCoordinator.instance;
+    if (_isLoggingIn || coordinator.isAuthorizing || progress.isShow) return;
+    _isLoggingIn = true;
+    var authProgress = ProgressWidget.show(
+      context,
+      title: 'Bangumi 授权',
+      text: '正在打开浏览器授权页面',
+      onCancel: coordinator.cancel,
+      cancelText: '取消授权',
     );
-    if (!mounted) {
-      progress.end();
-      return;
+    progress = authProgress;
+    try {
+      var res = await coordinator.authorize(
+        apiOauth,
+        onProgress: (text) => authProgress.update(text: text),
+      );
+      if (!mounted || res.code == 499) return;
+      if (res.code != 0 || res.data == null) {
+        authProgress.end();
+        await showRespErr(res, context);
+        return;
+      }
+      authProgress.onCancel = null;
+      authProgress.update(text: '保存授权信息');
+      var at = res.data as BangumiOauthTokenGetData;
+      await ref
+          .read(bgmUserStoreProvider.notifier)
+          .updateTokenSet(
+            accessToken: at.accessToken,
+            refreshToken: at.refreshToken,
+            expiresIn: at.expiresIn,
+          );
+      if (mounted) await freshUserInfo();
+    } catch (error) {
+      BTLogTool.error('用户授权失败：$error');
+      authProgress.end();
+      if (mounted) await BtInfobar.error(context, '授权失败，请重试');
+    } finally {
+      authProgress.end();
+      _isLoggingIn = false;
     }
-    if (res.code != 0 || res.data == null) {
-      progress.end();
-      await showRespErr(res, context);
-      return;
-    }
-    progress.update(text: '保存授权信息');
-    var at = res.data as BangumiOauthTokenGetData;
-    await ref
-        .read(bgmUserStoreProvider.notifier)
-        .updateTokenSet(
-          accessToken: at.accessToken,
-          refreshToken: at.refreshToken,
-          expiresIn: at.expiresIn,
-        );
-    await freshUserInfo();
   }
 
   /// 尝试删除用户信息

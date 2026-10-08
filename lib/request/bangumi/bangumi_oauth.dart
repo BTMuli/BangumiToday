@@ -18,7 +18,11 @@ abstract class BangumiOauthGateway {
   Future<void> openAuthorizePage({String? state});
 
   /// 用授权码换取 AccessToken。
-  Future<BTResponse> getAccessToken(String code, {String? state});
+  Future<BTResponse> getAccessToken(
+    String code, {
+    String? state,
+    CancelToken? cancelToken,
+  });
 }
 
 /// bangumi.tv 的 OAuth
@@ -60,12 +64,18 @@ class BtrBangumiOauth implements BangumiOauthGateway {
     var url = Uri.parse(
       '$oauthBaseUrl/authorize',
     ).replace(queryParameters: query);
-    await launchUrl(url);
+    if (!await launchUrl(url)) {
+      throw StateError('无法打开授权页面，请检查默认浏览器设置后重试');
+    }
   }
 
   /// 获取 AccessToken
   @override
-  Future<BTResponse> getAccessToken(String code, {String? state}) async {
+  Future<BTResponse> getAccessToken(
+    String code, {
+    String? state,
+    CancelToken? cancelToken,
+  }) async {
     if (!hasBgmOauthCredentials()) {
       return BTResponse.error(
         code: 500,
@@ -83,7 +93,11 @@ class BtrBangumiOauth implements BangumiOauthGateway {
     );
     try {
       var payload = _oauthForm(params.toJson());
-      var response = await _postOauthForm('/access_token', payload);
+      var response = await _postOauthForm(
+        '/access_token',
+        payload,
+        cancelToken: cancelToken,
+      );
       var map = bangumiJsonMap(response.data);
       if (map == null) {
         return handleBangumiUnexpectedResponse(
@@ -211,18 +225,29 @@ class BtrBangumiOauth implements BangumiOauthGateway {
     String path,
     Map<String, String> payload, {
     bool useSelectedSite = false,
+    CancelToken? cancelToken,
   }) async {
     var options = Options(
       contentType: Headers.formUrlEncodedContentType,
       extra: {if (useSelectedSite) 'oauthUseSelectedSite': true},
     );
-    var response = await client.dio.post(path, data: payload, options: options);
+    var response = await client.dio.post(
+      path,
+      data: payload,
+      options: options,
+      cancelToken: cancelToken,
+    );
     if (bangumiJsonMap(response.data) != null || useSelectedSite) {
       return response;
     }
     if (oauthBaseUrl == oauthTokenBaseUrl) return response;
     BTLogTool.warn('官方 OAuth $path 非 JSON，改走 $oauthBaseUrl');
-    return _postOauthForm(path, payload, useSelectedSite: true);
+    return _postOauthForm(
+      path,
+      payload,
+      useSelectedSite: true,
+      cancelToken: cancelToken,
+    );
   }
 }
 
