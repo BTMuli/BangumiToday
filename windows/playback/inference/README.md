@@ -110,7 +110,7 @@ cmake --build .dart_tool/playback_inference/build --config Release
 播放器显示主动下载入口，选择质量不会自行下载。
 
 基础包仅增加随应用发布的 `tensorrt-components.json` 可信清单和小型 SDK 头文件的
-构建依赖，不包含 NVIDIA 大运行库。应用显式下载固定上游 3.6.3 的 common + sm89
+构建依赖，不包含 NVIDIA 大运行库。应用显式下载固定上游 3.7.0 的 common + sm89
 归档（约 329 MiB），验证归档和每个文件的 SHA-256，使用系统 tar.exe 解压；不运行
 下载的解压器，不安装 Toolkit、修改 PATH 或安装驱动。资源写入
 `%LOCALAPPDATA%/BangumiToday/playback-tensorrt/11.3.0.99/sm89`，约 611 MiB。
@@ -137,6 +137,15 @@ Job Object、15 分钟超时和取消负责回收子进程；模型尺寸、版�
 ```
 
 前者由基础准备脚本自动调用，仅固定 TRT/CUDA 头文件；后者用于开发时侧载选装组件。
+
+### AnimeJaNai 3.7.0 对齐
+
+3.7.0 的发布清单仍使用当前固定的 mpv `d6d93599d5`、TensorRT 11.3.0.99 和
+ORT / DirectML 1.24.4 / 1.15.4。Performance、Balanced 模型和模型许可的
+SHA-256 与现有锁定相同，因此保留原有源码固定点及 SDK。
+common / sm89 归档重新打包后 SHA-256 已变化，组件锁和 Dart 可信清单摘要已同步
+更新。实际下载、解压及逐文件校验确认运行库文件不变，已安装资源继续在原目录
+校验复用，不因上游包版本变化重新下载。
 
 ## 验证边界与待办
 

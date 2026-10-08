@@ -523,7 +523,7 @@ GPU 标识及 compute capability、输入 shape、精度、构建选项和桥 AB
 
 ### 9.4 体积参考
 
-本次核对的上游 3.6.3 组件清单使用 TRT 11.3.0.99，与方案基线一致。
+本次核对的上游 3.7.0 组件清单使用 TRT 11.3.0.99，与方案基线一致。
 以下为公共 `trt-runtime` 与一份架构包的 7z 归档大小之和，不包含主包、
 引擎缓存、额外 PTX，也不是本项目 ZIP / MSIX 的实测值。
 
@@ -537,8 +537,8 @@ GPU 标识及 compute capability、输入 shape、精度、构建选项和桥 AB
 若选择已验证的 PTX 替代包，公共包 + PTX 参考为下载 395 MB、占用 694 MB，
 不是额外默认下载所有 SM 资源。最终数值由项目发行 ZIP 的实际文件决定。
 架构判断始终读取设备能力，上表不能作为根据显卡名称匹配的实现逻辑。
-[上游体积清单](https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.6.3/packs.json)、
-[上游运行库版本](https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.6.3/manifest.json)、
+[上游体积清单](https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/packs.json)、
+[上游运行库版本](https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/manifest.json)、
 [NVIDIA GPU 架构表](https://developer.nvidia.com/cuda/gpus)
 
 ## 10. 性能与正确性验收
@@ -748,6 +748,13 @@ P0 尚未通过：隔离验证已有证据，真实 mpv / ANGLE / Flutter 播放
   资源准备、CRT notice 换行导致哈希变化、C ABI/析构异常和未生效的性能降级。
 - 本轮采用受影响 Dart 静态分析、非 UI 协调器行为验证、独立原生编译与资源/打包
   校验；临时验证文件完成后删除。未构建或启动 Flutter 应用。
+- 2026-10-08 对齐 AnimeJaNai 3.7.0：官方 manifest 中的 mpv `d6d93599d5`、
+  TRT 11.3.0.99、ORT / DirectML 版本均与当前固定版本一致；两档模型及模型许可
+  在 3.7.0 源码下的 SHA-256 也未变化。更新 common / sm89 归档 URL、归档摘要
+  和 Dart 可信清单摘要；实际下载、解压、逐文件 SHA-256 与 PE 依赖校验通过。
+  运行库文件未变化，资源服务的非 UI 验证确认旧安装目录在断网时继续复用，
+  LF / CRLF 清单均通过校验、篡改清单被拒绝；Dart 分析及格式检查通过。
+  临时验证文件已清理，未构建或启动 Flutter 应用。
 
 ### 后续顺序
 

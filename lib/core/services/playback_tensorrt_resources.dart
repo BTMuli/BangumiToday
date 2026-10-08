@@ -35,7 +35,7 @@ class PlaybackTensorRtResources {
 
   static const version = '11.3.0.99';
   static const manifestSha256 =
-      '677d9cad34f83da3872f0337490c883e0a051f8922892eb92b412feb3bdeb636';
+      '807eebf6dabf61d0caeb1835774e0e1aac9bca9ccbe1d2de537e663531a51aa5';
   final void Function() onChanged;
   final String bundleDirectory;
   final String dataDirectory;

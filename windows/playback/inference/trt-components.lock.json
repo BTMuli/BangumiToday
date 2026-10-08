@@ -7,15 +7,15 @@
   "supportedSm": 89,
   "archives": [
     {
-      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.6.3/component-trt-runtime.7z",
+      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/component-trt-runtime.7z",
       "group": "common",
-      "sha256": "f00ec45133e86965e0b5c91e3c7727c7264bb6029505bdc044b2146983b57a0b",
+      "sha256": "282cb9b178db241f61f7aedf1ef214af56c2a342428253d04a8d8916d6729373",
       "bytes": 186822775
     },
     {
-      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.6.3/component-trt-sm89.7z",
+      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/component-trt-sm89.7z",
       "group": "sm89",
-      "sha256": "7de69ef11a1e2a033cec5837a0ead9c85d1cd6f13bfebd42d3374006ffec2c1d",
+      "sha256": "34bd51be1cb1581db3e494d1b30732c926cd9ac1a340efabdf0f9148911fdc87",
       "bytes": 158554965
     }
   ],

@@ -5,6 +5,7 @@
 # (mpv with rubberband / x264 / x265); see windows/licenses/libmpv/NOTICE.md.
 # The LGPL variant (`mpv-dev-lgpl-*`, produced by that repository's workflow
 # with `lgpl=true`) can replace these constants once it exists.
+# This build matches the mpvfork pinned in mpv-AnimeJaNai 3.7.0's manifest.json.
 set(BANGUMI_LIBMPV_RELEASE "2026-10-07-d6d93599d5")
 set(BANGUMI_LIBMPV_ARCHIVE_NAME
     "mpv-dev-x86_64-20261007-git-d6d93599d5.7z")

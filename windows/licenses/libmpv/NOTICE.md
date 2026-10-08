@@ -11,6 +11,9 @@ Archive SHA-256: `077cb75fed47b185428f97224e1d798e2d4c2f4063fd8cda2662b74f289232
 
 DLL SHA-256: `90de8f89fa1421eaec510e5cfe11de75846b445489864220ec811fd0f08b4649`
 
+This is the same mpv fork build pinned by the AnimeJaNai 3.7.0
+[release manifest](https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/manifest.json).
+
 This runtime is what makes the AnimeJaNai upscaling filter available: media_kit's
 own libmpv build and upstream mpv do not contain `vf_animejanai`, which exists
 only in `the-database/mpv`. The build also keeps the FFmpeg audio filters used
