@@ -1,0 +1,12 @@
+// Generated from the repository lock, never from installed.json.
+#pragma once
+#include <cstdint>
+namespace bangumi::inference::detail {
+inline constexpr char kTrtVersion[] = "@_trt_trtVersion@";
+inline constexpr int kCudaVersion = @_trt_cudaVersion@;
+inline constexpr int kMinimumDriver = @_trt_minimumDriver@;
+inline constexpr int kSupportedSm = @_trt_supportedSm@;
+struct TrtAsset { const wchar_t* name; uint64_t bytes; const char* sha256; };
+inline constexpr TrtAsset kTrtAssets[] = {
+@_trt_assets@};
+}

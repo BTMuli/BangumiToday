@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "bridgeAbi": 8,
+  "trtVersion": "11.3.0.99",
+  "cudaVersion": 13040,
+  "minimumDriver": 13040,
+  "supportedSm": 89,
+  "archives": [
+    {
+      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.6.3/component-trt-runtime.7z",
+      "group": "common",
+      "sha256": "f00ec45133e86965e0b5c91e3c7727c7264bb6029505bdc044b2146983b57a0b",
+      "bytes": 186822775
+    },
+    {
+      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.6.3/component-trt-sm89.7z",
+      "group": "sm89",
+      "sha256": "7de69ef11a1e2a033cec5837a0ead9c85d1cd6f13bfebd42d3374006ffec2c1d",
+      "bytes": 158554965
+    }
+  ],
+  "files": [
+    {
+      "name": "CUDA_LICENSE.txt",
+      "sha256": "088381bc2d891e719a2a9398645b00bb45f3b24231473a8283ac7e3e66b8a028",
+      "group": "common",
+      "bytes": 68070
+    },
+    {
+      "name": "cudart64_13.dll",
+      "sha256": "05bfafcb97bd53b0089568a96e1e5bd6921637bd0853ff7f5342bd31a6a16890",
+      "group": "common",
+      "bytes": 551024
+    },
+    {
+      "name": "nvinfer_11.dll",
+      "sha256": "ab5148bc65ba53675ffbb7ebd86694937b3cff15e52655f43afc2421b90bdc6b",
+      "group": "common",
+      "bytes": 401707120
+    },
+    {
+      "name": "nvinfer_builder_resource_sm89_11.dll",
+      "sha256": "f0bd157c522fe03cab903d4b61ed2e0d15cdf0c639aa824ab0004aef945af79a",
+      "group": "sm89",
+      "bytes": 189048432
+    },
+    {
+      "name": "nvinfer_plugin_11.dll",
+      "sha256": "55e1dc2948661f323558254e204c859e2e9074ffbe08cc0bfd9caf68aa5d3084",
+      "group": "common",
+      "bytes": 45631600
+    },
+    {
+      "name": "nvonnxparser_11.dll",
+      "sha256": "823f7d6e3d2b0273d438296b14fb1b71f1ef37b2a0a8539d7f04a41960584c8c",
+      "group": "common",
+      "bytes": 2290288
+    },
+    {
+      "name": "trtexec.exe",
+      "sha256": "d32899c4a9fcd254e626092a34ab83631222c1d7904bb61da6a1801feef62139",
+      "group": "common",
+      "bytes": 956528
+    },
+    {
+      "name": "msvcp140.dll",
+      "sha256": "639342ea9a67c0009122238ce070a8257e2e04d367d627509fec29f8442afb42",
+      "group": "crt",
+      "bytes": 642720
+    },
+    {
+      "name": "msvcp140_1.dll",
+      "sha256": "456aebccb449fcba35f1109c259ba0aa10923e660f4de812a490d35f37f54fc9",
+      "group": "crt",
+      "bytes": 35920
+    },
+    {
+      "name": "vcruntime140.dll",
+      "sha256": "19c293ac482fdb882cd29d2b0e6d807419efdcada04068f03e5723670895e17d",
+      "group": "crt",
+      "bytes": 178848
+    },
+    {
+      "name": "vcruntime140_1.dll",
+      "sha256": "a253a12e4a8e9e23ebfe0ced829f7751e4f42c60066986bf20515ced8dcc68cd",
+      "group": "crt",
+      "bytes": 50256
+    }
+  ]
+}

@@ -45,6 +45,7 @@ part 'playback_controls.dart';
 part 'playback_overlay.dart';
 part 'playback_seek_bar.dart';
 part 'playback_video_info.dart';
+part 'playback_tensorrt_progress.dart';
 part 'playback_viewport.dart';
 part 'playback_library_panel.dart';
 

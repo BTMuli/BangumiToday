@@ -2,6 +2,7 @@
 import 'dart:async';
 
 // Project imports:
+import '../../models/playback/playback_janai_status.dart';
 import '../../models/playback/playback_upscale.dart';
 
 abstract class PlaybackUpscaleBackend {
@@ -13,6 +14,7 @@ abstract class PlaybackUpscaleBackend {
   /// (1 smooth, 2 high quality); null clears the chain and restores the decoder
   /// configuration used for plain playback.
   Future<void> janai(int? slot);
+  Future<PlaybackJanaiStatus?> janaiStatus();
 
   /// The installed video filter entries as mpv reports them: one map per filter
   /// with at least `name`, plus `enabled` and `params` when mpv provides them.
@@ -52,6 +54,7 @@ class PlaybackUpscaler {
   PlaybackPixels? actualOutput;
   PlaybackUpscalePlan plan = const PlaybackUpscalePlan('已关闭');
   String? warning;
+  PlaybackJanaiStatus? janaiStatus;
   bool _warned = false;
   bool _failed = false;
   bool _closed = false;
@@ -141,6 +144,20 @@ class PlaybackUpscaler {
     }
     mode = value;
     _schedule(immediate: true);
+  }
+
+  void inferencePreferenceChanged() {
+    if (_closed) return;
+    _stopDropMonitor();
+    _loadedMode = null;
+    _applied = null;
+    janaiStatus = null;
+    if (!_restorationFailed) {
+      _failed = _warned = false;
+      warning = null;
+      _lastFailure = null;
+    }
+    _schedule(immediate: true, invalidate: true);
   }
 
   void source(PlaybackVideoSource? value) {
@@ -645,6 +662,7 @@ class PlaybackUpscaler {
   }
 
   void _stopDropMonitor() {
+    janaiStatus = null;
     _dropTimer?.cancel();
     _dropTimer = null;
     _dropBaseline = null;
@@ -663,6 +681,29 @@ class PlaybackUpscaler {
     _readingDrops = true;
     var epoch = _dropEpoch;
     try {
+      var status = await backend.janaiStatus();
+      if (_closed || epoch != _dropEpoch || _failed) return;
+      janaiStatus = status;
+      onChanged();
+      if (status != null &&
+          (status.phase == 'failed' ||
+              (status.active && status.backend != 'tensorrt'))) {
+        _lastFailure = StateError(
+          status.phase == 'failed' && status.reason.isNotEmpty
+              ? status.reason
+              : 'AI 实时超分需要 NVIDIA 显卡和已配置的 TensorRT',
+        );
+        _failed = true;
+        onError(_lastFailure!);
+        _schedule(immediate: true);
+        return;
+      }
+      if (status?.active == false || status == null) {
+        // Preparing/passthrough playback has no inference frame budget.
+        _dropBaseline = null;
+        _dropWindows = 0;
+        return;
+      }
       var values = await Future.wait([
         backend.read('frame-drop-count'),
         backend.read('estimated-frame-number'),

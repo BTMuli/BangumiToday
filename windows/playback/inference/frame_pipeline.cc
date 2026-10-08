@@ -14,6 +14,8 @@
 #include "dml_session.h"
 #include "frame_converter.h"
 #include "interop.h"
+#include "gpu_capabilities.h"
+#include "trt_session.h"
 
 namespace bangumi::inference {
 namespace {
@@ -102,6 +104,7 @@ struct FramePipeline::State {
   // D3D12 device and fence they borrow.
   std::unique_ptr<InteropContext> interop;
   std::unique_ptr<DmlSession> session;
+  std::unique_ptr<TrtSession> trt_session;
   std::unique_ptr<FrameConverter> converter;
   ComPtr<ID3D11Device> device;
   ComPtr<ID3D11DeviceContext4> context4;
@@ -160,6 +163,10 @@ std::unique_ptr<FramePipeline> FramePipeline::Create(
   };
   if (!playback_device)
     throw std::invalid_argument("Missing playback device for JaNai");
+  if (config.require_tensorrt &&
+      (!config.trt_resources || config.trt_engine.empty())) {
+    return report("AI 实时超分需要 NVIDIA 显卡和已配置的 TensorRT");
+  }
   const std::string validation = ValidateFrameDescription(config.frame);
   if (!validation.empty()) return report(validation);
   FramePlan plan;
@@ -202,12 +209,20 @@ std::unique_ptr<FramePipeline> FramePipeline::Create(
       OpenSharedTexture(state.output.Get(), state.interop->device());
 
   try {
-    DmlSession::Options session_options;
-    session_options.placement_profile = config.placement_profile;
-    session_options.log_severity = config.log_severity;
-    state.session = std::make_unique<DmlSession>(
-        *state.interop, config.runtime_directory, config.model,
-        plan.model_width, plan.model_height, session_options);
+    if (config.trt_resources && !config.trt_engine.empty()) {
+      state.trt_session = std::make_unique<TrtSession>(config.trt_resources,
+          config.trt_engine, QueryGpuCapabilities(playback_device),
+          plan.model_width, plan.model_height);
+      state.trt_session->Attach(state.converter->planar_rgb(),
+                                 state.converter->model_output_rgb());
+    } else {
+      DmlSession::Options session_options;
+      session_options.placement_profile = config.placement_profile;
+      session_options.log_severity = config.log_severity;
+      state.session = std::make_unique<DmlSession>(
+          *state.interop, config.runtime_directory, config.model,
+          plan.model_width, plan.model_height, session_options);
+    }
   } catch (const std::exception& error) {
     return report(std::string("The upscaling model could not be prepared: ") +
                   error.what());
@@ -276,9 +291,11 @@ FrameBudgetMonitor::Snapshot FramePipeline::performance() const {
 bool FramePipeline::fallback_recommended() const {
   return state_->budget.snapshot().fallback_recommended;
 }
+bool FramePipeline::uses_tensorrt() const { return state_->trt_session != nullptr; }
 
 std::filesystem::path FramePipeline::EndPlacementProfiling() {
-  return state_->session->EndPlacementProfiling();
+  return state_->session ? state_->session->EndPlacementProfiling()
+                          : std::filesystem::path();
 }
 
 uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
@@ -313,6 +330,10 @@ uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
           state.interop->MillisecondsBetween(ticks[2], ticks[3]);
       state.timing.gpu_total_ms =
           state.interop->MillisecondsBetween(ticks[0], ticks[3]);
+      if (state.trt_session) {
+        state.timing.gpu_inference_ms = state.trt_session->last_gpu_ms();
+        state.timing.gpu_total_ms += state.timing.gpu_inference_ms;
+      }
       state.timing.gpu_measured = state.timing.gpu_total_ms > 0.0;
       const Clock::time_point now = Clock::now();
       if (state.measured_at != Clock::time_point{}) {
@@ -383,45 +404,50 @@ uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
   context->Flush();
   const Clock::time_point after_input = Clock::now();
 
-  state.interop->Submit(input_ready, [&](ID3D12GraphicsCommandList* list) {
-    if (measuring) state.interop->WriteTimestamp(list, measurement_base);
-    state.Transition(list, state.planar_rgb.Get(),
-                     D3D12_RESOURCE_STATE_COPY_SOURCE);
-    state.Transition(list, state.session->input(),
-                     D3D12_RESOURCE_STATE_COPY_DEST);
-    D3D12_TEXTURE_COPY_LOCATION source = Subresource(state.planar_rgb.Get(), 0);
-    D3D12_TEXTURE_COPY_LOCATION destination = Footprint(
-        state.session->input(), DXGI_FORMAT_R16_FLOAT, plan.model_width,
-        plan.model_height * 3, plan.model_width * 2);
-    list->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
-    // DirectML expects the tensors in the common state.
-    state.Transition(list, state.session->input(), D3D12_RESOURCE_STATE_COMMON);
-    if (measuring) state.interop->WriteTimestamp(list, measurement_base + 1);
-  });
+  if (state.trt_session) {
+    state.trt_session->Run(context);
+  } else {
+    state.interop->Submit(input_ready, [&](ID3D12GraphicsCommandList* list) {
+      if (measuring) state.interop->WriteTimestamp(list, measurement_base);
+      state.Transition(list, state.planar_rgb.Get(),
+                       D3D12_RESOURCE_STATE_COPY_SOURCE);
+      state.Transition(list, state.session->input(),
+                       D3D12_RESOURCE_STATE_COPY_DEST);
+      D3D12_TEXTURE_COPY_LOCATION source =
+          Subresource(state.planar_rgb.Get(), 0);
+      D3D12_TEXTURE_COPY_LOCATION destination = Footprint(
+          state.session->input(), DXGI_FORMAT_R16_FLOAT, plan.model_width,
+          plan.model_height * 3, plan.model_width * 2);
+      list->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+      // DirectML expects the tensors in the common state.
+      state.Transition(list, state.session->input(),
+                       D3D12_RESOURCE_STATE_COMMON);
+      if (measuring) state.interop->WriteTimestamp(list, measurement_base + 1);
+    });
 
-  const uint64_t inference_done = state.session->Run();
+    const uint64_t inference_done = state.session->Run();
 
-  const uint64_t model_output_ready = state.interop->Submit(
-      inference_done, [&](ID3D12GraphicsCommandList* list) {
-        if (measuring)
-          state.interop->WriteTimestamp(list, measurement_base + 2);
-        state.Transition(list, state.session->output(),
-                         D3D12_RESOURCE_STATE_COPY_SOURCE);
-        state.Transition(list, state.model_output_rgb.Get(),
-                         D3D12_RESOURCE_STATE_COPY_DEST);
-        D3D12_TEXTURE_COPY_LOCATION source =
-            Footprint(state.session->output(), DXGI_FORMAT_R16_FLOAT,
-                      plan.model_output_width, plan.model_output_height * 3,
-                      plan.model_output_width * 2);
-        D3D12_TEXTURE_COPY_LOCATION destination =
-            Subresource(state.model_output_rgb.Get(), 0);
-        list->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
-        state.Transition(list, state.session->output(),
-                         D3D12_RESOURCE_STATE_COMMON);
-      });
+    const uint64_t model_output_ready = state.interop->Submit(
+        inference_done, [&](ID3D12GraphicsCommandList* list) {
+          if (measuring)
+            state.interop->WriteTimestamp(list, measurement_base + 2);
+          state.Transition(list, state.session->output(),
+                           D3D12_RESOURCE_STATE_COPY_SOURCE);
+          state.Transition(list, state.model_output_rgb.Get(),
+                           D3D12_RESOURCE_STATE_COPY_DEST);
+          D3D12_TEXTURE_COPY_LOCATION source =
+              Footprint(state.session->output(), DXGI_FORMAT_R16_FLOAT,
+                        plan.model_output_width, plan.model_output_height * 3,
+                        plan.model_output_width * 2);
+          D3D12_TEXTURE_COPY_LOCATION destination =
+              Subresource(state.model_output_rgb.Get(), 0);
+          list->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+          state.Transition(list, state.session->output(),
+                           D3D12_RESOURCE_STATE_COMMON);
+        });
+    state.interop->WaitOnD3D11(state.context4.Get(), model_output_ready);
+  }
   const Clock::time_point after_copy_out = Clock::now();
-
-  state.interop->WaitOnD3D11(state.context4.Get(), model_output_ready);
   state.converter->ConvertFromPlanarRgb(context);
   const uint64_t planes_ready =
       state.interop->SignalFromD3D11(state.context4.Get());
@@ -430,6 +456,14 @@ uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
 
   const uint64_t ticket =
       state.interop->Submit(planes_ready, [&](ID3D12GraphicsCommandList* list) {
+        if (measuring && state.trt_session) {
+          // CUDA event timings cover packing/inference/unpacking. These D3D12
+          // timestamps add the final YUV plane copies without pretending the
+          // DirectML queue can time CUDA work.
+          state.interop->WriteTimestamp(list, measurement_base);
+          state.interop->WriteTimestamp(list, measurement_base + 1);
+          state.interop->WriteTimestamp(list, measurement_base + 2);
+        }
         state.Transition(list, state.out_luma.Get(),
                          D3D12_RESOURCE_STATE_COPY_SOURCE);
         state.Transition(list, state.out_chroma.Get(),

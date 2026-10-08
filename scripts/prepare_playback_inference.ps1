@@ -74,6 +74,7 @@ function Resolve-VCRedistDirectory([string]$Stage) {
 if (Test-Path -LiteralPath $outputRoot) {
     & (Join-Path $PSScriptRoot 'verify_playback_inference_prerequisites.ps1') -RuntimeDirectory (Join-Path $outputRoot 'runtime')
     Assert-PreparedHeaders -Root $outputRoot
+    & (Join-Path $PSScriptRoot 'prepare_playback_tensorrt.ps1') -HeadersOnly -SdkDirectory (Join-Path $outputRoot 'sdk/tensorrt') -CacheDirectory $cacheRoot
     Write-Output "Reusing verified inference assets: $outputRoot"
     return
 }
@@ -120,6 +121,7 @@ try {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../windows/playback/inference/THIRD_PARTY_NOTICES.txt') -Destination $runtime
     & (Join-Path $PSScriptRoot 'verify_playback_inference_prerequisites.ps1') -RuntimeDirectory $runtime
     Assert-PreparedHeaders -Root $stage
+    & (Join-Path $PSScriptRoot 'prepare_playback_tensorrt.ps1') -HeadersOnly -SdkDirectory (Join-Path $stage 'sdk/tensorrt') -CacheDirectory $cacheRoot
     $crtStage = Join-Path $stage 'crt'
     if (Test-Path -LiteralPath $crtStage) {
         foreach ($item in Get-ChildItem -LiteralPath $crtStage -Recurse -File) {

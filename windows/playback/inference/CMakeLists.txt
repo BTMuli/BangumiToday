@@ -7,6 +7,8 @@ if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif()
 set(PLAYBACK_ORT_SDK_DIR "" CACHE PATH "Pinned ORT DirectML NuGet extraction")
 set(PLAYBACK_DML_SDK_DIR "" CACHE PATH "Pinned DirectML NuGet extraction")
+set(PLAYBACK_TRT_SDK_DIR "${PLAYBACK_ORT_SDK_DIR}/../tensorrt" CACHE PATH
+    "Pinned TensorRT and CUDA headers (no runtime libraries)")
 if(NOT EXISTS "${PLAYBACK_ORT_SDK_DIR}/build/native/include/onnxruntime_c_api.h" OR
    NOT EXISTS "${PLAYBACK_DML_SDK_DIR}/include/DirectML.h")
   message(FATAL_ERROR "Prepare the pinned ORT and DirectML headers first")
@@ -54,6 +56,51 @@ foreach(_id performance balanced onnxruntime directml)
 endforeach()
 configure_file(trusted_assets_data.h.in trusted_assets_data.h @ONLY)
 
+# TensorRT/CUDA are loaded lazily, never linked into aji or libmpv. Only pinned
+# SDK headers are needed to compile the optional route; preparation downloads
+# no NVIDIA runtime into the application bundle.
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/trt-sdk.lock.json" _trt_sdk_lock)
+string(JSON _trt_header_count LENGTH "${_trt_sdk_lock}" headers)
+math(EXPR _trt_header_last "${_trt_header_count} - 1")
+foreach(_index RANGE 0 ${_trt_header_last})
+  string(JSON _name GET "${_trt_sdk_lock}" headers ${_index} name)
+  string(JSON _sha GET "${_trt_sdk_lock}" headers ${_index} sha256)
+  if(NOT EXISTS "${PLAYBACK_TRT_SDK_DIR}/include/${_name}")
+    message(FATAL_ERROR "Prepare TensorRT headers: scripts/prepare_playback_tensorrt.ps1 -HeadersOnly")
+  endif()
+  file(SHA256 "${PLAYBACK_TRT_SDK_DIR}/include/${_name}" _actual)
+  if(NOT _actual STREQUAL _sha)
+    message(FATAL_ERROR "Pinned TensorRT header mismatch: ${_name}")
+  endif()
+endforeach()
+string(JSON _cuda_header_count LENGTH "${_trt_sdk_lock}" cudaHeaders)
+math(EXPR _cuda_header_last "${_cuda_header_count} - 1")
+foreach(_index RANGE 0 ${_cuda_header_last})
+  string(JSON _name GET "${_trt_sdk_lock}" cudaHeaders ${_index} name)
+  string(JSON _sha GET "${_trt_sdk_lock}" cudaHeaders ${_index} sha256)
+  file(SHA256 "${PLAYBACK_TRT_SDK_DIR}/cuda/include/${_name}" _actual)
+  if(NOT _actual STREQUAL _sha)
+    message(FATAL_ERROR "Pinned CUDA header mismatch: ${_name}")
+  endif()
+endforeach()
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/trt-components.lock.json" _trt_lock)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/trt-components.lock.json"
+  "${CMAKE_CURRENT_SOURCE_DIR}/trt-sdk.lock.json")
+string(JSON _trt_count LENGTH "${_trt_lock}" files)
+math(EXPR _trt_last "${_trt_count} - 1")
+set(_trt_assets "")
+foreach(_index RANGE 0 ${_trt_last})
+  string(JSON _name GET "${_trt_lock}" files ${_index} name)
+  string(JSON _bytes GET "${_trt_lock}" files ${_index} bytes)
+  string(JSON _sha GET "${_trt_lock}" files ${_index} sha256)
+  string(APPEND _trt_assets "  {L\"${_name}\", ${_bytes}ULL, \"${_sha}\"},\n")
+endforeach()
+foreach(_field trtVersion cudaVersion minimumDriver supportedSm)
+  string(JSON _trt_${_field} GET "${_trt_lock}" ${_field})
+endforeach()
+configure_file(trt_assets_data.h.in trt_assets_data.h @ONLY)
+
 # Frame conversion kernels: compiled by the pinned SDK shader compiler at build
 # time so the player needs no runtime shader compiler.
 if(NOT PLAYBACK_FXC_EXECUTABLE)
@@ -91,6 +138,7 @@ add_library(bangumi_dml_session STATIC
   dml_session.cc trusted_assets.cc gpu_capabilities.cc frame_contract.cc
   frame_budget.cc node_placement.cc interop.cc frame_converter.cc
   frame_pipeline.cc
+  cuda_api.cc trt_session.cc trt_engine_cache.cc
   "${CMAKE_CURRENT_BINARY_DIR}/frame_shaders_data.h")
 target_compile_features(bangumi_dml_session PUBLIC cxx_std_17)
 target_compile_definitions(bangumi_dml_session PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
@@ -98,7 +146,8 @@ target_compile_options(bangumi_dml_session PRIVATE /W4 /WX /EHsc /utf-8)
 target_include_directories(bangumi_dml_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(bangumi_dml_session PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 target_include_directories(bangumi_dml_session SYSTEM PRIVATE
-  "${PLAYBACK_ORT_SDK_DIR}/build/native/include" "${PLAYBACK_DML_SDK_DIR}/include")
+  "${PLAYBACK_ORT_SDK_DIR}/build/native/include" "${PLAYBACK_DML_SDK_DIR}/include"
+  "${PLAYBACK_TRT_SDK_DIR}/include" "${PLAYBACK_TRT_SDK_DIR}/cuda/include")
 target_link_libraries(bangumi_dml_session PUBLIC d3d12 d3d11 dxgi bcrypt shell32)
 
 # The shim loaded by the pinned mpv filter (see aji_abi.h).

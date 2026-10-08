@@ -41,6 +41,8 @@
 #include "aji_abi.h"
 #include "frame_contract.h"
 #include "frame_pipeline.h"
+#include "gpu_capabilities.h"
+#include "trt_engine_cache.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace bangumi::inference;
@@ -117,6 +119,19 @@ struct aji_ctx {
   std::filesystem::path config_path;
   std::filesystem::path runtime_dir;
   std::filesystem::path model_dir;
+  // A missing backend key in an older configuration must not enable DirectML.
+  // backend=directml is retained only as an explicit diagnostic override.
+  bool trt_enabled = true;
+  bool trt_failed = false;
+  bool build_notified = false;
+  int build_slot = 0, build_width = 0, build_height = 0;
+  std::filesystem::path trt_dir;
+  std::filesystem::path engine_cache;
+  std::unique_ptr<TrtEngineBuild> build;
+  std::filesystem::path trt_engine;
+  std::shared_ptr<TrtResources> trt_resources;
+  GpuCapabilities gpu;
+  std::string backend_reason;
   // Low-frequency diagnostics snapshot (config key `stats`). The hot path only
   // updates counters; the file is rewritten at most once per second.
   std::filesystem::path stats_path;
@@ -203,6 +218,14 @@ bool ParseConfig(aji_ctx& state, const std::filesystem::path& path) {
       state.model_dir = resolve(value);
     } else if (key == "stats") {
       state.stats_path = resolve(value);
+    } else if (key == "backend") {
+      if (value != "directml" && value != "tensorrt")
+        throw std::invalid_argument("Unknown AnimeJaNai backend");
+      state.trt_enabled = value == "tensorrt";
+    } else if (key == "trt_dir") {
+      state.trt_dir = resolve(value);
+    } else if (key == "engine_cache") {
+      state.engine_cache = resolve(value);
     } else if (key == "default_slot") {
       state.slot = std::atoi(value.c_str());
     } else if (key.rfind("slot", 0) == 0 && key.size() > 4) {
@@ -266,7 +289,12 @@ void DescribePlan(aji_ctx& state) {
   std::string text;
   text += "BangumiToday AnimeJaNai shim\n";
   text += "  api version: " + std::to_string(AJI_API_VERSION) + "\n";
-  text += "  backend: DirectML (ONNX Runtime)\n";
+  text += !state.pipeline ? "  backend: none (no active inference)\n"
+              : state.pipeline->uses_tensorrt()
+                    ? "  backend: TensorRT (CUDA / D3D11)\n"
+                    : "  backend: DirectML (diagnostic override)\n";
+  if (!state.backend_reason.empty())
+    text += "  TensorRT: " + state.backend_reason + "\n";
   text += "  slot: " + std::to_string(state.slot) + "\n";
   text += "  model: " + FromWide(model.filename().wstring()) + "\n";
   if (state.pipeline) {
@@ -303,7 +331,17 @@ void PublishStats(aji_ctx& state, const char* phase, bool force) noexcept try {
     // Fixed schema, one field per line: simple to parse and to extend.
     stream << "schemaVersion=1\n";
     stream << "phase=" << (phase ? phase : "unknown") << "\n";
-    stream << "backend=directml\n";
+    stream << "backend=" << (!state.pipeline ? "none"
+                                : state.pipeline->uses_tensorrt()
+                                      ? "tensorrt" : "directml") << "\n";
+    stream << "backendReason=" << state.backend_reason << "\n";
+    stream << "gpuName=" << FromWide(state.gpu.name) << "\n";
+    stream << "gpuVendor=" << state.gpu.vendor << "\n";
+    stream << "gpuSm=" << state.gpu.compute_major * 10 + state.gpu.compute_minor << "\n";
+    stream << "gpuDriver=" << state.gpu.cuda_driver_version << "\n";
+    stream << "buildLog=" << (state.build
+        ? FromWide(state.build->snapshot().log.wstring()) : std::string()) << "\n";
+    stream << "engine=" << FromWide(state.trt_engine.filename().wstring()) << "\n";
     stream << "slot=" << state.slot << "\n";
     stream << "model="
            << (state.slot_models.count(state.slot)
@@ -393,7 +431,7 @@ AJI_EXPORT aji_ctx* aji_create(const aji_create_params* params) try {
       // mpv resolves the filter's conf option against its working directory,
       // which is not necessarily the player directory. The shipped layout keeps
       // the configuration next to this DLL, so prefer that copy.
-      const std::filesystem::path beside_module = module / L"animejanai.conf";
+      const std::filesystem::path beside_module = module / config_source.filename();
       std::error_code beside_error;
       if (!module.empty() &&
           std::filesystem::exists(beside_module, beside_error)) {
@@ -415,6 +453,8 @@ AJI_EXPORT aji_ctx* aji_create(const aji_create_params* params) try {
                                 FromWide(config_source.wstring()));
       return nullptr;
     }
+    // default_slot is only a default; an explicit filter slot always wins.
+    if (params->slot > 0) state->slot = params->slot;
     if (state->slot > 0 && !state->slot_models.count(state->slot))
       state->Log(kLogWarning, "Slot " + std::to_string(state->slot) +
                                   " is not configured; the shim will pass "
@@ -432,6 +472,13 @@ AJI_EXPORT aji_ctx* aji_create(const aji_create_params* params) try {
   }
   if (state->runtime_dir.empty()) state->runtime_dir = module;
   if (state->stats_path.empty()) state->stats_path = DefaultStatsPath();
+  // Optional components and engines live in writable per-user data, never in
+  // WindowsApps or the application bundle. Production AI requires TensorRT;
+  // missing components leave ordinary playback available.
+  const auto writable = DefaultStatsPath().parent_path() / L"playback-tensorrt";
+  if (state->trt_dir.empty())
+    state->trt_dir = writable / L"11.3.0.99" / L"sm89";
+  if (state->engine_cache.empty()) state->engine_cache = writable / L"engines";
   DescribePlan(*state);
   state->Log(kLogInfo, "AnimeJaNai shim created (runtime " +
                            FromWide(state->runtime_dir.wstring()) + ")");
@@ -509,6 +556,77 @@ AJI_EXPORT int aji_configure(aji_ctx* c, int w, int h, double fps, int* out_w,
   c->width = w;
   c->height = h;
   c->fps = std::isfinite(fps) && fps > 0.0 ? fps : 0.0;
+  if (c->trt_enabled && !c->trt_failed) {
+    if (!c->build || c->build_slot != c->slot || c->build_width != w ||
+        c->build_height != h) {
+      c->build.reset();  // Cancels/reaps the previous generation's child.
+      c->trt_engine.clear();
+      c->trt_resources.reset();
+      c->build_notified = false;
+      c->build_slot = c->slot;
+      c->build_width = w;
+      c->build_height = h;
+      const auto gpu = QueryGpuCapabilities(c->device.Get());
+      c->gpu = gpu;
+      if (gpu.vendor != 0x10de || gpu.cuda_device < 0) {
+        c->trt_failed = true;
+        c->backend_reason =
+            gpu.vendor != 0x10de
+                ? "AI 实时超分需要 NVIDIA 显卡和已配置的 TensorRT"
+                : "NVIDIA 驱动或播放设备不支持 TensorRT：" + gpu.cuda_reason;
+      } else {
+        if (gpu.compute_major * 10 + gpu.compute_minor != 89 ||
+            gpu.cuda_driver_version < 13040) {
+          c->trt_failed = true;
+          c->backend_reason =
+              "当前组件仅验证 SM89 显卡，且需要 CUDA 13.4 或更高版本驱动";
+        } else if (!std::filesystem::exists(c->trt_dir / L"nvinfer_11.dll") ||
+                   !std::filesystem::exists(c->trt_dir / L"trtexec.exe")) {
+          c->backend_reason = "尚未安装 TensorRT 组件，请在播放器中下载";
+          c->status_reason = c->backend_reason;
+          PublishStats(*c, "resources_missing", true);
+          return 0;
+        } else {
+          const auto plan = MakeFramePlan(frame);
+          c->build = std::make_unique<TrtEngineBuild>(
+              c->trt_dir, c->engine_cache, c->slot_models[c->slot], gpu,
+              plan.model_width, plan.model_height);
+        }
+      }
+    }
+    if (c->build) {
+      const auto result = c->build->snapshot();
+      if (result.phase == TrtEngineBuild::Phase::kPreparing) {
+        c->backend_reason =
+            result.reason.empty()
+                ? "正在准备当前设备的 TensorRT 模型，准备期间正常播放"
+                : result.reason;
+        c->status_reason = c->backend_reason;
+        DescribePlan(*c);
+        PublishStats(*c, "preparing", true);
+        return 0;  // No active chain; mpv polls aji_poll while copying frames.
+      }
+      if (result.phase == TrtEngineBuild::Phase::kReady) {
+        c->trt_engine = result.engine;
+        c->trt_resources = result.resources;
+        c->backend_reason.clear();
+      } else {
+        c->trt_failed = true;
+        c->backend_reason = result.reason;
+        c->Log(kLogError, "TensorRT 准备失败，保持普通播放：" + result.reason);
+      }
+    }
+  }
+  if (c->trt_enabled &&
+      (c->trt_failed || !c->trt_resources || c->trt_engine.empty())) {
+    c->status_reason = c->backend_reason.empty()
+                           ? "AI 实时超分需要先配置 TensorRT"
+                           : c->backend_reason;
+    c->Log(kLogError, c->status_reason);
+    DescribePlan(*c);
+    PublishStats(*c, "failed", true);
+    return AJI_ERR_ENGINE;
+  }
   *out_w = w * 2;
   *out_h = h * 2;
   c->status_reason.clear();
@@ -561,6 +679,9 @@ AJI_EXPORT int aji_infer(aji_ctx* c, const aji_frame* in, const aji_frame* out,
     FramePipeline::Config config;
     config.runtime_directory = c->runtime_dir;
     config.model = c->slot_models[c->slot];
+    config.trt_engine = c->trt_engine;
+    config.trt_resources = c->trt_resources;
+    config.require_tensorrt = c->trt_enabled;
     if (config.model.is_relative())
       config.model = c->model_dir / config.model.filename();
     config.frame.format = format;
@@ -575,6 +696,13 @@ AJI_EXPORT int aji_infer(aji_ctx* c, const aji_frame* in, const aji_frame* out,
     config.frame.chroma_y_offset = in->siting == AJI_SITING_LEFT ? 0.5f : 0.0f;
     std::string reason;
     c->pipeline = FramePipeline::Create(c->device.Get(), config, &reason);
+    if (!c->pipeline && c->trt_enabled) {
+      c->trt_failed = true;
+      c->backend_reason = reason;
+      c->trt_engine.clear();
+      c->trt_resources.reset();
+      c->Log(kLogError, "TensorRT 推理不可用，保持普通播放：" + reason);
+    }
     if (!c->pipeline) {
       c->status_reason = reason;
       c->Log(kLogError, "Cannot prepare the shim pipeline: " + reason);
@@ -691,10 +819,20 @@ AJI_EXPORT int aji_resize(aji_ctx* c, const aji_frame* in, const aji_frame* out,
   return AJI_ERR;
 }
 
-AJI_EXPORT int aji_poll(aji_ctx* c) {
-  (void)c;
-  return 0;  // the shim never builds engines in the background
-}
+AJI_EXPORT int aji_poll(aji_ctx* c) try {
+  if (!c) return 0;
+  std::lock_guard<std::mutex> lock(c->mutex);
+  if (!c->build || c->build_notified) return 0;
+  const auto progress = c->build->snapshot();
+  if (progress.phase == TrtEngineBuild::Phase::kPreparing) {
+    c->status_reason = progress.reason;
+    PublishStats(*c, "preparing", false);
+    return 0;
+  }
+  c->build_notified = true;
+  // Reconfigure on both success and failure; failure restores ordinary playback.
+  return 1;
+} catch (...) { return 0; }
 
 AJI_EXPORT int aji_infer_rife(aji_ctx* c, const aji_frame* a,
                               const aji_frame* b, double t,

@@ -22,6 +22,7 @@ import '../core/services/playback_diagnostics.dart';
 import '../core/services/playback_loudness.dart';
 import '../core/services/playback_screenshot.dart';
 import '../core/services/playback_subtitles.dart';
+import '../core/services/playback_tensorrt_resources.dart';
 import '../core/services/playback_upscaler.dart';
 import '../core/utils/playback_audio_recovery.dart';
 import '../data/repositories/episode_mark_gateway_impl.dart';
@@ -135,6 +136,7 @@ class PlaybackStore extends ChangeNotifier {
   VideoController? _video;
   PlaybackUpscaler? _upscaler;
   PlaybackUpscaleMode _upscaleMode = PlaybackUpscaleMode.off;
+  bool _tensorRtEnabled = false;
   Object? _viewportOwner;
   bool _viewportFullscreen = false;
   final _viewports = <Object, ({PlaybackViewport value, bool fullscreen})>{};
@@ -175,6 +177,39 @@ class PlaybackStore extends ChangeNotifier {
   VideoController? get video => _video;
   PlaybackUpscaler? get upscaler => _upscaler;
   PlaybackUpscaleMode get upscaleMode => _upscaleMode;
+  bool get tensorRtEnabled => _tensorRtEnabled;
+  PlaybackTensorRtResources? _tensorRtResources;
+  PlaybackTensorRtResources get tensorRtResources =>
+      _tensorRtResources ??= PlaybackTensorRtResources(onChanged: _notify);
+
+  Future<void> downloadTensorRt() async {
+    if (_closed || !Platform.isWindows) return;
+    var installed = await tensorRtResources.install();
+    // Use the current preference and media generation after installation.
+    if (installed && !_closed && _tensorRtEnabled) {
+      _upscaler?.inferencePreferenceChanged();
+      _notify();
+    }
+  }
+
+  Future<void> cancelTensorRt() async {
+    if (tensorRtResources.busy) {
+      tensorRtResources.cancel();
+    } else {
+      await setUpscaleMode(PlaybackUpscaleMode.off);
+    }
+  }
+
+  Future<void> retryTensorRt() async {
+    if (tensorRtResources.stage == 'failed' ||
+        tensorRtResources.stage == 'cancelled' ||
+        tensorRtResources.native?.phase == 'resources_missing') {
+      await downloadTensorRt();
+    } else {
+      _upscaler?.inferencePreferenceChanged();
+    }
+  }
+
   bool get loudnessEnabled => _loudnessEnabled;
   bool get hiResEnabled => _hiResEnabled;
   bool get audioExclusiveEnabled => _audioExclusiveEnabled;
@@ -413,7 +448,12 @@ class PlaybackStore extends ChangeNotifier {
         ),
       );
       _upscaler = PlaybackUpscaler(
-        backend: NativePlaybackUpscaleBackend(player, video),
+        backend: NativePlaybackUpscaleBackend(
+          player,
+          video,
+          tensorRtEnabled: () => _tensorRtEnabled,
+          tensorRtResources: tensorRtResources,
+        ),
         loadShaders: assets.load,
         onChanged: _notify,
         onError: (error) => BTLogTool.warn('视频超分：$error'),
@@ -790,6 +830,8 @@ class PlaybackStore extends ChangeNotifier {
         _upscaleMode = PlaybackUpscaleMode.parse(
           await settingsStore.read('playbackUpscaleMode'),
         );
+        _tensorRtEnabled =
+            await settingsStore.read('playbackTensorRTEnabled') == 'true';
       }
       _notify();
     }();
@@ -1026,6 +1068,16 @@ class PlaybackStore extends ChangeNotifier {
     if (_closed) return;
     _upscaleMode = mode;
     _upscaler?.preferences(_upscaleMode);
+    _notify();
+  });
+
+  Future<void> setTensorRtEnabled(bool enabled) => _serial(() async {
+    await _loadPreferences();
+    if (_closed || !Platform.isWindows || _tensorRtEnabled == enabled) return;
+    await settingsStore.write('playbackTensorRTEnabled', enabled.toString());
+    if (_closed) return;
+    _tensorRtEnabled = enabled;
+    _upscaler?.inferencePreferenceChanged();
     _notify();
   });
 
@@ -1323,6 +1375,7 @@ class PlaybackStore extends ChangeNotifier {
 
   @override
   void dispose() {
+    _tensorRtResources?.dispose();
     _disposed = true;
     unawaited(
       shutdown().catchError((Object e) {

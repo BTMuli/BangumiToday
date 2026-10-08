@@ -25,12 +25,18 @@
 #include "frame_contract.h"
 
 namespace bangumi::inference {
+struct TrtResources;
 
 class FramePipeline final {
  public:
   struct Config {
     std::filesystem::path runtime_directory;
     std::filesystem::path model;
+    // An already-built and warmed engine. Empty keeps the DirectML route.
+    std::filesystem::path trt_engine;
+    std::shared_ptr<TrtResources> trt_resources;
+    // Production AI must never silently select the diagnostic DirectML route.
+    bool require_tensorrt = false;
     FrameDescription frame;
     // Diagnostics only: enables ONNX Runtime placement profiling (see
     // DmlSession::Options). Off by default.
@@ -101,6 +107,7 @@ class FramePipeline final {
   void ReportDropRate(double percent);
   FrameBudgetMonitor::Snapshot performance() const;
   bool fallback_recommended() const;
+  bool uses_tensorrt() const;
   // Stops placement profiling and returns the file holding it; empty when the
   // pipeline was created without a placement profile path.
   std::filesystem::path EndPlacementProfiling();

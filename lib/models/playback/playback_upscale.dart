@@ -11,8 +11,8 @@ enum PlaybackUpscaleMode {
   light('轻量', '优先流畅'),
   standard('标准', '画质与性能均衡'),
   high('高质量', '1080p → 4K · 较高 GPU 开销'),
-  janaiSmooth('AI 流畅', 'AnimeJaNai 2× · Performance 模型'),
-  janaiQuality('AI 高质量', 'AnimeJaNai 2× · Balanced 模型');
+  janaiSmooth('AI 流畅', 'Performance 模型 · 需要 NVIDIA + TensorRT'),
+  janaiQuality('AI 高质量', 'Balanced 模型 · 需要 NVIDIA + TensorRT');
 
   const PlaybackUpscaleMode(this.label, this.description);
   final String label;

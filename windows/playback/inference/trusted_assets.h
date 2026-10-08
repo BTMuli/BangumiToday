@@ -5,6 +5,8 @@
 
 #include <filesystem>
 #include <memory>
+#include <cstdint>
+#include <string>
 
 namespace bangumi::inference {
 // Holds a read-only file handle without write/delete sharing through loading.
@@ -18,6 +20,13 @@ class LockedAsset final {
   static std::unique_ptr<LockedAsset> Runtime(
       const std::filesystem::path& path);
   static std::unique_ptr<LockedAsset> Model(const std::filesystem::path& path);
+  // Expected values must come from the compiled component lock. Keeps the
+  // file immutable through DLL loading or child-process execution.
+  static std::unique_ptr<LockedAsset> File(const std::filesystem::path& path,
+                                          uint64_t bytes,
+                                          const std::string& sha256);
+  static std::string Sha256(const std::filesystem::path& path);
+  static std::string HashText(const std::string& text);
 
  private:
   explicit LockedAsset(HANDLE file) : file_(file) {}

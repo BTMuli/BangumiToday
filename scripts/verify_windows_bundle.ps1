@@ -143,7 +143,16 @@ foreach ($binary in @('aji.dll', 'libmpv-2.dll')) {
     if ($imports.Count -eq 0) { throw "Bundled playback binary has no imports: $binary" }
 }
 $configuration = Get-Content -LiteralPath (Join-Path $bundleRoot 'animejanai.conf') -Encoding UTF8
-foreach ($setting in @('runtime_dir=playback_inference', 'model_dir=playback_inference/models', 'default_slot=1')) {
+$trtLockPath = Join-Path $PSScriptRoot '../windows/playback/inference/trt-components.lock.json'
+$bundledTrtLock = Join-Path $bundleRoot 'tensorrt-components.json'
+if ((Get-FileHash -LiteralPath $trtLockPath -Algorithm SHA256).Hash -ne
+    (Get-FileHash -LiteralPath $bundledTrtLock -Algorithm SHA256).Hash) {
+    throw 'Bundled TensorRT component manifest does not match the pinned lock'
+}
+if (@($configuration | Where-Object { $_ -match '^\s*backend\s*=' }).Count -ne 1) {
+    throw 'Bundled AnimeJaNai configuration must select TensorRT exactly once'
+}
+foreach ($setting in @('backend=tensorrt', 'runtime_dir=playback_inference', 'model_dir=playback_inference/models', 'default_slot=1')) {
     if ($configuration -notcontains $setting) { throw "Missing AnimeJaNai setting: $setting" }
 }
 foreach ($slot in @(@{ Number = 1; Id = 'performance' }, @{ Number = 2; Id = 'balanced' })) {

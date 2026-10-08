@@ -27,9 +27,9 @@ std::string Describe(const std::filesystem::path& path) {
   return result;
 }
 
-class File final {
+class ReadFileLease final {
  public:
-  explicit File(const std::filesystem::path& path) {
+  explicit ReadFileLease(const std::filesystem::path& path) {
     if (!path.is_absolute())
       throw std::invalid_argument("Asset path is relative");
     handle = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
@@ -38,13 +38,13 @@ class File final {
       throw std::runtime_error("Cannot open locked inference asset: " +
                                Describe(path));
   }
-  ~File() {
+  ~ReadFileLease() {
     if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
   }
   HANDLE handle = INVALID_HANDLE_VALUE;
 };
 
-std::string Digest(HANDLE file) {
+std::string Digest(HANDLE file, const std::string* text = nullptr) {
   struct Hash final {
     BCRYPT_ALG_HANDLE algorithm = nullptr;
     BCRYPT_HASH_HANDLE hash = nullptr;
@@ -61,7 +61,13 @@ std::string Digest(HANDLE file) {
   check(BCryptCreateHash(context.algorithm, &context.hash, nullptr, 0, nullptr,
                          0, 0));
   std::array<uint8_t, 65536> buffer{};
+  if (text) {
+    check(BCryptHashData(context.hash,
+        reinterpret_cast<PUCHAR>(const_cast<char*>(text->data())),
+        static_cast<ULONG>(text->size()), 0));
+  }
   for (;;) {
+    if (text) break;
     DWORD count = 0;
     if (!ReadFile(file, buffer.data(), static_cast<DWORD>(buffer.size()),
                   &count, nullptr)) {
@@ -88,7 +94,7 @@ bool Match(const detail::Asset& asset, uint64_t bytes,
 }
 
 HANDLE Verify(const std::filesystem::path& path, bool model) {
-  File file(path);
+  ReadFileLease file(path);
   LARGE_INTEGER length{};
   if (!GetFileSizeEx(file.handle, &length) || length.QuadPart <= 0 ||
       length.QuadPart > 32 * 1024 * 1024) {
@@ -120,5 +126,27 @@ std::unique_ptr<LockedAsset> LockedAsset::Runtime(
 std::unique_ptr<LockedAsset> LockedAsset::Model(
     const std::filesystem::path& path) {
   return std::unique_ptr<LockedAsset>(new LockedAsset(Verify(path, true)));
+}
+std::unique_ptr<LockedAsset> LockedAsset::File(
+    const std::filesystem::path& path, uint64_t bytes,
+    const std::string& sha256) {
+  ReadFileLease file(path);
+  LARGE_INTEGER length{};
+  if (!GetFileSizeEx(file.handle, &length) || length.QuadPart <= 0 ||
+      static_cast<uint64_t>(length.QuadPart) != bytes ||
+      Digest(file.handle) != sha256) {
+    throw std::runtime_error("TensorRT asset failed the compiled lock: " +
+                             Describe(path));
+  }
+  const auto handle = file.handle;
+  file.handle = INVALID_HANDLE_VALUE;
+  return std::unique_ptr<LockedAsset>(new LockedAsset(handle));
+}
+std::string LockedAsset::Sha256(const std::filesystem::path& path) {
+  ReadFileLease file(path);
+  return Digest(file.handle);
+}
+std::string LockedAsset::HashText(const std::string& text) {
+  return Digest(INVALID_HANDLE_VALUE, &text);
 }
 }  // namespace bangumi::inference

@@ -35,6 +35,7 @@ class PlaybackWindowDataHost {
     'playbackHiResEnabled',
     'playbackAudioExclusiveEnabled',
     'playbackUpscaleMode',
+    'playbackTensorRTEnabled',
     'playbackRememberedRate',
     'playbackLoudnessEnabled',
     'playbackWindowBounds',

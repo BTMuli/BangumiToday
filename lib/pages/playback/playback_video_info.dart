@@ -344,6 +344,17 @@ class _PlaybackVideoInfoState extends State<_PlaybackVideoInfo> {
                             pink,
                           ),
                           _line('GPU', _value(upscale.renderer), blue),
+                          if (upscale.janaiStatus case var status?) ...[
+                            _line('AI 推理', status.label, cyan),
+                            if (status.backendReason.isNotEmpty)
+                              _line(
+                                'TensorRT 状态',
+                                status.backendReason,
+                                yellow,
+                              ),
+                            if (status.reason.isNotEmpty && !status.preparing)
+                              _line('AI 状态', status.reason, yellow),
+                          ],
                         ],
                         _line(
                           '帧统计',

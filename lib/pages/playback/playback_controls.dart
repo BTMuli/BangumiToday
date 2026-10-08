@@ -1106,6 +1106,20 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                                 fullscreen: theme,
                                 child: _buildChrome(theme),
                               ),
+                              if (Platform.isWindows &&
+                                  widget.store.tensorRtResources.visible &&
+                                  !widget.overlay.showHelp &&
+                                  constraints.maxHeight >= 220)
+                                Positioned(
+                                  left: 16,
+                                  right: 16,
+                                  top: constraints.maxHeight >= 300 ? 56 : 8,
+                                  child: _PlaybackTensorRtProgress(
+                                    store: widget.store,
+                                    run: widget.run,
+                                    maxHeight: constraints.maxHeight - 110,
+                                  ),
+                                ),
                               if (widget.overlay.showInfo)
                                 Positioned.fill(
                                   left: 16,
@@ -1360,6 +1374,27 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
     MenuFlyoutSubItem(
       text: Text('视频超分 · ${store.upscaleMode.label}'),
       items: (_) => [
+        ToggleMenuFlyoutItem(
+          text: const _PlaybackMenuLabel(
+            '启用 TensorRT',
+            description: 'AI 实时超分必需 · 仅支持 NVIDIA',
+          ),
+          value: store.tensorRtEnabled,
+          onChanged: (enabled) =>
+              unawaited(run(() => store.setTensorRtEnabled(enabled))),
+        ),
+        MenuFlyoutItem(
+          text: const _PlaybackMenuLabel(
+            '下载 TensorRT 组件',
+            description: '约 329 MB · 选择 AI 超分后检测播放显卡',
+          ),
+          onPressed:
+              store.tensorRtResources.canDownload &&
+                  !store.tensorRtResources.busy
+              ? () => unawaited(run(store.downloadTensorRt))
+              : null,
+        ),
+        const MenuFlyoutSeparator(),
         for (var mode in PlaybackUpscaleMode.values)
           ToggleMenuFlyoutItem(
             text: _PlaybackMenuLabel(
@@ -1369,7 +1404,9 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
                   : mode.description,
             ),
             value: store.upscaleMode == mode,
-            onChanged: (_) => unawaited(run(() => store.setUpscaleMode(mode))),
+            onChanged: mode.isJanai && !store.tensorRtEnabled
+                ? null
+                : (_) => unawaited(run(() => store.setUpscaleMode(mode))),
           ),
       ],
     ),
