@@ -6,7 +6,9 @@
 
 #include <array>
 #include <cstring>
+#include <iomanip>
 #include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -14,6 +16,34 @@
 namespace bangumi::inference {
 namespace {
 using Microsoft::WRL::ComPtr;
+
+std::string DeviceReason(HRESULT result) {
+  const char* name = "HRESULT";
+  switch (result) {
+    case S_OK:
+      name = "S_OK";
+      break;
+    case DXGI_ERROR_DEVICE_HUNG:
+      name = "DXGI_ERROR_DEVICE_HUNG";
+      break;
+    case DXGI_ERROR_DEVICE_REMOVED:
+      name = "DXGI_ERROR_DEVICE_REMOVED";
+      break;
+    case DXGI_ERROR_DEVICE_RESET:
+      name = "DXGI_ERROR_DEVICE_RESET";
+      break;
+    case DXGI_ERROR_DRIVER_INTERNAL_ERROR:
+      name = "DXGI_ERROR_DRIVER_INTERNAL_ERROR";
+      break;
+    case DXGI_ERROR_INVALID_CALL:
+      name = "DXGI_ERROR_INVALID_CALL";
+      break;
+  }
+  std::ostringstream text;
+  text << name << " (0x" << std::uppercase << std::hex << std::setfill('0')
+       << std::setw(8) << static_cast<uint32_t>(result) << ")";
+  return text.str();
+}
 
 void Check(HRESULT result, const char* operation) {
   if (FAILED(result)) {
@@ -33,6 +63,7 @@ struct InteropContext::State final {
   // recorded, so the pool grows on demand. Beyond the cap the oldest batch is
   // waited for, which is the only place this class may block the caller.
   static constexpr size_t kMaxSlots = 8;
+  ComPtr<ID3D11Device> playback_device;
   ComPtr<ID3D12Device> device;
   ComPtr<ID3D12CommandQueue> queue;
   ComPtr<ID3D12Fence> fence;
@@ -49,8 +80,12 @@ struct InteropContext::State final {
 
   uint64_t CompletedValue() const {
     const uint64_t completed = fence->GetCompletedValue();
-    if (completed == std::numeric_limits<uint64_t>::max())
-      throw std::runtime_error("JaNai GPU device was removed");
+    if (completed == std::numeric_limits<uint64_t>::max()) {
+      throw std::runtime_error(
+          "JaNai GPU device was removed: D3D12=" +
+          DeviceReason(device->GetDeviceRemovedReason()) + "; D3D11=" +
+          DeviceReason(playback_device->GetDeviceRemovedReason()));
+    }
     return completed;
   }
 };
@@ -61,6 +96,7 @@ std::unique_ptr<InteropContext> InteropContext::Create(
   auto context = std::unique_ptr<InteropContext>(new InteropContext());
   context->state_ = std::make_unique<State>();
   auto& state = *context->state_;
+  state.playback_device = playback_device;
 
   ComPtr<IDXGIDevice> dxgi_device;
   ComPtr<IDXGIAdapter> adapter;

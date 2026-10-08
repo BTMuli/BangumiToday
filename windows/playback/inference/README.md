@@ -31,6 +31,12 @@ D3D11 RGB → 亮度/色度平面 → D3D12 拷贝 → NV12/P010 输出帧
 共享纹理同时带 `SHARED` 与 `SHARED_NTHANDLE`；D3D11 context4 与 D3D12 queue
 通过同一共享 fence 双向排序，DirectML 也使用该队列。模型宽度补到 128 的倍数，
 保证 placed-footprint 行 pitch 对齐 256 字节。资源销毁包含有界等待，并捕获设备移除异常。
+帧提交通过 `ID3D11Multithread::Enter/Leave` 保护完整转换、CUDA 映射与输出交接，
+与 ANGLE / 硬解共用 immediate context 的临界区，避免仅逐调用加锁造成命令交错。
+设备移除错误同时记录 D3D12、D3D11 的原因名称与十六进制 HRESULT；真实播放仍需复测。
+隔离并发检查使用另一线程持续清空上下文并交替输入明暗帧：未加临界区的版本出现像素错误，
+保护后 DirectML、TensorRT 各 120 帧与各自基准逐字节哈希一致，D3D12 调试层无错误。
+模拟 D3D12 设备移除可同时记录其移除原因和仍正常的 D3D11 状态；此检查不代表长播放验收。
 
 ## 输入契约与滤镜控制
 

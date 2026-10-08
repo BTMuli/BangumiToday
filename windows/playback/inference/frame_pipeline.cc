@@ -23,6 +23,20 @@ namespace {
 using Microsoft::WRL::ComPtr;
 using Clock = std::chrono::steady_clock;
 
+class ScopedContextLock final {
+ public:
+  explicit ScopedContextLock(ID3D11Multithread* multithread)
+      : multithread_(multithread) {
+    multithread_->Enter();
+  }
+  ~ScopedContextLock() { multithread_->Leave(); }
+  ScopedContextLock(const ScopedContextLock&) = delete;
+  ScopedContextLock& operator=(const ScopedContextLock&) = delete;
+
+ private:
+  ID3D11Multithread* multithread_;
+};
+
 double Milliseconds(Clock::time_point from, Clock::time_point to) {
   return std::chrono::duration<double, std::milli>(to - from).count();
 }
@@ -108,6 +122,7 @@ struct FramePipeline::State {
   std::unique_ptr<FrameConverter> converter;
   ComPtr<ID3D11Device> device;
   ComPtr<ID3D11DeviceContext4> context4;
+  ComPtr<ID3D11Multithread> multithread;
   ID3D11DeviceContext* context4_source = nullptr;
   ComPtr<ID3D11Texture2D> output;
   ComPtr<ID3D12Resource> planar_rgb;
@@ -311,7 +326,12 @@ uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
     ComPtr<ID3D11DeviceContext4> context4;
     Check(context->QueryInterface(IID_PPV_ARGS(&context4)),
           "ID3D11DeviceContext4 is required for the JaNai bridge");
+    ComPtr<ID3D11Multithread> multithread;
+    Check(context->QueryInterface(IID_PPV_ARGS(&multithread)),
+          "ID3D11Multithread is required for the JaNai bridge");
+    multithread->SetMultithreadProtected(TRUE);
     state.context4 = context4;
+    state.multithread = multithread;
     state.context4_source = context;
   }
 
@@ -391,6 +411,13 @@ uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
   }
 
   const Clock::time_point start = Clock::now();
+
+  // ANGLE, the decoder and CUDA graphics interop use this same immediate
+  // context. Per-call protection does not keep shader/view bindings together
+  // with their dispatch, or protect CUDA's internal context access. Hold the
+  // device's shared critical section through the complete graphics hand-off;
+  // a private pipeline mutex would not synchronize with the other users.
+  const ScopedContextLock context_lock(state.multithread.Get());
 
   // Depth one: the previous frame's copies are finished before its shared
   // textures are rewritten. This is a GPU-side wait, so the caller never
