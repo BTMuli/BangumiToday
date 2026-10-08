@@ -915,8 +915,9 @@ class PlaybackStore extends ChangeNotifier {
         await settingsStore.read('playbackEpisodeLayout'),
       );
       if (Platform.isWindows) {
-        unawaited(janaiBenchmarks.initialize());
+        // Resolves the component root before the benchmark cache reads it.
         await tensorRtResources.initialize();
+        unawaited(janaiBenchmarks.initialize());
         _loudnessEnabled = PlaybackLoudness.parse(
           await settingsStore.read(PlaybackLoudness.settingKey),
         );

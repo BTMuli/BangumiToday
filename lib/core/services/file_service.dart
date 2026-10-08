@@ -12,6 +12,49 @@ import 'package:path_provider/path_provider.dart';
 import '../../tools/log_tool.dart';
 import '../../ui/bt_infobar.dart';
 
+/// Cached result of the one-time TensorRT component directory resolution.
+Future<String>? _tensorRtDirectory;
+
+/// TensorRT components live in the application's own data directory rather
+/// than `%LOCALAPPDATA%`. An MSIX package redirects the latter into its
+/// per-package `LocalCache`, so a path built from the environment variable
+/// resolves to a physical location that the extractor's own process does not
+/// see, and a verified archive appears missing at extraction time.
+///
+/// An installation made under the previous root is adopted once, so existing
+/// users do not re-download the components. Concurrent callers share the same
+/// resolution and migration.
+Future<String> playbackTensorRtDirectory() {
+  return _tensorRtDirectory ??= () async {
+    var directory = await BTFileTool().getAppDataPath('playback-tensorrt');
+    var local = Platform.environment['LOCALAPPDATA'];
+    if (local == null) return directory;
+    var legacy = path.join(local, 'BangumiToday', 'playback-tensorrt');
+    if (path.equals(legacy, directory) || !await Directory(legacy).exists()) {
+      return directory;
+    }
+    if (!await Directory(directory).exists()) {
+      try {
+        await Directory(legacy).rename(directory);
+        return directory;
+      } on FileSystemException {
+        /* Fall back to moving the known entries below. */
+      }
+    }
+    for (var name in ['downloads', 'engines']) {
+      var source = Directory(path.join(legacy, name));
+      var target = Directory(path.join(directory, name));
+      if (!await source.exists() || await target.exists()) continue;
+      try {
+        await source.rename(target.path);
+      } on FileSystemException {
+        /* A partial move is rebuilt on demand. */
+      }
+    }
+    return directory;
+  }();
+}
+
 /// 文件工具
 class BTFileTool {
   BTFileTool._();

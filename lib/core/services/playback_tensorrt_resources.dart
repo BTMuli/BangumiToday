@@ -13,6 +13,7 @@ import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../../models/playback/playback_janai_status.dart';
+import 'file_service.dart';
 import 'playback_tensorrt_gpu.dart';
 import 'playback_tensorrt_precompile.dart';
 
@@ -20,6 +21,12 @@ import 'playback_tensorrt_precompile.dart';
 /// Settings detect a compatible GPU before an explicitly requested download.
 /// The Player also checks its actual D3D11 device. A file lock coordinates
 /// installation across independent Flutter engines and application processes.
+///
+/// Components live in the application's own data directory rather than
+/// `%LOCALAPPDATA%`. An MSIX package redirects the latter into its per-package
+/// `LocalCache`, so a path built from the environment variable resolves to a
+/// physical location that the extractor's own process does not see, and the
+/// archive appears missing at extraction time.
 class PlaybackTensorRtResources {
   PlaybackTensorRtResources({
     required this.onChanged,
@@ -27,20 +34,20 @@ class PlaybackTensorRtResources {
     String? dataDirectory,
   }) : bundleDirectory =
            bundleDirectory ?? path.dirname(Platform.resolvedExecutable),
-       dataDirectory =
-           dataDirectory ??
-           path.join(
-             Platform.environment['LOCALAPPDATA']!,
-             'BangumiToday',
-             'playback-tensorrt',
-           );
+       _dataDirectory = dataDirectory;
+
+  /// Root of the TensorRT components; resolved before the first use.
+  String? _dataDirectory;
+
+  /// The component root, resolved by [initialize].
+  String get dataDirectory =>
+      _dataDirectory ?? (throw StateError('TensorRT 组件目录尚未初始化'));
 
   static const version = '11.3.0.99';
   static const manifestSha256 =
       '4257c34ded46a338f95109b448ad7932cb57b0b9966f04186dc135ef173ffc47';
   final void Function() onChanged;
   final String bundleDirectory;
-  final String dataDirectory;
   int get _sm => gpu?.sm ?? 0;
   String get runtimeDirectory => path.join(dataDirectory, version, 'sm$_sm');
   String get engineDirectory => path.join(dataDirectory, 'engines');
@@ -117,13 +124,22 @@ class PlaybackTensorRtResources {
   bool _disposed = false;
   int _lastProgress = 0;
 
-  Future<void> initialize() {
-    if (_disposed || !Platform.isWindows) return Future.value();
+  Future<void> initialize() async {
+    if (_disposed || !Platform.isWindows) return;
+    await _resolveDataDirectory();
+    if (_disposed) return;
     _refreshTimer ??= Timer.periodic(
       const Duration(seconds: 3),
       (_) => unawaited(refresh()),
     );
-    return refresh(detectGpu: gpu == null);
+    await refresh(detectGpu: gpu == null);
+  }
+
+  /// Resolves the component root through the application's data directory.
+  /// Resolved once; later calls keep the first result.
+  Future<void> _resolveDataDirectory() async {
+    if (_dataDirectory != null || !Platform.isWindows) return;
+    _dataDirectory = await playbackTensorRtDirectory();
   }
 
   /// Installation changes are shared with already-open playback windows.
@@ -337,8 +353,10 @@ class PlaybackTensorRtResources {
   Future<bool> _install() async {
     Directory? staging;
     Directory? replaced;
+    Directory? interrupted;
     RandomAccessFile? installLock;
     bool locked = false;
+    var extracted = false;
     try {
       await _refreshFlight;
       gpu ??= await PlaybackTensorRtGpu.detect();
@@ -402,6 +420,29 @@ class PlaybackTensorRtResources {
           total +
           files.fold<int>(0, (sum, item) => sum + (item['bytes'] as int)) +
           64 * 1024 * 1024;
+      // A half-extracted set is kept for diagnostics only until the next
+      // explicit attempt, so failures stay inspectable without leaking space.
+      for (var leftover in Directory(dataDirectory).listSync()) {
+        if (leftover is! Directory) continue;
+        var name = path.basename(leftover.path);
+        var partial = name.startsWith(
+          '${path.basename(runtimeDirectory)}.staging-$pid-',
+        );
+        var invalid = name.startsWith(
+          '${path.basename(runtimeDirectory)}.invalid-',
+        );
+        if (!partial && !invalid) continue;
+        var bytes = _directoryBytes(leftover);
+        try {
+          await leftover.delete(recursive: true);
+          _update(
+            'checking',
+            '清理上次的解压残留 · ${(bytes / 1048576).toStringAsFixed(1)} MB',
+          );
+        } on FileSystemException {
+          /* A loaded set remains until process exit. */
+        }
+      }
       if (_freeBytes(dataDirectory) < requiredBytes) {
         throw StateError(
           '安装需要约 ${(requiredBytes / 1073741824).toStringAsFixed(1)} GB 可用空间',
@@ -433,30 +474,27 @@ class PlaybackTensorRtResources {
       for (var index = 0; index < archives.length; index++) {
         _checkCancelled();
         _update('extracting', '正在解压 ${archives[index]['group']} 组件');
-        var names = files
-            .where((item) => item['group'] == archives[index]['group'])
-            .map((item) => 'animejanai/inference/${item['name']}')
-            .toSet();
-        if (archives[index]['group'] == 'common') {
-          names.add('animejanai/inference/DirectML_LICENSE.txt');
+        // The archive was verified above; a failed extraction re-checks it,
+        // because security software can remove a verified .7z.part between
+        // the digest check and the extraction.
+        var group = archives[index];
+        var archive = downloaded[index];
+        for (var attempt = 1; ; attempt++) {
+          try {
+            await _extractArchive(group, archive, staging, files);
+            extracted = true;
+            break;
+          } catch (error) {
+            _checkCancelled();
+            await _requireArchive(archive, group['sha256'] as String);
+            if (attempt >= 2) {
+              throw StateError(
+                '$error · ${_extractContext(staging.path, files)}',
+              );
+            }
+            _update('extracting', '解压中断，正在重试（$error）');
+          }
         }
-        var listing = await _tar(['-tf', downloaded[index].path]);
-        var actual = listing
-            .split(RegExp(r'[\r\n]+'))
-            .where((name) => name.isNotEmpty)
-            .toList();
-        if (actual.length != names.length ||
-            actual.toSet().difference(names).isNotEmpty ||
-            actual.toSet().length != actual.length) {
-          throw const FormatException('组件归档包含未授权路径');
-        }
-        await _tar([
-          '-xf',
-          downloaded[index].path,
-          '--strip-components=2',
-          '-C',
-          staging.path,
-        ]);
       }
       // The upstream common archive carries a DirectML license as well; the
       // optional runtime installs only TensorRT/CUDA's locked file set.
@@ -507,6 +545,12 @@ class PlaybackTensorRtResources {
         _update('cancelled', '下载已取消，重试时继续下载');
       } else {
         _update('failed', 'TensorRT 安装失败：$error');
+        // Keep a failed extraction set for inspection; the next attempt clears
+        // it. A failed download keeps verified archives for a Range retry.
+        if (extracted && staging != null) {
+          interrupted = staging;
+          staging = null;
+        }
       }
       return false;
     } finally {
@@ -525,6 +569,13 @@ class PlaybackTensorRtResources {
           } on FileSystemException {
             /* Retry later. */
           }
+        }
+      }
+      if (interrupted != null) {
+        try {
+          await interrupted.rename('${interrupted.path}-interrupted-$pid');
+        } on FileSystemException {
+          /* The directory is already inspectable in place. */
         }
       }
       if (replaced != null && !await Directory(runtimeDirectory).exists()) {
@@ -663,7 +714,57 @@ class PlaybackTensorRtResources {
     throw StateError('下载失败：$failure');
   }
 
-  Future<String> _tar(List<String> arguments) async {
+  /// Extracts one verified archive into the staging directory after checking
+  /// that it only carries the manifest's locked entry names. A failure keeps
+  /// the extractor's stderr, which names the cause.
+  Future<void> _extractArchive(
+    Map<String, dynamic> archive,
+    File file,
+    Directory staging,
+    List<Map<String, dynamic>> files,
+  ) async {
+    var names = files
+        .where((item) => item['group'] == archive['group'])
+        .map((item) => 'animejanai/inference/${item['name']}')
+        .toSet();
+    if (archive['group'] == 'common') {
+      names.add('animejanai/inference/DirectML_LICENSE.txt');
+    }
+    var listing = await _runTar(['-tf', file.path]);
+    var actual = listing
+        .split(RegExp(r'[\r\n]+'))
+        .where((name) => name.isNotEmpty)
+        .toList();
+    if (actual.length != names.length ||
+        actual.toSet().difference(names).isNotEmpty ||
+        actual.toSet().length != actual.length) {
+      throw const FormatException('组件归档包含未授权路径');
+    }
+    await _runTar([
+      '-xf',
+      file.path,
+      '--strip-components=2',
+      '-C',
+      staging.path,
+    ]);
+  }
+
+  /// The verified archive must still be readable before another extraction
+  /// attempt, because security software removes .part files it distrusts.
+  Future<void> _requireArchive(File file, String sha256) async {
+    if (await FileSystemEntity.type(file.path, followLinks: false) !=
+            FileSystemEntityType.file ||
+        await _digest(file.path) != sha256) {
+      throw FormatException(
+        '组件归档在解压前被删除或改动（${path.basename(file.path)}），'
+        '请检查安全软件拦截记录后重试安装',
+      );
+    }
+  }
+
+  /// A failed extractor is reported with its stderr, because the Windows
+  /// archive tool explains the cause there.
+  Future<String> _runTar(List<String> arguments) async {
     _checkCancelled();
     var system = path.join(Platform.environment['SystemRoot']!, 'System32');
     var process = _extractor = await Process.start(
@@ -684,7 +785,11 @@ class PlaybackTensorRtResources {
       }
       output.addAll(bytes);
     });
-    var stderr = process.stderr.drain<void>();
+    var errors = <int>[];
+    var stderr = process.stderr.forEach((bytes) {
+      if (errors.length >= 4096) return;
+      errors.addAll(bytes);
+    });
     try {
       var exit = await process.exitCode.timeout(
         const Duration(minutes: 3),
@@ -696,11 +801,47 @@ class PlaybackTensorRtResources {
       await stdout;
       await stderr;
       _checkCancelled();
-      if (exit != 0) throw StateError('组件解压失败（$exit）');
+      if (exit != 0) {
+        var reason = _tail(utf8.decode(errors, allowMalformed: true));
+        throw StateError('组件解压失败（$exit）${reason.isEmpty ? '' : '：$reason'}');
+      }
       return utf8.decode(output);
     } finally {
       _extractor = null;
     }
+  }
+
+  /// Diagnostics for a field failure: how far extraction got, which file
+  /// stopped it, how much space the destination volume has, and the staging
+  /// directory left behind for inspection.
+  String _extractContext(String directory, List<Map<String, dynamic>> files) {
+    var written = 0;
+    var anomaly = '';
+    for (var file in files) {
+      var name = file['name'] as String;
+      var expected =
+          (file['bytes'] as int) -
+          File(path.join(directory, name)).lengthSync();
+      if (expected > 0) {
+        anomaly = '$name（缺 ${(expected / 1048576).toStringAsFixed(1)} MB）';
+        break;
+      }
+      written++;
+    }
+    var bytes = _freeBytes(dataDirectory);
+    return '已写入 $written/${files.length} 个文件'
+        '${anomaly.isEmpty ? '' : '，中断于 $anomaly'}，'
+        '目标可用 ${(bytes / 1073741824).toStringAsFixed(1)} GB，'
+        '暂存 $directory';
+  }
+
+  static String _tail(String text) {
+    var lines = text
+        .split(RegExp(r'[\r\n]+'))
+        .where((line) => line.trim().isNotEmpty)
+        .toList();
+    if (lines.length <= 3) return lines.join('；');
+    return '${lines.take(2).join('；')}；…；${lines.last}';
   }
 
   static bool _allowedUrl(Uri uri) =>
@@ -735,6 +876,19 @@ Future<void> _verifySet(String directory, List<Map<String, dynamic>> files) =>
         }
       }
     });
+
+/// Size of a leftover directory, used to report what a retry reclaimed.
+int _directoryBytes(Directory directory) {
+  var total = 0;
+  try {
+    for (var entry in directory.listSync(recursive: true, followLinks: false)) {
+      if (entry is File) total += entry.lengthSync();
+    }
+  } on FileSystemException {
+    /* Report what is readable. */
+  }
+  return total;
+}
 
 int _freeBytes(String directory) {
   var function = DynamicLibrary.open('kernel32.dll')
