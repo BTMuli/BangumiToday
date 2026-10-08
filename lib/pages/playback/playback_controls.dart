@@ -1107,6 +1107,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                                 child: _buildChrome(theme),
                               ),
                               if (Platform.isWindows &&
+                                  widget.store.upscaleMode.isJanai &&
                                   widget.store.tensorRtResources.visible &&
                                   !widget.overlay.showHelp &&
                                   constraints.maxHeight >= 220)
@@ -1375,23 +1376,14 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
       text: Text('视频超分 · ${store.upscaleMode.label}'),
       items: (_) => [
         ToggleMenuFlyoutItem(
-          text: const _PlaybackMenuLabel(
+          text: _PlaybackMenuLabel(
             '启用 TensorRT',
-            description: 'AI 实时超分必需 · 仅支持 NVIDIA',
+            description: store.tensorRtResources.configurationHint,
           ),
           value: store.tensorRtEnabled,
-          onChanged: (enabled) =>
-              unawaited(run(() => store.setTensorRtEnabled(enabled))),
-        ),
-        MenuFlyoutItem(
-          text: const _PlaybackMenuLabel(
-            '下载 TensorRT 组件',
-            description: '约 329 MB · 选择 AI 超分后检测播放显卡',
-          ),
-          onPressed:
-              store.tensorRtResources.canDownload &&
-                  !store.tensorRtResources.busy
-              ? () => unawaited(run(store.downloadTensorRt))
+          onChanged: store.tensorRtResources.canEnable || store.tensorRtEnabled
+              ? (enabled) =>
+                    unawaited(run(() => store.setTensorRtEnabled(enabled)))
               : null,
         ),
         const MenuFlyoutSeparator(),
@@ -1404,7 +1396,10 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
                   : mode.description,
             ),
             value: store.upscaleMode == mode,
-            onChanged: mode.isJanai && !store.tensorRtEnabled
+            onChanged:
+                mode.isJanai &&
+                    (!store.tensorRtEnabled ||
+                        !store.tensorRtResources.canEnable)
                 ? null
                 : (_) => unawaited(run(() => store.setUpscaleMode(mode))),
           ),

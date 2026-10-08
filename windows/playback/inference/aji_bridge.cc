@@ -582,7 +582,7 @@ AJI_EXPORT int aji_configure(aji_ctx* c, int w, int h, double fps, int* out_w,
               "当前组件仅验证 SM89 显卡，且需要 CUDA 13.4 或更高版本驱动";
         } else if (!std::filesystem::exists(c->trt_dir / L"nvinfer_11.dll") ||
                    !std::filesystem::exists(c->trt_dir / L"trtexec.exe")) {
-          c->backend_reason = "尚未安装 TensorRT 组件，请在播放器中下载";
+          c->backend_reason = "尚未安装 TensorRT 组件，请在应用设置中安装";
           c->status_reason = c->backend_reason;
           PublishStats(*c, "resources_missing", true);
           return 0;

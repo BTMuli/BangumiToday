@@ -13,10 +13,11 @@ import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../../models/playback/playback_janai_status.dart';
+import 'playback_tensorrt_gpu.dart';
 
 /// Optional components are pinned by the application, never by a remote feed.
-/// Each Player reports capabilities from its actual D3D11 device before this
-/// service permits an explicitly requested download. A file lock coordinates
+/// Settings detect a compatible GPU before an explicitly requested download.
+/// The Player also checks its actual D3D11 device. A file lock coordinates
 /// installation across independent Flutter engines and application processes.
 class PlaybackTensorRtResources {
   PlaybackTensorRtResources({
@@ -42,29 +43,65 @@ class PlaybackTensorRtResources {
   String get runtimeDirectory => path.join(dataDirectory, version, 'sm89');
   String get engineDirectory => path.join(dataDirectory, 'engines');
   PlaybackJanaiStatus? native;
+  PlaybackTensorRtGpu? gpu;
   String stage = 'idle';
   String message = '';
   int received = 0;
   int total = 345377740;
   bool get busy => _flight != null;
-  bool get canDownload =>
-      native?.gpuVendor == 0x10de &&
-      native?.gpuSm == 89 &&
-      (native?.gpuDriver ?? 0) >= 13040;
+  bool get canDownload => gpu?.supported == true;
+  bool get installed => _installed;
+  bool get ready => installed && canDownload && !busy && !checking;
+  bool get canEnable =>
+      ready &&
+      (native == null ||
+          native!.gpuVendor == 0 ||
+          (native!.gpuVendor == 0x10de &&
+              native!.gpuSm == 89 &&
+              native!.gpuDriver >= 13040));
+  bool get checking => _checking;
+  String get configurationHint => checking
+      ? '正在检查 TensorRT 配置'
+      : gpu == null
+      ? '请先在应用设置中配置 TensorRT'
+      : !canDownload
+      ? gpu!.requirement
+      : busy
+      ? 'TensorRT 组件正在安装'
+      : !installed
+      ? '请先在应用设置中安装并校验 TensorRT 组件'
+      : !canEnable
+      ? '当前播放显卡不支持 TensorRT'
+      : 'AI 实时超分 · 首次使用按视频分辨率编译模型';
+  String get configurationLabel =>
+      busy || stage == 'failed' || stage == 'cancelled'
+      ? message
+      : checking
+      ? '正在检查显卡和已安装组件'
+      : !canDownload
+      ? gpu?.requirement ?? '等待检测显卡'
+      : installed
+      ? '配置完成，可在播放器中启用 AI 超分'
+      : '尚未安装 TensorRT 组件';
   bool get visible =>
-      busy ||
-      stage == 'failed' ||
-      stage == 'cancelled' ||
       native?.preparing == true ||
       native?.phase == 'resources_missing' ||
       native?.phase == 'failed';
-  double? get progress => stage == 'downloading' ? received / total : null;
-  String get label => busy || stage == 'failed' || stage == 'cancelled'
-      ? message
-      : native?.reason.isNotEmpty == true
-      ? native!.reason
-      : native?.label ?? '';
-  List<String> get lines => native?.buildLines ?? const [];
+  double? get progress => stage == 'downloading' && total > 0
+      ? (received / total).clamp(0.0, 1.0)
+      : null;
+  String get label =>
+      native?.reason.isNotEmpty == true ? native!.reason : native?.label ?? '';
+  List<String> get lines => _buildLines;
+  List<String> get installationLines => List.unmodifiable(_installationLines);
+  List<String> _buildLines = const [];
+  String _buildLog = '';
+  final List<String> _installationLines = [];
+  bool _installed = false;
+  String? _checkedSnapshot;
+  Future<void>? _refreshFlight;
+  bool _checking = false;
+  Timer? _refreshTimer;
   HttpClient? _client;
   Process? _extractor;
   Future<bool>? _flight;
@@ -72,13 +109,112 @@ class PlaybackTensorRtResources {
   bool _disposed = false;
   int _lastProgress = 0;
 
+  Future<void> initialize() {
+    if (_disposed || !Platform.isWindows) return Future.value();
+    _refreshTimer ??= Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => unawaited(refresh()),
+    );
+    return refresh(detectGpu: gpu == null);
+  }
+
+  /// Installation changes are shared with already-open playback windows.
+  /// Hash only when the marker or file metadata changes, not on every poll.
+  Future<void> refresh({bool detectGpu = false, bool force = false}) {
+    if (_disposed || busy || !Platform.isWindows) return Future.value();
+    if (_refreshFlight != null) return _refreshFlight!;
+    var previousInstalled = _installed;
+    var previousGpu = gpu;
+    var explicitCheck = detectGpu || force;
+    _checking = explicitCheck;
+    var operation = _refresh(detectGpu: detectGpu, force: force);
+    _refreshFlight = operation;
+    if (_checking) onChanged();
+    return operation.whenComplete(() {
+      _refreshFlight = null;
+      _checking = false;
+      if (!_disposed &&
+          (explicitCheck ||
+              previousInstalled != _installed ||
+              previousGpu != gpu)) {
+        onChanged();
+      }
+    });
+  }
+
+  Future<void> _refresh({required bool detectGpu, required bool force}) async {
+    try {
+      if (detectGpu || gpu == null) gpu = await PlaybackTensorRtGpu.detect();
+      if (_disposed) return;
+      var marker = File(path.join(runtimeDirectory, 'installed.json'));
+      if (!await marker.exists()) {
+        _installed = false;
+        _checkedSnapshot = null;
+        return;
+      }
+      var manifest = await _manifest();
+      var files = (manifest['files'] as List).cast<Map<String, dynamic>>();
+      var snapshot = StringBuffer();
+      for (var name in ['installed.json', ...files.map((f) => f['name'])]) {
+        var stat = await File(
+          path.join(runtimeDirectory, name as String),
+        ).stat();
+        snapshot.write('$name:${stat.type}:${stat.size}:${stat.modified};');
+      }
+      var key = snapshot.toString();
+      if (!force && key == _checkedSnapshot) return;
+      _installed = false;
+      _checkedSnapshot = key;
+      if (await marker.length() > 4096) {
+        throw const FormatException('TensorRT 安装记录过大');
+      }
+      var record =
+          jsonDecode(await marker.readAsString()) as Map<String, dynamic>;
+      if (record['schemaVersion'] != 1 ||
+          record['trtVersion'] != version ||
+          record['sm'] != 89 ||
+          record['manifestSha256'] != manifestSha256) {
+        throw const FormatException('TensorRT 配置版本已变化，请重新安装组件');
+      }
+      await _verifySet(runtimeDirectory, files);
+      if (_disposed) return;
+      _installed = true;
+      _update('ready', 'TensorRT 组件校验通过');
+    } catch (error) {
+      if (_disposed) return;
+      _installed = false;
+      _update('failed', 'TensorRT 配置检查失败：$error');
+    }
+  }
+
+  void beginBuild() {
+    _buildLog = '';
+    _buildLines = const [];
+    observe(null);
+  }
+
   void observe(PlaybackJanaiStatus? status) {
     if (_disposed) return;
+    if (status?.buildLog.isNotEmpty == true) {
+      if (_buildLog != status!.buildLog) _buildLines = const [];
+      _buildLog = status.buildLog;
+    }
+    if (status?.buildLines.isNotEmpty == true) {
+      _buildLines = status!.buildLines;
+    }
+    if (status?.phase == 'resources_missing') {
+      _installed = false;
+      _checkedSnapshot = null;
+    }
     native = status;
     onChanged();
   }
 
   void _update(String next, String text) {
+    if (stage == next && message == text) return;
+    var time = DateTime.now().toIso8601String().substring(11, 19);
+    _installationLines.add('[$time] $text');
+    if (_installationLines.length > 200) _installationLines.removeAt(0);
     stage = next;
     message = text;
     if (!_disposed) onChanged();
@@ -96,15 +232,12 @@ class PlaybackTensorRtResources {
 
   void dispose() {
     _disposed = true;
+    _refreshTimer?.cancel();
     cancel();
   }
 
   Future<bool> install() {
     if (_flight != null) return _flight!;
-    if (!canDownload) {
-      _update('failed', '请先选择 AI 超分以检测播放显卡；当前组件需要 SM89 和 CUDA 13.4 驱动');
-      return Future.value(false);
-    }
     _cancelled = false;
     _flight = _install();
     return _flight!.whenComplete(() {
@@ -144,6 +277,12 @@ class PlaybackTensorRtResources {
     RandomAccessFile? installLock;
     bool locked = false;
     try {
+      await _refreshFlight;
+      gpu ??= await PlaybackTensorRtGpu.detect();
+      _checkCancelled();
+      if (!canDownload) throw StateError(gpu!.requirement);
+      _installed = false;
+      _checkedSnapshot = null;
       _update('checking', '检查 TensorRT 组件');
       var manifest = await _manifest();
       var files = (manifest['files'] as List).cast<Map<String, dynamic>>();
@@ -164,7 +303,7 @@ class PlaybackTensorRtResources {
           locked = true;
         } on FileSystemException {
           if (DateTime.now().isAfter(deadline)) throw StateError('等待其他窗口安装超时');
-          _update('waiting', '另一个播放器窗口正在安装组件，等待完成');
+          _update('waiting', '另一个窗口正在安装组件，等待完成');
           await Future<void>.delayed(const Duration(milliseconds: 500));
         }
       }
@@ -173,6 +312,8 @@ class PlaybackTensorRtResources {
         try {
           await _verifySet(runtimeDirectory, files);
           _checkCancelled();
+          await _writeInstalledRecord(runtimeDirectory);
+          _installed = true;
           _update('ready', 'TensorRT 组件已就绪');
           return true;
         } on FormatException {
@@ -270,14 +411,7 @@ class PlaybackTensorRtResources {
       _update('verifying', '正在校验安装文件');
       await _verifySet(staging.path, files);
       _checkCancelled();
-      await File(path.join(staging.path, 'installed.json')).writeAsString(
-        jsonEncode({
-          'schemaVersion': 1,
-          'trtVersion': version,
-          'sm': 89,
-          'manifestSha256': manifestSha256,
-        }),
-      );
+      await _writeInstalledRecord(staging.path);
       await staging.rename(runtimeDirectory);
       staging = null;
       if (replaced != null) {
@@ -299,7 +433,8 @@ class PlaybackTensorRtResources {
           /* Cache cleanup does not invalidate install. */
         }
       }
-      _update('ready', 'TensorRT 组件已安装，正在准备模型');
+      _installed = true;
+      _update('ready', '配置完成，可在播放器中启用 AI 超分');
       return true;
     } catch (error) {
       if (_cancelled || _disposed || error is _Cancelled) {
@@ -338,6 +473,16 @@ class PlaybackTensorRtResources {
       }
     }
   }
+
+  Future<void> _writeInstalledRecord(String directory) =>
+      File(path.join(directory, 'installed.json')).writeAsString(
+        jsonEncode({
+          'schemaVersion': 1,
+          'trtVersion': version,
+          'sm': 89,
+          'manifestSha256': manifestSha256,
+        }),
+      );
 
   Future<void> _download(
     Map<String, dynamic> archive,

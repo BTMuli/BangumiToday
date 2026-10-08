@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 // Project imports:
 import '../../models/playback/playback_janai_status.dart';
 import '../../models/playback/playback_upscale.dart';
+import '../utils/playback_build_log.dart';
 import 'native_upscale_adapter.dart';
 import 'playback_tensorrt_resources.dart';
 import 'playback_upscaler.dart';
@@ -53,7 +54,7 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
   final List<File> _files = [];
 
   Future<String> _janaiConfiguration() async {
-    if (!tensorRtEnabled()) {
+    if (!tensorRtEnabled() || !tensorRtResources.canEnable) {
       throw StateError('AI 实时超分需要 NVIDIA 显卡，并先配置 TensorRT');
     }
     var directory = Directory(
@@ -132,7 +133,7 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
         tensorRtResources.observe(null);
       }
     } else {
-      tensorRtResources.observe(null);
+      tensorRtResources.beginBuild();
     }
     // The config path is what makes the pinned filter load the shim at all, so
     // it is part of the chain string rather than a separate option. This is the
@@ -173,23 +174,13 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
           r'^[a-f0-9]{64}\.engine\.part-\d+-\d+\.log$',
         ).hasMatch(path.basename(status.buildLog))) {
       var log = File(status.buildLog);
-      if (await log.exists()) {
-        var handle = await log.open();
-        try {
-          var size = await handle.length();
-          var start = size > 65536 ? size - 65536 : 0;
-          await handle.setPosition(start);
-          var lines = utf8
-              .decode(await handle.read(size - start), allowMalformed: true)
-              .replaceAll('\r', '')
-              .split('\n');
-          if (start > 0 && lines.isNotEmpty) lines.removeAt(0);
-          status = status.withBuildLines(
-            lines.skip(lines.length > 200 ? lines.length - 200 : 0).toList(),
-          );
-        } finally {
-          await handle.close();
+      try {
+        if (await log.exists()) {
+          status = status.withBuildLines(await readPlaybackBuildLog(log));
         }
+      } on FileSystemException {
+        // A log can be rotated/pruned between exists() and open(). Do not turn
+        // a diagnostic read failure into failed inference or clear old output.
       }
     }
     if (file != _status) return null;

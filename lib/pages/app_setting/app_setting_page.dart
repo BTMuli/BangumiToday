@@ -16,6 +16,7 @@ import 'app_setting_device.dart';
 import 'app_setting_download.dart';
 import 'app_setting_info.dart';
 import 'app_setting_network.dart';
+import 'app_setting_playback.dart';
 
 /// 设置页面
 class SettingPage extends ConsumerStatefulWidget {
@@ -230,6 +231,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
       AppConfigInfoWidget(),
       if (Platform.isWindows) AppConfigNetworkWidget(),
       if (Platform.isWindows) AppConfigDownloadWidget(),
+      if (Platform.isWindows) AppConfigPlaybackWidget(),
       AppConfigDeviceWidget(),
       AppConfigBgmWidget(),
     ];

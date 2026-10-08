@@ -32,7 +32,7 @@ class PlaybackJanaiStatus {
   String get label => preparing
       ? '正在准备 TensorRT 模型，准备期间正常播放'
       : phase == 'resources_missing'
-      ? '需要下载 TensorRT 组件，当前正常播放'
+      ? '请在应用设置中安装 TensorRT 组件，当前正常播放'
       : active
       ? '${backend == 'tensorrt' ? 'TensorRT' : 'DirectML'} · '
             '${gpuMilliseconds.toStringAsFixed(1)} ms'

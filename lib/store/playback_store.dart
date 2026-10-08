@@ -177,13 +177,15 @@ class PlaybackStore extends ChangeNotifier {
   VideoController? get video => _video;
   PlaybackUpscaler? get upscaler => _upscaler;
   PlaybackUpscaleMode get upscaleMode => _upscaleMode;
-  bool get tensorRtEnabled => _tensorRtEnabled;
+  bool get tensorRtEnabled => _tensorRtEnabled && tensorRtResources.canEnable;
   PlaybackTensorRtResources? _tensorRtResources;
   PlaybackTensorRtResources get tensorRtResources =>
       _tensorRtResources ??= PlaybackTensorRtResources(onChanged: _notify);
 
   Future<void> downloadTensorRt() async {
     if (_closed || !Platform.isWindows) return;
+    await tensorRtResources.initialize();
+    if (_closed) return;
     var installed = await tensorRtResources.install();
     // Use the current preference and media generation after installation.
     if (installed && !_closed && _tensorRtEnabled) {
@@ -201,11 +203,7 @@ class PlaybackStore extends ChangeNotifier {
   }
 
   Future<void> retryTensorRt() async {
-    if (tensorRtResources.stage == 'failed' ||
-        tensorRtResources.stage == 'cancelled' ||
-        tensorRtResources.native?.phase == 'resources_missing') {
-      await downloadTensorRt();
-    } else {
+    if (tensorRtEnabled) {
       _upscaler?.inferencePreferenceChanged();
     }
   }
@@ -451,7 +449,7 @@ class PlaybackStore extends ChangeNotifier {
         backend: NativePlaybackUpscaleBackend(
           player,
           video,
-          tensorRtEnabled: () => _tensorRtEnabled,
+          tensorRtEnabled: () => tensorRtEnabled,
           tensorRtResources: tensorRtResources,
         ),
         loadShaders: assets.load,
@@ -824,6 +822,7 @@ class PlaybackStore extends ChangeNotifier {
         await settingsStore.read('playbackEpisodeLayout'),
       );
       if (Platform.isWindows) {
+        await tensorRtResources.initialize();
         _loudnessEnabled = PlaybackLoudness.parse(
           await settingsStore.read(PlaybackLoudness.settingKey),
         );
@@ -831,7 +830,11 @@ class PlaybackStore extends ChangeNotifier {
           await settingsStore.read('playbackUpscaleMode'),
         );
         _tensorRtEnabled =
-            await settingsStore.read('playbackTensorRTEnabled') == 'true';
+            await settingsStore.read('playbackTensorRTEnabled') == 'true' &&
+            tensorRtResources.canEnable;
+        if (_upscaleMode.isJanai && !_tensorRtEnabled) {
+          _upscaleMode = PlaybackUpscaleMode.off;
+        }
       }
       _notify();
     }();
@@ -1064,6 +1067,7 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> setUpscaleMode(PlaybackUpscaleMode mode) => _serial(() async {
     await _loadPreferences();
     if (_closed || _upscaleMode == mode || !Platform.isWindows) return;
+    if (mode.isJanai && !tensorRtEnabled) return;
     await settingsStore.write('playbackUpscaleMode', mode.name);
     if (_closed) return;
     _upscaleMode = mode;
@@ -1074,9 +1078,14 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> setTensorRtEnabled(bool enabled) => _serial(() async {
     await _loadPreferences();
     if (_closed || !Platform.isWindows || _tensorRtEnabled == enabled) return;
+    if (enabled && !tensorRtResources.canEnable) return;
     await settingsStore.write('playbackTensorRTEnabled', enabled.toString());
     if (_closed) return;
     _tensorRtEnabled = enabled;
+    if (!enabled && _upscaleMode.isJanai) {
+      _upscaleMode = PlaybackUpscaleMode.off;
+      _upscaler?.preferences(_upscaleMode);
+    }
     _upscaler?.inferencePreferenceChanged();
     _notify();
   });
@@ -1246,6 +1255,7 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _shutdown() async {
     // Refuse newly queued work before waiting for the current operation.
     _closed = true;
+    _tensorRtResources?.dispose();
     _diagnostics?.close();
     _chapters?.close();
     _session.close();

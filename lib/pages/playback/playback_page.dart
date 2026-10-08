@@ -36,6 +36,7 @@ import '../../store/nav_store.dart';
 import '../../store/playback_store.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
+import '../../widgets/playback/playback_build_log.dart';
 import 'playback_actions.dart';
 import 'playback_episode_mark.dart';
 import 'playback_label.dart';

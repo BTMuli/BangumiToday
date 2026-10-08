@@ -1,6 +1,6 @@
 part of 'playback_page.dart';
 
-/// Preparation remains visible when the normal playback chrome fades out.
+/// Only model preparation remains in playback; installation lives in Settings.
 class _PlaybackTensorRtProgress extends StatefulWidget {
   const _PlaybackTensorRtProgress({
     required this.store,
@@ -17,132 +17,82 @@ class _PlaybackTensorRtProgress extends StatefulWidget {
 }
 
 class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
-  final _scroll = ScrollController();
-  bool _details = true;
-
-  @override
-  void didUpdateWidget(covariant _PlaybackTensorRtProgress oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Follow new lines only when the reader is already at the bottom. A reader
-    // inspecting an earlier layer keeps their scroll position.
-    if (!_scroll.hasClients || _scroll.position.extentAfter < 24) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scroll.hasClients) {
-          _scroll.jumpTo(_scroll.position.maxScrollExtent);
-        }
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  String _bytes(int value) => '${(value / 1048576).toStringAsFixed(1)} MB';
+  bool _details = false;
 
   @override
   Widget build(BuildContext context) {
     var resources = widget.store.tensorRtResources;
     var preparing = resources.native?.preparing == true;
     var missing = resources.native?.phase == 'resources_missing';
-    var failed =
-        resources.stage == 'failed' ||
-        resources.stage == 'cancelled' ||
-        resources.native?.phase == 'failed';
+    var failed = resources.native?.phase == 'failed';
+    var theme = FluentTheme.of(context);
+    var showLog = _details || failed;
+    var compact = widget.maxHeight < 150;
     return GestureDetector(
       onDoubleTap: () {},
       child: Container(
         constraints: BoxConstraints(maxHeight: widget.maxHeight),
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(compact ? 8 : 12),
         decoration: BoxDecoration(
-          color: const Color(0xED181818),
+          color: theme.micaBackgroundColor,
+          border: Border.all(color: theme.resources.controlStrokeColorDefault),
           borderRadius: BorderRadius.circular(6),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
+            Text(
+              missing ? 'TensorRT 组件不可用，请在应用设置中重新安装' : resources.label,
+              maxLines: compact ? 1 : 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.typography.bodyStrong,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
               children: [
-                Expanded(
-                  child: Text(
-                    resources.label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                  ),
-                ),
-                if (preparing || resources.lines.isNotEmpty)
-                  material.TextButton(
+                if (!failed && (preparing || resources.lines.isNotEmpty))
+                  HyperlinkButton(
                     onPressed: () => setState(() => _details = !_details),
-                    child: Text(_details ? '收起细节' : '编译细节'),
+                    child: Text(_details ? '收起编译日志' : '查看编译日志'),
                   ),
-                if (resources.busy || preparing)
-                  material.TextButton(
+                if (preparing)
+                  Button(
                     onPressed: () =>
                         unawaited(widget.run(widget.store.cancelTensorRt)),
-                    child: const Text('取消'),
+                    child: const Text('取消编译'),
                   ),
-                if (!resources.busy && (missing || failed))
-                  material.TextButton(
-                    onPressed: missing && !resources.canDownload
-                        ? null
-                        : () =>
-                              unawaited(widget.run(widget.store.retryTensorRt)),
-                    child: Text(missing ? '下载组件' : '重试'),
+                if (failed && widget.store.tensorRtEnabled)
+                  Button(
+                    onPressed: () =>
+                        unawaited(widget.run(widget.store.retryTensorRt)),
+                    child: const Text('重试编译'),
+                  ),
+                if (failed || missing)
+                  Button(
+                    onPressed: () => unawaited(
+                      widget.run(
+                        () => widget.store.setUpscaleMode(
+                          PlaybackUpscaleMode.off,
+                        ),
+                      ),
+                    ),
+                    child: const Text('关闭 AI 超分'),
                   ),
               ],
             ),
-            if (missing && !resources.busy)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 6),
-                child: Text(
-                  '下载约 329 MB · 安装约 611 MB · 首次按模型和分辨率编译',
-                  style: TextStyle(color: Colors.white, fontSize: 11),
-                ),
-              ),
-            if (resources.busy || preparing) ...[
-              const SizedBox(height: 6),
-              material.LinearProgressIndicator(value: resources.progress),
-              if (resources.progress != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    '${_bytes(resources.received)} / ${_bytes(resources.total)}'
-                    ' · ${(resources.progress! * 100).toStringAsFixed(1)}%',
-                    style: const TextStyle(color: Colors.white, fontSize: 11),
-                  ),
-                ),
-            ],
-            if (_details && (preparing || resources.lines.isNotEmpty)) ...[
-              const SizedBox(height: 8),
+            if (preparing) ...[const SizedBox(height: 8), const ProgressBar()],
+            if (showLog && (preparing || resources.lines.isNotEmpty)) ...[
+              const SizedBox(height: 10),
               Flexible(
                 child: SizedBox(
                   height: 160,
-                  child: resources.lines.isEmpty
-                      ? const Text(
-                          '正在校验组件或等待显卡，编译器启动后显示输出。',
-                          style: TextStyle(color: Colors.white, fontSize: 12),
-                        )
-                      : material.Scrollbar(
-                          controller: _scroll,
-                          thumbVisibility: true,
-                          child: ListView.builder(
-                            controller: _scroll,
-                            itemCount: resources.lines.length,
-                            itemBuilder: (_, index) => SelectableText(
-                              resources.lines[index],
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontFamily: 'Consolas',
-                                height: 1.4,
-                              ),
-                            ),
-                          ),
-                        ),
+                  child: PlaybackBuildLog(
+                    lines: resources.lines,
+                    emptyText: '正在校验组件或等待显卡，编译器启动后显示输出。',
+                  ),
                 ),
               ),
             ],
