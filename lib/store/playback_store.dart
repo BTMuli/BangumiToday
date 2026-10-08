@@ -583,8 +583,9 @@ class PlaybackStore extends ChangeNotifier {
     });
   }
 
+  /// Browsing history must not probe CUDA or verify TensorRT runtime files.
+  /// Playback preferences are loaded when opening media or changing settings.
   Future<void> refreshHistory() async {
-    await _loadPreferences();
     if (_closed) return;
     var result = await historyStore.readAll();
     if (_closed) return;
