@@ -3,6 +3,9 @@
 Windows x64 原生实现，使用项目自有 aji ABI v8 垫片接入固定版本 mpv 滤镜。
 应用已接入两档 AI 选项与打包；真实播放器验收仍未完成，P0 尚未通过。
 完整目标与未实施设计见 [接入方案](../../../docs/feat/animejanai-onnx.md)。
+默认 AI 实时超分要求实际播放显卡为 NVIDIA，且 TensorRT 组件和本机引擎就绪。
+准备期间保持普通播放，准备或推理失败不自动切换 DirectML；显式
+`backend=directml` 仅用于开发诊断，主包配置和缺少 backend 字段的旧配置均使用 TRT。
 
 ## 组成与帧路径
 
@@ -36,7 +39,7 @@ D3D11 RGB → 亮度/色度平面 → D3D12 拷贝 → NV12/P010 输出帧
 - 输入色度采用 Catmull-Rom 插值；输出色度采用 2×2 盒式平均，仍需实际画质对比。
 - DirectML 会话禁用 CPU EP 回退和 memory pattern；不支持完整 GPU 图时创建失败。
 - slot 1 为 Performance（AI 流畅），slot 2 为 Balanced（AI 高质量）。
-  插值、预缩放和后台引擎构建接口暂未实现。
+  TensorRT 引擎后台构建通过 aji_poll 完成通知；插值和预缩放暂未实现。
 - 播放器初始使用普通解码，仅在视频满足 AI 条件后先设 `hwdec=d3d11va`，再设
   `vf=animejanai=slot=N:conf=animejanai.conf`。固定滤镜必须收到 `conf` 或 `engine`
   才加载 `aji.dll`，仅给 slot 会旁路复制。关闭时先清 vf，再恢复 `d3d11va-copy`。
@@ -53,6 +56,7 @@ D3D11 RGB → 亮度/色度平面 → D3D12 拷贝 → NV12/P010 输出帧
 配置是 UTF-8（允许 BOM）的 `key=value` 文件，放在 aji.dll 旁：
 
 ```ini
+backend=tensorrt
 runtime_dir=playback_inference
 model_dir=playback_inference/models
 default_slot=1
@@ -63,7 +67,8 @@ slot2=<Balanced 模型文件名>
 相对路径按配置文件解析。mpv 给出的配置路径不存在时，垫片尝试自身目录的
 `animejanai.conf`。可选 `stats=<路径>` 指定诊断快照，否则写入用户本地应用数据目录。
 快照最多每秒更新一次，包含 phase、slot、模型、尺寸、计数、GPU 耗时、ticket 和 reason；
-目前应用的自动恢复依赖日志和 mpv 属性，信息面板尚未消费此快照。
+应用按 Player / 配置代次读取快照，显示实际后端、GPU 和准备状态；编译日志路径
+属于同一任务，界面每两秒读取末尾最多 200 行并显示在可滚动列表中。
 推理、配置和完成等待异常在 C ABI 内转换为错误码，诊断写入失败不打断推理。
 
 ## 准备、编译与打包
@@ -76,7 +81,8 @@ slot2=<Balanced 模型文件名>
 cmake -S windows/playback/inference -B .dart_tool/playback_inference/build `
   -A x64 `
   -DPLAYBACK_ORT_SDK_DIR="$PWD/.dart_tool/playback_inference/base/sdk/onnxruntime" `
-  -DPLAYBACK_DML_SDK_DIR="$PWD/.dart_tool/playback_inference/base/sdk/directml"
+  -DPLAYBACK_DML_SDK_DIR="$PWD/.dart_tool/playback_inference/base/sdk/directml" `
+  -DPLAYBACK_TRT_SDK_DIR="$PWD/.dart_tool/playback_inference/base/sdk/tensorrt"
 cmake --build .dart_tool/playback_inference/build --config Release
 ```
 
@@ -96,6 +102,42 @@ cmake --build .dart_tool/playback_inference/build --config Release
 及其 SDK；当前可用预编译包是 GPL，固定 LGPL 构建仍待落实，详见
 [libmpv 来源说明](../../licenses/libmpv/NOTICE.md)。
 
+## TensorRT 路线
+
+当前选装版本为 TensorRT 11.3.0.99 / CUDA 13.4，只声明经过本机验证的 SM89。
+要求实际播放 D3D11 adapter 对应 NVIDIA CUDA device，驱动 API 版本至少 13040。
+能力查询不加载 TensorRT。组件缺失时滤镜旁路普通播放，并发布 `resources_missing`；
+播放器显示主动下载入口，选择质量不会自行下载。
+
+基础包仅增加随应用发布的 `tensorrt-components.json` 可信清单和小型 SDK 头文件的
+构建依赖，不包含 NVIDIA 大运行库。应用显式下载固定上游 3.6.3 的 common + sm89
+归档（约 329 MiB），验证归档和每个文件的 SHA-256，使用系统 tar.exe 解压；不运行
+下载的解压器，不安装 Toolkit、修改 PATH 或安装驱动。资源写入
+`%LOCALAPPDATA%/BangumiToday/playback-tensorrt/11.3.0.99/sm89`，约 611 MiB。
+支持字节进度、HTTP Range / ETag 续传、取消、重试、跨窗口安装锁和 staging 原子发布；
+损坏资源通过新目录事务修复。编译阶段显示状态和滚动日志，不估算百分比。
+
+```text
+D3D11 NV12/P010 → 共享 R16_FLOAT 平面 RGB → 私有 D3D11 RGB 纹理
+CUDA 映射 / cuMemcpy2DAsync → FP16 NCHW → TensorRT enqueueV3
+CUDA 输出 → 私有 RGB 纹理 → 共享 RGB → 既有 GPU YUV 转换 / 输出帧
+```
+
+像素不经 CPU。固定 FP16 2×模型构建使用受限环境下的绝对路径 trtexec，GPU 构建锁、
+Job Object、15 分钟超时和取消负责回收子进程；模型尺寸、版本、驱动、GPU UUID、
+模型哈希和构建参数共同组成缓存身份。引擎先验证 IO 契约并预热，再原子发布；缓存
+命中复核哈希并预热，使用租约阻止活动引擎被清理，LRU 预算 4 GiB、日志预算 128 MiB。
+失败保持普通播放，DirectML 只保留显式诊断配置。
+
+开发者侧可独立准备（不改变播放器偏好）：
+
+```powershell
+./scripts/prepare_playback_tensorrt.ps1 -HeadersOnly
+./scripts/prepare_playback_tensorrt.ps1 -ComputeCapability 89
+```
+
+前者由基础准备脚本自动调用，仅固定 TRT/CUDA 头文件；后者用于开发时侧载选装组件。
+
 ## 验证边界与待办
 
 既有隔离原生验证覆盖 NV12/P010 转换、帧桥对 CPU 参考、aji 调用顺序、资源回收、
@@ -108,4 +150,9 @@ GPU 中位 24.6 ms、P95 26.2 ms；Balanced 约 44.7 ms，AMD 780M Performance �
 
 剩余工作：真实硬解与 ANGLE device 对齐、PTS/seek/暂停/连播及长播放验收、画质与
 端到端性能对比、干净 Windows/MSIX 环境、固定 LGPL 构建；TensorRT 帧桥、本机构建/
-缓存、架构选装下载和完整准备状态界面尚未实现。隔离编译和纯逻辑检查不能替代这些验收。
+缓存和 SM89 选装下载已接通。此次隔离验证覆盖 1080p NV12、P010 padding、ABI 的
+缺资源旁路 / slot / 后台编译 / 实时日志、引擎复用及取消，并验证真实下载的取消续传、
+安装锁、解压、校验和离线复用。RTX 4070 Laptop 的 1080p Performance TRT 测量约
+18.4 ms/帧（GPU 约 15.9 ms），合成灰帧与 DML 输出差为 0；该结果不能代表端到端
+播放速度。其他 SM、项目托管组件 ZIP、完整 TensorRT 许可材料、资源移除入口与
+发行渠道验证仍待完成。隔离编译和纯逻辑检查不能替代播放器手工验收。

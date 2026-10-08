@@ -272,6 +272,10 @@ Verification performed without starting the app or building the project:
 The [DirectML inference bridge](inference/README.md) is wired through the pinned
 mpv filter, the aji shim and the application's two AI modes. Build preparation
 and bundle verification include its locked runtime, models and app-local CRT.
-Real mpv/ANGLE/Flutter playback, device alignment and release acceptance remain
-open; TensorRT and optional resource installation are still pending. See the
+Default realtime AI requires the actual NVIDIA playback adapter and configured
+TensorRT components/engine. Missing resources or TRT failures preserve ordinary
+playback; DirectML is an explicit diagnostic override only.
+TensorRT inference, local engine builds and SM89 component installation are now
+connected. Real mpv/ANGLE/Flutter playback, device alignment and release acceptance
+remain open. See the
 [implementation status](../../docs/feat/animejanai-onnx.md) for scope and limits.
