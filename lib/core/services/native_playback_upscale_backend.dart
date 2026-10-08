@@ -140,7 +140,8 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
     // only place that builds the chain; verification reads it back from mpv.
     var filter = slot == null
         ? null
-        : 'animejanai=slot=$slot:conf=${await _janaiConfiguration()}';
+        : '@${PlaybackUpscaleBackend.janaiFilterLabel}:'
+              'animejanai=slot=$slot:conf=${await _janaiConfiguration()}';
     if (slot == null) await adapter.setString('vf', '');
     var decoder = slot == null ? plainDecoder : janaiDecoder;
     if (await adapter.read('hwdec') != decoder) {
@@ -199,6 +200,7 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
           var params = entry['params'];
           entries.add({
             'name': entry['name'],
+            if (entry['label'] != null) 'label': entry['label'],
             if (entry['enabled'] != null) 'enabled': entry['enabled'],
             if (params is Map) 'params': params,
           });

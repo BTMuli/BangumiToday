@@ -6,6 +6,9 @@ import '../../models/playback/playback_janai_status.dart';
 import '../../models/playback/playback_upscale.dart';
 
 abstract class PlaybackUpscaleBackend {
+  /// Explicit mpv label used to address this Player's inference filter.
+  static const janaiFilterLabel = 'bt-janai';
+
   Future<void> command(List<String> arguments);
   Future<Object?> read(String property);
   Future<void> shaders(List<String> paths);
@@ -422,6 +425,9 @@ class PlaybackUpscaler {
             var expectedSlot = next.mode.janaiSlot;
             var installed = filters.any((entry) {
               if (entry['name'] != 'animejanai') return false;
+              if (entry['label'] != PlaybackUpscaleBackend.janaiFilterLabel) {
+                return false;
+              }
               if (entry['enabled'] != true) return false;
               var params = entry['params'];
               return expectedSlot != null &&
@@ -683,6 +689,20 @@ class PlaybackUpscaler {
     try {
       var status = await backend.janaiStatus();
       if (_closed || epoch != _dropEpoch || _failed) return;
+      if (status?.preparing == true) {
+        // Paused playback has no filter process() calls. Reading the snapshot
+        // alone cannot publish build progress or activate a finished engine;
+        // the pinned filter's poll command wakes that work without resuming.
+        await backend.command([
+          'vf-command',
+          PlaybackUpscaleBackend.janaiFilterLabel,
+          'poll',
+          '',
+        ]);
+        if (_closed || epoch != _dropEpoch || _failed) return;
+        status = await backend.janaiStatus();
+        if (_closed || epoch != _dropEpoch || _failed) return;
+      }
       janaiStatus = status;
       onChanged();
       if (status != null &&
