@@ -42,7 +42,7 @@ bool FlutterWindow::OnCreate() {
     HWND window = GetAncestor(view->view()->GetNativeWindow(), GA_ROOT);
     DwmSetWindowAttribute(window, kWindowCornerPreference, &kRoundCorners,
                           sizeof(kRoundCorners));
-    RegisterPlaybackPlugins(view->engine());
+    RegisterPlaybackPlugins(view);
   });
   RegisterMainPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());

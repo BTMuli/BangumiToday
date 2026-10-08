@@ -34,6 +34,7 @@ import '../../providers/episode_mark_providers.dart';
 import '../../providers/playback_window_providers.dart';
 import '../../store/nav_store.dart';
 import '../../store/playback_store.dart';
+import '../../tools/log_tool.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/playback/playback_build_log.dart';
@@ -201,6 +202,42 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     if (_overlay.closeMenus()) await WidgetsBinding.instance.endOfFrame;
     var video = _videoKey.currentState;
     if (video != null && video.isFullscreen()) await video.exitFullscreen();
+  }
+
+  Future<void> _enterWindowFullscreen() async {
+    try {
+      await widget.windowMode!.enterScreenFullscreen();
+    } catch (_) {
+      // media_kit pushes the video route before invoking the native callback.
+      // Undo that route too when the native transition rolls back.
+      await WidgetsBinding.instance.endOfFrame;
+      // The enter callback still holds media_kit's fullscreen lock. Queue the
+      // pop without awaiting it so that throwing releases that lock first.
+      if (mounted) unawaited(_run(_exitVideoFullscreen));
+      rethrow;
+    }
+  }
+
+  Future<void> _exitWindowFullscreen() async {
+    try {
+      await widget.windowMode!.exitScreenFullscreen();
+    } catch (error) {
+      // The route pop does not await media_kit's exit callback. Restore the
+      // route after native rollback and report the failure here.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      var video = _videoKey.currentState;
+      if (widget.windowMode!.screenFullscreen &&
+          video != null &&
+          !video.isFullscreen()) {
+        try {
+          await video.enterFullscreen();
+        } catch (restoreError) {
+          BTLogTool.warn('恢复播放器全屏页面失败：$restoreError');
+        }
+      }
+      if (mounted) await reportPlaybackError(context, ref, error);
+    }
   }
 
   Future<void> _stopPlayback() async {
@@ -478,12 +515,12 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                           key: _videoKey,
                           controller: store.video!,
                           fit: BoxFit.contain,
-                          onEnterFullscreen:
-                              widget.windowMode?.enterScreenFullscreen ??
-                              defaultEnterNativeFullscreen,
-                          onExitFullscreen:
-                              widget.windowMode?.exitScreenFullscreen ??
-                              defaultExitNativeFullscreen,
+                          onEnterFullscreen: widget.windowMode == null
+                              ? defaultEnterNativeFullscreen
+                              : _enterWindowFullscreen,
+                          onExitFullscreen: widget.windowMode == null
+                              ? defaultExitNativeFullscreen
+                              : _exitWindowFullscreen,
                           controls: (video) => _PlaybackViewportReporter(
                             store: store,
                             child: RepaintBoundary(

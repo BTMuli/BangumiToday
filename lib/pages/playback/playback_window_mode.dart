@@ -118,6 +118,9 @@ class PlaybackWindowMode extends ChangeNotifier {
       windowButtonVisibility: false,
     );
     await windowManager.setAsFrameless();
+    // Remove native caption styles before window_manager captures the windowed
+    // baseline. Its frameless flag alone only changes non-client layout.
+    await _setFullscreenFrame(false);
   }
 
   /// 用户拖动、缩放、吸附（含最大化）或恢复过保存尺寸后，尺寸交给用户。
@@ -317,51 +320,94 @@ class PlaybackWindowMode extends ChangeNotifier {
     );
   });
 
-  Future<void> enterScreenFullscreen() => _serial(() async {
-    if (screenFullscreen) return;
+  Future<void> _applyScreenFullscreen(bool fullscreen) async {
     await windowManager.setAspectRatio(0);
-    // window_manager does not expand an already-frameless window to a
-    // monitor. Reset that flag before entering, then restore it on exit.
-    await windowManager.setTitleBarStyle(
-      TitleBarStyle.hidden,
-      windowButtonVisibility: false,
-    );
-    await windowManager.setFullScreen(true);
-    try {
-      await _setFullscreenFrame(true);
-    } catch (_) {
-      // Restore both native bounds and decorations if completing the frame
-      // change fails, so the video route and native window stay in sync.
-      await windowManager.setFullScreen(false);
-      await windowManager.setAsFrameless();
-      await _setFullscreenFrame(false);
-      rethrow;
+    // The Windows override preserves frameless state through fullscreen.
+    // Other platforms still use the plugin's original presentation path.
+    if (fullscreen && !Platform.isWindows) {
+      await windowManager.setTitleBarStyle(
+        TitleBarStyle.hidden,
+        windowButtonVisibility: false,
+      );
     }
-    screenFullscreen = true;
+    await windowManager.setFullScreen(fullscreen);
+    if (!fullscreen && !Platform.isWindows) {
+      await windowManager.setAsFrameless();
+      await windowManager.setResizable(true);
+      await windowManager.setMaximizable(true);
+    }
+    if (await windowManager.isFullScreen() != fullscreen) {
+      throw StateError('播放器原生全屏状态未更新');
+    }
+    await _setFullscreenFrame(fullscreen);
+    if (!fullscreen && !await windowManager.isMaximized()) {
+      await _fitVideoBounds(await windowManager.getBounds());
+      // Fitting the restored video window can update its child viewport again.
+      await _setFullscreenFrame(false);
+    }
+    screenFullscreen = fullscreen;
+  }
+
+  Future<void> _switchScreenFullscreen(bool fullscreen) => _serial(() async {
+    if (screenFullscreen == fullscreen) return;
+    var previous = screenFullscreen;
+    _dragOrigin = null;
+    _dragCursor = null;
+    _dragTarget = null;
+    var visible = Platform.isWindows || await windowManager.isVisible();
+    if (Platform.isWindows) {
+      await _frameChannel.invokeMethod<void>('beginFullscreenTransition');
+    } else if (visible) {
+      await windowManager.hide();
+    }
+    try {
+      await _applyScreenFullscreen(fullscreen);
+      if (!_disposed) notifyListeners();
+      if (Platform.isWindows) {
+        // Cloaking preserves frame production. Wait for Dart layout, then the
+        // native raster callback reveals the completed frame without a sleep.
+        await WidgetsBinding.instance.endOfFrame.timeout(
+          const Duration(seconds: 2),
+        );
+        await _frameChannel.invokeMethod<void>('finishFullscreenTransition');
+      }
+    } catch (_) {
+      try {
+        await _applyScreenFullscreen(previous);
+      } catch (error) {
+        BTLogTool.warn('恢复播放器窗口模式失败：$error');
+      }
+      rethrow;
+    } finally {
+      if (Platform.isWindows) {
+        await _frameChannel.invokeMethod<void>('abortFullscreenTransition');
+      } else if (visible && !_disposed) {
+        await windowManager.show();
+      }
+    }
   });
 
-  Future<void> exitScreenFullscreen() => _serial(() async {
-    if (!screenFullscreen) return;
-    await windowManager.setFullScreen(false);
-    screenFullscreen = false;
-    await windowManager.setAsFrameless();
-    await windowManager.setResizable(true);
-    await windowManager.setMaximizable(true);
-    await _setFullscreenFrame(false);
-    await _fitVideoBounds(await windowManager.getBounds());
-  });
+  Future<void> enterScreenFullscreen() => _switchScreenFullscreen(true);
+
+  Future<void> exitScreenFullscreen() => _switchScreenFullscreen(false);
 
   /// 拖动窗口。系统移动循环（`SC_MOVE`）在拖动过程中无法限制位置，因此播放器
   /// 窗口自己按光标位移移动窗口，并在移动过程中就把它限制在所在屏幕内。
   /// 用光标屏幕坐标而不是手势坐标：窗口跟随光标移动后，手势坐标会随之漂移。
   Future<void> beginDrag() async {
-    if (_disposed) return;
+    if (_disposed || transitioning || screenFullscreen) return;
     try {
       var bounds = await windowManager.getBounds();
       _dragOrigin = bounds;
       _dragCursor = await screenRetriever.getCursorScreenPoint();
       // 显示器可用区域在拖动开始时取一次，拖动过程中只在本地换算。
       _dragAreas = await _displayAreas();
+      if (_disposed || transitioning || screenFullscreen) {
+        _dragOrigin = null;
+        _dragCursor = null;
+        _dragAreas = const [];
+        return;
+      }
       _dragTarget = null;
       _dragHandedOff = false;
       _lastCursorY = null;
@@ -379,9 +425,17 @@ class PlaybackWindowMode extends ChangeNotifier {
   Future<void> updateDrag() async {
     var origin = _dragOrigin;
     var start = _dragCursor;
-    if (_disposed || _dragHandedOff || origin == null || start == null) return;
+    if (_disposed ||
+        transitioning ||
+        screenFullscreen ||
+        _dragHandedOff ||
+        origin == null ||
+        start == null) {
+      return;
+    }
     try {
       var cursor = await screenRetriever.getCursorScreenPoint();
+      if (_disposed || transitioning || screenFullscreen) return;
       var area = _areaForPoint(cursor);
       var left = origin.left + (cursor.dx - start.dx);
       var top = origin.top + (cursor.dy - start.dy);
@@ -416,7 +470,9 @@ class PlaybackWindowMode extends ChangeNotifier {
   /// （Windows 上 Dart 定时器粒度约 15.6ms，无法压到一帧内）。取舍是保留
   /// Windows 原生吸附布局条，允许交还期间拖出屏幕，松手时统一收回屏内。
   Future<void> _handoffToSystemDrag() async {
-    if (_disposed || _dragHandedOff) return;
+    if (_disposed || transitioning || screenFullscreen || _dragHandedOff) {
+      return;
+    }
     _dragHandedOff = true;
     try {
       await windowManager.startDragging();
@@ -437,7 +493,7 @@ class PlaybackWindowMode extends ChangeNotifier {
     if (_dragWriting) return;
     _dragWriting = true;
     try {
-      while (_dragTarget != null) {
+      while (_dragTarget != null && !transitioning && !screenFullscreen) {
         var next = _dragTarget!;
         _dragTarget = null;
         await windowManager.setPosition(next);
@@ -467,8 +523,9 @@ class PlaybackWindowMode extends ChangeNotifier {
   /// `PostMessage`，调用立即返回，因此锁由缩放结束的窗口事件释放
   /// （`onWindowResized` → [releaseRatioLock]）。
   Future<void> beginResize(ResizeEdge edge) async {
-    if (_disposed) return;
+    if (_disposed || transitioning || screenFullscreen) return;
     await windowManager.setAspectRatio(_aspectRatio);
+    if (_disposed || transitioning || screenFullscreen) return;
     await windowManager.startResizing(edge);
   }
 
@@ -484,14 +541,15 @@ class PlaybackWindowMode extends ChangeNotifier {
   }
 
   /// 用户拖动/缩放/吸附结束后：先释放比例锁，再把窗口收回所在屏幕内。
-  Future<void> settleAfterUserBoundsChange() async {
+  Future<void> settleAfterUserBoundsChange() => _serial(() async {
+    if (screenFullscreen) return;
     await releaseRatioLock();
-    await containToScreen();
-  }
+    await _containToScreen();
+  });
 
   /// 不允许窗口溢出显示屏幕：屏幕能完整容纳整个窗口时把它整体收回屏幕内，
   /// 容不下时只在窗口完全跑到屏幕外时拉回来，避免窗口丢失。
-  Future<void> containToScreen() async {
+  Future<void> _containToScreen() async {
     if (_disposed || screenFullscreen) return;
     try {
       if (await windowManager.isMaximized() ||
