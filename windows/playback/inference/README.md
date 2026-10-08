@@ -117,6 +117,12 @@ cmake --build .dart_tool/playback_inference/build --config Release
 支持字节进度、HTTP Range / ETag 续传、取消、重试、跨窗口安装锁和 staging 原子发布；
 损坏资源通过新目录事务修复。编译阶段显示状态和滚动日志，不估算百分比。
 
+设置中的组件安装完成后，调用独立于 mpv 滤镜 ABI 的 `bt_trt_precompile_*`
+入口，顺序准备 1280×720、1920×1080 × Performance、Balanced 共四个引擎。
+后台 isolate 轮询任务序号、阶段及有界日志，取消会回收当前 trtexec 子进程。
+预编译和播放共用 `MakeFramePlan`、实际 DXGI/CUDA 显卡身份及 `TrtEngineBuild`
+缓存校验；已完成的结果在重试时复用，其他源视频尺寸继续按需构建。
+
 ```text
 D3D11 NV12/P010 → 共享 R16_FLOAT 平面 RGB → 私有 D3D11 RGB 纹理
 CUDA 映射 / cuMemcpy2DAsync → FP16 NCHW → TensorRT enqueueV3
