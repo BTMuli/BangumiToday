@@ -289,7 +289,7 @@ class BmfRssService {
       parsedFeed: feed,
     );
     var items = feed.items;
-    var notifications = <String>[];
+    var notifications = <int, String>{};
     var itemCount = 0;
     for (var update in updates) {
       var bmf = await _bmfFor(update.subscription);
@@ -306,7 +306,7 @@ class BmfRssService {
       );
       await notifySubscriptionStateChanged(update.subscription.id);
       if (update.newItems.isNotEmpty) {
-        notifications.add(bmf.title ?? '动画 ${bmf.subject}');
+        notifications[bmf.subject] = bmf.title ?? '动画 ${bmf.subject}';
         itemCount += update.newItems.length;
       }
     }
@@ -314,11 +314,16 @@ class BmfRssService {
       try {
         await BTNotifierTool.showMini(
           title: 'RSS 订阅更新',
-          body: '${notifications.join('、')} 有 $itemCount 条更新',
+          body: '${notifications.values.join('、')} 有 $itemCount 条更新',
           onClick: () {
-            globalContainer
-                .read(bmfNavigationProvider.notifier)
-                .openWorkspace();
+            var navigation = globalContainer.read(
+              bmfNavigationProvider.notifier,
+            );
+            if (notifications.length == 1) {
+              navigation.selectSubject(notifications.keys.single);
+            } else {
+              navigation.openPendingUpdates();
+            }
             globalContainer.read(navStoreProvider.notifier).setCurIndex(1);
           },
         );

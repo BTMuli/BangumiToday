@@ -136,6 +136,9 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     _showCompactDetail = navigation.targetSubject != null;
     _showLocalFiles = false;
     _filterModel.resetFilters();
+    if (navigation.pendingUpdatesOnly) {
+      _filterModel.configurationFilter = BmfConfigurationFilter.updates;
+    }
     _debounceTimer?.cancel();
     _searchController.clear();
   }
