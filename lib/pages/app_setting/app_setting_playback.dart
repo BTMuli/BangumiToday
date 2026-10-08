@@ -15,16 +15,31 @@ import '../../store/playback_store.dart';
 import '../../widgets/common/bt_setting_section.dart';
 import '../../widgets/playback/playback_build_log.dart';
 
-class AppConfigPlaybackWidget extends ConsumerStatefulWidget {
+class AppConfigPlaybackWidget extends StatelessWidget {
   const AppConfigPlaybackWidget({super.key});
 
   @override
-  ConsumerState<AppConfigPlaybackWidget> createState() =>
-      _AppConfigPlaybackWidgetState();
+  Widget build(BuildContext context) => const BTSettingSection(
+    icon: FluentIcons.video,
+    title: '视频超分',
+    subtitle: 'TensorRT · 安装与配置',
+    initiallyExpanded: false,
+    // The section only mounts its content while expanded.
+    children: [_AppConfigPlaybackContent()],
+  );
 }
 
-class _AppConfigPlaybackWidgetState
-    extends ConsumerState<AppConfigPlaybackWidget> {
+class _AppConfigPlaybackContent extends ConsumerStatefulWidget {
+  const _AppConfigPlaybackContent();
+
+  @override
+  ConsumerState<_AppConfigPlaybackContent> createState() =>
+      _AppConfigPlaybackContentState();
+}
+
+class _AppConfigPlaybackContentState
+    extends ConsumerState<_AppConfigPlaybackContent> {
+  bool _initialized = false;
   bool? _details;
 
   @override
@@ -35,10 +50,11 @@ class _AppConfigPlaybackWidgetState
       Future.microtask(() async {
         if (!mounted) return;
         var store = ref.read(playbackStoreProvider);
-        await Future.wait([
-          store.tensorRtResources.initialize(),
-          store.janaiBenchmarks.initialize(),
-        ]);
+        // Resolve the component directory before reading the benchmark cache.
+        await store.tensorRtResources.initialize();
+        if (!mounted) return;
+        await store.janaiBenchmarks.initialize();
+        if (mounted) setState(() => _initialized = true);
       }),
     );
   }
@@ -250,6 +266,7 @@ class _AppConfigPlaybackWidgetState
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) return const Text('正在读取显卡与超分配置…');
     var store = ref.watch(playbackStoreProvider);
     var resources = store.tensorRtResources;
     var failed = resources.stage == 'failed';
@@ -262,10 +279,9 @@ class _AppConfigPlaybackWidgetState
     var architectures = (PlaybackTensorRtGpu.supportedSm.toList()..sort())
         .map((sm) => 'SM$sm')
         .join(' / ');
-    return BTSettingSection(
-      icon: FluentIcons.video,
-      title: '视频超分',
-      subtitle: 'TensorRT · 安装与配置',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           '配置显卡组件后，可在播放器中启用 TensorRT 并选择 AI 超分档位。',
