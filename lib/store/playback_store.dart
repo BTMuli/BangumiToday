@@ -811,7 +811,7 @@ class PlaybackStore extends ChangeNotifier {
       _manualSubtitles = true;
       _chapters?.reset();
       _janaiVideoSource?.reset();
-      await _upscaler?.resetMedia();
+      await _upscaler?.resetMedia(keepOutput: true);
       if (_closed) return;
       await _player!.stop();
       await _resetAudio();
@@ -845,6 +845,8 @@ class PlaybackStore extends ChangeNotifier {
       _manualSubtitles = true;
       _chapters?.reset();
       _session.clear();
+      // A failed open must release any output retained for an episode switch.
+      await _upscaler?.resetMedia();
       rethrow;
     } finally {
       loading = false;

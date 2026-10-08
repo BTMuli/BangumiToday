@@ -81,6 +81,7 @@ class PlaybackUpscaler {
   String? _baselineDumbMode;
   bool _resizeInvalidated = false;
   PlaybackPixels? _fixedOutput;
+  PlaybackPixels? _retainedOutputSource;
   List<String> _paths = [];
   int _generation = 0;
   PlaybackUpscalePlan? _applied;
@@ -190,7 +191,8 @@ class PlaybackUpscaler {
   void source(PlaybackVideoSource? value) {
     if (_closed || !_mediaReady || _source == value) return;
     var dimensionsChanged =
-        _source?.width != value?.width || _source?.height != value?.height;
+        _validateRetainedOutput(value) ??
+        (_source?.width != value?.width || _source?.height != value?.height);
     _source = value;
     // media_kit_video resets the texture when display parameters change. Its
     // cached fixed dimensions must be invalidated before applying the new plan.
@@ -242,10 +244,12 @@ class PlaybackUpscaler {
   }
 
   /// Called before stop/open. No old application can write after this returns.
-  Future<void> resetMedia() =>
-      _resetWork ??= _resetMedia().whenComplete(() => _resetWork = null);
+  /// Episode switches can retain a confirmed Anime4K output while clearing the
+  /// old shaders, keeping new SDR frames on the same mpv scaling path.
+  Future<void> resetMedia({bool keepOutput = false}) => _resetWork ??=
+      _resetMedia(keepOutput: keepOutput).whenComplete(() => _resetWork = null);
 
-  Future<void> _resetMedia() async {
+  Future<void> _resetMedia({required bool keepOutput}) async {
     if (_closed) return;
     _mediaReady = false;
     _stopDropMonitor();
@@ -260,12 +264,30 @@ class PlaybackUpscaler {
     _pendingReady = false;
     await _flight;
     if (_closed) return;
-    if (_dirty) await _restore();
+    var retainOutput =
+        keepOutput &&
+        !_failed &&
+        !_restorationFailed &&
+        mode != PlaybackUpscaleMode.off &&
+        !mode.isJanai &&
+        _loadedMode == mode &&
+        _source != null &&
+        _fixedOutput != null &&
+        actualOutput == _fixedOutput;
+    var retainedSource = retainOutput
+        ? (width: _source!.width, height: _source!.height)
+        : null;
+    _trace(
+      'media reset retain_output=$retainOutput '
+      'output=${_pixels(_fixedOutput)} source=${_pixels(retainedSource)}',
+    );
+    if (_dirty) await _restore(keepOutput: retainOutput);
     if (_closed) return;
+    _retainedOutputSource = retainedSource;
     _source = null;
     _applied = null;
     _resizeInvalidated = false;
-    actualOutput = null;
+    if (!retainOutput) actualOutput = null;
     _failed = false;
     _performanceFailureRate = null;
     _restorationFailed = false;
@@ -279,8 +301,16 @@ class PlaybackUpscaler {
   void mediaReady(PlaybackVideoSource? value) {
     if (_closed) return;
     _mediaReady = true;
+    _resizeInvalidated = _validateRetainedOutput(value) ?? false;
     _source = value;
     _schedule(immediate: true);
+  }
+
+  bool? _validateRetainedOutput(PlaybackVideoSource? source) {
+    var previous = _retainedOutputSource;
+    if (previous == null || source == null) return null;
+    _retainedOutputSource = null;
+    return previous.width != source.width || previous.height != source.height;
   }
 
   void _schedule({bool immediate = false, bool invalidate = false}) {
@@ -416,6 +446,20 @@ class PlaybackUpscaler {
       var outcome = 'superseded';
       try {
         if (!next.enabled) {
+          // open() may return before the first video-params event. The old
+          // shaders are already cleared; keep its output until new parameters
+          // can confirm the plan, rather than briefly restoring source size.
+          if (_retainedOutputSource != null &&
+              _source == null &&
+              !_failed &&
+              !_unsupported &&
+              mode != PlaybackUpscaleMode.off &&
+              !mode.isJanai) {
+            plan = next;
+            outcome = 'waiting_source';
+            onChanged();
+            continue;
+          }
           if (_dirty) await _restore(generation: generation);
           if (!_current(generation)) continue;
         } else if (next.mode.isJanai) {
@@ -596,7 +640,7 @@ class PlaybackUpscaler {
     }
   }
 
-  Future<void> _restore({int? generation}) async {
+  Future<void> _restore({int? generation, bool keepOutput = false}) async {
     _stopDropMonitor();
     var operation = generation ?? _generation;
     // Try every part of recovery even when clearing the shader list fails.
@@ -616,16 +660,18 @@ class PlaybackUpscaler {
           );
           _janaiDirty = false;
         },
-      () async {
-        await _step(
-          'restore_output',
-          () => backend.resize(null),
-          generation: operation,
-        );
-        _fixedOutput = null;
-        _resizeInvalidated = false;
-      },
-      if (_baselineDumbMode != null)
+      if (!keepOutput)
+        () async {
+          await _step(
+            'restore_output',
+            () => backend.resize(null),
+            generation: operation,
+          );
+          _fixedOutput = null;
+          _retainedOutputSource = null;
+          _resizeInvalidated = false;
+        },
+      if (!keepOutput && _baselineDumbMode != null)
         () => _step(
           'restore_gpu_dumb_mode:$_baselineDumbMode',
           () => backend.command(['set', 'gpu-dumb-mode', _baselineDumbMode!]),
@@ -641,7 +687,9 @@ class PlaybackUpscaler {
     _loadedMode = null;
     _applied = null;
     if (failure != null) throw failure;
-    _dirty = false;
+    // Retained output and gpu-dumb-mode still need full recovery on stop,
+    // disabled/unsupported media, a preference change, or a failed apply.
+    _dirty = keepOutput;
   }
 
   void _watchOutput(int generation, PlaybackUpscalePlan next) {
