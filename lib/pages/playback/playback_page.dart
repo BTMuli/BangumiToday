@@ -263,7 +263,12 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   Future<void> _openSubject(int subject) async {
     await _run(() => _store.resolveCover(subject));
     if (!mounted) return;
-    await _exitVideoFullscreen();
+    // 独立播放器在主窗口打开章节页，保留播放窗口的全屏状态。
+    if (widget.independent) {
+      _overlay.closeMenus();
+    } else {
+      await _exitVideoFullscreen();
+    }
     await ref.read(playbackSubjectNavigationProvider)(subject);
   }
 
