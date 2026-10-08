@@ -11,6 +11,7 @@ import '../../core/theme/bt_theme.dart';
 import '../../core/utils/tool_func.dart';
 import '../../models/rss/anibt_filters.dart';
 import '../../models/rss/rss.dart';
+import '../../providers/bmf_providers.dart';
 import '../../request/rss/anibt_api.dart';
 import '../../store/bt_download_store.dart';
 import '../../store/nav_store.dart';
@@ -116,7 +117,14 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
     _downloading.value = true;
     updateKeepAlive();
     try {
-      var saveDir = await pickDownloadDirectory();
+      var subjectId = metadata?.bgmId;
+      String? saveDir;
+      if (subjectId != null && subjectId > 0) {
+        var bmf = await ref.read(bmfRepositoryProvider).read(subjectId);
+        if (!mounted) return;
+        saveDir = _nonEmpty(bmf?.download);
+      }
+      saveDir ??= await pickDownloadDirectory();
       if (!mounted || saveDir == null || saveDir.isEmpty) return;
 
       if (magnet != null) {
@@ -126,7 +134,7 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
               uri: magnet,
               savePath: saveDir,
               displayName: releaseTitle,
-              subjectId: metadata?.bgmId,
+              subjectId: subjectId,
             );
       } else {
         var torrentPath = await BTDownloadTool().downloadRssTorrent(
@@ -141,7 +149,7 @@ class _RssAnibtCardFluentState extends ConsumerState<RssAnibtCardFluent>
               torrentPath: torrentPath,
               savePath: saveDir,
               displayName: releaseTitle,
-              subjectId: metadata?.bgmId,
+              subjectId: subjectId,
             );
       }
       if (mounted) await BtInfobar.success(context, '下载任务已添加');
