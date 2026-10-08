@@ -26,7 +26,7 @@ class BTAppSettings {
     this.themeMode = ThemeMode.system,
     this.accentColor,
     this.mikanRss = BTAppConstants.defaultMikanMirror,
-    this.bangumiUrl = BTAppConstants.bangumiApiBaseUrl,
+    this.bangumiUrl = BTAppConstants.defaultBangumiApiBaseUrl,
     this.minimizeToTray = true,
     this.useSystemProxy = false,
     this.rssSelectionBehavior = RssSelectionBehavior.replace,

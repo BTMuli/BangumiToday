@@ -241,10 +241,6 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
         value: bangumiUrl,
         items: const [
           ComboBoxItem(
-            value: BTAppConstants.bangumiApiBaseUrl,
-            child: Text('bgmmi.anibt.net'),
-          ),
-          ComboBoxItem(
             value: BTAppConstants.bangumiProApiBaseUrl,
             child: Text('bangumi.pro'),
           ),

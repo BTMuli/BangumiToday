@@ -10,7 +10,7 @@ Contents:
 
 ## Bangumi.tv API
 
-- Base URLs (`lib/core/constants/app_constants.dart`): default mirror API `https://bgmapi.anibt.net` (site `https://bgmmi.anibt.net`, images `https://bgmimg.anibt.net`); official `api.bgm.tv` / `bgm.tv` / `lain.bgm.tv`; and `api.bangumi.pro` (with `fast`/`next`/`doujin` mirrors). The user-selected endpoint is stored in AppConfig; `rewriteBangumiUrl` maps official hosts to the active mirror.
+- Base URLs (`lib/core/constants/app_constants.dart`): default mirror API `https://api.bangumi.pro` (site `https://bangumi.pro`, images `https://lain.bangumi.pro`, with `fast`/`next`/`doujin` mirrors); official `api.bgm.tv` / `bgm.tv` / `lain.bgm.tv`. The user-selected endpoint is stored in AppConfig; unsupported or removed mirror settings migrate to the default, and `rewriteBangumiUrl` maps official hosts and cached links from the removed AniBT mirror to the active endpoint.
 - Client `BtrBangumiApi` (docs: https://bangumi.github.io/api/): `/calendar`, `POST /v0/search/subjects` (filter `type`/`tag`/`airdate`/`rating`/`rank`/`nsfw`, sort `match|heat|rank|score`), subject detail/episodes/characters/persons, user info and collections, plus legacy v2 endpoints.
 - Models live in `lib/models/bangumi/` split per domain (subject, episode, character, person, collection, user, revision, patch, index, legacy) with generated JSON; `bangumi_enum.dart` holds subject types, episode types, and collection status.
 - Requests go through `RequestManager` with `RequestKey` entries: `bangumi_calendar`, `subject_detail_<id>`, `subject_episodes_<id>`, `user_collection_<user>_<id>`, `user_collections_<user>`, `search_<kw>_<offset>[_tag_...]`, `rss_<source>`.

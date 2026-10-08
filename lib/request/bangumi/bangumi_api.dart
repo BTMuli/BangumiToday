@@ -25,7 +25,7 @@ import 'bangumi_manager.dart';
 /// bangumi.tv 的 API
 /// 详细文档请参考 https://bangumi.github.io/api/
 class BtrBangumiApi {
-  static String _baseUrl = BTAppConstants.bangumiApiBaseUrl;
+  static String _baseUrl = BTAppConstants.defaultBangumiApiBaseUrl;
 
   /// 请求客户端
   late final BtrClient client;
@@ -70,10 +70,7 @@ class BtrBangumiApi {
 
   /// 更新基础 URL
   static void setBaseUrl(String value) {
-    var normalized = value.trim().replaceFirst(RegExp(r'/+$'), '');
-    _baseUrl = normalized.isEmpty
-        ? BTAppConstants.bangumiApiBaseUrl
-        : normalized;
+    _baseUrl = BTAppConstants.normalizeBangumiApiUrl(value);
   }
 
   /// 请求管理器

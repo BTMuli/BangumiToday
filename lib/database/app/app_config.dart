@@ -243,31 +243,22 @@ class BtsAppConfig {
   /// 读取 Bangumi API 镜像地址
   Future<String> readBangumiUrl() async {
     var res = await _instance.read('bangumiUrl');
-    if (res == BTAppConstants.legacyBangumiLolApiBaseUrl) {
-      BTLogTool.warn(
-        'Migrate Bangumi API URL: $res -> '
-        '${BTAppConstants.bangumiProApiBaseUrl}',
-      );
-      res = BTAppConstants.bangumiProApiBaseUrl;
-      await _instance.writeBangumiUrl(res);
-    }
-    var isSupported =
-        res == BTAppConstants.bangumiApiBaseUrl ||
-        res == BTAppConstants.bangumiProApiBaseUrl ||
-        res == BTAppConstants.officialBangumiApiBaseUrl;
-    if (!isSupported) {
+    var normalized = BTAppConstants.normalizeBangumiApiUrl(res);
+    if (res != normalized) {
       if (res != null && res.isNotEmpty) {
-        BTLogTool.warn('Invalid Bangumi API URL: $res');
+        BTLogTool.warn('Normalize Bangumi API URL: $res -> $normalized');
       }
-      res = BTAppConstants.bangumiApiBaseUrl;
-      await _instance.writeBangumiUrl(res);
+      await _instance.writeBangumiUrl(normalized);
     }
-    return res!;
+    return normalized;
   }
 
   /// 写入/更新 Bangumi API 镜像地址
   Future<void> writeBangumiUrl(String url) async {
-    await _instance.write('bangumiUrl', url);
+    await _instance.write(
+      'bangumiUrl',
+      BTAppConstants.normalizeBangumiApiUrl(url),
+    );
   }
 
   Future<BtDownloadConfig> readBtDownloadConfig() async {
