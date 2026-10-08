@@ -2,6 +2,7 @@
 import 'dart:async';
 
 // Project imports:
+import '../../models/playback/playback_frame_drop_monitor.dart';
 import '../../models/playback/playback_janai_status.dart';
 import '../../models/playback/playback_upscale.dart';
 
@@ -33,6 +34,8 @@ abstract class PlaybackUpscaleBackend {
 /// they never join the Store's media-operation queue.
 class PlaybackUpscaler {
   static final _rendererPattern = RegExp("GL_RENDERER='([^']+)'");
+  static const _nativeFrameBudgetFailure =
+      'AnimeJaNai exceeded the frame budget for three windows';
   PlaybackUpscaler({
     required this.backend,
     required this.loadShaders,
@@ -90,8 +93,9 @@ class PlaybackUpscaler {
   Timer? _outputDeadline;
   Timer? _dropTimer;
   bool _readingDrops = false;
-  ({num dropped, num frame, num position})? _dropBaseline;
-  int _dropWindows = 0;
+  final _dropMonitor = PlaybackFrameDropMonitor();
+  final _dropClock = Stopwatch()..start();
+  double? _performanceFailureRate;
   int _dropEpoch = 0;
   Completer<bool>? _outputReady;
   PlaybackPixels? _awaitingOutput;
@@ -143,6 +147,7 @@ class PlaybackUpscaler {
       _failed = false;
       _warned = false;
       _lastFailure = null;
+      _performanceFailureRate = null;
       warning = null;
     }
     mode = value;
@@ -159,7 +164,23 @@ class PlaybackUpscaler {
       _failed = _warned = false;
       warning = null;
       _lastFailure = null;
+      _performanceFailureRate = null;
     }
+    _schedule(immediate: true, invalidate: true);
+  }
+
+  void playbackRate(double value) {
+    if (_closed || !_dropMonitor.speed(value, _dropClock.elapsed)) return;
+    _dropEpoch++;
+    _trace('playback rate=$value reset_drop_windows');
+    var failedRate = _performanceFailureRate;
+    if (failedRate == null || value >= failedRate || _restorationFailed) return;
+    // Retry only a performance fallback after reducing demand. Model, device
+    // and restoration failures still require an explicit retry.
+    _performanceFailureRate = null;
+    _failed = _warned = false;
+    _lastFailure = null;
+    warning = null;
     _schedule(immediate: true, invalidate: true);
   }
 
@@ -243,6 +264,7 @@ class PlaybackUpscaler {
     _resizeInvalidated = false;
     actualOutput = null;
     _failed = false;
+    _performanceFailureRate = null;
     _restorationFailed = false;
     _warned = false;
     warning = null;
@@ -671,8 +693,7 @@ class PlaybackUpscaler {
     janaiStatus = null;
     _dropTimer?.cancel();
     _dropTimer = null;
-    _dropBaseline = null;
-    _dropWindows = 0;
+    _dropMonitor.reset();
     _dropEpoch++;
   }
 
@@ -708,6 +729,9 @@ class PlaybackUpscaler {
       if (status != null &&
           (status.phase == 'failed' ||
               (status.active && status.backend != 'tensorrt'))) {
+        if (status.reason == _nativeFrameBudgetFailure) {
+          _performanceFailureRate = _dropMonitor.rate;
+        }
         _lastFailure = StateError(
           status.phase == 'failed' && status.reason.isNotEmpty
               ? status.reason
@@ -720,8 +744,7 @@ class PlaybackUpscaler {
       }
       if (status?.active == false || status == null) {
         // Preparing/passthrough playback has no inference frame budget.
-        _dropBaseline = null;
-        _dropWindows = 0;
+        _dropMonitor.reset();
         return;
       }
       var values = await Future.wait([
@@ -735,42 +758,30 @@ class PlaybackUpscaler {
       var dropped = values[0];
       var frame = values[1];
       var position = values[2];
-      var previous = _dropBaseline;
-      _dropBaseline = null;
       if (dropped is! num ||
           frame is! num ||
           position is! num ||
-          !dropped.isFinite ||
-          !frame.isFinite ||
-          !position.isFinite ||
-          dropped < 0 ||
-          frame < 0 ||
           values[3] != false ||
           values[4] != false) {
-        _dropWindows = 0;
+        _dropMonitor.reset();
         return;
       }
-      _dropBaseline = (dropped: dropped, frame: frame, position: position);
-      // Ignore pause, seek, counter resets and windows with too few frames.
-      if (previous == null ||
-          position <= previous.position ||
-          position - previous.position > 4 ||
-          frame - previous.frame < 10 ||
-          dropped < previous.dropped) {
-        _dropWindows = 0;
+      if (!_dropMonitor.observe(
+        dropped: dropped,
+        frame: frame,
+        position: position,
+        elapsed: _dropClock.elapsed,
+      )) {
         return;
       }
-      var rate = (dropped - previous.dropped) / (frame - previous.frame);
-      _dropWindows = rate > 0.01 ? _dropWindows + 1 : 0;
-      if (_dropWindows < 3) return;
       _lastFailure = StateError('AI 超分连续三个窗口的播放丢帧率超过 1%');
+      _performanceFailureRate = _dropMonitor.rate;
       _failed = true;
       onError(_lastFailure!);
       _schedule(immediate: true);
     } catch (error) {
       if (epoch != _dropEpoch || _closed) return;
-      _dropBaseline = null;
-      _dropWindows = 0;
+      _dropMonitor.reset();
       _trace('drop_monitor unavailable error=$error');
     } finally {
       _readingDrops = false;
@@ -811,6 +822,9 @@ class PlaybackUpscaler {
         (level == 'error' || level == 'fatal');
     if (!shaderFileError && !shaderError && !unsupported && !janaiError) return;
     if (shaderFileError) _forwardedErrors.add(text.trim());
+    if (janaiError && text.contains(_nativeFrameBudgetFailure)) {
+      _performanceFailureRate = _dropMonitor.rate;
+    }
     _failed = true;
     _lastFailure = StateError(text.trim());
     onError(_lastFailure!);

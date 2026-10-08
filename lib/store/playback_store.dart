@@ -445,18 +445,21 @@ class PlaybackStore extends ChangeNotifier {
           'v4.0.1',
         ),
       );
-      _upscaler = PlaybackUpscaler(
-        backend: NativePlaybackUpscaleBackend(
-          player,
-          video,
-          tensorRtEnabled: () => tensorRtEnabled,
-          tensorRtResources: tensorRtResources,
-        ),
-        loadShaders: assets.load,
-        onChanged: _notify,
-        onError: (error) => BTLogTool.warn('视频超分：$error'),
-        onDiagnostics: diagnostics.upscaleEvent,
-      )..preferences(_upscaleMode);
+      _upscaler =
+          PlaybackUpscaler(
+              backend: NativePlaybackUpscaleBackend(
+                player,
+                video,
+                tensorRtEnabled: () => tensorRtEnabled,
+                tensorRtResources: tensorRtResources,
+              ),
+              loadShaders: assets.load,
+              onChanged: _notify,
+              onError: (error) => BTLogTool.warn('视频超分：$error'),
+              onDiagnostics: diagnostics.upscaleEvent,
+            )
+            ..preferences(_upscaleMode)
+            ..playbackRate(player.state.rate);
       for (var value in earlyLogs) {
         _upscaler!.log(value.prefix, value.level, value.text);
       }
@@ -474,6 +477,7 @@ class PlaybackStore extends ChangeNotifier {
       }),
       player.stream.rate.listen((value) {
         diagnostics.event('播放速率改变：rate=$value');
+        _upscaler?.playbackRate(value);
         _scheduleAudioRefresh();
         _notify();
       }),
