@@ -44,6 +44,7 @@ foreach(_index RANGE 0 ${_last_file})
   endif()
   string(JSON ${_id}_bytes GET "${_asset_lock}" files ${_index} bytes)
   string(JSON ${_id}_sha256 GET "${_asset_lock}" files ${_index} sha256)
+  string(JSON ${_id}_path GET "${_asset_lock}" files ${_index} path)
   string(LENGTH "${${_id}_sha256}" _hash_length)
   if(NOT _hash_length EQUAL 64 OR NOT ${_id}_sha256 MATCHES "^[0-9a-f]+$")
     message(FATAL_ERROR "Invalid locked inference digest for ${_id}")
@@ -151,9 +152,11 @@ target_include_directories(bangumi_dml_session SYSTEM PRIVATE
 target_link_libraries(bangumi_dml_session PUBLIC d3d12 d3d11 dxgi bcrypt shell32)
 
 # The shim loaded by the pinned mpv filter (see aji_abi.h).
-add_library(bangumi_ajishim SHARED aji_bridge.cc aji_abi.h)
+add_library(bangumi_ajishim SHARED aji_bridge.cc aji_abi.h
+  trt_precompile.cc trt_precompile.h)
 target_compile_features(bangumi_ajishim PRIVATE cxx_std_17)
 target_compile_definitions(bangumi_ajishim PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
 target_compile_options(bangumi_ajishim PRIVATE /W4 /WX /EHsc /utf-8)
 target_include_directories(bangumi_ajishim PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(bangumi_ajishim PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 target_link_libraries(bangumi_ajishim PRIVATE bangumi_dml_session)

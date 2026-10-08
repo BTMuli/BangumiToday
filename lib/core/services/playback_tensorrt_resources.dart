@@ -14,6 +14,7 @@ import 'package:path/path.dart' as path;
 // Project imports:
 import '../../models/playback/playback_janai_status.dart';
 import 'playback_tensorrt_gpu.dart';
+import 'playback_tensorrt_precompile.dart';
 
 /// Optional components are pinned by the application, never by a remote feed.
 /// Settings detect a compatible GPU before an explicitly requested download.
@@ -51,6 +52,9 @@ class PlaybackTensorRtResources {
   bool get busy => _flight != null;
   bool get canDownload => gpu?.supported == true;
   bool get installed => _installed;
+  bool get preparingEngines => stage == 'precompiling';
+  int completedEngines = 0;
+  List<String> get precompileLines => _precompileLines;
   bool get ready => installed && canDownload && !busy && !checking;
   bool get canEnable =>
       ready &&
@@ -67,12 +71,12 @@ class PlaybackTensorRtResources {
       : !canDownload
       ? gpu!.requirement
       : busy
-      ? 'TensorRT 组件正在安装'
+      ? 'TensorRT 正在准备组件和引擎'
       : !installed
       ? '请先在应用设置中安装并校验 TensorRT 组件'
       : !canEnable
       ? '当前播放显卡不支持 TensorRT'
-      : 'AI 实时超分 · 首次使用按视频分辨率编译模型';
+      : 'AI 实时超分 · 常用尺寸复用引擎，其他尺寸首次编译';
   String get configurationLabel =>
       busy || stage == 'failed' || stage == 'cancelled'
       ? message
@@ -97,6 +101,8 @@ class PlaybackTensorRtResources {
   List<String> _buildLines = const [];
   String _buildLog = '';
   final List<String> _installationLines = [];
+  List<String> _precompileLines = const [];
+  final _precompiler = PlaybackTensorRtPrecompile();
   bool _installed = false;
   String? _checkedSnapshot;
   Future<void>? _refreshFlight;
@@ -228,6 +234,7 @@ class PlaybackTensorRtResources {
     _cancelled = true;
     _client?.close(force: true);
     _extractor?.kill();
+    _precompiler.cancel();
   }
 
   void dispose() {
@@ -239,11 +246,42 @@ class PlaybackTensorRtResources {
   Future<bool> install() {
     if (_flight != null) return _flight!;
     _cancelled = false;
-    _flight = _install();
+    _flight = _installAndPrepare();
     return _flight!.whenComplete(() {
       _flight = null;
       if (!_disposed) onChanged();
     });
+  }
+
+  Future<bool> _installAndPrepare() async {
+    if (!await _install()) return false;
+    try {
+      _checkCancelled();
+      completedEngines = 0;
+      _precompileLines = const [];
+      _update('precompiling', '准备 720p、1080p 的四个 AI 引擎');
+      _checkCancelled();
+      await _precompiler.run(
+        bundle: bundleDirectory,
+        runtime: runtimeDirectory,
+        cache: engineDirectory,
+        onProgress: (progress) {
+          completedEngines = progress.completed;
+          _precompileLines = progress.lines;
+          _update('precompiling', progress.label);
+        },
+      );
+      _checkCancelled();
+      _update('ready', '配置完成，720p、1080p 的四个 AI 引擎已就绪');
+      return true;
+    } catch (error) {
+      if (_cancelled || _disposed || error is _Cancelled) {
+        _update('cancelled', '引擎准备已取消，重试时复用已完成的引擎');
+      } else {
+        _update('failed', 'TensorRT 引擎准备失败：$error');
+      }
+      return false;
+    }
   }
 
   Future<Map<String, dynamic>> _manifest() async {

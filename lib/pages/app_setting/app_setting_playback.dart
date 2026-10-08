@@ -20,7 +20,7 @@ class AppConfigPlaybackWidget extends ConsumerStatefulWidget {
 
 class _AppConfigPlaybackWidgetState
     extends ConsumerState<AppConfigPlaybackWidget> {
-  bool _details = false;
+  bool? _details;
 
   @override
   void initState() {
@@ -45,6 +45,8 @@ class _AppConfigPlaybackWidgetState
     var retry = failed || resources.stage == 'cancelled';
     var working = resources.busy || resources.checking;
     var progress = resources.progress;
+    var enginesReady = resources.completedEngines == 4 && !retry;
+    var showDetails = _details ?? (resources.preparingEngines || failed);
     return BTSettingSection(
       icon: FluentIcons.video,
       title: '视频超分',
@@ -97,6 +99,13 @@ class _AppConfigPlaybackWidgetState
               style: FluentTheme.of(context).typography.caption,
             ),
           ],
+          if (resources.preparingEngines) ...[
+            const SizedBox(height: 6),
+            Text(
+              '${resources.completedEngines} / 4 个引擎已就绪',
+              style: FluentTheme.of(context).typography.caption,
+            ),
+          ],
         ],
         const SizedBox(height: 12),
         Wrap(
@@ -105,40 +114,46 @@ class _AppConfigPlaybackWidgetState
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             FilledButton(
-              onPressed:
-                  working || !resources.canDownload || resources.installed
+              onPressed: working || !resources.canDownload || enginesReady
                   ? null
                   : () => unawaited(store.downloadTensorRt()),
               child: Text(
-                resources.installed
-                    ? '组件已安装'
+                enginesReady
+                    ? '引擎已就绪'
+                    : resources.installed
+                    ? retry
+                          ? '继续准备引擎'
+                          : '预编译常用引擎'
                     : retry
                     ? '重试安装'
-                    : '下载并安装组件',
+                    : '下载并准备引擎',
               ),
             ),
             if (resources.busy)
               Button(onPressed: resources.cancel, child: const Text('取消')),
             if (resources.installationLines.isNotEmpty)
               HyperlinkButton(
-                onPressed: () => setState(() => _details = !_details),
-                child: Text(_details ? '收起安装日志' : '查看安装日志'),
+                onPressed: () => setState(() => _details = !showDetails),
+                child: Text(showDetails ? '收起准备日志' : '查看准备日志'),
               ),
           ],
         ),
         const SizedBox(height: 8),
         Text(
-          '首次使用 AI 模式时，会按模型和视频分辨率编译引擎，'
-          '编译期间保持普通播放；已编译的结果会缓存复用。',
+          '组件安装后依次准备 720p、1080p × AI 流畅、AI 高质量，共四个引擎。'
+          '已缓存的引擎直接复用，其他输入尺寸首次播放时按需编译。',
           style: FluentTheme.of(context).typography.caption,
         ),
-        if (_details) ...[
+        if (showDetails) ...[
           const SizedBox(height: 12),
           SizedBox(
             height: 180,
             child: PlaybackBuildLog(
-              lines: resources.installationLines,
-              emptyText: '等待安装任务输出…',
+              lines: [
+                ...resources.installationLines,
+                ...resources.precompileLines,
+              ],
+              emptyText: '等待准备任务输出…',
             ),
           ),
         ],

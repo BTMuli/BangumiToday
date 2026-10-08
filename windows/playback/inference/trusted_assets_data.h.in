@@ -5,6 +5,8 @@ namespace bangumi::inference::detail {
 struct Asset { uint64_t bytes; const char* sha256; };
 inline constexpr Asset kPerformance{@performance_bytes@, "@performance_sha256@"};
 inline constexpr Asset kBalanced{@balanced_bytes@, "@balanced_sha256@"};
+inline constexpr const char* kPerformancePath = "@performance_path@";
+inline constexpr const char* kBalancedPath = "@balanced_path@";
 inline constexpr Asset kOnnxruntime{@onnxruntime_bytes@, "@onnxruntime_sha256@"};
 inline constexpr Asset kDirectml{@directml_bytes@, "@directml_sha256@"};
 }
