@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // Project imports:
+import '../../core/services/playback_tensorrt_gpu.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../models/playback/playback_janai_benchmark.dart';
 import '../../models/playback/playback_upscale.dart';
@@ -238,6 +239,15 @@ class _AppConfigPlaybackWidgetState
     );
   }
 
+  Widget _sizeLabel(String label, int bytes) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: BTTypography.caption(context)),
+      const SizedBox(height: 4),
+      Text(_bytes(bytes), style: BTTypography.bodyStrong(context)),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     var store = ref.watch(playbackStoreProvider);
@@ -248,20 +258,25 @@ class _AppConfigPlaybackWidgetState
     var progress = resources.progress;
     var enginesReady = resources.completedEngines == 4 && !retry;
     var showDetails = _details ?? (resources.preparingEngines || failed);
+    var gpu = resources.gpu;
+    var architectures = (PlaybackTensorRtGpu.supportedSm.toList()..sort())
+        .map((sm) => 'SM$sm')
+        .join(' / ');
     return BTSettingSection(
       icon: FluentIcons.video,
       title: '视频超分',
       subtitle: 'TensorRT · 安装与配置',
       children: [
         Text(
-          '先检测显卡并安装组件，配置完成后在播放器中勾选“启用 TensorRT”。',
-          style: FluentTheme.of(context).typography.body,
+          '配置显卡组件后，可在播放器中启用 TensorRT 并选择 AI 超分档位。',
+          style: BTTypography.body(
+            context,
+          ).copyWith(color: BTColors.textSecondary(context), height: 1.5),
         ),
-        const SizedBox(height: 12),
-        ListTile(
-          title: const Text('显卡与驱动'),
-          subtitle: Text(resources.gpu?.label ?? '正在检测 NVIDIA 显卡…'),
-          trailing: Button(
+        const SizedBox(height: 20),
+        _heading(
+          '显卡与驱动',
+          action: Button(
             onPressed: working
                 ? null
                 : () => unawaited(
@@ -270,16 +285,41 @@ class _AppConfigPlaybackWidgetState
             child: const Text('重新检测'),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
+        _panel(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                gpu == null
+                    ? '正在检测 NVIDIA 显卡…'
+                    : gpu.error.isNotEmpty
+                    ? gpu.error
+                    : gpu.name,
+                style: BTTypography.bodyStrong(context),
+              ),
+              if (gpu != null && gpu.error.isEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  '计算架构 SM${gpu.sm} · 驱动支持 CUDA ${gpu.driverLabel}',
+                  style: BTTypography.caption(context),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const BTSettingDivider(),
         _benchmarks(store),
+        const BTSettingDivider(),
+        _heading(
+          '组件与引擎',
+          subtitle: '支持 NVIDIA $architectures，需 CUDA 13.4 或更高版本驱动',
+        ),
         const SizedBox(height: 12),
         InfoBar(
-          title: Text(resources.configurationLabel),
-          content: Text(
-            '支持 NVIDIA SM89、SM90、SM100、SM120 显卡（最低 SM89），'
-            '需要 CUDA 13.4 或更高版本驱动。'
-            '${resources.total > 0 ? '当前显卡组件下载约 ${_bytes(resources.total)}，'
-                      '安装约 ${_bytes(resources.installedBytes)}。' : ''}',
+          title: Text(
+            resources.configurationLabel,
+            style: BTTypography.bodyStrong(context),
           ),
           severity: failed
               ? InfoBarSeverity.error
@@ -290,6 +330,17 @@ class _AppConfigPlaybackWidgetState
               : InfoBarSeverity.info,
           isLong: true,
         ),
+        if (resources.total > 0) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 32,
+            runSpacing: 12,
+            children: [
+              _sizeLabel('组件下载', resources.total),
+              _sizeLabel('安装占用', resources.installedBytes),
+            ],
+          ),
+        ],
         if (working) ...[
           const SizedBox(height: 12),
           SizedBox(
@@ -301,14 +352,14 @@ class _AppConfigPlaybackWidgetState
             Text(
               '${_bytes(resources.received)} / ${_bytes(resources.total)}'
               ' · ${(progress * 100).toStringAsFixed(1)}%',
-              style: FluentTheme.of(context).typography.caption,
+              style: BTTypography.caption(context),
             ),
           ],
           if (resources.preparingEngines) ...[
             const SizedBox(height: 6),
             Text(
               '${resources.completedEngines} / 4 个引擎已就绪',
-              style: FluentTheme.of(context).typography.caption,
+              style: BTTypography.caption(context),
             ),
           ],
         ],
@@ -347,11 +398,12 @@ class _AppConfigPlaybackWidgetState
         Text(
           '组件安装后依次准备 720p、1080p × AI 流畅、AI 高质量，共四个引擎。'
           '已缓存的引擎直接复用，其他输入尺寸首次播放时按需编译。',
-          style: FluentTheme.of(context).typography.caption,
+          style: BTTypography.caption(context).copyWith(height: 1.5),
         ),
         if (showDetails) ...[
           const SizedBox(height: 12),
           SizedBox(
+            width: double.infinity,
             height: 180,
             child: PlaybackBuildLog(
               lines: [
