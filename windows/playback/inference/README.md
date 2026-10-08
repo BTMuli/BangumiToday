@@ -129,22 +129,41 @@ cmake --build .dart_tool/playback_inference/build --config Release
 
 ## TensorRT 路线
 
-当前选装版本为 TensorRT 11.3.0.99 / CUDA 13.4，只声明经过本机验证的 SM89。
+当前选装版本为 TensorRT 11.3.0.99 / CUDA 13.4，最低 SM89，白名单为
+SM89、SM90、SM100、SM120；覆盖 RTX 40 / RTX 50 和相应的 Hopper / Blackwell
+架构。SM89 已有本机推理验证，其他三个架构仍需真实显卡播放验收。
+SM75、SM80、SM86 不开放，未列入可信清单的架构也不自动使用 PTX 组件。
 要求实际播放 D3D11 adapter 对应 NVIDIA CUDA device，驱动 API 版本至少 13040。
 能力查询不加载 TensorRT。组件缺失时滤镜旁路普通播放，并发布 `resources_missing`；
 播放器显示主动下载入口，选择质量不会自行下载。
 
 基础包仅增加随应用发布的 `tensorrt-components.json` 可信清单和小型 SDK 头文件的
-构建依赖，不包含 NVIDIA 大运行库。应用显式下载固定上游 3.7.0 的 common + sm89
-归档（约 329 MiB），验证归档和每个文件的 SHA-256，使用系统 tar.exe 解压；不运行
+构建依赖，不包含 NVIDIA 大运行库。应用显式下载固定上游 3.7.0 的 common + 当前
+显卡架构归档。验证归档和每个文件的 SHA-256，使用系统 tar.exe 解压；不运行
 下载的解压器，不安装 Toolkit、修改 PATH 或安装驱动。资源写入
-`%LOCALAPPDATA%/BangumiToday/playback-tensorrt/11.3.0.99/sm89`，约 611 MiB。
+`%LOCALAPPDATA%/BangumiToday/playback-tensorrt/11.3.0.99/sm<架构>`。
+只安装和校验对应架构的 builder DLL，设置显示的下载和安装大小由可信清单计算。
+NVIDIA 组件不进入 MSIX，增加架构仅增加少量清单和程序数据。
+
+| 架构 | 下载（公共 + 当前架构） | 安装（含 CRT，不含引擎缓存） |
+|---|---|---|
+| SM89 | 约 329 MiB | 约 611 MiB |
+| SM90 | 约 579 MiB | 约 872 MiB |
+| SM100 | 约 418 MiB | 约 709 MiB |
+| SM120 | 约 397 MiB | 约 688 MiB |
+
+SM90 / SM100 已通过归档与文件 SHA-256、解压和 DLL 依赖闭合检查。
+隔离功能检查覆盖四种架构的资源选择、SM90 / SM100 安装记录、播放架构匹配，
+以及低于 SM89、未列入清单的架构和旧驱动拒绝；其他架构的 builder DLL 不能
+代替所需文件。这些检查不代表对应显卡已通过真实推理和播放验收。
 支持字节进度、HTTP Range / ETag 续传、取消、重试、跨窗口安装锁和 staging 原子发布；
 损坏资源通过新目录事务修复。编译阶段显示状态和滚动日志，不估算百分比。
 
 设置中的组件安装完成后，调用独立于 mpv 滤镜 ABI 的 `bt_trt_precompile_*`
 入口，顺序准备 1280×720、1920×1080 × Performance、Balanced 共四个引擎。
 后台 isolate 轮询任务序号、阶段及有界日志，取消会回收当前 trtexec 子进程。
+准备入口接收安装组件的 SM 架构，原生端只选择相同架构的 DXGI/CUDA adapter；
+实际播放显卡的 SM 也必须与已选组件一致。
 预编译和播放共用 `MakeFramePlan`、实际 DXGI/CUDA 显卡身份及 `TrtEngineBuild`
 缓存校验；已完成的结果在重试时复用，其他源视频尺寸继续按需构建。
 
@@ -165,6 +184,9 @@ Job Object、15 分钟超时和取消负责回收子进程；模型尺寸、版�
 ```powershell
 ./scripts/prepare_playback_tensorrt.ps1 -HeadersOnly
 ./scripts/prepare_playback_tensorrt.ps1 -ComputeCapability 89
+./scripts/prepare_playback_tensorrt.ps1 -ComputeCapability 90
+./scripts/prepare_playback_tensorrt.ps1 -ComputeCapability 100
+./scripts/prepare_playback_tensorrt.ps1 -ComputeCapability 120
 ```
 
 前者由基础准备脚本自动调用，仅固定 TRT/CUDA 头文件；后者用于开发时侧载选装组件。
@@ -190,9 +212,11 @@ GPU 中位 24.6 ms、P95 26.2 ms；Balanced 约 44.7 ms，AMD 780M Performance �
 
 剩余工作：真实硬解与 ANGLE device 对齐、PTS/seek/暂停/连播及长播放验收、画质与
 端到端性能对比、干净 Windows/MSIX 环境、固定 LGPL 构建；TensorRT 帧桥、本机构建/
-缓存和 SM89 选装下载已接通。此次隔离验证覆盖 1080p NV12、P010 padding、ABI 的
-缺资源旁路 / slot / 后台编译 / 实时日志、引擎复用及取消，并验证真实下载的取消续传、
+缓存和 SM89 / SM90 / SM100 / SM120 选装下载已接通。既有隔离验证覆盖 1080p
+NV12、P010 padding、ABI 的缺资源旁路 / slot / 后台编译 / 实时日志、引擎复用及
+取消，并验证真实下载的取消续传、
 安装锁、解压、校验和离线复用。RTX 4070 Laptop 的 1080p Performance TRT 测量约
 18.4 ms/帧（GPU 约 15.9 ms），合成灰帧与 DML 输出差为 0；该结果不能代表端到端
-播放速度。其他 SM、项目托管组件 ZIP、完整 TensorRT 许可材料、资源移除入口与
-发行渠道验证仍待完成。隔离编译和纯逻辑检查不能替代播放器手工验收。
+播放速度。SM90 / SM100 / SM120 的真实显卡推理、项目托管组件 ZIP、完整 TensorRT
+许可材料、资源移除入口与发行渠道验证仍待完成。隔离编译和纯逻辑检查不能替代
+播放器手工验收。

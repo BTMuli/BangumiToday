@@ -72,9 +72,11 @@ class _AppConfigPlaybackWidgetState
         const SizedBox(height: 8),
         InfoBar(
           title: Text(resources.configurationLabel),
-          content: const Text(
-            '仅支持 NVIDIA SM89 显卡和 CUDA 13.4 或更高版本驱动。'
-            '组件下载约 329 MB，安装约 611 MB。',
+          content: Text(
+            '支持 NVIDIA SM89、SM90、SM100、SM120 显卡（最低 SM89），'
+            '需要 CUDA 13.4 或更高版本驱动。'
+            '${resources.total > 0 ? '当前显卡组件下载约 ${_bytes(resources.total)}，'
+                      '安装约 ${_bytes(resources.installedBytes)}。' : ''}',
           ),
           severity: failed
               ? InfoBarSeverity.error

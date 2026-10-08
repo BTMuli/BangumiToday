@@ -4,7 +4,7 @@
   "trtVersion": "11.3.0.99",
   "cudaVersion": 13040,
   "minimumDriver": 13040,
-  "supportedSm": 89,
+  "supportedSm": [89, 90, 100, 120],
   "archives": [
     {
       "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/component-trt-runtime.7z",
@@ -17,6 +17,24 @@
       "group": "sm89",
       "sha256": "34bd51be1cb1581db3e494d1b30732c926cd9ac1a340efabdf0f9148911fdc87",
       "bytes": 158554965
+    },
+    {
+      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/component-trt-sm90.7z",
+      "group": "sm90",
+      "sha256": "b884e983b8b0d61ecebf9990fbed6a3fa13023b5cf9b4c2920933777e5f5ceb5",
+      "bytes": 420452077
+    },
+    {
+      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/component-trt-sm100.7z",
+      "group": "sm100",
+      "sha256": "98a4ab1a906123ba61db70cc470c13595b60cf94acde6625c53ad5556a58f447",
+      "bytes": 251528952
+    },
+    {
+      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/component-trt-sm120.7z",
+      "group": "sm120",
+      "sha256": "954821ef65824b0c766998db7d2ae49c68041dac7f78328152ec41f674378c15",
+      "bytes": 229417183
     }
   ],
   "files": [
@@ -43,6 +61,24 @@
       "sha256": "f0bd157c522fe03cab903d4b61ed2e0d15cdf0c639aa824ab0004aef945af79a",
       "group": "sm89",
       "bytes": 189048432
+    },
+    {
+      "name": "nvinfer_builder_resource_sm90_11.dll",
+      "sha256": "c9aebade33c685b08367a7268fbda130ccce91aa1679d5ab88d07b099fad9082",
+      "group": "sm90",
+      "bytes": 461991536
+    },
+    {
+      "name": "nvinfer_builder_resource_sm100_11.dll",
+      "sha256": "cb235cd2b03888b10f8eb5f713d148975701b213560279578f9d34157c2d927b",
+      "group": "sm100",
+      "bytes": 290767472
+    },
+    {
+      "name": "nvinfer_builder_resource_sm120_11.dll",
+      "sha256": "7b616872410c519caa7ebfcf2197a748cb5d0b21d9163704e7ca2ae8828ed677",
+      "group": "sm120",
+      "bytes": 269391472
     },
     {
       "name": "nvinfer_plugin_11.dll",

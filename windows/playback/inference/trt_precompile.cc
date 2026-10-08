@@ -16,6 +16,7 @@
 
 #include "frame_contract.h"
 #include "gpu_capabilities.h"
+#include "trt_assets_data.h"
 #include "trt_engine_cache.h"
 #include "trusted_assets_data.h"
 
@@ -23,7 +24,9 @@ using namespace bangumi::inference;
 using Microsoft::WRL::ComPtr;
 
 namespace {
-GpuCapabilities FindGpu() {
+GpuCapabilities FindGpu(int sm) {
+  if (!detail::SupportsSm(sm))
+    throw std::runtime_error("TensorRT architecture is not in the pinned lock");
   ComPtr<IDXGIFactory1> factory;
   if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory))))
     throw std::runtime_error("Cannot enumerate graphics adapters");
@@ -45,11 +48,12 @@ GpuCapabilities FindGpu() {
       continue;
     const auto gpu = QueryGpuCapabilities(device.Get());
     if (gpu.cuda_device >= 0 && gpu.cuda_reason.empty() &&
-        gpu.compute_major * 10 + gpu.compute_minor == 89 &&
-        gpu.cuda_driver_version >= 13040)
+        gpu.compute_major * 10 + gpu.compute_minor == sm &&
+        gpu.cuda_driver_version >= detail::kMinimumDriver)
       return gpu;
   }
-  throw std::runtime_error("未找到支持 SM89 / CUDA 13.4 的 NVIDIA 显卡");
+  throw std::runtime_error("未找到支持 SM" + std::to_string(sm) +
+                           " / CUDA 13.4 的 NVIDIA 显卡");
 }
 
 std::string Utf8(const std::filesystem::path& path) {
@@ -91,9 +95,9 @@ struct bt_trt_precompile {
 
   bt_trt_precompile(std::filesystem::path bundle,
                     std::filesystem::path runtime,
-                    std::filesystem::path cache) {
-    worker = std::thread([this, bundle, runtime, cache] {
-      Work(bundle, runtime, cache);
+                    std::filesystem::path cache, int sm) {
+    worker = std::thread([this, bundle, runtime, cache, sm] {
+      Work(bundle, runtime, cache, sm);
     });
   }
   ~bt_trt_precompile() {
@@ -107,12 +111,12 @@ struct bt_trt_precompile {
 
   void Work(const std::filesystem::path& bundle,
             const std::filesystem::path& runtime,
-            const std::filesystem::path& cache) noexcept {
+            const std::filesystem::path& cache, int sm) noexcept {
     try {
       if (!bundle.is_absolute() || !runtime.is_absolute() || !cache.is_absolute())
         throw std::invalid_argument("TensorRT preparation requires absolute paths");
       CheckCancelled();
-      const auto gpu = FindGpu();
+      const auto gpu = FindGpu(sm);
       // Use the same compiled model paths, padded frame plan, device identity,
       // locked assets and cache builder as playback; no parallel trtexec job.
       struct Task { const char* model; uint32_t width, height; const char* label; };
@@ -176,10 +180,10 @@ struct bt_trt_precompile {
 extern "C" {
 bt_trt_precompile* bt_trt_precompile_start(const wchar_t* bundle,
                                          const wchar_t* runtime,
-                                         const wchar_t* cache) {
+                                         const wchar_t* cache, int sm) {
   try {
     if (!bundle || !runtime || !cache) return nullptr;
-    return new bt_trt_precompile(bundle, runtime, cache);
+    return new bt_trt_precompile(bundle, runtime, cache, sm);
   } catch (...) { return nullptr; }
 }
 

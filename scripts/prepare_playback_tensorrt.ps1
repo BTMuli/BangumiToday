@@ -1,9 +1,9 @@
 [CmdletBinding()]
 param(
     [switch]$HeadersOnly,
-    [ValidateSet(89)][int]$ComputeCapability = 89,
+    [ValidateSet(89, 90, 100, 120)][int]$ComputeCapability = 89,
     [string]$SdkDirectory = (Join-Path $PSScriptRoot '../.dart_tool/playback_inference/base/sdk/tensorrt'),
-    [string]$RuntimeDirectory = (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'BangumiToday/playback-tensorrt/11.3.0.99/sm89'),
+    [string]$RuntimeDirectory = '',
     [string]$BaseRuntimeDirectory = (Join-Path $PSScriptRoot '../.dart_tool/playback_inference/base/runtime'),
     [string]$CacheDirectory = (Join-Path $PSScriptRoot '../.dart_tool/playback_inference/downloads')
 )
@@ -16,9 +16,14 @@ $sourceRoot = Join-Path $PSScriptRoot '../windows/playback/inference'
 $sdkLock = Get-Content -LiteralPath (Join-Path $sourceRoot 'trt-sdk.lock.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $componentLock = Get-Content -LiteralPath (Join-Path $sourceRoot 'trt-components.lock.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($sdkLock.schemaVersion -ne 1 -or $componentLock.schemaVersion -ne 1 -or
-    $componentLock.bridgeAbi -ne 8 -or $componentLock.supportedSm -ne $ComputeCapability) {
+    $componentLock.bridgeAbi -ne 8 -or $ComputeCapability -notin $componentLock.supportedSm) {
     throw 'Unsupported TensorRT dependency lock or compute capability'
 }
+if ([string]::IsNullOrWhiteSpace($RuntimeDirectory)) {
+    $RuntimeDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) "BangumiToday/playback-tensorrt/$($componentLock.trtVersion)/sm$ComputeCapability"
+}
+$runtimeFiles = @($componentLock.files | Where-Object { $_.group -in @('common', 'crt', "sm$ComputeCapability") })
+$runtimeArchives = @($componentLock.archives | Where-Object { $_.group -in @('common', "sm$ComputeCapability") })
 $downloadRoot = [IO.Path]::GetFullPath($CacheDirectory)
 
 function Save-TrtAsset([object]$Asset, [string]$Extension) {
@@ -130,14 +135,14 @@ if ($HeadersOnly) {
 }
 
 function Assert-TrtRuntime([string]$Root) {
-    foreach ($file in $componentLock.files) {
+    foreach ($file in $runtimeFiles) {
         $path = Get-InferenceTarget -Root $Root -RelativePath $file.name
         Assert-InferenceFile -Path $path -Bytes $file.bytes -Sha256 $file.sha256
         if ($file.name -match '\.(dll|exe)$') {
             $imports = Get-InferencePeImports $path
             foreach ($import in $imports) {
                 if ($import -match '^(api-ms-|ext-ms-)') { continue }
-                if ($import -in @($componentLock.files.name)) { continue }
+                if ($import -in @($runtimeFiles.name)) { continue }
                 if (-not (Test-Path -LiteralPath (Join-Path $env:SystemRoot ('System32/' + $import)))) {
                     throw "Unresolved TensorRT dependency: $($file.name) -> $import"
                 }
@@ -146,16 +151,27 @@ function Assert-TrtRuntime([string]$Root) {
     }
 }
 
+function Write-TrtInstalledRecord([string]$Root) {
+    $text = [IO.File]::ReadAllText((Join-Path $sourceRoot 'trt-components.lock.json')).Replace("`r`n", "`n")
+    $hash = [Security.Cryptography.SHA256]::Create()
+    try {
+        $manifestSha256 = ([BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes($text)))).Replace('-', '').ToLowerInvariant()
+    } finally { $hash.Dispose() }
+    $record = @{ schemaVersion = 1; trtVersion = $componentLock.trtVersion; sm = $ComputeCapability; manifestSha256 = $manifestSha256 } | ConvertTo-Json -Compress
+    [IO.File]::WriteAllText((Join-Path $Root 'installed.json'), $record, [Text.UTF8Encoding]::new($false))
+}
+
 $target = [IO.Path]::GetFullPath($RuntimeDirectory).TrimEnd('\', '/')
 if (Test-Path -LiteralPath $target) {
     Assert-TrtRuntime $target
+    Write-TrtInstalledRecord $target
     Write-Output "Reusing verified optional TensorRT sm$ComputeCapability resources: $target"
     return
 }
 $stage = $target + '.' + [Guid]::NewGuid().ToString('N') + '.staging'
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 try {
-    foreach ($package in $componentLock.archives) {
+    foreach ($package in $runtimeArchives) {
         $download = Save-TrtAsset $package '.7z'
         # tar.exe is the OS archive reader, never an executable from a download.
         $tar = Join-Path $env:SystemRoot 'System32/tar.exe'
@@ -168,14 +184,14 @@ try {
                 throw "Unsafe TensorRT archive entry: $relative"
             }
             $seen[$relative] = $true
-            if ([IO.Path]::GetFileName($relative) -notin @($componentLock.files.name) + @('DirectML_LICENSE.txt')) {
+            if ([IO.Path]::GetFileName($relative) -notin @($runtimeFiles.name) + @('DirectML_LICENSE.txt')) {
                 throw "Unexpected TensorRT archive entry: $relative"
             }
         }
         & $tar -xf $download -C $stage
         if ($LASTEXITCODE -ne 0) { throw 'Cannot extract locked TensorRT archive' }
     }
-    foreach ($file in $componentLock.files) {
+    foreach ($file in $runtimeFiles) {
         $source = if ($file.group -eq 'crt') { Join-Path $BaseRuntimeDirectory $file.name } else { Join-Path $stage ('animejanai/inference/' + $file.name) }
         Assert-InferenceFile -Path $source -Bytes $file.bytes -Sha256 $file.sha256
         Copy-Item -LiteralPath $source -Destination (Join-Path $stage $file.name)
@@ -184,7 +200,7 @@ try {
     if (-not $extracted.StartsWith($stage + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe extraction cleanup' }
     Remove-Item -LiteralPath $extracted -Recurse -Force
     Assert-TrtRuntime $stage
-    Copy-Item -LiteralPath (Join-Path $sourceRoot 'trt-components.lock.json') -Destination (Join-Path $stage 'installed.json')
+    Write-TrtInstalledRecord $stage
     Move-Item -LiteralPath $stage -Destination $target
     Write-Output "Prepared optional TensorRT sm$ComputeCapability resources (enable separately in playback): $target"
 } finally { Remove-TrtStage $stage $target }

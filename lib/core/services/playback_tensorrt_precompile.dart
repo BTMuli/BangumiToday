@@ -47,6 +47,7 @@ class PlaybackTensorRtPrecompile {
     required String bundle,
     required String runtime,
     required String cache,
+    required int sm,
     required void Function(PlaybackTensorRtPreparation) onProgress,
   }) async {
     _cancelled = false;
@@ -54,7 +55,7 @@ class PlaybackTensorRtPrecompile {
     try {
       await Isolate.spawn(
         _prepare,
-        [events.sendPort, bundle, runtime, cache],
+        [events.sendPort, bundle, runtime, cache, sm],
         onError: events.sendPort,
         onExit: events.sendPort,
       );
@@ -89,6 +90,7 @@ class PlaybackTensorRtPrecompile {
     var bundle = request[1] as String;
     var runtime = request[2] as String;
     var cache = request[3] as String;
+    var sm = request[4] as int;
     var commands = ReceivePort();
     var cancelled = false;
     var subscription = commands.listen((_) => cancelled = true);
@@ -109,11 +111,13 @@ class PlaybackTensorRtPrecompile {
               Pointer<Utf16>,
               Pointer<Utf16>,
               Pointer<Utf16>,
+              Int32,
             ),
             Pointer<Void> Function(
               Pointer<Utf16>,
               Pointer<Utf16>,
               Pointer<Utf16>,
+              int,
             )
           >('bt_trt_precompile_start');
       var poll = library
@@ -136,6 +140,7 @@ class PlaybackTensorRtPrecompile {
           bundle.toNativeUtf16(allocator: arena),
           runtime.toNativeUtf16(allocator: arena),
           cache.toNativeUtf16(allocator: arena),
+          sm,
         ),
       );
       if (job == nullptr) throw StateError('无法启动 TensorRT 引擎准备');

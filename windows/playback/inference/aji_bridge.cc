@@ -42,6 +42,7 @@
 #include "frame_contract.h"
 #include "frame_pipeline.h"
 #include "gpu_capabilities.h"
+#include "trt_assets_data.h"
 #include "trt_engine_cache.h"
 
 using Microsoft::WRL::ComPtr;
@@ -480,8 +481,12 @@ AJI_EXPORT aji_ctx* aji_create(const aji_create_params* params) try {
   // WindowsApps or the application bundle. Production AI requires TensorRT;
   // missing components leave ordinary playback available.
   const auto writable = DefaultStatsPath().parent_path() / L"playback-tensorrt";
-  if (state->trt_dir.empty())
-    state->trt_dir = writable / L"11.3.0.99" / L"sm89";
+  if (state->trt_dir.empty()) {
+    const auto gpu = QueryGpuCapabilities(state->device.Get());
+    const int sm = gpu.compute_major * 10 + gpu.compute_minor;
+    state->trt_dir = writable / detail::kTrtVersion /
+                     (L"sm" + std::to_wstring(sm));
+  }
   if (state->engine_cache.empty()) state->engine_cache = writable / L"engines";
   DescribePlan(*state);
   state->Log(kLogInfo, "AnimeJaNai shim created (runtime " +
@@ -579,11 +584,12 @@ AJI_EXPORT int aji_configure(aji_ctx* c, int w, int h, double fps, int* out_w,
                 ? "AI 实时超分需要 NVIDIA 显卡和已配置的 TensorRT"
                 : "NVIDIA 驱动或播放设备不支持 TensorRT：" + gpu.cuda_reason;
       } else {
-        if (gpu.compute_major * 10 + gpu.compute_minor != 89 ||
-            gpu.cuda_driver_version < 13040) {
+        if (!detail::SupportsSm(gpu.compute_major * 10 + gpu.compute_minor) ||
+            gpu.cuda_driver_version < detail::kMinimumDriver) {
           c->trt_failed = true;
           c->backend_reason =
-              "当前组件仅验证 SM89 显卡，且需要 CUDA 13.4 或更高版本驱动";
+              "当前组件支持 SM89 / SM90 / SM100 / SM120 显卡，"
+              "且需要 CUDA 13.4 或更高版本驱动";
         } else if (!std::filesystem::exists(c->trt_dir / L"nvinfer_11.dll") ||
                    !std::filesystem::exists(c->trt_dir / L"trtexec.exe")) {
           c->backend_reason = "尚未安装 TensorRT 组件，请在应用设置中安装";

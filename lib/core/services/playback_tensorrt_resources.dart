@@ -37,18 +37,20 @@ class PlaybackTensorRtResources {
 
   static const version = '11.3.0.99';
   static const manifestSha256 =
-      '807eebf6dabf61d0caeb1835774e0e1aac9bca9ccbe1d2de537e663531a51aa5';
+      '4257c34ded46a338f95109b448ad7932cb57b0b9966f04186dc135ef173ffc47';
   final void Function() onChanged;
   final String bundleDirectory;
   final String dataDirectory;
-  String get runtimeDirectory => path.join(dataDirectory, version, 'sm89');
+  int get _sm => gpu?.sm ?? 0;
+  String get runtimeDirectory => path.join(dataDirectory, version, 'sm$_sm');
   String get engineDirectory => path.join(dataDirectory, 'engines');
   PlaybackJanaiStatus? native;
   PlaybackTensorRtGpu? gpu;
   String stage = 'idle';
   String message = '';
   int received = 0;
-  int total = 345377740;
+  int total = 0;
+  int installedBytes = 0;
   bool get busy => _flight != null;
   bool get canDownload => gpu?.supported == true;
   bool get installed => _installed;
@@ -61,7 +63,7 @@ class PlaybackTensorRtResources {
       (native == null ||
           native!.gpuVendor == 0 ||
           (native!.gpuVendor == 0x10de &&
-              native!.gpuSm == 89 &&
+              native!.gpuSm == _sm &&
               native!.gpuDriver >= 13040));
   bool get checking => _checking;
   String get configurationHint => checking
@@ -152,15 +154,29 @@ class PlaybackTensorRtResources {
     try {
       if (detectGpu || gpu == null) gpu = await PlaybackTensorRtGpu.detect();
       if (_disposed) return;
+      if (!canDownload) {
+        _installed = false;
+        _checkedSnapshot = null;
+        total = installedBytes = 0;
+        return;
+      }
+      var manifest = await _manifest();
+      var files = _selectedAssets(manifest, 'files');
+      total = _selectedAssets(
+        manifest,
+        'archives',
+      ).fold(0, (sum, item) => sum + (item['bytes'] as int));
+      installedBytes = files.fold(
+        0,
+        (sum, item) => sum + (item['bytes'] as int),
+      );
       var marker = File(path.join(runtimeDirectory, 'installed.json'));
       if (!await marker.exists()) {
         _installed = false;
         _checkedSnapshot = null;
         return;
       }
-      var manifest = await _manifest();
-      var files = (manifest['files'] as List).cast<Map<String, dynamic>>();
-      var snapshot = StringBuffer();
+      var snapshot = StringBuffer(runtimeDirectory);
       for (var name in ['installed.json', ...files.map((f) => f['name'])]) {
         var stat = await File(
           path.join(runtimeDirectory, name as String),
@@ -178,7 +194,7 @@ class PlaybackTensorRtResources {
           jsonDecode(await marker.readAsString()) as Map<String, dynamic>;
       if (record['schemaVersion'] != 1 ||
           record['trtVersion'] != version ||
-          record['sm'] != 89 ||
+          record['sm'] != _sm ||
           record['manifestSha256'] != manifestSha256) {
         throw const FormatException('TensorRT 配置版本已变化，请重新安装组件');
       }
@@ -265,6 +281,7 @@ class PlaybackTensorRtResources {
         bundle: bundleDirectory,
         runtime: runtimeDirectory,
         cache: engineDirectory,
+        sm: _sm,
         onProgress: (progress) {
           completedEngines = progress.completed;
           _precompileLines = progress.lines;
@@ -303,11 +320,19 @@ class PlaybackTensorRtResources {
     if (manifest['schemaVersion'] != 1 ||
         manifest['bridgeAbi'] != 8 ||
         manifest['trtVersion'] != version ||
-        manifest['supportedSm'] != 89) {
+        !(manifest['supportedSm'] as List).contains(_sm)) {
       throw const FormatException('TensorRT 组件版本不匹配');
     }
     return manifest;
   }
+
+  List<Map<String, dynamic>> _selectedAssets(
+    Map<String, dynamic> manifest,
+    String key,
+  ) => (manifest[key] as List)
+      .cast<Map<String, dynamic>>()
+      .where((item) => {'common', 'crt', 'sm$_sm'}.contains(item['group']))
+      .toList();
 
   Future<bool> _install() async {
     Directory? staging;
@@ -323,10 +348,13 @@ class PlaybackTensorRtResources {
       _checkedSnapshot = null;
       _update('checking', '检查 TensorRT 组件');
       var manifest = await _manifest();
-      var files = (manifest['files'] as List).cast<Map<String, dynamic>>();
-      var archives = (manifest['archives'] as List)
-          .cast<Map<String, dynamic>>();
+      var files = _selectedAssets(manifest, 'files');
+      var archives = _selectedAssets(manifest, 'archives');
       total = archives.fold(0, (sum, item) => sum + (item['bytes'] as int));
+      installedBytes = files.fold(
+        0,
+        (sum, item) => sum + (item['bytes'] as int),
+      );
       await Directory(
         path.join(dataDirectory, version),
       ).create(recursive: true);
@@ -487,7 +515,11 @@ class PlaybackTensorRtResources {
       if (staging != null) {
         // Delete only this transaction's known sibling of the final runtime.
         if (path.dirname(staging.path) == path.dirname(runtimeDirectory) &&
-            path.basename(staging.path).startsWith('sm89.staging-$pid-')) {
+            path
+                .basename(staging.path)
+                .startsWith(
+                  '${path.basename(runtimeDirectory)}.staging-$pid-',
+                )) {
           try {
             await staging.delete(recursive: true);
           } on FileSystemException {
@@ -517,7 +549,7 @@ class PlaybackTensorRtResources {
         jsonEncode({
           'schemaVersion': 1,
           'trtVersion': version,
-          'sm': 89,
+          'sm': _sm,
           'manifestSha256': manifestSha256,
         }),
       );

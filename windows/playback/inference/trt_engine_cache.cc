@@ -270,14 +270,15 @@ std::shared_ptr<TrtResources> TrtResources::Open(
   Check(gpu.cuda_device >= 0 && gpu.cuda_reason.empty(),
         gpu.cuda_reason.c_str());
   const int sm = gpu.compute_major * 10 + gpu.compute_minor;
-  Check(sm == detail::kSupportedSm,
-        "TensorRT architecture is not in the verified lock");
+  Check(detail::SupportsSm(sm),
+        "TensorRT architecture is not in the pinned lock");
   Check(gpu.cuda_driver_version >= detail::kMinimumDriver,
         "NVIDIA driver is too old for the pinned TensorRT/CUDA combination");
   auto result = std::make_shared<TrtResources>();
   result->sm = sm;
   result->directory = std::filesystem::absolute(root).lexically_normal();
   for (const auto& file : detail::kTrtAssets) {
+    if (file.sm != 0 && file.sm != sm) continue;
     const auto path = result->directory / file.name;
     const auto attributes = GetFileAttributesW(path.c_str());
     Check(attributes != INVALID_FILE_ATTRIBUTES &&

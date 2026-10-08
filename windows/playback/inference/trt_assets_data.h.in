@@ -5,8 +5,18 @@ namespace bangumi::inference::detail {
 inline constexpr char kTrtVersion[] = "@_trt_trtVersion@";
 inline constexpr int kCudaVersion = @_trt_cudaVersion@;
 inline constexpr int kMinimumDriver = @_trt_minimumDriver@;
-inline constexpr int kSupportedSm = @_trt_supportedSm@;
-struct TrtAsset { const wchar_t* name; uint64_t bytes; const char* sha256; };
+inline constexpr int kSupportedSm[] = {@_trt_supportedSm@};
+inline constexpr bool SupportsSm(int sm) {
+  for (const int supported : kSupportedSm)
+    if (sm == supported) return true;
+  return false;
+}
+struct TrtAsset {
+  const wchar_t* name;
+  uint64_t bytes;
+  const char* sha256;
+  int sm;  // Zero for common runtime and CRT files.
+};
 inline constexpr TrtAsset kTrtAssets[] = {
 @_trt_assets@};
 }

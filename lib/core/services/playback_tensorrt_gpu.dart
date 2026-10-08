@@ -21,14 +21,16 @@ class PlaybackTensorRtGpu {
   final int sm;
   final int driver;
   final String error;
-  bool get supported => error.isEmpty && sm == 89 && driver >= 13040;
+  static const supportedSm = {89, 90, 100, 120};
+  bool get supported =>
+      error.isEmpty && supportedSm.contains(sm) && driver >= 13040;
   String get driverLabel => '${driver ~/ 1000}.${driver % 1000 ~/ 10}';
   String get label =>
       error.isNotEmpty ? error : '$name · SM$sm · CUDA $driverLabel';
   String get requirement => error.isNotEmpty
       ? error
-      : sm != 89
-      ? '当前组件仅支持 SM89 显卡，检测到 SM$sm'
+      : !supportedSm.contains(sm)
+      ? '当前组件支持 SM89 / SM90 / SM100 / SM120 显卡，检测到 SM$sm'
       : driver < 13040
       ? '请更新 NVIDIA 驱动，需要支持 CUDA 13.4 或更高版本'
       : '';
