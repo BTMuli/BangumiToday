@@ -159,9 +159,6 @@ class _SubjectDetailRelationState extends ConsumerState<SubjectDetailRelation>
     var hasImage = data.images.large.isNotEmpty;
 
     return Container(
-      width: 260,
-      height: 120,
-      margin: EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: SubjectDetailColors.card(context),
         borderRadius: BTRadius.mediumBR,
@@ -210,10 +207,19 @@ class _SubjectDetailRelationState extends ConsumerState<SubjectDetailRelation>
         ],
       );
     }
-    return Wrap(
-      spacing: 8,
-      runSpacing: 0,
-      children: relations.map(buildRelationCard).toList(),
+    return GridView.builder(
+      primary: false,
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        mainAxisExtent: 120,
+      ),
+      itemCount: relations.length,
+      itemBuilder: (context, index) => buildRelationCard(relations[index]),
     );
   }
 }
