@@ -359,34 +359,43 @@ class _NavWidgetState extends ConsumerState<NavWidget>
       });
     }
     var selectedKey = store.pageKeyForIndex(paneIndices[selected]);
-    return NavigationView(
-      paneBodyBuilder: (_, _) {
-        return NavPageStack(
-          key: const ValueKey('nav-page-stack'),
-          selectedKey: selectedKey,
-          pages: _stackPages(store, constItems, selectedKey),
-        );
-      },
-      pane: NavigationPane(
-        selected: selected,
-        onChanged: (index) =>
-            ref.read(navStoreProvider.notifier).setCurIndex(paneIndices[index]),
-        displayMode: PaneDisplayMode.compact,
-        items: [...constItems, ..._navItems],
-        footerItems: [
-          _FlyoutPaneItemAction(
-            controller: flyoutMore,
-            icon: const Icon(FluentIcons.graph_symbol),
-            title: const Text('更多设置'),
-            onTap: showOptionsFlyout,
-          ),
-          buildThemeModeItem(),
-          PaneItem(
-            icon: const Icon(FluentIcons.settings),
-            title: const Text('应用设置'),
-            body: const SettingPage(),
-          ),
-        ],
+    return NavigationPaneTheme.merge(
+      // 展开动画期间面板会短暂以紧凑宽度布局磁贴，图标列默认
+      // 左右各 12 的内边距会把「图标 + 标题 + 关闭」行挤出溢出，
+      // 收窄到 8 后两种宽度都能排下。
+      data: const NavigationPaneThemeData(
+        iconPadding: EdgeInsetsDirectional.symmetric(horizontal: 8),
+      ),
+      child: NavigationView(
+        paneBodyBuilder: (_, _) {
+          return NavPageStack(
+            key: const ValueKey('nav-page-stack'),
+            selectedKey: selectedKey,
+            pages: _stackPages(store, constItems, selectedKey),
+          );
+        },
+        pane: NavigationPane(
+          selected: selected,
+          onChanged: (index) => ref
+              .read(navStoreProvider.notifier)
+              .setCurIndex(paneIndices[index]),
+          displayMode: PaneDisplayMode.compact,
+          items: [...constItems, ..._navItems],
+          footerItems: [
+            _FlyoutPaneItemAction(
+              controller: flyoutMore,
+              icon: const Icon(FluentIcons.graph_symbol),
+              title: const Text('更多设置'),
+              onTap: showOptionsFlyout,
+            ),
+            buildThemeModeItem(),
+            PaneItem(
+              icon: const Icon(FluentIcons.settings),
+              title: const Text('应用设置'),
+              body: const SettingPage(),
+            ),
+          ],
+        ),
       ),
     );
   }
