@@ -50,6 +50,9 @@ bool _applicationExitStarted = false;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 桌面端始终显示交互高亮，避免触摸事件后鼠标悬停背景消失。
+  FocusManager.instance.highlightStrategy =
+      FocusHighlightStrategy.alwaysTraditional;
   // 每个独立窗口都有自己的 Dart isolate，必须在分派入口前安装处理器。
   _configureErrorHandling();
   if (Platform.isWindows) {
