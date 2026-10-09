@@ -68,9 +68,19 @@ class BTNotifierTool {
     required String title,
     required String body,
     void Function()? onClick,
+    List<({String label, VoidCallback onClick})> actions = const [],
   }) async {
-    var notification = LocalNotification(title: title, body: body);
+    var notification = LocalNotification(
+      title: title,
+      body: body,
+      actions: [
+        for (var action in actions) LocalNotificationAction(text: action.label),
+      ],
+    );
     if (onClick != null) notification.onClick = onClick;
+    notification.onClickAction = (index) {
+      if (index >= 0 && index < actions.length) actions[index].onClick();
+    };
     await _notifications.add(notification);
   }
 }

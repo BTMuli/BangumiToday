@@ -7,13 +7,17 @@ import 'package:flutter/foundation.dart';
 
 // Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
 
 // Project imports:
 import '../core/container.dart';
+import '../core/errors/playback_unavailable.dart';
 import '../core/network/system_proxy.dart';
 import '../core/services/bt_engine_client.dart';
+import '../core/services/download_playback.dart';
 import '../core/services/file_service.dart';
 import '../core/services/notification_service.dart';
+import '../core/services/playback_window_service.dart';
 import '../core/services/windows_firewall_rule.dart';
 import '../core/utils/download_subject.dart';
 import '../database/app/app_config.dart';
@@ -23,6 +27,7 @@ import '../models/database/app_bmf_model.dart';
 import '../providers/bmf_providers.dart';
 import '../tools/log_tool.dart';
 import 'nav_store.dart';
+import 'playback_store.dart';
 import 'tracker_hive.dart';
 
 typedef BtTaskCompletionNotifier = Future<void> Function(BtTaskSnapshot task);
@@ -770,32 +775,100 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
     return BTNotifierTool.showMini(
       title: '下载完成',
       body: title,
-      onClick: () => unawaited(_handleCompletionClick(task)),
+      onClick: () => unawaited(_handleCompletionAction(task)),
+      actions: [
+        (
+          label: '查看条目',
+          onClick: () => unawaited(_handleCompletionAction(task)),
+        ),
+        (
+          label: '直接播放',
+          onClick: () => unawaited(_handleCompletionAction(task, play: true)),
+        ),
+      ],
     );
   }
 
+  static Future<void> _handleCompletionAction(
+    BtTaskSnapshot task, {
+    bool play = false,
+  }) async {
+    try {
+      if (play) {
+        await _playCompletedTask(task.id);
+      } else {
+        await _handleCompletionClick(task);
+      }
+    } catch (error) {
+      BTLogTool.error('下载完成通知操作失败：$error');
+      await BTNotifierTool.showMini(
+        title: play ? '播放失败' : '打开条目失败',
+        body: error.toString(),
+      );
+    }
+  }
+
+  static Future<void> _playCompletedTask(String taskId) async {
+    var client = BtEngineClient.instance;
+    var task = client.tasks.where((task) => task.id == taskId).firstOrNull;
+    if (task == null) {
+      throw const PlaybackUnavailable('下载任务已移除，请从下载目录播放');
+    }
+    var filePath = await firstCompletedDownloadVideo(
+      task: task,
+      readFiles: (offset) => client.taskFiles(taskId, offset: offset),
+    );
+    var subject = await _completionSubject(task);
+    if (Platform.isWindows) {
+      await globalContainer
+          .read(playbackWindowServiceProvider)
+          .open(filePath: filePath, subject: subject?.id);
+    } else {
+      await globalContainer
+          .read(playbackStoreProvider)
+          .openLocalFile(filePath, subject: subject?.id);
+      globalContainer.read(navStoreProvider.notifier).goToPlayback();
+      await _showMainWindow();
+    }
+  }
+
+  static Future<void> _showMainWindow() async {
+    if (await windowManager.isMinimized()) await windowManager.restore();
+    await windowManager.show();
+    await windowManager.focus();
+  }
+
   static Future<void> _handleCompletionClick(BtTaskSnapshot task) async {
+    var subject = await _completionSubject(task);
+    if (subject != null) {
+      globalContainer
+          .read(navStoreProvider.notifier)
+          .addNavItemB(
+            subject: subject.id,
+            paneTitle: subject.title,
+            type: '动画',
+          );
+      await _showMainWindow();
+      return;
+    }
+    await BTFileTool().openDir(task.savePath);
+  }
+
+  static Future<({int id, String? title})?> _completionSubject(
+    BtTaskSnapshot task,
+  ) async {
     if (!task.manual) {
       try {
         var subjectId = await downloadSubjectsStorage.read(task.id);
         if (subjectId != null && subjectId > 0) {
-          globalContainer
-              .read(navStoreProvider.notifier)
-              .addNavItemB(subject: subjectId, type: '动画');
-          return;
+          return (id: subjectId, title: null);
         }
       } catch (error) {
         BTLogTool.warn('读取下载任务条目关联失败：$error');
       }
     }
     var bmf = await _findMatchingBmf(task.savePath);
-    if (bmf != null) {
-      globalContainer
-          .read(navStoreProvider.notifier)
-          .addNavItemB(subject: bmf.subject, paneTitle: bmf.title, type: '动画');
-      return;
-    }
-    await BTFileTool().openDir(task.savePath);
+    return bmf == null ? null : (id: bmf.subject, title: bmf.title);
   }
 
   static Future<AppBmfModel?> _findMatchingBmf(String savePath) async {
