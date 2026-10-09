@@ -79,7 +79,7 @@ Accessors (`lib/database/app/*.dart`, `lib/database/bangumi/*.dart`) hold no DDL
 
 ## Runtime requirements
 
-- Flutter **beta >= 3.46.0-0.1.pre** (stable 3.44.x misses the OverlayPortal layout fix and asserts in navigation layout); Dart SDK >= 3.9.0 < 4.0.0.
+- Flutter **beta 3.49.0-0.2.pre** is the verified local and CI baseline (`pubspec.yaml` requires >= 3.49.0-0.2.pre). Stable 3.44.x misses the OverlayPortal layout fix and asserts in navigation layout. Dart SDK >= 3.9.0 < 4.0.0.
 - Local run needs a gitignored `.dart-define.json` with `BANGUMI_APP_ID` / `BANGUMI_APP_SECRET` (create an app at https://bgm.tv/dev/app):
   `flutter run --dart-define-from-file=.dart-define.json`
 - `repos/bt_download` must exist: `git submodule update --init --recursive`.

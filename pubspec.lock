@@ -1533,10 +1533,10 @@ packages:
     dependency: transitive
     description:
       name: test_api
-      sha256: "2a122cbe059f8b610d3a5415f42e255b6c17b1f21eee1d960f31080237fb4f11"
+      sha256: "0a10344e901e5b2e63819567951cb6a06673ed6b84f40462188ff5a0c41f371f"
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "0.7.12"
+    version: "0.7.14"
   tint:
     dependency: transitive
     description:
@@ -1803,4 +1803,4 @@ packages:
     version: "2.2.4"
 sdks:
   dart: ">=3.13.0 <4.0.0"
-  flutter: ">=3.47.0"
+  flutter: ">=3.49.0-0.2.pre"
