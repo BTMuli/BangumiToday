@@ -3,8 +3,8 @@
 //
 // Runtime performance protection for the AnimeJaNai bridge. The plan requires
 // falling back to normal playback once the upscaler keeps missing the frame
-// budget: three consecutive valid two-second windows over budget, or a renderer
-// drop rate above one percent. This file is pure logic so the decision can be
+// budget: three consecutive two-second windows over budget or with severely
+// reduced throughput. This file is pure logic so the decision can be
 // checked without a GPU; FramePipeline feeds it GPU timings.
 #pragma once
 
@@ -21,6 +21,9 @@ class FrameBudgetMonitor final {
     double p95_gpu_ms = 0;
     double drop_rate_percent = 0;
     uint64_t window_frames = 0;
+    double window_elapsed_ms = 0;
+    bool window_valid = false;
+    bool low_throughput = false;
     uint32_t consecutive_over_budget_windows = 0;
     bool over_budget = false;
     bool fallback_recommended = false;

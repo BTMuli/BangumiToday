@@ -374,6 +374,15 @@ void PublishStats(aji_ctx& state, const char* phase, bool force) noexcept try {
     stream << "framesFailed=" << state.frames_failed << "\n";
     stream << "sourceFps=" << state.fps << "\n";
     stream << "lastGpuMs=" << state.last_gpu_ms << "\n";
+    const auto budget = state.pipeline ? state.pipeline->performance()
+                                      : FrameBudgetMonitor::Snapshot{};
+    stream << "budgetWindowFrames=" << budget.window_frames << "\n";
+    stream << "budgetWindowMs=" << budget.window_elapsed_ms << "\n";
+    stream << "budgetWindowValid=" << budget.window_valid << "\n";
+    stream << "budgetLowThroughput=" << budget.low_throughput << "\n";
+    stream << "budgetOverWindows=" << budget.consecutive_over_budget_windows
+           << "\n";
+    stream << "budgetFallback=" << budget.fallback_recommended << "\n";
     // Keep host API blocking separate from GPU execution; these are the last
     // successful submission, published at the existing one-second cadence.
     const auto timing = state.pipeline ? state.pipeline->last_timing()

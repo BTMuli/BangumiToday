@@ -58,20 +58,35 @@ void FrameBudgetMonitor::CloseWindow() {
         static_cast<double>(sorted.size() - 1),
         std::floor(static_cast<double>(sorted.size()) * 0.95)))];
   }
+  const double minimum_fps =
+      budget_ms_ > 0.0 ? std::min(5.0, 250.0 / budget_ms_) : 0.0;
+  const bool starved = minimum_fps > 0.0 && window_elapsed_ms_ > 0.0 &&
+                       frames * 1000.0 / window_elapsed_ms_ < minimum_fps;
+  // Successful-frame requirements must not suppress sustained low throughput.
   const bool over_budget =
-      valid && ((budget_ms_ > 0.0 && median > budget_ms_) ||
-                drop_rate_percent_ > kMaximumDropRatePercent);
-  if (valid) {
-    if (over_budget)
-      ++consecutive_over_budget_;
-    else
+      starved || (valid && ((budget_ms_ > 0.0 && median > budget_ms_) ||
+                            drop_rate_percent_ > kMaximumDropRatePercent));
+  if (valid || starved) {
+    if (over_budget) {
+      const auto windows = static_cast<uint32_t>(std::min<double>(
+          kOverBudgetWindowsBeforeFallback,
+          std::max(1.0, std::floor(window_elapsed_ms_ / kWindowMs))));
+      consecutive_over_budget_ = std::min(kOverBudgetWindowsBeforeFallback,
+                                          consecutive_over_budget_ + windows);
+    } else {
       consecutive_over_budget_ = 0;
+    }
+  } else {
+    consecutive_over_budget_ = 0;
   }
   snapshot_.budget_ms = budget_ms_;
   snapshot_.median_gpu_ms = median;
   snapshot_.p95_gpu_ms = p95;
   snapshot_.drop_rate_percent = drop_rate_percent_;
   snapshot_.window_frames = frames;
+  snapshot_.window_elapsed_ms = window_elapsed_ms_;
+  snapshot_.window_valid = valid;
+  snapshot_.low_throughput = starved;
   snapshot_.consecutive_over_budget_windows = consecutive_over_budget_;
   snapshot_.over_budget = over_budget;
   snapshot_.fallback_recommended =

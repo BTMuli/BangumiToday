@@ -25,6 +25,7 @@ class PlaybackFrameDropMonitor {
     required num frame,
     required num position,
     required Duration elapsed,
+    double? expectedFramesPerSecond,
   }) {
     if (elapsed < _eligibleAt ||
         !dropped.isFinite ||
@@ -36,28 +37,44 @@ class PlaybackFrameDropMonitor {
       return false;
     }
     var previous = _baseline;
-    _baseline = (
+    var current = (
       dropped: dropped,
       frame: frame,
       position: position,
       elapsed: elapsed,
     );
-    if (previous == null) return false;
+    if (previous == null) {
+      _baseline = current;
+      return false;
+    }
     var wallSeconds =
         (elapsed - previous.elapsed).inMicroseconds /
         Duration.microsecondsPerSecond;
     // A seek jumps beyond the media time expected at this speed. The margin
     // tolerates asynchronous property sampling and decoder timestamp jitter.
     if (wallSeconds <= 0 ||
-        position <= previous.position ||
+        position < previous.position ||
         position - previous.position > wallSeconds * _rate + 2 ||
-        frame - previous.frame < 10 ||
+        frame < previous.frame ||
         dropped < previous.dropped) {
+      _baseline = current;
       _windows = 0;
       return false;
     }
-    var fraction = (dropped - previous.dropped) / (frame - previous.frame);
-    _windows = fraction > 0.01 ? _windows + 1 : 0;
+    // Accumulate a real time window, including intervals with zero successful
+    // frames. Moving the baseline on every undersized sample hid severe stalls.
+    if (wallSeconds < 2) return false;
+    _baseline = current;
+    var frames = frame - previous.frame;
+    var drops = dropped - previous.dropped;
+    var fraction = frames > 0 ? drops / frames : (drops > 0 ? 1.0 : 0.0);
+    var expected = expectedFramesPerSecond ?? 0;
+    var minimum = expected * 0.25;
+    if (minimum > 5) minimum = 5;
+    var starved =
+        expected.isFinite && expected > 0 && frames / wallSeconds < minimum;
+    var windows = (wallSeconds / 2).floor().clamp(1, 3);
+    _windows = fraction > 0.01 || starved ? _windows + windows : 0;
     return _windows >= 3;
   }
 }

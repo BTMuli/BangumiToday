@@ -998,14 +998,16 @@ class PlaybackUpscaler {
         backend.read('time-pos'),
         backend.read('pause'),
         backend.read('seeking'),
-      ]);
+        backend.read('paused-for-cache'),
+      ]).timeout(const Duration(seconds: 2));
       if (_closed || epoch != _dropEpoch || _failed) return;
       var dropped = values[0];
       var position = values[1];
       if (dropped is! num ||
           position is! num ||
           values[2] != false ||
-          values[3] != false) {
+          values[3] != false ||
+          values[4] != false) {
         _dropMonitor.reset();
         return;
       }
@@ -1016,10 +1018,13 @@ class PlaybackUpscaler {
         frame: status.frames,
         position: position,
         elapsed: _dropClock.elapsed,
+        expectedFramesPerSecond:
+            _desiredFrameRate?.framesPerSecond ??
+            status.sourceFramesPerSecond * _dropMonitor.rate,
       )) {
         return;
       }
-      _lastFailure = StateError('AI 超分连续三个窗口的播放丢帧率超过 1%');
+      _lastFailure = StateError('AI 超分持续掉帧或输出速度不足');
       _performanceFailureRate = _dropMonitor.rate;
       _failed = true;
       onError(_lastFailure!);
