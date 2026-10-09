@@ -20,6 +20,7 @@ import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_buttons.dart';
 import '../../widgets/common/bt_setting_section.dart';
+import 'accent_color_dialog.dart';
 
 enum _CacheScope { all, images, shaders }
 
@@ -165,9 +166,37 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
     );
   }
 
+  /// 选择自定义主题色，确认后生成完整的深浅色阶并保存。
+  Future<void> _selectCustomAccentColor() async {
+    var initialColor = ref
+        .read(appStoreProvider)
+        .effectiveAccentColor
+        .normal
+        .withValues(alpha: 1);
+    var color = await showAccentColorDialog(
+      context,
+      initialColor: initialColor,
+    );
+    if (color == null || !mounted) return;
+    await ref
+        .read(appStoreProvider.notifier)
+        .setAccentColor(color.withValues(alpha: 1).toAccentColor());
+  }
+
   /// 构建主题色切换按钮组
   Widget buildColorToggle() {
     var currentColorValue = curAccentColor.colorValue;
+    var isCustomColor = !Colors.accentColors.any(
+      (color) => currentColorValue == color.colorValue,
+    );
+    const toggleStyle = ToggleButtonThemeData(
+      checkedButtonStyle: ButtonStyle(
+        padding: WidgetStatePropertyAll(EdgeInsets.zero),
+      ),
+      uncheckedButtonStyle: ButtonStyle(
+        padding: WidgetStatePropertyAll(EdgeInsets.zero),
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -192,14 +221,7 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
                         .read(appStoreProvider.notifier)
                         .setAccentColor(color);
                   },
-                  style: ToggleButtonThemeData(
-                    checkedButtonStyle: ButtonStyle(
-                      padding: WidgetStatePropertyAll(EdgeInsets.zero),
-                    ),
-                    uncheckedButtonStyle: ButtonStyle(
-                      padding: WidgetStatePropertyAll(EdgeInsets.zero),
-                    ),
-                  ),
+                  style: toggleStyle,
                   child: Tooltip(
                     message:
                         '#${color.colorValue.toRadixString(16).toUpperCase()}',
@@ -213,6 +235,39 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
                     ),
                   ),
                 ),
+              ToggleButton(
+                checked: isCustomColor,
+                onChanged: (_) async => _selectCustomAccentColor(),
+                style: toggleStyle,
+                child: Tooltip(
+                  message: '自定义颜色',
+                  child: SizedBox.square(
+                    dimension: 32,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: isCustomColor ? curAccentColor : null,
+                        gradient: isCustomColor
+                            ? null
+                            : LinearGradient(
+                                colors: [
+                                  Colors.magenta.withValues(alpha: 0.35),
+                                  Colors.blue.withValues(alpha: 0.35),
+                                  Colors.teal.withValues(alpha: 0.35),
+                                ],
+                              ),
+                      ),
+                      child: Icon(
+                        FluentIcons.color,
+                        size: 16,
+                        color: isCustomColor
+                            ? curAccentColor.basedOnLuminance()
+                            : null,
+                        semanticLabel: '自定义颜色',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
       ],
