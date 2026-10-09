@@ -40,77 +40,106 @@ class _DownloadTaskCard extends StatelessWidget {
             child: ColoredBox(color: stateColor),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(20, 15, 14, 14),
+            padding: EdgeInsets.fromLTRB(20, 12, 14, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    if (selectionMode) ...[
-                      Checkbox(
-                        checked: selected,
-                        onChanged: (_) => onSelect?.call(),
-                      ),
-                      SizedBox(width: 4),
-                    ],
-                    if (!grouped) ...[
-                      _TaskCover(
-                        url: null,
-                        state: task.state,
-                        color: stateColor,
-                        linked: false,
-                        onPressed: null,
-                      ),
-                      SizedBox(width: 11),
-                    ],
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                LayoutBuilder(
+                  builder: (context, constraints) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
                         children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: BTTypography.bodyStrong(context),
-                          ),
-                          SizedBox(height: 4),
-                          if (task.manual)
-                            Text(
-                              task.state == 'completed'
-                                  ? '手动任务 · 已归档，不跟踪文件'
-                                  : '手动任务 · 完成后不跟踪文件',
-                              style: BTTypography.caption(context),
+                          if (selectionMode) ...[
+                            Checkbox(
+                              checked: selected,
+                              onChanged: (_) => onSelect?.call(),
                             ),
-                          Row(
-                            children: [
-                              Icon(
-                                FluentIcons.folder_open,
-                                size: 12,
-                                color: BTColors.textTertiary(context),
-                              ),
-                              SizedBox(width: 5),
-                              Expanded(
-                                child: Text(
-                                  task.savePath,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: BTTypography.caption(context),
+                            SizedBox(width: 4),
+                          ],
+                          if (!grouped) ...[
+                            _TaskCover(
+                              url: null,
+                              state: task.state,
+                              color: stateColor,
+                              linked: false,
+                              onPressed: null,
+                            ),
+                            SizedBox(width: 11),
+                          ],
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Tooltip(
+                                  message: title,
+                                  child: Text(
+                                    title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: BTTypography.bodyStrong(context),
+                                  ),
                                 ),
-                              ),
-                            ],
+                                SizedBox(height: 4),
+                                if (task.manual)
+                                  Text(
+                                    task.state == 'completed'
+                                        ? '手动任务 · 已归档，不跟踪文件'
+                                        : '手动任务 · 完成后不跟踪文件',
+                                    style: BTTypography.caption(context),
+                                  ),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      FluentIcons.folder_open,
+                                      size: 12,
+                                      color: BTColors.textTertiary(context),
+                                    ),
+                                    SizedBox(width: 5),
+                                    Expanded(
+                                      child: Tooltip(
+                                        message: task.savePath,
+                                        child: Text(
+                                          task.savePath,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: BTTypography.caption(context),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
+                          SizedBox(width: 12),
+                          _TaskStateBadge(state: task.state, color: stateColor),
+                          if (!selectionMode &&
+                              constraints.maxWidth >= 680) ...[
+                            SizedBox(width: 8),
+                            _TaskActions(
+                              task: task,
+                              busy: busy,
+                              onAction: onAction,
+                            ),
+                          ],
                         ],
                       ),
-                    ),
-                    SizedBox(width: 12),
-                    _TaskStateBadge(state: task.state, color: stateColor),
-                    if (!selectionMode) ...[
-                      SizedBox(width: 8),
-                      _TaskActions(task: task, busy: busy, onAction: onAction),
+                      if (!selectionMode && constraints.maxWidth < 680) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: _TaskActions(
+                            task: task,
+                            busy: busy,
+                            onAction: onAction,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-                SizedBox(height: 14),
+                SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
@@ -118,7 +147,7 @@ class _DownloadTaskCard extends StatelessWidget {
                         borderRadius: BTRadius.roundBR,
                         child: ProgressBar(
                           value: progress,
-                          strokeWidth: 6,
+                          strokeWidth: 4,
                           activeColor: stateColor,
                           backgroundColor: stateColor.withValues(alpha: 0.1),
                         ),
@@ -137,7 +166,7 @@ class _DownloadTaskCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                SizedBox(height: 13),
+                SizedBox(height: 9),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -149,26 +178,32 @@ class _DownloadTaskCard extends StatelessWidget {
                           '${BTFileTool.formatSize(task.downloadedBytes)} / ${BTFileTool.formatSize(task.totalBytes)}',
                       color: stateColor,
                     ),
-                    _TaskMetric(
-                      icon: FluentIcons.download,
-                      label: '下载',
-                      value: '${BTFileTool.formatSize(task.downloadRate)}/s',
-                      color: FluentTheme.of(context).accentColor,
-                    ),
-                    if (task.sourceKind != 'http') ...[
+                    if (task.state == 'downloading' || task.downloadRate > 0)
+                      _TaskMetric(
+                        icon: FluentIcons.download,
+                        label: '下载',
+                        value: '${BTFileTool.formatSize(task.downloadRate)}/s',
+                        color: FluentTheme.of(context).accentColor,
+                      ),
+                    if (task.sourceKind != 'http' &&
+                        (task.state == 'seeding' || task.uploadRate > 0))
                       _TaskMetric(
                         icon: FluentIcons.upload,
                         label: '上传',
                         value: '${BTFileTool.formatSize(task.uploadRate)}/s',
                         color: BTColors.successLight(context),
                       ),
+                    if (task.sourceKind != 'http' &&
+                        (task.state == 'downloading' ||
+                            task.state == 'seeding' ||
+                            task.peers > 0 ||
+                            task.seeds > 0))
                       _TaskMetric(
                         icon: FluentIcons.people,
                         label: '连接',
                         value: '${task.peers} Peer · ${task.seeds} Seed',
                         color: BTColors.info,
                       ),
-                    ],
                     if (task.state == 'downloading' &&
                         task.downloadRate > 0 &&
                         task.totalBytes > task.downloadedBytes)
@@ -350,7 +385,7 @@ class _TaskMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var chip = Container(
-      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context).withValues(alpha: 0.7),
         borderRadius: BTRadius.smallBR,
@@ -401,9 +436,12 @@ class _TaskActions extends StatelessWidget {
         ),
       );
     }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
+        DownloadTaskPlayButton(task: task, busy: busy),
         _button(
           context,
           FluentIcons.info,
@@ -438,7 +476,7 @@ class _TaskActions extends StatelessWidget {
           _button(
             context,
             FluentIcons.play,
-            '继续',
+            '继续下载',
             () => onAction((store) => store.resume(task.id)),
             color: BTColors.successLight(context),
           ),
@@ -467,23 +505,22 @@ class _TaskActions extends StatelessWidget {
           context,
           FluentIcons.delete,
           '删除任务（长按仅移除任务，保留文件）',
-          () async {
-            var removal = await _showDownloadRemovalDialog(
-              context,
-              tasks: [task],
-            );
-            if (removal == null) return;
-            await onAction(
-              (store) => store.remove(
-                task.id,
-                deleteData: removal == _DownloadRemoval.deleteFiles,
-              ),
-            );
-          },
+          () => _confirmRemove(context),
           onLongPress: () => _quickRemove(context),
           color: BTColors.errorLight(context),
         ),
       ],
+    );
+  }
+
+  Future<void> _confirmRemove(BuildContext context) async {
+    var removal = await _showDownloadRemovalDialog(context, tasks: [task]);
+    if (removal == null) return;
+    await onAction(
+      (store) => store.remove(
+        task.id,
+        deleteData: removal == _DownloadRemoval.deleteFiles,
+      ),
     );
   }
 

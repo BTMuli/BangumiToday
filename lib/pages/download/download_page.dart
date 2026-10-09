@@ -20,6 +20,7 @@ import '../../widgets/common/bt_drawer.dart';
 import '../../widgets/download/manual_download_dialog.dart';
 import 'download_task_details.dart';
 import 'download_task_helpers.dart';
+import 'download_task_play_button.dart';
 
 part 'download_page/empty_states.dart';
 part 'download_page/header_widgets.dart';
