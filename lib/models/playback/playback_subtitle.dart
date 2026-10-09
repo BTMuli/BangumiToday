@@ -57,6 +57,16 @@ _SubtitleLanguage? _subtitleLanguageCode(String value) {
       return _SubtitleLanguage.japanese;
     }
   }
+  // Localized names such as 中文（简体） are also bare language labels.
+  var chineseName = code.replaceAll(RegExp(r'\s+'), '');
+  var script = RegExp(
+    r'^中文(?:[（(]([简簡繁][体體])[）)]|([简簡繁][体體]))$',
+  ).firstMatch(chineseName);
+  if (script != null) {
+    return (script[1] ?? script[2]!).startsWith('繁')
+        ? _SubtitleLanguage.traditional
+        : _SubtitleLanguage.simplified;
+  }
   return switch (code) {
     '简体中文' ||
     '简体' ||
@@ -86,11 +96,11 @@ _SubtitleLanguage? _subtitleTitleLanguage(String value) {
   bool named(String pattern) => RegExp(pattern).hasMatch(name);
   bool word(String pattern) => named('(^|[^a-z0-9])($pattern)([^a-z0-9]|\$)');
   var bilingual = r'(?:[+-]?(?:jp|jpn|ja|en|eng))?';
-  if (named('[简簡](?:体|體|中|日|英)') ||
+  if (named(r'[简簡]\s*(?:体|體|中|日|英)') ||
       word('hans|(?:chs|sc)$bilingual|gb|gbk|gb2312|simplified')) {
     return _SubtitleLanguage.simplified;
   }
-  if (named('繁(?:体|體|中|日|英)') ||
+  if (named(r'繁\s*(?:体|體|中|日|英)') ||
       word('hant|(?:cht|tc)$bilingual|big5|traditional')) {
     return _SubtitleLanguage.traditional;
   }
