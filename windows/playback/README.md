@@ -49,15 +49,26 @@ accepted replies before destroying the client.
 
 Logs are in `Documents/BangumiToday/log`, accessible from settings:
 
+- Logs are grouped in `YYYY-MM-DD/`. Each filename starts with the process
+  creation time and PID (`YYYYMMDD-HHmmss-SSS-pid`), shared by Dart engines and
+  native DLLs. Main logs end in `-main.log`, player logs in
+  `-playback-<window-id>.log`, and native logs in `-native.log`. Dart logs rotate
+  at midnight while retaining that identity; native logs stay in the startup
+  day's directory. PID reuse cannot append a new run to the previous log.
 - Dart logs record player state, mpv metrics and supersampling changes. Use
   `native_handle`, media revision and configuration generation to correlate them
   with native records.
-- `native-<pid>.log` records ANGLE/D3D errors and render timing. Stage times are
+- Native logs record ANGLE/D3D errors and render timing. Stage times are
   CPU wall times; deadline skips and render failures are separate counters.
   `first frame ready` confirms snapshot publication, before Flutter presentation.
 - Native crashes produce triage/full dumps and a matching text report through a
-  separate helper process. Normal logs are retained for 7 days; crash-related
-  logs, reports and dumps for 30 days.
+  separate helper process, stored in the startup day's `crashes/` directory.
+  Filenames include the run identity and actual crash timestamp.
+- Zero-byte running/unclean markers live in `state/`. A leftover marker means
+  normal shutdown did not finish; it does not by itself prove a crash.
+- Normal logs are retained for 7 days; crash-related logs, reports and dumps for
+  30 days. Active runs are protected. Legacy flat files are still recognized by
+  cleanup and shutdown checks; unknown files and linked directories are skipped.
 
 Writable shader and demuxer caches are configured under
 `Documents/BangumiToday/cache/playback`. Shader caches can be cleared in settings;
