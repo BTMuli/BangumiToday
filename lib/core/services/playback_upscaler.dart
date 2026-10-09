@@ -37,7 +37,7 @@ abstract class PlaybackUpscaleBackend {
   /// callback. Filter changes refresh paused frames in mpv itself; an extra
   /// seek here would redundantly reset decoding and could move the picture.
   Future<void> resize(PlaybackPixels? size);
-  void close();
+  Future<void> close();
 }
 
 /// One coordinator per Player. Layout events replace a single pending plan;
@@ -982,7 +982,9 @@ class PlaybackUpscaler {
       // libmpv may not expose a display rate. The AI route uses a conservative
       // 60-FPS ceiling in that case; never reconfigure ordinary playback.
       try {
-        var display = await backend.read('display-fps');
+        var display = await backend
+            .read('display-fps')
+            .timeout(const Duration(seconds: 1));
         if (display is num && display.isFinite && display > 0) {
           _displayFramesPerSecond = display.toDouble();
         }
@@ -1089,6 +1091,6 @@ class PlaybackUpscaler {
     _cancelOutputWait();
     await _flight;
     await _resetWork;
-    backend.close();
+    await backend.close();
   }();
 }

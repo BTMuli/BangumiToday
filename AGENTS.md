@@ -16,9 +16,11 @@
 
 ## Tests
 
-- Test files written while implementing a change are throwaway verification aids. After the feature or fix has been verified, delete them before creating the commit that delivers the change.
-- Do not commit test files, test fixtures, or test-only helper scripts unless the user explicitly asks for them to be committed.
-- If test files were already staged, unstage and delete them before committing.
+- When one-off verification requires temporary scripts, standalone test harnesses, or small builds, create a new purpose-named subdirectory under the project-root `temp/` directory (for example, `temp/rss-parser-check/`). Keep all related scripts, source files, fixtures, build configurations, intermediate files, and outputs inside that subdirectory.
+- For logic that needs ongoing maintenance against real-world data, such as episode matching, keep functional regression tests and their required fixtures and helpers under the project-root `test/` directory, organized by feature or purpose. Retain these files after verification; they may be included with related changes when the user requests a commit and are exempt from the temporary-file cleanup rules below.
+- One-off test files written while implementing a change are throwaway verification aids. After the feature or fix has been verified, delete them before creating the commit that delivers the change.
+- Do not commit temporary verification files (tests, fixtures, or helper scripts) unless the user explicitly asks for them to be committed.
+- If temporary verification files were already staged, unstage and delete them before committing.
 - Unless explicitly told otherwise, do not write tests that require UI interaction (widget/page interaction, taps, navigation, dialogs, screenshots, and the like). The developer triggers those flows by hand.
 - Only test functional behavior (pure logic, parsing, data transformations, protocol handling, persistence queries, and similar non-UI code). Do not go out of your way to build UI verification harnesses.
 - Unless the user explicitly requests it, do not compile or build the entire project (for example, `flutter build` or `dev_build.ps1`) just to verify a change.

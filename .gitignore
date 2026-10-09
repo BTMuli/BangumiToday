@@ -46,5 +46,5 @@ genSign.ps1
 
 # build
 BangumiToday.msix
-# Widget Preview related
-.widget_preview/
+# ai check
+temp

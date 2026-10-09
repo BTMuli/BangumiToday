@@ -1,6 +1,6 @@
 ---
 name: flutter-mcp
-description: Use the official Dart and Flutter MCP server (the `dart` MCP server) to develop, analyze, and interactively drive the BangumiToday Flutter app. Invoke when analyzing or fixing Dart code, managing pub dependencies, formatting, inspecting the widget tree, or connecting to and driving a running app (screenshot, tap, scroll, hot reload). This project no longer ships a Flutter test suite or test_driver scripts.
+description: Use the official Dart and Flutter MCP server (the `dart` MCP server) to develop, analyze, and interactively drive the BangumiToday Flutter app. Invoke when analyzing or fixing Dart code, managing pub dependencies, formatting, inspecting the widget tree, or connecting to and driving a running app (screenshot, tap, scroll, hot reload).
 ---
 
 # Flutter MCP
@@ -77,7 +77,7 @@ Not available on this SDK, do not rely on them:
 
 ## Debugging the running app
 
-This project no longer ships `flutter_driver`, `test/`, or `test_driver/`. Debug a running app through DTD / widget inspector / VM service; do not add driver extensions or standalone driver scripts.
+This project does not use `flutter_driver` or standalone `test_driver/` scripts. Debug a running app through DTD / widget inspector / VM service; do not add driver extensions or standalone driver scripts. Retained functional regression tests under `test/` follow [AGENTS.md](../../../AGENTS.md#tests).
 
 ### Discovering the running app's URIs (DTD / VM service)
 
@@ -168,7 +168,7 @@ Lessons from real verification runs against this app; all verified on Windows wi
 - Analysis: MCP `analyze_files` is unavailable on this SDK - run `flutter analyze` in the shell (the repo's lint-staged config uses `dart analyze --fatal-infos --fatal-warnings`).
 - Fixes: `dart_fix` (MCP, with `--enable cli`) or shell `dart fix --apply`.
 - Format: `dart_format` (MCP, with `--enable cli`) or shell `dart format`; import sorting is `dart run import_sorter:main`.
-- Tests: this project has no Flutter test suite; do not run `flutter test` or recreate `test/` / `test_driver/`.
+- Tests: follow [AGENTS.md](../../../AGENTS.md#tests) for temporary verification under `temp/` and retained functional regression tests based on real-world data under `test/`. Run only relevant functional tests; do not recreate `test_driver/` or UI test harnesses unless explicitly requested.
 - Dependencies: `pub_dev_search` to find a package, then `pub` with `command: "add"`, `packageNames`, and `roots`. The project uses `flutter pub add` semantics.
 
 ## Common pitfalls
