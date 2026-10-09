@@ -155,6 +155,9 @@ Future<void> _exitApplication() async {
     // shutdown 自己控制完整的退出预算，并在超时后终止、回收进程。
     timeout: null,
   );
+  // Explicitly release Drift's cached statements and database isolate after
+  // the playback/background exit steps, before destroying the main engine.
+  await _runExitStep('SQLite', BTSqlite.close, timeout: null);
   await _runExitStep('主窗口', windowManager.destroy);
 }
 

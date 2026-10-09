@@ -17,10 +17,14 @@ class BTSqlite {
   static final BTSqlite _instance = BTSqlite._();
 
   /// 数据库
-  late BtDatabase db;
+  BtDatabase? _database;
+
+  BtDatabase get db => _database ?? (throw StateError('SQLite 连接尚未打开或已经关闭'));
 
   static bool _isInitialized = false;
   static Future<void>? _initFuture;
+  static Future<void>? _closeFuture;
+  static bool _closing = false;
 
   /// 获取实例
   factory BTSqlite() => _instance;
@@ -41,6 +45,7 @@ class BTSqlite {
 
   /// 初始化
   static Future<void> init() {
+    if (_closing) return Future.error(StateError('SQLite 正在关闭'));
     if (_isInitialized) {
       return Future.value();
     }
@@ -66,9 +71,28 @@ class BTSqlite {
       }
       Error.throwWithStackTrace(error, stackTrace);
     }
-    _instance.db = database;
+    _instance._database = database;
     _isInitialized = true;
     BTLogTool.info('SQLite init success');
     BTLogTool.info('Database path: $dbPath');
+  }
+
+  /// Drain Drift's executor and statement cache before its isolate is torn
+  /// down. Do not leave sqlite3 native finalizers to race isolate shutdown.
+  static Future<void> close() => _closeFuture ??= _close();
+
+  static Future<void> _close() async {
+    _closing = true;
+    try {
+      await _initFuture;
+    } catch (_) {
+      // Failed opens already close their executor before reporting failure.
+    }
+    var database = _instance._database;
+    _instance._database = null;
+    _isInitialized = false;
+    _initFuture = null;
+    await database?.close();
+    BTLogTool.info('SQLite 已完成关闭');
   }
 }
