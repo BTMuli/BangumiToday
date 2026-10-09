@@ -66,6 +66,8 @@ class PlaybackUpscaler {
   PlaybackUpscaleMode mode = PlaybackUpscaleMode.off;
   PlaybackVideoSource? _source;
   PlaybackViewport? _viewport;
+  PlaybackViewport? _transitionViewport;
+  int _viewportTransitions = 0;
   String? renderer;
   PlaybackPixels? actualOutput;
   PlaybackUpscalePlan plan = const PlaybackUpscalePlan('已关闭');
@@ -224,6 +226,10 @@ class PlaybackUpscaler {
 
   void viewport(PlaybackViewport? value) {
     if (_closed) return;
+    if (_viewportTransitions > 0) {
+      _transitionViewport = value;
+      return;
+    }
     if (value == null && _viewportRelease != null) return;
     _viewportRelease?.cancel();
     _viewportRelease = null;
@@ -240,6 +246,39 @@ class PlaybackUpscaler {
     if (_viewport == value) return;
     _viewport = value;
     _schedule();
+  }
+
+  /// Native fullscreen bounds and the video route change in separate frames.
+  /// Keep the installed chain until their final viewport has been reported.
+  void beginViewportTransition() {
+    if (_closed || _viewportTransitions++ > 0) return;
+    _transitionViewport = _viewport;
+    _viewportRelease?.cancel();
+    _viewportRelease = null;
+    _timer?.cancel();
+    _pending = null;
+    _pendingReady = false;
+    _dropMonitor.reset();
+    _dropEpoch++;
+    _trace('viewport_transition begin');
+  }
+
+  void endViewportTransition() {
+    if (_closed || _viewportTransitions == 0 || --_viewportTransitions > 0) {
+      return;
+    }
+    var latest = _transitionViewport;
+    _transitionViewport = null;
+    _trace('viewport_transition end viewport=$latest');
+    if (latest == null) {
+      // A reporter can still be attaching. Use the ordinary absence grace.
+      viewport(null);
+    } else {
+      _viewport = latest;
+    }
+    _dropMonitor.reset();
+    _dropEpoch++;
+    _schedule(immediate: true);
   }
 
   void texture(PlaybackPixels? value) {
@@ -333,7 +372,12 @@ class PlaybackUpscaler {
   }
 
   void _schedule({bool immediate = false, bool invalidate = false}) {
-    if (_closed || !_mediaReady || _restorationFailed) return;
+    if (_closed ||
+        !_mediaReady ||
+        _restorationFailed ||
+        _viewportTransitions > 0) {
+      return;
+    }
     var next = _failed && mode != PlaybackUpscaleMode.off
         ? const PlaybackUpscalePlan('暂不可用，已恢复普通播放')
         : _unsupported && mode != PlaybackUpscaleMode.off
@@ -878,6 +922,7 @@ class PlaybackUpscaler {
   Future<void> _checkDrops() async {
     if (_readingDrops ||
         _closed ||
+        _viewportTransitions > 0 ||
         !_mediaReady ||
         _failed ||
         !(_loadedMode?.isJanai ?? false)) {

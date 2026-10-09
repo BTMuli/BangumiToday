@@ -323,6 +323,10 @@ class PlaybackStore extends ChangeNotifier {
     _notify();
   }
 
+  void beginViewportTransition() => _upscaler?.beginViewportTransition();
+
+  void endViewportTransition() => _upscaler?.endViewportTransition();
+
   /// Fullscreen owns the texture while the windowed controls remain mounted.
   void reportViewport(
     Object owner,

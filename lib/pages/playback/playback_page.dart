@@ -233,6 +233,33 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     }
   }
 
+  Future<void> _changeVideoFullscreen(Future<void> Function() action) async {
+    _store.beginViewportTransition();
+    try {
+      await action();
+    } finally {
+      try {
+        // Viewport reporters publish post-frame, after the native bounds and
+        // fullscreen route have settled. Apply only that final physical size.
+        await WidgetsBinding.instance.endOfFrame;
+      } finally {
+        _store.endViewportTransition();
+      }
+    }
+  }
+
+  Future<void> _enterVideoFullscreen() => _changeVideoFullscreen(
+    widget.windowMode == null
+        ? defaultEnterNativeFullscreen
+        : _enterWindowFullscreen,
+  );
+
+  Future<void> _leaveVideoFullscreen() => _changeVideoFullscreen(
+    widget.windowMode == null
+        ? defaultExitNativeFullscreen
+        : _exitWindowFullscreen,
+  );
+
   Future<void> _exitWindowFullscreen() async {
     try {
       await widget.windowMode!.exitScreenFullscreen();
@@ -530,12 +557,8 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                           key: _videoKey,
                           controller: store.video!,
                           fit: BoxFit.contain,
-                          onEnterFullscreen: widget.windowMode == null
-                              ? defaultEnterNativeFullscreen
-                              : _enterWindowFullscreen,
-                          onExitFullscreen: widget.windowMode == null
-                              ? defaultExitNativeFullscreen
-                              : _exitWindowFullscreen,
+                          onEnterFullscreen: _enterVideoFullscreen,
+                          onExitFullscreen: _leaveVideoFullscreen,
                           controls: (video) => _PlaybackViewportReporter(
                             store: store,
                             child: RepaintBoundary(
