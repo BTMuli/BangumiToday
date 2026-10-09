@@ -10,6 +10,7 @@ import 'package:logger/logger.dart';
 // Project imports:
 import '../core/services/file_service.dart';
 import 'durable_log_output.dart';
+import 'log_identity.dart';
 
 /// 因为Release模式下，日志文件是限制的
 /// 详见：https://github.com/SourceHorizon/logger?tab=readme-ov-file#logfilter
@@ -107,7 +108,10 @@ class BTLogTool {
       logger.log(entry.level, entry.message);
     }
     _pending.clear();
-    info('日志已初始化：scope=$safeScope，pid=$pid');
+    info(
+      '日志已初始化：scope=$safeScope，pid=$pid，'
+      'session=${BTLogIdentity.current.session}',
+    );
   }
 
   /// 打开日志目录

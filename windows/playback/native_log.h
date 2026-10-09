@@ -12,7 +12,8 @@
 
 // Both the runner and renderer write here, including before Dart starts.
 // One append-only WriteFile per record; no iostream buffer or application lock
-// is needed on a failing render thread. File names are shared by PID.
+// is needed on a failing render thread. The process creation time makes the
+// identity identical across DLLs and Dart engines, even after PID reuse.
 inline const std::wstring& BangumiNativeLogDirectory() {
   static const std::wstring directory = [] {
     PWSTR documents = nullptr;
@@ -35,12 +36,65 @@ inline const std::wstring& BangumiNativeLogDirectory() {
   return directory;
 }
 
+inline SYSTEMTIME BangumiLogLocalTime(const FILETIME& utc) {
+  SYSTEMTIME universal{};
+  SYSTEMTIME time{};
+  if (!FileTimeToSystemTime(&utc, &universal) ||
+      !SystemTimeToTzSpecificLocalTime(nullptr, &universal, &time))
+    GetLocalTime(&time);
+  return time;
+}
+
+inline const SYSTEMTIME& BangumiNativeLogStartedAt() {
+  static const SYSTEMTIME started = [] {
+    FILETIME created{}, exited{}, kernel{}, user{};
+    if (GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user))
+      return BangumiLogLocalTime(created);
+    SYSTEMTIME time{};
+    GetLocalTime(&time);
+    return time;
+  }();
+  return started;
+}
+
+inline std::wstring BangumiLogSessionId(const SYSTEMTIME& time, DWORD owner) {
+  wchar_t name[64]{};
+  _snwprintf_s(name, _countof(name), _TRUNCATE,
+               L"%04u%02u%02u-%02u%02u%02u-%03u-%lu", time.wYear, time.wMonth,
+               time.wDay, time.wHour, time.wMinute, time.wSecond,
+               time.wMilliseconds, owner);
+  return name;
+}
+
+inline const std::wstring& BangumiNativeLogSessionId() {
+  static const auto session =
+      BangumiLogSessionId(BangumiNativeLogStartedAt(), GetCurrentProcessId());
+  return session;
+}
+
+inline const std::wstring& BangumiNativeLogSessionDirectory() {
+  static const std::wstring directory = [] {
+    const auto& time = BangumiNativeLogStartedAt();
+    wchar_t day[16]{};
+    _snwprintf_s(day, _countof(day), _TRUNCATE, L"%04u-%02u-%02u", time.wYear,
+                 time.wMonth, time.wDay);
+    auto result = BangumiNativeLogDirectory() + L"\\" + day;
+    CreateDirectoryW(result.c_str(), nullptr);
+    return result;
+  }();
+  return directory;
+}
+
+inline const std::wstring& BangumiNativeLogFile() {
+  static const auto file = BangumiNativeLogSessionDirectory() + L"\\" +
+                           BangumiNativeLogSessionId() + L"-native.log";
+  return file;
+}
+
 inline void BangumiNativeLog(const char* message, bool error = false) noexcept {
   try {
-    const auto file = BangumiNativeLogDirectory() + L"\\native-" +
-                      std::to_wstring(GetCurrentProcessId()) + L".log";
     HANDLE handle = CreateFileW(
-        file.c_str(), FILE_APPEND_DATA,
+        BangumiNativeLogFile().c_str(), FILE_APPEND_DATA,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
         OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (handle == INVALID_HANDLE_VALUE) {

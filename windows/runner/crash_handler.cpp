@@ -246,27 +246,7 @@ struct CrashArtifact {
   bool partial;
 };
 
-// Match only files produced by our collector, including its older timestamp
-// format. Leave native logs, running markers and manually saved analysis alone.
-bool ParseCrashArtifact(const WIN32_FIND_DATAW& file, CrashArtifact* artifact) {
-  if (file.dwFileAttributes &
-      (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT))
-    return false;
-  const std::wstring name = file.cFileName;
-  if (name.compare(0, 7, L"native-") != 0) return false;
-  const auto pid_end = name.find(L'-', 7);
-  const auto dump_start = name.find(L".dmp", pid_end);
-  if (pid_end == std::wstring::npos || dump_start == std::wstring::npos)
-    return false;
-  unsigned long long pid = 0;
-  if (!ParseHelperNumber(name.substr(7, pid_end - 7).c_str(), MAXDWORD, &pid))
-    return false;
-  const auto suffix = name.substr(dump_start);
-  const bool complete = suffix == L".dmp" || suffix == L".dmp.triage.dmp";
-  const bool partial =
-      suffix == L".dmp.partial" || suffix == L".dmp.triage.dmp.partial";
-  if (!complete && !partial && suffix != L".dmp.txt") return false;
-  const auto timestamp = name.substr(pid_end + 1, dump_start - pid_end - 1);
+bool ParseLogTimestamp(const std::wstring& timestamp, FILETIME* time) {
   if ((timestamp.size() != 15 && timestamp.size() != 19) ||
       timestamp[8] != L'-' || (timestamp.size() == 19 && timestamp[15] != L'-'))
     return false;
@@ -285,10 +265,68 @@ bool ParseCrashArtifact(const WIN32_FIND_DATAW& file, CrashArtifact* artifact) {
     local.wMilliseconds =
         static_cast<WORD>(_wtoi(timestamp.substr(16, 3).c_str()));
   SYSTEMTIME utc{};
-  FILETIME crash_time{};
-  if (!TzSpecificLocalTimeToSystemTime(nullptr, &local, &utc) ||
-      !SystemTimeToFileTime(&utc, &crash_time))
+  return TzSpecificLocalTimeToSystemTime(nullptr, &local, &utc) &&
+         SystemTimeToFileTime(&utc, time);
+}
+
+bool ParseLogSession(const std::wstring& session, DWORD* owner) {
+  const auto separator = session.find_last_of(L'-');
+  if (separator != 19) return false;
+  unsigned long long value = 0;
+  FILETIME time{};
+  if (!ParseHelperNumber(session.substr(separator + 1).c_str(), MAXDWORD,
+                         &value) ||
+      !ParseLogTimestamp(session.substr(0, separator), &time))
     return false;
+  *owner = static_cast<DWORD>(value);
+  return true;
+}
+
+bool IsLogDayDirectory(const WIN32_FIND_DATAW& file) {
+  if (!(file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
+      (file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT))
+    return false;
+  const std::wstring name = file.cFileName;
+  if (name.size() != 10 || name[4] != L'-' || name[7] != L'-') return false;
+  FILETIME time{};
+  return ParseLogTimestamp(name.substr(0, 4) + name.substr(5, 2) +
+                               name.substr(8, 2) + L"-000000-000",
+                           &time);
+}
+
+// Match only files produced by our collector, including its older timestamp
+// format. Leave native logs, running markers and manually saved analysis alone.
+bool ParseCrashArtifact(const WIN32_FIND_DATAW& file, CrashArtifact* artifact) {
+  if (file.dwFileAttributes &
+      (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT))
+    return false;
+  const std::wstring name = file.cFileName;
+  const auto dump_start = name.find(L".dmp");
+  if (dump_start == std::wstring::npos) return false;
+  std::wstring timestamp;
+  if (name.compare(0, 7, L"native-") == 0) {
+    const auto pid_end = name.find(L'-', 7);
+    unsigned long long pid = 0;
+    if (pid_end == std::wstring::npos || pid_end >= dump_start ||
+        !ParseHelperNumber(name.substr(7, pid_end - 7).c_str(), MAXDWORD, &pid))
+      return false;
+    timestamp = name.substr(pid_end + 1, dump_start - pid_end - 1);
+  } else {
+    const auto crash_start = name.find(L"-crash-");
+    DWORD owner = 0;
+    if (crash_start == std::wstring::npos || crash_start + 7 >= dump_start ||
+        !ParseLogSession(name.substr(0, crash_start), &owner))
+      return false;
+    timestamp = name.substr(crash_start + 7, dump_start - crash_start - 7);
+    if (timestamp.size() != 19) return false;
+  }
+  const auto suffix = name.substr(dump_start);
+  const bool complete = suffix == L".dmp" || suffix == L".dmp.triage.dmp";
+  const bool partial =
+      suffix == L".dmp.partial" || suffix == L".dmp.triage.dmp.partial";
+  if (!complete && !partial && suffix != L".dmp.txt") return false;
+  FILETIME crash_time{};
+  if (!ParseLogTimestamp(timestamp, &crash_time)) return false;
   artifact->name = name;
   artifact->base = name.substr(0, dump_start + 4);
   // Legacy names used the process start time. Their file write time is a better
@@ -302,7 +340,7 @@ void PruneCrashDumps(const std::wstring& directory,
                      HANDLE report = INVALID_HANDLE_VALUE) {
   WIN32_FIND_DATAW file{};
   HANDLE search =
-      FindFirstFileW((directory + L"\\native-*.dmp*").c_str(), &file);
+      FindFirstFileW((directory + L"\\*.dmp*").c_str(), &file);
   if (search == INVALID_HANDLE_VALUE) return;
   std::vector<CrashArtifact> artifacts;
   do {
@@ -367,6 +405,24 @@ void PruneCrashDumps(const std::wstring& directory,
   }
 }
 
+void PruneAllCrashDumps() {
+  const auto& root = BangumiNativeLogDirectory();
+  PruneCrashDumps(root);  // Legacy flat captures.
+  WIN32_FIND_DATAW file{};
+  HANDLE search = FindFirstFileW((root + L"\\*").c_str(), &file);
+  if (search == INVALID_HANDLE_VALUE) return;
+  do {
+    if (!IsLogDayDirectory(file)) continue;
+    const auto directory = root + L"\\" + file.cFileName + L"\\crashes";
+    const auto attributes = GetFileAttributesW(directory.c_str());
+    if (attributes != INVALID_FILE_ATTRIBUTES &&
+        (attributes & FILE_ATTRIBUTE_DIRECTORY) &&
+        !(attributes & FILE_ATTRIBUTE_REPARSE_POINT))
+      PruneCrashDumps(directory);
+  } while (FindNextFileW(search, &file));
+  FindClose(search);
+}
+
 LONG WINAPI RecordCrash(EXCEPTION_POINTERS* pointers) {
   if (InterlockedExchange(&handling_crash, 1) != 0) {
     return EXCEPTION_CONTINUE_SEARCH;
@@ -375,7 +431,7 @@ LONG WINAPI RecordCrash(EXCEPTION_POINTERS* pointers) {
   SYSTEMTIME time{};
   GetLocalTime(&time);
   if (_snwprintf_s(dump_file, _countof(dump_file), _TRUNCATE,
-                   L"%ls-%04u%02u%02u-%02u%02u%02u-%03u.dmp", dump_stem,
+                   L"%ls-crash-%04u%02u%02u-%02u%02u%02u-%03u.dmp", dump_stem,
                    time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute,
                    time.wSecond, time.wMilliseconds) < 0) {
     CrashLog("Crash dump path is too long");
@@ -486,42 +542,70 @@ void RecordTerminate() {
   std::abort();
 }
 
-void ReportUncleanRuns() {
+void ReportUncleanRunsIn(const std::wstring& directory, bool legacy) {
   WIN32_FIND_DATAW data{};
-  const auto directory = BangumiNativeLogDirectory();
   HANDLE search =
-      FindFirstFileW((directory + L"\\native-*.running").c_str(), &data);
+      FindFirstFileW((directory + L"\\*.running").c_str(), &data);
   if (search == INVALID_HANDLE_VALUE) return;
   do {
-    wchar_t* end = nullptr;
-    const auto owner = wcstoul(data.cFileName + 7, &end, 10);
-    if (owner == 0 || wcscmp(end, L".running") != 0) continue;
+    if (data.dwFileAttributes &
+        (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT))
+      continue;
+    const std::wstring name = data.cFileName;
+    if (name.size() <= 8 || name.substr(name.size() - 8) != L".running")
+      continue;
+    const auto session = name.substr(0, name.size() - 8);
+    DWORD owner = 0;
+    if (legacy) {
+      unsigned long long value = 0;
+      if (session.compare(0, 7, L"native-") != 0 ||
+          !ParseHelperNumber(session.substr(7).c_str(), MAXDWORD, &value))
+        continue;
+      owner = static_cast<DWORD>(value);
+    } else if (!ParseLogSession(session, &owner)) {
+      continue;
+    }
     HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE,
-                                 static_cast<DWORD>(owner));
+                                 owner);
     if (process) {
       DWORD code = 0;
       FILETIME created{}, exited{}, kernel{}, user{};
       const bool alive =
           GetExitCodeProcess(process, &code) && code == STILL_ACTIVE;
+      const bool have_times =
+          GetProcessTimes(process, &created, &exited, &kernel, &user) != FALSE;
       const bool same_run =
-          !GetProcessTimes(process, &created, &exited, &kernel, &user) ||
-          CompareFileTime(&created, &data.ftCreationTime) <= 0;
+          !have_times ||
+          (legacy ? CompareFileTime(&created, &data.ftCreationTime) <= 0
+                  : BangumiLogSessionId(BangumiLogLocalTime(created), owner) ==
+                        session);
       CloseHandle(process);
       if (alive && same_run) continue;
     } else if (GetLastError() != ERROR_INVALID_PARAMETER) {
       continue;  // Access denied is not proof of an exited process.
     }
-    char message[256]{};
+    char message[512]{};
     _snprintf_s(message, sizeof(message), _TRUNCATE,
                 "Previous process pid=%lu exited without normal shutdown; "
-                "see native-%lu.log and playback logs",
-                owner, owner);
+                "log session=%ls",
+                owner, session.c_str());
     BangumiNativeLog(message, true);
     const auto old = directory + L"\\" + data.cFileName;
     MoveFileExW(old.c_str(), (old + L".unclean").c_str(),
                 MOVEFILE_REPLACE_EXISTING);
   } while (FindNextFileW(search, &data));
   FindClose(search);
+}
+
+void ReportUncleanRuns() {
+  const auto& root = BangumiNativeLogDirectory();
+  ReportUncleanRunsIn(root, true);
+  const auto state = root + L"\\state";
+  const auto attributes = GetFileAttributesW(state.c_str());
+  if (attributes != INVALID_FILE_ATTRIBUTES &&
+      (attributes & FILE_ATTRIBUTE_DIRECTORY) &&
+      !(attributes & FILE_ATTRIBUTE_REPARSE_POINT))
+    ReportUncleanRunsIn(state, false);
 }
 }  // namespace
 
@@ -604,16 +688,22 @@ bool RunCrashDumpHelper(int* exit_code) {
 
 void StartNativeDiagnostics() {
   GetModuleFileNameW(nullptr, executable, _countof(executable));
-  const auto stem = BangumiNativeLogDirectory() + L"\\native-" +
-                    std::to_wstring(GetCurrentProcessId());
+  const auto& session = BangumiNativeLogSessionId();
+  const auto crashes = BangumiNativeLogSessionDirectory() + L"\\crashes";
+  CreateDirectoryW(crashes.c_str(), nullptr);
+  const auto stem = crashes + L"\\" + session;
   wcscpy_s(dump_stem, stem.c_str());
   crash_log =
-      CreateFileW((stem + L".log").c_str(), FILE_APPEND_DATA,
+      CreateFileW(BangumiNativeLogFile().c_str(), FILE_APPEND_DATA,
                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                   nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
   previous_filter = SetUnhandledExceptionFilter(RecordCrash);
   std::set_terminate(RecordTerminate);
-  BangumiNativeLog("Process started; native crash diagnostics installed");
+  char started[256]{};
+  _snprintf_s(started, sizeof(started), _TRUNCATE,
+              "Process started; native crash diagnostics installed; session=%ls",
+              session.c_str());
+  BangumiNativeLog(started);
 #ifdef FLUTTER_VERSION
   BangumiNativeLog("Application version=" FLUTTER_VERSION);
 #endif
@@ -625,8 +715,10 @@ void StartNativeDiagnostics() {
 #endif
   ReportUncleanRuns();
   // Also retry cleanup after a helper was killed before it could finish.
-  PruneCrashDumps(BangumiNativeLogDirectory());
-  running_file = stem + L".running";
+  PruneAllCrashDumps();
+  const auto state = BangumiNativeLogDirectory() + L"\\state";
+  CreateDirectoryW(state.c_str(), nullptr);
+  running_file = state + L"\\" + session + L".running";
   HANDLE marker =
       CreateFileW(running_file.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr,
                   CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
