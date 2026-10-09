@@ -15,4 +15,10 @@ abstract class PlaybackCoverResolver {
 
   /// Resolves and caches the subject detail for [subject].
   Future<String?> resolve(int subject);
+
+  /// Fills [subject] from local caches only, without touching the network.
+  ///
+  /// 列表标题只需要条目名，读磁盘缓存足够；返回是否拿到了可展示的数据，
+  /// 没命中时调用方应继续用文件名派生的标题。
+  Future<bool> hydrate(int subject);
 }

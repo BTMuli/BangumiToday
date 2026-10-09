@@ -21,6 +21,7 @@ class PlaybackWindowDataHost {
     required this.settings,
     required this.subjects,
     required this.cover,
+    required this.onCoverResolved,
     required this.onHistoryChanged,
   });
 
@@ -30,6 +31,7 @@ class PlaybackWindowDataHost {
   final PlaybackSettingsStore settings;
   final PlaybackSubjectResolver subjects;
   final PlaybackCoverResolver cover;
+  final void Function() onCoverResolved;
   final void Function() onHistoryChanged;
   static const allowedSettings = {
     'playbackHiResEnabled',
@@ -114,7 +116,13 @@ class PlaybackWindowDataHost {
       case 'cover.resolve':
         var subject = playbackInt(body, 'subject', minimum: 1);
         await cover.resolve(subject);
+        onCoverResolved();
         return {'url': cover.coverOf(subject), 'name': cover.nameOf(subject)};
+      case 'cover.hydrate':
+        // 缓存命中就顺手让主窗口的列表跟着刷新，命中不了返回空值。
+        var cached = playbackInt(body, 'subject', minimum: 1);
+        if (await cover.hydrate(cached)) onCoverResolved();
+        return {'url': cover.coverOf(cached), 'name': cover.nameOf(cached)};
       case 'history.read':
         await _writes;
         return (await history.read(playbackString(body, 'filePath')))?.toRow();

@@ -143,6 +143,7 @@ class PlaybackWindowService extends ChangeNotifier {
         settings: store.settingsStore,
         subjects: store.subjectResolver,
         cover: store.cover,
+        onCoverResolved: store.notifyCoverResolved,
         onHistoryChanged: () {
           unawaited(
             store.refreshHistory().catchError((Object failure) {

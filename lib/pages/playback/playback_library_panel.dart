@@ -39,6 +39,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   int _columns = 4;
   PlaybackEpisodeLayout? _lastLayout;
   (String?, String)? _progressSignature;
+  String _hydratedSubjects = '';
   static const _cellHeight = 48.0;
   static const _rowHeight = 46.0;
   static const _gap = 6.0;
@@ -106,21 +107,27 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
     var account = ref.watch(
       episodeMarkProvider.select((value) => value.account),
     );
-    var signature = (
-      account,
-      store.playlist.map(EpisodeMarkState.itemKey).join('\n'),
-    );
-    if (_progressSignature != signature) {
-      _progressSignature = signature;
-      var items = List<PlaybackItem>.of(store.playlist);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _progressSignature != signature) return;
-        unawaited(
-          widget.run(
-            () => ref.read(episodeMarkProvider.notifier).syncItems(items),
-          ),
-        );
-      });
+    // 观看进度只服务于选集页的标记按钮：记录页可见时先不同步，切回选集再拉，
+    // 免得打开播放记录就顺带请求一遍 bgm 进度。
+    if (!_showHistory) {
+      var signature = (
+        account,
+        store.playlist.map(EpisodeMarkState.itemKey).join('\n'),
+      );
+      if (_progressSignature != signature) {
+        _progressSignature = signature;
+        var items = List<PlaybackItem>.of(store.playlist);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _showHistory || _progressSignature != signature) {
+            return;
+          }
+          unawaited(
+            widget.run(
+              () => ref.read(episodeMarkProvider.notifier).syncItems(items),
+            ),
+          );
+        });
+      }
     }
     var key = store.current?.key;
     if (key != _lastPlayingKey || store.index != _lastIndex) {
@@ -595,8 +602,25 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
     );
   }
 
+  /// 播放动作才解析条目：记录列表本身只用文件名派生的标题，不请求 bgm。
+  void _resolveBeforePlayback(PlaybackStore store, int? subject) {
+    if (subject == null) return;
+    unawaited(store.resolveCover(subject));
+  }
+
   Widget _history(PlaybackStore store) {
     if (store.historyGroups.isEmpty) return _empty('暂无播放记录');
+    // 标题先取本地缓存的条目名；没有缓存就先用文件名派生的标题，bgm 请求留给
+    // 真正播放的时候。按条目集合做签名，避免每次重建都重读一遍缓存。
+    var subjects = <int>[
+      for (var group in store.historyGroups)
+        if (group.subject != null) group.subject!,
+    ];
+    var signature = subjects.join(',');
+    if (signature != _hydratedSubjects) {
+      _hydratedSubjects = signature;
+      unawaited(store.hydrateCovers(subjects));
+    }
     return Scrollbar(
       controller: _historyScroll,
       child: ListView.builder(
@@ -651,7 +675,10 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
           key: ValueKey('history:${item.key}'),
           onPressed: store.isOpening
               ? null
-              : () => resumeLocalPlayback(context, ref, item),
+              : () {
+                  _resolveBeforePlayback(store, item.subject);
+                  unawaited(resumeLocalPlayback(context, ref, item));
+                },
           builder: (context, states) => Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -706,14 +733,16 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   ) {
     var item = group.latest;
     var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
-    if (group.subject != null) unawaited(store.resolveCover(group.subject!));
     return Tooltip(
       message: '${item.filePath}\n${group.items.length} 条播放记录',
       child: HoverButton(
         key: ValueKey(group.key),
         onPressed: store.isOpening
             ? null
-            : () => resumeLocalPlayback(context, ref, item),
+            : () {
+                _resolveBeforePlayback(store, group.subject);
+                unawaited(resumeLocalPlayback(context, ref, item));
+              },
         builder: (context, states) => Container(
           padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
           decoration: BoxDecoration(

@@ -378,10 +378,28 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> resolveCover(int subject) async {
     if (cover.contains(subject)) return;
-    var before = cover.coverOf(subject);
-    var after = await cover.resolve(subject);
-    if (before != after && !_disposed) _notify();
+    var before = (cover.coverOf(subject), cover.nameOf(subject));
+    await cover.resolve(subject);
+    if (_disposed) return;
+    if (before != (cover.coverOf(subject), cover.nameOf(subject))) _notify();
   }
+
+  /// Fills names for list titles from local caches only.
+  ///
+  /// 打开播放记录或选集不应该顺带请求 bgm：命中磁盘缓存就直接用条目名，没命中
+  /// 就让列表继续显示文件名，等真正播放时再由 [resolveCover] 解析。
+  Future<void> hydrateCovers(Iterable<int> subjects) async {
+    var changed = false;
+    for (var subject in subjects) {
+      if (_disposed) return;
+      if (cover.contains(subject)) continue;
+      if (await cover.hydrate(subject)) changed = true;
+    }
+    if (changed && !_disposed) _notify();
+  }
+
+  /// 独立播放窗口解析条目后，主窗口的记录与选集标题需要跟着刷新。
+  void notifyCoverResolved() => _notify();
 
   static int? _firstSubject(List<PlaybackItem> items) {
     for (var item in items) {

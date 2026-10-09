@@ -127,4 +127,14 @@ class RemotePlaybackCover implements PlaybackCoverResolver {
       }
     });
   }
+
+  @override
+  Future<bool> hydrate(int subject) async {
+    if (contains(subject)) return true;
+    var data = playbackMap(await call('cover.hydrate', {'subject': subject}));
+    // 没命中时不能落进缓存：那会让真正播放时的解析以为条目已经拿到。
+    if (data['name'] == null) return false;
+    _cache[subject] = data;
+    return true;
+  }
 }
