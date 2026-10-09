@@ -77,8 +77,11 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
   }
 
   Widget buildRssItem(BuildContext context, RssReleaseData release) {
-    var pending = _data.pendingItemKeys.contains(_data.itemKey(release.item));
+    var itemKey = _data.itemKey(release.item);
+    var key = ValueKey((_data.selectedSubscriptionId, itemKey));
+    var pending = _data.pendingItemKeys.contains(itemKey);
     return Padding(
+      key: key,
       padding: EdgeInsets.only(bottom: widget.embedded ? 8 : 6),
       child: BmfRssItem(
         release: release,
@@ -96,6 +99,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
                 ),
               ),
             _RssItemActions(
+              key: key,
               release: release,
               source: _data.source,
               dir: widget.bmf.download,

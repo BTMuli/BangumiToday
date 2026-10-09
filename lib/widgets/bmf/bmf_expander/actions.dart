@@ -89,35 +89,58 @@ class _FileItemActions extends ConsumerWidget {
   }
 }
 
-class _RssItemActions extends ConsumerWidget {
+class _RssItemActions extends ConsumerStatefulWidget {
   final RssReleaseData release;
   final RssReleaseSource source;
   final String? dir;
   final int subjectId;
   final Uri? baseUrl;
   final Future<void> Function()? onHandled;
-  final bool includeDetails;
 
   const _RssItemActions({
+    super.key,
     required this.release,
     required this.source,
     required this.dir,
     required this.subjectId,
     this.baseUrl,
     this.onHandled,
-    this.includeDetails = true,
   });
 
-  String _sourceUrl(String url) =>
-      source == RssReleaseSource.mikan ? BtrMikanApi.rewriteUrl(url) : url;
+  @override
+  ConsumerState<_RssItemActions> createState() => _RssItemActionsState();
+}
 
-  Future<void> download(BuildContext context, WidgetRef ref) async {
-    if (!release.canDownload) return;
-    var saveDir = dir;
+class _RssItemActionsState extends ConsumerState<_RssItemActions>
+    with AutomaticKeepAliveClientMixin {
+  final ValueNotifier<bool> _downloading = ValueNotifier(false);
+  bool _showingDetails = false;
+
+  @override
+  bool get wantKeepAlive => _downloading.value || _showingDetails;
+
+  @override
+  void dispose() {
+    _downloading.dispose();
+    super.dispose();
+  }
+
+  String _sourceUrl(String url) => widget.source == RssReleaseSource.mikan
+      ? BtrMikanApi.rewriteUrl(url)
+      : url;
+
+  Future<void> _download() async {
+    var release = widget.release;
+    if (!mounted || _downloading.value || !release.canDownload) return;
+    var saveDir = widget.dir;
     if (saveDir == null || saveDir.isEmpty) {
       await BtInfobar.error(context, '未设置下载目录');
       return;
     }
+    var subjectId = widget.subjectId;
+    var onHandled = widget.onHandled;
+    _downloading.value = true;
+    updateKeepAlive();
     try {
       var url = _sourceUrl(release.downloadUrl!);
       var store = ref.read(btDownloadStoreProvider.notifier);
@@ -134,7 +157,7 @@ class _RssItemActions extends ConsumerWidget {
           release.title,
           context: context,
         );
-        if (!context.mounted || torrentPath.isEmpty) return;
+        if (!mounted || torrentPath.isEmpty) return;
         await store.addTorrentFile(
           torrentPath: torrentPath,
           savePath: saveDir,
@@ -143,10 +166,15 @@ class _RssItemActions extends ConsumerWidget {
         );
       }
       await onHandled?.call();
-      if (context.mounted) await BtInfobar.success(context, '下载任务已添加');
+      if (mounted) await BtInfobar.success(context, '下载任务已添加');
     } catch (error) {
-      if (context.mounted) {
+      if (mounted) {
         await BtInfobar.error(context, error.toString());
+      }
+    } finally {
+      if (mounted) {
+        _downloading.value = false;
+        updateKeepAlive();
       }
     }
   }
@@ -170,76 +198,98 @@ class _RssItemActions extends ConsumerWidget {
     }
   }
 
-  Future<void> _showDetails(BuildContext context) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      dismissWithEsc: true,
-      builder: (dialogContext) => RssReleaseDetailDialog(
-        release: release,
-        markdownDescription:
-            source == RssReleaseSource.anibt || release.item.anibt != null,
-        baseUrl: baseUrl == null
-            ? null
-            : Uri.tryParse(_sourceUrl(baseUrl.toString())),
-        onTapUrl: (url) => _openDescriptionLink(dialogContext, url),
-        actions: Row(
-          children: [
-            const Spacer(),
-            _RssItemActions(
-              release: release,
-              source: source,
-              dir: dir,
-              subjectId: subjectId,
-              baseUrl: baseUrl,
-              onHandled: onHandled,
-              includeDetails: false,
-            ),
-            const SizedBox(width: 12),
-            Button(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('关闭'),
-            ),
-          ],
+  Future<void> _showDetails() async {
+    var release = widget.release;
+    var baseUrl = widget.baseUrl;
+    _showingDetails = true;
+    updateKeepAlive();
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        dismissWithEsc: true,
+        builder: (dialogContext) => RssReleaseDetailDialog(
+          release: release,
+          markdownDescription:
+              widget.source == RssReleaseSource.anibt ||
+              release.item.anibt != null,
+          baseUrl: baseUrl == null
+              ? null
+              : Uri.tryParse(_sourceUrl(baseUrl.toString())),
+          onTapUrl: (url) => _openDescriptionLink(dialogContext, url),
+          actions: Row(
+            children: [
+              const Spacer(),
+              _buildActions(includeDetails: false),
+              const SizedBox(width: 12),
+              Button(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('关闭'),
+              ),
+            ],
+          ),
         ),
+      );
+    } finally {
+      if (mounted) {
+        _showingDetails = false;
+        updateKeepAlive();
+      }
+    }
+  }
+
+  Widget _buildActions({bool includeDetails = true}) {
+    var release = widget.release;
+    return ValueListenableBuilder<bool>(
+      valueListenable: _downloading,
+      builder: (context, downloading, _) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (includeDetails &&
+              release.hasDescription &&
+              (widget.source != RssReleaseSource.mikan ||
+                  release.summary != null))
+            Tooltip(
+              message: '查看资源详情',
+              child: IconButton(
+                icon: BtIcon(FluentIcons.info, size: 14),
+                onPressed: _showDetails,
+              ),
+            ),
+          Tooltip(
+            message: downloading
+                ? '正在添加下载任务'
+                : release.canDownload
+                ? '内置下载'
+                : '该资源没有可用的种子或磁力链接',
+            child: IconButton(
+              icon: downloading
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: ProgressRing(strokeWidth: 2),
+                    )
+                  : BtIcon(FluentIcons.download, size: 14),
+              onPressed: release.canDownload && !downloading ? _download : null,
+            ),
+          ),
+          Tooltip(
+            message: '打开链接',
+            child: IconButton(
+              icon: BtIcon(FluentIcons.edge_logo, size: 14),
+              onPressed: release.detailUrl == null
+                  ? null
+                  : () => _openDescriptionLink(context, release.detailUrl!),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (includeDetails &&
-            release.hasDescription &&
-            (source != RssReleaseSource.mikan || release.summary != null))
-          Tooltip(
-            message: '查看资源详情',
-            child: IconButton(
-              icon: BtIcon(FluentIcons.info, size: 14),
-              onPressed: () => _showDetails(context),
-            ),
-          ),
-        Tooltip(
-          message: release.canDownload ? '内置下载' : '该资源没有可用的种子或磁力链接',
-          child: IconButton(
-            icon: BtIcon(FluentIcons.download, size: 14),
-            onPressed: release.canDownload
-                ? () => download(context, ref)
-                : null,
-          ),
-        ),
-        Tooltip(
-          message: '打开链接',
-          child: IconButton(
-            icon: BtIcon(FluentIcons.edge_logo, size: 14),
-            onPressed: release.detailUrl == null
-                ? null
-                : () => _openDescriptionLink(context, release.detailUrl!),
-          ),
-        ),
-      ],
-    );
+  Widget build(BuildContext context) {
+    super.build(context);
+    return _buildActions();
   }
 }
