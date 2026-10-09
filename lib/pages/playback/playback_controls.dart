@@ -36,6 +36,13 @@ class _PlaybackVideoControls extends StatefulWidget {
 class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
   final _contextMenu = FlyoutController();
 
+  /// Shared width policy for playback menus. Wide enough that short menus look
+  /// deliberate rather than cramped, narrow enough that no menu is padded out
+  /// far past its content.
+  static const _playbackMenuMinWidth = 220.0;
+  static const _playbackMenuMaxWidth = 320.0;
+  static const _playbackMenuMargin = 8.0;
+
   /// One node per controls instance. media_kit builds a second control set for
   /// the fullscreen route while the windowed one stays mounted; sharing a node
   /// makes the fullscreen attach detach the windowed one, which Flutter never
@@ -617,7 +624,6 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
               () => _showButtonMenu(
                 buttonContext,
                 () => _playbackUpscaleItems(store, widget.run),
-                menuWidth: 220,
               ),
               key: const ValueKey('playback-upscale'),
               selected: store.upscaleMode != PlaybackUpscaleMode.off,
@@ -732,42 +738,61 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
   void _showRateMenu(BuildContext buttonContext) => _showButtonMenu(
     buttonContext,
     () => _playbackRateItems(widget.player, widget.store, widget.run, _execute),
-    menuWidth: 220,
   );
 
   void _showButtonMenu(
     BuildContext buttonContext,
     List<MenuFlyoutItemBase> Function() items, {
     bool belowButton = false,
-    double menuWidth = 320,
   }) {
     var navigatorBox =
         Navigator.of(context).context.findRenderObject() as RenderBox;
     var buttonBox = buttonContext.findRenderObject() as RenderBox;
+    // Only the height cap and the side come from the layout; the width follows
+    // the shared menu rule.
     var layout = _playbackLibraryFlyoutLayout(
       buttonContext: buttonContext,
       navigatorBox: navigatorBox,
       preferBelow: belowButton,
-      maximumWidth: menuWidth,
     );
-    var button = buttonBox.localToGlobal(Offset.zero, ancestor: navigatorBox);
-    var above = layout.position.dy < button.dy;
-    // Explicit placement and height constraints prevent the flyout's automatic
-    // edge clamping from moving a tall speed menu back over its trigger.
-    var position = above
-        ? Offset(layout.position.dx, button.dy - 8)
-        : layout.position;
+    var button =
+        buttonBox.localToGlobal(Offset.zero, ancestor: navigatorBox) &
+        buttonBox.size;
+    var above = layout.position.dy < button.top;
+    // The menu follows its own content width, so the center placement modes
+    // have to center — and clamp — on the width measured at layout time.
+    // Keeping the height cap still prevents the flyout's automatic edge
+    // clamping from moving a tall menu back over its trigger.
     _showMenu(
-      position,
+      Offset(button.center.dx, above ? button.top - 8 : button.bottom + 8),
       items,
       placement: above
-          ? FlyoutPlacementMode.topLeft
-          : FlyoutPlacementMode.bottomLeft,
-      constraints: BoxConstraints(
-        minWidth: layout.size.width,
-        maxWidth: layout.size.width,
+          ? FlyoutPlacementMode.topCenter
+          : FlyoutPlacementMode.bottomCenter,
+      constraints: _playbackMenuConstraints(
+        navigatorBox,
         maxHeight: layout.size.height,
       ),
+    );
+  }
+
+  /// One width policy for every playback menu — the context menu, the button
+  /// menus and the bottom bar entries — since the same list would otherwise
+  /// come out at different widths depending on where it was opened. The flyout
+  /// follows its content between the floor and the cap, and submenus inherit
+  /// the result through `MenuFlyout.constraints`.
+  BoxConstraints _playbackMenuConstraints(
+    RenderBox navigatorBox, {
+    required double maxHeight,
+  }) {
+    var navigator = navigatorBox.size;
+    return BoxConstraints(
+      minWidth: _playbackMenuMinWidth,
+      maxWidth: (navigator.width - 2 * _playbackMenuMargin).clamp(
+        _playbackMenuMinWidth,
+        _playbackMenuMaxWidth,
+      ),
+      maxHeight: maxHeight,
     );
   }
 
@@ -817,13 +842,11 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     _hideTimer?.cancel();
     var navigatorBox =
         Navigator.of(context).context.findRenderObject() as RenderBox;
-    var maximumWidth = (navigatorBox.size.width - 16).clamp(0.0, 320.0);
     var menuConstraints =
         constraints ??
-        BoxConstraints(
-          minWidth: maximumWidth.clamp(0.0, 220.0),
-          maxWidth: maximumWidth,
-          maxHeight: (navigatorBox.size.height - 16).clamp(
+        _playbackMenuConstraints(
+          navigatorBox,
+          maxHeight: (navigatorBox.size.height - 2 * _playbackMenuMargin).clamp(
             0.0,
             double.infinity,
           ),
@@ -844,7 +867,15 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
             // and MenuFlyout carries it into every submenu's overlay entry.
             builder: (_) => DisableAcrylic(
               child: RepaintBoundary(
-                child: MenuFlyout(items: items(), constraints: menuConstraints),
+                child: MenuFlyout(
+                  items: items(),
+                  constraints: menuConstraints,
+                  // Options sit flush vertically; the upscale group headings
+                  // own the group gap through their own padding.
+                  itemMargin: const EdgeInsetsDirectional.symmetric(
+                    horizontal: 4,
+                  ),
+                ),
               ),
             ),
           );
@@ -1395,19 +1426,17 @@ List<MenuFlyoutItemBase> _playbackUpscaleItems(
 ) => [
   _playbackUpscaleItem(PlaybackUpscaleMode.off, store, run),
   for (var (title, isJanai) in [('Anime4K', false), ('JaNai', true)]) ...[
-    const MenuFlyoutSeparator(),
     MenuFlyoutItemBuilder(
       builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(32, 4, 12, 2),
+        // FlyoutListTile starts its content at 10 and reserves a 12px leading
+        // slot plus a 10px gap for the check mark, so the header aligns with
+        // the check mark by using that same 10px inset instead of the 32px
+        // text inset. The vertical padding stays minimal: the heading row's
+        // own height separates the groups, as options sit `vertical: 0` apart.
+        padding: const EdgeInsets.fromLTRB(10, 4, 12, 2),
         child: Semantics(
           header: true,
-          child: Text(
-            title,
-            style: BTTypography.caption(context).copyWith(
-              color: BTColors.textSecondary(context),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          child: Text(title, style: BTTypography.caption(context)),
         ),
       ),
     ),
@@ -1458,7 +1487,10 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
   PlaybackWindowMode? windowMode,
 ) => [
   MenuFlyoutSubItem(
-    text: Text('播放速度 · ${PlaybackRateMemory.label(player.state.rate)}×'),
+    text: _PlaybackMenuLabel(
+      '播放速度',
+      description: '${PlaybackRateMemory.label(player.state.rate)}×',
+    ),
     showBehavior: SubItemShowAction.press,
     items: (_) => _playbackRateItems(player, store, run, execute),
   ),
@@ -1468,7 +1500,8 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
       showBehavior: SubItemShowAction.press,
       text: ListenableBuilder(
         listenable: store,
-        builder: (_, _) => Text('视频超分 · ${store.upscaleMode.label}'),
+        builder: (_, _) =>
+            _PlaybackMenuLabel('视频超分', description: store.upscaleMode.label),
       ),
       items: (_) => _playbackUpscaleItems(store, run),
     ),
@@ -1507,7 +1540,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
     ),
   if (windowMode != null)
     MenuFlyoutSubItem(
-      text: Text('窗口置顶 · ${windowMode.onTop.label}'),
+      text: _PlaybackMenuLabel('窗口置顶', description: windowMode.onTop.label),
       showBehavior: SubItemShowAction.press,
       items: (_) => [
         for (var mode in PlaybackOnTop.values)
@@ -1617,9 +1650,19 @@ Widget _playbackSubtitleMenuLabel(
       orElse: () => player.state.track.subtitle,
     );
   }
+  // The resolved row keeps "自动选择" as its title and shows the track it
+  // resolved to on the second line, like "播放速度 / 1×", instead of joining
+  // both into one title with " · ".
+  if (selecting && track.id != 'auto') {
+    return _PlaybackMenuLabel(
+      '自动选择',
+      description: playbackSubtitleTrackLabel(
+        track.id,
+        track.title,
+        track.language,
+      ),
+    );
+  }
   var label = playbackSubtitleLabel(track.id, track.title, track.language);
-  return _PlaybackMenuLabel(
-    selecting && track.id != 'auto' ? '自动选择 · ${label.title}' : label.title,
-    description: label.description,
-  );
+  return _PlaybackMenuLabel(label.title, description: label.description);
 }
