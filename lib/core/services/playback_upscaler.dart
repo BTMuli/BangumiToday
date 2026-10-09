@@ -19,7 +19,8 @@ abstract class PlaybackUpscaleBackend {
   /// Installs or clears the AnimeJaNai filter chain. `slot` selects the model
   /// (1 smooth, 2 high quality); null clears the chain. All modes share the
   /// decoder configured at Player creation.
-  Future<void> janai(int? slot);
+  /// Selection is installed in the same mutation, before the first AI frame.
+  Future<void> janai(int? slot, {PlaybackJanaiFrameRate? frameRate});
 
   /// Adds a timestamp selector before the existing inference filter, or clears
   /// only that selector. Calls share the coordinator's serialized apply queue.
@@ -116,6 +117,7 @@ class PlaybackUpscaler {
   int _dropEpoch = 0;
   PlaybackJanaiFrameRate? _desiredFrameRate;
   PlaybackJanaiFrameRate? _appliedFrameRate;
+  double _sourceFramesPerSecond = 0;
   double _displayFramesPerSecond = 60;
   Completer<bool>? _outputReady;
   PlaybackPixels? _awaitingOutput;
@@ -453,6 +455,28 @@ class PlaybackUpscaler {
             (params['conf'] as String).isNotEmpty;
       });
 
+  bool _janaiChainInstalled(
+    List<Map<Object?, Object?>> filters,
+    int? slot,
+    PlaybackJanaiFrameRate? frameRate,
+  ) {
+    if (!_janaiInstalled(filters, slot)) return false;
+    var rateIndex = filters.indexWhere(
+      (entry) => entry['label'] == PlaybackUpscaleBackend.janaiFrameRateLabel,
+    );
+    if (frameRate == null) return rateIndex < 0;
+    var inferenceIndex = filters.indexWhere(
+      (entry) => entry['label'] == PlaybackUpscaleBackend.janaiFilterLabel,
+    );
+    if (rateIndex < 0 || rateIndex >= inferenceIndex) return false;
+    var selector = filters[rateIndex];
+    var params = selector['params'];
+    return selector['name'] == 'lavfi' &&
+        selector['enabled'] == true &&
+        params is Map &&
+        params['graph'] == frameRate.graph;
+  }
+
   Future<void> _drain() async {
     while (!_closed && _mediaReady && _pendingReady && _pending != null) {
       var next = _pending!;
@@ -505,14 +529,42 @@ class PlaybackUpscaler {
           _dirty = true;
           if (_loadedMode != next.mode) {
             _stopDropMonitor();
+            // Track metadata is available before the bridge publishes its
+            // first status snapshot. Never wait two seconds at full AI load.
+            try {
+              var fps = await _step(
+                'read_source_fps',
+                () => backend.read('current-tracks/video/demux-fps'),
+                generation: generation,
+              );
+              if (!_current(generation)) continue;
+              if (fps is num && fps.isFinite && fps > 0) {
+                _sourceFramesPerSecond = fps.toDouble();
+              }
+            } catch (_) {
+              // Unknown cadence uses proportional frame-index selection.
+            }
+            if (!_current(generation)) continue;
+            var initialFrameRate = _desiredFrameRate = _janaiFrameRate();
+            _trace(
+              'initial_sampling rate=${_dropMonitor.rate} '
+              'source_fps=$_sourceFramesPerSecond '
+              'target_fps=${initialFrameRate?.framesPerSecond ?? 'unknown'} '
+              'selector=${initialFrameRate?.graph ?? 'none'}',
+              generation: generation,
+            );
             _janaiDirty = true;
             _loadedMode = null;
             _applied = null;
             await _step(
               'install_janai:${next.mode.name}',
-              () => backend.janai(next.mode.janaiSlot),
+              () => backend.janai(
+                next.mode.janaiSlot,
+                frameRate: initialFrameRate,
+              ),
               generation: generation,
             );
+            _appliedFrameRate = initialFrameRate;
             if (!_current(generation)) continue;
             // Verification inspects mpv's structured filter list: an entry has
             // to be the AnimeJaNai filter, be enabled, and name the requested
@@ -523,15 +575,23 @@ class PlaybackUpscaler {
               generation: generation,
             );
             if (!_current(generation)) continue;
-            if (!_janaiInstalled(filters, next.mode.janaiSlot)) {
+            if (!_janaiChainInstalled(
+              filters,
+              next.mode.janaiSlot,
+              initialFrameRate,
+            )) {
               throw StateError('AI 滤镜未生效：$filters');
             }
             _loadedMode = next.mode;
           }
-          var frameRate = _desiredFrameRate;
+          // Speed may have changed while the initial installation awaited mpv.
+          var frameRate = _desiredFrameRate = _janaiFrameRate();
           if (_appliedFrameRate != frameRate) {
+            var target = frameRate == null
+                ? 'full'
+                : frameRate.framesPerSecond ?? 'index';
             await _step(
-              'janai_frame_rate:${frameRate?.framesPerSecond ?? 'full'}',
+              'janai_frame_rate:$target',
               () => backend.janaiFrameRate(frameRate),
               generation: generation,
             );
@@ -539,24 +599,11 @@ class PlaybackUpscaler {
             if (!_current(generation)) continue;
             var filters = await backend.filterList();
             if (!_current(generation)) continue;
-            var rateIndex = filters.indexWhere(
-              (entry) =>
-                  entry['label'] == PlaybackUpscaleBackend.janaiFrameRateLabel,
-            );
-            var inferenceIndex = filters.indexWhere(
-              (entry) =>
-                  entry['label'] == PlaybackUpscaleBackend.janaiFilterLabel,
-            );
-            var installed = frameRate == null
-                ? rateIndex < 0
-                : rateIndex >= 0 &&
-                      rateIndex < inferenceIndex &&
-                      filters[rateIndex]['name'] == 'lavfi' &&
-                      filters[rateIndex]['enabled'] == true &&
-                      filters[rateIndex]['params'] is Map &&
-                      (filters[rateIndex]['params'] as Map)['graph'] ==
-                          frameRate.graph;
-            if (!installed || !_janaiInstalled(filters, next.mode.janaiSlot)) {
+            if (!_janaiChainInstalled(
+              filters,
+              next.mode.janaiSlot,
+              frameRate,
+            )) {
               throw StateError('AI 抽帧滤镜未生效：$filters');
             }
           }
@@ -793,6 +840,7 @@ class PlaybackUpscaler {
   void _stopDropMonitor() {
     janaiStatus = null;
     _desiredFrameRate = _appliedFrameRate = null;
+    _sourceFramesPerSecond = 0;
     _displayFramesPerSecond = 60;
     _dropTimer?.cancel();
     _dropTimer = null;
@@ -800,22 +848,23 @@ class PlaybackUpscaler {
     _dropEpoch++;
   }
 
+  PlaybackJanaiFrameRate? _janaiFrameRate() => playbackJanaiFrameRate(
+    sourceFramesPerSecond: _sourceFramesPerSecond,
+    playbackRate: _dropMonitor.rate,
+    displayFramesPerSecond: _displayFramesPerSecond,
+  );
+
   bool _refreshJanaiFrameRate() {
     if (_failed || !(_loadedMode?.isJanai ?? false)) return false;
     var status = janaiStatus;
-    var next = status?.active == true
-        ? playbackJanaiFrameRate(
-            sourceFramesPerSecond: status!.sourceFramesPerSecond,
-            playbackRate: _dropMonitor.rate,
-            displayFramesPerSecond: _displayFramesPerSecond,
-          )
-        : null;
+    var next = _janaiFrameRate();
     if (next == _desiredFrameRate) return false;
+    var target = next?.framesPerSecond ?? (next == null ? 'full' : 'unknown');
     _trace(
       'sampling rate=${_dropMonitor.rate} '
-      'source_fps=${status?.sourceFramesPerSecond ?? 0} '
-      'target_fps=${next?.framesPerSecond ?? 'full'} '
-      'retained_media_fps=${next?.inputFramesPerSecond ?? 'full'} '
+      'source_fps=$_sourceFramesPerSecond '
+      'target_fps=$target '
+      'retained_media_fps=${next?.inputFramesPerSecond ?? 'unknown'} '
       'inferred_frames=${status?.frames ?? 0}',
     );
     _desiredFrameRate = next;
@@ -875,6 +924,15 @@ class PlaybackUpscaler {
         // Preparing/passthrough playback has no inference frame budget.
         _dropMonitor.reset();
         return;
+      }
+      var sourceFps = status.sourceFramesPerSecond;
+      // Native stats use six significant digits. Keep the precise track rate
+      // when only its printed rounding differs (24000/1001 vs 23.976), so the
+      // first status poll cannot rebuild an already limited inference chain.
+      if (sourceFps.isFinite &&
+          sourceFps > 0 &&
+          (sourceFps - _sourceFramesPerSecond).abs() > 0.0001) {
+        _sourceFramesPerSecond = sourceFps;
       }
       // libmpv may not expose a display rate. The AI route uses a conservative
       // 60-FPS ceiling in that case; never reconfigure ordinary playback.

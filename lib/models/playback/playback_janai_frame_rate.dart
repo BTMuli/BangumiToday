@@ -11,13 +11,22 @@ class PlaybackJanaiFrameRate {
   final double playbackRate;
 
   /// Retained frames per wall-clock second, after applying playback speed.
-  final double framesPerSecond;
-  double get inputFramesPerSecond => framesPerSecond / playbackRate;
+  /// Null selects by frame index until the source cadence becomes available.
+  final double? framesPerSecond;
+  double? get inputFramesPerSecond =>
+      framesPerSecond == null ? null : framesPerSecond! / playbackRate;
 
   /// One frame per media-time bucket avoids drift at fractional playback rates.
   /// Missing PTS passes through; the first backwards timestamp is retained.
   String get graph {
-    var frequency = inputFramesPerSecond.toStringAsPrecision(12);
+    var input = inputFramesPerSecond;
+    if (input == null) {
+      var rate = playbackRate.toStringAsPrecision(12);
+      // Keep the first frame and one out of every playbackRate input frames,
+      // including fractional rates. This also works before PTS/FPS is known.
+      return "select='gt(floor(n/$rate),floor((n-1)/$rate))'";
+    }
+    var frequency = input.toStringAsPrecision(12);
     return "select='isnan(t)+isnan(prev_selected_t)+lt(t,prev_selected_t)+"
         'gt(floor((t-start_t)*$frequency+0.000001),'
         "floor((prev_selected_t-start_t)*$frequency+0.000001))'";
@@ -41,11 +50,14 @@ PlaybackJanaiFrameRate? playbackJanaiFrameRate({
   required double playbackRate,
   double displayFramesPerSecond = 60,
 }) {
-  if (!sourceFramesPerSecond.isFinite ||
-      sourceFramesPerSecond <= 0 ||
-      !playbackRate.isFinite ||
-      playbackRate <= 1) {
+  if (!playbackRate.isFinite || playbackRate <= 1) {
     return null;
+  }
+  if (!sourceFramesPerSecond.isFinite || sourceFramesPerSecond <= 0) {
+    return PlaybackJanaiFrameRate(
+      playbackRate: playbackRate,
+      framesPerSecond: null,
+    );
   }
   var display = displayFramesPerSecond.isFinite && displayFramesPerSecond > 0
       ? math.min(displayFramesPerSecond, 60.0)

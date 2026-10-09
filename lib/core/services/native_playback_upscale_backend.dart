@@ -120,7 +120,7 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
   /// Only change the filter chain. The decoder stays on the shared GPU path;
   /// mpv refreshes a paused frame when vf changes, without an extra seek here.
   @override
-  Future<void> janai(int? slot) async {
+  Future<void> janai(int? slot, {PlaybackJanaiFrameRate? frameRate}) async {
     if (slot == null) {
       // Capture the terminal build log before mpv releases the old filter.
       try {
@@ -141,9 +141,14 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
         ? null
         : '@${PlaybackUpscaleBackend.janaiFilterLabel}:'
               'animejanai=slot=$slot:conf=${await _janaiConfiguration()}';
-    await adapter.setString('vf', filter ?? '');
+    // Install selection and inference atomically: no accelerated frame may
+    // reach a fresh AI filter before its workload limit is in place.
+    await adapter.setString(
+      'vf',
+      filter == null ? '' : _janaiChain(filter, frameRate),
+    );
     _janaiFilter = filter;
-    _frameRate = null;
+    _frameRate = filter == null ? null : frameRate;
     for (var file in _files.toList()) {
       if (slot != null && (file == _config || file == _status)) continue;
       if (await file.exists()) await file.delete();
@@ -159,12 +164,16 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
   Future<void> janaiFrameRate(PlaybackJanaiFrameRate? value) async {
     var filter = _janaiFilter;
     if (filter == null || value == _frameRate) return;
+    await adapter.setString('vf', _janaiChain(filter, value));
+    _frameRate = value;
+  }
+
+  String _janaiChain(String filter, PlaybackJanaiFrameRate? value) {
     var prefix = value == null
         ? ''
         : '@${PlaybackUpscaleBackend.janaiFrameRateLabel}:'
               'lavfi=[${value.graph}],';
-    await adapter.setString('vf', '$prefix$filter');
-    _frameRate = value;
+    return '$prefix$filter';
   }
 
   @override
