@@ -31,13 +31,13 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
-  app_links: ^7.2.1
-  cached_network_image: ^4.0.0
+  app_links: ^7.2.2
+  cached_network_image: ^4.0.4
   crypto: ^3.0.7
   desktop_multi_window: 0.3.1
-  device_info_plus: ^13.2.0
-  dio: ^5.11.0
-  drift: ^2.35.1
+  device_info_plus: ^13.3.0
+  dio: ^5.11.1
+  drift: ^2.35.2
   ffi: ^2.2.0
   file_selector: ^1.1.0
   fl_chart: ^1.2.0
@@ -45,43 +45,45 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_acrylic: ^1.1.4
-  flutter_cache_manager: ^3.4.2
+  flutter_cache_manager: ^3.4.5
   flutter_driver:
     sdk: flutter
   flutter_material_design_icons: ^3.1.0+7447
-  flutter_riverpod: ^3.4.2
-  flutter_secure_storage: ^11.0.0
+  flutter_riverpod: ^3.4.3
+  flutter_secure_storage: ^11.2.0
   flutter_widget_from_html_core: 0.17.4
-  hive_ce: ^2.20.1
-  html: ^0.15.6
+  hive_ce: ^2.20.2
+  html: ^0.15.7
   html_unescape: ^2.0.0
-  intl: ^0.20.2
+  intl: ^0.20.3
   jiffy: ^6.4.5
   json_annotation: ^4.12.0
   local_notifier: ^0.1.6
-  logger: ^2.7.0
+  logger: ^2.8.0
   markdown: 7.3.1
   media_kit: ^1.2.6
   media_kit_libs_video: ^1.0.7
   media_kit_video: ^2.0.1
-  package_info_plus: ^10.2.1
+  package_info_plus: ^10.2.2
   path: ^1.9.1
   path_provider: ^2.1.6
+  # window_manager 0.5.2 仍要求 screen_retriever ^0.2.2。
   screen_retriever: 0.2.2
-  sqlite3: 3.6.0
+  sqlite3: 3.7.0
   super_clipboard: 0.10.0-dev.2
   super_drag_and_drop: 0.10.0-dev.2
   system_theme: ^3.3.0
+  # 0.8.x 要求 code_assets 2.x，与 super_clipboard 的原生依赖冲突。
   tray_manager: ^0.7.0
-  url_launcher: ^6.3.2
+  url_launcher: ^6.3.3
   win32: ^6.4.0
   win32_registry: ^3.0.3
   window_manager: 0.5.2
   windows_taskbar: ^1.1.2
-  xml: ^7.0.1
+  xml: ^7.1.0
 
 dev_dependencies:
-  build_runner: ^2.15.1
+  build_runner: ^2.16.2
   drift_dev: ^2.35.1
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -97,7 +99,7 @@ dev_dependencies:
     sdk: flutter
   json_serializable: ^6.14.1
   lint_staged: ^0.5.1
-  mockito: ^5.6.4
+  mockito: ^5.8.1
   msix: ^3.18.0
 
 # For information on the generic Dart part of this file, see the
