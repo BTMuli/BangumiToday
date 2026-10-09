@@ -163,6 +163,36 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
                       _tab('记录', true, store.historyGroups.length),
                     ] else
                       Expanded(child: _sectionTitle(store)),
+                    if (store.openingStatus case var status?)
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: constraints.maxWidth / 2,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Tooltip(
+                            message: status,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox.square(
+                                  dimension: 16,
+                                  child: ProgressRing(strokeWidth: 2),
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    status,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: BTTypography.caption(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     if (showLayout) ...[
                       const SizedBox(width: 4),
                       _layoutSwitch(store),
@@ -192,27 +222,6 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
             ),
           ),
           Container(height: 1, color: BTColors.divider(context)),
-          if (store.openingStatus case var status?)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  const SizedBox.square(
-                    dimension: 16,
-                    child: ProgressRing(strokeWidth: 2),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      status,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: BTTypography.caption(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           Expanded(child: _showHistory ? _history(store) : _playlist(store)),
         ],
       ),
