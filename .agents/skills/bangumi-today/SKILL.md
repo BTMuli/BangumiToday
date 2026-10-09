@@ -52,6 +52,11 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `flutter_riverpod` (
 - Network call: extend `BtrBangumiApi`, `BtrMikanApi`, or the RSS clients; wrap with `RequestManager` (dedup/cancel) and cache via `BTCacheManager`.
 - Background work: add a singleton service in `lib/core/services/` with an `instance`; wire it into `_initBackgroundServices()` in `lib/main.dart`.
 
+### Add or change UI action buttons
+
+- Read the project [UI interaction rules](../../../AGENTS.md#ui-interaction) before adding or changing toolbar, list, or card actions. These rules define the compact icon-button convention, action visibility, tooltips, and loading states; keep the rules in AGENTS.md rather than duplicating them here.
+- Inspect neighboring controls and existing shared components before choosing a widget or layout. The download list's [_TaskActions](../../../lib/pages/download/download_page/task_card.dart) is a concrete example of flat icon actions. Adding a feature or optimizing a list does not by itself request a different button style or menu structure.
+
 ### Add a JSON model
 
 1. Create `lib/models/<domain>/<name>.dart` with `part '<name>.g.dart';` and `@JsonSerializable()`.
