@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
+import '../core/cache/subject_cache.dart';
 import '../core/utils/async_pool.dart';
 import '../domain/repositories/bmf_repository.dart';
 import '../models/database/app_bmf_model.dart';
@@ -76,6 +77,7 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
   static const int _airDateLookupConcurrency = 4;
 
   final Map<int, AppBmfModel> _bmfMap = {};
+  final Map<int, DateTime> _airDateRetryAfter = {};
   StreamSubscription<BmfChange>? _changes;
 
   Map<int, AppBmfModel> get bmfMap => Map.unmodifiable(_bmfMap);
@@ -122,14 +124,29 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
       maxConcurrent: _airDateLookupConcurrency,
       action: (item) async {
         try {
+          var airDate = await _cachedAirDate(item.subject);
+          if (airDate != null && airDate.isNotEmpty) {
+            item.airDate = airDate;
+            await repository.updateAirDate(item.subject, airDate);
+            _airDateRetryAfter.remove(item.subject);
+            return;
+          }
+          var now = DateTime.now();
+          var retryAfter = _airDateRetryAfter[item.subject];
+          if (retryAfter != null && now.isBefore(retryAfter)) return;
+          // 无日期和请求失败都稍后再补，避免每次刷新列表都重复查同一条目。
+          _airDateRetryAfter[item.subject] = now.add(
+            const Duration(minutes: 15),
+          );
           var response = await ref
               .read(bangumiRepositoryProvider)
               .getSubjectDetail(item.subject.toString());
           if (response.code != 0 || response.data == null) return;
-          var airDate = response.data!.date;
+          airDate = response.data!.date;
           if (airDate == null || airDate.isEmpty) return;
           item.airDate = airDate;
           await repository.updateAirDate(item.subject, airDate);
+          _airDateRetryAfter.remove(item.subject);
         } catch (error, stackTrace) {
           BTLogTool.warn([
             '补全 BMF 放送日期失败: subject=${item.subject}',
@@ -140,6 +157,14 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
       },
     );
     return list;
+  }
+
+  Future<String?> _cachedAirDate(int subject) async {
+    try {
+      return (await BgmSubjectCache().read(subject, allowStale: true))?.date;
+    } catch (_) {
+      return null;
+    }
   }
 
   void _syncMap(List<AppBmfModel> list) {
@@ -186,6 +211,7 @@ class BmfListNotifier extends AsyncNotifier<List<AppBmfModel>> {
   }
 
   void removeItem(int subjectId) {
+    _airDateRetryAfter.remove(subjectId);
     _bmfMap.remove(subjectId);
     var current = state.value;
     if (current == null) return;

@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../controller/progress_controller.dart';
+import '../../core/cache/subject_cache.dart';
 import '../../core/services/download_directory.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
@@ -120,6 +121,20 @@ class _SubjectBmfPanelState extends ConsumerState<SubjectBmfPanel> {
   }
 
   Future<String?> getTitle() async {
+    var title = widget.title.trim();
+    if (title.isNotEmpty) return title;
+    try {
+      var cached = await BgmSubjectCache().read(
+        widget.subjectId,
+        allowStale: true,
+      );
+      title = (cached?.nameCn.isNotEmpty ?? false)
+          ? cached!.nameCn
+          : cached?.name ?? '';
+      if (title.trim().isNotEmpty) return title;
+    } catch (_) {
+      // 缓存不可用时继续请求，不能影响补齐标题。
+    }
     if (mounted) {
       progress = ProgressWidget.show(context, title: '正在查找标题', text: '请稍后');
     }
