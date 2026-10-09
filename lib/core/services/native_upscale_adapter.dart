@@ -1,4 +1,5 @@
 // Dart imports:
+import 'dart:async';
 import 'dart:ffi';
 
 // Package imports:
@@ -17,26 +18,50 @@ class NativeUpscaleException implements Exception {
   String toString() => '$operation: $message ($code)';
 }
 
-/// Uses media_kit 1.2.6's existing bindings and disposal lock. No additional
-/// mpv client, cached handle, event loop or asynchronous request IDs are
-/// created. Close this adapter before disposing its owning Player.
+/// Uses a weak client to keep async replies separate from media_kit. Native
+/// requests never wait for the playback core on the Flutter isolate. Callers
+/// still await each mutation before starting the next one to preserve order.
 class NativeUpscaleAdapter {
-  NativeUpscaleAdapter(this._player);
+  NativeUpscaleAdapter(this._player) {
+    _player.release.add(close);
+  }
 
   final NativePlayer _player;
+  Pointer<mpv.mpv_handle> _client = nullptr;
+  Future<void>? _opening;
+  final _requests =
+      <int, ({String operation, int reply, Completer<Object?> result})>{};
+  final _reads = <String, Future<Object?>>{};
+  final _closedResult = Completer<void>();
+  Timer? _poll;
+  int _nextId = 0;
   bool _closed = false;
 
-  void close() => _closed = true;
+  Future<void> close() {
+    _closed = true;
+    if (_requests.isEmpty) _destroy();
+    return _closedResult.future;
+  }
 
-  Future<T> _withPlayer<T>(T Function() action) {
-    return NativePlayer.lock.synchronized(() async {
-      _checkOpen();
-      await _player.waitForPlayerInitialization;
-      await _player.waitForVideoControllerInitializationIfAttached;
-      _checkOpen();
-      if (_player.ctx == nullptr) throw StateError('播放器尚未初始化');
-      return action();
-    });
+  Future<void> _open() => NativePlayer.lock.synchronized(() async {
+    _checkOpen();
+    await _player.waitForPlayerInitialization;
+    await _player.waitForVideoControllerInitializationIfAttached;
+    _checkOpen();
+    if (_player.ctx == nullptr) throw StateError('播放器尚未初始化');
+    _client = _player.mpv.mpv_create_weak_client(_player.ctx, nullptr);
+    if (_client == nullptr) throw StateError('无法创建超分播放客户端');
+    for (var id = 0; id <= mpv.mpv_event_id.MPV_EVENT_HOOK; id++) {
+      _player.mpv.mpv_request_event(_client, id, 0);
+    }
+  });
+
+  Future<T> _withPlayer<T>(Future<T> Function() action) async {
+    _checkOpen();
+    await (_opening ??= _open());
+    _checkOpen();
+    // Do not hold media_kit's disposal lock while waiting for async replies.
+    return action();
   }
 
   void _checkOpen() {
@@ -57,6 +82,76 @@ class NativeUpscaleAdapter {
     );
   }
 
+  Future<Object?> _request(
+    String operation,
+    int reply,
+    int Function(int id) submit,
+  ) {
+    _checkOpen();
+    if (_requests.length >= 64) throw StateError('超分播放请求队列已满');
+    var id = ++_nextId;
+    var result = Completer<Object?>();
+    _requests[id] = (operation: operation, reply: reply, result: result);
+    try {
+      _checkResult(operation, submit(id));
+    } catch (error, stackTrace) {
+      _requests.remove(id);
+      result.completeError(error, stackTrace);
+    }
+    if (_requests.isNotEmpty) {
+      _poll ??= Timer.periodic(
+        const Duration(milliseconds: 16),
+        (_) => _drain(),
+      );
+    }
+    return result.future;
+  }
+
+  void _drain() {
+    for (var count = 0; count < 128 && _client != nullptr; count++) {
+      var event = _player.mpv.mpv_wait_event(_client, 0).ref;
+      if (event.event_id == mpv.mpv_event_id.MPV_EVENT_NONE) break;
+      var request = _requests[event.reply_userdata];
+      if (request == null || event.event_id != request.reply) continue;
+      _requests.remove(event.reply_userdata);
+      try {
+        _checkResult(request.operation, event.error);
+        Object? value;
+        if (event.event_id == mpv.mpv_event_id.MPV_EVENT_GET_PROPERTY_REPLY) {
+          if (event.data == nullptr) {
+            throw const FormatException('mpv property reply is empty');
+          }
+          var property = event.data.cast<mpv.mpv_event_property>().ref;
+          if (property.format != mpv.mpv_format.MPV_FORMAT_NODE ||
+              property.data == nullptr) {
+            throw const FormatException('mpv property reply has no node');
+          }
+          // Event-owned data expires at the next mpv_wait_event. Copy it now;
+          // it must not be released with mpv_free_node_contents.
+          value = _MpvNodeReader().read(property.data.cast<mpv.mpv_node>().ref);
+        }
+        request.result.complete(value);
+      } catch (error, stackTrace) {
+        request.result.completeError(error, stackTrace);
+      }
+    }
+    if (_requests.isEmpty) {
+      _poll?.cancel();
+      _poll = null;
+      if (_closed) _destroy();
+    }
+  }
+
+  void _destroy() {
+    // mpv_destroy waits for pending replies. Only destroy after draining them,
+    // and let Player.release await this before destroying the playback core.
+    if (_client != nullptr) {
+      _player.mpv.mpv_destroy(_client);
+      _client = nullptr;
+    }
+    if (!_closedResult.isCompleted) _closedResult.complete();
+  }
+
   /// Only used for short playback configuration commands, never media loading.
   Future<void> command(List<String> arguments) {
     if (arguments.isEmpty ||
@@ -74,10 +169,11 @@ class NativeUpscaleAdapter {
           strings.add(value);
           pointers[index] = value.cast();
         }
-        _checkResult(
+        return _request(
           command.first,
-          _player.mpv.mpv_command(_player.ctx, pointers),
-        );
+          mpv.mpv_event_id.MPV_EVENT_COMMAND_REPLY,
+          (id) => _player.mpv.mpv_command_async(_client, id, pointers),
+        ).then<void>((_) {});
       } finally {
         for (var value in strings) {
           calloc.free(value);
@@ -113,15 +209,17 @@ class NativeUpscaleAdapter {
         list.ref.values = items;
         node.ref.format = mpv.mpv_format.MPV_FORMAT_NODE_ARRAY;
         node.ref.u.list = list;
-        _checkResult(
+        return _request(
           'set $property',
-          _player.mpv.mpv_set_property(
-            _player.ctx,
+          mpv.mpv_event_id.MPV_EVENT_SET_PROPERTY_REPLY,
+          (id) => _player.mpv.mpv_set_property_async(
+            _client,
+            id,
             name.cast(),
             mpv.mpv_format.MPV_FORMAT_NODE,
             node.cast(),
           ),
-        );
+        ).then<void>((_) {});
       } finally {
         for (var value in strings) {
           calloc.free(value);
@@ -146,14 +244,23 @@ class NativeUpscaleAdapter {
       var name = property.toNativeUtf8();
       var text = value.toNativeUtf8();
       try {
-        _checkResult(
-          'set $property',
-          _player.mpv.mpv_set_property_string(
-            _player.ctx,
-            name.cast(),
-            text.cast(),
-          ),
-        );
+        var data = calloc<Pointer<Int8>>();
+        try {
+          data.value = text.cast();
+          return _request(
+            'set $property',
+            mpv.mpv_event_id.MPV_EVENT_SET_PROPERTY_REPLY,
+            (id) => _player.mpv.mpv_set_property_async(
+              _client,
+              id,
+              name.cast(),
+              mpv.mpv_format.MPV_FORMAT_STRING,
+              data.cast(),
+            ),
+          ).then<void>((_) {});
+        } finally {
+          calloc.free(data);
+        }
       } finally {
         calloc.free(text);
         calloc.free(name);
@@ -161,34 +268,37 @@ class NativeUpscaleAdapter {
     });
   }
 
-  /// Copies a native property into Dart values before freeing mpv-owned data.
+  /// Coalesce reads so a delayed core cannot accumulate repeated polling work.
   Future<Object?> read(String property) {
     if (property.isEmpty || property.contains('\u0000')) {
       throw ArgumentError.value(property, 'property');
     }
-    return _withPlayer(() {
-      var name = property.toNativeUtf8();
-      var node = calloc<mpv.mpv_node>();
-      var received = false;
-      try {
-        _checkResult(
-          'read $property',
-          _player.mpv.mpv_get_property(
-            _player.ctx,
-            name.cast(),
-            mpv.mpv_format.MPV_FORMAT_NODE,
-            node.cast(),
-          ),
-        );
-        received = true;
-        return _MpvNodeReader().read(node.ref);
-      } finally {
-        if (received) _player.mpv.mpv_free_node_contents(node);
-        calloc.free(node);
-        calloc.free(name);
-      }
-    });
+    _checkOpen();
+    return _reads.putIfAbsent(
+      property,
+      () => _read(property).whenComplete(() {
+        _reads.remove(property);
+      }),
+    );
   }
+
+  Future<Object?> _read(String property) => _withPlayer(() {
+    var name = property.toNativeUtf8();
+    try {
+      return _request(
+        'read $property',
+        mpv.mpv_event_id.MPV_EVENT_GET_PROPERTY_REPLY,
+        (id) => _player.mpv.mpv_get_property_async(
+          _client,
+          id,
+          name.cast(),
+          mpv.mpv_format.MPV_FORMAT_NODE,
+        ),
+      );
+    } finally {
+      calloc.free(name);
+    }
+  });
 }
 
 class _MpvNodeReader {

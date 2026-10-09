@@ -238,5 +238,5 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
       video.setSize(width: size?.width, height: size?.height);
 
   @override
-  void close() => adapter.close();
+  Future<void> close() => adapter.close();
 }
