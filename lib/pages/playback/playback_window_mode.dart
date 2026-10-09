@@ -354,23 +354,14 @@ class PlaybackWindowMode extends ChangeNotifier {
     _dragOrigin = null;
     _dragCursor = null;
     _dragTarget = null;
-    var visible = Platform.isWindows || await windowManager.isVisible();
-    if (Platform.isWindows) {
-      await _frameChannel.invokeMethod<void>('beginFullscreenTransition');
-    } else if (visible) {
-      await windowManager.hide();
-    }
+    // Windows keeps the surface visible for the whole presentation change: the
+    // shell hides the taskbar for the marked fullscreen window, and hiding the
+    // window instead would break that detection. Other platforms still hide it.
+    var visible = !Platform.isWindows && await windowManager.isVisible();
+    if (visible) await windowManager.hide();
     try {
       await _applyScreenFullscreen(fullscreen);
       if (!_disposed) notifyListeners();
-      if (Platform.isWindows) {
-        // Cloaking preserves frame production. Wait for Dart layout, then the
-        // native raster callback reveals the completed frame without a sleep.
-        await WidgetsBinding.instance.endOfFrame.timeout(
-          const Duration(seconds: 2),
-        );
-        await _frameChannel.invokeMethod<void>('finishFullscreenTransition');
-      }
     } catch (_) {
       try {
         await _applyScreenFullscreen(previous);
@@ -379,11 +370,7 @@ class PlaybackWindowMode extends ChangeNotifier {
       }
       rethrow;
     } finally {
-      if (Platform.isWindows) {
-        await _frameChannel.invokeMethod<void>('abortFullscreenTransition');
-      } else if (visible && !_disposed) {
-        await windowManager.show();
-      }
+      if (visible && !_disposed) await windowManager.show();
     }
   });
 

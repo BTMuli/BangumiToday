@@ -82,10 +82,8 @@ std::optional<double> PlaybackDisplayRefreshRate(HWND window) {
 // video window caption-free from its first show, including native frame paints.
 class PlaybackWindowFramePlugin : public flutter::Plugin {
  public:
-  PlaybackWindowFramePlugin(flutter::PluginRegistrarWindows* registrar,
-                            flutter::FlutterViewController* controller)
+  explicit PlaybackWindowFramePlugin(flutter::PluginRegistrarWindows* registrar)
       : registrar_(registrar),
-        controller_(controller),
         channel_(std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
             registrar->messenger(), "bangumi_today/playback_window_frame",
             &flutter::StandardMethodCodec::GetInstance())) {
@@ -105,29 +103,12 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
             // keeps this synchronous, before another app is shown.
             UpdatePresentation(window, LOWORD(wparam) != WA_INACTIVE);
           }
-          if (message == WM_TIMER &&
-              wparam == reinterpret_cast<UINT_PTR>(this)) {
-            // KillTimer cannot remove an already queued timer message.
-            if (transition_ticket_ && GetTickCount64() >= transition_deadline_) {
-              BangumiNativeLog("Playback window transition timed out", true);
-              RevealTransition();
-              if (transition_result_) {
-                auto result = std::move(transition_result_);
-                result->Error("transition_timeout",
-                              "Playback frame did not finish in time.");
-              }
-            }
-            return 0;
-          }
           return std::nullopt;
         });
     channel_->SetMethodCallHandler([this](const auto& call, auto result) {
       if (call.method_name() != "setFullscreenFrame" &&
           call.method_name() != "setAlwaysOnTop" &&
-          call.method_name() != "getDisplayRefreshRate" &&
-          call.method_name() != "beginFullscreenTransition" &&
-          call.method_name() != "finishFullscreenTransition" &&
-          call.method_name() != "abortFullscreenTransition") {
+          call.method_name() != "getDisplayRefreshRate") {
         result->NotImplemented();
         return;
       }
@@ -151,74 +132,6 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
           return;
         }
         result->Success();
-        return;
-      }
-      if (call.method_name() == "beginFullscreenTransition") {
-        if (!controller_ || transition_ticket_) {
-          result->Error("transition_unavailable",
-                        "Playback window cannot begin another transition.");
-          return;
-        }
-        // Cloaking hides the surface while keeping Flutter visible to its
-        // engine. ShowWindow(SW_HIDE) can suspend rendering and frame callbacks.
-        const bool was_foreground = GetForegroundWindow() == window;
-        const BOOL cloak = TRUE;
-        if (FAILED(DwmSetWindowAttribute(window, DWMWA_CLOAK, &cloak,
-                                         sizeof(cloak)))) {
-          result->Error("transition_hide_failed", "Could not hide playback.");
-          return;
-        }
-        transition_window_ = window;
-        transition_was_foreground_ = was_foreground;
-        transition_foreground_ = GetForegroundWindow();
-        transition_ticket_ = std::make_shared<int>(0);
-        transition_deadline_ = GetTickCount64() + 3000;
-        // This is a recovery deadline, not a delay in the normal transition.
-        if (!SetTimer(window, reinterpret_cast<UINT_PTR>(this), 3000, nullptr)) {
-          RevealTransition();
-          result->Error("transition_hide_failed", "Could not guard playback.");
-          return;
-        }
-        DwmFlush();
-        BangumiNativeLog("Playback window transition hidden");
-        result->Success();
-        return;
-      }
-      if (call.method_name() == "abortFullscreenTransition") {
-        const bool revealed = RevealTransition();
-        if (transition_result_) {
-          auto pending = std::move(transition_result_);
-          pending->Error("transition_aborted", "Playback transition aborted.");
-        }
-        if (revealed) {
-          result->Success();
-        } else {
-          result->Error("transition_show_failed", "Could not reveal playback.");
-        }
-        return;
-      }
-      if (call.method_name() == "finishFullscreenTransition") {
-        if (!controller_ || !transition_ticket_ || transition_result_) {
-          result->Error("transition_unavailable",
-                        "Playback window has no transition to finish.");
-          return;
-        }
-        transition_result_ = std::move(result);
-        std::weak_ptr<int> ticket = transition_ticket_;
-        controller_->engine()->SetNextFrameCallback([this, ticket] {
-          // An aborted transition or destroyed plugin invalidates the callback.
-          if (ticket.expired()) return;
-          const bool revealed = RevealTransition();
-          auto completed = std::move(transition_result_);
-          if (revealed) {
-            BangumiNativeLog("Playback window transition frame drawn and revealed");
-            completed->Success();
-          } else {
-            completed->Error("transition_show_failed",
-                             "Could not reveal playback.");
-          }
-        });
-        controller_->ForceRedraw();
         return;
       }
       if (call.method_name() == "getDisplayRefreshRate") {
@@ -308,7 +221,7 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
         return;
       }
       // desktop_multi_window also queues a child resize. Synchronize it now so
-      // the next Flutter frame has the final viewport before revealing it.
+      // the next Flutter frame already has the final viewport.
       if (!SetWindowPos(view->GetNativeWindow(), nullptr, 0, 0,
                         client.right - client.left, client.bottom - client.top,
                         SWP_NOZORDER | SWP_NOACTIVATE)) {
@@ -332,9 +245,6 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
   }
 
   ~PlaybackWindowFramePlugin() override {
-    transition_was_foreground_ = false;
-    fullscreen_ = false;
-    RevealTransition();
     registrar_->UnregisterTopLevelWindowProcDelegate(display_delegate_);
   }
 
@@ -343,7 +253,6 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
     // SetWindowPos can synchronously send window messages back to this plugin.
     if (updating_presentation_) return true;
     updating_presentation_ = true;
-    const bool presented = !transition_window_;
     // Fullscreen never pins the window. Only the user's always-on-top
     // preference enters the topmost band; fullscreen stays in the ordinary band
     // and lets the shell hide the taskbar for the marked fullscreen window.
@@ -360,11 +269,11 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
                               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE |
                                   SWP_NOOWNERZORDER) != FALSE;
       if (!updated) order_error = GetLastError();
-    } else if (fullscreen_ && active && presented) {
-      // Reassert on activation/reveal: the taskbar and other windows can have
-      // risen while the surface was DWM-cloaked. An unpinned window only
-      // re-enters the top of the ordinary band, so topmost windows still draw
-      // above the video; a pinned one keeps the top of the topmost band.
+    } else if (fullscreen_ && active) {
+      // Reassert on activation: the taskbar and other windows can have risen
+      // while another window was in front. An unpinned window only re-enters
+      // the top of the ordinary band, so topmost windows still draw above the
+      // video; a pinned one keeps the top of the topmost band.
       updated = SetWindowPos(window, topmost ? HWND_TOPMOST : HWND_TOP, 0, 0, 0,
                              0,
                              SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE |
@@ -372,7 +281,7 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
       if (!updated) order_error = GetLastError();
     }
     HRESULT marked = S_OK;
-    if (taskbar_ && (presented || !fullscreen_)) {
+    if (taskbar_) {
       marked = taskbar_->MarkFullscreenWindow(window, fullscreen_ ? TRUE : FALSE);
     }
     const bool actual_topmost =
@@ -380,46 +289,16 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
     updated = updated && actual_topmost == topmost;
     char log[256]{};
     _snprintf_s(log, sizeof(log), _TRUNCATE,
-                "Playback window order fullscreen=%d active=%d pinned=%d topmost=%d cloaked=%d updated=%d error=%lu taskbar=0x%08lx",
+                "Playback window order fullscreen=%d active=%d pinned=%d topmost=%d updated=%d error=%lu taskbar=0x%08lx",
                 fullscreen_ ? 1 : 0, active ? 1 : 0, always_on_top_ ? 1 : 0,
-                actual_topmost ? 1 : 0, presented ? 0 : 1, updated ? 1 : 0,
-                order_error,
+                actual_topmost ? 1 : 0, updated ? 1 : 0, order_error,
                 static_cast<unsigned long>(marked));
     BangumiNativeLog(log, !updated || FAILED(marked));
     updating_presentation_ = false;
     return updated && SUCCEEDED(marked);
   }
 
-  bool RevealTransition() {
-    transition_ticket_.reset();
-    if (!transition_window_) return true;
-    const HWND window = transition_window_;
-    KillTimer(window, reinterpret_cast<UINT_PTR>(this));
-    if (!IsWindow(window)) {
-      transition_window_ = nullptr;
-      return true;
-    }
-    const BOOL cloak = FALSE;
-    const bool revealed = SUCCEEDED(DwmSetWindowAttribute(
-        window, DWMWA_CLOAK, &cloak, sizeof(cloak)));
-    if (!revealed) return false;
-    transition_window_ = nullptr;
-    const bool restore_foreground = transition_was_foreground_;
-    const HWND expected_foreground = transition_foreground_;
-    transition_was_foreground_ = false;
-    transition_foreground_ = nullptr;
-    const HWND foreground = GetForegroundWindow();
-    // Restore activation if it stayed where cloaking left it. A different
-    // foreground window means the user switched away during the transition.
-    if (restore_foreground &&
-        (!foreground || foreground == expected_foreground)) {
-      SetForegroundWindow(window);
-    }
-    return UpdatePresentation(window, GetForegroundWindow() == window);
-  }
-
   flutter::PluginRegistrarWindows* registrar_;
-  flutter::FlutterViewController* controller_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
   int display_delegate_ = -1;
   HMONITOR display_monitor_ = nullptr;
@@ -430,24 +309,14 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
   bool always_on_top_ = false;
   bool updating_presentation_ = false;
   Microsoft::WRL::ComPtr<ITaskbarList2> taskbar_;
-  HWND transition_window_ = nullptr;
-  bool transition_was_foreground_ = false;
-  HWND transition_foreground_ = nullptr;
-  ULONGLONG transition_deadline_ = 0;
-  std::shared_ptr<int> transition_ticket_;
-  std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
-      transition_result_;
 };
 
-void RegisterWindowFramePlugin(
-    flutter::PluginRegistry* registry,
-    flutter::FlutterViewController* controller = nullptr) {
+void RegisterWindowFramePlugin(flutter::PluginRegistry* registry) {
   auto* registrar = flutter::PluginRegistrarManager::GetInstance()
                         ->GetRegistrar<flutter::PluginRegistrarWindows>(
                             registry->GetRegistrarForPlugin(
                                 "PlaybackWindowFramePlugin"));
-  registrar->AddPlugin(
-      std::make_unique<PlaybackWindowFramePlugin>(registrar, controller));
+  registrar->AddPlugin(std::make_unique<PlaybackWindowFramePlugin>(registrar));
 }
 }  // namespace
 
@@ -474,7 +343,7 @@ void RegisterPlaybackPlugins(flutter::FlutterViewController* controller) {
       registry->GetRegistrarForPlugin("MediaKitVideoPluginCApi"));
   WindowManagerPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("WindowManagerPlugin"));
-  RegisterWindowFramePlugin(registry, controller);
+  RegisterWindowFramePlugin(registry);
   ScreenRetrieverWindowsPluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("ScreenRetrieverWindowsPluginCApi"));
   FileSelectorWindowsRegisterWithRegistrar(

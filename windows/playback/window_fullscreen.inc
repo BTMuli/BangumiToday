@@ -6,7 +6,7 @@ void WindowManager::SetFullScreen(const flutter::EncodableMap& args) {
   if (fullscreen == g_is_window_fullscreen) return;
   const HWND window = GetMainWindow();
   // The playback frame plugin applies taskbar and Z-order state after the
-  // completed frame is revealed. This overlay only owns bounds/restoration.
+  // bounds change. This overlay only owns bounds/restoration.
 
   auto restore = [&] {
     g_is_window_fullscreen = false;
