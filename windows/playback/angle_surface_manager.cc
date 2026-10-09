@@ -180,17 +180,23 @@ void ANGLESurfaceManager::WaitForCopy(PlaybackRenderSample* sample,
       return;
     }
     if (result != S_FALSE) {
+      const auto removed = d3d_11_device_->GetDeviceRemovedReason();
       char detail[192]{};
       _snprintf_s(detail, sizeof(detail), _TRUNCATE,
                   "GPU frame copy HRESULT=0x%08lX device_removed=0x%08lX",
                   static_cast<unsigned long>(result),
                   static_cast<unsigned long>(
-                      d3d_11_device_->GetDeviceRemovedReason()));
+                      removed));
       BangumiNativeGraphicsError(detail);
+      if (FAILED(removed)) {
+        copy_pending_ = false;
+        throw PlaybackGraphicsDeviceLost(detail);
+      }
       throw std::runtime_error("Unable to complete the video frame copy.");
     }
     if (std::chrono::steady_clock::now() - started >=
         std::chrono::milliseconds(100)) {
+      const auto removed = d3d_11_device_->GetDeviceRemovedReason();
       char detail[256]{};
       _snprintf_s(
           detail, sizeof(detail), _TRUNCATE,
@@ -198,8 +204,12 @@ void ANGLESurfaceManager::WaitForCopy(PlaybackRenderSample* sample,
           "polls=%llu size=%dx%d device_removed=0x%08lX",
           PlaybackRenderMilliseconds(PlaybackRenderClock::now() - started),
           polls, width_, height_,
-          static_cast<unsigned long>(d3d_11_device_->GetDeviceRemovedReason()));
+          static_cast<unsigned long>(removed));
       BangumiNativeGraphicsError(detail);
+      if (FAILED(removed)) {
+        copy_pending_ = false;
+        throw PlaybackGraphicsDeviceLost(detail);
+      }
       throw std::runtime_error("Timed out copying the video frame.");
     }
     copy_wait_.Wait();
@@ -214,10 +224,17 @@ void ANGLESurfaceManager::MakeCurrent(bool value,
             : eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE,
                              EGL_NO_CONTEXT);
   if (result == EGL_FALSE) {
-    char detail[128]{};
+    const auto egl_error = eglGetError();
+    const auto removed =
+        d3d_11_device_ ? d3d_11_device_->GetDeviceRemovedReason() : S_OK;
+    char detail[192]{};
     _snprintf_s(detail, sizeof(detail), _TRUNCATE,
-                "eglMakeCurrent failed: EGL error=0x%X", eglGetError());
+                "eglMakeCurrent failed: EGL error=0x%X device_removed=0x%08lX",
+                egl_error, static_cast<unsigned long>(removed));
     BangumiNativeGraphicsError(detail);
+    if (egl_error == EGL_CONTEXT_LOST || FAILED(removed)) {
+      throw PlaybackGraphicsDeviceLost(detail);
+    }
     throw std::runtime_error("Unable to activate the video GL context.");
   }
 }

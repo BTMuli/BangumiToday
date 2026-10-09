@@ -111,6 +111,7 @@ class VideoOutput {
   void NotifyRender();
 
   void ProcessRender(bool force, double queue_ms, uint64_t requests);
+  void RecoverSoftwareRendering();
 
   void RecordRender(PlaybackRenderSample& sample, bool success,
                     const char* error = nullptr);

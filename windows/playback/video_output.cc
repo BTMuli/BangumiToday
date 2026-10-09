@@ -146,14 +146,28 @@ VideoOutput::~VideoOutput() {
   thread_pool_ref_
       ->Post([this]() {
         FlushRenderStatistics(PlaybackRenderClock::now());
-        if (surface_manager_) surface_manager_->MakeCurrent(true);
+        if (surface_manager_) {
+          try {
+            surface_manager_->MakeCurrent(true);
+          } catch (const std::exception& error) {
+            // A lost context must not skip mpv cleanup and leave its core
+            // waiting forever for a render context that is being disposed.
+            BangumiNativeLog(error.what(), true);
+          }
+        }
         if (render_context_) {
           mpv_render_context_set_update_callback(render_context_, nullptr,
                                                  nullptr);
           mpv_render_context_free(render_context_);
           render_context_ = nullptr;
         }
-        if (surface_manager_) surface_manager_->MakeCurrent(false);
+        if (surface_manager_) {
+          try {
+            surface_manager_->MakeCurrent(false);
+          } catch (const std::exception& error) {
+            BangumiNativeLog(error.what(), true);
+          }
+        }
       })
       .wait();
 
@@ -229,6 +243,12 @@ void VideoOutput::ProcessRender(bool force, double queue_ms,
       return;
     }
     if (!Render(&sample)) return;
+  } catch (const PlaybackGraphicsDeviceLost& error) {
+    sample.finished = PlaybackRenderClock::now();
+    sample.elapsed_ms = PlaybackRenderMilliseconds(sample.finished - started);
+    RecordRender(sample, false, error.what());
+    RecoverSoftwareRendering();
+    return;
   } catch (const std::exception& error) {
     sample.finished = PlaybackRenderClock::now();
     sample.elapsed_ms = PlaybackRenderMilliseconds(sample.finished - started);
@@ -274,6 +294,55 @@ bool VideoOutput::SkipLateFrame(PlaybackRenderSample* sample,
     throw std::runtime_error("Unable to skip the overdue video frame.");
   }
   return true;
+}
+
+void VideoOutput::RecoverSoftwareRendering() {
+  // The lost EGL context cannot service update callbacks or be retried. Free
+  // the old render context on its worker so the core can make progress again.
+  BangumiNativeLog("VideoOutput: GPU device lost; recovering software output",
+                   true);
+  mpv_render_context_set_update_callback(render_context_, nullptr, nullptr);
+  mpv_render_context_free(render_context_);
+  render_context_ = nullptr;
+  surface_manager_.reset();
+
+  // Mutations are queued, never synchronously dispatched from the render
+  // worker. Reinitialize decoding on the CPU after its D3D device was removed.
+  // media_kit owns the client's low request IDs; keep native recovery replies
+  // outside that range so they cannot complete a Dart command's waiter.
+  constexpr uint64_t recovery_reply = uint64_t{1} << 62;
+  const char* hwdec = "no";
+  const auto decode_status = mpv_set_property_async(
+      handle_, recovery_reply, "hwdec", MPV_FORMAT_STRING, &hwdec);
+  if (decode_status < 0) BangumiNativeLog(mpv_error_string(decode_status), true);
+  const char* remove_ai[]{"vf", "remove", "@bt-janai", nullptr};
+  const auto filter_status =
+      mpv_command_async(handle_, recovery_reply + 1, remove_ai);
+  if (filter_status < 0) BangumiNativeLog(mpv_error_string(filter_status), true);
+  pixel_buffer_ = std::make_unique<uint8_t[]>(SW_RENDERING_PIXEL_BUFFER_SIZE);
+  if (width_)
+    width_ = std::clamp(*width_, int64_t{0}, int64_t{SW_RENDERING_MAX_WIDTH});
+  if (height_)
+    height_ =
+        std::clamp(*height_, int64_t{0}, int64_t{SW_RENDERING_MAX_HEIGHT});
+  Resize((std::max)(int64_t{1}, width_.value_or(1)),
+         (std::max)(int64_t{1}, height_.value_or(1)));
+  mpv_render_param params[]{
+      {MPV_RENDER_PARAM_API_TYPE, MPV_RENDER_API_TYPE_SW},
+      {MPV_RENDER_PARAM_INVALID, nullptr},
+  };
+  const auto status =
+      mpv_render_context_create(&render_context_, handle_, params);
+  if (status < 0) {
+    render_queue_.Close();
+    BangumiNativeLog(mpv_error_string(status), true);
+    throw std::runtime_error("Unable to recover software video output.");
+  }
+  mpv_render_context_set_update_callback(
+      render_context_,
+      [](void* context) { static_cast<VideoOutput*>(context)->NotifyRender(); },
+      this);
+  render_queue_.Request(true);
 }
 
 void VideoOutput::RecordSkip(PlaybackRenderSample& sample) {

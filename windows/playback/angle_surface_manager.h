@@ -21,10 +21,16 @@
 
 #include <cstdint>
 #include <functional>
+#include <stdexcept>
 
 #include "gpu_copy_wait.h"
 #include "render_diagnostics.h"
 #include "utils.h"
+
+class PlaybackGraphicsDeviceLost : public std::runtime_error {
+ public:
+  using std::runtime_error::runtime_error;
+};
 
 // |ANGLESurfaceManager| provides an abstraction around ANGLE to easily draw
 // OpenGL ES 2.0 content & read as D3D 11 texture using shared |HANDLE|.
