@@ -617,8 +617,9 @@ class PlaybackWindowMode extends ChangeNotifier {
     if (pinned == _onTopApplied) return;
     _onTopApplied = pinned;
     if (Platform.isWindows) {
-      // Native fullscreen promotion must share the user's preference so a
-      // playback-state change cannot demote the active fullscreen window.
+      // This preference is the only reason the native window enters the topmost
+      // band. Fullscreen keeps the ordinary band so the shell hides the taskbar
+      // while overlay layers such as the NVIDIA one stay above the video.
       await _frameChannel.invokeMethod<void>('setAlwaysOnTop', pinned);
     } else {
       await windowManager.setAlwaysOnTop(pinned);

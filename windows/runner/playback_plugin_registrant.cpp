@@ -100,8 +100,9 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
           // over the Flutter surface until its next frame arrives.
           if (frameless_video_ && message == WM_NCPAINT) return 0;
           if (fullscreen_ && message == WM_ACTIVATE) {
-            // Drop only the temporary fullscreen promotion on Alt+Tab. Native
-            // activation keeps this synchronous, before another app is shown.
+            // Re-raise and re-mark on activation: the shell can have restored
+            // the taskbar while another window was in front. Native activation
+            // keeps this synchronous, before another app is shown.
             UpdatePresentation(window, LOWORD(wparam) != WA_INACTIVE);
           }
           if (message == WM_TIMER &&
@@ -343,18 +344,31 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
     if (updating_presentation_) return true;
     updating_presentation_ = true;
     const bool presented = !transition_window_;
-    const bool topmost = always_on_top_ || (fullscreen_ && active && presented);
+    // Fullscreen never pins the window. Only the user's always-on-top
+    // preference enters the topmost band; fullscreen stays in the ordinary band
+    // and lets the shell hide the taskbar for the marked fullscreen window.
+    // Promoting to topmost there would also place the player above every other
+    // topmost window, which is what hid overlay layers such as the NVIDIA one.
+    const bool topmost = always_on_top_;
     const bool was_topmost =
         (GetWindowLongPtr(window, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
     bool updated = true;
     DWORD order_error = ERROR_SUCCESS;
-    // Reassert on activation/reveal even if already topmost: the taskbar can
-    // have risen above the player while its surface was DWM-cloaked.
-    if (topmost != was_topmost || (fullscreen_ && active && presented)) {
+    if (topmost != was_topmost) {
       updated = SetWindowPos(window, topmost ? HWND_TOPMOST : HWND_NOTOPMOST,
                               0, 0, 0, 0,
                               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE |
                                   SWP_NOOWNERZORDER) != FALSE;
+      if (!updated) order_error = GetLastError();
+    } else if (fullscreen_ && active && presented) {
+      // Reassert on activation/reveal: the taskbar and other windows can have
+      // risen while the surface was DWM-cloaked. An unpinned window only
+      // re-enters the top of the ordinary band, so topmost windows still draw
+      // above the video; a pinned one keeps the top of the topmost band.
+      updated = SetWindowPos(window, topmost ? HWND_TOPMOST : HWND_TOP, 0, 0, 0,
+                             0,
+                             SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE |
+                                 SWP_NOOWNERZORDER) != FALSE;
       if (!updated) order_error = GetLastError();
     }
     HRESULT marked = S_OK;
