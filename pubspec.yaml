@@ -155,7 +155,9 @@ flutter:
 # lint-staged
 lint_staged:
   '**/*.dart': 'dart analyze --fatal-infos --fatal-warnings'
-  '!lib/**/*.g.dart': 'dart format --set-exit-if-changed .'
+  # 以 ! 开头的键是 lint_staged 的排除规则，值不会执行；这里不要写成
+  # `dart format ... .`，否则一旦语义变化会连带处理 temp/、build/ 等未忽略目录。
+  '!lib/**/*.g.dart': 'dart format'
 
 # msix
 msix_config:

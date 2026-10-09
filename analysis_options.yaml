@@ -13,6 +13,7 @@ analyzer:
   exclude:
     - build/**
     - repos/**
+    - temp/**
     - android/**
     - ios/**
     - web/**

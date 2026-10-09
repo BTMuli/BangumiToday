@@ -2,5 +2,8 @@
 . "$(dirname -- "$0")/_/husky.sh"
 
 dart run import_sorter:main
-dart format .
+# 只格式化 Git 跟踪的 Dart 文件：temp/、build/、repos/、.dart_tool/ 等
+# .gitignore 目录里的一次性脚本不应被钩子触碰。
+# 文件较多时会超出命令行长度上限，交给 xargs 分批调用。
+git ls-files -z '*.dart' | xargs -0 -r -n 100 dart format
 dart run lint_staged
