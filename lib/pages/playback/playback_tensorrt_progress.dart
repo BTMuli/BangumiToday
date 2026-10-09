@@ -58,11 +58,25 @@ class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              missing ? 'TensorRT 组件不可用，请在应用设置中重新安装' : resources.label,
-              maxLines: compact ? 1 : 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.typography.bodyStrong,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    missing ? 'TensorRT 组件不可用，请在应用设置中重新安装' : resources.label,
+                    maxLines: compact ? 1 : 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.typography.bodyStrong,
+                  ),
+                ),
+                if (!preparing)
+                  Tooltip(
+                    message: '关闭编译提示',
+                    child: IconButton(
+                      icon: const Icon(FluentIcons.chrome_close, size: 12),
+                      onPressed: resources.dismissBuildNotice,
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 8),
             Wrap(

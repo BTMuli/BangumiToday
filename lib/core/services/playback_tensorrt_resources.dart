@@ -97,18 +97,29 @@ class PlaybackTensorRtResources {
       ? '配置完成，可在播放器中启用 AI 超分'
       : '尚未安装 TensorRT 组件';
   bool get visible =>
-      native?.preparing == true ||
-      native?.phase == 'resources_missing' ||
-      native?.phase == 'failed';
+      !_noticeDismissed &&
+      (native?.preparing == true ||
+          native?.phase == 'resources_missing' ||
+          native?.phase == 'failed' ||
+          _buildCompleted);
+  bool get buildCompleted => _buildCompleted;
   double? get progress => stage == 'downloading' && total > 0
       ? (received / total).clamp(0.0, 1.0)
       : null;
-  String get label =>
-      native?.reason.isNotEmpty == true ? native!.reason : native?.label ?? '';
+  String get label => _buildCompleted
+      ? native?.active == true
+            ? 'TensorRT 模型编译完成，AI 超分已启用'
+            : 'TensorRT 模型编译完成，等待视频帧'
+      : native?.reason.isNotEmpty == true
+      ? native!.reason
+      : native?.label ?? '';
   List<String> get lines => _buildLines;
   List<String> get installationLines => List.unmodifiable(_installationLines);
   List<String> _buildLines = const [];
   String _buildLog = '';
+  bool _buildCompleted = false;
+  bool _noticeDismissed = false;
+  Timer? _buildNoticeTimer;
   final List<String> _installationLines = [];
   List<String> _precompileLines = const [];
   final _precompiler = PlaybackTensorRtPrecompile();
@@ -233,6 +244,22 @@ class PlaybackTensorRtResources {
 
   void observe(PlaybackJanaiStatus? status) {
     if (_disposed) return;
+    var previous = native;
+    if (status == null || status.preparing) {
+      _buildNoticeTimer?.cancel();
+      _buildCompleted = false;
+      _noticeDismissed = false;
+    } else if (status.phase == 'failed' ||
+        status.phase == 'resources_missing') {
+      if (status.phase != previous?.phase) {
+        _buildCompleted = false;
+        _holdBuildNotice(const Duration(seconds: 12));
+      }
+    } else if (previous?.preparing == true &&
+        (status.phase == 'configured' || status.active)) {
+      _buildCompleted = true;
+      _holdBuildNotice(const Duration(seconds: 8));
+    }
     if (status?.buildLog.isNotEmpty == true) {
       if (_buildLog != status!.buildLog) _buildLines = const [];
       _buildLog = status.buildLog;
@@ -245,6 +272,20 @@ class PlaybackTensorRtResources {
       _checkedSnapshot = null;
     }
     native = status;
+    onChanged();
+  }
+
+  void _holdBuildNotice(Duration duration) {
+    _buildNoticeTimer?.cancel();
+    _noticeDismissed = false;
+    _buildNoticeTimer = Timer(duration, dismissBuildNotice);
+  }
+
+  void dismissBuildNotice() {
+    if (_disposed) return;
+    _buildNoticeTimer?.cancel();
+    _buildCompleted = false;
+    _noticeDismissed = true;
     onChanged();
   }
 
@@ -272,6 +313,7 @@ class PlaybackTensorRtResources {
   void dispose() {
     _disposed = true;
     _refreshTimer?.cancel();
+    _buildNoticeTimer?.cancel();
     cancel();
   }
 
