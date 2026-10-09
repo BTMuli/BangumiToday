@@ -476,9 +476,12 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
   Future<void> resume(String id) => _runTask(id, () => _client.resume(id));
   Future<void> retry(String id) => _runTask(id, () => _client.retry(id));
   Future<void> recheck(String id) => _runTask(id, () => _client.recheck(id));
-  Future<void> remove(String id) async {
-    await _runTask(id, () => _client.remove(id, deleteData: false));
-    await _forgetSubject(id);
+  Future<void> remove(String id, {bool deleteData = false}) async {
+    await _runTask(id, () async {
+      await _client.remove(id, deleteData: deleteData);
+      await _forgetSubject(id);
+      return null;
+    });
   }
 
   /// 应用启动后自动继续下载或做种未完成的暂停任务，返回恢复的数量。
@@ -570,8 +573,11 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
     return succeeded;
   }
 
-  /// 批量移除任务（保留数据）；活跃任务会先暂停再移除。
-  Future<void> removeAll(Iterable<String> ids) async {
+  /// 批量移除任务，默认保留数据；活跃任务会先暂停再移除。
+  Future<void> removeAll(
+    Iterable<String> ids, {
+    bool deleteData = false,
+  }) async {
     var targets = ids.toList();
     if (targets.isEmpty) return;
     _lastStoreError = null;
@@ -587,7 +593,7 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
             // 暂停失败不阻塞删除
           }
         }
-        await _client.remove(id, deleteData: false);
+        await _client.remove(id, deleteData: deleteData);
         await _forgetSubject(id);
       }
     } catch (error) {

@@ -23,6 +23,7 @@ import 'download_task_helpers.dart';
 
 part 'download_page/empty_states.dart';
 part 'download_page/header_widgets.dart';
+part 'download_page/removal_dialog.dart';
 part 'download_page/subject_group.dart';
 part 'download_page/task_card.dart';
 
@@ -310,25 +311,32 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
   }
 
   Future<void> _confirmBatchDelete() async {
-    var knownIds = ref
-        .read(btDownloadStoreProvider.notifier)
+    var selectedTasks = ref
+        .read(btDownloadStoreProvider)
         .tasks
-        .map((task) => task.id)
-        .toSet();
-    var targets = _selectedIds.intersection(knownIds);
-    if (targets.isEmpty) return;
-    var confirmed = await showConfirm(
+        .where((task) => _selectedIds.contains(task.id))
+        .toList();
+    if (selectedTasks.isEmpty) return;
+    var targets = selectedTasks.map((task) => task.id).toList();
+    var removal = await _showDownloadRemovalDialog(
       context,
-      title: '批量删除所选任务？',
-      content: '将删除已选择的 ${targets.length} 个任务，已下载的数据会保留。',
+      tasks: selectedTasks,
     );
-    if (!confirmed || !mounted) return;
+    if (removal == null || !mounted) return;
+    var deleteData = removal == _DownloadRemoval.deleteFiles;
     setState(() => _batchBusy = true);
     try {
-      await ref.read(btDownloadStoreProvider.notifier).removeAll(targets);
+      await ref
+          .read(btDownloadStoreProvider.notifier)
+          .removeAll(targets, deleteData: deleteData);
       if (!mounted) return;
       _exitSelection();
-      await BtInfobar.success(context, '已删除 ${targets.length} 个任务');
+      await BtInfobar.success(
+        context,
+        deleteData
+            ? '已删除 ${targets.length} 个任务及其下载文件'
+            : '已删除 ${targets.length} 个任务，下载文件已保留',
+      );
     } catch (error) {
       if (mounted) await BtInfobar.error(context, error.toString());
     } finally {

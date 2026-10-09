@@ -466,14 +466,19 @@ class _TaskActions extends StatelessWidget {
         _button(
           context,
           FluentIcons.delete,
-          '移除任务 (长按直接删除)',
+          '删除任务（长按仅移除任务，保留文件）',
           () async {
-            var confirmed = await showConfirm(
+            var removal = await _showDownloadRemovalDialog(
               context,
-              title: '移除下载任务？',
-              content: '任务将从列表移除，已经下载的数据会保留。',
+              tasks: [task],
             );
-            if (confirmed) await onAction((store) => store.remove(task.id));
+            if (removal == null) return;
+            await onAction(
+              (store) => store.remove(
+                task.id,
+                deleteData: removal == _DownloadRemoval.deleteFiles,
+              ),
+            );
           },
           onLongPress: () => _quickRemove(context),
           color: BTColors.errorLight(context),
