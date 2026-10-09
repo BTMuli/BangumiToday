@@ -1,11 +1,6 @@
-BangumiToday AnimeJaNai P0 development prerequisites
-
-These files are development prerequisites, not an accepted application runtime.
-No aji code or binaries, NVIDIA runtime, CUDA Toolkit, or driver are included.
+BangumiToday AnimeJaNai inference dependencies
 
 AnimeJaNai HD V3.1 Standard Performance and Balanced models
-Source: the-database/mpv-AnimeJaNai
-Commit: 7f502d171ab5dd1f78685cb331047e5a7446635d
 https://github.com/the-database/mpv-AnimeJaNai/tree/7f502d171ab5dd1f78685cb331047e5a7446635d
 License: Creative Commons Attribution-NonCommercial-ShareAlike 4.0
 See licenses/AnimeJaNai.txt. Models are copied without modification.
@@ -19,7 +14,11 @@ DirectML 1.15.4
 https://www.nuget.org/packages/Microsoft.AI.DirectML/1.15.4
 Copyright Microsoft Corporation. Microsoft Software License Terms.
 See licenses/DirectML.txt and licenses/DirectML-ThirdPartyNotices.txt.
-This component is provided for Windows use under its own license, not MIT.
+For Windows use under its own license.
 
-The independent BangumiToday GPU session and capability query are original
-project code under the root LICENSE. They do not reuse the unlicensed aji tree.
+Microsoft Visual C++ Redistributable 14.51.36231.0 (app-local CRT)
+See licenses/MSVCRuntime.txt for source and redistribution terms.
+
+aji.dll is built from BangumiToday sources under the project root MIT LICENSE;
+no upstream animejanai-inference source or binaries are reused.
+NVIDIA TensorRT/CUDA components are installed separately, not bundled here.
