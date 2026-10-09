@@ -30,7 +30,7 @@ abstract final class PlaybackCache {
       // Cache availability must not prevent media playback.
       BTLogTool.warn('配置播放缓存失败：$error');
     } finally {
-      adapter.close();
+      await adapter.close();
     }
   }
 }

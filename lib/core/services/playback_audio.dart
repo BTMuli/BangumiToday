@@ -76,7 +76,7 @@ abstract final class PlaybackAudio {
               ),
       );
     } finally {
-      adapter.close();
+      await adapter.close();
     }
   }
 
@@ -96,7 +96,7 @@ abstract final class PlaybackAudio {
         await adapter.command(['set', option.key, option.value]);
       }
     } finally {
-      adapter.close();
+      await adapter.close();
     }
   }
 
@@ -108,7 +108,7 @@ abstract final class PlaybackAudio {
     try {
       await adapter.command(['ao-reload']);
     } finally {
-      adapter.close();
+      await adapter.close();
     }
   }
 }
