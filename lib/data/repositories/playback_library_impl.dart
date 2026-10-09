@@ -107,6 +107,13 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
     }
     var key = PlaybackItem.pathKey(filePath);
     for (var task in List<BtTaskSnapshot>.of(tasks())) {
+      // 已完成的手动种子任务只保留历史，重启后没有可查询文件的 handle。
+      // 它们不再跟踪磁盘文件；HTTP 任务仍保留文件信息，需要继续校验。
+      if (task.manual &&
+          task.state == 'completed' &&
+          task.sourceKind != 'http') {
+        continue;
+      }
       var root = PlaybackItem.pathKey(task.savePath);
       if (!path.isWithin(root, key)) continue;
       var files = cachedFiles[task.id] ??= await _allFiles(task.id);
