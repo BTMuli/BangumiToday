@@ -47,7 +47,7 @@ Future<void> startPlaybackWindow(WindowController window) async {
   }
 }
 
-class _PlaybackWindow with WindowListener {
+class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
   _PlaybackWindow(this.window, this.identity)
     : host = WindowMethodChannel(
         identity.hostChannel,
@@ -127,8 +127,9 @@ class _PlaybackWindow with WindowListener {
       BTLogTool.info('播放器窗口握手：generation=${identity.generation}');
       _receive(await call('bootstrap', {'windowId': window.windowId}));
       // 主题随 bootstrap 下发；材质要在窗口显示前落地，否则首帧会闪出未定义底色。
-      await _applyWindowMaterial();
+      WidgetsBinding.instance.addObserver(this);
       presentation.addListener(_syncWindowMaterial);
+      await _applyWindowMaterial();
       await _restoreSize();
       await mode.centerWindow(area: await _displayUnderCursor());
       await _rememberBounds();
@@ -216,11 +217,14 @@ class _PlaybackWindow with WindowListener {
     });
   }
 
-  /// 宿主下发新主题时同步窗口材质。
+  /// 宿主主题或系统深浅色变化时同步窗口材质，固定主题由应用结果去重。
   void _syncWindowMaterial() {
     if (_closing || _exiting) return;
     unawaited(_applyWindowMaterial());
   }
+
+  @override
+  void didChangePlatformBrightness() => _syncWindowMaterial();
 
   /// “播放时置顶”跟随 Player 的播放流；Player 被替换时旧订阅必须释放。
   void _observePlaying() {
@@ -409,6 +413,7 @@ class _PlaybackWindow with WindowListener {
     BTLogTool.info('播放器窗口原生清理已完成，关闭窗口');
     store.removeListener(_onVideoChanged);
     presentation.removeListener(_syncWindowMaterial);
+    WidgetsBinding.instance.removeObserver(this);
     await _playing?.cancel();
     _playing = null;
     mode.dispose();
