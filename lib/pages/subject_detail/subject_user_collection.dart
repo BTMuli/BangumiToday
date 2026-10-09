@@ -402,6 +402,7 @@ class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
       items: [
         buildSubjStat(context, userCollection!.type),
         MenuFlyoutSubItem(
+          showBehavior: SubItemShowAction.press,
           leading: Icon(
             FluentIcons.edit,
             color: FluentTheme.of(context).accentColor,

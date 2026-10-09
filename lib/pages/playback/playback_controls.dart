@@ -868,6 +868,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         ),
         MenuFlyoutSubItem(
           text: const Text('播放与跳转'),
+          showBehavior: SubItemShowAction.press,
           leading: const Icon(material.Icons.playlist_play_rounded, size: 16),
           items: (_) => [
             MenuFlyoutItem(
@@ -905,11 +906,13 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         if (widget.store.chapters.isNotEmpty)
           MenuFlyoutSubItem(
             text: const Text('章节'),
+            showBehavior: SubItemShowAction.press,
             leading: const Icon(material.Icons.bookmarks_outlined, size: 16),
             items: (_) => _chapterItems(),
           ),
         MenuFlyoutSubItem(
           text: const Text('播放设置'),
+          showBehavior: SubItemShowAction.press,
           leading: const Icon(material.Icons.settings_outlined, size: 16),
           items: (_) => _settingsItems(),
         ),
@@ -1403,10 +1406,13 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
 ) => [
   MenuFlyoutSubItem(
     text: Text('播放速度 · ${PlaybackRateMemory.label(player.state.rate)}×'),
+    showBehavior: SubItemShowAction.press,
     items: (_) => _playbackRateItems(player, store, run, execute),
   ),
   if (Platform.isWindows)
     MenuFlyoutSubItem(
+      // fluent_ui 4.16.1 does not cancel its hover timer on disposal.
+      showBehavior: SubItemShowAction.press,
       text: ListenableBuilder(
         listenable: store,
         builder: (_, _) => Text('视频超分 · ${store.upscaleMode.label}'),
@@ -1455,6 +1461,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
   if (Platform.isWindows || Platform.isMacOS)
     MenuFlyoutSubItem(
       text: const Text('音频设置'),
+      showBehavior: SubItemShowAction.press,
       items: (_) => [
         if (Platform.isWindows)
           ToggleMenuFlyoutItem(
@@ -1487,6 +1494,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
   if (windowMode != null)
     MenuFlyoutSubItem(
       text: Text('窗口置顶 · ${windowMode.onTop.label}'),
+      showBehavior: SubItemShowAction.press,
       items: (_) => [
         for (var mode in PlaybackOnTop.values)
           ToggleMenuFlyoutItem(
@@ -1498,6 +1506,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
     ),
   MenuFlyoutSubItem(
     text: const Text('音轨'),
+    showBehavior: SubItemShowAction.press,
     items: (_) => [
       for (var track in player.state.tracks.audio)
         ToggleMenuFlyoutItem(
@@ -1511,6 +1520,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
   ),
   MenuFlyoutSubItem(
     text: const Text('字幕轨道'),
+    showBehavior: SubItemShowAction.press,
     items: (_) => [
       for (var track in player.state.tracks.subtitle)
         ToggleMenuFlyoutItem(
