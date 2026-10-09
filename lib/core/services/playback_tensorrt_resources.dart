@@ -289,6 +289,14 @@ class PlaybackTensorRtResources {
     onChanged();
   }
 
+  /// Manual cache cleanup leaves components installed but engines may need
+  /// rebuilding. Let the settings page offer precompilation again.
+  void invalidateEngineCache() {
+    if (_disposed || busy) return;
+    completedEngines = 0;
+    onChanged();
+  }
+
   void _update(String next, String text) {
     if (stage == next && message == text) return;
     var time = DateTime.now().toIso8601String().substring(11, 19);

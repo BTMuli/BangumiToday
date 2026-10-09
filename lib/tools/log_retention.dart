@@ -4,6 +4,38 @@ import 'dart:io';
 // Package imports:
 import 'package:path/path.dart' as path;
 
+// Project imports:
+import '../core/cache/directory_cache.dart';
+
+class LogStorageGroup {
+  const LogStorageGroup({
+    required this.day,
+    required this.crashes,
+    required this.bytes,
+    required this.files,
+    required this.protectedFiles,
+    required this.directory,
+  });
+
+  final String day;
+  final bool crashes;
+  final int bytes;
+  final int files;
+  final int protectedFiles;
+  final String directory;
+
+  String get key => '${crashes ? 'crashes' : 'logs'}:$day';
+  bool get canClear => files > protectedFiles;
+}
+
+class LogCleanupResult {
+  const LogCleanupResult(this.deleted, this.skipped, this.failed);
+
+  final int deleted;
+  final int skipped;
+  final int failed;
+}
+
 /// 按运行标识保留日志，同时识别旧版平铺文件；未知文件不会被删除。
 class BTLogRetention {
   BTLogRetention(this.directory, {required this.onError});
@@ -36,6 +68,145 @@ class BTLogRetention {
   final Directory directory;
   final void Function(FileSystemException) onError;
 
+  Future<List<_LogEntry>> _readEntries(List<Directory> folders) async {
+    var type = await FileSystemEntity.type(directory.path, followLinks: false);
+    if (type == FileSystemEntityType.notFound) return [];
+    if (type != FileSystemEntityType.directory) {
+      throw FileSystemException('日志路径不是普通目录', directory.path);
+    }
+    var files = <_LogEntry>[];
+    await for (var entity in directory.list(followLinks: false)) {
+      var name = path.basename(entity.path);
+      if (entity is File) {
+        var entry = await _legacyEntry(entity, name);
+        if (entry != null) files.add(entry);
+      } else if (entity is Directory && name == 'state') {
+        await _scan(entity, files, _sessionMarker, _LogKind.running);
+      } else if (entity is Directory && _parseDay(name, padded: true) != null) {
+        folders.add(entity);
+        await _scan(entity, files, _sessionLog, _LogKind.log);
+        var crashes = Directory(path.join(entity.path, 'crashes'));
+        if (await FileSystemEntity.type(crashes.path, followLinks: false) ==
+            FileSystemEntityType.directory) {
+          folders.add(crashes);
+          await _scan(crashes, files, _sessionCrash, _LogKind.crash);
+        }
+      }
+    }
+    return files;
+  }
+
+  Set<String?> _activeSessions(List<_LogEntry> entries) => {
+    for (var entry in entries)
+      if (entry.kind == _LogKind.running || entry.owner == pid.toString())
+        entry.session,
+  };
+
+  Map<String?, DateTime> _latestSessionTimes(List<_LogEntry> entries) {
+    var times = <String?, DateTime>{};
+    for (var entry in entries) {
+      var time = entry.crashTime ?? entry.modified;
+      var previous = times[entry.session];
+      if (previous == null || time.isAfter(previous)) {
+        times[entry.session] = time;
+      }
+    }
+    return times;
+  }
+
+  String _storageDay(_LogEntry entry, Map<String?, DateTime> times) {
+    var folder = path.basename(entry.file.parent.path);
+    // Unclean markers retain their startup write time when renamed. Associate
+    // them with the last log write or actual dump time of the same session.
+    var day = entry.kind == _LogKind.unclean
+        ? times[entry.session] ?? entry.modified
+        : entry.crashTime ?? _parseDay(entry.day ?? folder) ?? entry.modified;
+    return '${day.year.toString().padLeft(4, '0')}-'
+        '${day.month.toString().padLeft(2, '0')}-'
+        '${day.day.toString().padLeft(2, '0')}';
+  }
+
+  bool _isCrash(_LogEntry entry) =>
+      entry.kind == _LogKind.crash || entry.kind == _LogKind.unclean;
+
+  String _storageKey(_LogEntry entry, Map<String?, DateTime> times) =>
+      '${_isCrash(entry) ? 'crashes' : 'logs'}:${_storageDay(entry, times)}';
+
+  String _groupDirectory(List<_LogEntry> entries) {
+    // Prefer the actual log/dump location over auxiliary unclean markers.
+    var records = entries.where((e) => e.kind != _LogKind.unclean).toList();
+    if (records.isEmpty) records = entries;
+    var folder = records.first.file.parent.path;
+    for (var entry in records.skip(1)) {
+      var parent = entry.file.parent.path;
+      while (!path.equals(folder, parent) && !path.isWithin(folder, parent)) {
+        folder = path.dirname(folder);
+      }
+    }
+    return folder;
+  }
+
+  /// Manual management uses the same whitelist as automatic retention.
+  Future<List<LogStorageGroup>> listGroups() async {
+    var entries = await _readEntries([]);
+    var active = _activeSessions(entries);
+    var times = _latestSessionTimes(entries);
+    var groups = <String, List<_LogEntry>>{};
+    for (var entry in entries) {
+      if (entry.kind == _LogKind.running) continue;
+      groups.putIfAbsent(_storageKey(entry, times), () => []).add(entry);
+    }
+    var result = <LogStorageGroup>[
+      for (var group in groups.values)
+        LogStorageGroup(
+          day: _storageDay(group.first, times),
+          crashes: _isCrash(group.first),
+          bytes: group.fold(0, (sum, entry) => sum + entry.size),
+          files: group.length,
+          protectedFiles: group.where((e) => active.contains(e.session)).length,
+          directory: _groupDirectory(group),
+        ),
+    ];
+    result.sort((a, b) => b.day.compareTo(a.day));
+    return result;
+  }
+
+  /// Re-scan before deleting so a dialog's snapshot cannot remove newly active
+  /// sessions. Running markers are never user-cleanable crash records.
+  Future<LogCleanupResult> clearGroups(Set<String> keys) async {
+    var entries = await _readEntries([]);
+    var active = _activeSessions(entries);
+    var times = _latestSessionTimes(entries);
+    var deleted = 0;
+    var skipped = 0;
+    var failed = 0;
+    for (var entry in entries) {
+      if (entry.kind == _LogKind.running ||
+          !keys.contains(_storageKey(entry, times))) {
+        continue;
+      }
+      if (active.contains(entry.session)) {
+        skipped++;
+        continue;
+      }
+      try {
+        var stat = await entry.file.stat();
+        if (stat.type == FileSystemEntityType.notFound) continue;
+        if (stat.size != entry.size ||
+            stat.modified != entry.modified ||
+            !await CacheFile(entry.file, stat).deleteIfUnchanged(directory)) {
+          failed++;
+        } else {
+          deleted++;
+        }
+      } on FileSystemException catch (error) {
+        failed++;
+        onError(error);
+      }
+    }
+    return LogCleanupResult(deleted, skipped, failed);
+  }
+
   Future<int> cleanup({DateTime? now}) async {
     var current = now ?? DateTime.now();
     var regularCutoff = current.subtract(regularRetention);
@@ -43,25 +214,7 @@ class BTLogRetention {
     var files = <_LogEntry>[];
     var datedDirectories = <Directory>[];
     try {
-      await for (var entity in directory.list(followLinks: false)) {
-        var name = path.basename(entity.path);
-        if (entity is File) {
-          var entry = await _legacyEntry(entity, name);
-          if (entry != null) files.add(entry);
-        } else if (entity is Directory && name == 'state') {
-          await _scan(entity, files, _sessionMarker, _LogKind.running);
-        } else if (entity is Directory &&
-            _parseDay(name, padded: true) != null) {
-          datedDirectories.add(entity);
-          await _scan(entity, files, _sessionLog, _LogKind.log);
-          var crashes = Directory(path.join(entity.path, 'crashes'));
-          if (await FileSystemEntity.type(crashes.path, followLinks: false) ==
-              FileSystemEntityType.directory) {
-            datedDirectories.add(crashes);
-            await _scan(crashes, files, _sessionCrash, _LogKind.crash);
-          }
-        }
-      }
+      files = await _readEntries(datedDirectories);
     } on FileSystemException catch (error) {
       // 不完整的扫描可能遗漏活跃标记或崩溃证据，因此整轮停止删除。
       onError(error);
@@ -180,6 +333,7 @@ class BTLogRetention {
           session: '${match.group(1)}-${match.group(2)}',
           owner: match.group(2),
           crashTime: crashTime,
+          size: stat.size,
         ),
       );
     }
@@ -204,6 +358,7 @@ class BTLogRetention {
         kind,
         session: 'legacy-${native.group(1)}',
         owner: native.group(1),
+        size: stat.size,
       );
     }
     if (crash != null) {
@@ -219,11 +374,18 @@ class BTLogRetention {
         session: 'legacy-${crash.group(1)}',
         owner: crash.group(1),
         crashTime: timestamp.length == 19 ? time : stat.modified,
+        size: stat.size,
       );
     }
     var day = _parseDay(daily!.group(1)!);
     if (day == null) return null;
-    return _LogEntry(file, stat.modified, _LogKind.log, day: _dayKey(day));
+    return _LogEntry(
+      file,
+      stat.modified,
+      _LogKind.log,
+      day: _dayKey(day),
+      size: stat.size,
+    );
   }
 
   static String _dayKey(DateTime time) =>
@@ -264,6 +426,7 @@ class _LogEntry {
     this.owner,
     this.day,
     this.crashTime,
+    required this.size,
   });
 
   final File file;
@@ -273,4 +436,5 @@ class _LogEntry {
   final String? owner;
   final String? day;
   final DateTime? crashTime;
+  final int size;
 }
