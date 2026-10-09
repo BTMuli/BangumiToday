@@ -86,11 +86,11 @@ class BangumiPerson {
 
   /// career
   @JsonKey(name: 'career')
-  BangumiPersonCareerType career;
+  List<BangumiPersonCareerType> career;
 
   /// images
   @JsonKey(name: 'images')
-  BangumiPersonImages images;
+  BangumiPersonImages? images;
 
   /// short_summary
   @JsonKey(name: 'short_summary')
@@ -316,7 +316,7 @@ class BangumiRelatedCharacter {
 
   /// images
   @JsonKey(name: 'images')
-  BangumiPersonImages images;
+  BangumiPersonImages? images;
 
   /// relation
   @JsonKey(name: 'relation')
@@ -361,15 +361,19 @@ class BangumiRelatedPerson {
 
   /// career
   @JsonKey(name: 'career')
-  BangumiPersonCareerType career;
+  List<BangumiPersonCareerType> career;
 
   /// images
   @JsonKey(name: 'images')
-  BangumiPersonImages images;
+  BangumiPersonImages? images;
 
   /// relation
   @JsonKey(name: 'relation')
   String relation;
+
+  /// 参与章节 / 曲目。
+  @JsonKey(name: 'eps')
+  String eps;
 
   /// constructor
   BangumiRelatedPerson({
@@ -379,6 +383,7 @@ class BangumiRelatedPerson {
     required this.career,
     required this.images,
     required this.relation,
+    required this.eps,
   });
 
   /// from json

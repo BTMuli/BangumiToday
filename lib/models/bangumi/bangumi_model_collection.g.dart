@@ -38,6 +38,14 @@ Map<String, dynamic> _$BangumiUserSubjectCollectionToJson(
   'subject': instance.subject.toJson(),
 };
 
+const _$BangumiSubjectTypeEnumMap = {
+  BangumiSubjectType.book: 1,
+  BangumiSubjectType.anime: 2,
+  BangumiSubjectType.music: 3,
+  BangumiSubjectType.game: 4,
+  BangumiSubjectType.real: 6,
+};
+
 const _$BangumiCollectionTypeEnumMap = {
   BangumiCollectionType.unknown: 0,
   BangumiCollectionType.wish: 1,
@@ -91,12 +99,4 @@ const _$BangumiEpisodeCollectionTypeEnumMap = {
   BangumiEpisodeCollectionType.wish: 1,
   BangumiEpisodeCollectionType.done: 2,
   BangumiEpisodeCollectionType.dropped: 3,
-};
-
-const _$BangumiSubjectTypeEnumMap = {
-  BangumiSubjectType.book: 1,
-  BangumiSubjectType.anime: 2,
-  BangumiSubjectType.music: 3,
-  BangumiSubjectType.game: 4,
-  BangumiSubjectType.real: 6,
 };

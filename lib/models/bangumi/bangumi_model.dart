@@ -6,6 +6,7 @@ library;
 
 export 'bangumi_model_character.dart';
 export 'bangumi_model_collection.dart';
+export 'bangumi_model_comment.dart';
 export 'bangumi_model_episode.dart';
 export 'bangumi_model_error.dart';
 export 'bangumi_model_index.dart';

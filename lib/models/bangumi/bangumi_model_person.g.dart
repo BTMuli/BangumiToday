@@ -41,10 +41,14 @@ BangumiPerson _$BangumiPersonFromJson(Map<String, dynamic> json) =>
       id: (json['id'] as num).toInt(),
       name: json['name'] as String,
       type: $enumDecode(_$BangumiPersonTypeEnumMap, json['type']),
-      career: $enumDecode(_$BangumiPersonCareerTypeEnumMap, json['career']),
-      images: BangumiPersonImages.fromJson(
-        json['images'] as Map<String, dynamic>,
-      ),
+      career: (json['career'] as List<dynamic>)
+          .map((e) => $enumDecode(_$BangumiPersonCareerTypeEnumMap, e))
+          .toList(),
+      images: json['images'] == null
+          ? null
+          : BangumiPersonImages.fromJson(
+              json['images'] as Map<String, dynamic>,
+            ),
       shortSummary: json['short_summary'] as String,
       locked: json['locked'] as bool,
     );
@@ -54,8 +58,10 @@ Map<String, dynamic> _$BangumiPersonToJson(BangumiPerson instance) =>
       'id': instance.id,
       'name': instance.name,
       'type': _$BangumiPersonTypeEnumMap[instance.type]!,
-      'career': _$BangumiPersonCareerTypeEnumMap[instance.career]!,
-      'images': instance.images.toJson(),
+      'career': instance.career
+          .map((e) => _$BangumiPersonCareerTypeEnumMap[e]!)
+          .toList(),
+      'images': instance.images?.toJson(),
       'short_summary': instance.shortSummary,
       'locked': instance.locked,
     };
@@ -102,6 +108,13 @@ Map<String, dynamic> _$BangumiPersonCharacterToJson(
   'staff': instance.staff,
 };
 
+const _$BangumiCharacterTypeEnumMap = {
+  BangumiCharacterType.character: 1,
+  BangumiCharacterType.machine: 2,
+  BangumiCharacterType.ship: 3,
+  BangumiCharacterType.group: 4,
+};
+
 BangumiPersonDetail _$BangumiPersonDetailFromJson(Map<String, dynamic> json) =>
     BangumiPersonDetail(
       id: (json['id'] as num).toInt(),
@@ -145,6 +158,13 @@ Map<String, dynamic> _$BangumiPersonDetailToJson(
   'stat': instance.stat.toJson(),
 };
 
+const _$BangumiBloodTypeEnumMap = {
+  BangumiBloodType.a: 1,
+  BangumiBloodType.b: 2,
+  BangumiBloodType.ab: 3,
+  BangumiBloodType.o: 4,
+};
+
 BangumiPersonImages _$BangumiPersonImagesFromJson(Map<String, dynamic> json) =>
     BangumiPersonImages(
       large: json['large'] as String,
@@ -168,7 +188,9 @@ BangumiRelatedCharacter _$BangumiRelatedCharacterFromJson(
   id: (json['id'] as num).toInt(),
   name: json['name'] as String,
   type: $enumDecode(_$BangumiCharacterTypeEnumMap, json['type']),
-  images: BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
+  images: json['images'] == null
+      ? null
+      : BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
   relation: json['relation'] as String,
   actors: (json['actors'] as List<dynamic>)
       .map((e) => BangumiPerson.fromJson(e as Map<String, dynamic>))
@@ -181,7 +203,7 @@ Map<String, dynamic> _$BangumiRelatedCharacterToJson(
   'id': instance.id,
   'name': instance.name,
   'type': _$BangumiCharacterTypeEnumMap[instance.type]!,
-  'images': instance.images.toJson(),
+  'images': instance.images?.toJson(),
   'relation': instance.relation,
   'actors': instance.actors.map((e) => e.toJson()).toList(),
 };
@@ -192,9 +214,14 @@ BangumiRelatedPerson _$BangumiRelatedPersonFromJson(
   id: (json['id'] as num).toInt(),
   name: json['name'] as String,
   type: $enumDecode(_$BangumiPersonTypeEnumMap, json['type']),
-  career: $enumDecode(_$BangumiPersonCareerTypeEnumMap, json['career']),
-  images: BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
+  career: (json['career'] as List<dynamic>)
+      .map((e) => $enumDecode(_$BangumiPersonCareerTypeEnumMap, e))
+      .toList(),
+  images: json['images'] == null
+      ? null
+      : BangumiPersonImages.fromJson(json['images'] as Map<String, dynamic>),
   relation: json['relation'] as String,
+  eps: json['eps'] as String,
 );
 
 Map<String, dynamic> _$BangumiRelatedPersonToJson(
@@ -203,9 +230,12 @@ Map<String, dynamic> _$BangumiRelatedPersonToJson(
   'id': instance.id,
   'name': instance.name,
   'type': _$BangumiPersonTypeEnumMap[instance.type]!,
-  'career': _$BangumiPersonCareerTypeEnumMap[instance.career]!,
-  'images': instance.images.toJson(),
+  'career': instance.career
+      .map((e) => _$BangumiPersonCareerTypeEnumMap[e]!)
+      .toList(),
+  'images': instance.images?.toJson(),
   'relation': instance.relation,
+  'eps': instance.eps,
 };
 
 BangumiStat _$BangumiStatFromJson(Map<String, dynamic> json) => BangumiStat(
@@ -218,17 +248,3 @@ Map<String, dynamic> _$BangumiStatToJson(BangumiStat instance) =>
       'comments': instance.comments,
       'collects': instance.collects,
     };
-
-const _$BangumiBloodTypeEnumMap = {
-  BangumiBloodType.a: 1,
-  BangumiBloodType.b: 2,
-  BangumiBloodType.ab: 3,
-  BangumiBloodType.o: 4,
-};
-
-const _$BangumiCharacterTypeEnumMap = {
-  BangumiCharacterType.character: 1,
-  BangumiCharacterType.machine: 2,
-  BangumiCharacterType.ship: 3,
-  BangumiCharacterType.group: 4,
-};

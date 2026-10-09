@@ -7,10 +7,15 @@ extension _SubjectDetailContent on _SubjectDetailPageState {
       user: ref.watch(bgmUserStoreProvider).user,
       collectProvider: collectProvider,
       onTagTap: searchByTag,
+      onOpenEpisode: openEpisode,
       contextMenuBuilder: buildContextMenu,
       collectionKey: _collectionKey,
       episodesKey: _episodesKey,
       relationsKey: _relationsKey,
+      charactersKey: _charactersKey,
+      personsKey: _personsKey,
+      commentsKey: _commentsKey,
+      prefetch: _prefetch,
     );
   }
 
@@ -19,6 +24,7 @@ extension _SubjectDetailContent on _SubjectDetailPageState {
     var view = _viewData();
     var subject = data!;
     return SubjectDetailLayout(
+      key: ValueKey('subject-layout-${subject.id}'),
       view: view,
       onRefreshRelations: () => _refreshSubModules(keys: [_relationsKey]),
       resources: SubjectDetailResources(

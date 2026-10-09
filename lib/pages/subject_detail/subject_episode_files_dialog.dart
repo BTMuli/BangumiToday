@@ -534,6 +534,9 @@ class _SubjectEpisodeFilesDialogState
               onPressed: _busy
                   ? null
                   : () {
+                      ref
+                          .read(bangumiRepositoryProvider)
+                          .invalidateEpisodeList(widget.subject);
                       ref.invalidate(
                         subjectFileEpisodesProvider(widget.subject),
                       );

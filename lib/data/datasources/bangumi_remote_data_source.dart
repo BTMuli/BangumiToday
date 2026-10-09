@@ -24,12 +24,31 @@ abstract class BTBangumiRemoteDataSource {
 
   Future<BTResponse<List<BangumiSubjectRelation>>> getSubjectRelations(int id);
 
+  Future<BTResponse<List<BangumiRelatedCharacter>>> getSubjectCharacters(
+    int id,
+  );
+
+  Future<BTResponse<List<BangumiRelatedPerson>>> getSubjectPersons(int id);
+
+  Future<BTResponse<BangumiPageT<BangumiSubjectComment>>> getSubjectComments(
+    int id, {
+    BangumiCollectionType? type,
+    int offset = 0,
+    int limit = 20,
+  });
+
   Future<BTResponse<BangumiPageT<BangumiEpisode>>> getEpisodeList(
     int id, {
     BangumiLegacyEpisodeType? type,
     int? limit,
     int? offset,
   });
+
+  Future<BTResponse<BangumiEpisodeDetail>> getEpisodeDetail(int episodeId);
+
+  Future<BTResponse<List<BangumiEpisodeComment>>> getEpisodeComments(
+    int episodeId,
+  );
 
   Future<BTResponse<BangumiUser>> getUserInfo();
 

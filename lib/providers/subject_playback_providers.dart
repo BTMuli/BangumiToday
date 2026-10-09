@@ -82,20 +82,17 @@ final subjectPlaybackFilesProvider = FutureProvider.autoDispose
 /// Inferred associations are live projections, not durable per-episode writes.
 final subjectEpisodeFilesProvider = FutureProvider.autoDispose
     .family<List<PlaybackEpisodeLink>, int>((ref, subject) async {
+      var files = await ref.watch(subjectPlaybackFilesProvider(subject).future);
+      if (!ref.mounted || files.isEmpty) return const [];
       var manual = ref.watch(playbackEpisodeLinkSnapshotProvider);
       var rules = ref.watch(playbackEpisodeRuleSnapshotProvider);
       var ruleFuture = rules.hasValue
           ? Future.value(rules.value!)
           : ref.watch(playbackEpisodeRuleSnapshotProvider.future);
-      var fileFuture = ref.watch(subjectPlaybackFilesProvider(subject).future);
       var chapterFuture = ref.watch(
         subjectFileEpisodesProvider(subject).future,
       );
-      var (files, chapters, savedRules) = await (
-        fileFuture,
-        chapterFuture,
-        ruleFuture,
-      ).wait;
+      var (chapters, savedRules) = await (chapterFuture, ruleFuture).wait;
       return resolvePlaybackEpisodeFiles(
         subject: subject,
         files: files

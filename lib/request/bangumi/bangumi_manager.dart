@@ -133,11 +133,14 @@ class RequestKey {
 
   static String subjectDetail(int id) => 'subject_detail_$id';
 
-  static String subjectEpisodes(int id, {int? offset, int? limit}) {
+  static String subjectEpisodes(int id, {int? type, int? offset, int? limit}) {
+    var prefix = type == null
+        ? 'subject_episodes_$id'
+        : 'subject_episodes_${id}_type_$type';
     if (offset == null && limit == null) {
-      return 'subject_episodes_$id';
+      return prefix;
     }
-    return 'subject_episodes_${id}_${offset ?? 0}_${limit ?? 0}';
+    return '${prefix}_${offset ?? 0}_${limit ?? 0}';
   }
 
   static String userCollection(String username, int subjectId) =>

@@ -1,7 +1,6 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../models/bangumi/bangumi_enum.dart';
@@ -9,7 +8,6 @@ import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/episode_mark_providers.dart';
 import '../../providers/subject_playback_providers.dart';
-import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../playback/playback_actions.dart';
@@ -24,10 +22,14 @@ class SubjectEpisode extends ConsumerStatefulWidget {
   /// 用户章节信息
   final BangumiUserEpisodeCollection? user;
 
+  /// 打开章节详情下一级页面
+  final VoidCallback onShowDetail;
+
   /// 构造函数
   const SubjectEpisode(
     this.episode, {
     required this.subject,
+    required this.onShowDetail,
     this.user,
     super.key,
   });
@@ -254,52 +256,6 @@ class _SubjectEpisodeState extends ConsumerState<SubjectEpisode> {
     );
   }
 
-  /// 构建章节详情
-  Widget buildEpisodeDetail(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text('标题: ${episode.name}'),
-        Text('标题(中文): ${episode.nameCn}'),
-        Text('章节ID: ${episode.id}'),
-        Text('类型: ${episode.type.label}'),
-        Text('放送时间: ${episode.airDate}'),
-        Text('时长: ${episode.duration}'),
-        Text('收藏状态: ${userEpisode?.type.label ?? '未知'}'),
-        const Text('简介：'),
-        SizedBox(height: 8),
-        if (episode.desc.isNotEmpty)
-          ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: 200),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withAlpha(60),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(episode.desc),
-              ),
-            ),
-          ),
-        if (episode.desc.isEmpty)
-          Row(
-            children: [
-              Icon(
-                FluentIcons.error,
-                color: FluentTheme.of(context).accentColor,
-              ),
-              SizedBox(width: 8),
-              const Text('暂无简介'),
-            ],
-          ),
-      ],
-    );
-  }
-
   /// 构建Flyout-通用
   Widget buildFlyoutCommon(BuildContext context) {
     var color = FluentTheme.of(context).accentColor;
@@ -351,31 +307,7 @@ class _SubjectEpisodeState extends ConsumerState<SubjectEpisode> {
         MenuFlyoutItem(
           leading: Icon(FluentIcons.info, color: color),
           text: const Text('查看详情'),
-          onPressed: () async {
-            await showDialog(
-              barrierDismissible: true,
-              context: context,
-              builder: (_) => ContentDialog(
-                title: const Text('章节详情'),
-                content: buildEpisodeDetail(context),
-                actions: [
-                  IconButton(
-                    onPressed: () async {
-                      await launchUrlString(
-                        '${BtrBangumiApi.siteBaseUrl}/ep/${episode.id}',
-                      );
-                      if (context.mounted) Navigator.of(context).pop();
-                    },
-                    icon: Icon(FluentIcons.edge_logo, color: color),
-                  ),
-                  Button(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('关闭'),
-                  ),
-                ],
-              ),
-            );
-          },
+          onPressed: widget.onShowDetail,
         ),
       ],
     );

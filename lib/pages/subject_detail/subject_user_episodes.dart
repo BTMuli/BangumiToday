@@ -14,6 +14,7 @@ import '../../providers/episode_mark_providers.dart';
 import '../../providers/subject_playback_providers.dart';
 import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
+import 'subject_detail_prefetch.dart';
 import 'subject_detail_refreshable.dart';
 import 'subject_episode.dart';
 import 'subject_episode_load_queue.dart';
@@ -35,6 +36,10 @@ class SubjectUserEpisodes extends ConsumerStatefulWidget {
 
   /// 是否直接展示剧集按钮格
   final bool showGrid;
+  final SubjectDetailPrefetch? prefetch;
+
+  /// 打开章节详情下一级页面
+  final ValueChanged<int> onOpenEpisode;
 
   /// 构造函数
   const SubjectUserEpisodes(
@@ -43,6 +48,8 @@ class SubjectUserEpisodes extends ConsumerStatefulWidget {
     this.provider, {
     this.showSummary = false,
     this.showGrid = true,
+    this.prefetch,
+    required this.onOpenEpisode,
     super.key,
   });
 
@@ -88,6 +95,8 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
   static const _pageSize = 100;
 
   Future<List<BangumiUserEpisodeCollection>?>? _userEpisodesInFlight;
+  bool _useInitialEpisodes = true;
+  bool _useInitialProgress = true;
 
   late final _loads = SubjectEpisodeLoadQueue(
     loadPage: (reportError) => _loadPage(reportError: reportError),
@@ -163,10 +172,14 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
 
   /// 重新拉取章节列表与用户章节状态（由详情页刷新按钮触发）
   @override
-  Future<void> refresh() {
+  Future<void> refresh() async {
+    _useInitialEpisodes = false;
+    _useInitialProgress = false;
+    await _loads.refresh();
+    if (!mounted) return;
+    // 先刷新剧集首屏，再让文件匹配复用新分页，避免同时重复拉取。
     ref.invalidate(subjectPlaybackFilesProvider(subjectId));
     ref.invalidate(subjectFileEpisodesProvider(subjectId));
-    return _loads.refresh();
   }
 
   @override
@@ -187,6 +200,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
   Future<void> _refreshEpisodes() async {
     if (!mounted) return;
     if (widget.subject.type != BangumiSubjectType.anime) return;
+    ref.read(bangumiRepositoryProvider).invalidateEpisodeList(subjectId);
     var episodeBackup = List<BangumiEpisode>.of(episodes);
     var userEpisodeBackup = List<BangumiUserEpisodeCollection>.of(userEpisodes);
     var userEpMapBackup = Map<int, BangumiUserEpisodeCollection>.of(
@@ -221,12 +235,33 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
   }) async {
     if (!mounted) return null;
     var marking = ref.read(episodeMarkProvider.notifier);
-    var account = marking.currentAccount();
-    var progressVersion = marking.progressVersion;
-    var resp = await ref
-        .read(bangumiRepositoryProvider)
-        .getCollectionEpisodes(subjectId, offset: offset, limit: limit);
+    var prefetch = widget.prefetch;
+    var initial =
+        _useInitialProgress &&
+            offset == 0 &&
+            limit == _pageSize &&
+            prefetch != null &&
+            prefetch.isCurrent()
+        ? prefetch.progress
+        : null;
+    _useInitialProgress = false;
+    var account = initial == null
+        ? marking.currentAccount()
+        : prefetch!.progressAccount;
+    var progressVersion = initial == null
+        ? marking.progressVersion
+        : prefetch!.progressVersion;
+    var resp =
+        await (initial ??
+            ref
+                .read(bangumiRepositoryProvider)
+                .getCollectionEpisodes(
+                  subjectId,
+                  offset: offset,
+                  limit: limit,
+                ));
     if (!mounted) return null;
+    if (initial != null && !prefetch!.isCurrent()) return null;
     if (resp.code != 0 || resp.data == null) {
       if (reportError && mounted) {
         await showRespErr(resp, context, title: '获取章节进度失败');
@@ -289,11 +324,22 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
     var pageOffset = offset;
     var repository = ref.read(bangumiRepositoryProvider);
     isCollection = isCollection || widget.provider.collected;
-    var epFuture = repository.getEpisodeList(
-      subjectId,
-      offset: pageOffset,
-      limit: _pageSize,
-    );
+    var prefetch = widget.prefetch;
+    var initial =
+        _useInitialEpisodes &&
+            isFirst &&
+            prefetch != null &&
+            prefetch.isCurrent()
+        ? prefetch.episodes
+        : null;
+    _useInitialEpisodes = false;
+    var epFuture =
+        initial ??
+        repository.getEpisodeList(
+          subjectId,
+          offset: pageOffset,
+          limit: _pageSize,
+        );
     var userEpFuture = _userEpisodesInFlight;
     if (userEpFuture == null && user != null && isCollection) {
       userEpFuture = _fetchUserEpisodePage(
@@ -401,6 +447,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
                       episode,
                       subject: subjectId,
                       user: _userEpById[episode.id],
+                      onShowDetail: () => widget.onOpenEpisode(episode.id),
                       key: ValueKey(episode.id),
                     ),
                 ],

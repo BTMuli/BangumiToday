@@ -13,7 +13,10 @@ enum _DetailTab {
   resources('下载与订阅'),
   summary('简介'),
   infobox('详细信息'),
-  relations('关联条目');
+  characters('角色'),
+  persons('制作人员'),
+  relations('关联条目'),
+  comments('吐槽');
 
   const _DetailTab(this.label);
 
@@ -38,8 +41,8 @@ class SubjectDetailLayout extends StatefulWidget {
 }
 
 class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
-  // 随页面首次加载关联条目，以便页签直接显示真实计数。
-  final Set<_DetailTab> _visited = {_DetailTab.episodes, _DetailTab.relations};
+  // 独立接口只在对应页签首次被选中时挂载并请求。
+  final Set<_DetailTab> _visited = {_DetailTab.episodes};
   _DetailTab _selected = _DetailTab.episodes;
   int? _relationCount;
   bool _refreshingRelations = false;
@@ -84,11 +87,12 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
                 child: SubjectDetailOverview(
                   view: widget.view,
                   onShowEpisodes: () => _select(_DetailTab.episodes),
+                  tabBar: _buildTabs(context),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            _buildTabs(context),
+            // 页签行是页头最后一行，只留窄间距，使其紧贴内容容器上边。
+            const SizedBox(height: 8),
             Expanded(
               child: Container(
                 clipBehavior: Clip.antiAlias,
@@ -119,62 +123,59 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
     );
   }
 
+  /// 页签条是页头最后一行，宽度自适应窗口并允许换行。
   Widget _buildTabs(BuildContext context) {
     var accent = FluentTheme.of(context).accentColor;
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: BTColors.divider(context))),
-      ),
-      child: Wrap(
-        spacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          for (var tab in _DetailTab.values)
-            Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: _selected == tab ? accent : Colors.transparent,
-                    width: 2,
-                  ),
+    return Wrap(
+      spacing: 10,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (var tab in _DetailTab.values)
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: _selected == tab ? accent : Colors.transparent,
+                  width: 2,
                 ),
               ),
-              child: Semantics(
-                selected: _selected == tab,
-                child: HyperlinkButton(
-                  key: ValueKey('subject-tab-${tab.name}'),
-                  onPressed: () => _select(tab),
-                  child: Text(
-                    tab == _DetailTab.relations && _relationCount != null
-                        ? '${tab.label} · $_relationCount'
-                        : tab.label,
-                    style: BTTypography.body(context).copyWith(
-                      color: _selected == tab
-                          ? BTColors.textPrimary(context)
-                          : BTColors.textSecondary(context),
-                      fontWeight: _selected == tab
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
+            ),
+            child: Semantics(
+              selected: _selected == tab,
+              child: HyperlinkButton(
+                key: ValueKey('subject-tab-${tab.name}'),
+                onPressed: () => _select(tab),
+                child: Text(
+                  tab == _DetailTab.relations && _relationCount != null
+                      ? '${tab.label} · $_relationCount'
+                      : tab.label,
+                  style: BTTypography.body(context).copyWith(
+                    color: _selected == tab
+                        ? BTColors.textPrimary(context)
+                        : BTColors.textSecondary(context),
+                    fontWeight: _selected == tab
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                   ),
                 ),
               ),
             ),
-          if (_selected == _DetailTab.relations)
-            Tooltip(
-              message: '刷新关联条目',
-              child: IconButton(
-                icon: _refreshingRelations
-                    ? const SizedBox.square(
-                        dimension: 14,
-                        child: ProgressRing(strokeWidth: 2),
-                      )
-                    : const Icon(FluentIcons.refresh, size: 14),
-                onPressed: _refreshingRelations ? null : _refreshRelations,
-              ),
+          ),
+        if (_selected == _DetailTab.relations)
+          Tooltip(
+            message: '刷新关联条目',
+            child: IconButton(
+              icon: _refreshingRelations
+                  ? const SizedBox.square(
+                      dimension: 14,
+                      child: ProgressRing(strokeWidth: 2),
+                    )
+                  : const Icon(FluentIcons.refresh, size: 14),
+              onPressed: _refreshingRelations ? null : _refreshRelations,
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 
@@ -182,6 +183,9 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
     if (!_visited.contains(tab)) return const SizedBox.shrink();
     if (tab == _DetailTab.resources) return widget.resources;
     var view = widget.view;
+    if (tab == _DetailTab.characters) return view.buildCharacters();
+    if (tab == _DetailTab.persons) return view.buildPersons();
+    if (tab == _DetailTab.comments) return view.buildComments();
     return SingleChildScrollView(
       key: PageStorageKey('subject-${view.subject.id}-${tab.name}'),
       primary: false,
@@ -195,7 +199,10 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
           _DetailTab.relations => view.buildRelations(
             onCountChanged: _onRelationCountChanged,
           ),
-          _DetailTab.resources => const SizedBox.shrink(),
+          _DetailTab.resources ||
+          _DetailTab.characters ||
+          _DetailTab.persons ||
+          _DetailTab.comments => const SizedBox.shrink(),
         },
       ),
     );

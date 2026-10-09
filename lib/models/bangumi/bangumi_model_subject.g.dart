@@ -56,6 +56,14 @@ Map<String, dynamic> _$BangumiSubjectToJson(BangumiSubject instance) =>
       'tags': instance.tags.map((e) => e.toJson()).toList(),
     };
 
+const _$BangumiSubjectTypeEnumMap = {
+  BangumiSubjectType.book: 1,
+  BangumiSubjectType.anime: 2,
+  BangumiSubjectType.music: 3,
+  BangumiSubjectType.game: 4,
+  BangumiSubjectType.real: 6,
+};
+
 BangumiSlimSubject _$BangumiSlimSubjectFromJson(Map<String, dynamic> json) =>
     BangumiSlimSubject(
       id: (json['id'] as num).toInt(),
@@ -138,12 +146,4 @@ Map<String, dynamic> _$BangumiSubjectRelationToJson(
   'name_cn': instance.nameCn,
   'images': instance.images.toJson(),
   'relation': instance.relation,
-};
-
-const _$BangumiSubjectTypeEnumMap = {
-  BangumiSubjectType.book: 1,
-  BangumiSubjectType.anime: 2,
-  BangumiSubjectType.music: 3,
-  BangumiSubjectType.game: 4,
-  BangumiSubjectType.real: 6,
 };

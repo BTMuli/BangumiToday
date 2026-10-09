@@ -18,7 +18,9 @@ import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_content_frame.dart';
 import '../../widgets/subject_detail/subject_rss_search_dialog.dart';
 import '../subject_search/subject_search_page.dart';
+import 'episode_detail_page.dart';
 import 'subject_detail_layout.dart';
+import 'subject_detail_prefetch.dart';
 import 'subject_detail_refreshable.dart';
 import 'subject_detail_resources.dart';
 import 'subject_detail_view_data.dart';
@@ -62,10 +64,17 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   /// 刷新按钮进行中
   bool _refreshing = false;
 
+  /// 当前展开的章节详情，null 表示停留在条目详情。
+  String? _episodeId;
+
   int _loadGeneration = 0;
+  SubjectDetailPrefetch? _prefetch;
   final GlobalKey _collectionKey = GlobalKey();
   final GlobalKey _episodesKey = GlobalKey();
   final GlobalKey _relationsKey = GlobalKey();
+  final GlobalKey _charactersKey = GlobalKey();
+  final GlobalKey _personsKey = GlobalKey();
+  final GlobalKey _commentsKey = GlobalKey();
   final GlobalKey _resourcesKey = GlobalKey();
 
   /// 当id改变时, 重新加载数据
@@ -88,6 +97,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   Future<void> init() async {
     if (!mounted) return;
     var generation = ++_loadGeneration;
+    _prefetch = null;
     collectProvider.set(false);
     setState(() {
       showError = false;
@@ -140,11 +150,20 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     }
   }
 
-  /// 重新拉取收藏 / 章节 / 关联三个子模块的接口数据。
+  /// 重新拉取收藏及已访问页签的接口数据。
   ///
   /// 未访问过的页签会被跳过，首次进入时才会请求。
   Future<void> _refreshSubModules({List<GlobalKey>? keys}) async {
-    for (var key in keys ?? [_collectionKey, _episodesKey, _relationsKey]) {
+    for (var key
+        in keys ??
+            [
+              _collectionKey,
+              _episodesKey,
+              _relationsKey,
+              _charactersKey,
+              _personsKey,
+              _commentsKey,
+            ]) {
       var state = key.currentState;
       if (state is! SubjectDetailRefreshable) continue;
       // State 与 mixin 无继承关系，`is` 不会做类型提升，这里显式转换。
@@ -156,7 +175,9 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     var subjectId = int.tryParse(widget.id);
     if (subjectId == null) return;
     var repository = ref.read(bangumiRepositoryProvider);
-    var user = ref.read(bgmUserStoreProvider).user;
+    var authorization = ref.read(bgmUserStoreProvider);
+    var user = authorization.user;
+    var identity = (user?.id, authorization.accessToken);
     BangumiUserSubjectCollection? local;
     if (user != null) {
       local = await repository.getLocalCollection(subjectId);
@@ -164,14 +185,21 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
       if (local != null) {
         collectProvider.set(true, type: local.type, epStatus: local.epStatus);
       }
-      unawaited(repository.getCollectionSubject(user.id.toString(), subjectId));
     }
-    unawaited(repository.getEpisodeList(subjectId, offset: 0, limit: 100));
-    if (user != null && local != null) {
-      unawaited(
-        repository.getCollectionEpisodes(subjectId, offset: 0, limit: 100),
-      );
-    }
+    var marking = user == null ? null : ref.read(episodeMarkProvider.notifier);
+    _prefetch = SubjectDetailPrefetch(
+      repository: repository,
+      subject: subjectId,
+      username: user?.id.toString(),
+      collected: local != null,
+      progressAccount: marking?.currentAccount(),
+      progressVersion: marking?.progressVersion ?? 0,
+      isCurrent: () {
+        if (!mounted || generation != _loadGeneration) return false;
+        var current = ref.read(bgmUserStoreProvider);
+        return identity == (current.user?.id, current.accessToken);
+      },
+    );
   }
 
   @override
@@ -247,6 +275,40 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
         );
   }
 
+  /// 打开章节详情子页面
+  void openEpisode(int episode) {
+    var id = episode.toString();
+    if (_episodeId == id) return;
+    setState(() => _episodeId = id);
+  }
+
+  /// 关闭章节详情子页面，回到条目详情
+  void closeEpisode() {
+    if (_episodeId == null) return;
+    setState(() => _episodeId = null);
+  }
+
+  /// 从章节详情跳转到条目详情。
+  ///
+  /// 章节所属条目就是当前页面时直接返回，避免“跳到自己在看的条目”
+  /// 却仍停在章节详情上；其它条目才打开（或切换到）对应页签。
+  void openSubjectFromEpisode(BangumiEpisodeSubject subject) {
+    if (subject.id.toString() == widget.id) {
+      closeEpisode();
+      return;
+    }
+    var name = subject.nameCn.trim().isEmpty
+        ? subject.name.trim()
+        : subject.nameCn.trim();
+    ref
+        .read(navStoreProvider.notifier)
+        .addNavItemB(
+          type: subject.type.label,
+          subject: subject.id,
+          paneTitle: name,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -259,6 +321,27 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
         unawaited(_refreshAfterEpisodeMark());
       });
     }
+    var episodeId = _episodeId;
+    // 章节详情是条目详情的下一级页面：条目详情的内容树保持挂载，
+    // 返回时不会丢掉页签选择与滚动位置。
+    return IndexedStack(
+      sizing: StackFit.expand,
+      index: episodeId == null ? 0 : 1,
+      children: [
+        buildSubjectPage(),
+        if (episodeId != null)
+          EpisodeDetailPage(
+            id: episodeId,
+            onBack: closeEpisode,
+            onOpenSubject: openSubjectFromEpisode,
+            onOpenEpisode: openEpisode,
+          ),
+      ],
+    );
+  }
+
+  /// 构建条目详情页
+  Widget buildSubjectPage() {
     return ScaffoldPage(
       header: buildHeader(),
       content: Stack(

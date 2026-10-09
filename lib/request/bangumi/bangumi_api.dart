@@ -218,7 +218,7 @@ class BtrBangumiApi {
   Future<BTResponse> getSubjectDetail(
     String id, {
     bool deduplicate = true,
-    bool cancelPrevious = true,
+    bool cancelPrevious = false,
   }) async {
     try {
       var result = await _requestManager.request<Response>(
@@ -295,7 +295,113 @@ class BtrBangumiApi {
     }
   }
 
-  /// 章节模块
+  /// 获取条目角色及声优。
+  Future<BTResponse<List<BangumiRelatedCharacter>>> getSubjectCharacters(
+    int id,
+  ) => _getModule(
+    '/v0/subjects/$id/characters',
+    (data) => (data as List)
+        .map((e) => BangumiRelatedCharacter.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    fallbackMessage: '加载角色失败',
+  );
+
+  Future<BTResponse<List<BangumiRelatedPerson>>> getSubjectPersons(int id) =>
+      _getModule(
+        '/v0/subjects/$id/persons',
+        (data) => (data as List)
+            .map(
+              (e) => BangumiRelatedPerson.fromJson(e as Map<String, dynamic>),
+            )
+            .toList(),
+        fallbackMessage: '加载制作人员失败',
+      );
+
+  /// 吐槽使用 Next API 的 type / limit / offset 在服务端筛选和分页。
+  /// https://github.com/bangumi/server-private/blob/master/openapi.json
+  Future<BTResponse<BangumiPageT<BangumiSubjectComment>>> getSubjectComments(
+    int id, {
+    BangumiCollectionType? type,
+    int offset = 0,
+    int limit = 20,
+  }) => _getModule(
+    '$nextBaseUrl/p1/subjects/$id/comments',
+    (data) {
+      var json = data as Map<String, dynamic>;
+      return BangumiPageT(
+        total: (json['total'] as num).toInt(),
+        limit: limit,
+        offset: offset,
+        data: (json['data'] as List)
+            .map(
+              (e) => BangumiSubjectComment.fromJson(e as Map<String, dynamic>),
+            )
+            .toList(),
+      );
+    },
+    queryParameters: {
+      if (type != null && type != BangumiCollectionType.unknown)
+        'type': type.value,
+      'limit': limit,
+      'offset': offset,
+    },
+    fallbackMessage: '加载吐槽失败',
+  );
+
+  /// 获取章节详情（Next API）
+  ///
+  /// 一次返回章节本体、所属条目摘要与当前用户的章节收藏状态。
+  Future<BTResponse<BangumiEpisodeDetail>> getEpisodeDetail(int id) =>
+      _getModule(
+        '$nextBaseUrl/p1/episodes/$id',
+        (data) => BangumiEpisodeDetail.fromJson(data as Map<String, dynamic>),
+        fallbackMessage: '加载章节详情失败',
+      );
+
+  /// 获取章节吐槽箱（Next API）
+  ///
+  /// 接口一次返回全部顶层吐槽及其回复，服务端不支持分页参数。
+  Future<BTResponse<List<BangumiEpisodeComment>>> getEpisodeComments(int id) =>
+      _getModule(
+        '$nextBaseUrl/p1/episodes/$id/comments',
+        (data) => (data as List)
+            .map(
+              (e) => BangumiEpisodeComment.fromJson(e as Map<String, dynamic>),
+            )
+            .toList(),
+        fallbackMessage: '加载章节吐槽失败',
+      );
+
+  Future<BTResponse<T>> _getModule<T>(
+    String path,
+    T Function(dynamic data) decode, {
+    Map<String, dynamic>? queryParameters,
+    required String fallbackMessage,
+  }) async {
+    try {
+      var response = await _requestManager.request<Response>(
+        key: '${baseUrl}_${path}_${queryParameters ?? const {}}',
+        request: (token) => client.dio.get(
+          path,
+          queryParameters: queryParameters,
+          options: Options(contentType: 'application/json'),
+          cancelToken: token,
+        ),
+      );
+      if (response.data is! List && response.data is! Map<String, dynamic>) {
+        return handleBangumiUnexpectedResponse(
+          response,
+          fallbackMessage: fallbackMessage,
+        );
+      }
+      return BTResponse.success(data: decode(response.data));
+    } on DioException catch (error) {
+      return handleBangumiDioException(error, fallbackMessage: fallbackMessage);
+    } catch (error) {
+      BTLogTool.error('$fallbackMessage: $error');
+      return BTResponse.error(code: 666, message: fallbackMessage, data: null);
+    }
+  }
 
   /// 获取某条目的章节信息
   Future<BTResponse> getEpisodeList(
@@ -312,7 +418,12 @@ class BtrBangumiApi {
     if (offset != null) params['offset'] = offset;
     try {
       var resp = await _requestManager.request<Response>(
-        key: RequestKey.subjectEpisodes(id, offset: offset, limit: limit),
+        key: RequestKey.subjectEpisodes(
+          id,
+          type: type?.value,
+          offset: offset,
+          limit: limit,
+        ),
         deduplicate: deduplicate,
         cancelPrevious: cancelPrevious,
         request: (token) => client.dio.get(

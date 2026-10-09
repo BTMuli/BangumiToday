@@ -88,12 +88,12 @@ Future<String?> showInput(
           ],
         ),
         actions: [
-          _BTDialogAction(
+          BtDialogAction(
             text: '取消',
             onPressed: () => Navigator.of(context).pop(null),
             isPrimary: false,
           ),
-          _BTDialogAction(text: '提交', onPressed: submit, isPrimary: true),
+          BtDialogAction(text: '提交', onPressed: submit, isPrimary: true),
         ],
       ),
     ),
@@ -128,12 +128,12 @@ Future<bool> showConfirmAction(
       title: title,
       content: Text(content, style: BTTypography.body(context)),
       actions: [
-        _BTDialogAction(
+        BtDialogAction(
           text: cancelText,
           onPressed: () => Navigator.of(context).pop(false),
           isPrimary: false,
         ),
-        _BTDialogAction(
+        BtDialogAction(
           text: confirmText,
           onPressed: () => Navigator.of(context).pop(true),
           isPrimary: true,
@@ -159,7 +159,7 @@ Future<void> showRespErr(
       icon: resp.code == 0 ? FluentIcons.check_mark : FluentIcons.error_badge,
       iconColor: resp.code == 0 ? BTColors.success : BTColors.error,
       actions: [
-        _BTDialogAction(
+        BtDialogAction(
           text: '确定',
           onPressed: () => Navigator.of(context).pop(),
           isPrimary: true,
@@ -314,22 +314,24 @@ class _BTContentDialogState extends State<_BTContentDialog>
   }
 }
 
-class _BTDialogAction extends StatefulWidget {
+/// 应用统一的对话框操作按钮：主操作用主题色填充，其余为描边按钮。
+class BtDialogAction extends StatefulWidget {
   final String text;
   final VoidCallback onPressed;
   final bool isPrimary;
 
-  const _BTDialogAction({
+  const BtDialogAction({
+    super.key,
     required this.text,
     required this.onPressed,
     required this.isPrimary,
   });
 
   @override
-  State<_BTDialogAction> createState() => _BTDialogActionState();
+  State<BtDialogAction> createState() => _BtDialogActionState();
 }
 
-class _BTDialogActionState extends State<_BTDialogAction>
+class _BtDialogActionState extends State<BtDialogAction>
     with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   late AnimationController _controller;

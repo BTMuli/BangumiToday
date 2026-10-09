@@ -24,12 +24,36 @@ abstract class BTBangumiRepository {
 
   Future<BTResponse<List<BangumiSubjectRelation>>> getSubjectRelations(int id);
 
+  Future<BTResponse<List<BangumiRelatedCharacter>>> getSubjectCharacters(
+    int id,
+  );
+
+  Future<BTResponse<List<BangumiRelatedPerson>>> getSubjectPersons(int id);
+
+  Future<BTResponse<BangumiPageT<BangumiSubjectComment>>> getSubjectComments(
+    int id, {
+    BangumiCollectionType? type,
+    int offset = 0,
+    int limit = 20,
+  });
+
   Future<BTResponse<BangumiPageT<BangumiEpisode>>> getEpisodeList(
     int id, {
     BangumiLegacyEpisodeType? type,
     int? limit,
     int? offset,
   });
+
+  /// 清除条目的共享章节分页，供显式刷新和分页变化后的重试使用。
+  void invalidateEpisodeList(int subject);
+
+  /// 单章节详情，含所属条目摘要与当前用户收藏状态。
+  Future<BTResponse<BangumiEpisodeDetail>> getEpisodeDetail(int episodeId);
+
+  /// 单章节吐槽箱，一次返回全部顶层吐槽及其回复。
+  Future<BTResponse<List<BangumiEpisodeComment>>> getEpisodeComments(
+    int episodeId,
+  );
 
   Future<BTResponse<BangumiUser>> getUserInfo();
 

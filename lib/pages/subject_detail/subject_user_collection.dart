@@ -13,6 +13,7 @@ import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import 'subject_detail_prefetch.dart';
 import 'subject_detail_refreshable.dart';
 import 'subject_stat_providers.dart';
 
@@ -32,6 +33,7 @@ class SubjectUserCollection extends ConsumerStatefulWidget {
 
   /// 未收藏时是否使用强调按钮
   final bool filled;
+  final SubjectDetailPrefetch? prefetch;
 
   /// 构造函数
   const SubjectUserCollection(
@@ -40,6 +42,7 @@ class SubjectUserCollection extends ConsumerStatefulWidget {
     this.provider, {
     this.compact = false,
     this.filled = true,
+    this.prefetch,
     super.key,
   });
 
@@ -197,7 +200,7 @@ class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
   void initState() {
     super.initState();
     Future.microtask(() async {
-      await init();
+      await init(usePrefetch: true);
     });
   }
 
@@ -209,18 +212,22 @@ class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
   }
 
   /// 初始化
-  Future<void> init() async {
+  Future<void> init({bool usePrefetch = false}) async {
     var repository = ref.read(bangumiRepositoryProvider);
     var local = await repository.getLocalCollection(subject.id);
     if (!mounted) return;
     if (local != null) {
       _applyCollection(local);
     }
-    var resp = await repository.getCollectionSubject(
-      user.id.toString(),
-      subject.id,
-    );
+    var prefetch = usePrefetch ? widget.prefetch : null;
+    var initial = prefetch != null && prefetch.isCurrent()
+        ? prefetch.collection
+        : null;
+    var resp =
+        await (initial ??
+            repository.getCollectionSubject(user.id.toString(), subject.id));
     if (!mounted) return;
+    if (initial != null && !prefetch!.isCurrent()) return;
     if (resp.code == 404) {
       userCollection = null;
       collectionType = BangumiCollectionType.unknown;

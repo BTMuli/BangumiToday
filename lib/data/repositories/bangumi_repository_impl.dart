@@ -8,9 +8,27 @@ import '../../tools/log_tool.dart';
 import '../datasources/bangumi_local_data_source.dart';
 import '../datasources/bangumi_remote_data_source.dart';
 
+typedef _EpisodePageKey = ({
+  int subject,
+  BangumiLegacyEpisodeType? type,
+  int? limit,
+  int? offset,
+});
+
+class _EpisodePageEntry {
+  late final Future<BTResponse<BangumiPageT<BangumiEpisode>>> result;
+  DateTime? completedAt;
+}
+
 class BTBangumiRepositoryImpl implements BTBangumiRepository {
   final BTBangumiRemoteDataSource _remoteDataSource;
   final BTBangumiLocalDataSource _localDataSource;
+
+  // 首屏预取、剧集展示和本地文件匹配共用短期分页，避免先后重复请求。
+  // 仅缓存公开章节，不缓存用户观看状态；显式刷新会清除整个条目的分页。
+  final _episodePages = <_EpisodePageKey, _EpisodePageEntry>{};
+  static const _episodePageMaxAge = Duration(minutes: 1);
+  static const _maxEpisodePages = 128;
 
   BTBangumiRepositoryImpl({
     required BTBangumiRemoteDataSource remoteDataSource,
@@ -81,19 +99,87 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   }
 
   @override
+  Future<BTResponse<List<BangumiRelatedCharacter>>> getSubjectCharacters(
+    int id,
+  ) => _remoteDataSource.getSubjectCharacters(id);
+
+  @override
+  Future<BTResponse<List<BangumiRelatedPerson>>> getSubjectPersons(int id) =>
+      _remoteDataSource.getSubjectPersons(id);
+
+  @override
+  Future<BTResponse<BangumiPageT<BangumiSubjectComment>>> getSubjectComments(
+    int id, {
+    BangumiCollectionType? type,
+    int offset = 0,
+    int limit = 20,
+  }) => _remoteDataSource.getSubjectComments(
+    id,
+    type: type,
+    offset: offset,
+    limit: limit,
+  );
+
+  @override
   Future<BTResponse<BangumiPageT<BangumiEpisode>>> getEpisodeList(
     int id, {
     BangumiLegacyEpisodeType? type,
     int? limit,
     int? offset,
-  }) async {
-    return await _remoteDataSource.getEpisodeList(
-      id,
-      type: type,
-      limit: limit,
-      offset: offset,
-    );
+  }) {
+    var now = DateTime.now();
+    _episodePages.removeWhere((_, entry) {
+      var completed = entry.completedAt;
+      return completed != null &&
+          now.difference(completed) >= _episodePageMaxAge;
+    });
+    var key = (subject: id, type: type, limit: limit, offset: offset);
+    var cached = _episodePages[key];
+    if (cached != null) return cached.result;
+    while (_episodePages.length >= _maxEpisodePages) {
+      _episodePages.remove(_episodePages.keys.first);
+    }
+    var entry = _EpisodePageEntry();
+    _episodePages[key] = entry;
+    return entry.result = _loadEpisodePage(key, entry);
   }
+
+  Future<BTResponse<BangumiPageT<BangumiEpisode>>> _loadEpisodePage(
+    _EpisodePageKey key,
+    _EpisodePageEntry entry,
+  ) async {
+    try {
+      var response = await _remoteDataSource.getEpisodeList(
+        key.subject,
+        type: key.type,
+        limit: key.limit,
+        offset: key.offset,
+      );
+      if (response.code == 0 && response.data != null) {
+        entry.completedAt = DateTime.now();
+      } else if (identical(_episodePages[key], entry)) {
+        _episodePages.remove(key);
+      }
+      return response;
+    } catch (_) {
+      if (identical(_episodePages[key], entry)) _episodePages.remove(key);
+      rethrow;
+    }
+  }
+
+  @override
+  void invalidateEpisodeList(int subject) {
+    _episodePages.removeWhere((key, _) => key.subject == subject);
+  }
+
+  @override
+  Future<BTResponse<BangumiEpisodeDetail>> getEpisodeDetail(int episodeId) =>
+      _remoteDataSource.getEpisodeDetail(episodeId);
+
+  @override
+  Future<BTResponse<List<BangumiEpisodeComment>>> getEpisodeComments(
+    int episodeId,
+  ) => _remoteDataSource.getEpisodeComments(episodeId);
 
   @override
   Future<BTResponse<BangumiUser>> getUserInfo() async {

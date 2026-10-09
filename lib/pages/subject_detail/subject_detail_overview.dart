@@ -25,10 +25,14 @@ class SubjectDetailOverview extends StatelessWidget {
     super.key,
     required this.view,
     required this.onShowEpisodes,
+    required this.tabBar,
   });
 
   final SubjectDetailViewData view;
   final VoidCallback onShowEpisodes;
+
+  /// 页面页签由详情页布局构建，作为页头最后一行紧贴内容容器。
+  final Widget tabBar;
 
   BangumiSubject get subject => view.subject;
 
@@ -45,7 +49,7 @@ class SubjectDetailOverview extends StatelessWidget {
           children: [
             _buildCover(context, coverWidth),
             const SizedBox(width: 18),
-            Expanded(child: _buildIdentity(context, showActions: wide)),
+            Expanded(child: _buildIdentity(context, coverWidth * 1.4)),
           ],
         );
         return Column(
@@ -57,22 +61,19 @@ class SubjectDetailOverview extends StatelessWidget {
                 children: [
                   Expanded(child: identity),
                   const SizedBox(width: 24),
-                  SizedBox(width: 136, child: _buildRating(context)),
+                  _buildSidePanel(context),
                 ],
               )
             else ...[
               identity,
               const SizedBox(height: 14),
-              _buildActions(context),
-              const SizedBox(height: 14),
               _buildRating(context, compact: true),
+              const SizedBox(height: 12),
+              _buildTags(context),
             ],
-            const SizedBox(height: 18),
-            _buildTags(context),
-            const SizedBox(height: 12),
-            _buildCollectionCounts(context),
-            const SizedBox(height: 16),
-            Container(height: 1, color: BTColors.divider(context)),
+            const SizedBox(height: 10),
+            // 页签单独整行排在页头最后，紧贴下方内容容器上边缘。
+            tabBar,
           ],
         );
       },
@@ -102,13 +103,32 @@ class SubjectDetailOverview extends StatelessWidget {
     );
   }
 
-  Widget _buildIdentity(BuildContext context, {bool showActions = false}) {
+  /// 封面右侧的信息列。列高不低于封面，操作行因此落在该区域最下方。
+  Widget _buildIdentity(BuildContext context, double coverHeight) {
     var total = subject.totalEpisodes > 0 ? subject.totalEpisodes : subject.eps;
     var metadata = <String>[
       if (subject.date?.isNotEmpty == true) '首播 ${subject.date}',
       if (subject.platform.isNotEmpty) subject.platform,
       if (total > 0) '共 $total 集',
     ];
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: coverHeight),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildInfo(context, metadata),
+          // 内容高于封面时至少保留这段间距，不会与上方信息贴在一起。
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: _buildActions(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfo(BuildContext context, List<String> metadata) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -136,6 +156,7 @@ class SubjectDetailOverview extends StatelessWidget {
         const SizedBox(height: 8),
         Wrap(
           spacing: 4,
+          runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text('Bangumi ${subject.id}', style: BTTypography.caption(context)),
@@ -170,12 +191,12 @@ class SubjectDetailOverview extends StatelessWidget {
                 },
               ),
             ),
+            const SizedBox(width: 6),
+            Container(width: 1, height: 12, color: BTColors.divider(context)),
+            const SizedBox(width: 6),
+            _buildCollectionCounts(context),
           ],
         ),
-        if (showActions) ...[
-          const SizedBox(height: 12),
-          _buildActions(context),
-        ],
       ],
     );
   }
@@ -254,14 +275,27 @@ class SubjectDetailOverview extends StatelessWidget {
         children: children,
       );
     }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
+
+  /// 宽窗口的右侧竖排：评分在上、标签在下，共用一条分隔线。
+  Widget _buildSidePanel(BuildContext context) {
     return Container(
+      width: 220,
       padding: const EdgeInsets.only(left: 20),
       decoration: BoxDecoration(
         border: Border(left: BorderSide(color: BTColors.divider(context))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
+        children: [
+          _buildRating(context),
+          const SizedBox(height: 14),
+          _buildTags(context),
+        ],
       ),
     );
   }
