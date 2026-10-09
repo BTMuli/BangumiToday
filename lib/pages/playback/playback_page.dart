@@ -21,6 +21,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/errors/playback_unavailable.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/tool_func.dart';
+import '../../core/utils/window_effect.dart';
 import '../../models/playback/playback_chapter.dart';
 import '../../models/playback/playback_episode_layout.dart';
 import '../../models/playback/playback_geometry.dart';
@@ -537,7 +538,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                 ? BTRadius.largeBR
                 : BorderRadius.zero,
             child: ColoredBox(
-              color: Colors.black,
+              color: _stageBackdrop(context),
               child: store.current == null || store.video == null
                   ? _buildEmptyStage(posterUrl)
                   : material.Theme(
@@ -552,7 +553,9 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                             ),
                           ),
                       child: material.Material(
-                        color: Colors.black,
+                        // 视频纹理本身不透明；这里保持透明，窗口材料才能在首帧
+                        // 到来前透出来。
+                        color: Colors.transparent,
                         child: Video(
                           key: _videoKey,
                           controller: store.video!,
@@ -591,6 +594,19 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     },
   );
 
+  /// 独立播放器窗口在材质就绪时才用材料层底色，否则退回纯黑舞台。
+  bool get _materialStage => widget.windowMode != null && windowMaterialReady;
+
+  /// 独立播放器窗口铺满整个视口，没有页面底色，因此用主窗口外壳同款的材料层
+  /// 代替纯黑舞台，让窗口背景显示 Mica/Acrylic。内嵌播放页保持黑舞台。
+  Color _stageBackdrop(BuildContext context) => _materialStage
+      ? FluentTheme.of(context).scaffoldBackgroundColor
+      : Colors.black;
+
+  /// 空态前景色：材料层上跟随主题，纯黑舞台上保持白色。
+  Color _stageForeground(BuildContext context) =>
+      _materialStage ? BTColors.textPrimary(context) : Colors.white;
+
   Widget _buildEmptyStage(String? posterUrl) {
     var mode = widget.windowMode;
     var hasPoster = posterUrl != null && posterUrl.isNotEmpty;
@@ -599,10 +615,11 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
         ? _PlaybackLoadingIndicator(
             message: status,
             filePath: _store.openingFile,
+            onMaterial: _materialStage,
           )
         : hasPoster
         ? _buildPosterStage(posterUrl)
-        : _buildBlankStage();
+        : _buildBlankStage(context);
     if (mode == null) return content;
     // 无边框窗口没有标题栏：空态仍要能拖动、置顶、最小化和关闭。
     return Stack(
@@ -625,11 +642,11 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
               Tooltip(
                 message: _playbackOnTopTooltip(mode.onTop),
                 child: material.IconButton(
-                  color: Colors.white,
+                  color: _stageForeground(context),
                   icon: _PlaybackOnTopIcon(
                     onTop: mode.onTop,
                     size: 20,
-                    color: Colors.white,
+                    color: _stageForeground(context),
                   ),
                   onPressed: () => _run(() => mode.setOnTop(mode.onTop.next)),
                 ),
@@ -637,7 +654,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
               Tooltip(
                 message: '最小化',
                 child: material.IconButton(
-                  color: Colors.white,
+                  color: _stageForeground(context),
                   icon: const Icon(material.Icons.remove_rounded, size: 20),
                   onPressed: () => unawaited(_run(mode.minimize)),
                 ),
@@ -645,7 +662,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
               Tooltip(
                 message: '关闭播放器',
                 child: material.IconButton(
-                  color: Colors.white,
+                  color: _stageForeground(context),
                   icon: const Icon(material.Icons.close_rounded, size: 20),
                   onPressed: () => unawaited(_run(mode.closeWindow)),
                 ),
@@ -657,7 +674,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     );
   }
 
-  Widget _buildBlankStage() => Center(
+  Widget _buildBlankStage(BuildContext context) => Center(
     child: Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -665,20 +682,20 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
         children: [
           Icon(
             material.Icons.play_circle_outline_rounded,
-            color: Colors.white.withValues(alpha: 0.35),
+            color: _stageForeground(context).withValues(alpha: 0.35),
             size: 64,
           ),
           const SizedBox(height: 18),
-          const Text(
+          Text(
             '选择视频，开始观看',
-            style: TextStyle(color: Colors.white, fontSize: 18),
+            style: TextStyle(color: _stageForeground(context), fontSize: 18),
           ),
           const SizedBox(height: 8),
           Text(
             '从 BMF、已完成下载或最近播放中打开',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
+              color: _stageForeground(context).withValues(alpha: 0.5),
               fontSize: 12,
             ),
           ),
@@ -709,12 +726,11 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     ],
   );
 
-  /// The poster keeps its natural size, centered on a black stage; the image
-  /// is only scaled down when it does not fit.
+  /// The poster keeps its natural size, centered on the stage backdrop; the
+  /// image is only scaled down when it does not fit.
   Widget _buildPosterStage(String posterUrl) => Stack(
     fit: StackFit.expand,
     children: [
-      ColoredBox(color: Colors.black),
       Center(
         child: BtBangumiCover(
           imageUrl: posterUrl,

@@ -9,7 +9,6 @@ import 'package:flutter/foundation.dart';
 // Package imports:
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:window_manager/window_manager.dart';
@@ -71,7 +70,7 @@ Future<void> main() async {
 
   await Future.wait([
     windowManager.ensureInitialized(),
-    Window.initialize(),
+    initializeWindowMaterial(),
     SystemTheme.accentColor.load(),
   ]);
 

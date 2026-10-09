@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <file_selector_windows/file_selector_windows.h>
+#include <flutter_acrylic/flutter_acrylic_plugin.h>
 #include <irondash_engine_context/irondash_engine_context_plugin_c_api.h>
 #include <media_kit_libs_windows_video/media_kit_libs_windows_video_plugin_c_api.h>
 #include <media_kit_video/media_kit_video_plugin_c_api.h>
@@ -337,6 +338,10 @@ void RegisterMainPlugins(flutter::PluginRegistry* registry) {
 // engine. desktop_multi_window registers its child channel after this callback.
 void RegisterPlaybackPlugins(flutter::FlutterViewController* controller) {
   auto* registry = controller->engine();
+  // The playback window carries its own Mica/Acrylic material, so this engine
+  // needs the acrylic plugin the main engine gets from the generated list.
+  FlutterAcrylicPluginRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("FlutterAcrylicPlugin"));
   MediaKitLibsWindowsVideoPluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("MediaKitLibsWindowsVideoPluginCApi"));
   MediaKitVideoPluginCApiRegisterWithRegistrar(

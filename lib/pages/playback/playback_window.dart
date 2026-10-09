@@ -15,6 +15,7 @@ import 'package:window_manager/window_manager.dart';
 
 // Project imports:
 import '../../core/services/playback_window_protocol.dart';
+import '../../core/utils/window_effect.dart';
 import '../../data/repositories/playback_window_remote.dart';
 import '../../models/playback/playback_on_top.dart';
 import '../../providers/episode_mark_providers.dart';
@@ -31,6 +32,8 @@ Future<void> startPlaybackWindow(WindowController window) async {
   try {
     await BTLogTool.init(scope: 'playback-${window.windowId}');
     await windowManager.ensureInitialized();
+    // 播放器窗口与主窗口一样使用 Mica/Acrylic 材质；这个引擎单独注册了插件。
+    await initializeWindowMaterial();
     var identity = PlaybackWindowIdentity.decode(window.arguments);
     var child = _PlaybackWindow(window, identity);
     await child.start();
@@ -71,6 +74,8 @@ class _PlaybackWindow with WindowListener {
   Rect? _normalBounds;
   StreamSubscription<bool>? _playing;
   Player? _observedPlayer;
+  bool? _appliedMaterialDark;
+  Future<void>? _materialFuture;
 
   Future<Object?> call(String method, Map<String, Object?> body) {
     return host.invokeMethod<Object?>(
@@ -121,6 +126,9 @@ class _PlaybackWindow with WindowListener {
       );
       BTLogTool.info('播放器窗口握手：generation=${identity.generation}');
       _receive(await call('bootstrap', {'windowId': window.windowId}));
+      // 主题随 bootstrap 下发；材质要在窗口显示前落地，否则首帧会闪出未定义底色。
+      await _applyWindowMaterial();
+      presentation.addListener(_syncWindowMaterial);
       await _restoreSize();
       await mode.centerWindow(area: await _displayUnderCursor());
       await _rememberBounds();
@@ -183,6 +191,35 @@ class _PlaybackWindow with WindowListener {
     if (_closing) return;
     _observePlaying();
     mode.updateVideo(store.aspectRatio, store.videoSize);
+  }
+
+  /// 播放器窗口材质的深浅色跟随宿主主题，未下发时跟随系统。
+  bool get _windowMaterialDark => switch (presentation.value['theme']) {
+    'dark' => true,
+    'light' => false,
+    _ =>
+      WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+          Brightness.dark,
+  };
+
+  /// 应用窗口材质，重复的深浅色不会重复下发。
+  Future<void> _applyWindowMaterial() {
+    var dark = _windowMaterialDark;
+    if (_appliedMaterialDark == dark) {
+      return _materialFuture ?? Future<void>.value();
+    }
+    _appliedMaterialDark = dark;
+    return _materialFuture = applyWindowMaterial(dark: dark).catchError((
+      Object error,
+    ) {
+      BTLogTool.warn('播放器窗口材质切换失败：$error');
+    });
+  }
+
+  /// 宿主下发新主题时同步窗口材质。
+  void _syncWindowMaterial() {
+    if (_closing || _exiting) return;
+    unawaited(_applyWindowMaterial());
   }
 
   /// “播放时置顶”跟随 Player 的播放流；Player 被替换时旧订阅必须释放。
@@ -371,6 +408,7 @@ class _PlaybackWindow with WindowListener {
   Future<void> _nativeClose() async {
     BTLogTool.info('播放器窗口原生清理已完成，关闭窗口');
     store.removeListener(_onVideoChanged);
+    presentation.removeListener(_syncWindowMaterial);
     await _playing?.cancel();
     _playing = null;
     mode.dispose();
