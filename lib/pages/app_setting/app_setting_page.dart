@@ -254,17 +254,19 @@ class _SettingPageState extends ConsumerState<SettingPage>
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   var list = ListView.separated(
+                    // 右侧留出滚动条槽位，避免滚动条压在设置卡片边缘
+                    padding: EdgeInsets.only(right: 12),
                     itemBuilder: (_, int idx) => configList[idx],
                     separatorBuilder: (_, _) => SizedBox(height: 12),
                     itemCount: configList.length,
                   );
                   // 窗口较窄时隐藏右侧应用徽章，避免挤压设置列表
                   if (constraints.maxWidth < 800) return list;
+                  // 列表右侧已留出滚动条槽位，无需再与徽章留间距
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(child: list),
-                      SizedBox(width: 16),
                       buildAppBadge(context),
                     ],
                   );
