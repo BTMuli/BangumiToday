@@ -5,10 +5,8 @@ void WindowManager::SetFullScreen(const flutter::EncodableMap& args) {
       std::get<bool>(args.at(flutter::EncodableValue("isFullScreen")));
   if (fullscreen == g_is_window_fullscreen) return;
   const HWND window = GetMainWindow();
-  // Bounds change while the player is DWM-cloaked, so the Shell can miss its
-  // automatic fullscreen detection. Explicit marking lets the taskbar yield
-  // to the active fullscreen window while preserving the always-on-top policy.
-  if (fullscreen && (!taskbar_ || FAILED(taskbar_->HrInit()))) return;
+  // The playback frame plugin applies taskbar and Z-order state after the
+  // completed frame is revealed. This overlay only owns bounds/restoration.
 
   auto restore = [&] {
     g_is_window_fullscreen = false;
@@ -23,7 +21,6 @@ void WindowManager::SetFullScreen(const flutter::EncodableMap& args) {
                    g_frame_before_fullscreen.right - g_frame_before_fullscreen.left,
                    g_frame_before_fullscreen.bottom - g_frame_before_fullscreen.top,
                    SWP_NOACTIVATE | SWP_NOZORDER | SWP_FRAMECHANGED);
-    taskbar_->MarkFullscreenWindow(window, FALSE);
   };
 
   if (!fullscreen) {
@@ -54,8 +51,7 @@ void WindowManager::SetFullScreen(const flutter::EncodableMap& args) {
                       monitor.rcMonitor.top,
                       monitor.rcMonitor.right - monitor.rcMonitor.left,
                       monitor.rcMonitor.bottom - monitor.rcMonitor.top,
-                      SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED) ||
-      FAILED(taskbar_->MarkFullscreenWindow(window, TRUE))) {
+                      SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED)) {
     restore();
   }
 }

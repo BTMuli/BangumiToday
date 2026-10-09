@@ -5,6 +5,8 @@
 #include <flutter/method_channel.h>
 #include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
+#include <shobjidl_core.h>
+#include <wrl/client.h>
 
 #include <cwchar>
 #include <optional>
@@ -88,7 +90,7 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
             registrar->messenger(), "bangumi_today/playback_window_frame",
             &flutter::StandardMethodCodec::GetInstance())) {
     display_delegate_ = registrar_->RegisterTopLevelWindowProcDelegate(
-        [this](HWND, UINT message, WPARAM wparam,
+        [this](HWND window, UINT message, WPARAM wparam,
                LPARAM) -> std::optional<LRESULT> {
           if (message == WM_DISPLAYCHANGE || message == WM_SETTINGCHANGE) {
             display_rate_cached_ = false;
@@ -97,6 +99,11 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
           // restoration DefWindowProc can still paint the classic resize frame
           // over the Flutter surface until its next frame arrives.
           if (frameless_video_ && message == WM_NCPAINT) return 0;
+          if (fullscreen_ && message == WM_ACTIVATE) {
+            // Drop only the temporary fullscreen promotion on Alt+Tab. Native
+            // activation keeps this synchronous, before another app is shown.
+            UpdatePresentation(window, LOWORD(wparam) != WA_INACTIVE);
+          }
           if (message == WM_TIMER &&
               wparam == reinterpret_cast<UINT_PTR>(this)) {
             // KillTimer cannot remove an already queued timer message.
@@ -115,6 +122,7 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
         });
     channel_->SetMethodCallHandler([this](const auto& call, auto result) {
       if (call.method_name() != "setFullscreenFrame" &&
+          call.method_name() != "setAlwaysOnTop" &&
           call.method_name() != "getDisplayRefreshRate" &&
           call.method_name() != "beginFullscreenTransition" &&
           call.method_name() != "finishFullscreenTransition" &&
@@ -128,6 +136,22 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
         result->Error("window_unavailable", "Playback window is unavailable.");
         return;
       }
+      if (call.method_name() == "setAlwaysOnTop") {
+        const auto* pinned = call.arguments()
+                                 ? std::get_if<bool>(call.arguments())
+                                 : nullptr;
+        if (!pinned) {
+          result->Error("invalid_argument", "Expected an always-on-top boolean.");
+          return;
+        }
+        always_on_top_ = *pinned;
+        if (!UpdatePresentation(window, GetForegroundWindow() == window)) {
+          result->Error("z_order_update_failed", "Could not update playback order.");
+          return;
+        }
+        result->Success();
+        return;
+      }
       if (call.method_name() == "beginFullscreenTransition") {
         if (!controller_ || transition_ticket_) {
           result->Error("transition_unavailable",
@@ -136,6 +160,7 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
         }
         // Cloaking hides the surface while keeping Flutter visible to its
         // engine. ShowWindow(SW_HIDE) can suspend rendering and frame callbacks.
+        const bool was_foreground = GetForegroundWindow() == window;
         const BOOL cloak = TRUE;
         if (FAILED(DwmSetWindowAttribute(window, DWMWA_CLOAK, &cloak,
                                          sizeof(cloak)))) {
@@ -143,6 +168,8 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
           return;
         }
         transition_window_ = window;
+        transition_was_foreground_ = was_foreground;
+        transition_foreground_ = GetForegroundWindow();
         transition_ticket_ = std::make_shared<int>(0);
         transition_deadline_ = GetTickCount64() + 3000;
         // This is a recovery deadline, not a delay in the normal transition.
@@ -213,6 +240,17 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
         result->Error("invalid_argument", "Expected a fullscreen boolean.");
         return;
       }
+      if (*fullscreen && !taskbar_) {
+        auto status = CoCreateInstance(CLSID_TaskbarList, nullptr,
+                                       CLSCTX_INPROC_SERVER,
+                                       IID_PPV_ARGS(taskbar_.GetAddressOf()));
+        if (SUCCEEDED(status)) status = taskbar_->HrInit();
+        if (FAILED(status)) {
+          taskbar_.Reset();
+          result->Error("taskbar_unavailable", "Could not initialize taskbar.");
+          return;
+        }
+      }
       frameless_video_ = true;
       // Apply this before the first show as well as fullscreen transitions.
       // DWM must not animate a cached native frame over the video surface.
@@ -276,6 +314,11 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
         result->Error("frame_update_failed", "Could not resize playback viewport.");
         return;
       }
+      fullscreen_ = *fullscreen;
+      if (!UpdatePresentation(window, GetForegroundWindow() == window)) {
+        result->Error("z_order_update_failed", "Could not update fullscreen order.");
+        return;
+      }
       char frame_log[256]{};
       _snprintf_s(frame_log, sizeof(frame_log), _TRUNCATE,
                   "Playback window frame fullscreen=%d bounds={%ld,%ld,%ld,%ld} viewport=%ldx%ld",
@@ -288,11 +331,51 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
   }
 
   ~PlaybackWindowFramePlugin() override {
+    transition_was_foreground_ = false;
+    fullscreen_ = false;
     RevealTransition();
     registrar_->UnregisterTopLevelWindowProcDelegate(display_delegate_);
   }
 
  private:
+  bool UpdatePresentation(HWND window, bool active) {
+    // SetWindowPos can synchronously send window messages back to this plugin.
+    if (updating_presentation_) return true;
+    updating_presentation_ = true;
+    const bool presented = !transition_window_;
+    const bool topmost = always_on_top_ || (fullscreen_ && active && presented);
+    const bool was_topmost =
+        (GetWindowLongPtr(window, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+    bool updated = true;
+    DWORD order_error = ERROR_SUCCESS;
+    // Reassert on activation/reveal even if already topmost: the taskbar can
+    // have risen above the player while its surface was DWM-cloaked.
+    if (topmost != was_topmost || (fullscreen_ && active && presented)) {
+      updated = SetWindowPos(window, topmost ? HWND_TOPMOST : HWND_NOTOPMOST,
+                              0, 0, 0, 0,
+                              SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE |
+                                  SWP_NOOWNERZORDER) != FALSE;
+      if (!updated) order_error = GetLastError();
+    }
+    HRESULT marked = S_OK;
+    if (taskbar_ && (presented || !fullscreen_)) {
+      marked = taskbar_->MarkFullscreenWindow(window, fullscreen_ ? TRUE : FALSE);
+    }
+    const bool actual_topmost =
+        (GetWindowLongPtr(window, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+    updated = updated && actual_topmost == topmost;
+    char log[256]{};
+    _snprintf_s(log, sizeof(log), _TRUNCATE,
+                "Playback window order fullscreen=%d active=%d pinned=%d topmost=%d cloaked=%d updated=%d error=%lu taskbar=0x%08lx",
+                fullscreen_ ? 1 : 0, active ? 1 : 0, always_on_top_ ? 1 : 0,
+                actual_topmost ? 1 : 0, presented ? 0 : 1, updated ? 1 : 0,
+                order_error,
+                static_cast<unsigned long>(marked));
+    BangumiNativeLog(log, !updated || FAILED(marked));
+    updating_presentation_ = false;
+    return updated && SUCCEEDED(marked);
+  }
+
   bool RevealTransition() {
     transition_ticket_.reset();
     if (!transition_window_) return true;
@@ -305,8 +388,20 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
     const BOOL cloak = FALSE;
     const bool revealed = SUCCEEDED(DwmSetWindowAttribute(
         window, DWMWA_CLOAK, &cloak, sizeof(cloak)));
-    if (revealed) transition_window_ = nullptr;
-    return revealed;
+    if (!revealed) return false;
+    transition_window_ = nullptr;
+    const bool restore_foreground = transition_was_foreground_;
+    const HWND expected_foreground = transition_foreground_;
+    transition_was_foreground_ = false;
+    transition_foreground_ = nullptr;
+    const HWND foreground = GetForegroundWindow();
+    // Restore activation if it stayed where cloaking left it. A different
+    // foreground window means the user switched away during the transition.
+    if (restore_foreground &&
+        (!foreground || foreground == expected_foreground)) {
+      SetForegroundWindow(window);
+    }
+    return UpdatePresentation(window, GetForegroundWindow() == window);
   }
 
   flutter::PluginRegistrarWindows* registrar_;
@@ -317,7 +412,13 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
   std::optional<double> display_rate_;
   bool display_rate_cached_ = false;
   bool frameless_video_ = false;
+  bool fullscreen_ = false;
+  bool always_on_top_ = false;
+  bool updating_presentation_ = false;
+  Microsoft::WRL::ComPtr<ITaskbarList2> taskbar_;
   HWND transition_window_ = nullptr;
+  bool transition_was_foreground_ = false;
+  HWND transition_foreground_ = nullptr;
   ULONGLONG transition_deadline_ = 0;
   std::shared_ptr<int> transition_ticket_;
   std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>

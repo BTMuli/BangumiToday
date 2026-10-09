@@ -616,7 +616,13 @@ class PlaybackWindowMode extends ChangeNotifier {
         (_onTop == PlaybackOnTop.playing && _playing);
     if (pinned == _onTopApplied) return;
     _onTopApplied = pinned;
-    await windowManager.setAlwaysOnTop(pinned);
+    if (Platform.isWindows) {
+      // Native fullscreen promotion must share the user's preference so a
+      // playback-state change cannot demote the active fullscreen window.
+      await _frameChannel.invokeMethod<void>('setAlwaysOnTop', pinned);
+    } else {
+      await windowManager.setAlwaysOnTop(pinned);
+    }
   }
 
   @override
