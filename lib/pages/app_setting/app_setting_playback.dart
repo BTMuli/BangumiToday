@@ -8,10 +8,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 // Project imports:
 import '../../core/services/playback_tensorrt_gpu.dart';
+import '../../core/services/playback_window_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../models/playback/playback_janai_benchmark.dart';
 import '../../models/playback/playback_upscale.dart';
 import '../../store/playback_store.dart';
+import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_setting_section.dart';
 import '../../widgets/playback/playback_build_log.dart';
 
@@ -50,8 +52,8 @@ class _AppConfigPlaybackContentState
       Future.microtask(() async {
         if (!mounted) return;
         var store = ref.read(playbackStoreProvider);
-        // Resolve the component directory before reading the benchmark cache.
-        await store.tensorRtResources.initialize();
+        // Load the saved switch even when no video has been opened yet.
+        await store.loadPreferences();
         if (!mounted) return;
         await store.janaiBenchmarks.initialize();
         if (mounted) setState(() => _initialized = true);
@@ -283,11 +285,33 @@ class _AppConfigPlaybackContentState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          '配置显卡组件后，可在播放器中启用 TensorRT 并选择 AI 超分档位。',
-          style: BTTypography.body(
-            context,
-          ).copyWith(color: BTColors.textSecondary(context), height: 1.5),
+        _heading(
+          '启用 TensorRT',
+          subtitle: resources.canEnable
+              ? '开启后，可在播放器中选择 AI 超分档位。'
+              : resources.configurationHint,
+          action: Semantics(
+            label: '启用 TensorRT',
+            child: ToggleSwitch(
+              checked: store.tensorRtEnabled,
+              onChanged: resources.canEnable || store.tensorRtEnabled
+                  ? (enabled) async {
+                      try {
+                        var windows = ref.read(playbackWindowServiceProvider);
+                        await store.setTensorRtEnabled(enabled);
+                        await windows.refreshTensorRtEnabled();
+                      } catch (error) {
+                        if (context.mounted) {
+                          await BtInfobar.error(
+                            context,
+                            '保存 TensorRT 设置失败：$error',
+                          );
+                        }
+                      }
+                    }
+                  : null,
+            ),
+          ),
         ),
         const SizedBox(height: 20),
         _heading(

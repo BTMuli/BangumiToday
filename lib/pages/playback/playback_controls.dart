@@ -444,8 +444,8 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     var item = store.current!;
     var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
     var accent = FluentTheme.of(context).accentColor;
-    // Reserve the audio output button before choosing optional controls.
-    var bottomWidth = width - 52;
+    // Reserve audio output and upscale buttons before adding optional controls.
+    var bottomWidth = width - 52 - (Platform.isWindows ? 34 : 0);
     // 独立播放器窗口只有视频，顶栏顺带承担拖动、置顶与窗口按钮。
     var frameless = widget.windowMode != null && !isFullscreen(context);
     return MaterialDesktopVideoControlsThemeData(
@@ -609,6 +609,20 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         ],
         if (bottomWidth > 620) const MaterialDesktopVolumeButton(),
         const Spacer(),
+        if (Platform.isWindows)
+          Builder(
+            builder: (buttonContext) => _videoButton(
+              material.Icons.auto_awesome_outlined,
+              '超分配置 · ${store.upscaleMode.label}',
+              () => _showButtonMenu(
+                buttonContext,
+                () => _playbackUpscaleItems(store, widget.run),
+                menuWidth: 220,
+              ),
+              key: const ValueKey('playback-upscale'),
+              selected: store.upscaleMode != PlaybackUpscaleMode.off,
+            ),
+          ),
         if (store.chapters.isNotEmpty)
           Builder(
             builder: (buttonContext) => _videoButton(
@@ -1116,7 +1130,6 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                                 child: _buildChrome(theme),
                               ),
                               if (Platform.isWindows &&
-                                  widget.store.upscaleMode.isJanai &&
                                   widget.store.tensorRtResources.visible &&
                                   !widget.overlay.showHelp &&
                                   constraints.maxHeight >= 220)
@@ -1340,15 +1353,10 @@ class _PlaybackHiResButton extends StatelessWidget {
 
 /// Descriptions occupy their own line; long track names wrap within the menu.
 class _PlaybackMenuLabel extends StatelessWidget {
-  const _PlaybackMenuLabel(
-    this.title, {
-    this.description,
-    this.descriptionMaxLines = 1,
-  });
+  const _PlaybackMenuLabel(this.title, {this.description});
 
   final String title;
   final String? description;
-  final int descriptionMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -1368,7 +1376,7 @@ class _PlaybackMenuLabel extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             detail,
-            maxLines: descriptionMaxLines,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
@@ -1381,19 +1389,64 @@ class _PlaybackMenuLabel extends StatelessWidget {
   }
 }
 
-Widget _playbackJanaiMenuLabel(
-  PlaybackStore store, {
-  required PlaybackUpscaleMode mode,
-}) => ListenableBuilder(
-  listenable: store,
-  builder: (_, _) {
-    var recommendation = store.janaiRecommendation;
-    return _PlaybackMenuLabel(
-      '${mode.label}${mode == recommendation.mode ? ' · 推荐' : ''}',
-      description: '${mode.description}\n${recommendation.description(mode)}',
-      descriptionMaxLines: 3,
-    );
-  },
+List<MenuFlyoutItemBase> _playbackUpscaleItems(
+  PlaybackStore store,
+  Future<void> Function(Future<void> Function()) run,
+) => [
+  _playbackUpscaleItem(PlaybackUpscaleMode.off, store, run),
+  for (var (title, isJanai) in [('Anime4K', false), ('JaNai', true)]) ...[
+    const MenuFlyoutSeparator(),
+    MenuFlyoutItemBuilder(
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(32, 4, 12, 2),
+        child: Semantics(
+          header: true,
+          child: Text(
+            title,
+            style: BTTypography.caption(context).copyWith(
+              color: BTColors.textSecondary(context),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    ),
+    for (var mode in PlaybackUpscaleMode.values)
+      if (mode != PlaybackUpscaleMode.off && mode.isJanai == isJanai)
+        _playbackUpscaleItem(mode, store, run),
+  ],
+];
+
+MenuFlyoutItemBase _playbackUpscaleItem(
+  PlaybackUpscaleMode mode,
+  PlaybackStore store,
+  Future<void> Function(Future<void> Function()) run,
+) => MenuFlyoutItemBuilder(
+  builder: (_) => ListenableBuilder(
+    listenable: store,
+    builder: (context, _) {
+      var recommendation = mode.isJanai ? store.janaiRecommendation : null;
+      var enabled = !mode.isJanai || store.tensorRtEnabled;
+      return Tooltip(
+        message: [
+          mode.label,
+          if (mode.description.isNotEmpty) mode.description,
+          if (recommendation != null) recommendation.description(mode),
+          if (!enabled) '请在应用设置 → 视频超分中启用 TensorRT',
+        ].join('\n'),
+        child: ToggleMenuFlyoutItem(
+          text: Text(mode.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          trailing: recommendation?.mode == mode
+              ? const _PlaybackMenuShortcut('推荐')
+              : null,
+          value: store.upscaleMode == mode,
+          onChanged: enabled
+              ? (_) => unawaited(run(() => store.setUpscaleMode(mode)))
+              : null,
+        ).build(context),
+      );
+    },
+  ),
 );
 
 List<MenuFlyoutItemBase> _playbackSettingsItems(
@@ -1417,46 +1470,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
         listenable: store,
         builder: (_, _) => Text('视频超分 · ${store.upscaleMode.label}'),
       ),
-      items: (_) {
-        return [
-          ToggleMenuFlyoutItem(
-            text: _PlaybackMenuLabel(
-              '启用 TensorRT',
-              description: store.tensorRtResources.configurationHint,
-            ),
-            value: store.tensorRtEnabled,
-            onChanged:
-                store.tensorRtResources.canEnable || store.tensorRtEnabled
-                ? (enabled) =>
-                      unawaited(run(() => store.setTensorRtEnabled(enabled)))
-                : null,
-          ),
-          const MenuFlyoutSeparator(),
-          for (var mode in PlaybackUpscaleMode.values)
-            MenuFlyoutItemBuilder(
-              builder: (_) => ListenableBuilder(
-                listenable: store,
-                builder: (context, _) => ToggleMenuFlyoutItem(
-                  text: mode.isJanai
-                      ? _playbackJanaiMenuLabel(store, mode: mode)
-                      : _PlaybackMenuLabel(
-                          mode.label,
-                          description: mode == PlaybackUpscaleMode.off
-                              ? null
-                              : mode.description,
-                        ),
-                  value: store.upscaleMode == mode,
-                  onChanged:
-                      mode.isJanai &&
-                          (!store.tensorRtEnabled ||
-                              !store.tensorRtResources.canEnable)
-                      ? null
-                      : (_) => unawaited(run(() => store.setUpscaleMode(mode))),
-                ).build(context),
-              ),
-            ),
-        ];
-      },
+      items: (_) => _playbackUpscaleItems(store, run),
     ),
   if (Platform.isWindows || Platform.isMacOS)
     MenuFlyoutSubItem(

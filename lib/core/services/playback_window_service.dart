@@ -119,6 +119,17 @@ class PlaybackWindowService extends ChangeNotifier {
     _notify();
   });
 
+  Future<void> refreshTensorRtEnabled() => _serial(() async {
+    var session = _session;
+    if (session == null ||
+        session.window == null ||
+        session.closing ||
+        !session.visible) {
+      return;
+    }
+    await _invoke(session, 'tensorRt.refresh', {});
+  });
+
   Future<_PlaybackWindowSession> _create() async {
     var identity = PlaybackWindowIdentity(
       '${DateTime.now().microsecondsSinceEpoch}-${++_generation}',

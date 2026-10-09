@@ -952,6 +952,19 @@ class PlaybackStore extends ChangeNotifier {
     });
   }
 
+  /// Settings can load saved preferences without creating a player.
+  Future<void> loadPreferences() => _serial(_loadPreferences);
+
+  /// The main window owns this switch; a retained child must re-read it.
+  Future<void> refreshTensorRtEnabled() async {
+    var pending = _preferencesFuture;
+    // A child that has only shown history will load the switch with its media.
+    if (pending == null || _closed || !Platform.isWindows) return;
+    await pending;
+    var enabled = await settingsStore.read('playbackTensorRTEnabled') == 'true';
+    await setTensorRtEnabled(enabled);
+  }
+
   Future<void> _loadPreferences() {
     var pending = _preferencesFuture;
     if (pending != null) return pending;

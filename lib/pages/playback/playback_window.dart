@@ -219,6 +219,7 @@ class _PlaybackWindow with WindowListener {
       var value = await this.call('activated', {});
       if (_exiting || _closing) throw StateError('播放器正在关闭');
       _receive(value);
+      await store.refreshTensorRtEnabled();
       await store.refreshHistory();
       if (await windowManager.isMinimized()) await windowManager.restore();
       await mode.centerWindow();
@@ -233,6 +234,8 @@ class _PlaybackWindow with WindowListener {
     switch (call.method) {
       case 'presentation':
         _receive(request.body);
+      case 'tensorRt.refresh':
+        await store.refreshTensorRtEnabled();
       case 'open':
         await store.openLocalFile(
           playbackString(request.body, 'filePath'),

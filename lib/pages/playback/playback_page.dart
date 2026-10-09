@@ -149,7 +149,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
           displayInfoBar(
             context,
             alignment: Alignment.bottomCenter,
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 12),
             builder: (_, close) => InfoBar(
               title: const Text('视频超分'),
               content: Text(warning),

@@ -884,7 +884,7 @@ class PlaybackUpscaler {
       warning = _restorationFailed
           ? '超分清理失败，请关闭并重新打开播放器'
           : _performanceFailureRate != null
-          ? 'AI 超分性能不足，已回退到普通播放，可在播放设置中重新开启'
+          ? 'AI 超分性能不足，已回退到普通播放，可通过底部右侧超分按钮重新开启'
           : reason.isEmpty
           ? '超分暂不可用，已回退到普通播放'
           : '超分暂不可用，已回退到普通播放：$reason';
