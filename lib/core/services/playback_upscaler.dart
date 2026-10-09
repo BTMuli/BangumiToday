@@ -3,12 +3,14 @@ import 'dart:async';
 
 // Project imports:
 import '../../models/playback/playback_frame_drop_monitor.dart';
+import '../../models/playback/playback_janai_frame_rate.dart';
 import '../../models/playback/playback_janai_status.dart';
 import '../../models/playback/playback_upscale.dart';
 
 abstract class PlaybackUpscaleBackend {
   /// Explicit mpv label used to address this Player's inference filter.
   static const janaiFilterLabel = 'bt-janai';
+  static const janaiFrameRateLabel = 'bt-janai-rate';
 
   Future<void> command(List<String> arguments);
   Future<Object?> read(String property);
@@ -18,6 +20,10 @@ abstract class PlaybackUpscaleBackend {
   /// (1 smooth, 2 high quality); null clears the chain. All modes share the
   /// decoder configured at Player creation.
   Future<void> janai(int? slot);
+
+  /// Adds a timestamp selector before the existing inference filter, or clears
+  /// only that selector. Calls share the coordinator's serialized apply queue.
+  Future<void> janaiFrameRate(PlaybackJanaiFrameRate? value);
   Future<PlaybackJanaiStatus?> janaiStatus();
 
   /// The installed video filter entries as mpv reports them: one map per filter
@@ -101,6 +107,9 @@ class PlaybackUpscaler {
   final _dropClock = Stopwatch()..start();
   double? _performanceFailureRate;
   int _dropEpoch = 0;
+  PlaybackJanaiFrameRate? _desiredFrameRate;
+  PlaybackJanaiFrameRate? _appliedFrameRate;
+  double _displayFramesPerSecond = 60;
   Completer<bool>? _outputReady;
   PlaybackPixels? _awaitingOutput;
   final _forwardedErrors = <String>{};
@@ -177,6 +186,7 @@ class PlaybackUpscaler {
     if (_closed || !_dropMonitor.speed(value, _dropClock.elapsed)) return;
     _dropEpoch++;
     _trace('playback rate=$value reset_drop_windows');
+    _refreshJanaiFrameRate();
     var failedRate = _performanceFailureRate;
     if (failedRate == null || value >= failedRate || _restorationFailed) return;
     // Retry only a performance fallback after reducing demand. Model, device
@@ -421,6 +431,21 @@ class PlaybackUpscaler {
     return true;
   }
 
+  bool _janaiInstalled(List<Map<Object?, Object?>> filters, int? slot) =>
+      filters.any((entry) {
+        if (entry['name'] != 'animejanai' ||
+            entry['label'] != PlaybackUpscaleBackend.janaiFilterLabel ||
+            entry['enabled'] != true) {
+          return false;
+        }
+        var params = entry['params'];
+        return slot != null &&
+            params is Map &&
+            params['slot'].toString() == slot.toString() &&
+            params['conf'] is String &&
+            (params['conf'] as String).isNotEmpty;
+      });
+
   Future<void> _drain() async {
     while (!_closed && _mediaReady && _pendingReady && _pending != null) {
       var next = _pending!;
@@ -491,24 +516,42 @@ class PlaybackUpscaler {
               generation: generation,
             );
             if (!_current(generation)) continue;
-            var expectedSlot = next.mode.janaiSlot;
-            var installed = filters.any((entry) {
-              if (entry['name'] != 'animejanai') return false;
-              if (entry['label'] != PlaybackUpscaleBackend.janaiFilterLabel) {
-                return false;
-              }
-              if (entry['enabled'] != true) return false;
-              var params = entry['params'];
-              return expectedSlot != null &&
-                  params is Map &&
-                  params['slot'].toString() == expectedSlot.toString() &&
-                  params['conf'] is String &&
-                  (params['conf'] as String).isNotEmpty;
-            });
-            if (!installed) {
+            if (!_janaiInstalled(filters, next.mode.janaiSlot)) {
               throw StateError('AI 滤镜未生效：$filters');
             }
             _loadedMode = next.mode;
+          }
+          var frameRate = _desiredFrameRate;
+          if (_appliedFrameRate != frameRate) {
+            await _step(
+              'janai_frame_rate:${frameRate?.framesPerSecond ?? 'full'}',
+              () => backend.janaiFrameRate(frameRate),
+              generation: generation,
+            );
+            _appliedFrameRate = frameRate;
+            if (!_current(generation)) continue;
+            var filters = await backend.filterList();
+            if (!_current(generation)) continue;
+            var rateIndex = filters.indexWhere(
+              (entry) =>
+                  entry['label'] == PlaybackUpscaleBackend.janaiFrameRateLabel,
+            );
+            var inferenceIndex = filters.indexWhere(
+              (entry) =>
+                  entry['label'] == PlaybackUpscaleBackend.janaiFilterLabel,
+            );
+            var installed = frameRate == null
+                ? rateIndex < 0
+                : rateIndex >= 0 &&
+                      rateIndex < inferenceIndex &&
+                      filters[rateIndex]['name'] == 'lavfi' &&
+                      filters[rateIndex]['enabled'] == true &&
+                      filters[rateIndex]['params'] is Map &&
+                      (filters[rateIndex]['params'] as Map)['graph'] ==
+                          frameRate.graph;
+            if (!installed || !_janaiInstalled(filters, next.mode.janaiSlot)) {
+              throw StateError('AI 抽帧滤镜未生效：$filters');
+            }
           }
           if (!await _resizeOutput(next, generation)) continue;
         } else {
@@ -740,10 +783,38 @@ class PlaybackUpscaler {
 
   void _stopDropMonitor() {
     janaiStatus = null;
+    _desiredFrameRate = _appliedFrameRate = null;
+    _displayFramesPerSecond = 60;
     _dropTimer?.cancel();
     _dropTimer = null;
     _dropMonitor.reset();
     _dropEpoch++;
+  }
+
+  bool _refreshJanaiFrameRate() {
+    if (_failed || !(_loadedMode?.isJanai ?? false)) return false;
+    var status = janaiStatus;
+    var next = status?.active == true
+        ? playbackJanaiFrameRate(
+            sourceFramesPerSecond: status!.sourceFramesPerSecond,
+            playbackRate: _dropMonitor.rate,
+            displayFramesPerSecond: _displayFramesPerSecond,
+          )
+        : null;
+    if (next == _desiredFrameRate) return false;
+    _trace(
+      'sampling rate=${_dropMonitor.rate} '
+      'source_fps=${status?.sourceFramesPerSecond ?? 0} '
+      'target_fps=${next?.framesPerSecond ?? 'full'} '
+      'retained_media_fps=${next?.inputFramesPerSecond ?? 'full'} '
+      'inferred_frames=${status?.frames ?? 0}',
+    );
+    _desiredFrameRate = next;
+    _applied = null;
+    _dropMonitor.reset();
+    _dropEpoch++;
+    _schedule(immediate: true, invalidate: true);
+    return true;
   }
 
   Future<void> _checkDrops() async {
@@ -796,28 +867,39 @@ class PlaybackUpscaler {
         _dropMonitor.reset();
         return;
       }
+      // libmpv may not expose a display rate. The AI route uses a conservative
+      // 60-FPS ceiling in that case; never reconfigure ordinary playback.
+      try {
+        var display = await backend.read('display-fps');
+        if (display is num && display.isFinite && display > 0) {
+          _displayFramesPerSecond = display.toDouble();
+        }
+      } catch (_) {
+        // An unavailable optional display property leaves the default ceiling.
+      }
+      if (_closed || epoch != _dropEpoch || _failed) return;
+      if (_refreshJanaiFrameRate()) return;
       var values = await Future.wait([
         backend.read('frame-drop-count'),
-        backend.read('estimated-frame-number'),
         backend.read('time-pos'),
         backend.read('pause'),
         backend.read('seeking'),
       ]);
       if (_closed || epoch != _dropEpoch || _failed) return;
       var dropped = values[0];
-      var frame = values[1];
-      var position = values[2];
+      var position = values[1];
       if (dropped is! num ||
-          frame is! num ||
           position is! num ||
-          values[3] != false ||
-          values[4] != false) {
+          values[2] != false ||
+          values[3] != false) {
         _dropMonitor.reset();
         return;
       }
       if (!_dropMonitor.observe(
         dropped: dropped,
-        frame: frame,
+        // The native count includes only retained/inferred frames. Planned
+        // selection is never a VO drop and cannot dilute its drop-rate ratio.
+        frame: status.frames,
         position: position,
         elapsed: _dropClock.elapsed,
       )) {

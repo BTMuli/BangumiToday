@@ -372,6 +372,7 @@ void PublishStats(aji_ctx& state, const char* phase, bool force) noexcept try {
            << "\n";
     stream << "framesInferred=" << state.frames_inferred << "\n";
     stream << "framesFailed=" << state.frames_failed << "\n";
+    stream << "sourceFps=" << state.fps << "\n";
     stream << "lastGpuMs=" << state.last_gpu_ms << "\n";
     // Keep host API blocking separate from GPU execution; these are the last
     // successful submission, published at the existing one-second cadence.

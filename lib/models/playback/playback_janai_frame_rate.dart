@@ -1,0 +1,57 @@
+// Dart imports:
+import 'dart:math' as math;
+
+/// Selects hardware frames before inference, without changing their PTS.
+class PlaybackJanaiFrameRate {
+  const PlaybackJanaiFrameRate({
+    required this.playbackRate,
+    required this.framesPerSecond,
+  });
+
+  final double playbackRate;
+
+  /// Retained frames per wall-clock second, after applying playback speed.
+  final double framesPerSecond;
+  double get inputFramesPerSecond => framesPerSecond / playbackRate;
+
+  /// One frame per media-time bucket avoids drift at fractional playback rates.
+  /// Missing PTS passes through; the first backwards timestamp is retained.
+  String get graph {
+    var frequency = inputFramesPerSecond.toStringAsPrecision(12);
+    return "select='isnan(t)+isnan(prev_selected_t)+lt(t,prev_selected_t)+"
+        'gt(floor((t-start_t)*$frequency+0.000001),'
+        "floor((prev_selected_t-start_t)*$frequency+0.000001))'";
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is PlaybackJanaiFrameRate &&
+      playbackRate == other.playbackRate &&
+      framesPerSecond == other.framesPerSecond;
+
+  @override
+  int get hashCode => Object.hash(playbackRate, framesPerSecond);
+}
+
+/// Keeps accelerated AI inference at the source's normal wall-clock cadence.
+/// Increasing playback speed must not increase the inference workload. GPU
+/// capacity alone cannot budget decoding, rendering and window composition.
+PlaybackJanaiFrameRate? playbackJanaiFrameRate({
+  required double sourceFramesPerSecond,
+  required double playbackRate,
+  double displayFramesPerSecond = 60,
+}) {
+  if (!sourceFramesPerSecond.isFinite ||
+      sourceFramesPerSecond <= 0 ||
+      !playbackRate.isFinite ||
+      playbackRate <= 1) {
+    return null;
+  }
+  var display = displayFramesPerSecond.isFinite && displayFramesPerSecond > 0
+      ? math.min(displayFramesPerSecond, 60.0)
+      : 60.0;
+  return PlaybackJanaiFrameRate(
+    playbackRate: playbackRate,
+    framesPerSecond: math.min(sourceFramesPerSecond, display),
+  );
+}

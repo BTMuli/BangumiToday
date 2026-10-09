@@ -7,6 +7,7 @@ class PlaybackJanaiStatus {
     required this.backendReason,
     required this.frames,
     required this.gpuMilliseconds,
+    this.sourceFramesPerSecond = 0,
     this.gpuName = '',
     this.gpuVendor = 0,
     this.gpuSm = 0,
@@ -21,6 +22,7 @@ class PlaybackJanaiStatus {
   final String backendReason;
   final int frames;
   final double gpuMilliseconds;
+  final double sourceFramesPerSecond;
   final String gpuName;
   final int gpuVendor;
   final int gpuSm;
@@ -61,7 +63,12 @@ class PlaybackJanaiStatus {
     }
     var frames = int.parse(fields['framesInferred']!);
     var elapsed = double.parse(fields['lastGpuMs']!);
-    if (frames < 0 || !elapsed.isFinite || elapsed < 0) {
+    var sourceFps = double.parse(fields['sourceFps']!);
+    if (frames < 0 ||
+        !elapsed.isFinite ||
+        elapsed < 0 ||
+        !sourceFps.isFinite ||
+        sourceFps < 0) {
       throw const FormatException('无效的 AI 超分计数');
     }
     return PlaybackJanaiStatus(
@@ -71,6 +78,7 @@ class PlaybackJanaiStatus {
       backendReason: fields['backendReason']!,
       frames: frames,
       gpuMilliseconds: elapsed,
+      sourceFramesPerSecond: sourceFps,
       gpuName: fields['gpuName'] ?? '',
       gpuVendor: int.parse(fields['gpuVendor'] ?? '0'),
       gpuSm: int.parse(fields['gpuSm'] ?? '0'),
@@ -86,6 +94,7 @@ class PlaybackJanaiStatus {
     backendReason: backendReason,
     frames: frames,
     gpuMilliseconds: gpuMilliseconds,
+    sourceFramesPerSecond: sourceFramesPerSecond,
     gpuName: gpuName,
     gpuVendor: gpuVendor,
     gpuSm: gpuSm,

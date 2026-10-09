@@ -9,6 +9,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 // Project imports:
+import '../../models/playback/playback_janai_frame_rate.dart';
 import '../../models/playback/playback_janai_status.dart';
 import '../../models/playback/playback_upscale.dart';
 import '../utils/playback_build_log.dart';
@@ -46,6 +47,8 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
       '${_sequence++}';
   File? _config;
   File? _status;
+  String? _janaiFilter;
+  PlaybackJanaiFrameRate? _frameRate;
   int _configRevision = 0;
   final List<File> _files = [];
 
@@ -139,12 +142,29 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
         : '@${PlaybackUpscaleBackend.janaiFilterLabel}:'
               'animejanai=slot=$slot:conf=${await _janaiConfiguration()}';
     await adapter.setString('vf', filter ?? '');
+    _janaiFilter = filter;
+    _frameRate = null;
     for (var file in _files.toList()) {
       if (slot != null && (file == _config || file == _status)) continue;
       if (await file.exists()) await file.delete();
       _files.remove(file);
     }
     if (slot == null) _config = _status = null;
+  }
+
+  /// The metadata-only selector preserves the decoder's D3D11 textures and
+  /// original timestamps. Retain the exact inference entry and configuration
+  /// so mpv can reuse it when only the selector changes.
+  @override
+  Future<void> janaiFrameRate(PlaybackJanaiFrameRate? value) async {
+    var filter = _janaiFilter;
+    if (filter == null || value == _frameRate) return;
+    var prefix = value == null
+        ? ''
+        : '@${PlaybackUpscaleBackend.janaiFrameRateLabel}:'
+              'lavfi=[${value.graph}],';
+    await adapter.setString('vf', '$prefix$filter');
+    _frameRate = value;
   }
 
   @override
