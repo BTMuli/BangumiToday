@@ -7,7 +7,7 @@ import 'dart:math' as math;
 /// two `janai` modes enable the AnimeJaNai inference filter instead, which is a
 /// fixed 2x chain fed by the pinned mpv runtime and the native shim.
 enum PlaybackUpscaleMode {
-  off('关闭', ''),
+  off('普通播放', ''),
   light('轻量', '优先流畅'),
   standard('标准', '画质与性能均衡'),
   high('高质量', '1080p → 4K · 较高 GPU 开销'),

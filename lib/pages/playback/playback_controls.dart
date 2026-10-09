@@ -1118,13 +1118,21 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                                   !widget.overlay.showHelp &&
                                   constraints.maxHeight >= 220)
                                 Positioned(
-                                  left: 16,
                                   right: 16,
-                                  top: constraints.maxHeight >= 300 ? 56 : 8,
-                                  child: _PlaybackTensorRtProgress(
-                                    store: widget.store,
-                                    run: widget.run,
-                                    maxHeight: constraints.maxHeight - 110,
+                                  bottom: _chromeVisible ? 92 : 16,
+                                  child: SizedBox(
+                                    width: (constraints.maxWidth - 32).clamp(
+                                      0.0,
+                                      420.0,
+                                    ),
+                                    child: _PlaybackTensorRtProgress(
+                                      key: ValueKey(widget.store.upscaleMode),
+                                      store: widget.store,
+                                      run: widget.run,
+                                      maxHeight:
+                                          constraints.maxHeight -
+                                          (_chromeVisible ? 108 : 32),
+                                    ),
                                   ),
                                 ),
                               if (widget.overlay.showInfo)
@@ -1399,7 +1407,10 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
   ),
   if (Platform.isWindows)
     MenuFlyoutSubItem(
-      text: Text('视频超分 · ${store.upscaleMode.label}'),
+      text: ListenableBuilder(
+        listenable: store,
+        builder: (_, _) => Text('视频超分 · ${store.upscaleMode.label}'),
+      ),
       items: (_) {
         return [
           ToggleMenuFlyoutItem(
@@ -1416,22 +1427,27 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
           ),
           const MenuFlyoutSeparator(),
           for (var mode in PlaybackUpscaleMode.values)
-            ToggleMenuFlyoutItem(
-              text: mode.isJanai
-                  ? _playbackJanaiMenuLabel(store, mode: mode)
-                  : _PlaybackMenuLabel(
-                      mode.label,
-                      description: mode == PlaybackUpscaleMode.off
-                          ? null
-                          : mode.description,
-                    ),
-              value: store.upscaleMode == mode,
-              onChanged:
-                  mode.isJanai &&
-                      (!store.tensorRtEnabled ||
-                          !store.tensorRtResources.canEnable)
-                  ? null
-                  : (_) => unawaited(run(() => store.setUpscaleMode(mode))),
+            MenuFlyoutItemBuilder(
+              builder: (_) => ListenableBuilder(
+                listenable: store,
+                builder: (context, _) => ToggleMenuFlyoutItem(
+                  text: mode.isJanai
+                      ? _playbackJanaiMenuLabel(store, mode: mode)
+                      : _PlaybackMenuLabel(
+                          mode.label,
+                          description: mode == PlaybackUpscaleMode.off
+                              ? null
+                              : mode.description,
+                        ),
+                  value: store.upscaleMode == mode,
+                  onChanged:
+                      mode.isJanai &&
+                          (!store.tensorRtEnabled ||
+                              !store.tensorRtResources.canEnable)
+                      ? null
+                      : (_) => unawaited(run(() => store.setUpscaleMode(mode))),
+                ).build(context),
+              ),
             ),
         ];
       },

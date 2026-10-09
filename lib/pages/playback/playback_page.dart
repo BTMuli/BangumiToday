@@ -145,7 +145,22 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
       var warning = upscaler?.warning;
       if (warning != null) {
         upscaler!.dismissWarning();
-        unawaited(BtInfobar.warn(context, '视频超分：$warning'));
+        unawaited(
+          displayInfoBar(
+            context,
+            alignment: Alignment.bottomCenter,
+            duration: const Duration(seconds: 5),
+            builder: (_, close) => InfoBar(
+              title: const Text('视频超分'),
+              content: Text(warning),
+              severity: InfoBarSeverity.warning,
+              action: IconButton(
+                icon: const Icon(FluentIcons.chrome_close),
+                onPressed: close,
+              ),
+            ),
+          ),
+        );
       }
     });
   }

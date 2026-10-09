@@ -187,7 +187,8 @@ class PlaybackStore extends ChangeNotifier {
   bool get automaticSubtitles => !_manualSubtitles;
   VideoController? get video => _video;
   PlaybackUpscaler? get upscaler => _upscaler;
-  PlaybackUpscaleMode get upscaleMode => _upscaleMode;
+  PlaybackUpscaleMode get upscaleMode =>
+      _upscaler?.selectedMode ?? _upscaleMode;
   bool get tensorRtEnabled => _tensorRtEnabled && tensorRtResources.canEnable;
   PlaybackTensorRtResources? _tensorRtResources;
   PlaybackTensorRtResources get tensorRtResources =>
@@ -1194,7 +1195,11 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> setUpscaleMode(PlaybackUpscaleMode mode) => _serial(() async {
     await _loadPreferences();
-    if (_closed || _upscaleMode == mode || !Platform.isWindows) return;
+    if (_closed ||
+        (_upscaleMode == mode && upscaleMode == mode) ||
+        !Platform.isWindows) {
+      return;
+    }
     if (mode.isJanai && !tensorRtEnabled) return;
     await settingsStore.write('playbackUpscaleMode', mode.name);
     if (_closed) return;

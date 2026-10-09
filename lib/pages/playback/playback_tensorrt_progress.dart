@@ -3,6 +3,7 @@ part of 'playback_page.dart';
 /// Only model preparation remains in playback; installation lives in Settings.
 class _PlaybackTensorRtProgress extends StatefulWidget {
   const _PlaybackTensorRtProgress({
+    super.key,
     required this.store,
     required this.run,
     required this.maxHeight,
@@ -17,7 +18,22 @@ class _PlaybackTensorRtProgress extends StatefulWidget {
 }
 
 class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
-  bool _details = false;
+  bool _details = true;
+  bool _preparing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _preparing = widget.store.tensorRtResources.native?.preparing == true;
+  }
+
+  @override
+  void didUpdateWidget(covariant _PlaybackTensorRtProgress oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    var preparing = widget.store.tensorRtResources.native?.preparing == true;
+    if (preparing && !_preparing) _details = true;
+    _preparing = preparing;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +50,7 @@ class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
         constraints: BoxConstraints(maxHeight: widget.maxHeight),
         padding: EdgeInsets.all(compact ? 8 : 12),
         decoration: BoxDecoration(
-          color: theme.micaBackgroundColor,
+          color: theme.micaBackgroundColor.withValues(alpha: 0.72),
           border: Border.all(color: theme.resources.controlStrokeColorDefault),
           borderRadius: BorderRadius.circular(6),
         ),

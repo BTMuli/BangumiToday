@@ -81,6 +81,13 @@ class PlaybackUpscaler {
   bool _restorationFailed = false;
   bool _unsupported = false;
 
+  /// Reflect a completed recovery in menus while retaining the preference for
+  /// the next media and the existing retry after reducing playback speed.
+  PlaybackUpscaleMode get selectedMode =>
+      _failed && !_dirty && !_restorationFailed
+      ? PlaybackUpscaleMode.off
+      : mode;
+
   /// Reason of the last failed apply, surfaced so a failure can be diagnosed
   /// from the playback UI instead of only from the log.
   Object? _lastFailure;
@@ -152,11 +159,11 @@ class PlaybackUpscaler {
   }
 
   void preferences(PlaybackUpscaleMode value) {
-    if (_closed || mode == value) return;
+    if (_closed || (mode == value && !_failed)) return;
     _trace('preferences old_mode=${mode.name} new_mode=${value.name}');
     // A deliberate quality change may retry after a recovered shader failure.
     // Layout changes never retry, and failed restoration still blocks work.
-    if (mode != value && !_restorationFailed) {
+    if (!_restorationFailed) {
       _failed = false;
       _warned = false;
       _lastFailure = null;
@@ -774,9 +781,11 @@ class PlaybackUpscaler {
       if (reason.length > 80) reason = '${reason.substring(0, 80)}…';
       warning = _restorationFailed
           ? '超分清理失败，请关闭并重新打开播放器'
+          : _performanceFailureRate != null
+          ? 'AI 超分性能不足，已回退到普通播放，可在播放设置中重新开启'
           : reason.isEmpty
-          ? '超分暂不可用，已恢复普通播放'
-          : '超分暂不可用：$reason';
+          ? '超分暂不可用，已回退到普通播放'
+          : '超分暂不可用，已回退到普通播放：$reason';
     }
     onChanged();
   }
