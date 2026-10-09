@@ -113,6 +113,8 @@ class PlaybackUpscaler {
   Timer? _outputDeadline;
   Timer? _dropTimer;
   bool _readingDrops = false;
+  bool _playing = false;
+  bool _buffering = false;
   final _dropMonitor = PlaybackFrameDropMonitor();
   final _dropClock = Stopwatch()..start();
   double? _performanceFailureRate;
@@ -207,6 +209,15 @@ class PlaybackUpscaler {
     _lastFailure = null;
     warning = null;
     _schedule(immediate: true, invalidate: true);
+  }
+
+  void playbackState({required bool playing, required bool buffering}) {
+    if (_closed || (_playing == playing && _buffering == buffering)) return;
+    _playing = playing;
+    _buffering = buffering;
+    _dropMonitor.restart(_dropClock.elapsed);
+    _dropEpoch++;
+    _trace('playback playing=$playing buffering=$buffering reset_drop_windows');
   }
 
   void source(PlaybackVideoSource? value) {
@@ -965,9 +976,13 @@ class PlaybackUpscaler {
         _schedule(immediate: true);
         return;
       }
-      if (status?.active == false || status == null) {
-        // Preparing/passthrough playback has no inference frame budget.
-        _dropMonitor.reset();
+      if (status?.active == false ||
+          status == null ||
+          !_playing ||
+          _buffering) {
+        // Keep polling build progress while paused, but never carry inactive
+        // samples or decoder warmup into the performance fallback decision.
+        _dropMonitor.restart(_dropClock.elapsed);
         return;
       }
       var sourceFps = status.sourceFramesPerSecond;
@@ -1008,7 +1023,7 @@ class PlaybackUpscaler {
           values[2] != false ||
           values[3] != false ||
           values[4] != false) {
-        _dropMonitor.reset();
+        _dropMonitor.restart(_dropClock.elapsed);
         return;
       }
       if (!_dropMonitor.observe(

@@ -33,7 +33,9 @@ class FrameBudgetMonitor final {
   // (a window can then never be over budget).
   void Configure(double frames_per_second);
   // One finished frame: its GPU service time and the wall-clock time since the
-  // previous frame. Both must be finite and non-negative.
+  // previous frame. Both must be finite and non-negative. Long gaps not spent
+  // on GPU work reset the windows: the bridge has no pause/buffering state.
+  // Playback-aware throughput protection belongs to the Dart coordinator.
   void AddFrame(double gpu_ms, double wall_ms);
   // Optional renderer feedback (VO drop rate). The native bridge only measures
   // its own GPU work; the drop rate arrives from the playback integration.

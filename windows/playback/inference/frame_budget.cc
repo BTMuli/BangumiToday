@@ -24,6 +24,14 @@ void FrameBudgetMonitor::AddFrame(double gpu_ms, double wall_ms) {
   if (!std::isfinite(gpu_ms) || gpu_ms < 0.0 || !std::isfinite(wall_ms) ||
       wall_ms < 0.0)
     throw std::invalid_argument("Invalid frame timing");
+  // A pause, seek or suspended page can leave a finished GPU measurement
+  // pending until the next frame. That idle time is not inference demand.
+  // Preserve genuinely slow GPU work; playback-aware polling separately
+  // detects sustained decoder/renderer starvation while video is playing.
+  if (wall_ms - gpu_ms >= kWindowMs) {
+    Reset();
+    return;
+  }
   if (window_gpu_ms_.size() < kMaximumWindowSamples)
     window_gpu_ms_.push_back(gpu_ms);
   window_elapsed_ms_ += wall_ms;
@@ -68,11 +76,8 @@ void FrameBudgetMonitor::CloseWindow() {
                             drop_rate_percent_ > kMaximumDropRatePercent));
   if (valid || starved) {
     if (over_budget) {
-      const auto windows = static_cast<uint32_t>(std::min<double>(
-          kOverBudgetWindowsBeforeFallback,
-          std::max(1.0, std::floor(window_elapsed_ms_ / kWindowMs))));
       consecutive_over_budget_ = std::min(kOverBudgetWindowsBeforeFallback,
-                                          consecutive_over_budget_ + windows);
+                                          consecutive_over_budget_ + 1);
     } else {
       consecutive_over_budget_ = 0;
     }

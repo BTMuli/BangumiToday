@@ -569,6 +569,10 @@ class PlaybackStore extends ChangeNotifier {
               onDiagnostics: diagnostics.upscaleEvent,
             )
             ..preferences(_upscaleMode)
+            ..playbackState(
+              playing: player.state.playing,
+              buffering: player.state.buffering,
+            )
             ..playbackRate(player.state.rate);
       for (var value in earlyLogs) {
         _upscaler!.log(value.prefix, value.level, value.text);
@@ -581,9 +585,17 @@ class PlaybackStore extends ChangeNotifier {
       logs,
       player.stream.playing.listen((value) {
         diagnostics.event('播放状态改变：playing=$value');
+        _upscaler?.playbackState(
+          playing: value,
+          buffering: player.state.buffering,
+        );
       }),
       player.stream.buffering.listen((value) {
         diagnostics.event('缓冲状态改变：buffering=$value');
+        _upscaler?.playbackState(
+          playing: player.state.playing,
+          buffering: value,
+        );
       }),
       player.stream.rate.listen((value) {
         diagnostics.event('播放速率改变：rate=$value');

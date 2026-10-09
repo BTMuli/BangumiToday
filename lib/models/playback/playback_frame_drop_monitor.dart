@@ -1,6 +1,7 @@
 /// Evaluates sustained rendering drops using monotonic, speed-aware windows.
 class PlaybackFrameDropMonitor {
-  static const _speedGrace = Duration(seconds: 4);
+  static const _recoveryGrace = Duration(seconds: 4);
+  static const _maximumSampleGap = Duration(seconds: 6);
   double _rate = 1;
   double get rate => _rate;
   Duration _eligibleAt = Duration.zero;
@@ -10,9 +11,15 @@ class PlaybackFrameDropMonitor {
   bool speed(double value, Duration elapsed) {
     if (!value.isFinite || value <= 0 || value == _rate) return false;
     _rate = value;
-    _eligibleAt = elapsed + _speedGrace;
-    reset();
+    restart(elapsed);
     return true;
+  }
+
+  /// Pause, buffering and speed changes start a fresh playback window after
+  /// the decoder and renderer have had time to settle.
+  void restart(Duration elapsed) {
+    _eligibleAt = elapsed + _recoveryGrace;
+    reset();
   }
 
   void reset() {
@@ -47,6 +54,12 @@ class PlaybackFrameDropMonitor {
       _baseline = current;
       return false;
     }
+    // A suspended event loop cannot provide consecutive playback samples.
+    // Real output stalls still accumulate through regular two-second polls.
+    if (elapsed - previous.elapsed > _maximumSampleGap) {
+      restart(elapsed);
+      return false;
+    }
     var wallSeconds =
         (elapsed - previous.elapsed).inMicroseconds /
         Duration.microsecondsPerSecond;
@@ -73,8 +86,7 @@ class PlaybackFrameDropMonitor {
     if (minimum > 5) minimum = 5;
     var starved =
         expected.isFinite && expected > 0 && frames / wallSeconds < minimum;
-    var windows = (wallSeconds / 2).floor().clamp(1, 3);
-    _windows = fraction > 0.01 || starved ? _windows + windows : 0;
+    _windows = fraction > 0.01 || starved ? _windows + 1 : 0;
     return _windows >= 3;
   }
 }
