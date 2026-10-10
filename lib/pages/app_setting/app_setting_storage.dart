@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../core/services/app_cache_service.dart';
-import '../../core/services/download_service.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../store/playback_store.dart';
@@ -15,7 +14,6 @@ import '../../tools/log_retention.dart';
 import '../../tools/log_tool.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
-import '../../widgets/common/bt_setting_section.dart';
 import 'storage_cleanup_dialog.dart';
 
 class AppSettingStorage extends ConsumerStatefulWidget {
@@ -90,7 +88,7 @@ class _AppSettingStorageState extends ConsumerState<AppSettingStorage> {
     }
   }
 
-  Future<void> _clearCache({AppCacheKind? only}) async {
+  Future<void> _clearCache() async {
     if (_busy || _loadingCache) return;
     setState(() => _confirming = true);
     try {
@@ -108,9 +106,11 @@ class _AppSettingStorageState extends ConsumerState<AppSettingStorage> {
               enabled: _canClearCache(kind),
             ),
         ],
-        selected: only == null
-            ? {AppCacheKind.images, AppCacheKind.shaders, AppCacheKind.torrents}
-            : {only},
+        selected: {
+          AppCacheKind.images,
+          AppCacheKind.shaders,
+          AppCacheKind.torrents,
+        },
       );
       if (selected == null || selected.isEmpty || !mounted) return;
       var failures = <String>[];
@@ -404,37 +404,6 @@ class _AppSettingStorageState extends ConsumerState<AppSettingStorage> {
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      _cacheInfo(),
-      const SizedBox(height: 8),
-      _logInfo(),
-      const BTSettingDivider(),
-      ListTile(
-        leading: const BtIcon(FluentIcons.download),
-        title: const Text('下载目录'),
-        subtitle: Text(BTDownloadTool.downloadDir),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _action(
-              icon: FluentIcons.delete,
-              label: '清理下载目录',
-              loading: _cleaning == 'cache:torrents',
-              onPressed:
-                  _busy ||
-                      _loadingCache ||
-                      !_canClearCache(AppCacheKind.torrents)
-                  ? null
-                  : () => _clearCache(only: AppCacheKind.torrents),
-            ),
-            _action(
-              icon: FluentIcons.open_folder_horizontal,
-              label: '打开下载目录',
-              onPressed: BTDownloadTool.openDownloadDir,
-            ),
-          ],
-        ),
-      ),
-    ],
+    children: [_cacheInfo(), const SizedBox(height: 8), _logInfo()],
   );
 }

@@ -230,7 +230,7 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
     return BTSettingSection(
       icon: FluentIcons.settings,
       title: '应用配置',
-      subtitle: '主题、RSS、缓存、日志与路径设置',
+      subtitle: '主题、RSS、缓存与日志设置',
       initiallyExpanded: true,
       children: [
         buildThemeRow(),
