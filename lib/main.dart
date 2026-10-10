@@ -285,7 +285,17 @@ Future<void> _initBackgroundServices() async {
 }
 
 void _runApp(Widget child) {
-  runApp(UncontrolledProviderScope(container: globalContainer, child: child));
+  // 临时规避 Windows 可访问性语义树更新导致的引擎崩溃，包含启动页和所有弹窗。
+  // 上游 workaround：https://github.com/flutter/flutter/issues/175041
+  runApp(
+    ExcludeSemantics(
+      excluding: Platform.isWindows,
+      child: UncontrolledProviderScope(
+        container: globalContainer,
+        child: child,
+      ),
+    ),
+  );
 }
 
 Future<void> _runOptionalService(

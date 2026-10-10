@@ -40,11 +40,17 @@ Future<void> startPlaybackWindow(WindowController window) async {
   } catch (error, stackTrace) {
     BTLogTool.error(['播放器启动失败：$error', stackTrace.toString()]);
     // A malformed role must never fall through into the main startup sequence.
-    runApp(FluentApp(home: Center(child: Text('播放器启动失败：$error'))));
+    _runPlaybackApp(FluentApp(home: Center(child: Text('播放器启动失败：$error'))));
     await windowManager.setTitle('BangumiToday · 播放器启动失败');
     await windowManager.setPreventClose(false);
     await windowManager.show();
   }
+}
+
+void _runPlaybackApp(Widget child) {
+  // 播放器仅在 Windows 独立启动，和主窗口一起排除语义树以规避引擎崩溃。
+  // 上游 workaround：https://github.com/flutter/flutter/issues/175041
+  runApp(ExcludeSemantics(child: child));
 }
 
 class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
@@ -134,7 +140,7 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
       await mode.centerWindow(area: await _displayUnderCursor());
       await _rememberBounds();
       await _restoreOnTop();
-      runApp(
+      _runPlaybackApp(
         UncontrolledProviderScope(
           container: container,
           child: _PlaybackWindowApp(
