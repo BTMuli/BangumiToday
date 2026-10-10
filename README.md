@@ -2,12 +2,12 @@
 Author: 目棃
 Description: 说明文档
 Date: 2024-04-11
-Update: 2026-10-04
+Update: 2026-10-10
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2026-10-04 19:28:53`
+> 更新于 `2026-10-10 15:04:17`
 
 > **项目目前处于开发阶段，不保证稳定性。**
 
@@ -110,18 +110,22 @@ Windows 内置播放器提供 Anime4K 轻量、标准和高质量超分，默认
 
 ![应用设置：配置主题、缓存与目录，以及下载引擎与账号](./screenshots/settings.png)
 
-## 依赖（按照字典序）
+## 主要组件
 
-项目使用了如下依赖以实现相关功能：
+具体 Dart 包版本以 [`pubspec.yaml`](./pubspec.yaml) 和 `pubspec.lock` 为准；
+原生组件以子模块引用、CMake 固定值和推理锁文件为准。
 
-- [Anime4K](https://github.com/bloc97/Anime4K) `4.0.1`：随包提供内置播放器超分所用的 GLSL 着色器，按 MIT 许可附带授权文本。
-- [bt_download](https://github.com/BTMuli/bt_download) `0.2.0`：提供内置 BitTorrent 与 HTTP 多连接下载，并支持系统代理。
-- [Drift](https://drift.simonbinder.eu/)：基于 SQLite 的本地数据库，保存应用配置、RSS、BMF 关联、Bangumi 收藏与播放进度等数据。
-- [FlChart](https://app.flchart.dev/)：用于绘制条目评分柱状图。
-- [Fluent UI](https://bdlukaa.github.io/fluent_ui/)：用于实现 Fluent Design 风格的 UI。
-- [Hive CE](https://github.com/IO-Design-Team/hive_ce)：Hive v2 的社区延续版，用于保存导航、用户与 Tracker 等轻量本地数据。
-- [media_kit](https://github.com/media-kit/media-kit)：提供内置播放器的 libmpv 渲染、字幕与原生超分接入。
-- [Riverpod](https://riverpod.dev/)：用于状态管理与依赖注入。
+| 组件 | 用途 |
+| --- | --- |
+| [Anime4K](https://github.com/bloc97/Anime4K) | GLSL 超分着色器 |
+| [bt_download](https://github.com/BTMuli/bt_download) | 随 Windows 包提供的 BitTorrent / HTTP 下载引擎 |
+| [Drift](https://drift.simonbinder.eu/) | SQLite 数据访问与迁移 |
+| [FlChart](https://app.flchart.dev/) | 评分图表 |
+| [Fluent UI](https://bdlukaa.github.io/fluent_ui/) | Fluent 风格桌面界面 |
+| [Hive CE](https://github.com/IO-Design-Team/hive_ce) | 轻量本地状态 |
+| [media_kit](https://github.com/media-kit/media-kit) | 播放器、字幕与视频插件 |
+| [mpv-AnimeJaNai](https://github.com/the-database/mpv-AnimeJaNai) | Windows 固定 libmpv 分支及 AI 滤镜接入 |
+| [Riverpod](https://riverpod.dev/) | 状态管理与依赖注入 |
 
 ## 参考（按照字典序）
 
@@ -138,6 +142,12 @@ Windows 内置播放器提供 Anime4K 轻量、标准和高质量超分，默认
 - [Bangumi.tv](https://bangumi.tv)
 - [BangumiData](https://github.com/bangumi-data/bangumi-data)
 
-## License
+## 许可
 
-[MIT](./LICENSE)
+- 项目自有源码采用 [MIT License](./LICENSE)，随包第三方组件保留各自的许可。
+- 字体和 Anime4K 着色器的授权文本位于 [`assets/licenses/`](./assets/licenses/)。
+- Windows libmpv 当前为 GPL 构建，来源、对应源码和许可见
+  [libmpv NOTICE](./windows/licenses/libmpv/NOTICE.md)。
+- 推理组件的第三方归属和许可见
+  [THIRD_PARTY_NOTICES](./windows/playback/inference/THIRD_PARTY_NOTICES.txt)。
+- 下载引擎及其依赖的许可、NOTICE 和 SBOM 随 `bt_download/` runtime 分发。
