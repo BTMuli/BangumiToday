@@ -291,11 +291,16 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     }
   }
 
-  Future<void> _refreshWorkspace({bool refreshRss = false}) async {
+  Future<void> _refreshWorkspace({
+    bool refreshRss = false,
+    bool includeManual = false,
+  }) async {
     if (_refreshing) return;
     setState(() => _refreshing = true);
     try {
-      if (refreshRss) await BmfRssService.instance.refreshNow();
+      if (refreshRss) {
+        await BmfRssService.instance.refreshNow(includeManual: includeManual);
+      }
       await ref.read(bmfListProvider.notifier).refresh();
       if (!mounted) return;
       setState(() {

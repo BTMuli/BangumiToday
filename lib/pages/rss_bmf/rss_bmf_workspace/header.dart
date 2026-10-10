@@ -59,7 +59,11 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
                 },
               ),
               Tooltip(
-                message: '刷新所有 RSS 订阅与关联配置',
+                message: _refreshing
+                    ? '正在刷新…'
+                    : _clearingRecovery
+                    ? '正在清理旧记录，暂不可刷新'
+                    : '短按刷新自动更新的 RSS，长按刷新全部 RSS（含手动更新）',
                 child: IconButton(
                   icon: _refreshing
                       ? const SizedBox(
@@ -71,6 +75,12 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
                   onPressed: _refreshing || _clearingRecovery
                       ? null
                       : () => _refreshWorkspace(refreshRss: true),
+                  onLongPress: _refreshing || _clearingRecovery
+                      ? null
+                      : () => _refreshWorkspace(
+                          refreshRss: true,
+                          includeManual: true,
+                        ),
                 ),
               ),
             ],

@@ -389,13 +389,15 @@ class BmfRssService {
     return response;
   }
 
-  Future<void> refreshNow() => _forcedRefreshGuard.run(() async {
-    // A forced refresh must not be swallowed by an in-flight cache check.
-    if (_bulkRefreshGuard.isRunning) {
-      await _bulkRefreshGuard.run(() async {});
-    }
-    await _refreshAll(respectAutoUpdate: false, force: true);
-  });
+  /// 立即刷新自动更新的订阅；[includeManual] 为 true 时包含手动更新的订阅。
+  Future<void> refreshNow({bool includeManual = false}) =>
+      _forcedRefreshGuard.run(() async {
+        // A forced refresh must not be swallowed by an in-flight cache check.
+        if (_bulkRefreshGuard.isRunning) {
+          await _bulkRefreshGuard.run(() async {});
+        }
+        await _refreshAll(respectAutoUpdate: !includeManual, force: true);
+      });
   void cancelPendingRefresh() {
     _cancelRequested = true;
     _refreshEpoch++;
