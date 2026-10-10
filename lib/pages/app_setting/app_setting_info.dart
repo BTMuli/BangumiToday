@@ -9,7 +9,7 @@ import '../../core/utils/get_theme_label.dart';
 import '../../models/app/rss_selection_behavior.dart';
 import '../../store/app_store.dart';
 import '../../ui/bt_icon.dart';
-import '../../widgets/common/bt_buttons.dart';
+import '../../widgets/common/bt_icon_toggle_group.dart';
 import '../../widgets/common/bt_setting_section.dart';
 import 'accent_color_dialog.dart';
 import 'app_setting_storage.dart';
@@ -213,13 +213,24 @@ class _AppConfigInfoWidgetState extends ConsumerState<AppConfigInfoWidget> {
       leading: const BtIcon(MdiIcons.rss),
       title: const Text('搜索 RSS 默认行为'),
       subtitle: const Text('替换：只保留选中的源；新增：保留已有源并添加'),
-      trailing: BTSegmentedControl(
-        selectedIndex: behavior.index,
-        options: [for (var value in RssSelectionBehavior.values) value.label],
-        onChanged: (index) async {
+      trailing: BTIconToggleGroup<RssSelectionBehavior>(
+        value: behavior,
+        options: const [
+          BTIconToggleOption(
+            value: RssSelectionBehavior.replace,
+            label: '替换：只保留选中的源',
+            icon: FluentIcons.switch_widget,
+          ),
+          BTIconToggleOption(
+            value: RssSelectionBehavior.add,
+            label: '新增：保留已有源并添加',
+            icon: FluentIcons.add,
+          ),
+        ],
+        onChanged: (value) async {
           await ref
               .read(appStoreProvider.notifier)
-              .setRssSelectionBehavior(RssSelectionBehavior.values[index]);
+              .setRssSelectionBehavior(value);
         },
       ),
     );
