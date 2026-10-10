@@ -88,10 +88,13 @@ class SubjectDetailViewData {
     kind: SubjectDetailPeopleKind.characters,
   );
 
-  Widget buildPersons() => SubjectDetailPeople(
+  Widget buildPersons({
+    SubjectDetailStaffGrouping grouping = SubjectDetailStaffGrouping.person,
+  }) => SubjectDetailPeople(
     key: personsKey,
     subjectId: subject.id,
     kind: SubjectDetailPeopleKind.persons,
+    staffGrouping: grouping,
   );
 
   Widget buildComments() =>

@@ -16,8 +16,11 @@ import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import 'subject_detail_colors.dart';
 import 'subject_detail_module_status.dart';
 import 'subject_detail_refreshable.dart';
+import 'subject_detail_staff_groups.dart';
 
 enum SubjectDetailPeopleKind { characters, persons }
+
+enum SubjectDetailStaffGrouping { person, position }
 
 /// 角色及制作人员各自挂载、请求和保留滚动位置。
 class SubjectDetailPeople extends ConsumerStatefulWidget {
@@ -25,10 +28,12 @@ class SubjectDetailPeople extends ConsumerStatefulWidget {
     super.key,
     required this.subjectId,
     required this.kind,
+    this.staffGrouping = SubjectDetailStaffGrouping.person,
   });
 
   final int subjectId;
   final SubjectDetailPeopleKind kind;
+  final SubjectDetailStaffGrouping staffGrouping;
 
   @override
   ConsumerState<SubjectDetailPeople> createState() =>
@@ -38,14 +43,17 @@ class SubjectDetailPeople extends ConsumerStatefulWidget {
 class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
     with SubjectDetailRefreshable {
   List<BangumiRelatedCharacter> _characters = [];
-  List<BangumiRelatedPerson> _persons = [];
+  SubjectStaffGroups _staff = const SubjectStaffGroups(
+    members: [],
+    positions: [],
+  );
   bool _loading = true;
   String? _error;
   int _generation = 0;
 
   bool get _isCharacters => widget.kind == SubjectDetailPeopleKind.characters;
   String get _label => _isCharacters ? '角色' : '制作人员';
-  int get _count => _isCharacters ? _characters.length : _persons.length;
+  int get _count => _isCharacters ? _characters.length : _staff.members.length;
 
   @override
   void initState() {
@@ -59,7 +67,7 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
     if (oldWidget.subjectId != widget.subjectId ||
         oldWidget.kind != widget.kind) {
       _characters = [];
-      _persons = [];
+      _staff = const SubjectStaffGroups(members: [], positions: []);
       unawaited(refresh());
     }
   }
@@ -89,7 +97,7 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
       setState(() {
         _loading = false;
         if (response.code == 0 && response.data != null) {
-          _persons = response.data!;
+          _staff = SubjectStaffGroups.fromPersons(response.data!);
         } else {
           _error = response.message;
         }
@@ -110,6 +118,7 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
       );
     }
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_loading) const ProgressBar(strokeWidth: 2),
         if (_error != null)
@@ -124,17 +133,43 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
               return CustomScrollView(
                 primary: false,
                 key: PageStorageKey(
-                  'subject-${widget.subjectId}-${widget.kind.name}',
+                  'subject-${widget.subjectId}-${widget.kind.name}'
+                  '${_isCharacters ? '' : '-${widget.staffGrouping.name}'}',
                 ),
                 slivers: [
                   SliverPadding(
                     padding: const EdgeInsets.all(20),
-                    sliver: SliverList.builder(
-                      itemCount: (_count + columns - 1) ~/ columns,
-                      itemBuilder: (context, row) => Padding(
-                        padding: const EdgeInsets.only(bottom: gap),
-                        child: _buildRow(row, columns, gap),
-                      ),
+                    sliver: SliverMainAxisGroup(
+                      slivers: [
+                        if (_isCharacters)
+                          _buildGrid(
+                            _characters.length,
+                            columns,
+                            gap,
+                            _buildCharacter,
+                          )
+                        else if (widget.staffGrouping ==
+                            SubjectDetailStaffGrouping.person)
+                          _buildGrid(
+                            _staff.members.length,
+                            columns,
+                            gap,
+                            (index) => _buildStaffMember(_staff.members[index]),
+                          )
+                        else
+                          for (var group in _staff.positions) ...[
+                            _buildPositionHeading(group),
+                            _buildGrid(
+                              group.members.length,
+                              columns,
+                              gap,
+                              (index) => _buildStaffMember(
+                                group.members[index],
+                                showPositions: false,
+                              ),
+                            ),
+                          ],
+                      ],
                     ),
                   ),
                 ],
@@ -146,7 +181,41 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
     );
   }
 
-  Widget _buildRow(int row, int columns, double gap) {
+  Widget _buildPositionHeading(SubjectStaffPositionGroup group) {
+    var label = group.position.isEmpty ? '未标注职位' : group.position;
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text(
+          '$label · ${group.members.length}',
+          style: BTTypography.bodyStrong(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGrid(
+    int count,
+    int columns,
+    double gap,
+    Widget Function(int) itemBuilder,
+  ) {
+    return SliverList.builder(
+      itemCount: (count + columns - 1) ~/ columns,
+      itemBuilder: (context, row) => Padding(
+        padding: EdgeInsets.only(bottom: gap),
+        child: _buildRow(row, columns, gap, count, itemBuilder),
+      ),
+    );
+  }
+
+  Widget _buildRow(
+    int row,
+    int columns,
+    double gap,
+    int count,
+    Widget Function(int) itemBuilder,
+  ) {
     var decoration = BoxDecoration(
       color: SubjectDetailColors.card(context),
       borderRadius: BTRadius.mediumBR,
@@ -162,7 +231,7 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
               for (var col = 0; col < columns; col++) ...[
                 if (col > 0) SizedBox(width: gap),
                 Expanded(
-                  child: row * columns + col < _count
+                  child: row * columns + col < count
                       ? DecoratedBox(decoration: decoration)
                       : const SizedBox.shrink(),
                 ),
@@ -176,8 +245,8 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
             for (var col = 0; col < columns; col++) ...[
               if (col > 0) SizedBox(width: gap),
               Expanded(
-                child: row * columns + col < _count
-                    ? _buildPerson(row * columns + col)
+                child: row * columns + col < count
+                    ? itemBuilder(row * columns + col)
                     : const SizedBox.shrink(),
               ),
             ],
@@ -187,26 +256,35 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
     );
   }
 
-  Widget _buildPerson(int index) {
-    if (_isCharacters) {
-      var character = _characters[index];
-      return _buildCard(
-        id: character.id,
-        name: character.name,
-        images: character.images,
-        relation: character.relation,
-        path: 'character',
-        actors: character.actors,
-      );
-    }
-    var person = _persons[index];
+  Widget _buildCharacter(int index) {
+    var character = _characters[index];
+    return _buildCard(
+      id: character.id,
+      name: character.name,
+      images: character.images,
+      relation: character.relation,
+      path: 'character',
+      actors: character.actors,
+    );
+  }
+
+  Widget _buildStaffMember(
+    SubjectStaffMember member, {
+    bool showPositions = true,
+  }) {
+    var person = member.person;
     return _buildCard(
       id: person.id,
       name: person.name,
       images: person.images,
-      relation: person.relation,
+      relation: showPositions ? member.positions.keys.join(' / ') : '',
       path: 'person',
-      eps: person.eps,
+      participation: [
+        for (var entry in member.positions.entries)
+          if (entry.value.isNotEmpty)
+            '${member.positions.length > 1 ? '${entry.key} · ' : ''}'
+                '参与章节 / 曲目：${entry.value.join('；')}',
+      ],
     );
   }
 
@@ -216,7 +294,7 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
     required BangumiPersonImages? images,
     required String relation,
     required String path,
-    String eps = '',
+    List<String> participation = const [],
     List<BangumiPerson> actors = const [],
   }) {
     var linkLabel = '在浏览器中查看${replaceEscape(name)}';
@@ -277,11 +355,13 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(relation, style: BTTypography.caption(context)),
-                if (eps.trim().isNotEmpty) ...[
+                if (relation.isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  SelectableText('参与章节 / 曲目：$eps'),
+                  Text(relation, style: BTTypography.caption(context)),
+                ],
+                for (var detail in participation) ...[
+                  const SizedBox(height: 6),
+                  SelectableText(detail),
                 ],
                 if (actors.isNotEmpty) ...[
                   const SizedBox(height: 6),

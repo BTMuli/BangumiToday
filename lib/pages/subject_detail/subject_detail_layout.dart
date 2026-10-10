@@ -3,8 +3,10 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
+import '../../widgets/common/bt_icon_toggle_group.dart';
 import 'subject_detail_colors.dart';
 import 'subject_detail_overview.dart';
+import 'subject_detail_people.dart';
 import 'subject_detail_sections.dart';
 import 'subject_detail_view_data.dart';
 
@@ -44,6 +46,7 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
   // 独立接口只在对应页签首次被选中时挂载并请求。
   final Set<_DetailTab> _visited = {_DetailTab.episodes};
   _DetailTab _selected = _DetailTab.episodes;
+  SubjectDetailStaffGrouping _staffGrouping = SubjectDetailStaffGrouping.person;
   int? _relationCount;
   bool _refreshingRelations = false;
 
@@ -162,6 +165,7 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
               ),
             ),
           ),
+        if (_selected == _DetailTab.persons) _buildStaffGrouping(),
         if (_selected == _DetailTab.relations)
           Tooltip(
             message: '刷新关联条目',
@@ -179,12 +183,33 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
     );
   }
 
+  Widget _buildStaffGrouping() {
+    return BTIconToggleGroup<SubjectDetailStaffGrouping>(
+      value: _staffGrouping,
+      options: const [
+        BTIconToggleOption(
+          value: SubjectDetailStaffGrouping.person,
+          label: '按人物合并',
+          icon: FluentIcons.contact,
+        ),
+        BTIconToggleOption(
+          value: SubjectDetailStaffGrouping.position,
+          label: '按职位合并',
+          icon: FluentIcons.org,
+        ),
+      ],
+      onChanged: (value) => setState(() => _staffGrouping = value),
+    );
+  }
+
   Widget _buildTabBody(BuildContext context, _DetailTab tab) {
     if (!_visited.contains(tab)) return const SizedBox.shrink();
     if (tab == _DetailTab.resources) return widget.resources;
     var view = widget.view;
     if (tab == _DetailTab.characters) return view.buildCharacters();
-    if (tab == _DetailTab.persons) return view.buildPersons();
+    if (tab == _DetailTab.persons) {
+      return view.buildPersons(grouping: _staffGrouping);
+    }
     if (tab == _DetailTab.comments) return view.buildComments();
     return SingleChildScrollView(
       key: PageStorageKey('subject-${view.subject.id}-${tab.name}'),
