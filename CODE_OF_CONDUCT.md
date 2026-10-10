@@ -1,60 +1,59 @@
 # Code of Conduct
 
-> This Code of Conduct is adapted from the Contributor Covenant, version 2.0,
-> 
-> available at https://www.contributor-covenant.org/version/2/0/code_of_conduct.html.
-> 
-> To see Chinese version, see [行为准则](./docs/行为准则.md).
+> 中文版：[行为准则](./docs/行为准则.md)
 
-## Our Pledge
+## Participation
 
-We as members, contributors, and leaders pledge to make participation in our community a 
-harassment-free experience for everyone, regardless of age, body size, visible or invisible 
-disability, ethnicity, sex characteristics, gender identity and expression, level of experience, 
-education, socio-economic status, nationality, personal appearance, race, religion, or sexual 
-identity and orientation.
+BangumiToday welcomes users and contributors of all backgrounds and experience
+levels. Participation should be free from harassment and discrimination,
+including on the basis of age, disability, ethnicity, gender, nationality,
+appearance, religion or sexual orientation.
 
-We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and
-healthy community.
+In Issues, Discussions, pull requests and reviews:
 
-## Our Standards
+- Discuss the problem and evidence respectfully; criticize ideas and code
+  without attacking the person behind them.
+- Give useful context, accept constructive feedback and take responsibility for
+  mistakes. Help newcomers understand the project.
+- Respect people's time. This is a personal open-source project; a request does
+  not guarantee implementation, acceptance or a reply within a fixed deadline.
+- Keep conversations relevant and protect other people's personal information,
+  credentials and private subscription links.
 
-Examples of behavior that contributes to a positive environment for our community include:
-
-+ Demonstrating empathy and kindness toward other people
-+ Being respectful of differing opinions, viewpoints, and experiences
-+ Giving and gracefully accepting constructive feedback
-+ Accepting responsibility and apologizing to those affected by our mistakes, 
-  and learning from the experience
-+ Focusing on what is best not just for us as individuals, but for the overall community 
-
-Examples of unacceptable behavior include:
-
-+ The use of sexualized language or imagery, and sexual attention or advances of any kind
-  Trolling, insulting or derogatory comments, and personal or political attacks
-+ Public or private harassment
-+ Publishing others’ private information, such as a physical or email address, without their 
-  explicit permission
-+ Other conduct which could reasonably be considered inappropriate in a professional setting
-
-## Enforcement Responsibilities
-Community leaders are responsible for clarifying and enforcing our standards of acceptable behavior 
-and will take appropriate and fair corrective action in response to any behavior that they deem 
-inappropriate, threatening, offensive, or harmful.
-
-Community leaders have the right and responsibility to remove, edit, or reject comments, commits, 
-code, wiki edits, issues, and other contributions that are not aligned to this Code of Conduct, and 
-will communicate reasons for moderation decisions when appropriate.
+Harassment, threats, discriminatory remarks, unwanted sexual content or
+attention, doxxing, spam, deliberate disruption and repeated pressure after a
+request to stop are unacceptable. Technical disagreement and good-faith bug
+reports are welcome.
 
 ## Scope
 
-This Code of Conduct applies within all community spaces, and also applies when an individual is 
-officially representing the community in public spaces.
+This policy covers the repository's Issues, Discussions, pull requests, reviews
+and other project-managed spaces. It also covers people acting as an explicitly
+appointed project representative in public. Ordinary use of the application
+does not make someone a project representative.
 
-## Enforcement
+## Reporting and moderation
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the 
-community leaders responsible for enforcement at [Feedback Email](mailto:bt-muli@outlook.com).
-All complaints will be reviewed and investigated promptly and fairly.
+Report incidents privately to the maintainer, [BTMuli](mailto:bt-muli@outlook.com),
+at **bt-muli@outlook.com**. Include links, the relevant context and your preferred
+contact method. Do not publish private evidence or personal details in a public
+Issue. Security vulnerabilities follow the [Security Policy](./SECURITY.md).
 
-All community leaders are obligated to respect the privacy and security of the reporter of any incident.
+The maintainer reviews the available evidence and may ask those involved for
+clarification. Reports and identifying information are shared only as needed to
+investigate and handle the incident. There is no guaranteed response deadline.
+
+Depending on severity and repetition, moderation can include a request to edit
+content, a warning, removal of content, locking a conversation, or a temporary
+or permanent restriction on participation. Serious threats or harassment may
+lead directly to a restriction. Where appropriate, the maintainer explains the
+decision without exposing private information.
+
+If you believe a moderation decision missed relevant facts, reply privately to
+the same email with the additional context. Do not use public arguments or
+repeated contact to pressure the reporter or other participants.
+
+## Attribution
+
+This project-specific policy is adapted from the
+[Contributor Covenant, version 2.0](https://www.contributor-covenant.org/version/2/0/code_of_conduct/).
