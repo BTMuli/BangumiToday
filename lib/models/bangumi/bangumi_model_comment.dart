@@ -49,7 +49,9 @@ class BangumiEpisodeComment {
   /// 发布时间，Unix 秒
   final int createdAt;
   final String content;
-  final BangumiCommentUser user;
+
+  /// 作者不可用时，接口可能省略用户摘要。
+  final BangumiCommentUser? user;
   final List<BangumiEpisodeCommentReply> replies;
 
   factory BangumiEpisodeComment.fromJson(Map<String, dynamic> json) =>
@@ -73,7 +75,7 @@ class BangumiEpisodeCommentReply {
   /// 发布时间，Unix 秒
   final int createdAt;
   final String content;
-  final BangumiCommentUser user;
+  final BangumiCommentUser? user;
 
   factory BangumiEpisodeCommentReply.fromJson(Map<String, dynamic> json) =>
       _$BangumiEpisodeCommentReplyFromJson(json);

@@ -300,7 +300,7 @@ class _CommentHeader extends StatelessWidget {
     this.avatarSize = 36,
   });
 
-  final BangumiCommentUser user;
+  final BangumiCommentUser? user;
 
   /// 发布时间，Unix 秒
   final int createdAt;
@@ -308,13 +308,32 @@ class _CommentHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var name = replaceEscape(
-      user.nickname.isEmpty ? user.username : user.nickname,
-    );
-    var profile =
-        '${BtrBangumiApi.siteBaseUrl}/user/'
-        '${Uri.encodeComponent(user.username)}';
+    var author = user;
+    var name = author == null
+        ? '未知用户'
+        : replaceEscape(
+            author.nickname.isEmpty ? author.username : author.nickname,
+          );
+    var profile = author == null
+        ? null
+        : '${BtrBangumiApi.siteBaseUrl}/user/'
+              '${Uri.encodeComponent(author.username)}';
     var time = DateTime.fromMillisecondsSinceEpoch(createdAt * 1000).toLocal();
+    Widget username = Text(
+      name,
+      style: BTTypography.bodyStrong(context),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+    if (author != null && profile != null) {
+      username = Tooltip(
+        message: author.username,
+        child: HyperlinkButton(
+          onPressed: () => unawaited(launchUrlString(profile)),
+          child: username,
+        ),
+      );
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -324,18 +343,7 @@ class _CommentHeader extends StatelessWidget {
         Expanded(
           child: Align(
             alignment: AlignmentDirectional.centerStart,
-            child: Tooltip(
-              message: user.username,
-              child: HyperlinkButton(
-                onPressed: () => unawaited(launchUrlString(profile)),
-                child: Text(
-                  name,
-                  style: BTTypography.bodyStrong(context),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
+            child: username,
           ),
         ),
         const SizedBox(width: 10),
@@ -347,7 +355,12 @@ class _CommentHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildAvatar(BuildContext context, String name, String profile) {
+  Widget _buildAvatar(BuildContext context, String name, String? profile) {
+    var placeholder = SizedBox.square(
+      dimension: avatarSize,
+      child: Icon(FluentIcons.contact, size: avatarSize * 0.6),
+    );
+    if (profile == null) return placeholder;
     var label = '在浏览器中查看 $name 的主页';
     return Tooltip(
       message: label,
@@ -359,16 +372,13 @@ class _CommentHeader extends StatelessWidget {
           child: GestureDetector(
             onTap: () => unawaited(launchUrlString(profile)),
             child: BtBangumiCover(
-              imageUrl: user.avatar.medium,
+              imageUrl: user?.avatar.medium,
               width: avatarSize,
               height: avatarSize,
               maxRequestEdge: BangumiCoverUrl.thumbMaxEdge,
               borderRadius: BTRadius.mediumBR,
               progressSize: avatarSize * 0.4,
-              errorBuilder: (context, {err}) => SizedBox.square(
-                dimension: avatarSize,
-                child: Icon(FluentIcons.contact, size: avatarSize * 0.6),
-              ),
+              errorBuilder: (context, {err}) => placeholder,
             ),
           ),
         ),

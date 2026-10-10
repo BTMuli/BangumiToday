@@ -43,7 +43,9 @@ BangumiEpisodeComment _$BangumiEpisodeCommentFromJson(
   id: (json['id'] as num).toInt(),
   createdAt: (json['createdAt'] as num).toInt(),
   content: json['content'] as String,
-  user: BangumiCommentUser.fromJson(json['user'] as Map<String, dynamic>),
+  user: json['user'] == null
+      ? null
+      : BangumiCommentUser.fromJson(json['user'] as Map<String, dynamic>),
   replies: (json['replies'] as List<dynamic>)
       .map(
         (e) => BangumiEpisodeCommentReply.fromJson(e as Map<String, dynamic>),
@@ -57,7 +59,7 @@ Map<String, dynamic> _$BangumiEpisodeCommentToJson(
   'id': instance.id,
   'createdAt': instance.createdAt,
   'content': instance.content,
-  'user': instance.user.toJson(),
+  'user': instance.user?.toJson(),
   'replies': instance.replies.map((e) => e.toJson()).toList(),
 };
 
@@ -67,7 +69,9 @@ BangumiEpisodeCommentReply _$BangumiEpisodeCommentReplyFromJson(
   id: (json['id'] as num).toInt(),
   createdAt: (json['createdAt'] as num).toInt(),
   content: json['content'] as String,
-  user: BangumiCommentUser.fromJson(json['user'] as Map<String, dynamic>),
+  user: json['user'] == null
+      ? null
+      : BangumiCommentUser.fromJson(json['user'] as Map<String, dynamic>),
 );
 
 Map<String, dynamic> _$BangumiEpisodeCommentReplyToJson(
@@ -76,7 +80,7 @@ Map<String, dynamic> _$BangumiEpisodeCommentReplyToJson(
   'id': instance.id,
   'createdAt': instance.createdAt,
   'content': instance.content,
-  'user': instance.user.toJson(),
+  'user': instance.user?.toJson(),
 };
 
 BangumiCommentUser _$BangumiCommentUserFromJson(Map<String, dynamic> json) =>
