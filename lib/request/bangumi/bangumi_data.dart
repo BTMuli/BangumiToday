@@ -66,22 +66,38 @@ class BtrBangumiDataApi {
         options: Options(
           headers: {'Accept': 'application/json'},
           method: 'GET',
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 300,
         ),
       );
-      assert(response.data['tag_name'] is String);
-      return BTResponse.success(data: response.data['tag_name']);
+      var body = response.data;
+      var version = body is Map<String, dynamic> ? body['tag_name'] : null;
+      // 发布版不执行 assert，必须在运行时确认响应包含可用的版本号。
+      if (version is! String || version.trim().isEmpty) {
+        BTLogTool.error('Invalid bangumiData version response: $body');
+        return BTResponse.error(
+          code: 666,
+          message: '获取远程版本失败：响应缺少有效的 tag_name',
+          data: body,
+        );
+      }
+      return BTResponse.success(data: version.trim());
     } on DioException catch (e) {
       BTLogTool.error('Failed to load bangumiData version ${e.response?.data}');
+      var body = e.response?.data;
+      var message = body is Map<String, dynamic> ? body['message'] : null;
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
-        message: 'Failed to load bangumi data version',
-        data: e.response?.data,
+        message: message is String && message.trim().isNotEmpty
+            ? '获取远程版本失败：$message'
+            : '获取远程版本失败',
+        data: body,
       );
     } on Exception catch (e) {
       BTLogTool.error('Failed to load bangumiData version $e');
       return BTResponse.error(
         code: 666,
-        message: 'Failed to load bangumi data version',
+        message: '获取远程版本失败',
         data: e.toString(),
       );
     }
