@@ -1,5 +1,5 @@
-name: 非预期错误和漏洞
-description: 提交非预期错误和漏洞
+name: 错误反馈
+description: 报告可复现的应用错误；安全漏洞请通过邮件私下报告
 title: "[Bug] "
 labels:
   - BUG
@@ -8,48 +8,49 @@ body:
   - type: markdown
     attributes:
       value: |
-        在此填写非预期错误和漏洞的详细信息，包括但不限于：
-        - 你所遇到的问题
-        - 当前使用版本
-        - 复现流程
+        请先搜索已有 Issue，并遵守[行为准则](https://github.com/BTMuli/BangumiToday/blob/master/CODE_OF_CONDUCT.md)。
+        **安全漏洞请按[安全策略](https://github.com/BTMuli/BangumiToday/blob/master/SECURITY.md)私下发送至 bt-muli@outlook.com，不要在这里发布利用细节。**
+        日志和截图请移除 Token、授权码、私人 RSS 地址及个人信息；崩溃转储可能含内存数据，请勿直接公开上传。
   - type: checkboxes
     attributes:
-      label: Issue Check
+      label: 提交前确认
       options:
-        - label: 我确认查找过相关的 Issue
-          required: false
-        - label: 我确认这个问题是影响使用的
-          required: false
-        - label: 我阅读过[提问的艺术](https://github.com/betaseeker/How-To-Ask-Questions)
-          required: false
+        - label: 我已搜索已有 Issue，未找到相同问题或已在下方说明关联记录
+          required: true
+        - label: 我已检查附件，未包含账号凭据、私人订阅链接或其他敏感信息
+          required: true
   - type: textarea
     id: description
     attributes:
       label: 问题描述
-      description: 请详细描述你所遇到的问题
-      placeholder: 请详细描述你所遇到的问题
+      description: 说明实际发生的情况与期望行为；可附已脱敏的截图
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: 当前使用版本
-      description: 请填写当前使用版本
+      label: 应用版本
+      description: 请填写设置中显示的完整版本；源码构建请同时提供提交号
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 系统与安装方式
+      placeholder: "例如：Windows 11 x64 / 微软商店、MSIX、ZIP 或源码构建；macOS 请注明系统版本与架构"
     validations:
       required: true
   - type: textarea
     id: reproduce
     attributes:
-      label: 复现流程
-      description: 请详细描述复现流程
-      placeholder: 若无法复现，请填写无法复现
+      label: 复现步骤
+      description: 给出最小操作步骤、发生频率及必要配置；无法稳定复现时请说明
     validations:
       required: true
   - type: textarea
     id: additional
     attributes:
-      label: 其他信息
-      description: 请填写其他信息
-      placeholder: 请填写其他信息
+      label: 日志与补充信息
+      description: 设置中可打开日志目录；仅附相关且已脱敏的片段。涉及下载或播放时，说明资源类型、代理或画质配置，勿附私人链接
     validations:
       required: false

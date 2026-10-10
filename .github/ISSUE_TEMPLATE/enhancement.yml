@@ -1,5 +1,5 @@
-name: 新功能
-description: 提交新功能请求
+name: 功能建议
+description: 描述使用场景、目标与期望行为
 title: "[Feat] "
 labels:
   - Feature
@@ -7,40 +7,40 @@ body:
   - type: markdown
     attributes:
       value: |
-        在此填写新功能的详细信息，包括但不限于：
-        - 新功能名称
-        - 新功能描述
-        - 当前使用版本
+        请先搜索已有 Issue 和 Discussion，并遵守[行为准则](https://github.com/BTMuli/BangumiToday/blob/master/CODE_OF_CONDUCT.md)。
+        本项目由个人维护，建议不保证实现时间。较大功能、架构调整或新增原生依赖，建议先讨论方向。
+        请勿填写 Token、私人订阅链接或其他敏感信息。
   - type: checkboxes
     attributes:
-      label: Issue Check
+      label: 提交前确认
       options:
-        - label: 我确认查找过相关的 Issue
-          required: false
-        - label: 我确认这个问题是影响使用的
-          required: false
-        - label: 我阅读过[提问的艺术](https://github.com/betaseeker/How-To-Ask-Questions)
-          required: false
+        - label: 我已搜索已有 Issue 和 Discussion，未找到相同建议或已在下方说明关联记录
+          required: true
   - type: textarea
     id: description
     attributes:
-      label: 新功能描述
-      description: 请详细描述新功能的内容
-      placeholder: 请详细描述新功能的内容
+      label: 使用场景与问题
+      description: 说明当前流程遇到的具体问题，以及现有替代做法
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望行为
+      description: 描述希望如何改进；如有可参考的方案或取舍，请一并说明
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: 当前使用版本
-      description: 请填写当前使用版本
+      label: 应用版本与平台
+      placeholder: "例如：设置中显示的版本 / Windows x64 或 macOS"
     validations:
       required: true
   - type: textarea
     id: additional
     attributes:
-      label: 其他信息
-      description: 请填写其他信息
-      placeholder: 请填写其他信息
+      label: 补充信息
+      description: 相关 Issue、Discussion、参考资料或已脱敏的截图
     validations:
       required: false

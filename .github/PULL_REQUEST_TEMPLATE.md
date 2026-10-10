@@ -1,15 +1,25 @@
----
-name: PR Template
-about: Pull Request Template
----
-**Description:** [Please describe the background, purpose, changes made, and how to test this PR]
+## 问题与改动
 
-**Related Issues:** [List the issue numbers related to this PR]
+<!-- 说明触发条件、原有问题、修改后的行为，以及必要的设计取舍。 -->
 
-**Checklist:**
+## 关联记录
 
-- [ ]  Code has been reviewed
-- [ ]  Code complies with the project's code standards and best practices
-- [ ]  Code does not affect the normal use of existing features
+<!-- 关联 Issue 或 Discussion；没有则填“无”。目标分支应为 master。 -->
 
-**Screenshots:** [Provide relevant screenshots or GIF animations]
+## 验证结果
+
+<!-- 列出实际运行的检查、结果，以及未执行项目和原因。
+仅文档改动检查链接与内容即可；不要为填写模板默认构建或启动应用。
+涉及 UI 的手工验收由开发者执行；有截图时可附在这里。
+-->
+
+## 提交前检查
+
+- [ ] 改动范围明确，已检查差异并遵守贡献指南与行为准则。
+- [ ] 已按改动范围说明格式、静态分析或功能测试结果，以及待验证事项。
+- [ ] 相关文档、模型生成文件、数据库迁移或两端引擎协议已同步（如适用）。
+- [ ] 未包含凭据、私钥、私人订阅链接、未经脱敏的日志或临时验证文件。
+
+<!-- 安全漏洞不要在公开 PR 中披露，先按 SECURITY.md 私下报告。
+提交信息不限制语言，推荐使用 <emoji> <description> 的 Gitmoji 风格，不作强制要求。
+-->
