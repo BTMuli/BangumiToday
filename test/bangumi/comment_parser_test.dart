@@ -69,6 +69,17 @@ void main() {
       expect(_text('(bgm38'), '(bgm38');
     });
 
+    test('overflowing smile IDs remain ordinary text', () {
+      for (var code in [
+        'bgm9223372036854775808',
+        'bgm999999999999999999999999999999',
+      ]) {
+        expect(resolveBangumiSmile(code), isNull);
+        expect(_text('before ($code) after'), 'before ($code) after');
+        expect(bangumiCommentImageUrls('($code)'), isEmpty);
+      }
+    });
+
     test('真实吐槽正文按行分段', () {
       var source =
           '火浣布做衣服应该不会很漂亮，而且石棉也有害(bgm38)\r\n'

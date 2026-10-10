@@ -163,7 +163,9 @@ const String _urlTailPunctuation = '.,;:!?、。，；：！？）]】」》”\
 BtBangumiSmile? resolveBangumiSmile(String code) {
   var legacy = RegExp(r'^bgm(\d+)$').firstMatch(code);
   if (legacy != null) {
-    var path = _legacySmilePath(int.parse(legacy.group(1)!));
+    var number = int.tryParse(legacy.group(1)!);
+    if (number == null) return null;
+    var path = _legacySmilePath(number);
     if (path == null) return null;
     return BtBangumiSmile(path, BtCommentImageKind.legacySmile);
   }
