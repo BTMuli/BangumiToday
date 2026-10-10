@@ -133,19 +133,7 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
                       itemCount: (_count + columns - 1) ~/ columns,
                       itemBuilder: (context, row) => Padding(
                         padding: const EdgeInsets.only(bottom: gap),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            for (var col = 0; col < columns; col++) ...[
-                              if (col > 0) const SizedBox(width: gap),
-                              Expanded(
-                                child: row * columns + col < _count
-                                    ? _buildPerson(row * columns + col)
-                                    : const SizedBox.shrink(),
-                              ),
-                            ],
-                          ],
-                        ),
+                        child: _buildRow(row, columns, gap),
                       ),
                     ),
                   ),
@@ -153,6 +141,47 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
               );
             },
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRow(int row, int columns, double gap) {
+    var decoration = BoxDecoration(
+      color: SubjectDetailColors.card(context),
+      borderRadius: BTRadius.mediumBR,
+      border: Border.all(color: BTColors.divider(context)),
+    );
+    // 内容决定整行高度，背景填满整行，图片仍按自身比例布局。
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var col = 0; col < columns; col++) ...[
+                if (col > 0) SizedBox(width: gap),
+                Expanded(
+                  child: row * columns + col < _count
+                      ? DecoratedBox(decoration: decoration)
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ],
+          ),
+        ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var col = 0; col < columns; col++) ...[
+              if (col > 0) SizedBox(width: gap),
+              Expanded(
+                child: row * columns + col < _count
+                    ? _buildPerson(row * columns + col)
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ],
         ),
       ],
     );
@@ -191,20 +220,16 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
     List<BangumiPerson> actors = const [],
   }) {
     var linkLabel = '在浏览器中查看${replaceEscape(name)}';
-    return Container(
+    const linkStyle = ButtonStyle(
+      padding: WidgetStatePropertyAll(EdgeInsets.zero),
+    );
+    return Padding(
       padding: const EdgeInsets.all(12),
-      constraints: const BoxConstraints(minHeight: 156),
-      decoration: BoxDecoration(
-        color: SubjectDetailColors.card(context),
-        borderRadius: BTRadius.mediumBR,
-        border: Border.all(color: BTColors.divider(context)),
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 88,
-            height: 132,
+            constraints: const BoxConstraints(maxWidth: 88),
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: SubjectDetailColors.content(context),
@@ -214,24 +239,43 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
               imageUrl: images?.large,
               fit: BoxFit.contain,
               width: 88,
-              height: 132,
               maxRequestEdge: BangumiCoverUrl.gridMaxEdge,
               progressSize: 16,
-              errorBuilder: (context, {err}) => Icon(
-                FluentIcons.contact,
-                size: 28,
-                color: BTColors.textTertiary(context),
+              errorBuilder: (context, {err}) => SizedBox.square(
+                dimension: 88,
+                child: Icon(
+                  FluentIcons.contact,
+                  size: 28,
+                  color: BTColors.textTertiary(context),
+                ),
               ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SelectableText(
-                  replaceEscape(name),
-                  style: BTTypography.bodyStrong(context),
+                Tooltip(
+                  message: linkLabel,
+                  child: Semantics(
+                    label: linkLabel,
+                    link: true,
+                    child: HyperlinkButton(
+                      style: linkStyle,
+                      onPressed: () => launchUrlString(
+                        '${BtrBangumiApi.siteBaseUrl}/$path/$id',
+                      ),
+                      child: Text(
+                        replaceEscape(name),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(relation, style: BTTypography.caption(context)),
@@ -242,13 +286,14 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
                 if (actors.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
+                    spacing: 8,
+                    runSpacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text('声优 / 演员：', style: BTTypography.caption(context)),
                       for (var actor in actors)
                         HyperlinkButton(
+                          style: linkStyle,
                           onPressed: () => launchUrlString(
                             '${BtrBangumiApi.siteBaseUrl}/person/${actor.id}',
                           ),
@@ -258,18 +303,6 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
                   ),
                 ],
               ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Tooltip(
-            message: linkLabel,
-            child: Semantics(
-              label: linkLabel,
-              child: IconButton(
-                icon: const Icon(FluentIcons.link, size: 14),
-                onPressed: () =>
-                    launchUrlString('${BtrBangumiApi.siteBaseUrl}/$path/$id'),
-              ),
             ),
           ),
         ],
