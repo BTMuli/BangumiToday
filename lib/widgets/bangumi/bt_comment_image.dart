@@ -64,15 +64,24 @@ class _BtRetryableImageState extends State<BtRetryableImage> {
 }
 
 /// 表情与图片地址：相对路径补当前图片域名，其余地址跟随镜像
-String resolveBangumiCommentImage(String value) {
-  if (value.startsWith('/')) return '${BtrBangumiApi.imageBaseUrl}$value';
-  if (value.startsWith('//')) return 'https:$value';
-  return BtrBangumiApi.rewriteUrl(value);
-}
+String? resolveBangumiCommentImage(String value) =>
+    _resolveCommentUrl(value, BtrBangumiApi.imageBaseUrl);
 
 /// 链接地址：站点相对路径补当前站点域名，其余地址跟随镜像
-String resolveBangumiCommentLink(String value) {
-  if (value.startsWith('/')) return '${BtrBangumiApi.siteBaseUrl}$value';
-  if (value.startsWith('//')) return 'https:$value';
-  return BtrBangumiApi.rewriteUrl(value);
+String? resolveBangumiCommentLink(String value) =>
+    _resolveCommentUrl(value, BtrBangumiApi.siteBaseUrl);
+
+String? _resolveCommentUrl(String value, String baseUrl) {
+  var text = value.trim();
+  var uri = Uri.tryParse(text);
+  if (uri == null) return null;
+  if (!uri.hasScheme) {
+    if (!text.startsWith('/')) return null;
+    uri = Uri.parse(baseUrl).resolveUri(uri);
+  }
+  // 评论正文不可信，系统打开接口也能执行本地文件及自定义协议。
+  if ((uri.scheme != 'http' && uri.scheme != 'https') || uri.host.isEmpty) {
+    return null;
+  }
+  return BtrBangumiApi.rewriteUrl(uri.toString());
 }

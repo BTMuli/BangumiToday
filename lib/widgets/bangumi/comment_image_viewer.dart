@@ -40,7 +40,7 @@ class CommentImageSet {
       bangumiCommentImageUrls(
         replaceEscape(text),
         kind: BtCommentImageKind.content,
-      ),
+      ).where((url) => resolveBangumiCommentImage(url) != null),
     );
     return base;
   }
@@ -53,7 +53,10 @@ class CommentImageSet {
   Future<void> show(BuildContext context, int index) {
     return showCommentImageDialog(
       context,
-      images: _urls.map(resolveBangumiCommentImage).toList(growable: false),
+      images: _urls
+          .map(resolveBangumiCommentImage)
+          .whereType<String>()
+          .toList(growable: false),
       index: index,
     );
   }

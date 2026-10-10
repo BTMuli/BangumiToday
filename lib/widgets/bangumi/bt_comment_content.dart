@@ -80,8 +80,7 @@ class _BtCommentContentState extends State<BtCommentContent> {
   TapGestureRecognizer _recognizer(String link) {
     return _recognizers.putIfAbsent(link, () {
       var recognizer = TapGestureRecognizer();
-      recognizer.onTap = () =>
-          unawaited(launchUrlString(resolveBangumiCommentLink(link)));
+      recognizer.onTap = () => unawaited(launchUrlString(link));
       return recognizer;
     });
   }
@@ -140,7 +139,10 @@ class _BtCommentContentState extends State<BtCommentContent> {
         );
         continue;
       }
-      var textStyle = _spanStyle(context, span, style);
+      var link = span.link == null
+          ? null
+          : resolveBangumiCommentLink(span.link!);
+      var textStyle = _spanStyle(context, span, style, linked: link != null);
       if (span.masked) {
         children.add(
           WidgetSpan(
@@ -155,7 +157,7 @@ class _BtCommentContentState extends State<BtCommentContent> {
         TextSpan(
           text: span.text,
           style: textStyle,
-          recognizer: span.link == null ? null : _recognizer(span.link!),
+          recognizer: link == null ? null : _recognizer(link),
         ),
       );
     }
@@ -167,6 +169,16 @@ class _BtCommentContentState extends State<BtCommentContent> {
 
   Widget _buildImage(BuildContext context, BtCommentSpan span) {
     var url = resolveBangumiCommentImage(span.imageUrl!);
+    if (url == null) {
+      return Tooltip(
+        message: '图片地址无效',
+        child: Icon(
+          FluentIcons.photo_error,
+          size: 18,
+          color: BTColors.textTertiary(context),
+        ),
+      );
+    }
     switch (span.imageKind) {
       case BtCommentImageKind.legacySmile:
         return _SmileImage(url: url, width: 18, height: 18, pixelated: true);
@@ -266,12 +278,13 @@ class _BtCommentContentState extends State<BtCommentContent> {
   TextStyle _spanStyle(
     BuildContext context,
     BtCommentSpan span,
-    TextStyle base,
-  ) {
+    TextStyle base, {
+    required bool linked,
+  }) {
     var style = base;
     if (span.size != null) style = style.copyWith(fontSize: span.size);
     var color = parseBangumiCommentColor(span.color);
-    if (color == null && span.link != null) {
+    if (color == null && linked) {
       color = FluentTheme.of(context).accentColor;
     }
     if (color != null) style = style.copyWith(color: color);
