@@ -1005,20 +1005,11 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 构建搜索按钮
   Widget buildSearch(BuildContext context) {
     return Tooltip(
-      message: '搜索条目',
+      message: '搜索',
       child: FilledButton(
         child: const Icon(FluentIcons.search, color: Colors.white),
         onPressed: () {
-          ref
-              .read(navStoreProvider.notifier)
-              .addNavItem(
-                PaneItem(
-                  icon: const Icon(FluentIcons.search),
-                  title: const Text('Bangumi-条目搜索'),
-                  body: const SubjectSearchPage(),
-                ),
-                'Bangumi-条目搜索',
-              );
+          SubjectSearchPage.open(ref);
         },
       ),
     );

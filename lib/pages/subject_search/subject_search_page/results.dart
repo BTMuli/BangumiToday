@@ -7,13 +7,19 @@ mixin _SubjectSearchResults on _SubjectSearchPageStateBase {
     }
     if (controller.total == 0) {
       return BTEmptyState.noSearchResult(
-        keyword: textController.text.isEmpty
-            ? selectedTag
-            : textController.text,
+        keyword:
+            (_activeQuery ??
+                    SubjectSearchQuery(
+                      keyword: textController.text,
+                      tags: selectedTags,
+                    ))
+                .description,
         actionText: '清除搜索',
         onAction: () {
           textController.clear();
-          selectedTag = null;
+          selectedTags.clear();
+          tagController.clear();
+          addingTag = false;
           _resetResults();
           setState(() {});
         },
@@ -76,7 +82,11 @@ mixin _SubjectSearchResults on _SubjectSearchPageStateBase {
           duration: const Duration(milliseconds: 300),
           delay: Duration(milliseconds: index * 50),
           offset: const Offset(0, 0.05),
-          child: SubjectCardSearch(result[index], onTagTap: _searchByTag),
+          child: SubjectCardSearch(
+            result[index],
+            onTagTap: _searchByTag,
+            onTagLongPress: _addSearchTag,
+          ),
         );
       },
     );

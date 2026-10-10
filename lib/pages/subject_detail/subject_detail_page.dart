@@ -257,22 +257,9 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     );
   }
 
-  /// 根据标签搜索动画
+  /// 打开统一搜索页并按标签搜索。
   void searchByTag(String tag) {
-    var normalizedTag = tag.trim();
-    if (normalizedTag.isEmpty) return;
-
-    var title = SubjectSearchPage.titleForTag(normalizedTag);
-    ref
-        .read(navStoreProvider.notifier)
-        .addNavItem(
-          PaneItem(
-            icon: const Icon(FluentIcons.search),
-            title: Text(title),
-            body: SubjectSearchPage(tag: normalizedTag),
-          ),
-          title,
-        );
+    SubjectSearchPage.open(ref, tag: tag);
   }
 
   /// 打开章节详情子页面

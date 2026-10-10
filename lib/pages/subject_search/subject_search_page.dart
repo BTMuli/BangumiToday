@@ -14,6 +14,7 @@ import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_animations.dart';
 import '../../widgets/common/empty_state.dart';
 import 'subject_card_search.dart';
+import 'subject_search_query.dart';
 
 part 'subject_search_page/filters.dart';
 part 'subject_search_page/results.dart';
@@ -21,19 +22,35 @@ part 'subject_search_page/widgets.dart';
 
 /// 搜索页面
 class SubjectSearchPage extends ConsumerStatefulWidget {
+  /// 统一的搜索页标题与导航标识。
+  static const title = '搜索';
+
   /// 初始标签筛选条件
-  final String? tag;
+  final List<String> initialTags;
 
   /// 构造函数
-  const SubjectSearchPage({super.key, this.tag});
+  const SubjectSearchPage({super.key, this.initialTags = const []});
 
-  /// 获取搜索页标题
-  static String titleForTag(String? tag) {
-    var normalizedTag = tag?.trim();
-    if (normalizedTag == null || normalizedTag.isEmpty) {
-      return 'Bangumi-条目搜索';
+  /// 打开统一搜索页；普通入口保留搜索状态，标签入口执行新的标签搜索。
+  static void open(WidgetRef ref, {String? tag}) {
+    var normalizedTag = tag?.trim() ?? '';
+    var nav = ref.read(navStoreProvider);
+    var index = nav.navItems.indexWhere((item) => item.title == title);
+    var notifier = ref.read(navStoreProvider.notifier);
+    if (normalizedTag.isEmpty && index != -1) {
+      notifier.goIndex(nav.topNavCount + index);
+      return;
     }
-    return 'Bangumi-标签搜索：$normalizedTag';
+    notifier.addNavItem(
+      PaneItem(
+        icon: const Icon(FluentIcons.search),
+        title: const Text(title),
+        body: normalizedTag.isEmpty
+            ? const SubjectSearchPage()
+            : SubjectSearchPage(key: UniqueKey(), initialTags: [normalizedTag]),
+      ),
+      title,
+    );
   }
 
   @override
@@ -45,7 +62,17 @@ abstract class _SubjectSearchPageStateBase
     extends ConsumerState<SubjectSearchPage>
     with AutomaticKeepAliveClientMixin {
   /// 当前标签筛选条件
-  String? selectedTag;
+  final List<String> selectedTags = [];
+
+  /// 是否正在输入新标签。
+  bool addingTag = false;
+
+  final TextEditingController tagController = TextEditingController();
+  final FocusNode tagFocusNode = FocusNode();
+  final FocusNode searchFocusNode = FocusNode();
+
+  SubjectSearchQuery? _activeQuery;
+  int _searchVersion = 0;
 
   /// controller
   late BtcPageController controller = BtcPageController.defaultInit();
@@ -95,51 +122,70 @@ abstract class _SubjectSearchPageStateBase
   @override
   void initState() {
     super.initState();
-    selectedTag = _normalizeTag(widget.tag);
+    selectedTags.addAll(SubjectSearchQuery(tags: widget.initialTags).tags);
     controller.onChanged = onPageChanged;
-    if (selectedTag != null) Future.microtask(search);
+    if (selectedTags.isNotEmpty) Future.microtask(search);
   }
 
-  String? _normalizeTag(String? value) {
-    var normalized = value?.trim();
-    if (normalized == null || normalized.isEmpty) return null;
-    return normalized;
+  void _beginTagInput() {
+    setState(() => addingTag = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && addingTag) tagFocusNode.requestFocus();
+    });
   }
 
-  void _searchByTag(String tag) {
-    var normalizedTag = _normalizeTag(tag);
-    if (normalizedTag == null) return;
-
-    var title = SubjectSearchPage.titleForTag(normalizedTag);
-    ref
-        .read(navStoreProvider.notifier)
-        .addNavItem(
-          PaneItem(
-            icon: const Icon(FluentIcons.search),
-            title: Text(title),
-            body: SubjectSearchPage(tag: normalizedTag),
-          ),
-          title,
-        );
+  void _completeTagInput(String value) {
+    var tag = value.trim();
+    if (tag.isEmpty) {
+      BTToast.show(context, message: '请输入标签内容', icon: FluentIcons.info);
+      return;
+    }
+    _addSearchTag(tag);
+    setState(() {
+      addingTag = false;
+      tagController.clear();
+    });
+    searchFocusNode.requestFocus();
   }
 
-  List<String>? get tagFilter {
-    return selectedTag == null ? null : [selectedTag!];
+  void _cancelTagInput() {
+    setState(() {
+      addingTag = false;
+      tagController.clear();
+    });
+    searchFocusNode.requestFocus();
   }
 
-  String get pageTitle => SubjectSearchPage.titleForTag(widget.tag);
+  void _addSearchTag(String value) {
+    var tag = value.trim();
+    if (tag.isEmpty) return;
+    if (selectedTags.contains(tag)) {
+      BTToast.show(context, message: '标签「$tag」已在搜索条件中', icon: FluentIcons.info);
+      return;
+    }
+    setState(() => selectedTags.add(tag));
+    BTToast.show(context, message: '已添加标签「$tag」', icon: FluentIcons.check_mark);
+  }
 
-  @override
-  void didUpdateWidget(SubjectSearchPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.tag == widget.tag) return;
-
-    selectedTag = _normalizeTag(widget.tag);
-    _resetResults();
-    if (selectedTag != null) Future.microtask(search);
+  Future<void> _searchByTag(String value) async {
+    var tag = value.trim();
+    if (tag.isEmpty) return;
+    setState(() {
+      textController.clear();
+      selectedTags
+        ..clear()
+        ..add(tag);
+      addingTag = false;
+      tagController.clear();
+      _resetResults();
+    });
+    await search();
   }
 
   void _resetResults() {
+    _searchVersion++;
+    _activeQuery = null;
+    loading = false;
     offset = 0;
     totalResults = 0;
     result.clear();
@@ -152,27 +198,33 @@ abstract class _SubjectSearchPageStateBase
   void dispose() {
     controller.dispose();
     textController.dispose();
+    tagController.dispose();
+    tagFocusNode.dispose();
+    searchFocusNode.dispose();
     super.dispose();
   }
 
   /// 页面改变
   Future<void> onPageChanged(int page) async {
+    var query = _activeQuery;
+    if (query == null || loading) return;
     if (resultMap.containsKey('page_$page')) {
       setState(() => result = resultMap['page_$page']!);
       return;
     }
+    var searchVersion = _searchVersion;
     setState(() => loading = true);
     var repository = ref.read(bangumiRepositoryProvider);
     var resp = await repository.searchSubjects(
-      textController.text,
-      sort: sort,
-      type: types,
-      nsfw: nsfw,
+      query.keyword,
+      sort: query.sort,
+      type: query.types,
+      nsfw: query.nsfw,
       offset: (page - 1) * limit,
       limit: limit,
-      tag: tagFilter,
+      tag: query.tagFilter,
     );
-    if (!mounted) return;
+    if (!mounted || searchVersion != _searchVersion) return;
     if (resp.code != 0 || resp.data == null) {
       setState(() => loading = false);
       await showRespErr(resp, context);
@@ -187,32 +239,47 @@ abstract class _SubjectSearchPageStateBase
 
   /// 搜索
   Future<void> search() async {
-    var input = textController.text.trim();
-    if (input.isEmpty && selectedTag == null) {
+    if (loading) return;
+    if (addingTag) {
+      if (tagController.text.trim().isEmpty) {
+        _cancelTagInput();
+      } else {
+        _completeTagInput(tagController.text);
+      }
+    }
+    var query = SubjectSearchQuery(
+      keyword: textController.text,
+      tags: selectedTags,
+      types: types,
+      sort: sort,
+      nsfw: nsfw,
+    );
+    if (query.isEmpty) {
       _resetResults();
       setState(() {});
-      await BtInfobar.warn(context, '请输入搜索内容');
+      await BtInfobar.warn(context, '请输入条目名称或添加标签');
       return;
     }
     if (types.isEmpty) {
       await BtInfobar.warn(context, '请至少选择一个搜索类型');
       return;
     }
-    if (loading) return;
-    loading = true;
     _resetResults();
+    _activeQuery = query;
+    var searchVersion = _searchVersion;
+    loading = true;
     setState(() {});
     var repository = ref.read(bangumiRepositoryProvider);
     var resp = await repository.searchSubjects(
-      input,
-      sort: sort,
-      type: types,
-      nsfw: nsfw,
+      query.keyword,
+      sort: query.sort,
+      type: query.types,
+      nsfw: query.nsfw,
       offset: offset,
       limit: limit,
-      tag: tagFilter,
+      tag: query.tagFilter,
     );
-    if (!mounted) return;
+    if (!mounted || searchVersion != _searchVersion) return;
     if (resp.code != 0 || resp.data == null) {
       setState(() => loading = false);
       await showRespErr(resp, context);

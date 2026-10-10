@@ -20,8 +20,16 @@ class SubjectCardSearch extends ConsumerStatefulWidget {
   /// 标签点击回调
   final ValueChanged<String>? onTagTap;
 
+  /// 标签长按回调。
+  final ValueChanged<String>? onTagLongPress;
+
   /// 构造
-  const SubjectCardSearch(this.data, {super.key, this.onTagTap});
+  const SubjectCardSearch(
+    this.data, {
+    super.key,
+    this.onTagTap,
+    this.onTagLongPress,
+  });
 
   @override
   ConsumerState<SubjectCardSearch> createState() => _SubjectCardSearchState();
@@ -68,14 +76,21 @@ class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
   }
 
   Widget buildTag(String name, int count) {
+    var actions = [
+      if (widget.onTagTap != null) '点击搜索该标签',
+      if (widget.onTagLongPress != null) '长按添加到当前搜索',
+    ];
     return Tooltip(
-      message: '$name ($count)',
+      message: ['$name ($count)', ...actions].join('\n'),
       child: MouseRegion(
-        cursor: widget.onTagTap == null
+        cursor: widget.onTagTap == null && widget.onTagLongPress == null
             ? SystemMouseCursors.basic
             : SystemMouseCursors.click,
         child: GestureDetector(
           onTap: widget.onTagTap == null ? null : () => widget.onTagTap!(name),
+          onLongPress: widget.onTagLongPress == null
+              ? null
+              : () => widget.onTagLongPress!(name),
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(

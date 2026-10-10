@@ -7,11 +7,13 @@ mixin _SubjectSearchFilters on _SubjectSearchPageStateBase {
       leading: IconButton(
         icon: const Icon(FluentIcons.back),
         onPressed: () {
-          ref.read(navStoreProvider.notifier).removeNavItem(pageTitle);
+          ref
+              .read(navStoreProvider.notifier)
+              .removeNavItem(SubjectSearchPage.title);
         },
       ),
       title: Text(
-        pageTitle,
+        SubjectSearchPage.title,
         style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600),
       ),
     );
@@ -89,6 +91,9 @@ mixin _SubjectSearchFilters on _SubjectSearchPageStateBase {
               Expanded(
                 child: _AnimatedSearchBox(
                   controller: textController,
+                  focusNode: searchFocusNode,
+                  onAddTag: _beginTagInput,
+                  addingTag: addingTag,
                   onSubmitted: (_) async => await search(),
                   onClear: () {
                     textController.clear();
@@ -102,40 +107,70 @@ mixin _SubjectSearchFilters on _SubjectSearchPageStateBase {
               buildNsfwCheck(),
             ],
           ),
-          if (types.isNotEmpty || selectedTag != null) ...[
+          if (selectedTags.isNotEmpty || addingTag) ...[
             SizedBox(height: 8),
-            _buildSelectedFilterChips(),
+            _buildTagInputs(),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildSelectedFilterChips() {
-    var chips = types.map((type) {
-      return _FilterChip(
-        label: type.label,
-        isSelected: true,
-        onDeleted: () {
-          setState(() {
-            types.remove(type);
-          });
-        },
-      );
-    }).toList();
-    if (selectedTag != null) {
-      chips.add(
-        _FilterChip(
-          label: '标签: $selectedTag',
-          isSelected: true,
-          onDeleted: () {
-            selectedTag = null;
-            _resetResults();
-            setState(() {});
-          },
-        ),
-      );
-    }
-    return Wrap(spacing: 6, runSpacing: 4, children: chips);
+  Widget _buildTagInputs() {
+    var accentColor = FluentTheme.of(context).accentColor;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          for (var tag in selectedTags)
+            _FilterChip(
+              key: ValueKey(tag),
+              label: '标签: $tag',
+              isSelected: true,
+              onDeleted: () {
+                setState(() {
+                  selectedTags.remove(tag);
+                });
+              },
+            ),
+          if (addingTag)
+            SizedBox(
+              width: 200,
+              child: TextBox(
+                controller: tagController,
+                focusNode: tagFocusNode,
+                placeholder: '输入标签，回车确认',
+                style: BTTypography.caption(context),
+                decoration: WidgetStatePropertyAll(
+                  BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.1),
+                    borderRadius: BTRadius.roundBR,
+                    border: Border.all(color: accentColor),
+                  ),
+                ),
+                prefix: Padding(
+                  padding: EdgeInsets.only(left: 10),
+                  child: Icon(FluentIcons.tag, size: 12, color: accentColor),
+                ),
+                suffix: Tooltip(
+                  message: '取消添加标签',
+                  child: IconButton(
+                    icon: const Icon(
+                      FluentIcons.clear,
+                      size: 12,
+                      semanticLabel: '取消添加标签',
+                    ),
+                    onPressed: _cancelTagInput,
+                  ),
+                ),
+                onSubmitted: _completeTagInput,
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

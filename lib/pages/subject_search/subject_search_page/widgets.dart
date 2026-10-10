@@ -105,11 +105,17 @@ class _AnimatedSearchButtonState extends State<_AnimatedSearchButton>
 
 class _AnimatedSearchBox extends StatefulWidget {
   final TextEditingController controller;
+  final FocusNode focusNode;
+  final VoidCallback onAddTag;
+  final bool addingTag;
   final ValueChanged<String>? onSubmitted;
   final VoidCallback? onClear;
 
   const _AnimatedSearchBox({
     required this.controller,
+    required this.focusNode,
+    required this.onAddTag,
+    this.addingTag = false,
     this.onSubmitted,
     this.onClear,
   });
@@ -119,7 +125,6 @@ class _AnimatedSearchBox extends StatefulWidget {
 }
 
 class _AnimatedSearchBoxState extends State<_AnimatedSearchBox> {
-  final FocusNode _focusNode = FocusNode();
   bool _hasText = false;
 
   @override
@@ -132,7 +137,6 @@ class _AnimatedSearchBoxState extends State<_AnimatedSearchBox> {
   @override
   void dispose() {
     widget.controller.removeListener(_onTextChange);
-    _focusNode.dispose();
     super.dispose();
   }
 
@@ -145,51 +149,54 @@ class _AnimatedSearchBoxState extends State<_AnimatedSearchBox> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: TextBox(
-            controller: widget.controller,
-            focusNode: _focusNode,
-            placeholder: '搜索条目名称...',
-            placeholderStyle: TextStyle(
-              color: BTColors.textTertiary(context),
-              fontSize: 14,
-            ),
-            style: BTTypography.body(context),
-            onSubmitted: widget.onSubmitted,
-          ),
-        ),
-        if (_hasText) ...[
-          SizedBox(width: 8),
-          GestureDetector(
-            onTap: widget.onClear,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: AnimatedOpacity(
-                duration: BTTheme.animationDurationFast,
-                opacity: _hasText ? 1.0 : 0.0,
-                child: Container(
-                  padding: EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: BTColors.textSecondary(
-                      context,
-                    ).withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
+    return TextBox(
+      controller: widget.controller,
+      focusNode: widget.focusNode,
+      placeholder: '搜索条目名称...',
+      placeholderStyle: TextStyle(
+        color: BTColors.textTertiary(context),
+        fontSize: 14,
+      ),
+      style: BTTypography.body(context),
+      onSubmitted: widget.onSubmitted,
+      suffix: Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_hasText)
+              Tooltip(
+                message: '清除名称',
+                child: IconButton(
+                  icon: const Icon(
                     FluentIcons.clear,
-                    size: 12,
-                    color: BTColors.textSecondary(context),
+                    size: 14,
+                    semanticLabel: '清除名称',
                   ),
+                  onPressed: widget.onClear,
+                ),
+              ),
+            Tooltip(
+              message: '添加标签，回车确认',
+              child: Semantics(
+                label: '添加搜索标签',
+                button: true,
+                selected: widget.addingTag,
+                child: IconButton(
+                  icon: Icon(
+                    FluentIcons.tag,
+                    size: 14,
+                    color: widget.addingTag
+                        ? FluentTheme.of(context).accentColor
+                        : BTColors.textSecondary(context),
+                  ),
+                  onPressed: widget.onAddTag,
                 ),
               ),
             ),
-          ),
-          SizedBox(width: 8),
-        ] else
-          SizedBox(width: 12),
-      ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -201,6 +208,7 @@ class _FilterChip extends StatefulWidget {
   final VoidCallback? onTap;
 
   const _FilterChip({
+    super.key,
     required this.label,
     this.isSelected = false,
     this.onDeleted,
@@ -306,14 +314,18 @@ class _FilterChipState extends State<_FilterChip>
                 ),
                 if (widget.isSelected && widget.onDeleted != null) ...[
                   SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: widget.onDeleted,
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: Icon(
+                  Tooltip(
+                    message: '移除${widget.label}',
+                    child: IconButton(
+                      onPressed: widget.onDeleted,
+                      style: const ButtonStyle(
+                        padding: WidgetStatePropertyAll(EdgeInsets.all(2)),
+                      ),
+                      icon: Icon(
                         FluentIcons.chrome_close,
                         size: 9,
                         color: Colors.white.withValues(alpha: 0.9),
+                        semanticLabel: '移除${widget.label}',
                       ),
                     ),
                   ),
