@@ -84,7 +84,9 @@ cmake --build .dart_tool/playback_inference/build --config Release
 CRT 安装包。默认输出为 `.dart_tool/playback_inference/base`；现有输出只校验复用，
 依赖或 NOTICE 变化时须重新准备资源，可用 `-OutputDirectory` 指定新目录。
 
-开发构建和 release CI 已调用准备脚本。应用 CMake 构建垫片并安装为 `aji.dll`，
+本地发布脚本 `dev_build.ps1` 和 release CI 已调用准备脚本。直接使用
+`flutter run` / `flutter build` 前需先手工准备资源，CMake 只校验，不自动下载缺失资源。
+应用 CMake 构建垫片并安装为 `aji.dll`，
 配置及四个 CRT DLL 放在可执行文件旁，基础推理资源与许可放在 `playback_inference/`。
 SDK 头文件和 NVIDIA 大运行库不进入应用包；`verify_windows_bundle.ps1` 校验
 哈希、x64 PE、依赖闭合与模型 slot。第三方归属见 [NOTICE](THIRD_PARTY_NOTICES.txt)，
@@ -97,7 +99,10 @@ SDK 头文件和 NVIDIA 大运行库不进入应用包；`verify_windows_bundle.
 要求实际播放 D3D11 adapter 对应 NVIDIA CUDA device，驱动 API 版本至少 13040。
 
 用户在设置中主动下载组件，选择画质不会自行下载。组件按架构校验并安装到
-`%LOCALAPPDATA%/BangumiToday/playback-tensorrt/11.3.0.99/sm<架构>`；
+系统文档目录下的 `BangumiToday/playback-tensorrt/11.3.0.99/sm<架构>`，通常为
+`Documents/BangumiToday/playback-tensorrt/11.3.0.99/sm<架构>`；
+旧版 `%LOCALAPPDATA%/BangumiToday/playback-tensorrt` 中的已知数据会尝试迁移，
+实际路径以应用解析的目录为准，避免 MSIX 对 LocalAppData 的重定向差异。
 不安装 Toolkit、驱动或修改 PATH。开发者可独立准备：
 
 ```powershell
