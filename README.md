@@ -7,7 +7,7 @@ Update: 2026-10-11
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2026-10-11 18:28:06`
+> 更新于 `2026-10-11 18:33:28`
 
 <div style="width:100%;display:flex;justify-content:center;align-items:center;margin:0 auto">
     <a href="./assets/images/logo.png">
@@ -149,9 +149,12 @@ Windows 内置播放器提供 Anime4K 轻量、标准和高质量超分，默认
 - [BangumiOAuth](https://github.com/bangumi/api/blob/master/docs-raw/How-to-Auth.md)
 - [czy0729/Bangumi](https://github.com/czy0729/Bangumi)
 - [KNKPAnime](https://github.com/KNKPA/KNKPAnime)
+- [mpv-AnimeJaNai](https://github.com/the-database/mpv-AnimeJaNai/)
 
 ## Special Thanks（按照字典序）
 
+- [AniBT](https://anibt.net)
+- [Anime4k](https://github.com/bloc97/Anime4K)
 - [Bangumi.tv](https://bangumi.tv)
 - [BangumiData](https://github.com/bangumi-data/bangumi-data)
 
