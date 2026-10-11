@@ -1,4 +1,4 @@
-/// Remembers the non-normal rate used by the Z shortcut across app sessions.
+/// Remembers the latest non-normal rate for Z across app sessions.
 class PlaybackRateMemory {
   PlaybackRateMemory({required this.read, required this.write});
 
@@ -23,12 +23,19 @@ class PlaybackRateMemory {
   }
 
   /// Called serially by the playback store, together with applying the rate.
+  Future<void> remember(double current) async {
+    var rate = normalize(current);
+    await load();
+    if (rate == 1 || rate == _remembered) return;
+    await write(rate.toString());
+    _remembered = rate;
+  }
+
+  /// Switching to normal speed must not overwrite the remembered rate.
   Future<double> toggle(double current) async {
     await load();
     if ((current - 1).abs() < 0.000001) return _remembered ?? 1;
-    var rate = normalize(current);
-    await write(rate.toString());
-    _remembered = rate;
+    await remember(current);
     return 1;
   }
 

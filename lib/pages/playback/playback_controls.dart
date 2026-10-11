@@ -275,7 +275,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           '播放速度 ${PlaybackRateMemory.label(player.state.rate)}×',
           material.Icons.speed_rounded,
           detail: store.rememberedRate == null
-              ? '先调整倍速，再按 Z 记录并切回 1×'
+              ? '先调整倍速，之后可按 Z 切换 1× / 记忆倍速'
               : 'Z 可切换 1× / ${PlaybackRateMemory.label(store.rememberedRate!)}×',
         );
       case _PlaybackCommand.previous:

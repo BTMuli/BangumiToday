@@ -1047,14 +1047,21 @@ class PlaybackStore extends ChangeNotifier {
     _notify();
   });
 
-  Future<void> setRate(double rate) => _serial(() async {
-    await _player?.setRate(PlaybackRateMemory.normalize(rate));
-  });
+  Future<void> setRate(double rate) => _serial(() => _setRate(rate));
+
+  Future<void> _setRate(double rate) async {
+    var player = _player;
+    if (player == null) return;
+    rate = PlaybackRateMemory.normalize(rate);
+    await player.setRate(rate);
+    await _rateMemory.remember(rate);
+    _notify();
+  }
 
   Future<void> stepRate(double delta) => _serial(() async {
     var player = _player;
     if (player == null) return;
-    await player.setRate(PlaybackRateMemory.step(player.state.rate, delta));
+    await _setRate(PlaybackRateMemory.step(player.state.rate, delta));
   });
 
   Future<void> toggleRate() => _serial(() async {

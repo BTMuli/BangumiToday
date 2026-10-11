@@ -382,7 +382,7 @@ class _PlaybackShortcutHelp extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     const Text(
-                      'Z 会记住切回 1× 前的倍速，重启后仍可恢复',
+                      '调整倍速会自动记忆，重启后默认 1×，按 Z 恢复',
                       style: TextStyle(
                         color: material.Colors.white54,
                         fontSize: 11,
