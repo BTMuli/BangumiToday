@@ -36,6 +36,8 @@ class BmfCard extends ConsumerStatefulWidget {
   final String? imageUrl;
   final String? displayTitle;
   final String? seasonLabel;
+  final String? broadcastLabel;
+  final String? broadcastTooltip;
 
   const BmfCard({
     super.key,
@@ -49,6 +51,8 @@ class BmfCard extends ConsumerStatefulWidget {
     this.imageUrl,
     this.displayTitle,
     this.seasonLabel,
+    this.broadcastLabel,
+    this.broadcastTooltip,
   });
 
   @override
@@ -367,6 +371,39 @@ class _BmfCardState extends ConsumerState<BmfCard>
                     widget.seasonLabel ?? 'Bangumi #${bmf.subject}',
                     style: BTTypography.caption(context),
                   ),
+                  if (widget.broadcastLabel != null) ...[
+                    const SizedBox(height: 5),
+                    Tooltip(
+                      message:
+                          widget.broadcastTooltip ?? widget.broadcastLabel!,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: Icon(
+                              FluentIcons.clock,
+                              size: 11,
+                              color: widget.broadcastTooltip == null
+                                  ? BTColors.textTertiary(context)
+                                  : accentColor,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              widget.broadcastLabel!,
+                              style: BTTypography.caption(context).copyWith(
+                                color: widget.broadcastTooltip == null
+                                    ? BTColors.textTertiary(context)
+                                    : accentColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,

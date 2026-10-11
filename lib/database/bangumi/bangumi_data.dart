@@ -63,6 +63,13 @@ class BtsBangumiData {
   Future<List<BangumiDataItem>> readItems(String title) async =>
       (await DatasetStorage(_db).readItems(title)).map(_itemFromRow).toList();
 
+  /// 工作台按关联的 Bangumi ID 批量读取本地排期。
+  Future<List<BangumiDataItem>> readItemsForSubjects(
+    Set<int> subjectIds,
+  ) async => (await DatasetStorage(
+    _db,
+  ).readItemsForSubjects(subjectIds)).map(_itemFromRow).toList();
+
   /// 与首页共用的简体译名，按 Bangumi 条目 ID 查找。
   Future<String?> readSubjectNameCn(int subjectId) =>
       DatasetStorage(_db).readSubjectNameCn(subjectId);

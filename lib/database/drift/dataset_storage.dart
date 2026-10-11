@@ -22,6 +22,28 @@ class DatasetStorage {
             ..limit(1))
           .getSingleOrNull();
 
+  /// 按 Bangumi 站点 ID 批量读取排期，保留同一条目的多个放送档期。
+  Future<List<DataItemRow>> readItemsForSubjects(Set<int> subjectIds) async {
+    if (subjectIds.isEmpty) return [];
+    var placeholders = List.filled(subjectIds.length, '?').join(', ');
+    var rows = await db
+        .customSelect(
+          '''
+      SELECT item.* FROM BangumiDataItem AS item
+      WHERE EXISTS (
+        SELECT 1 FROM json_each(item.sites) AS site
+        WHERE json_extract(site.value, '\$.site') = 'bangumi'
+          AND json_extract(site.value, '\$.id') IN ($placeholders)
+      )
+      ORDER BY item.id
+      ''',
+          variables: subjectIds.map((id) => Variable(id.toString())).toList(),
+          readsFrom: {db.bangumiDataItem},
+        )
+        .get();
+    return rows.map((row) => db.bangumiDataItem.map(row.data)).toList();
+  }
+
   /// 按 Bangumi 站点 ID 取首个非空简体译名，避免原名差异或同名作品误匹配。
   Future<String?> readSubjectNameCn(int subjectId) async {
     var row = await db

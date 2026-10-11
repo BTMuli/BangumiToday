@@ -28,6 +28,8 @@ enum BmfUpdateFilter {
 
 enum BmfSortOrder {
   attention('待处理优先'),
+  recentEpisode('最近一话放送'),
+  nextEpisode('即将一话放送'),
   airDate('首播从新到旧'),
   rssPublished('最近资源发布'),
   title('标题 A → Z'),
@@ -38,6 +40,8 @@ enum BmfSortOrder {
 
   String get description => switch (this) {
     attention => '待处理更新置顶，其次为 RSS 有资源、RSS 暂无资源、未关联 RSS；组内按季度及最近资源发布排列',
+    recentEpisode => '按最近已放送一话的时间从新到旧排列，缺少排期的条目置后',
+    nextEpisode => '按接下来一话的放送时间从近到远排列，暂无后续排期的条目置后',
     airDate => '只按首播日期排列，日期未知的条目置后',
     rssPublished => '只按 RSS 资源发布时间排列，没有发布记录的条目置后',
     title => '按显示标题排列，同名条目保持固定顺序',
@@ -115,6 +119,16 @@ class BmfFilterModel {
   final Map<int, int> pendingCounts = {};
   final Map<int, int> rssItemCounts = {};
   final Map<int, DateTime> latestUpdateTimes = {};
+  final Map<int, BmfBroadcast> recentBroadcasts = {};
+  final Map<int, BmfBroadcast> nextBroadcasts = {};
+  bool nightMode = false;
+
+  /// 其他排序默认显示下一话，已经播完的条目显示最近一话。
+  BmfBroadcast? broadcastFor(AppBmfModel item) => switch (sortOrder) {
+    BmfSortOrder.recentEpisode => recentBroadcasts[item.subject],
+    BmfSortOrder.nextEpisode => nextBroadcasts[item.subject],
+    _ => nextBroadcasts[item.subject] ?? recentBroadcasts[item.subject],
+  };
 
   static bool hasRss(AppBmfModel item) => item.rss?.trim().isNotEmpty ?? false;
 
@@ -187,6 +201,23 @@ class BmfFilterModel {
   void applyFilter(List<AppBmfModel> bmfList, {DateTime? now}) {
     totalCount = bmfList.length;
     var at = now ?? DateTime.now();
+    recentBroadcasts.clear();
+    nextBroadcasts.clear();
+    for (var item in bmfList) {
+      var data = subjectData[item.subject];
+      var recent = data?.broadcastAt(
+        at: at,
+        upcoming: false,
+        nightMode: nightMode,
+      );
+      var next = data?.broadcastAt(
+        at: at,
+        upcoming: true,
+        nightMode: nightMode,
+      );
+      if (recent != null) recentBroadcasts[item.subject] = recent;
+      if (next != null) nextBroadcasts[item.subject] = next;
+    }
     var today = DateTime(at.year, at.month, at.day);
     var current = BmfQuarter.current(now: at);
     var years = bmfList.map((item) => quarterFor(item).year).toSet()
@@ -255,6 +286,19 @@ class BmfFilterModel {
   ) {
     var result = 0;
     switch (sortOrder) {
+      case BmfSortOrder.recentEpisode:
+        result = _compareDates(
+          recentBroadcasts[a.subject]?.time,
+          recentBroadcasts[b.subject]?.time,
+        );
+      case BmfSortOrder.nextEpisode:
+        var aTime = nextBroadcasts[a.subject]?.time;
+        var bTime = nextBroadcasts[b.subject]?.time;
+        result = aTime == null
+            ? (bTime == null ? 0 : 1)
+            : bTime == null
+            ? -1
+            : aTime.compareTo(bTime);
       case BmfSortOrder.attention:
         int resourcePriority(AppBmfModel item) {
           if (!hasRss(item)) return 3;

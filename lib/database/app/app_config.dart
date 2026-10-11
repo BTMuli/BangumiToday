@@ -27,6 +27,22 @@ class BtsAppConfig {
   /// 数据库
   BtDatabase get _db => BTSqlite().db;
 
+  /// 首页调整换日方式或更新数据集后，同步工作台的排期展示。
+  Stream<({String? dataVersion, bool nightMode})> watchCalendarSettings() =>
+      (_db.select(_db.appConfig)..where(
+            (table) =>
+                table.key.isIn(['bangumiDataVersion', 'calendarNightMode']),
+          ))
+          .watch()
+          .map((rows) {
+            var values = {for (var row in rows) row.key: row.value};
+            return (
+              dataVersion: values['bangumiDataVersion'],
+              nightMode: values['calendarNightMode'] == 'true',
+            );
+          })
+          .distinct();
+
   /// 读取配置-通用
   Future<String?> read(String key) async {
     var query = _db.select(_db.appConfig)
