@@ -7,9 +7,7 @@ Update: 2026-10-11
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-11 12:06:15`
 >
-> 更新于 `2026-10-11 17:07:12`
-
-> **项目目前处于开发阶段，不保证稳定性。**
+> 更新于 `2026-10-11 18:28:06`
 
 <div style="width:100%;display:flex;justify-content:center;align-items:center;margin:0 auto">
     <a href="./assets/images/logo.png">
