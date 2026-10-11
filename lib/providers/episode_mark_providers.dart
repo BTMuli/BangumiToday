@@ -46,10 +46,7 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
     var initialUser = ref.read(bgmUserStoreProvider);
     _observedAuthorization = (initialUser.user?.id, initialUser.accessToken);
     service = EpisodeMarkService(
-      gateway: BangumiEpisodeMarkGateway(
-        ref.read(bangumiRepositoryProvider),
-        ref.read(bangumiLocalDataSourceProvider),
-      ),
+      gateway: BangumiEpisodeMarkGateway(ref.read(bangumiRepositoryProvider)),
       accountSession: currentAccount,
       links: ref.read(playbackEpisodeLinksProvider),
     );

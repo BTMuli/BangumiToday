@@ -576,14 +576,8 @@ class EpisodeMarkService {
       observeProgress(candidate.subject, [
         candidate.episode.withDone(true),
       ], account: candidate.account);
-      // A successful remote write must still refresh UI if cache invalidation
-      // fails. Do not change epStatus or whole-subject collection type locally.
-      String? warning;
-      try {
-        await gateway.invalidateSubject(candidate.subject);
-      } catch (_) {
-        warning = '已标记看过，本地收藏缓存刷新失败，请手动刷新详情';
-      }
+      // The collection row also records whether the subject is collected.
+      // Keep it intact; listeners refresh remote progress through this event.
       if (_current(candidate.account)) {
         _refreshes.add(
           EpisodeMarkRefresh(
@@ -599,7 +593,6 @@ class EpisodeMarkService {
         done
             ? EpisodeMarkWriteStatus.alreadyDone
             : EpisodeMarkWriteStatus.marked,
-        message: warning,
       );
     } catch (error) {
       if (!_current(candidate.account)) {

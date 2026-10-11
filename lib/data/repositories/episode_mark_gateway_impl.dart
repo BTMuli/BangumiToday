@@ -3,7 +3,6 @@ import '../../domain/repositories/bangumi_repository.dart';
 import '../../domain/repositories/episode_mark_gateway.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
-import '../datasources/bangumi_local_data_source.dart';
 
 EpisodeMarkEpisode episodeMarkChapter(BangumiEpisode episode) =>
     EpisodeMarkEpisode(
@@ -27,10 +26,9 @@ EpisodeMarkEpisode episodeMarkProgress(BangumiUserEpisodeCollection value) =>
     );
 
 class BangumiEpisodeMarkGateway implements EpisodeMarkGateway {
-  BangumiEpisodeMarkGateway(this.repository, this.local);
+  BangumiEpisodeMarkGateway(this.repository);
 
   final BTBangumiRepository repository;
-  final BTBangumiLocalDataSource local;
 
   @override
   Future<EpisodeMarkPage> episodes(int subject, int offset) async {
@@ -95,8 +93,4 @@ class BangumiEpisodeMarkGateway implements EpisodeMarkGateway {
       throw EpisodeMarkFailure('标记看过失败：${response.message}');
     }
   }
-
-  @override
-  Future<void> invalidateSubject(int subject) =>
-      local.deleteCollection(subject);
 }
