@@ -24,6 +24,20 @@ class BtsAppPlayback {
     return rows.map((row) => PlaybackItem.fromRow(row.toJson())).toList();
   }
 
+  /// 当前条目的最近一次播放，进度写入与记录删除后自动更新。
+  Stream<PlaybackItem?> watchLatestForSubject(int subject) {
+    var query = db.select(db.appPlayback)
+      ..where((table) => table.subject.equals(subject))
+      ..orderBy([
+        (table) => OrderingTerm.desc(table.updatedAt),
+        (table) => OrderingTerm.asc(table.pathKey),
+      ])
+      ..limit(1);
+    return query.watchSingleOrNull().distinct().map(
+      (row) => row == null ? null : PlaybackItem.fromRow(row.toJson()),
+    );
+  }
+
   Future<PlaybackItem?> read(String filePath) async {
     var query = db.select(db.appPlayback)
       ..where((table) => table.pathKey.equals(PlaybackItem.pathKey(filePath)));

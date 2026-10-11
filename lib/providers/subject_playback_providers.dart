@@ -9,6 +9,7 @@ import '../core/errors/playback_unavailable.dart';
 import '../core/utils/playback_episode_files.dart';
 import '../data/repositories/episode_mark_gateway_impl.dart';
 import '../data/repositories/playback_episodes.dart';
+import '../database/app/app_playback.dart';
 import '../models/bangumi/bangumi_model.dart';
 import '../models/playback/playback_episode_link.dart';
 import '../models/playback/playback_item.dart';
@@ -17,6 +18,12 @@ import '../store/playback_store.dart';
 import 'bangumi_providers.dart';
 import 'bmf_providers.dart';
 import 'playback_episode_link_providers.dart';
+
+/// 直接监听持久化记录，浏览详情无需初始化播放器或扫描本地目录。
+final subjectPlaybackHistoryProvider = StreamProvider.autoDispose
+    .family<PlaybackItem?, int>((ref, subject) {
+      return BtsAppPlayback().watchLatestForSubject(subject);
+    });
 
 final subjectFileEpisodesProvider = FutureProvider.autoDispose
     .family<List<BangumiEpisode>, int>((ref, subject) async {

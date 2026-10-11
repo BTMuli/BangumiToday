@@ -16,6 +16,7 @@ import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/common/bt_card.dart';
+import 'subject_continue_playback_button.dart';
 import 'subject_detail_rate_chart.dart';
 import 'subject_detail_view_data.dart';
 
@@ -218,7 +219,12 @@ class SubjectDetailOverview extends StatelessWidget {
             if (view.user != null) ...[
               view.buildCollection(compact: true),
               Button(onPressed: onShowEpisodes, child: Text('观看进度 $progress')),
-            ] else
+            ],
+            SubjectContinuePlaybackButton(
+              key: ValueKey(subject.id),
+              subject: subject.id,
+            ),
+            if (view.user == null)
               Text('登录后可收藏和记录进度', style: BTTypography.caption(context)),
           ],
         );
