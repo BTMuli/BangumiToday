@@ -23,6 +23,11 @@ class _EpisodePageEntry {
 class BTBangumiRepositoryImpl implements BTBangumiRepository {
   final BTBangumiRemoteDataSource _remoteDataSource;
   final BTBangumiLocalDataSource _localDataSource;
+  final BangumiAccountSession Function() _accountSession;
+  final _subjectRevisions = <int, int>{};
+  final _pendingWrites = <(BangumiAccountSession, int)>{};
+  int _snapshotRevision = 0;
+  int _collectionRevision = 0;
 
   // 首屏预取、剧集展示和本地文件匹配共用短期分页，避免先后重复请求。
   // 仅缓存公开章节，不缓存用户观看状态；显式刷新会清除整个条目的分页。
@@ -33,8 +38,24 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   BTBangumiRepositoryImpl({
     required BTBangumiRemoteDataSource remoteDataSource,
     required BTBangumiLocalDataSource localDataSource,
+    required BangumiAccountSession Function() accountSession,
   }) : _remoteDataSource = remoteDataSource,
-       _localDataSource = localDataSource;
+       _localDataSource = localDataSource,
+       _accountSession = accountSession;
+
+  bool _current(BangumiAccountSession session) =>
+      session.username != null && session == _accountSession();
+
+  (int, int) _version(int subject) =>
+      (_snapshotRevision, _subjectRevisions[subject] ?? 0);
+
+  void _touch(int subject) {
+    _subjectRevisions.update(subject, (value) => value + 1, ifAbsent: () => 1);
+    _collectionRevision++;
+  }
+
+  BTResponse<T> _changed<T>() =>
+      BTResponse(code: 409, message: '账号或收藏状态已变化，请重新刷新', data: null);
 
   @override
   Future<BTResponse<List<BangumiCalendarRespData>>> getToday() async {
@@ -183,7 +204,9 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
 
   @override
   Future<BTResponse<BangumiUser>> getUserInfo() async {
-    return await _remoteDataSource.getUserInfo();
+    var session = _accountSession();
+    var result = await _remoteDataSource.getUserInfo();
+    return session == _accountSession() ? result : _changed();
   }
 
   @override
@@ -195,20 +218,121 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     int? limit,
     int? offset,
   }) async {
+    var session = _accountSession();
+    if (!_current(session) ||
+        (username != null && username != '-' && username != session.username)) {
+      return _changed();
+    }
     var remote = await _remoteDataSource.getCollectionSubjects(
-      username: username,
+      username: session.username,
       subjectType: subjectType,
       collectionType: collectionType,
       limit: limit,
       offset: offset,
+      authScope: () => _current(session),
     );
-    if (remote.code == 0 && remote.data != null) {
-      await _localDataSource.writeList(remote.data!.data);
-    }
-    // 远程失败时不能回退成本地缓存的“成功”响应：刷新流程只判断 code，
-    // 回退会让 5xx（如 502）被当成“收藏写入完成”。本地缓存由
-    // getLocalCollections 直接提供给展示层，这里的失败照常上抛。
+    if (!_current(session)) return _changed();
+    // A page is not a complete snapshot. syncCollections owns persistence;
+    // failures also stay failures instead of falling back to a cached success.
     return remote;
+  }
+
+  @override
+  Future<BTResponse<void>> syncCollections({
+    BangumiCollectionType? type,
+    void Function(int completed, int total)? onProgress,
+  }) async {
+    var session = _accountSession();
+    var revision = _collectionRevision;
+    bool current() =>
+        _current(session) &&
+        revision == _collectionRevision &&
+        !_pendingWrites.any((key) => key.$1 == session);
+    if (!current()) return _changed();
+    var items = <BangumiUserSubjectCollection>[];
+    var ids = <int>{};
+    int? total;
+    var offset = 0;
+    const limit = 50;
+    try {
+      while (true) {
+        var response = await _remoteDataSource.getCollectionSubjects(
+          username: session.username,
+          collectionType: type,
+          limit: limit,
+          offset: offset,
+          authScope: current,
+        );
+        if (!current()) return _changed();
+        var page = response.data;
+        if (response.code != 0 || page == null) {
+          return BTResponse(
+            code: response.code == 0 ? 666 : response.code,
+            message: response.message,
+            data: null,
+          );
+        }
+        total ??= page.total;
+        if (page.offset != offset ||
+            page.total != total ||
+            total < 0 ||
+            page.data.length > limit ||
+            offset + page.data.length > total ||
+            (page.data.isEmpty && offset < total) ||
+            page.data.any(
+              (item) =>
+                  item.subjectId != item.subject.id ||
+                  (type != null && item.type != type) ||
+                  !ids.add(item.subjectId),
+            )) {
+          return BTResponse(code: 409, message: '收藏分页不完整或已变化，请重试', data: null);
+        }
+        items.addAll(page.data);
+        offset += page.data.length;
+        onProgress?.call(offset, total);
+        if (offset >= total) break;
+      }
+      if (type != null) {
+        // Absence from a category can mean a move to another category. Resolve
+        // those rows before applying deletions, keeping all writes atomic.
+        var previous = await _localDataSource.getByType(type);
+        if (!current()) return _changed();
+        for (var old in previous.where(
+          (item) => !ids.contains(item.subjectId),
+        )) {
+          var response = await _remoteDataSource.getCollectionSubject(
+            session.username!,
+            old.subjectId,
+            fresh: true,
+            authScope: current,
+          );
+          if (!current()) return _changed();
+          if (response.code == 404) continue;
+          var item = response.data;
+          if (response.code != 0 ||
+              item == null ||
+              item.subjectId != old.subjectId ||
+              item.subject.id != old.subjectId) {
+            return BTResponse(
+              code: response.code == 0 ? 666 : response.code,
+              message: '核对收藏状态失败，请重试：${response.message}',
+              data: null,
+            );
+          }
+          items.add(item);
+        }
+      }
+      var saved = await _localDataSource.writeScoped(
+        () => _localDataSource.replaceCollections(items, type: type),
+        isCurrent: current,
+      );
+      if (!saved) return _changed();
+      _snapshotRevision++;
+      _collectionRevision++;
+      return BTResponse(code: 0, message: '收藏同步完成', data: null);
+    } catch (error) {
+      return BTResponse(code: 666, message: '同步收藏失败：$error', data: null);
+    }
   }
 
   @override
@@ -216,19 +340,69 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     String username,
     int subjectId,
   ) async {
+    var session = _accountSession();
+    if (username != '-' && username != session.username) return _changed();
+    return _readCollectionSubject(session, subjectId, removeMissing: true);
+  }
+
+  @override
+  Future<BTResponse<BangumiUserSubjectCollection>> refreshCollectionSubject(
+    int subjectId, {
+    bool Function()? authScope,
+  }) => _readCollectionSubject(
+    _accountSession(),
+    subjectId,
+    fresh: true,
+    authScope: authScope,
+  );
+
+  Future<BTResponse<BangumiUserSubjectCollection>> _readCollectionSubject(
+    BangumiAccountSession session,
+    int subjectId, {
+    bool removeMissing = false,
+    bool fresh = false,
+    bool Function()? authScope,
+    bool afterWrite = false,
+  }) async {
+    var version = _version(subjectId);
+    bool current() =>
+        _current(session) &&
+        version == _version(subjectId) &&
+        (afterWrite || !_pendingWrites.contains((session, subjectId))) &&
+        (authScope?.call() ?? true);
+    if (!current()) return _changed();
     var remote = await _remoteDataSource.getCollectionSubject(
-      username,
+      session.username!,
       subjectId,
+      fresh: fresh,
+      authScope: current,
     );
+    if (!current()) return _changed();
     if (remote.code == 0 && remote.data != null) {
-      await _localDataSource.insertCollection(remote.data!);
+      if (remote.data!.subjectId != subjectId ||
+          remote.data!.subject.id != subjectId) {
+        return BTResponse(code: 666, message: '收藏条目身份不匹配', data: null);
+      }
+      var saved = await _localDataSource.writeScoped(
+        () => _localDataSource.insertCollection(remote.data!),
+        isCurrent: current,
+      );
+      if (!saved) return _changed();
+      _touch(subjectId);
       return remote;
     }
-    if (remote.code == 404) {
-      await _localDataSource.deleteCollection(subjectId);
+    if (remote.code == 404 && removeMissing) {
+      var saved = await _localDataSource.writeScoped(
+        () => _localDataSource.deleteCollection(subjectId),
+        isCurrent: current,
+      );
+      if (!saved) return _changed();
+      _touch(subjectId);
       return remote;
     }
+    if (!removeMissing) return remote;
     var cached = await _localDataSource.getCollection(subjectId);
+    if (!current()) return _changed();
     if (cached != null) {
       return BTResponse.success(data: cached);
     }
@@ -236,12 +410,8 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   }
 
   @override
-  Future<BTResponse<void>> addCollectionSubject(int subjectId) async {
-    var remote = await _remoteDataSource.addCollectionSubject(subjectId);
-    if (remote.code != 0) return remote;
-    await _patchLocalCollection(subjectId);
-    return remote;
-  }
+  Future<BTResponse<void>> addCollectionSubject(int subjectId) =>
+      _writeCollection(subjectId, add: true, type: BangumiCollectionType.wish);
 
   @override
   Future<BTResponse<void>> updateCollectionSubject(
@@ -253,33 +423,20 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     String? comment,
     bool? private,
     List<String>? tags,
-  }) async {
-    var remote = await _remoteDataSource.updateCollectionSubject(
-      subjectId,
-      type: type,
-      rate: rate,
-      ep: ep,
-      vol: vol,
-      comment: comment,
-      private: private,
-      tags: tags,
-    );
-    if (remote.code != 0) return remote;
-    await _patchLocalCollection(
-      subjectId,
-      type: type,
-      rate: rate,
-      ep: ep,
-      vol: vol,
-      comment: comment,
-      private: private,
-      tags: tags,
-    );
-    return remote;
-  }
+  }) => _writeCollection(
+    subjectId,
+    type: type,
+    rate: rate,
+    ep: ep,
+    vol: vol,
+    comment: comment,
+    private: private,
+    tags: tags,
+  );
 
-  Future<void> _patchLocalCollection(
+  Future<BTResponse<void>> _writeCollection(
     int subjectId, {
+    bool add = false,
     BangumiCollectionType? type,
     int? rate,
     int? ep,
@@ -288,8 +445,83 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     bool? private,
     List<String>? tags,
   }) async {
+    var session = _accountSession();
+    var key = (session, subjectId);
+    if (!_current(session) || !_pendingWrites.add(key)) return _changed();
+    _touch(subjectId);
+    var version = _version(subjectId);
+    bool current() => _current(session) && version == _version(subjectId);
+    try {
+      var remote = add
+          ? await _remoteDataSource.addCollectionSubject(
+              subjectId,
+              authScope: current,
+            )
+          : await _remoteDataSource.updateCollectionSubject(
+              subjectId,
+              type: type,
+              rate: rate,
+              ep: ep,
+              vol: vol,
+              comment: comment,
+              private: private,
+              tags: tags,
+              authScope: current,
+            );
+      if (!current()) return _changed();
+      if (remote.code != 0) return remote;
+      return await _patchLocalCollection(
+        session,
+        subjectId,
+        version,
+        type: type,
+        rate: rate,
+        ep: ep,
+        vol: vol,
+        comment: comment,
+        private: private,
+        tags: tags,
+      );
+    } finally {
+      _pendingWrites.remove(key);
+    }
+  }
+
+  Future<BTResponse<void>> _patchLocalCollection(
+    BangumiAccountSession session,
+    int subjectId,
+    (int, int) version, {
+    BangumiCollectionType? type,
+    int? rate,
+    int? ep,
+    int? vol,
+    String? comment,
+    bool? private,
+    List<String>? tags,
+  }) async {
+    bool current() => _current(session) && version == _version(subjectId);
     var existing = await _localDataSource.getCollection(subjectId);
-    if (existing == null) return;
+    if (!current()) return _changed();
+    if (existing == null) {
+      var fresh = await _readCollectionSubject(
+        session,
+        subjectId,
+        fresh: true,
+        authScope: current,
+        afterWrite: true,
+      );
+      return BTResponse(
+        code: fresh.code == 0 && fresh.data != null
+            ? 0
+            : fresh.code == 0
+            ? 666
+            : fresh.code,
+        message: fresh.code == 0 && fresh.data != null
+            ? '收藏同步完成'
+            : '收藏已保存，本地同步失败，请刷新收藏：${fresh.message}',
+        data: null,
+      );
+    }
     if (type != null) existing.type = type;
     if (rate != null) existing.rate = rate;
     if (ep != null) existing.epStatus = ep;
@@ -297,7 +529,14 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     if (comment != null) existing.comment = comment;
     if (private != null) existing.private = private;
     if (tags != null) existing.tags = tags;
-    await _localDataSource.updateCollection(existing);
+    existing.updatedAt = DateTime.now().toUtc().toIso8601String();
+    var saved = await _localDataSource.writeScoped(
+      () => _localDataSource.updateCollection(existing),
+      isCurrent: current,
+    );
+    if (!saved) return _changed();
+    _touch(subjectId);
+    return BTResponse(code: 0, message: '收藏同步完成', data: null);
   }
 
   @override
@@ -337,24 +576,52 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   }
 
   @override
-  Future<Set<int>> getCollectedSubjectIds() {
-    return _localDataSource.getAllSubjectIds();
+  Future<Set<int>> getCollectedSubjectIds() async {
+    var session = _accountSession();
+    if (!_current(session)) return {};
+    var ids = await _localDataSource.getAllSubjectIds();
+    return _current(session) ? ids : {};
   }
 
   @override
-  Stream<Map<int, BangumiCollectionType>> watchLocalCollectionTypes() =>
-      _localDataSource.watchCollectionTypes();
+  Stream<Map<int, BangumiCollectionType>> watchLocalCollectionTypes() {
+    var session = _accountSession();
+    if (!_current(session)) return Stream.value(const {});
+    return _localDataSource.watchCollectionTypes().map(
+      (types) => _current(session) ? types : const {},
+    );
+  }
+
+  @override
+  Stream<List<BangumiUserSubjectCollection>> watchLocalCollections({
+    BangumiCollectionType? type,
+  }) {
+    var session = _accountSession();
+    if (!_current(session)) return Stream.value(const []);
+    return _localDataSource
+        .watchCollections(type: type)
+        .map((items) => _current(session) ? items : const []);
+  }
 
   @override
   Future<List<BangumiUserSubjectCollection>> getLocalCollections({
     BangumiCollectionType? type,
   }) async {
-    if (type == null) return _localDataSource.getCollections();
-    return _localDataSource.getByType(type);
+    var session = _accountSession();
+    if (!_current(session)) return [];
+    var items = type == null
+        ? await _localDataSource.getCollections()
+        : await _localDataSource.getByType(type);
+    return _current(session) ? items : [];
   }
 
   @override
-  Future<BangumiUserSubjectCollection?> getLocalCollection(int subjectId) {
-    return _localDataSource.getCollection(subjectId);
+  Future<BangumiUserSubjectCollection?> getLocalCollection(
+    int subjectId,
+  ) async {
+    var session = _accountSession();
+    if (!_current(session)) return null;
+    var item = await _localDataSource.getCollection(subjectId);
+    return _current(session) ? item : null;
   }
 }

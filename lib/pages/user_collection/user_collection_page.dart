@@ -166,6 +166,7 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
 
   /// 刷新用户收藏
   Future<void> refreshCollection() async {
+    if (progress.isShow) return;
     if (_user.user == null) {
       if (mounted) await BtInfobar.error(context, '未找到用户信息');
       return;
@@ -176,53 +177,26 @@ class _UserCollectionPageState extends ConsumerState<UserCollectionPage>
       text: '正在刷新收藏信息',
       onTaskbar: true,
     );
-    const limit = 50;
-    var offset = 0;
     var repository = ref.read(bangumiRepositoryProvider);
-    var resp = await repository.getCollectionSubjects(
-      username: ref.read(bgmUserStoreProvider).user!.id.toString(),
-      limit: limit,
-      offset: offset,
-    );
-    if (resp.code != 0 || resp.data == null) {
+    try {
+      var resp = await repository.syncCollections(
+        onProgress: (completed, total) {
+          if (!mounted) return;
+          progress.update(
+            text: '获取收藏信息：$completed/$total',
+            progress: total == 0 ? 100 : completed * 100 / total,
+          );
+        },
+      );
       progress.end();
-      if (mounted) await showRespErr(resp, context);
-      return;
-    }
-    var pageResp = resp.data!;
-    var total = pageResp.total;
-    var count = 0;
-    while (true) {
-      offset += pageResp.data.length;
-      for (var item in pageResp.data) {
-        count++;
-        progress.update(
-          title: '写入收藏信息：$count/$total',
-          text: '[${item.subject.id}] ${item.subject.name}',
-          progress: count * 100 / total,
-        );
+      if (!mounted) return;
+      if (resp.code != 0) {
+        await showRespErr(resp, context);
+      } else {
+        await BtInfobar.success(context, '收藏信息同步完成');
       }
-      if (offset >= total) {
-        progress.end();
-        if (mounted) await BtInfobar.success(context, '收藏信息写入完成');
-        return;
-      }
-      progress.update(
-        title: '获取收藏信息',
-        text: '偏移：$offset，总计：$total',
-        progress: count * 100 / total,
-      );
-      resp = await repository.getCollectionSubjects(
-        username: ref.read(bgmUserStoreProvider).user!.id.toString(),
-        limit: limit,
-        offset: offset,
-      );
-      if (resp.code != 0 || resp.data == null) {
-        progress.end();
-        if (mounted) await showRespErr(resp, context);
-        return;
-      }
-      pageResp = resp.data!;
+    } finally {
+      progress.end();
     }
   }
 

@@ -4,6 +4,8 @@ import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/request_subject.dart';
 
+typedef BangumiAccountSession = ({String? username, int generation});
+
 abstract class BTBangumiRepository {
   Future<BTResponse<List<BangumiCalendarRespData>>> getToday();
 
@@ -66,6 +68,18 @@ abstract class BTBangumiRepository {
     int? offset,
   });
 
+  /// Fetch a complete account/type snapshot before replacing local records.
+  Future<BTResponse<void>> syncCollections({
+    BangumiCollectionType? type,
+    void Function(int completed, int total)? onProgress,
+  });
+
+  /// Refresh authoritative progress without deleting a collection on failure.
+  Future<BTResponse<BangumiUserSubjectCollection>> refreshCollectionSubject(
+    int subjectId, {
+    bool Function()? authScope,
+  });
+
   Future<BTResponse<BangumiUserSubjectCollection>> getCollectionSubject(
     String username,
     int subjectId,
@@ -107,6 +121,10 @@ abstract class BTBangumiRepository {
 
   /// 本地收藏 ID 与状态快照，供日历响应收藏变化。
   Stream<Map<int, BangumiCollectionType>> watchLocalCollectionTypes();
+
+  Stream<List<BangumiUserSubjectCollection>> watchLocalCollections({
+    BangumiCollectionType? type,
+  });
 
   /// 本地收藏列表，供收藏 Tab 首屏。
   Future<List<BangumiUserSubjectCollection>> getLocalCollections({

@@ -59,14 +59,20 @@ abstract class BTBangumiRemoteDataSource {
     BangumiCollectionType? collectionType,
     int? limit,
     int? offset,
+    bool Function()? authScope,
   });
 
   Future<BTResponse<BangumiUserSubjectCollection>> getCollectionSubject(
     String username,
-    int subjectId,
-  );
+    int subjectId, {
+    bool fresh = false,
+    bool Function()? authScope,
+  });
 
-  Future<BTResponse<void>> addCollectionSubject(int subjectId);
+  Future<BTResponse<void>> addCollectionSubject(
+    int subjectId, {
+    bool Function()? authScope,
+  });
 
   Future<BTResponse<void>> updateCollectionSubject(
     int subjectId, {
@@ -77,6 +83,7 @@ abstract class BTBangumiRemoteDataSource {
     String? comment,
     bool? private,
     List<String>? tags,
+    bool Function()? authScope,
   });
 
   Future<BTResponse<BangumiPageT<BangumiUserEpisodeCollection>>>

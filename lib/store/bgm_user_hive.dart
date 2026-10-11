@@ -7,6 +7,7 @@ import 'package:hive_ce/hive_ce.dart';
 
 // Project imports:
 import '../core/container.dart';
+import '../database/bangumi/bangumi_collection.dart';
 import '../database/bangumi/bangumi_user.dart';
 import '../models/app/response.dart';
 import '../models/bangumi/bangumi_model.dart';
@@ -30,6 +31,7 @@ class BgmUserState {
     this.accessToken,
     this.refreshToken,
     this.expireTime,
+    this.sessionGeneration = 0,
   });
 
   /// 当前登录用户
@@ -44,6 +46,9 @@ class BgmUserState {
   /// expireTime
   final DateTime? expireTime;
 
+  /// Changes on logout or a new login; token renewal keeps the same session.
+  final int sessionGeneration;
+
   /// 是否已登录
   bool get loggedIn => user != null;
 
@@ -54,7 +59,8 @@ class BgmUserState {
     return identical(user, other.user) &&
         accessToken == other.accessToken &&
         refreshToken == other.refreshToken &&
-        expireTime == other.expireTime;
+        expireTime == other.expireTime &&
+        sessionGeneration == other.sessionGeneration;
   }
 
   @override
@@ -63,6 +69,7 @@ class BgmUserState {
     accessToken,
     refreshToken,
     expireTime,
+    sessionGeneration,
   );
 }
 
@@ -155,12 +162,17 @@ class BgmUserStore extends Notifier<BgmUserState> {
       expireTime: expireTime,
     );
     await box.put('user', BgmUserHiveModel(user: user, expireTime: expireTime));
+    await BtsBangumiCollection().setOwner(
+      user?.id.toString(),
+      adoptLegacy: true,
+    );
     state = recovered;
   }
 
   /// 删除用户
   Future<void> deleteUser() async {
-    state = const BgmUserState();
+    state = BgmUserState(sessionGeneration: state.sessionGeneration + 1);
+    await BtsBangumiCollection().setOwner(null);
     await sqlite.deleteUser();
     await sqlite.deleteAccessToken();
     await sqlite.deleteRefreshToken();
@@ -170,12 +182,27 @@ class BgmUserStore extends Notifier<BgmUserState> {
 
   /// 更新用户数据
   Future<void> updateUser(BangumiUser user) async {
-    await sqlite.writeUser(user);
+    if (state.user?.id != user.id) {
+      state = BgmUserState(
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        expireTime: state.expireTime,
+        sessionGeneration: state.sessionGeneration + 1,
+      );
+    }
+    var generation = state.sessionGeneration;
+    var collections = BtsBangumiCollection();
+    var saved = await collections.writeScoped(() async {
+      await collections.setOwner(user.id.toString());
+      await sqlite.writeUser(user);
+    }, isCurrent: () => state.sessionGeneration == generation);
+    if (!saved) return;
     state = BgmUserState(
       user: user,
       accessToken: state.accessToken,
       refreshToken: state.refreshToken,
       expireTime: state.expireTime,
+      sessionGeneration: generation,
     );
     await box.put('user', _model());
   }
@@ -188,7 +215,16 @@ class BgmUserStore extends Notifier<BgmUserState> {
     required String accessToken,
     required String refreshToken,
     required int expiresIn,
+    bool newSession = false,
   }) async {
+    if (newSession) {
+      // Hide the previous account immediately, but keep its owned cache until
+      // user info establishes the new identity. Reauthorizing the same account
+      // must not discard all collections; a different owner clears them there.
+      state = BgmUserState(sessionGeneration: state.sessionGeneration + 1);
+      await sqlite.deleteUser();
+      await box.put('user', _model());
+    }
     await sqlite.writeAccessToken(accessToken);
     await sqlite.writeRefreshToken(refreshToken);
     await sqlite.writeExpireTime(expiresIn);
@@ -198,6 +234,7 @@ class BgmUserStore extends Notifier<BgmUserState> {
       accessToken: accessToken,
       refreshToken: refreshToken,
       expireTime: await sqlite.readExpireTime(),
+      sessionGeneration: state.sessionGeneration,
     );
     await box.put('user', _model());
   }

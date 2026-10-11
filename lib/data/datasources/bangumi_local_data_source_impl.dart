@@ -41,6 +41,23 @@ class BTBangumiLocalDataSourceImpl implements BTBangumiLocalDataSource {
       _db.watchTypes();
 
   @override
+  Stream<List<BangumiUserSubjectCollection>> watchCollections({
+    BangumiCollectionType? type,
+  }) => _db.watchAll(type: type);
+
+  @override
+  Future<bool> writeScoped(
+    Future<void> Function() write, {
+    required bool Function() isCurrent,
+  }) => _db.writeScoped(write, isCurrent: isCurrent);
+
+  @override
+  Future<void> replaceCollections(
+    List<BangumiUserSubjectCollection> collections, {
+    BangumiCollectionType? type,
+  }) => _db.replaceAll(collections, type: type);
+
+  @override
   Future<BangumiUserSubjectCollection?> getCollection(int subjectId) async {
     return await _db.read(subjectId);
   }
@@ -72,9 +89,6 @@ class BTBangumiLocalDataSourceImpl implements BTBangumiLocalDataSource {
 
   @override
   Future<void> clearAll() async {
-    var collections = await _db.getAll();
-    for (var c in collections) {
-      await _db.delete(c.subjectId);
-    }
+    await _db.setOwner(null);
   }
 }

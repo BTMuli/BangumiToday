@@ -135,6 +135,7 @@ class BTBangumiRemoteDataSourceImpl implements BTBangumiRemoteDataSource {
     BangumiCollectionType? collectionType,
     int? limit,
     int? offset,
+    bool Function()? authScope,
   }) async {
     var response = await _api.getCollectionSubjects(
       username: username ?? '-',
@@ -142,6 +143,7 @@ class BTBangumiRemoteDataSourceImpl implements BTBangumiRemoteDataSource {
       collectionType: collectionType,
       limit: limit,
       offset: offset,
+      authScope: authScope,
     );
     return BTResponse(
       code: response.code,
@@ -153,19 +155,34 @@ class BTBangumiRemoteDataSourceImpl implements BTBangumiRemoteDataSource {
   @override
   Future<BTResponse<BangumiUserSubjectCollection>> getCollectionSubject(
     String username,
-    int subjectId,
-  ) async {
-    var response = await _api.getCollectionSubject(username, subjectId);
+    int subjectId, {
+    bool fresh = false,
+    bool Function()? authScope,
+  }) async {
+    var response = await _api.getCollectionSubject(
+      username,
+      subjectId,
+      deduplicate: !fresh,
+      authScope: authScope,
+    );
     return BTResponse(
       code: response.code,
       message: response.message,
-      data: response.data as BangumiUserSubjectCollection?,
+      data: response.code == 0
+          ? response.data as BangumiUserSubjectCollection?
+          : null,
     );
   }
 
   @override
-  Future<BTResponse<void>> addCollectionSubject(int subjectId) async {
-    var response = await _api.addCollectionSubject(subjectId);
+  Future<BTResponse<void>> addCollectionSubject(
+    int subjectId, {
+    bool Function()? authScope,
+  }) async {
+    var response = await _api.addCollectionSubject(
+      subjectId,
+      authScope: authScope,
+    );
     return BTResponse(
       code: response.code,
       message: response.message,
@@ -183,6 +200,7 @@ class BTBangumiRemoteDataSourceImpl implements BTBangumiRemoteDataSource {
     String? comment,
     bool? private,
     List<String>? tags,
+    bool Function()? authScope,
   }) async {
     var response = await _api.updateCollectionSubject(
       subjectId,
@@ -193,6 +211,7 @@ class BTBangumiRemoteDataSourceImpl implements BTBangumiRemoteDataSource {
       comment: comment,
       private: private,
       tags: tags,
+      authScope: authScope,
     );
     return BTResponse(
       code: response.code,

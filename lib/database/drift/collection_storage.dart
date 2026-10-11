@@ -10,6 +10,65 @@ class CollectionStorage {
   const CollectionStorage(this.db);
   final BtDatabase db;
 
+  /// A single-account cache keeps its owner across restarts. Only the first
+  /// upgrade may adopt legacy rows for the already signed-in account.
+  Future<void> setOwner(String? username, {bool adoptLegacy = false}) =>
+      db.transaction(() async {
+        const key = 'bangumiCollectionOwner';
+        var owner = await (db.select(
+          db.appConfig,
+        )..where((row) => row.key.equals(key))).getSingleOrNull();
+        var next = username ?? '';
+        if (username == null ||
+            (owner?.value != next && !(owner == null && adoptLegacy))) {
+          await db.delete(db.bangumiCollection).go();
+        }
+        await db
+            .into(db.appConfig)
+            .insertOnConflictUpdate(
+              AppConfigCompanion.insert(key: key, value: next),
+            );
+      });
+
+  /// Recheck after asynchronous writes too: a logout during the transaction
+  /// must roll back the old response rather than repopulate another account.
+  Future<bool> writeScoped(
+    Future<void> Function() write, {
+    required bool Function() isCurrent,
+  }) async {
+    try {
+      return await db.transaction(() async {
+        if (!isCurrent()) return false;
+        await write();
+        if (!isCurrent()) throw const _CollectionScopeChanged();
+        return true;
+      });
+    } on _CollectionScopeChanged {
+      return false;
+    }
+  }
+
+  Future<void> replaceAll(
+    Iterable<BangumiCollectionCompanion> collections, {
+    int? type,
+  }) => db.transaction(() async {
+    var rows = collections.toList(growable: false);
+    var ids = rows.map((row) => row.subjectId.value).toSet();
+    await saveAll(rows);
+    var table = db.bangumiCollection;
+    var query = db.selectOnly(table)..addColumns([table.subjectId]);
+    if (type != null) query.where(table.collectionType.equals(type));
+    var stale = (await query.get())
+        .map((row) => row.read(table.subjectId)!)
+        .where((id) => !ids.contains(id))
+        .toList();
+    for (var start = 0; start < stale.length; start += 400) {
+      await (db.delete(
+        table,
+      )..where((row) => row.subjectId.isIn(stale.skip(start).take(400)))).go();
+    }
+  });
+
   /// Observe IDs and collection types without decoding subject JSON.
   Stream<Map<int, int>> watchTypes() {
     var table = db.bangumiCollection;
@@ -60,4 +119,8 @@ class CollectionStorage {
           ..orderBy([(t) => OrderingTerm.asc(t.subjectId)]))
         .get();
   }
+}
+
+class _CollectionScopeChanged implements Exception {
+  const _CollectionScopeChanged();
 }

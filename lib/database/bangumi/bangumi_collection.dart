@@ -18,6 +18,10 @@ import '../drift/collection_storage.dart';
 class BtsBangumiCollection {
   BtsBangumiCollection._();
 
+  BtsBangumiCollection.forDatabase(BtDatabase database) : _database = database;
+
+  BtDatabase? _database;
+
   /// 实例
   static final BtsBangumiCollection _instance = BtsBangumiCollection._();
 
@@ -25,7 +29,32 @@ class BtsBangumiCollection {
   factory BtsBangumiCollection() => _instance;
 
   /// 数据库
-  BtDatabase get _db => BTSqlite().db;
+  BtDatabase get _db => _database ?? BTSqlite().db;
+
+  Future<void> setOwner(String? username, {bool adoptLegacy = false}) =>
+      CollectionStorage(_db).setOwner(username, adoptLegacy: adoptLegacy);
+
+  Future<bool> writeScoped(
+    Future<void> Function() write, {
+    required bool Function() isCurrent,
+  }) => CollectionStorage(_db).writeScoped(write, isCurrent: isCurrent);
+
+  Future<void> replaceAll(
+    List<BangumiUserSubjectCollection> collections, {
+    BangumiCollectionType? type,
+  }) => CollectionStorage(
+    _db,
+  ).replaceAll(collections.map(_companion), type: type?.value);
+
+  Stream<List<BangumiUserSubjectCollection>> watchAll({
+    BangumiCollectionType? type,
+  }) {
+    var query = _db.select(_db.bangumiCollection);
+    if (type != null) {
+      query.where((row) => row.collectionType.equals(type.value));
+    }
+    return query.watch().map((rows) => rows.map(_fromRow).toList());
+  }
 
   /// 获取全部收藏
   Future<List<BangumiUserSubjectCollection>> getAll() async {

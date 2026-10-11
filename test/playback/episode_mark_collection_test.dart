@@ -2,18 +2,17 @@
 import 'dart:async';
 
 // Package imports:
-import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Project imports:
 import 'package:bangumi_today/core/services/episode_mark_service.dart';
-import 'package:bangumi_today/data/datasources/bangumi_local_data_source.dart';
+import 'package:bangumi_today/data/datasources/bangumi_local_data_source_impl.dart';
 import 'package:bangumi_today/data/datasources/bangumi_remote_data_source.dart';
 import 'package:bangumi_today/data/repositories/bangumi_repository_impl.dart';
 import 'package:bangumi_today/data/repositories/episode_mark_gateway_impl.dart';
+import 'package:bangumi_today/database/bangumi/bangumi_collection.dart';
 import 'package:bangumi_today/database/drift/bt_database.dart';
-import 'package:bangumi_today/database/drift/collection_storage.dart';
 import 'package:bangumi_today/domain/repositories/episode_mark_gateway.dart';
 import 'package:bangumi_today/domain/repositories/playback_episode_links.dart';
 import 'package:bangumi_today/models/app/response.dart';
@@ -22,26 +21,46 @@ import 'package:bangumi_today/models/bangumi/bangumi_model.dart';
 import 'package:bangumi_today/models/playback/playback_episode_link.dart';
 import 'package:bangumi_today/models/playback/playback_episode_rule.dart';
 import 'package:bangumi_today/models/playback/playback_item.dart';
+import '../collections/collection_fixture.dart';
 
-class _Local extends Fake implements BTBangumiLocalDataSource {
-  _Local(this.db);
-  final BtDatabase db;
+class _Local extends BTBangumiLocalDataSourceImpl {
+  _Local(BtDatabase database)
+    : super(db: BtsBangumiCollection.forDatabase(database));
   int deletions = 0;
 
   @override
   Future<void> deleteCollection(int subjectId) async {
     deletions++;
-    await (db.delete(
-      db.bangumiCollection,
-    )..where((row) => row.subjectId.equals(subjectId))).go();
+    await super.deleteCollection(subjectId);
   }
 }
 
 class _Remote extends Fake implements BTBangumiRemoteDataSource {
-  _Remote({required this.done, required this.failWrite});
+  _Remote({
+    required this.done,
+    required this.failWrite,
+    this.failRefresh = false,
+  });
   bool done;
   final bool failWrite;
+  final bool failRefresh;
   int writes = 0;
+  int refreshes = 0;
+
+  @override
+  Future<BTResponse<BangumiUserSubjectCollection>> getCollectionSubject(
+    String username,
+    int subjectId, {
+    bool fresh = false,
+    bool Function()? authScope,
+  }) async {
+    expect(fresh, isTrue);
+    expect(authScope?.call(), isTrue);
+    refreshes++;
+    return failRefresh
+        ? BTResponse(code: 404, message: 'temporarily unavailable', data: null)
+        : BTResponse.success(data: collectionFixture(epStatus: 2));
+  }
 
   @override
   Future<BTResponse<BangumiUserEpisodeCollection>> getCollectionEpisode(
@@ -102,39 +121,28 @@ class _Links extends Fake implements PlaybackEpisodeLinks {
 
 void main() {
   for (var scenario in [
-    (name: '标记章节成功', done: false, fail: false),
-    (name: '确认章节已看过', done: true, fail: false),
-    (name: '标记章节失败', done: false, fail: true),
+    (name: '标记章节成功', done: false, fail: false, refreshFails: false),
+    (name: '确认章节已看过', done: true, fail: false, refreshFails: false),
+    (name: '标记章节失败', done: false, fail: true, refreshFails: false),
+    (name: '标记成功但进度刷新失败', done: false, fail: false, refreshFails: true),
   ]) {
     test('${scenario.name}后保留条目收藏，仅在成功时通知刷新', () async {
       var db = BtDatabase(NativeDatabase.memory());
       addTearDown(db.close);
-      await CollectionStorage(db).saveAll([
-        BangumiCollectionCompanion.insert(
-          subjectId: const Value(536270),
-          subjectType: 2,
-          rate: 7,
-          collectionType: BangumiCollectionType.doing.value,
-          tags: '["保留标签"]',
-          epStat: 1,
-          volStat: 0,
-          updatedAt: '2026-10-11T22:07:58+08:00',
-          private: 1,
-          comment: const Value('保留短评'),
-          subject: const Value(
-            '{"id":536270,"name":"目覚めたら最強装備と宇宙船持ちだったので、"'
-            ',"name_cn":"一觉醒来坐拥神装和飞船"}',
-          ),
-        ),
-      ]);
-      var before = await db.select(db.bangumiCollection).getSingle();
       var local = _Local(db);
-      var remote = _Remote(done: scenario.done, failWrite: scenario.fail);
+      await local.insertCollection(collectionFixture());
+      var before = await db.select(db.bangumiCollection).getSingle();
+      var remote = _Remote(
+        done: scenario.done,
+        failWrite: scenario.fail,
+        failRefresh: scenario.refreshFails,
+      );
       var service = EpisodeMarkService(
         gateway: BangumiEpisodeMarkGateway(
           BTBangumiRepositoryImpl(
             remoteDataSource: remote,
             localDataSource: local,
+            accountSession: () => (username: 'test', generation: 1),
           ),
         ),
         accountSession: () => 'test:1',
@@ -173,7 +181,14 @@ void main() {
       expect(local.deletions, 0);
       expect(remote.writes, scenario.done ? 0 : 1);
       var after = await db.select(db.bangumiCollection).getSingle();
-      expect(after.toJson(), before.toJson());
+      var expected = before.toJson();
+      if (!scenario.fail && !scenario.refreshFails) expected['epStat'] = 2;
+      expect(after.toJson(), expected);
+      expect(remote.refreshes, scenario.fail ? 0 : 1);
+      expect(
+        result.message,
+        scenario.refreshFails || scenario.fail ? isNotNull : isNull,
+      );
       expect(events, hasLength(scenario.fail ? 0 : 1));
       if (events.isNotEmpty) {
         expect(events.single.subject, 536270);

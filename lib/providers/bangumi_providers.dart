@@ -9,6 +9,7 @@ import '../data/datasources/bangumi_remote_data_source_impl.dart';
 import '../data/repositories/bangumi_repository_impl.dart';
 import '../domain/repositories/bangumi_repository.dart';
 import '../models/bangumi/bangumi_enum.dart';
+import '../models/bangumi/bangumi_model.dart';
 import '../request/bangumi/bangumi_api.dart';
 import '../store/bgm_user_hive.dart';
 
@@ -32,6 +33,13 @@ final bangumiRepositoryProvider = Provider<BTBangumiRepository>((ref) {
   return BTBangumiRepositoryImpl(
     remoteDataSource: ref.watch(bangumiRemoteDataSourceProvider),
     localDataSource: ref.watch(bangumiLocalDataSourceProvider),
+    accountSession: () {
+      var user = ref.read(bgmUserStoreProvider);
+      return (
+        username: user.user?.id.toString(),
+        generation: user.sessionGeneration,
+      );
+    },
   );
 });
 
@@ -39,8 +47,26 @@ final bangumiRepositoryProvider = Provider<BTBangumiRepository>((ref) {
 final bangumiCollectionTypesProvider =
     StreamProvider.autoDispose<Map<int, BangumiCollectionType>>((ref) {
       var user = ref.watch(
-        bgmUserStoreProvider.select((state) => state.user?.id),
+        bgmUserStoreProvider.select(
+          (state) => (state.user?.id, state.sessionGeneration),
+        ),
       );
-      if (user == null) return Stream.value(const {});
+      if (user.$1 == null) return Stream.value(const {});
       return ref.watch(bangumiRepositoryProvider).watchLocalCollectionTypes();
+    });
+
+final bangumiCollectionsProvider = StreamProvider.autoDispose
+    .family<List<BangumiUserSubjectCollection>, BangumiCollectionType>((
+      ref,
+      type,
+    ) {
+      var user = ref.watch(
+        bgmUserStoreProvider.select(
+          (state) => (state.user?.id, state.sessionGeneration),
+        ),
+      );
+      if (user.$1 == null) return Stream.value(const []);
+      return ref
+          .watch(bangumiRepositoryProvider)
+          .watchLocalCollections(type: type);
     });

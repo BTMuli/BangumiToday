@@ -93,4 +93,19 @@ class BangumiEpisodeMarkGateway implements EpisodeMarkGateway {
       throw EpisodeMarkFailure('标记看过失败：${response.message}');
     }
   }
+
+  @override
+  Future<void> refreshSubject(
+    int subject, {
+    required bool Function() authScope,
+  }) async {
+    if (!authScope()) throw const EpisodeMarkFailure('账户会话已变化');
+    var response = await repository.refreshCollectionSubject(
+      subject,
+      authScope: authScope,
+    );
+    if (response.code != 0 || response.data == null) {
+      throw EpisodeMarkFailure('同步收藏进度失败：${response.message}');
+    }
+  }
 }

@@ -1,5 +1,4 @@
 // Dart imports:
-import 'dart:async';
 import 'dart:math';
 
 // Package imports:
@@ -52,7 +51,6 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
 
   /// 数据
   List<BangumiUserSubjectCollection> data = [];
-  Timer? _initialLoad;
   int _loadRevision = 0;
 
   /// 展示数据
@@ -76,13 +74,14 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
     pageController.onChanged = (_) async {
       if (mounted) setState(() {});
     };
-    _initialLoad = Timer(Duration.zero, () => unawaited(loadData()));
+    ref.listenManual(bangumiCollectionsProvider(type), (_, next) {
+      next.whenData(_applyData);
+    }, fireImmediately: true);
   }
 
   /// dispose
   @override
   void dispose() {
-    _initialLoad?.cancel();
     _loadRevision++;
     searchController.dispose();
     pageController.dispose();
@@ -97,11 +96,17 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
         .read(bangumiRepositoryProvider)
         .getLocalCollections(type: type);
     if (!mounted || revision != _loadRevision) return;
-    list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    data = list;
+    _applyData(list);
+  }
+
+  void _applyData(List<BangumiUserSubjectCollection> list) {
+    if (!mounted) return;
+    _loadRevision++;
+    data = list.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    var pages = (data.length / limit).ceil();
     pageController.reset(
-      total: (list.length / limit).ceil(),
-      cur: list.isEmpty ? 0 : 1,
+      total: pages,
+      cur: pages == 0 ? 0 : pageController.cur.clamp(1, pages),
     );
     setState(() {});
   }
@@ -119,7 +124,7 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
 
   /// 刷新收藏
   Future<void> freshCollection() async {
-    if (!mounted) return;
+    if (!mounted || progress.isShow) return;
     progress = ProgressWidget.show(
       context,
       title: '刷新收藏信息',
@@ -131,64 +136,28 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
       if (mounted) await BtInfobar.error(context, '用户信息为空');
       return;
     }
-    const limitC = 50;
-    var offsetC = 0;
     var repository = ref.read(bangumiRepositoryProvider);
-    var username = ref.read(bgmUserStoreProvider).user!.id.toString();
-    var resp = await repository.getCollectionSubjects(
-      username: username,
-      limit: limitC,
-      offset: offsetC,
-      collectionType: type,
-    );
-    if (!mounted) {
-      progress.end();
-      return;
-    }
-    if (resp.code != 0 || resp.data == null) {
-      progress.end();
-      if (mounted) await showRespErr(resp, context);
-      return;
-    }
-    var checkFlag = true;
-    var pageResp = resp.data!;
-    var total = pageResp.total;
-    var cnt = 0;
-    while (checkFlag) {
-      offsetC += pageResp.data.length;
-      for (var item in pageResp.data) {
-        progress.update(
-          text: '[${item.subject.id}] ${item.subject.name}',
-          progress: (cnt / total) * 100,
-        );
-        cnt++;
-      }
-      if (offsetC >= total) {
-        checkFlag = false;
-        progress.end();
-        if (mounted) await BtInfobar.success(context, '收藏信息写入完成');
-        break;
-      }
-      progress.update(
-        text: '偏移：$offsetC，总计：$total',
-        progress: (cnt / total) * 100,
+    try {
+      var resp = await repository.syncCollections(
+        type: type,
+        onProgress: (completed, total) {
+          if (!mounted) return;
+          progress.update(
+            text: '获取收藏信息：$completed/$total',
+            progress: total == 0 ? 100 : completed * 100 / total,
+          );
+        },
       );
-      resp = await repository.getCollectionSubjects(
-        username: username,
-        limit: limitC,
-        offset: offsetC,
-        collectionType: type,
-      );
-      if (!mounted) {
-        progress.end();
-        return;
+      progress.end();
+      if (!mounted) return;
+      if (resp.code != 0) {
+        await showRespErr(resp, context);
+      } else {
+        await loadData();
+        if (mounted) await BtInfobar.success(context, '收藏信息同步完成');
       }
-      if (resp.code != 0 || resp.data == null) {
-        progress.end();
-        if (mounted) await showRespErr(resp, context);
-        return;
-      }
-      pageResp = resp.data!;
+    } finally {
+      progress.end();
     }
   }
 

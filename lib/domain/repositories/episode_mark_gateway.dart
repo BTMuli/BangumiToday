@@ -57,4 +57,8 @@ abstract interface class EpisodeMarkGateway {
   Future<EpisodeMarkPage> progress(int subject, int offset);
   Future<bool> isDone(int episode);
   Future<void> markDone(int episode, {required bool Function() authScope});
+  Future<void> refreshSubject(
+    int subject, {
+    required bool Function() authScope,
+  });
 }

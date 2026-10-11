@@ -489,6 +489,7 @@ class BtrBangumiApi {
     BangumiCollectionType? collectionType,
     int? limit,
     int? offset,
+    bool Function()? authScope,
   }) async {
     var params = <String, dynamic>{};
     if (subjectType != null) params['subject_type'] = subjectType.value;
@@ -499,7 +500,10 @@ class BtrBangumiApi {
       var resp = await client.dio.get(
         '/v0/users/$username/collections',
         queryParameters: params,
-        options: Options(contentType: 'application/json'),
+        options: Options(
+          contentType: 'application/json',
+          extra: {'authScope': ?authScope},
+        ),
       );
       var dataList = BangumiPageT<BangumiUserSubjectCollection>.fromJson(
         resp.data as Map<String, dynamic>,
@@ -527,6 +531,7 @@ class BtrBangumiApi {
     int subjectId, {
     bool deduplicate = true,
     bool cancelPrevious = false,
+    bool Function()? authScope,
   }) async {
     try {
       var resp = await _requestManager.request<Response>(
@@ -535,7 +540,10 @@ class BtrBangumiApi {
         cancelPrevious: cancelPrevious,
         request: (token) => client.dio.get(
           '/v0/users/$username/collections/$subjectId',
-          options: Options(contentType: 'application/json'),
+          options: Options(
+            contentType: 'application/json',
+            extra: {'authScope': ?authScope},
+          ),
           cancelToken: token,
         ),
       );
@@ -574,13 +582,19 @@ class BtrBangumiApi {
   }
 
   /// 新增用户单个条目的收藏
-  Future<BTResponse> addCollectionSubject(int subjectId) async {
+  Future<BTResponse> addCollectionSubject(
+    int subjectId, {
+    bool Function()? authScope,
+  }) async {
     const fallbackMessage = 'Failed to add user collection item';
     try {
       var resp = await client.dio.post(
         '/v0/users/-/collections/$subjectId',
         data: {'type': BangumiCollectionType.wish.value},
-        options: Options(contentType: 'application/json'),
+        options: Options(
+          contentType: 'application/json',
+          extra: {'authScope': ?authScope},
+        ),
       );
       var failure = readBangumiWriteFailure(
         resp,
@@ -611,6 +625,7 @@ class BtrBangumiApi {
     String? comment,
     bool? private,
     List<String>? tags,
+    bool Function()? authScope,
   }) async {
     var data = <String, dynamic>{};
     if (type != null) data['type'] = type.value;
@@ -625,7 +640,10 @@ class BtrBangumiApi {
       var resp = await client.dio.patch(
         '/v0/users/-/collections/$subjectId',
         data: data,
-        options: Options(contentType: 'application/json'),
+        options: Options(
+          contentType: 'application/json',
+          extra: {'authScope': ?authScope},
+        ),
       );
       var failure = readBangumiWriteFailure(
         resp,

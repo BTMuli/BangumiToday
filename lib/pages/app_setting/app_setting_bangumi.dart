@@ -149,6 +149,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       await ref
           .read(bgmUserStoreProvider.notifier)
           .updateTokenSet(
+            newSession: true,
             accessToken: at.accessToken,
             refreshToken: at.refreshToken,
             expiresIn: at.expiresIn,

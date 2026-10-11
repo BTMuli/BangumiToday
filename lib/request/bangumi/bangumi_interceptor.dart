@@ -90,7 +90,7 @@ class AuthInterceptor extends Interceptor {
 
   static void _checkScope(RequestOptions options) {
     if (!_scopeValid(options)) {
-      throw StateError('账户会话已变化，章节写入已取消');
+      throw StateError('账户会话已变化，请求已取消');
     }
   }
 

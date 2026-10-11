@@ -264,6 +264,7 @@ class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
     var resp = await ref
         .read(bangumiRepositoryProvider)
         .updateCollectionSubject(subject.id, type: type);
+    if (!mounted) return;
     if (resp.code != 0) {
       if (mounted) await showRespErr(resp, context);
     } else {
@@ -433,12 +434,13 @@ class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
     var resp = await ref
         .read(bangumiRepositoryProvider)
         .addCollectionSubject(subject.id);
-    if (!context.mounted) return;
+    if (!mounted || !context.mounted) return;
     if (resp.code != 0) {
       await showRespErr(resp, context, title: '添加收藏失败');
       return;
     }
     await BtInfobar.success(context, '条目 ${subject.id} 添加到收藏列表成功');
+    if (!mounted) return;
     widget.provider.set(true);
     await init();
   }

@@ -576,8 +576,17 @@ class EpisodeMarkService {
       observeProgress(candidate.subject, [
         candidate.episode.withDone(true),
       ], account: candidate.account);
-      // The collection row also records whether the subject is collected.
-      // Keep it intact; listeners refresh remote progress through this event.
+      // Synchronize authoritative subject progress even with no details page.
+      // A failed read preserves the collection and cannot undo a remote mark.
+      String? warning;
+      try {
+        await gateway.refreshSubject(
+          candidate.subject,
+          authScope: () => _current(candidate.account),
+        );
+      } catch (_) {
+        warning = '已标记看过，本地进度同步失败，请刷新收藏';
+      }
       if (_current(candidate.account)) {
         _refreshes.add(
           EpisodeMarkRefresh(
@@ -593,6 +602,7 @@ class EpisodeMarkService {
         done
             ? EpisodeMarkWriteStatus.alreadyDone
             : EpisodeMarkWriteStatus.marked,
+        message: warning,
       );
     } catch (error) {
       if (!_current(candidate.account)) {

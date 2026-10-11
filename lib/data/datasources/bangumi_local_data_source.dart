@@ -15,6 +15,20 @@ abstract class BTBangumiLocalDataSource {
 
   Stream<Map<int, BangumiCollectionType>> watchCollectionTypes();
 
+  Stream<List<BangumiUserSubjectCollection>> watchCollections({
+    BangumiCollectionType? type,
+  });
+
+  Future<bool> writeScoped(
+    Future<void> Function() write, {
+    required bool Function() isCurrent,
+  });
+
+  Future<void> replaceCollections(
+    List<BangumiUserSubjectCollection> collections, {
+    BangumiCollectionType? type,
+  });
+
   Future<BangumiUserSubjectCollection?> getCollection(int subjectId);
 
   Future<void> insertCollection(BangumiUserSubjectCollection collection);
