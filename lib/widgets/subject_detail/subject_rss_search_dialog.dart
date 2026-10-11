@@ -79,6 +79,22 @@ class SubjectRssSearchDialog extends StatefulWidget {
   State<SubjectRssSearchDialog> createState() => _SubjectRssSearchDialogState();
 }
 
+/// 条目字幕组的加载状态；展开条目时按需加载并缓存。
+class _AnibtGroupsState {
+  List<AnibtAnimeGroup> groups = const [];
+  bool loading = false;
+  bool loaded = false;
+  String? error;
+}
+
+/// 蜜柑番剧详情的加载状态；展开条目时按需加载并缓存。
+class _MikanDetailState {
+  MikanBangumiDetailModel? detail;
+  bool loading = false;
+  bool loaded = false;
+  String? error;
+}
+
 class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
   final _mikanApi = BtrMikanApi();
   final _anibtApi = AnibtAPI();
@@ -91,6 +107,12 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
   bool _saving = false;
   String? _error;
   int _generation = 0;
+
+  /// 已展开的条目与字幕组；跨搜索保留，避免重新加载已取回的字幕组。
+  final _expandedItems = <String>{};
+  final _expandedGroups = <String>{};
+  final _anibtStates = <String, _AnibtGroupsState>{};
+  final _mikanStates = <String, _MikanDetailState>{};
 
   @override
   void initState() {
@@ -236,6 +258,133 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
     }
   }
 
+  String _anibtItemKey(AnibtSearchItem item) => 'anibt:${item.bgmId}';
+
+  String _mikanItemKey(MikanSearchItemModel item) => 'mikan:${item.id}';
+
+  /// 展开/收起条目；首次展开时加载其字幕组。
+  void _toggleItem(String key, Future<void> Function() load) {
+    var expanded = _expandedItems.contains(key);
+    setState(() {
+      if (expanded) {
+        _expandedItems.remove(key);
+      } else {
+        _expandedItems.add(key);
+      }
+    });
+    if (!expanded) unawaited(load());
+  }
+
+  void _toggleGroup(String key) {
+    setState(() {
+      if (!_expandedGroups.remove(key)) _expandedGroups.add(key);
+    });
+  }
+
+  Future<void> _loadAnibtGroups(AnibtSearchItem item) async {
+    var key = _anibtItemKey(item);
+    var state = _anibtStates.putIfAbsent(key, _AnibtGroupsState.new);
+    if (state.loading || state.loaded) return;
+    setState(() {
+      state.loading = true;
+      state.error = null;
+    });
+    var response = await _anibtApi.getAnimeGroups(item.bgmId);
+    if (!mounted) return;
+    setState(() {
+      state.loading = false;
+      if (response.code != 0) {
+        state.error = response.message;
+      } else {
+        state.groups = response.data!;
+        state.loaded = true;
+      }
+    });
+    _syncAnibtGroupName(item, state);
+  }
+
+  /// 订阅地址只记录字幕组 slug，加载完成后补上站点显示名。
+  void _syncAnibtGroupName(AnibtSearchItem item, _AnibtGroupsState state) {
+    var selection = _selection;
+    if (!state.loaded || selection == null) return;
+    if (selection.source != _RssSearchSource.anibt) return;
+    if (selection.animeId != item.bgmId.toString()) return;
+    var groupId = selection.groupId;
+    if (groupId == null) return;
+    var group = state.groups
+        .where((group) => group.slug == groupId)
+        .firstOrNull;
+    if (group == null || selection.groupName == group.name) return;
+    var updated = selection.withGroupName(group.name);
+    setState(() => _selection = updated);
+  }
+
+  Future<void> _loadMikanDetail(MikanSearchItemModel item) async {
+    var key = _mikanItemKey(item);
+    var state = _mikanStates.putIfAbsent(key, _MikanDetailState.new);
+    if (state.loading || state.loaded) return;
+    setState(() {
+      state.loading = true;
+      state.error = null;
+    });
+    var response = await _mikanApi.getBangumiDetail(item.id);
+    if (!mounted) return;
+    setState(() {
+      state.loading = false;
+      var detail = response.data;
+      if (response.code != 0 || detail == null) {
+        state.error = '字幕组加载失败，请重试';
+        return;
+      }
+      state.detail = detail;
+      state.loaded = true;
+    });
+  }
+
+  void _selectAnibtGroup(
+    AnibtSearchItem item,
+    AnibtAnimeGroup? group,
+    bool selected,
+  ) {
+    _select(
+      selected
+          ? _RssSearchSelection(
+              source: _RssSearchSource.anibt,
+              animeId: item.bgmId.toString(),
+              title: item.title,
+              rss: AnibtAPI.animeRssUrl(
+                bgmId: item.bgmId,
+                groupSlug: group?.slug,
+              ),
+              groupId: group?.slug,
+              groupName: group?.name,
+            )
+          : null,
+    );
+  }
+
+  void _selectMikanGroup(
+    MikanSearchItemModel item,
+    MikanGroupModel? group,
+    bool selected,
+  ) {
+    _select(
+      selected
+          ? _RssSearchSelection(
+              source: _RssSearchSource.mikan,
+              animeId: item.id,
+              title: item.title,
+              rss: BtrMikanApi.bangumiRssUrl(
+                bangumiId: item.id,
+                groupId: group?.id,
+              ),
+              groupId: group?.id,
+              groupName: group?.name,
+            )
+          : null,
+    );
+  }
+
   Widget _results() {
     if (_loading) return const Center(child: ProgressRing());
     if (_error != null) return Center(child: Text(_error!));
@@ -244,43 +393,332 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
     if (count == 0) {
       return const Center(child: Text('没有找到相关条目，请尝试更换搜索词或搜索源'));
     }
-    return ListView.separated(
-      itemCount: count,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        if (isAnibt) {
-          var item = _anibtItems[index];
-          return _AnibtAnimeResult(
-            key: ValueKey(item.bgmId),
-            item: item,
-            api: _anibtApi,
-            subjectId: widget.subjectId,
-            selection:
-                _selection?.matches(
-                      _RssSearchSource.anibt,
-                      item.bgmId.toString(),
-                    ) ==
-                    true
-                ? _selection
-                : null,
-            enabled: !_saving,
-            onSelected: _select,
-          );
-        }
-        var item = _mikanItems[index];
-        return _MikanAnimeResult(
-          key: ValueKey(item.id),
-          item: item,
-          api: _mikanApi,
-          subjectId: widget.subjectId,
-          selection:
-              _selection?.matches(_RssSearchSource.mikan, item.id) == true
-              ? _selection
-              : null,
-          enabled: !_saving,
-          onSelected: _select,
-        );
-      },
+    return CustomScrollView(
+      slivers: [
+        for (var index = 0; index < count; index++) ...[
+          if (index > 0) const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          if (isAnibt)
+            _anibtItemSliver(_anibtItems[index])
+          else
+            _mikanItemSliver(_mikanItems[index]),
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: 4)),
+      ],
+    );
+  }
+
+  Widget _pinnedHeader({required double extent, required Widget child}) {
+    return SliverPersistentHeader(
+      pinned: true,
+      delegate: _PinnedHeaderDelegate(extent: extent, child: child),
+    );
+  }
+
+  /// 字幕组表头在其资源框可见期间吸顶，资源框保留内部滚动。
+  List<Widget> _groupSlivers({
+    required String key,
+    required _GroupHeader header,
+    required Widget content,
+  }) {
+    var theme = FluentTheme.of(context);
+    var expanded = _expandedGroups.contains(key);
+    return [
+      SliverMainAxisGroup(
+        slivers: [
+          _pinnedHeader(
+            extent: _stickyHeaderExtent(context, 52),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _StickyHeader(
+                expanded: expanded,
+                onPressed: () => _toggleGroup(key),
+                base: _contentSurface(theme),
+                child: header,
+              ),
+            ),
+          ),
+          if (expanded) content,
+        ],
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+    ];
+  }
+
+  Widget _anibtItemSliver(AnibtSearchItem item) {
+    var key = _anibtItemKey(item);
+    var expanded = _expandedItems.contains(key);
+    var selection = _selection;
+    var matched =
+        selection != null &&
+        selection.source == _RssSearchSource.anibt &&
+        selection.animeId == item.bgmId.toString();
+    return SliverMainAxisGroup(
+      slivers: [
+        _pinnedHeader(
+          extent: _stickyHeaderExtent(context, 48),
+          child: _ItemHeader(
+            title: item.title,
+            meta: [
+              'Bangumi ${item.bgmId}',
+              if (item.bgmId == widget.subjectId) '当前条目',
+              if (item.date != null && item.date!.isNotEmpty) item.date!,
+            ].join(' · '),
+            expanded: expanded,
+            onPressed: () => _toggleItem(key, () => _loadAnibtGroups(item)),
+          ),
+        ),
+        if (expanded) _anibtItemContent(item, key, matched ? selection : null),
+      ],
+    );
+  }
+
+  Widget _anibtItemContent(
+    AnibtSearchItem item,
+    String key,
+    _RssSearchSelection? selection,
+  ) {
+    var state = _anibtStates[key];
+    var groups = state?.groups ?? const <AnibtAnimeGroup>[];
+    return DecoratedSliver(
+      decoration: _contentDecoration(FluentTheme.of(context)),
+      sliver: SliverMainAxisGroup(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Checkbox(
+                checked: selection != null && selection.groupId == null,
+                onChanged: _saving
+                    ? null
+                    : (checked) =>
+                          _selectAnibtGroup(item, null, checked ?? false),
+                content: const Text('整个番剧（全部字幕组）'),
+              ),
+            ),
+          ),
+          if (state == null || state.loading)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Center(child: ProgressRing()),
+              ),
+            )
+          else if (state.error != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(state.error!),
+                    const SizedBox(height: 8),
+                    Button(
+                      onPressed: () {
+                        unawaited(_loadAnibtGroups(item));
+                      },
+                      child: const Text('重试字幕组'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (groups.isEmpty)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Text('该番剧暂无字幕组资源，可以订阅番剧 RSS 等待更新。'),
+              ),
+            )
+          else
+            for (var group in groups)
+              ..._groupSlivers(
+                key: '$key:${group.slug}',
+                header: _GroupHeader(
+                  title: group.totalReleases == null
+                      ? group.name
+                      : '${group.name} · ${group.totalReleases} 个资源',
+                  subtitle: _anibtUpdatedAt(group.lastUpdatedAt),
+                  selected: selection?.groupId == group.slug,
+                  onSelected: _saving
+                      ? null
+                      : (selected) => _selectAnibtGroup(item, group, selected),
+                ),
+                content: _anibtReleaseBox(group),
+              ),
+        ],
+      ),
+    );
+  }
+
+  /// 字幕组资源框：资源与表头共用一条滚动流，表头因此能在资源滚过期间吸顶。
+  Widget _anibtReleaseBox(AnibtAnimeGroup group) {
+    var items = group.items;
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      sliver: DecoratedSliver(
+        decoration: _contentDecoration(FluentTheme.of(context)),
+        sliver: SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: items.isEmpty
+              ? const SliverToBoxAdapter(child: Text('暂无资源'))
+              : SliverMainAxisGroup(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          '最近 ${items.length} 个资源',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                    SliverList.separated(
+                      itemCount: items.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      itemBuilder: (_, index) => _AnibtReleasePreview(
+                        key: ValueKey(items[index].releaseId),
+                        item: items[index],
+                        subjectId: widget.subjectId,
+                        enabled: !_saving,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _mikanItemSliver(MikanSearchItemModel item) {
+    var key = _mikanItemKey(item);
+    var detail = _mikanStates[key]?.detail;
+    var expanded = _expandedItems.contains(key);
+    var selection = _selection;
+    var matched =
+        selection != null &&
+        selection.source == _RssSearchSource.mikan &&
+        selection.animeId == item.id;
+    return SliverMainAxisGroup(
+      slivers: [
+        _pinnedHeader(
+          extent: _stickyHeaderExtent(context, 48),
+          child: _ItemHeader(
+            title: item.title,
+            meta: [
+              'Mikan ${item.id}',
+              if (detail != null && detail.bgmId == widget.subjectId) '当前条目',
+            ].join(' · '),
+            expanded: expanded,
+            onPressed: () => _toggleItem(key, () => _loadMikanDetail(item)),
+          ),
+        ),
+        if (expanded) _mikanItemContent(item, key, matched ? selection : null),
+      ],
+    );
+  }
+
+  Widget _mikanItemContent(
+    MikanSearchItemModel item,
+    String key,
+    _RssSearchSelection? selection,
+  ) {
+    var state = _mikanStates[key];
+    var groups = state?.detail?.groups ?? const <MikanGroupModel>[];
+    return DecoratedSliver(
+      decoration: _contentDecoration(FluentTheme.of(context)),
+      sliver: SliverMainAxisGroup(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Checkbox(
+                checked: selection != null && selection.groupId == null,
+                onChanged: _saving
+                    ? null
+                    : (checked) =>
+                          _selectMikanGroup(item, null, checked ?? false),
+                content: const Text('整个番剧（全部字幕组）'),
+              ),
+            ),
+          ),
+          if (state == null || state.loading)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Center(child: ProgressRing()),
+              ),
+            )
+          else if (state.error != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(state.error!),
+                    const SizedBox(height: 8),
+                    Button(
+                      onPressed: () {
+                        unawaited(_loadMikanDetail(item));
+                      },
+                      child: const Text('重试字幕组'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (groups.isEmpty)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Text('该番剧暂无字幕组资源，可以订阅番剧 RSS 等待更新。'),
+              ),
+            )
+          else
+            for (var group in groups)
+              ..._groupSlivers(
+                key: '$key:${group.id}',
+                header: _GroupHeader(
+                  title: group.items.isEmpty
+                      ? group.name
+                      : '${group.name} · 最近 ${group.items.length} 个资源',
+                  subtitle: group.updatedAt == null
+                      ? null
+                      : '更新 ${group.updatedAt}',
+                  selected: selection?.groupId == group.id,
+                  onSelected: _saving
+                      ? null
+                      : (selected) => _selectMikanGroup(item, group, selected),
+                ),
+                content: _mikanReleaseBox(group),
+              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mikanReleaseBox(MikanGroupModel group) {
+    var items = group.items;
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      sliver: DecoratedSliver(
+        decoration: _contentDecoration(FluentTheme.of(context)),
+        sliver: SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: items.isEmpty
+              ? const SliverToBoxAdapter(child: Text('暂无资源'))
+              : SliverList.separated(
+                  itemCount: items.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (_, index) => _MikanEpisodePreview(
+                    key: ValueKey(items[index].link),
+                    item: items[index],
+                    subjectId: widget.subjectId,
+                    enabled: !_saving,
+                  ),
+                ),
+        ),
+      ),
     );
   }
 
@@ -453,234 +891,272 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
   }
 }
 
-class _AnibtAnimeResult extends StatefulWidget {
-  final AnibtSearchItem item;
-  final AnibtAPI api;
-  final int subjectId;
-  final _RssSearchSelection? selection;
-  final bool enabled;
-  final ValueChanged<_RssSearchSelection?> onSelected;
-
-  const _AnibtAnimeResult({
-    super.key,
-    required this.item,
-    required this.api,
-    required this.subjectId,
-    required this.selection,
-    required this.enabled,
-    required this.onSelected,
-  });
-
-  @override
-  State<_AnibtAnimeResult> createState() => _AnibtAnimeResultState();
-}
-
-class _AnibtAnimeResultState extends State<_AnibtAnimeResult>
-    with AutomaticKeepAliveClientMixin {
-  List<AnibtAnimeGroup> _groups = [];
-  bool _loading = false;
-  bool _loaded = false;
-  String? _error;
-
-  @override
-  bool get wantKeepAlive => true;
-
-  Future<void> _loadGroups() async {
-    if (_loading || _loaded) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    var response = await widget.api.getAnimeGroups(widget.item.bgmId);
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
-      if (response.code != 0) {
-        _error = response.message;
-      } else {
-        _groups = response.data!;
-        _loaded = true;
-      }
-    });
-    var selection = widget.selection;
-    if (_loaded && selection?.groupId != null) {
-      var group = _groups
-          .where((group) => group.slug == selection!.groupId)
-          .firstOrNull;
-      if (group != null && selection!.groupName != group.name) {
-        widget.onSelected(selection.withGroupName(group.name));
-      }
-    }
-  }
-
-  void _select(AnibtAnimeGroup? group, bool selected) {
-    widget.onSelected(
-      selected
-          ? _RssSearchSelection(
-              source: _RssSearchSource.anibt,
-              animeId: widget.item.bgmId.toString(),
-              title: widget.item.title,
-              rss: AnibtAPI.animeRssUrl(
-                bgmId: widget.item.bgmId,
-                groupSlug: group?.slug,
-              ),
-              groupId: group?.slug,
-              groupName: group?.name,
-            )
-          : null,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    var item = widget.item;
-    var selection = widget.selection;
-    return Expander(
-      onStateChanged: (expanded) {
-        if (expanded) unawaited(_loadGroups());
-      },
-      header: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(item.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(
-            [
-              'Bangumi ${item.bgmId}',
-              if (item.bgmId == widget.subjectId) '当前条目',
-              if (item.date != null && item.date!.isNotEmpty) item.date!,
-            ].join(' · '),
-            style: const TextStyle(fontSize: 12),
-          ),
-        ],
-      ),
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Checkbox(
-            checked: selection != null && selection.groupId == null,
-            onChanged: widget.enabled
-                ? (checked) => _select(null, checked ?? false)
-                : null,
-            content: const Text('整个番剧（全部字幕组）'),
-          ),
-          const SizedBox(height: 12),
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: Center(child: ProgressRing()),
-            )
-          else if (_error != null)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_error!),
-                const SizedBox(height: 8),
-                Button(onPressed: _loadGroups, child: const Text('重试字幕组')),
-              ],
-            )
-          else if (_loaded && _groups.isEmpty)
-            const Text('该番剧暂无字幕组资源，可以订阅番剧 RSS 等待更新。')
-          else
-            ..._groups.map((group) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _AnibtGroupResult(
-                  key: ValueKey(group.slug),
-                  group: group,
-                  subjectId: widget.subjectId,
-                  selected: selection?.groupId == group.slug,
-                  onSelected: widget.enabled
-                      ? (selected) => _select(group, selected)
-                      : null,
-                ),
-              );
-            }),
-        ],
-      ),
-    );
-  }
-}
-
 String _anibtUpdatedAt(int? milliseconds) {
   if (milliseconds == null) return '更新时间未知';
   var date = DateTime.fromMillisecondsSinceEpoch(milliseconds).toLocal();
   return '更新 ${DateFormat('yyyy-MM-dd HH:mm').format(date)}';
 }
 
-class _AnibtGroupResult extends StatelessWidget {
-  final AnibtAnimeGroup group;
-  final int subjectId;
-  final bool selected;
-  final ValueChanged<bool>? onSelected;
+/// 吸顶表头的固定高度；文本放大时按两行文本的增量抬高，避免截断。
+double _stickyHeaderExtent(BuildContext context, double base) {
+  var scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+  return base + (scale - 1) * 36;
+}
 
-  const _AnibtGroupResult({
-    super.key,
-    required this.group,
-    required this.subjectId,
-    required this.selected,
-    required this.onSelected,
+/// 展开内容的外框，与 fluent_ui 的 Expander 内容区保持一致。
+ShapeDecoration _contentDecoration(FluentThemeData theme) {
+  return ShapeDecoration(
+    color: theme.resources.cardBackgroundFillColorSecondary,
+    shape: RoundedRectangleBorder(
+      side: BorderSide(color: theme.resources.cardStrokeColorDefault),
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(6)),
+    ),
+  );
+}
+
+/// 条目内容区的实际底色；吸顶表头需与它合成才能既遮挡资源又不留色带。
+Color _contentSurface(FluentThemeData theme) {
+  return Color.alphaBlend(
+    theme.resources.cardBackgroundFillColorSecondary,
+    theme.menuColor,
+  );
+}
+
+/// 固定的吸顶高度由 [SliverPersistentHeader] 要求。
+class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _PinnedHeaderDelegate({required this.extent, required this.child});
+
+  final double extent;
+  final Widget child;
+
+  @override
+  double get minExtent => extent;
+
+  @override
+  double get maxExtent => extent;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return SizedBox(height: extent, child: child);
+  }
+
+  @override
+  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) {
+    return oldDelegate.extent != extent || oldDelegate.child != child;
+  }
+}
+
+/// 表头卡片向上下各多铺的像素数。
+///
+/// 吸顶条之间、表头与其内容之间的边界在缩放不为整数时会被分别取整，留下一条
+/// 1 物理像素宽、没有任何控件绘制的缝；缝里会露出更底层的内容。表头卡片多铺
+/// 这么多像素后，这部分与相邻元素重叠，缝必然被不透明填充覆盖。
+const _headerSeamExtent = 2.0;
+
+/// 条目与字幕组共用的表头外观，沿用 Expander 表头的配色与箭头。
+class _StickyHeader extends StatelessWidget {
+  const _StickyHeader({
+    required this.child,
+    required this.expanded,
+    required this.onPressed,
+    required this.base,
   });
+
+  final Widget child;
+  final bool expanded;
+  final VoidCallback onPressed;
+
+  /// 表头所在的底色。fluent 的卡片填充是半透明的，先与它合成才能整条遮住
+  /// 吸顶后从下方滚过的资源。
+  final Color base;
 
   @override
   Widget build(BuildContext context) {
-    var count = group.totalReleases;
-    return Expander(
-      header: Row(
-        children: [
-          Checkbox(
-            checked: selected,
-            onChanged: onSelected == null
-                ? null
-                : (checked) => onSelected!(checked ?? false),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  count == null ? group.name : '${group.name} · $count 个资源',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+    var theme = FluentTheme.of(context);
+    var shape = RoundedRectangleBorder(
+      side: BorderSide(color: theme.resources.cardStrokeColorDefault),
+      borderRadius: BorderRadius.vertical(
+        top: const Radius.circular(6),
+        bottom: Radius.circular(expanded ? 0 : 6),
+      ),
+    );
+    return HoverButton(
+      onPressed: onPressed,
+      hitTestBehavior: HitTestBehavior.deferToChild,
+      builder: (context, states) {
+        return Stack(
+          fit: StackFit.expand,
+          clipBehavior: Clip.none,
+          children: [
+            // 卡片底纹与边框画在可溢出的一层里，向上下各多铺几个像素：
+            // 两条吸顶条（或表头与其内容）的边界在缩放取整后会留下 1px 透明
+            // 缝，多铺的部分就在缝的位置，且与相邻元素重叠，不会露底色。
+            Positioned(
+              top: -_headerSeamExtent,
+              bottom: expanded ? -_headerSeamExtent : 0,
+              left: 0,
+              right: 0,
+              child: DecoratedBox(
+                decoration: ShapeDecoration(
+                  color: Color.alphaBlend(
+                    theme.resources.cardBackgroundFillColorDefault,
+                    base,
+                  ),
+                  shape: shape,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _anibtUpdatedAt(group.lastUpdatedAt),
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ],
+              ),
             ),
+            Container(
+              padding: const EdgeInsetsDirectional.only(start: 16),
+              alignment: AlignmentDirectional.centerStart,
+              child: Row(
+                children: [
+                  Expanded(child: child),
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(
+                      start: 20,
+                      end: 8,
+                      top: 8,
+                      bottom: 8,
+                    ),
+                    child: FocusBorder(
+                      focused: states.isFocused,
+                      child: Container(
+                        padding: const EdgeInsetsDirectional.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: ButtonThemeData.uncheckedInputColor(
+                            theme,
+                            states,
+                            transparentWhenNone: true,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: AnimatedRotation(
+                          turns: expanded ? 0.5 : 0,
+                          duration: theme.fastAnimationDuration,
+                          curve: theme.animationCurve,
+                          child: const Icon(FluentIcons.chevron_down, size: 8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// 条目表头：番剧名与站点信息，整条可点击展开。
+class _ItemHeader extends StatelessWidget {
+  const _ItemHeader({
+    required this.title,
+    required this.meta,
+    required this.expanded,
+    required this.onPressed,
+  });
+
+  final String title;
+  final String meta;
+  final bool expanded;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    var theme = FluentTheme.of(context);
+    return _StickyHeader(
+      expanded: expanded,
+      onPressed: onPressed,
+      base: theme.menuColor,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Tooltip(
+            message: title,
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            meta,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12),
           ),
         ],
       ),
-      content: group.items.isEmpty
-          ? const Text('暂无资源')
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+    );
+  }
+}
+
+/// 字幕组表头：勾选框用于选中该字幕组，其余区域用于展开资源。
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader({
+    required this.title,
+    required this.selected,
+    required this.onSelected,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final bool selected;
+  final ValueChanged<bool>? onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    var subtitle = this.subtitle;
+    return Row(
+      children: [
+        Checkbox(
+          checked: selected,
+          onChanged: onSelected == null
+              ? null
+              : (checked) => onSelected!(checked ?? false),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Tooltip(
+                message: title,
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 4),
                 Text(
-                  '最近 ${group.items.length} 个资源',
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12),
                 ),
-                const SizedBox(height: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 300),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    primary: false,
-                    itemCount: group.items.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (_, index) => _AnibtReleasePreview(
-                      key: ValueKey(group.items[index].releaseId),
-                      item: group.items[index],
-                      subjectId: subjectId,
-                      enabled: onSelected != null,
-                    ),
-                  ),
-                ),
               ],
-            ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -769,217 +1245,6 @@ class _AnibtReleasePreview extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _MikanAnimeResult extends StatefulWidget {
-  final MikanSearchItemModel item;
-  final BtrMikanApi api;
-  final int subjectId;
-  final _RssSearchSelection? selection;
-  final bool enabled;
-  final ValueChanged<_RssSearchSelection?> onSelected;
-
-  const _MikanAnimeResult({
-    super.key,
-    required this.item,
-    required this.api,
-    required this.subjectId,
-    required this.selection,
-    required this.enabled,
-    required this.onSelected,
-  });
-
-  @override
-  State<_MikanAnimeResult> createState() => _MikanAnimeResultState();
-}
-
-class _MikanAnimeResultState extends State<_MikanAnimeResult>
-    with AutomaticKeepAliveClientMixin {
-  MikanBangumiDetailModel? _detail;
-  bool _loading = false;
-  bool _loaded = false;
-  String? _error;
-
-  @override
-  bool get wantKeepAlive => true;
-
-  Future<void> _loadDetail() async {
-    if (_loading || _loaded) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    var response = await widget.api.getBangumiDetail(widget.item.id);
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
-      var detail = response.data;
-      if (response.code != 0 || detail == null) {
-        _error = '字幕组加载失败，请重试';
-        return;
-      }
-      _detail = detail;
-      _loaded = true;
-    });
-  }
-
-  void _select(MikanGroupModel? group, bool selected) {
-    widget.onSelected(
-      selected
-          ? _RssSearchSelection(
-              source: _RssSearchSource.mikan,
-              animeId: widget.item.id,
-              title: widget.item.title,
-              rss: BtrMikanApi.bangumiRssUrl(
-                bangumiId: widget.item.id,
-                groupId: group?.id,
-              ),
-              groupId: group?.id,
-              groupName: group?.name,
-            )
-          : null,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    var item = widget.item;
-    var detail = _detail;
-    var groups = detail?.groups ?? const <MikanGroupModel>[];
-    var selection = widget.selection;
-    return Expander(
-      onStateChanged: (expanded) {
-        if (expanded) unawaited(_loadDetail());
-      },
-      header: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(item.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(
-            [
-              'Mikan ${item.id}',
-              if (detail != null && detail.bgmId == widget.subjectId) '当前条目',
-            ].join(' · '),
-            style: const TextStyle(fontSize: 12),
-          ),
-        ],
-      ),
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Checkbox(
-            checked: selection != null && selection.groupId == null,
-            onChanged: widget.enabled
-                ? (checked) => _select(null, checked ?? false)
-                : null,
-            content: const Text('整个番剧（全部字幕组）'),
-          ),
-          const SizedBox(height: 12),
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: Center(child: ProgressRing()),
-            )
-          else if (_error != null)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_error!),
-                const SizedBox(height: 8),
-                Button(onPressed: _loadDetail, child: const Text('重试字幕组')),
-              ],
-            )
-          else if (_loaded && groups.isEmpty)
-            const Text('该番剧暂无字幕组资源，可以订阅番剧 RSS 等待更新。')
-          else
-            ...groups.map((group) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _MikanGroupResult(
-                  key: ValueKey(group.id),
-                  group: group,
-                  subjectId: widget.subjectId,
-                  selected: selection?.groupId == group.id,
-                  onSelected: widget.enabled
-                      ? (selected) => _select(group, selected)
-                      : null,
-                ),
-              );
-            }),
-        ],
-      ),
-    );
-  }
-}
-
-class _MikanGroupResult extends StatelessWidget {
-  final MikanGroupModel group;
-  final int subjectId;
-  final bool selected;
-  final ValueChanged<bool>? onSelected;
-
-  const _MikanGroupResult({
-    super.key,
-    required this.group,
-    required this.subjectId,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    var count = group.items.length;
-    return Expander(
-      header: Row(
-        children: [
-          Checkbox(
-            checked: selected,
-            onChanged: onSelected == null
-                ? null
-                : (checked) => onSelected!(checked ?? false),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  count == 0 ? group.name : '${group.name} · 最近 $count 个资源',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                if (group.updatedAt != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    '更新 ${group.updatedAt}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-      content: group.items.isEmpty
-          ? const Text('暂无资源')
-          : ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 300),
-              child: ListView.separated(
-                shrinkWrap: true,
-                primary: false,
-                itemCount: group.items.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (_, index) => _MikanEpisodePreview(
-                  key: ValueKey(group.items[index].link),
-                  item: group.items[index],
-                  subjectId: subjectId,
-                  enabled: onSelected != null,
-                ),
-              ),
-            ),
     );
   }
 }
