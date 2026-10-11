@@ -13,25 +13,36 @@ class EpisodeRuleNumber {
 
 /// Keep all plausible positions so duplicate title/episode numbers require
 /// an explicit choice instead of silently replacing the wrong number.
-List<EpisodeRuleNumber> episodeRuleNumbers(String file) => [
-  for (var match in RegExp(
-    r'(?<![\d.])\d{1,4}(?:\.\d+)?(?![\d.])',
-  ).allMatches(PlaybackEpisodeRule.filename(file)))
-    if (!{
-          264,
-          265,
-          360,
-          480,
-          576,
-          720,
-          1080,
-          1440,
-          2160,
-          4320,
-        }.contains(double.parse(match[0]!)) &&
-        !(double.parse(match[0]!) >= 1900 && double.parse(match[0]!) <= 2099))
-      EpisodeRuleNumber(match.start, match.end, match[0]!),
-];
+List<EpisodeRuleNumber> episodeRuleNumbers(String file) {
+  // A dot before resolution metadata is a separator, not a decimal point.
+  // Keep the original offsets for context labels and generated patterns.
+  var name = PlaybackEpisodeRule.filename(file).replaceAllMapped(
+    RegExp(
+      r'\.(?:360|480|576|720|1080|1440|2160|4320)[pi](?![A-Za-z0-9])',
+      caseSensitive: false,
+    ),
+    (match) => ''.padRight(match.end - match.start),
+  );
+  return [
+    for (var match in RegExp(
+      r'(?<![\d.])\d{1,4}(?:\.\d+)?(?![\d.])',
+    ).allMatches(name))
+      if (!{
+            264,
+            265,
+            360,
+            480,
+            576,
+            720,
+            1080,
+            1440,
+            2160,
+            4320,
+          }.contains(double.parse(match[0]!)) &&
+          !(double.parse(match[0]!) >= 1900 && double.parse(match[0]!) <= 2099))
+        EpisodeRuleNumber(match.start, match.end, match[0]!),
+  ];
+}
 
 EpisodeRuleNumber? suggestEpisodeRuleNumber(String file, double target) {
   var numbers = episodeRuleNumbers(file);
