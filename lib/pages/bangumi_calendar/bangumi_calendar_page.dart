@@ -1,6 +1,9 @@
 // Dart imports:
 import 'dart:async';
 
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -101,14 +104,20 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 补全请求代号，只有最后一次刷新的结果会写回页面
   int _enrichGeneration = 0;
 
-  /// 当前展示范围里的本地收藏 subject id，为空表示不过滤
-  Set<int>? _collectedIds;
+  /// 本地收藏快照，由数据库监听统一更新。
+  Map<int, BangumiCollectionType> _collectionTypes = const {};
 
-  /// 收藏过滤的重读代号，连点开关时只让最后一次生效
+  /// 快照中的全部收藏 ID，避免重算分组时重复遍历。
+  Set<int> _collectionIds = const {};
+
+  /// 当前展示范围里的本地收藏 subject id；null 表示不过滤。
+  Set<int>? get _collectedIds => isShowCollection ? _collectionIds : null;
+
+  /// 收藏筛选的切换代号，连点开关时只让最后一次生效。
   int _collectGeneration = 0;
 
-  /// 本地收藏里标记为看过的 subject id
-  Set<int> _watchedIds = {};
+  /// 收藏筛选与看过标记使用同一份快照，避免两次读取之间状态变化。
+  Set<int> _watchedIds = const {};
 
   /// BMF 订阅列表里的 subject id
   Set<int> _bmfIds = {};
@@ -168,6 +177,21 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       isShowCollection = true;
       setState(() {});
     }
+    ref.listenManual(bangumiCollectionTypesProvider, (_, next) {
+      next.whenData((types) {
+        if (!mounted || mapEquals(_collectionTypes, types)) return;
+        _collectionTypes = types;
+        _collectionIds = types.keys.toSet();
+        _watchedIds = {
+          for (var entry in types.entries)
+            if (entry.value == BangumiCollectionType.collect) entry.key,
+        };
+        if (_items.isEmpty && _remote.isEmpty) return;
+        unawaited(rebuildDays());
+        // 新收藏可能让尚未补全的条目进入展示范围。
+        unawaited(prepareDays());
+      });
+    }, fireImmediately: true);
     _scrollController.addListener(syncActiveSlot);
     scheduleDayChange();
     Future.microtask(() async {
@@ -243,9 +267,8 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     setState(() {});
     try {
       var repository = ref.read(bangumiRepositoryProvider);
-      _watchedIds = await loadWatchedIds(repository);
+      await loadCollectionTypes();
       _bmfIds = await loadBmfIds();
-      _collectedIds = await loadCollectedIds();
       var items = await sqliteBd.readItemsForCalendar(
         at: calendarAt,
         nightMode: calendarNightMode,
@@ -540,55 +563,34 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     }
   }
 
-  /// 读取「只显示收藏」需要的本地收藏 subject id；开关关闭时返回 null。
+  /// 等待本地收藏快照就绪；后续变更由监听器同步。
   ///
   /// 读取失败会退回未过滤，并把开关同步关掉，避免开关开着却不生效。
-  Future<Set<int>?> loadCollectedIds() async {
-    if (!isShowCollection) return null;
+  Future<void> loadCollectionTypes() async {
     try {
-      return await ref.read(bangumiRepositoryProvider).getCollectedSubjectIds();
+      await ref.read(bangumiCollectionTypesProvider.future);
     } catch (error, stackTrace) {
       BTLogTool.warn(['读取本地收藏条目失败', error.toString(), stackTrace.toString()]);
       if (mounted) setState(() => isShowCollection = false);
-      return null;
     }
   }
 
   /// 切换「只显示收藏」。
   ///
-  /// 只重读本地收藏与订阅状态，然后就地重算分组：条目集合、封面与完结判定
+  /// 使用最新收藏快照并重读订阅状态，然后就地重算分组：条目集合、封面与完结判定
   /// 都与上一轮一致，重新取数除了让页面先塌再撑，还会对同一个 bgmId 重复请求。
   Future<void> toggleShowCollection(bool value) async {
     setState(() => isShowCollection = value);
     var generation = ++_collectGeneration;
-    var repository = ref.read(bangumiRepositoryProvider);
-    var watched = await loadWatchedIds(repository);
-    var bmf = await loadBmfIds();
-    var collected = await loadCollectedIds();
+    await loadCollectionTypes();
     if (!mounted || generation != _collectGeneration) return;
-    _watchedIds = watched;
+    var bmf = await loadBmfIds();
+    if (!mounted || generation != _collectGeneration) return;
     _bmfIds = bmf;
-    _collectedIds = collected;
     await rebuildDays();
     // 展示范围变了：整周重新准备一轮，只补还没拿到的条目
     // （关掉过滤时新露出来的条目平时不会被补全）。
     unawaited(prepareDays());
-  }
-
-  /// 本地收藏里标记为看过的条目。
-  ///
-  /// 未登录时本地收藏不可信，直接当作没有。
-  Future<Set<int>> loadWatchedIds(BTBangumiRepository repository) async {
-    if (ref.read(bgmUserStoreProvider).user == null) return {};
-    try {
-      var collections = await repository.getLocalCollections();
-      return {
-        for (var item in collections)
-          if (item.type == BangumiCollectionType.collect) item.subjectId,
-      };
-    } catch (_) {
-      return {};
-    }
   }
 
   /// BMF 订阅列表里的 subject id。

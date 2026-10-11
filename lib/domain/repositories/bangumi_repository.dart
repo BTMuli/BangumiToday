@@ -105,6 +105,9 @@ abstract class BTBangumiRepository {
   /// 本地收藏条目 ID，供日历筛选。
   Future<Set<int>> getCollectedSubjectIds();
 
+  /// 本地收藏 ID 与状态快照，供日历响应收藏变化。
+  Stream<Map<int, BangumiCollectionType>> watchLocalCollectionTypes();
+
   /// 本地收藏列表，供收藏 Tab 首屏。
   Future<List<BangumiUserSubjectCollection>> getLocalCollections({
     BangumiCollectionType? type,

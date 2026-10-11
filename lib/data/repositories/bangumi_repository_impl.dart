@@ -342,6 +342,10 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   }
 
   @override
+  Stream<Map<int, BangumiCollectionType>> watchLocalCollectionTypes() =>
+      _localDataSource.watchCollectionTypes();
+
+  @override
   Future<List<BangumiUserSubjectCollection>> getLocalCollections({
     BangumiCollectionType? type,
   }) async {

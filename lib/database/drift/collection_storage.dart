@@ -10,6 +10,19 @@ class CollectionStorage {
   const CollectionStorage(this.db);
   final BtDatabase db;
 
+  /// Observe IDs and collection types without decoding subject JSON.
+  Stream<Map<int, int>> watchTypes() {
+    var table = db.bangumiCollection;
+    var query = db.selectOnly(table)
+      ..addColumns([table.subjectId, table.collectionType]);
+    return query.watch().map(
+      (rows) => {
+        for (var row in rows)
+          row.read(table.subjectId)!: row.read(table.collectionType)!,
+      },
+    );
+  }
+
   Future<void> saveAll(Iterable<BangumiCollectionCompanion> collections) async {
     var rows = collections
         .map((row) {

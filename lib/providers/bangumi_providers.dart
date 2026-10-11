@@ -8,7 +8,9 @@ import '../data/datasources/bangumi_remote_data_source.dart';
 import '../data/datasources/bangumi_remote_data_source_impl.dart';
 import '../data/repositories/bangumi_repository_impl.dart';
 import '../domain/repositories/bangumi_repository.dart';
+import '../models/bangumi/bangumi_enum.dart';
 import '../request/bangumi/bangumi_api.dart';
+import '../store/bgm_user_hive.dart';
 
 final bangumiApiProvider = Provider<BtrBangumiApi>((ref) {
   return BtrBangumiApi();
@@ -32,3 +34,13 @@ final bangumiRepositoryProvider = Provider<BTBangumiRepository>((ref) {
     localDataSource: ref.watch(bangumiLocalDataSourceProvider),
   );
 });
+
+/// 首页共用一份数据库快照，收藏筛选与封面状态随持久化写入同步。
+final bangumiCollectionTypesProvider =
+    StreamProvider.autoDispose<Map<int, BangumiCollectionType>>((ref) {
+      var user = ref.watch(
+        bgmUserStoreProvider.select((state) => state.user?.id),
+      );
+      if (user == null) return Stream.value(const {});
+      return ref.watch(bangumiRepositoryProvider).watchLocalCollectionTypes();
+    });

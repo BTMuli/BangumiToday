@@ -41,6 +41,18 @@ class BtsBangumiCollection {
     return rows.map((row) => row.read(subjectId)).whereType<int>().toSet();
   }
 
+  /// 监听本地收藏 ID 与状态，写入或删除后发布完整快照。
+  Stream<Map<int, BangumiCollectionType>> watchTypes() {
+    return CollectionStorage(_db).watchTypes().map(
+      (types) => {
+        for (var entry in types.entries)
+          entry.key: BangumiCollectionType.values.firstWhere(
+            (type) => type.value == entry.value,
+          ),
+      },
+    );
+  }
+
   /// 获取收藏数量
   Future<int> getCount() {
     return _db.bangumiCollection.count().getSingle();

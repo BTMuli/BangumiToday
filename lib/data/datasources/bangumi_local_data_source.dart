@@ -13,6 +13,8 @@ abstract class BTBangumiLocalDataSource {
 
   Future<Set<int>> getAllSubjectIds();
 
+  Stream<Map<int, BangumiCollectionType>> watchCollectionTypes();
+
   Future<BangumiUserSubjectCollection?> getCollection(int subjectId);
 
   Future<void> insertCollection(BangumiUserSubjectCollection collection);
