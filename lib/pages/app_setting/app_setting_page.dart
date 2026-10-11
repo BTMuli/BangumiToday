@@ -148,8 +148,8 @@ class _SettingPageState extends ConsumerState<SettingPage>
             ),
             SizedBox(height: 16),
             Text(
-              '基于 Bangumi.tv 与蜜柑计划的番剧应用，'
-              '结合本地目录提供番剧更新提醒、RSS 订阅与下载、进度记录等功能。',
+              '基于 Bangumi 的桌面追番应用，'
+              '集放送日历、收藏与进度管理、RSS 订阅、资源下载和本地播放于一体。',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.9),
                 fontSize: 13,
