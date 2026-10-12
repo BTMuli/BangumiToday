@@ -14,6 +14,7 @@ import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Project imports:
+import '../../core/services/playback_close_progress.dart';
 import '../../core/services/playback_window_protocol.dart';
 import '../../core/utils/window_effect.dart';
 import '../../data/repositories/playback_window_remote.dart';
@@ -147,6 +148,8 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
             presentation: presentation,
             closing: closing,
             mode: mode,
+            canRetryClose: () => !_closing && !_exiting,
+            onRetryClose: onWindowClose,
           ),
         ),
       );
@@ -315,17 +318,18 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
     BTLogTool.info('播放器窗口保存并隐藏：${identity.generation}');
     _closing = true;
     _boundsTimer?.cancel();
-    closing.value = '正在保存并关闭播放器…';
+    closing.value = '正在准备关闭播放器…';
     marking.suspend();
     try {
-      await call('closing', {});
+      var progress = _closeProgress();
+      await progress.run('通知主窗口', () => call('closing', {}));
       if (await windowManager.isMinimized()) await windowManager.restore();
       await windowManager.show();
       var savedBounds = await _savedBounds();
-      await store.clearCurrentPlayback();
-      await _saveBounds(savedBounds);
+      await store.clearCurrentPlayback(progress: progress);
+      await progress.run('保存窗口尺寸', () => _saveBounds(savedBounds));
       // Remove the stopped video's widget while frames are still available.
-      await WidgetsBinding.instance.endOfFrame;
+      await progress.run('等待画面更新', () => WidgetsBinding.instance.endOfFrame);
       await windowManager.hide();
       _hidden = true;
       await call('hidden', {});
@@ -345,6 +349,14 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
       rethrow;
     }
   }
+
+  PlaybackCloseProgress _closeProgress() => PlaybackCloseProgress(
+    onChanged: (stage, slow) {
+      closing.value = slow ? '$stage 耗时较长，仍在等待完成…' : '$stage…';
+    },
+    onLog: (message) =>
+        BTLogTool.info('播放器关闭 generation=${identity.generation} $message'),
+  );
 
   Future<void> _saveBounds(Rect? bounds) async {
     if (bounds == null) return;
@@ -377,18 +389,22 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
     marking.invalidate();
     BTLogTool.info('应用退出，开始销毁播放器：${identity.generation}');
     try {
-      await call('closing', {});
+      var progress = _closeProgress();
+      await progress.run('通知主窗口', () => call('closing', {}));
       if (!_hidden) {
         if (await windowManager.isMinimized()) await windowManager.restore();
         await windowManager.show();
-        await _saveBounds(await _savedBounds());
+        await progress.run(
+          '保存窗口尺寸',
+          () async => _saveBounds(await _savedBounds()),
+        );
       }
-      await store.shutdown();
-      await store.waitForShutdownWork();
+      await progress.run('释放播放器', store.shutdown);
+      await progress.run('等待保存与清理完成', store.waitForShutdownWork);
       await windowManager.hide();
       _hidden = true;
-      await store.waitForShutdownSettlement();
-      await call('closed', {});
+      await progress.run('等待原生播放器销毁', store.waitForShutdownSettlement);
+      await progress.run('确认播放器已关闭', () => call('closed', {}));
       // Return the prepareClose reply before taking down its channel/HWND.
       Timer(const Duration(milliseconds: 100), () {
         unawaited(
@@ -550,10 +566,14 @@ class _PlaybackWindowApp extends StatelessWidget {
     required this.presentation,
     required this.closing,
     required this.mode,
+    required this.canRetryClose,
+    required this.onRetryClose,
   });
   final ValueNotifier<Map<String, Object?>> presentation;
   final ValueNotifier<String?> closing;
   final PlaybackWindowMode mode;
+  final bool Function() canRetryClose;
+  final VoidCallback onRetryClose;
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<Map<String, Object?>>(
@@ -600,7 +620,19 @@ class _PlaybackWindowApp extends StatelessWidget {
                       child: Center(
                         child: Padding(
                           padding: const EdgeInsets.all(32),
-                          child: Text(message),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(message),
+                              if (canRetryClose()) ...[
+                                const SizedBox(height: 16),
+                                Button(
+                                  onPressed: onRetryClose,
+                                  child: const Text('重试关闭'),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                     ),

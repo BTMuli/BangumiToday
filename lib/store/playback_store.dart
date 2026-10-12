@@ -20,6 +20,7 @@ import '../core/services/playback_audio.dart';
 import '../core/services/playback_audio_metadata.dart';
 import '../core/services/playback_cache.dart';
 import '../core/services/playback_chapters.dart';
+import '../core/services/playback_close_progress.dart';
 import '../core/services/playback_diagnostics.dart';
 import '../core/services/playback_janai_benchmarks.dart';
 import '../core/services/playback_janai_video_source.dart';
@@ -151,6 +152,8 @@ class PlaybackStore extends ChangeNotifier {
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   Timer? _saveTimer;
   Future<void> _operation = Future.value();
+  Future<void>? _clearPlaybackFuture;
+  bool _clearingPlayback = false;
   String? _operationFile;
   List<PlaybackItem> playlist = [];
   List<PlaybackItem> history = [];
@@ -674,7 +677,7 @@ class PlaybackStore extends ChangeNotifier {
         _notify();
       }),
       player.stream.completed.listen((value) {
-        if (_closed || loading || current == null) return;
+        if (_closed || _clearingPlayback || loading || current == null) return;
         completed = value;
         if (!value) return;
         diagnostics.event('视频播放完成');
@@ -694,7 +697,11 @@ class PlaybackStore extends ChangeNotifier {
                 _notify();
               })
               .then((_) async {
-                if (_closed || _session.id != snapshot.sessionId) return;
+                if (_closed ||
+                    _clearingPlayback ||
+                    _session.id != snapshot.sessionId) {
+                  return;
+                }
                 // Resolve chapters outside the operation queue: a manual file
                 // change remains responsive while matching data is loading.
                 var nextIndex = await library.nextEpisodeIndex(
@@ -703,7 +710,11 @@ class PlaybackStore extends ChangeNotifier {
                 );
                 if (nextIndex == null) return;
                 await _serial(() async {
-                  if (_closed || _session.id != snapshot.sessionId) return;
+                  if (_closed ||
+                      _clearingPlayback ||
+                      _session.id != snapshot.sessionId) {
+                    return;
+                  }
                   var nextKey = items[nextIndex].key;
                   var liveIndex = playlist.indexWhere(
                     (item) => item.key == nextKey,
@@ -720,11 +731,19 @@ class PlaybackStore extends ChangeNotifier {
       }),
     ]);
     _saveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (_closed || loading || !player.state.playing || completed) return;
+      if (_closed ||
+          _clearingPlayback ||
+          loading ||
+          !player.state.playing ||
+          completed) {
+        return;
+      }
       // Persist progress without fetching/grouping the entire library or
       // rebuilding the video surface every five seconds during playback.
       unawaited(
-        _serial(() => _save(refreshHistory: false)).catchError((Object _) {}),
+        _serial(() async {
+          if (!_clearingPlayback) await _save(refreshHistory: false);
+        }).catchError((Object _) {}),
       );
     });
   }
@@ -1280,29 +1299,48 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> stop() => _serial(_stop);
 
   /// Unload media while retaining the Player and its native render context.
-  Future<void> clearCurrentPlayback() => _serial(() async {
-    await beforeVideoDispose?.call();
-    await _stop(refreshHistory: false);
-    _sourceDir = null;
-    _sourceSubject = null;
-    _aspectRatio = null;
-    _videoSize = null;
-    error = null;
-    _diagnostics?.stopped();
-    _notify();
-  });
+  Future<void> clearCurrentPlayback({PlaybackCloseProgress? progress}) =>
+      _clearPlaybackFuture ??= _clearCurrentPlayback(
+        progress ?? const PlaybackCloseProgress(),
+      ).whenComplete(() => _clearPlaybackFuture = null);
 
-  Future<void> _stop({bool refreshHistory = true}) async {
-    await _save(refreshHistory: refreshHistory);
+  Future<void> _clearCurrentPlayback(PlaybackCloseProgress progress) {
+    _clearingPlayback = true;
+    var pending = _operation;
+    var ready = progress.run('等待当前播放操作完成', () => pending);
+    return _serial(() async {
+      await ready;
+      await progress.run('暂停超分更新', () async => _upscaler?.suspendMedia());
+      await progress.run('退出全屏', () async => beforeVideoDispose?.call());
+      await _stop(refreshHistory: false, progress: progress);
+      _sourceDir = null;
+      _sourceSubject = null;
+      _aspectRatio = null;
+      _videoSize = null;
+      error = null;
+      _diagnostics?.stopped();
+      _notify();
+    }).whenComplete(() => _clearingPlayback = false);
+  }
+
+  Future<void> _stop({
+    bool refreshHistory = true,
+    PlaybackCloseProgress? progress,
+  }) async {
+    var stages = progress ?? const PlaybackCloseProgress();
+    await stages.run('保存播放进度', () => _save(refreshHistory: refreshHistory));
     loading = true;
     _janaiVideoSource?.reset();
     try {
       _manualSubtitles = true;
       _chapters?.reset();
-      await _upscaler?.resetMedia();
+      await stages.run('等待超分操作完成', () async => _upscaler?.suspendMedia());
       if (_closed) return;
-      await _player?.stop();
-      await _resetAudio();
+      // Resetting vf/shaders while a video is loaded can rebuild its decoder
+      // and inference chain. Stop first, then clear options on the idle player.
+      await stages.run('停止媒体播放', () async => _player?.stop());
+      await stages.run('清理超分配置', () async => _upscaler?.resetMedia());
+      await stages.run('恢复音频配置', _resetAudio);
       _session.clear();
       index = -1;
       playlist = [];
@@ -1370,9 +1408,10 @@ class PlaybackStore extends ChangeNotifier {
         _manualSubtitles = true;
         _chapters?.reset();
         await beforeVideoDispose?.call();
-        await _upscaler?.resetMedia();
+        await _upscaler?.suspendMedia();
         if (_closed) return;
         await _player?.stop();
+        await _upscaler?.resetMedia();
         await _resetAudio();
         _session.clear();
         index = -1;

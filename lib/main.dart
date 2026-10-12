@@ -45,7 +45,7 @@ import 'store/tracker_hive.dart';
 import 'tools/log_tool.dart';
 import 'widgets/shell/splash.dart';
 
-bool _applicationExitStarted = false;
+Future<bool>? _applicationExitFuture;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,8 +63,9 @@ Future<void> main() async {
   }
   AppLifecycleListener(
     onExitRequested: () async {
-      await _exitApplication();
-      return AppExitResponse.exit;
+      return await _exitApplication()
+          ? AppExitResponse.exit
+          : AppExitResponse.cancel;
     },
   );
 
@@ -124,16 +125,22 @@ Future<void> _initDesktopTray() async {
               globalContainer.read(navStoreProvider.notifier).goToDownload();
             }
           : null,
-      onExit: _exitApplication,
+      onExit: () async {
+        await _exitApplication();
+      },
     );
   });
 }
 
-Future<void> _exitApplication() async {
-  if (_applicationExitStarted) return;
-  _applicationExitStarted = true;
+Future<bool> _exitApplication() =>
+    _applicationExitFuture ??= _performApplicationExit().then((exited) {
+      if (!exited) _applicationExitFuture = null;
+      return exited;
+    });
+
+Future<bool> _performApplicationExit() async {
   // 先移除视频与控制条，使其取消流监听；隐藏窗口后可能不再绘制帧。
-  await _runExitStep(
+  var playbackReleased = await _runExitStep(
     '播放器',
     Platform.isWindows
         ? globalContainer.read(playbackWindowServiceProvider).shutdown
@@ -141,6 +148,16 @@ Future<void> _exitApplication() async {
     // 播放器为队列、存储、界面与原生释放分别控制退出预算。
     timeout: null,
   );
+  if (!playbackReleased) {
+    // Keep the database, channels and engines alive while the child still
+    // owns accepted writes or native teardown. Destroying them can crash mpv.
+    BTLogTool.error('播放器清理未完成，已取消应用退出');
+    await _runExitStep('显示主窗口', () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+    return false;
+  }
   // 再藏窗、拆托盘，避免协议还原 / 引擎 shutdown 期间主窗体假死。
   await _runExitStep('隐藏主窗口', windowManager.hide);
   await _runExitStep('系统托盘', BTDesktopTrayService.instance.dispose);
@@ -161,9 +178,10 @@ Future<void> _exitApplication() async {
   // the playback/background exit steps, before destroying the main engine.
   await _runExitStep('SQLite', BTSqlite.close, timeout: null);
   await _runExitStep('主窗口', windowManager.destroy);
+  return true;
 }
 
-Future<void> _runExitStep(
+Future<bool> _runExitStep(
   String name,
   Future<void> Function() action, {
   Duration? timeout = const Duration(seconds: 5),
@@ -171,11 +189,13 @@ Future<void> _runExitStep(
   try {
     var step = action();
     await (timeout == null ? step : step.timeout(timeout));
+    return true;
   } on TimeoutException {
     BTLogTool.warn('$name 退出清理超时');
   } catch (error, stackTrace) {
     BTLogTool.error(['$name 退出清理失败', error.toString(), stackTrace.toString()]);
   }
+  return false;
 }
 
 /// 根据主题模式解析窗口深浅色

@@ -312,13 +312,9 @@ class PlaybackUpscaler {
     onChanged();
   }
 
-  /// Called before stop/open. No old application can write after this returns.
-  /// Episode switches can retain a confirmed Anime4K output while clearing the
-  /// old shaders, keeping new SDR frames on the same mpv scaling path.
-  Future<void> resetMedia({bool keepOutput = false}) => _resetWork ??=
-      _resetMedia(keepOutput: keepOutput).whenComplete(() => _resetWork = null);
-
-  Future<void> _resetMedia({required bool keepOutput}) async {
+  /// Stop scheduling and settle accepted commands without rebuilding the
+  /// active video's filter chain. Unload media before resetting that chain.
+  Future<void> suspendMedia() async {
     if (_closed) return;
     _mediaReady = false;
     _stopDropMonitor();
@@ -332,6 +328,18 @@ class PlaybackUpscaler {
     _pending = null;
     _pendingReady = false;
     await _flight;
+  }
+
+  /// Called before open, or after stop. No old application can write after this
+  /// returns.
+  /// Episode switches can retain a confirmed Anime4K output while clearing the
+  /// old shaders, keeping new SDR frames on the same mpv scaling path.
+  Future<void> resetMedia({bool keepOutput = false}) => _resetWork ??=
+      _resetMedia(keepOutput: keepOutput).whenComplete(() => _resetWork = null);
+
+  Future<void> _resetMedia({required bool keepOutput}) async {
+    if (_closed) return;
+    await suspendMedia();
     if (_closed) return;
     var retainOutput =
         keepOutput &&

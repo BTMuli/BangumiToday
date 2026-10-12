@@ -389,7 +389,13 @@ class PlaybackWindowService extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> shutdown() => _shutdownFuture ??= _shutdown();
+  Future<void> shutdown() => _shutdownFuture ??= _shutdown().catchError((
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    _shutdownFuture = null;
+    Error.throwWithStackTrace(error, stackTrace);
+  });
   Future<void> _shutdown() async {
     _exiting = true;
     // An open command can itself be waiting on the child's playback queue.
