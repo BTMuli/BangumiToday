@@ -130,6 +130,12 @@ class BmfFilterModel {
     _ => nextBroadcasts[item.subject] ?? recentBroadcasts[item.subject],
   };
 
+  /// 已有放送记录且所有排期均因末播日期或总话数结束，才确认完结。
+  BmfBroadcast? completedBroadcastFor(AppBmfModel item) =>
+      nextBroadcasts.containsKey(item.subject)
+      ? null
+      : recentBroadcasts[item.subject];
+
   static bool hasRss(AppBmfModel item) => item.rss?.trim().isNotEmpty ?? false;
 
   static bool hasDirectory(AppBmfModel item) =>

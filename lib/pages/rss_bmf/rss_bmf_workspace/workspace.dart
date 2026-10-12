@@ -69,14 +69,14 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
         separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           var bmf = _filterModel.filteredList[index];
-          var broadcast = _filterModel.broadcastFor(bmf);
-          var broadcastLabel =
-              broadcast?.label ??
-              (_filterModel.recentBroadcasts.containsKey(bmf.subject)
-                  ? '暂无后续排期'
-                  : _filterModel.nextBroadcasts.containsKey(bmf.subject)
-                  ? '尚未首播'
-                  : '放送信息未知');
+          var completed = _filterModel.completedBroadcastFor(bmf);
+          var broadcast = completed ?? _filterModel.broadcastFor(bmf);
+          var broadcastLabel = completed != null
+              ? '放送完毕'
+              : broadcast?.label ??
+                    (_filterModel.nextBroadcasts.containsKey(bmf.subject)
+                        ? '尚未首播'
+                        : '放送信息未知');
           return BmfCard(
             key: ValueKey(bmf.subject),
             bmf: bmf,
@@ -84,7 +84,9 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
             displayTitle: _filterModel.titleFor(bmf),
             seasonLabel: _filterModel.quarterFor(bmf).label,
             broadcastLabel: broadcastLabel,
-            broadcastTooltip: broadcast?.tooltip,
+            broadcastTooltip: completed != null
+                ? '放送完毕\n${completed.tooltip}'
+                : broadcast?.tooltip,
             pendingCount: _filterModel.pendingCounts[bmf.subject] ?? 0,
             selected: !compact && selected?.subject == bmf.subject,
             dense: true,

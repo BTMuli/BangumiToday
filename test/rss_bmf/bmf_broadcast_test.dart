@@ -79,6 +79,61 @@ void main() {
     }
   });
 
+  test('完结状态由末播或总话数确认，不受排序切换影响', () {
+    var item = AppBmfModel(subject: 1);
+    var lastAir = DateTime(2026, 10, 12, 23);
+    var dataSources = [
+      BmfSubjectData(schedules: [_schedule(end: lastAir)]),
+      BmfSubjectData(schedules: [_schedule()], totalEpisodes: 2),
+    ];
+    for (var data in dataSources) {
+      var model = BmfFilterModel()..resetFilters();
+      model.subjectData[item.subject] = data;
+      for (var at in [
+        DateTime(2026, 10, 1),
+        lastAir.subtract(const Duration(minutes: 1)),
+        lastAir,
+      ]) {
+        model.applyFilter([item], now: at);
+        expect(model.completedBroadcastFor(item), isNull);
+      }
+      for (var sort in BmfSortOrder.values) {
+        model.sortOrder = sort;
+        model.applyFilter([item], now: lastAir.add(const Duration(minutes: 1)));
+        var completed = model.completedBroadcastFor(item)!;
+        expect(completed.time.toLocal(), lastAir);
+        expect(completed.episode, 2);
+        expect(completed.tooltip, contains('2026/10/12 23:00 · 第2话'));
+      }
+      model.applyFilter([item], now: DateTime(2026, 10, 1));
+      expect(model.completedBroadcastFor(item), isNull);
+    }
+  });
+
+  test('信息未知、仍在连载或还有后续档期时不误标完结', () {
+    var model = BmfFilterModel()..resetFilters();
+    var items = [
+      AppBmfModel(subject: 1),
+      AppBmfModel(subject: 2),
+      AppBmfModel(subject: 3),
+    ];
+    model.subjectData.addAll({
+      2: BmfSubjectData(schedules: [_schedule()]),
+      3: BmfSubjectData(
+        schedules: [
+          _schedule(end: DateTime(2026, 10, 5, 23)),
+          _schedule(first: DateTime(2026, 10, 19, 22)),
+        ],
+      ),
+    });
+    model.applyFilter(items, now: DateTime(2026, 10, 12));
+    for (var item in items) {
+      expect(model.completedBroadcastFor(item), isNull);
+    }
+    expect(model.recentBroadcasts[3], isNotNull);
+    expect(model.nextBroadcasts[3]!.time.toLocal(), DateTime(2026, 10, 19, 22));
+  });
+
   test('当季排期决定时刻，首播时间决定话数，支持非每周放送', () {
     var data = BmfSubjectData(
       schedules: [
