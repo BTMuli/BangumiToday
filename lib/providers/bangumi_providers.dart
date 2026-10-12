@@ -36,7 +36,8 @@ final bangumiRepositoryProvider = Provider<BTBangumiRepository>((ref) {
     accountSession: () {
       var user = ref.read(bgmUserStoreProvider);
       return (
-        username: user.user?.id.toString(),
+        // 收藏接口按 username 查询；本地缓存仍以数字 UID 绑定账号。
+        username: user.user?.username,
         generation: user.sessionGeneration,
       );
     },

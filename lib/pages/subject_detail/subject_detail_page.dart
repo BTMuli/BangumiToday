@@ -190,7 +190,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     _prefetch = SubjectDetailPrefetch(
       repository: repository,
       subject: subjectId,
-      username: user?.id.toString(),
+      username: user?.username,
       collected: local != null,
       progressAccount: marking?.currentAccount(),
       progressVersion: marking?.progressVersion ?? 0,

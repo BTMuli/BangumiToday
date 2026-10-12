@@ -3,7 +3,9 @@ import 'dart:async';
 
 // Package imports:
 import 'package:drift/native.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 // Project imports:
 import 'package:bangumi_today/data/datasources/bangumi_local_data_source_impl.dart';
@@ -15,6 +17,8 @@ import 'package:bangumi_today/domain/repositories/bangumi_repository.dart';
 import 'package:bangumi_today/models/app/response.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_enum.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_model.dart';
+import 'package:bangumi_today/providers/bangumi_providers.dart';
+import 'package:bangumi_today/store/bgm_user_hive.dart';
 import 'collection_fixture.dart';
 
 typedef _Page = BTResponse<BangumiPageT<BangumiUserSubjectCollection>>;
@@ -33,6 +37,15 @@ _Page _page(
   ),
 );
 
+class _UserStore extends BgmUserStore {
+  _UserStore(this.account);
+
+  final BangumiUser account;
+
+  @override
+  BgmUserState build() => BgmUserState(user: account);
+}
+
 class _Remote extends Fake implements BTBangumiRemoteDataSource {
   Future<_Page> Function(int offset)? page;
   Future<_Subject> Function(int id)? subject;
@@ -40,6 +53,7 @@ class _Remote extends Fake implements BTBangumiRemoteDataSource {
   bool Function()? lastScope;
   final offsets = <int>[];
   final usernames = <String?>[];
+  final subjectUsernames = <String>[];
   int reads = 0;
   bool freshRead = false;
   bool failWrite = false;
@@ -70,6 +84,7 @@ class _Remote extends Fake implements BTBangumiRemoteDataSource {
     lastScope = authScope;
     expect(authScope?.call(), isTrue);
     reads++;
+    subjectUsernames.add(username);
     freshRead = fresh;
     return await (subject?.call(subjectId) ??
         Future.value(
@@ -128,6 +143,54 @@ void main() {
       accountSession: () => account,
     );
     addTearDown(db.close);
+  });
+
+  test('自定义用户名用于收藏请求，本地缓存仍归属数字 UID', () async {
+    PackageInfo.setMockInitialValues(
+      appName: 'BangumiToday',
+      packageName: 'bangumi_today',
+      version: '1.0.0',
+      buildNumber: '46',
+      buildSignature: '',
+    );
+    var user = BangumiUser(
+      id: 1283034,
+      username: 'configured_user',
+      nickname: '测试用户',
+      userGroup: BangumiLegacyUserGroupType.user,
+      avatar: BangumiAvatar(large: '', medium: '', small: ''),
+      sign: '',
+    );
+    var item = collectionFixture();
+    await table.setOwner(user.id.toString());
+    await local.insertCollection(item);
+    remote.page = (_) async => _page([item]);
+    remote.subject = (_) async => BTResponse.success(data: item);
+    var container = ProviderContainer(
+      overrides: [
+        bgmUserStoreProvider.overrideWith(() => _UserStore(user)),
+        bangumiLocalDataSourceProvider.overrideWithValue(local),
+        bangumiRemoteDataSourceProvider.overrideWithValue(remote),
+      ],
+    );
+    addTearDown(container.dispose);
+    var repository = container.read(bangumiRepositoryProvider);
+
+    expect((await repository.getCollectionSubjects()).code, 0);
+    expect((await repository.syncCollections()).code, 0);
+    expect(remote.usernames, [user.username, user.username]);
+    expect(
+      (await repository.getCollectionSubject(
+        user.username,
+        item.subjectId,
+      )).code,
+      0,
+    );
+    expect((await repository.refreshCollectionSubject(item.subjectId)).code, 0);
+    expect(remote.subjectUsernames, [user.username, user.username]);
+
+    await table.setOwner(user.id.toString());
+    expect((await local.getCollections()).single.subjectId, item.subjectId);
   });
 
   test('升级绑定旧收藏，同账号保留，切换账号和退出清空', () async {

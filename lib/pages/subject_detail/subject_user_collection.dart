@@ -225,7 +225,7 @@ class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
         : null;
     var resp =
         await (initial ??
-            repository.getCollectionSubject(user.id.toString(), subject.id));
+            repository.getCollectionSubject(user.username, subject.id));
     if (!mounted) return;
     if (initial != null && !prefetch!.isCurrent()) return;
     if (resp.code == 404) {
