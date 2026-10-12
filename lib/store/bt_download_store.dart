@@ -87,7 +87,7 @@ class BtDownloadState {
   /// 是否正在刷新任务列表
   final bool refreshing;
 
-  /// 下载引擎是否使用 Windows 系统代理。
+  /// 下载引擎是否启用所选代理。
   final bool useSystemProxy;
 
   /// 任务是否已停止：下载出错或已完成做种，不再参与下载与上传。
@@ -187,7 +187,9 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
                : (_) async {}),
        _buildProxyConfig =
            buildProxyConfig ??
-           (client == null ? WindowsSystemProxy.engineConfig : _directProxy);
+           (client == null
+               ? BtsAppConfig().buildDownloadProxyConfig
+               : _directProxy);
 
   final BtEngineGateway _client;
   final bool _injected;
@@ -320,7 +322,7 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
   /// 是否正在刷新任务列表
   bool get refreshing => state.refreshing;
 
-  /// 下载引擎是否使用 Windows 系统代理。
+  /// 下载引擎是否启用所选代理。
   bool get useSystemProxy => state.useSystemProxy;
 
   /// 任务是否正在执行命令
@@ -952,7 +954,13 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
     }
   }
 
-  /// 设置下载引擎是否使用系统代理，并在引擎已运行时热更新。
+  /// 热更新代理来源，沿用下载引擎自己的启用开关。
+  Future<void> refreshProxy(SystemProxyConfig config) async {
+    await _ensureProxyReady();
+    await _applyEngineProxy(config.toEngineJson(enabled: _useProxy));
+  }
+
+  /// 设置下载引擎是否使用所选代理，并在引擎已运行时热更新。
   Future<void> setUseSystemProxy(bool value) async {
     await _ensureProxyReady();
     var previous = _useProxy;

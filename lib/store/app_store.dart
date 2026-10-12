@@ -6,11 +6,13 @@ import 'package:system_theme/system_theme.dart';
 // Project imports:
 import '../core/constants/app_constants.dart';
 import '../database/app/app_config.dart';
+import '../models/app/proxy_settings.dart';
 import '../models/app/rss_selection_behavior.dart';
 import '../request/bangumi/bangumi_api.dart';
 import '../request/core/client.dart';
 import '../request/mikan/mikan_api.dart';
 import '../tools/log_tool.dart';
+import 'bt_download_store.dart';
 
 /// 应用状态提供者
 final appStoreProvider = NotifierProvider<BTAppStore, BTAppSettings>(
@@ -29,6 +31,7 @@ class BTAppSettings {
     this.bangumiUrl = BTAppConstants.defaultBangumiApiBaseUrl,
     this.minimizeToTray = true,
     this.useSystemProxy = false,
+    this.proxySettings = const ProxySettings(),
     this.rssSelectionBehavior = RssSelectionBehavior.replace,
     this.loaded = false,
   });
@@ -48,8 +51,10 @@ class BTAppSettings {
   /// 关闭主窗口后是否隐藏到系统托盘。
   final bool minimizeToTray;
 
-  /// 是否使用 Windows 系统代理。
+  /// 是否启用应用代理；保留已有设置键，代理来源由 proxySettings 决定。
   final bool useSystemProxy;
+
+  final ProxySettings proxySettings;
 
   /// 搜索选中 RSS 时默认替换全部已有源，或保留已有源并新增。
   final RssSelectionBehavior rssSelectionBehavior;
@@ -73,6 +78,7 @@ class BTAppSettings {
     String? bangumiUrl,
     bool? minimizeToTray,
     bool? useSystemProxy,
+    ProxySettings? proxySettings,
     RssSelectionBehavior? rssSelectionBehavior,
     bool? loaded,
   }) {
@@ -83,6 +89,7 @@ class BTAppSettings {
       bangumiUrl: bangumiUrl ?? this.bangumiUrl,
       minimizeToTray: minimizeToTray ?? this.minimizeToTray,
       useSystemProxy: useSystemProxy ?? this.useSystemProxy,
+      proxySettings: proxySettings ?? this.proxySettings,
       rssSelectionBehavior: rssSelectionBehavior ?? this.rssSelectionBehavior,
       loaded: loaded ?? this.loaded,
     );
@@ -98,6 +105,7 @@ class BTAppSettings {
         bangumiUrl == other.bangumiUrl &&
         minimizeToTray == other.minimizeToTray &&
         useSystemProxy == other.useSystemProxy &&
+        proxySettings == other.proxySettings &&
         rssSelectionBehavior == other.rssSelectionBehavior &&
         loaded == other.loaded;
   }
@@ -110,6 +118,7 @@ class BTAppSettings {
     bangumiUrl,
     minimizeToTray,
     useSystemProxy,
+    proxySettings,
     rssSelectionBehavior,
     loaded,
   );
@@ -139,11 +148,15 @@ class BTAppStore extends Notifier<BTAppSettings> {
     var bangumiUrl = await sqlite.readBangumiUrl();
     var mikanRss = await sqlite.readMikanUrl();
     var useSystemProxy = await sqlite.readUseSystemProxy();
+    var proxySettings = await sqlite.readProxySettings();
     var rssSelectionBehavior = await sqlite.readRssSelectionBehavior();
 
     BtrBangumiApi.setBaseUrl(bangumiUrl);
     BtrMikanApi.setBaseUrl(mikanRss);
-    await BtrClient.configureSystemProxy(useSystemProxy);
+    await BtrClient.configureSystemProxy(
+      useSystemProxy,
+      settings: proxySettings,
+    );
     if (_disposed) return;
 
     state = BTAppSettings(
@@ -153,6 +166,7 @@ class BTAppStore extends Notifier<BTAppSettings> {
       bangumiUrl: bangumiUrl,
       minimizeToTray: minimizeToTray,
       useSystemProxy: useSystemProxy,
+      proxySettings: proxySettings,
       rssSelectionBehavior: rssSelectionBehavior,
       loaded: true,
     );
@@ -190,21 +204,49 @@ class BTAppStore extends Notifier<BTAppSettings> {
     state = state.copyWith(rssSelectionBehavior: value);
   }
 
-  /// 设置是否使用系统代理；写入失败时回滚客户端配置并保留原状态。
+  /// 设置是否使用所选代理；写入失败时回滚客户端配置并保留原状态。
   Future<void> setUseSystemProxy(bool value) async {
     var previous = state.useSystemProxy;
     try {
-      await BtrClient.configureSystemProxy(value);
+      await BtrClient.configureSystemProxy(
+        value,
+        settings: state.proxySettings,
+      );
       await sqlite.writeUseSystemProxy(value);
     } catch (error, stackTrace) {
       try {
-        await BtrClient.configureSystemProxy(previous);
+        await BtrClient.configureSystemProxy(
+          previous,
+          settings: state.proxySettings,
+        );
       } catch (rollbackError) {
         BTLogTool.warn('回滚系统代理设置失败：$rollbackError');
       }
       Error.throwWithStackTrace(error, stackTrace);
     }
     state = state.copyWith(useSystemProxy: value);
+  }
+
+  /// 保存代理来源并立即更新应用和下载引擎；失败时恢复原配置。
+  Future<void> setProxySettings(ProxySettings value) async {
+    var next = ProxySettings.fromJson(value.toJson());
+    var previous = state.proxySettings;
+    var enabled = state.useSystemProxy;
+    var downloadStore = ref.read(btDownloadStoreProvider.notifier);
+    try {
+      await BtrClient.configureSystemProxy(enabled, settings: next);
+      await downloadStore.refreshProxy(await next.resolve());
+      await sqlite.writeProxySettings(next);
+    } catch (error, stackTrace) {
+      try {
+        await BtrClient.configureSystemProxy(enabled, settings: previous);
+        await downloadStore.refreshProxy(await previous.resolve());
+      } catch (rollbackError) {
+        BTLogTool.warn('回滚代理配置失败：$rollbackError');
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+    state = state.copyWith(proxySettings: next);
   }
 
   /// 设置 Bangumi API 镜像地址：写入成功后才替换状态。

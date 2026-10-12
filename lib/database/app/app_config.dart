@@ -9,6 +9,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import '../../core/constants/app_constants.dart';
 import '../../models/app/bt_download_config.dart';
 import '../../models/app/bt_tracker_config.dart';
+import '../../models/app/proxy_settings.dart';
 import '../../models/app/rss_selection_behavior.dart';
 import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
@@ -206,6 +207,32 @@ class BtsAppConfig {
   /// 写入下载引擎是否使用系统代理。
   Future<void> writeUseDownloadSystemProxy(bool value) async {
     await _instance.write('useDownloadSystemProxy', value.toString());
+  }
+
+  /// 未配置时沿用系统代理，保留已有应用与下载代理开关。
+  Future<ProxySettings> readProxySettings() async {
+    var value = await read('proxySettings');
+    if (value == null || value.isEmpty) return const ProxySettings();
+    try {
+      return ProxySettings.fromJson(jsonDecode(value) as Map<String, dynamic>);
+    } catch (error) {
+      BTLogTool.warn('Invalid proxy settings: $error');
+      return const ProxySettings();
+    }
+  }
+
+  Future<void> writeProxySettings(ProxySettings settings) async {
+    var normalized = ProxySettings.fromJson(settings.toJson());
+    await write('proxySettings', jsonEncode(normalized.toJson()));
+  }
+
+  /// 引擎每次启动或切换开关时读取已保存的代理来源。
+  Future<Map<String, dynamic>> buildDownloadProxyConfig({
+    required bool enabled,
+  }) async {
+    if (!enabled) return const {'enabled': false};
+    var settings = await readProxySettings();
+    return (await settings.resolve()).toEngineJson(enabled: true);
   }
 
   /// 首页修仙模式，默认关闭。

@@ -18,7 +18,6 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/container.dart';
-import 'core/network/system_proxy.dart';
 import 'core/services/app_link_service.dart';
 import 'core/services/bangumi_oauth_coordinator.dart';
 import 'core/services/bangumi_token_service.dart';
@@ -241,7 +240,10 @@ Future<void> _initBackgroundServices() async {
   var appConfig = BtsAppConfig();
   BtrBangumiApi.setBaseUrl(await appConfig.readBangumiUrl());
   BtrMikanApi.setBaseUrl(await appConfig.readMikanUrl());
-  await BtrClient.configureSystemProxy(await appConfig.readUseSystemProxy());
+  await BtrClient.configureSystemProxy(
+    await appConfig.readUseSystemProxy(),
+    settings: await appConfig.readProxySettings(),
+  );
   await BTHiveTool.init();
   unawaited(
     _runOptionalService('Bangumi Token 预刷新', () async {
@@ -259,6 +261,7 @@ Future<void> _initBackgroundServices() async {
         onChanged: (proxy) async {
           BtrClient.refreshSystemProxy(proxy);
           if (!await appConfig.readUseDownloadSystemProxy()) return;
+          if (!(await appConfig.readProxySettings()).useSystemProxy) return;
 
           var engine = BtEngineClient.instance;
           if (engine.isReady) {
@@ -279,7 +282,7 @@ Future<void> _initBackgroundServices() async {
             config: btDownloadConfig.toEngineJson(
               additionalTrackers: trackerStore.effectiveTrackers,
             ),
-            proxy: await WindowsSystemProxy.engineConfig(
+            proxy: await appConfig.buildDownloadProxyConfig(
               enabled: useDownloadSystemProxy,
             ),
           );

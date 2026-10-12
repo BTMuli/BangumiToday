@@ -10,6 +10,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 // Project imports:
 import '../../core/network/system_proxy.dart';
 import '../../core/services/bangumi_token_service.dart';
+import '../../models/app/proxy_settings.dart';
 import '../../tools/log_tool.dart';
 import '../bangumi/bangumi_interceptor.dart';
 
@@ -42,6 +43,7 @@ Future<String> getClientUA() async {
 /// 请求客户端
 class BtrClient {
   static final Set<BtrClient> _clients = <BtrClient>{};
+  static bool _usesSystemProxy = true;
 
   late Dio _dio;
 
@@ -81,20 +83,24 @@ class BtrClient {
   /// 获取 Dio 实例
   Dio get dio => _dio;
 
-  /// 获取是否使用系统代理。
+  /// 获取是否启用应用代理。
   static bool get useSystemProxy => SystemProxyController.enabled;
 
-  /// 更新系统代理配置，并刷新已有客户端的连接池。
-  static Future<void> configureSystemProxy(bool value) async {
+  /// 更新所选代理配置，并刷新已有客户端的连接池。
+  static Future<void> configureSystemProxy(
+    bool value, {
+    ProxySettings settings = const ProxySettings(),
+  }) async {
     var proxy = const SystemProxyConfig.direct();
-    if (value) proxy = await WindowsSystemProxy.read();
+    if (value) proxy = await settings.resolve();
 
+    _usesSystemProxy = settings.useSystemProxy;
     _applySystemProxy(enabled: value, config: proxy);
   }
 
   /// 系统代理设置在应用运行期间变化时，刷新已有客户端的连接池。
   static void refreshSystemProxy(SystemProxyConfig proxy) {
-    if (!useSystemProxy) return;
+    if (!useSystemProxy || !_usesSystemProxy) return;
     _applySystemProxy(enabled: true, config: proxy);
   }
 
