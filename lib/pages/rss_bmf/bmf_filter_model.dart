@@ -26,6 +26,17 @@ enum BmfUpdateFilter {
   final String label;
 }
 
+enum BmfBroadcastFilter {
+  all('全部放送状态'),
+  airing('仍在放送'),
+  completed('已完结'),
+  upcoming('尚未开播'),
+  unknown('排期未知');
+
+  const BmfBroadcastFilter(this.label);
+  final String label;
+}
+
 enum BmfSortOrder {
   attention('待处理优先'),
   recentEpisode('最近一话放送'),
@@ -108,6 +119,7 @@ class BmfFilterModel {
   BmfConfigurationFilter configurationFilter = BmfConfigurationFilter.all;
   BmfAssociationFilter associationFilter = BmfAssociationFilter.all;
   BmfUpdateFilter updateFilter = BmfUpdateFilter.all;
+  BmfBroadcastFilter broadcastFilter = BmfBroadcastFilter.all;
 
   /// null 表示全选，空集合表示未选任何项。
   Set<int>? selectedYears;
@@ -176,6 +188,7 @@ class BmfFilterModel {
       configurationFilter != BmfConfigurationFilter.all ||
       associationFilter != BmfAssociationFilter.all ||
       updateFilter != BmfUpdateFilter.all ||
+      broadcastFilter != BmfBroadcastFilter.all ||
       selectedYears != null ||
       selectedSeasons != null ||
       searchQuery.trim().isNotEmpty;
@@ -199,6 +212,7 @@ class BmfFilterModel {
     configurationFilter = BmfConfigurationFilter.all;
     associationFilter = BmfAssociationFilter.all;
     updateFilter = BmfUpdateFilter.all;
+    broadcastFilter = BmfBroadcastFilter.all;
     selectedYears = null;
     selectedSeasons = null;
     searchQuery = '';
@@ -264,7 +278,16 @@ class BmfFilterModel {
         BmfUpdateFilter.automatic => rss && item.autoUpdate,
         BmfUpdateFilter.manual => rss && !item.autoUpdate,
       };
-      return matchesAssociation && matchesUpdate;
+      var hasRecentBroadcast = recentBroadcasts.containsKey(item.subject);
+      var hasNextBroadcast = nextBroadcasts.containsKey(item.subject);
+      var matchesBroadcast = switch (broadcastFilter) {
+        BmfBroadcastFilter.all => true,
+        BmfBroadcastFilter.airing => hasRecentBroadcast && hasNextBroadcast,
+        BmfBroadcastFilter.completed => hasRecentBroadcast && !hasNextBroadcast,
+        BmfBroadcastFilter.upcoming => !hasRecentBroadcast && hasNextBroadcast,
+        BmfBroadcastFilter.unknown => !hasRecentBroadcast && !hasNextBroadcast,
+      };
+      return matchesAssociation && matchesUpdate && matchesBroadcast;
     }).toList();
 
     bool hasUpdates(AppBmfModel item) =>

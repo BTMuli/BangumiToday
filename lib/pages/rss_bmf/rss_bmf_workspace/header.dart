@@ -176,7 +176,8 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
   Widget _buildToolbar(BuildContext context) {
     var additionalFilters =
         (_filterModel.associationFilter != BmfAssociationFilter.all ? 1 : 0) +
-        (_filterModel.updateFilter != BmfUpdateFilter.all ? 1 : 0);
+        (_filterModel.updateFilter != BmfUpdateFilter.all ? 1 : 0) +
+        (_filterModel.broadcastFilter != BmfBroadcastFilter.all ? 1 : 0);
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
       child: Wrap(
@@ -282,44 +283,72 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
                   children: [
                     Text('更多筛选', style: BTTypography.subtitle(context)),
                     const SizedBox(height: 16),
-                    Text('资源关联', style: BTTypography.caption(context)),
-                    const SizedBox(height: 6),
-                    BtSelect<BmfAssociationFilter>(
-                      isExpanded: true,
-                      value: _filterModel.associationFilter,
-                      items: BmfAssociationFilter.values
-                          .map(
-                            (value) => ComboBoxItem(
-                              value: value,
-                              child: Text(value.label),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          change(() => _filterModel.associationFilter = value);
-                        }
-                      },
+                    _buildAdditionalFilterRow(
+                      context,
+                      label: '资源关联',
+                      child: BtSelect<BmfAssociationFilter>(
+                        isExpanded: true,
+                        value: _filterModel.associationFilter,
+                        items: BmfAssociationFilter.values
+                            .map(
+                              (value) => ComboBoxItem(
+                                value: value,
+                                child: Text(value.label),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            change(
+                              () => _filterModel.associationFilter = value,
+                            );
+                          }
+                        },
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    Text('RSS 更新方式', style: BTTypography.caption(context)),
-                    const SizedBox(height: 6),
-                    BtSelect<BmfUpdateFilter>(
-                      isExpanded: true,
-                      value: _filterModel.updateFilter,
-                      items: BmfUpdateFilter.values
-                          .map(
-                            (value) => ComboBoxItem(
-                              value: value,
-                              child: Text(value.label),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          change(() => _filterModel.updateFilter = value);
-                        }
-                      },
+                    const SizedBox(height: 12),
+                    _buildAdditionalFilterRow(
+                      context,
+                      label: 'RSS 更新方式',
+                      child: BtSelect<BmfUpdateFilter>(
+                        isExpanded: true,
+                        value: _filterModel.updateFilter,
+                        items: BmfUpdateFilter.values
+                            .map(
+                              (value) => ComboBoxItem(
+                                value: value,
+                                child: Text(value.label),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            change(() => _filterModel.updateFilter = value);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildAdditionalFilterRow(
+                      context,
+                      label: '放送状态',
+                      child: BtSelect<BmfBroadcastFilter>(
+                        isExpanded: true,
+                        value: _filterModel.broadcastFilter,
+                        items: BmfBroadcastFilter.values
+                            .map(
+                              (value) => ComboBoxItem(
+                                value: value,
+                                child: Text(value.label),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            change(() => _filterModel.broadcastFilter = value);
+                          }
+                        },
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -346,6 +375,23 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAdditionalFilterRow(
+    BuildContext context, {
+    required String label,
+    required Widget child,
+  }) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 88,
+          child: Text(label, style: BTTypography.caption(context)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: child),
+      ],
     );
   }
 
