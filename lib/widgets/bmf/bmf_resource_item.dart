@@ -30,7 +30,8 @@ class BmfRssItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var accent = FluentTheme.of(context).accentColor;
+    var theme = FluentTheme.of(context);
+    var accent = theme.accentColor.defaultBrushFor(theme.brightness);
     var publishedAt = release.publishedAt;
     return _ResourceItemSurface(
       backgroundColor: backgroundColor,
@@ -75,10 +76,10 @@ class BmfRssItem extends StatelessWidget {
                     color: accent,
                     borderRadius: BTRadius.roundBR,
                   ),
-                  child: const Text(
+                  child: Text(
                     '新',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: theme.resources.textOnAccentFillColorPrimary,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),

@@ -434,7 +434,8 @@ class _SegmentedOptionState extends State<_SegmentedOption> {
 
   @override
   Widget build(BuildContext context) {
-    var accentColor = FluentTheme.of(context).accentColor;
+    var theme = FluentTheme.of(context);
+    var accentColor = theme.accentColor.defaultBrushFor(theme.brightness);
     var isSelected = widget.selected;
     return Focus(
       focusNode: widget.focusNode,
@@ -472,7 +473,7 @@ class _SegmentedOptionState extends State<_SegmentedOption> {
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 color: isSelected
-                    ? Colors.white
+                    ? theme.resources.textOnAccentFillColorPrimary
                     : BTColors.textSecondary(context),
               ),
             ),

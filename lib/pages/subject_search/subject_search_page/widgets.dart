@@ -52,7 +52,9 @@ class _AnimatedSearchButtonState extends State<_AnimatedSearchButton>
 
   @override
   Widget build(BuildContext context) {
-    var accentColor = FluentTheme.of(context).accentColor;
+    var theme = FluentTheme.of(context);
+    var accentColor = theme.accentColor.defaultBrushFor(theme.brightness);
+    var foregroundColor = theme.resources.textOnAccentFillColorPrimary;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -90,12 +92,12 @@ class _AnimatedSearchButtonState extends State<_AnimatedSearchButton>
                 ? SizedBox(
                     width: 16,
                     height: 16,
-                    child: const ProgressRing(
+                    child: ProgressRing(
                       strokeWidth: 2,
-                      activeColor: Colors.white,
+                      activeColor: foregroundColor,
                     ),
                   )
-                : Icon(FluentIcons.search, size: 14, color: Colors.white),
+                : Icon(FluentIcons.search, size: 14, color: foregroundColor),
           ),
         ),
       ),

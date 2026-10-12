@@ -240,7 +240,8 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
 
   @override
   Widget build(BuildContext context) {
-    var accentColor = FluentTheme.of(context).accentColor;
+    var theme = FluentTheme.of(context);
+    var accentColor = theme.accentColor.defaultBrushFor(theme.brightness);
     var rssLink = _data.rssUrl;
 
     var metadata = Wrap(
@@ -268,7 +269,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
             child: Text(
               '${_data.pendingItemKeys.length} 条更新',
               style: TextStyle(
-                color: Colors.white,
+                color: theme.resources.textOnAccentFillColorPrimary,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),

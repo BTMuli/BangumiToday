@@ -72,7 +72,8 @@ extension _BmfFileList on _BmfFileExpanderState {
   }
 
   Widget _buildDownloadingBadge(BuildContext context, String label) {
-    var accentColor = FluentTheme.of(context).accentColor;
+    var theme = FluentTheme.of(context);
+    var accentColor = theme.accentColor.defaultBrushFor(theme.brightness);
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
@@ -82,7 +83,7 @@ extension _BmfFileList on _BmfFileExpanderState {
       child: Text(
         label,
         style: TextStyle(
-          color: Colors.white,
+          color: theme.resources.textOnAccentFillColorPrimary,
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),

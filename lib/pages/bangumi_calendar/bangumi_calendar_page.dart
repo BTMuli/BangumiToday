@@ -1005,7 +1005,6 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
         onPressed: refreshBgmData,
         child: const Icon(
           FluentIcons.database_source,
-          color: Colors.white,
           semanticLabel: '更新 BangumiData',
         ),
       ),
@@ -1017,7 +1016,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     return Tooltip(
       message: '搜索',
       child: FilledButton(
-        child: const Icon(FluentIcons.search, color: Colors.white),
+        child: const Icon(FluentIcons.search),
         onPressed: () {
           SubjectSearchPage.open(ref);
         },
@@ -1031,7 +1030,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       message: '刷新数据',
       child: FilledButton(
         onPressed: getData,
-        child: const Icon(FluentIcons.refresh, color: Colors.white),
+        child: const Icon(FluentIcons.refresh),
       ),
     );
   }
@@ -1046,7 +1045,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
           if (isShowCollection == v) return;
           unawaited(toggleShowCollection(v));
         },
-        child: const Icon(FluentIcons.favorite_star, color: Colors.white),
+        child: const Icon(FluentIcons.favorite_star),
       ),
     );
   }
@@ -1060,7 +1059,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
         onChanged: isRequesting || _isChangingNightMode
             ? null
             : (value) => unawaited(toggleNightMode(value)),
-        child: const Icon(FluentIcons.clear_night, color: Colors.white),
+        child: const Icon(FluentIcons.clear_night),
       ),
     );
   }

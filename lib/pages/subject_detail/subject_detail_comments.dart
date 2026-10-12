@@ -284,7 +284,8 @@ class _CommentFilterChipState extends State<_CommentFilterChip> {
 
   @override
   Widget build(BuildContext context) {
-    var accent = FluentTheme.of(context).accentColor;
+    var theme = FluentTheme.of(context);
+    var accent = theme.accentColor.defaultBrushFor(theme.brightness);
     var selected = widget.selected;
     var enabled = widget.onPressed != null;
     var shape = StadiumBorder(
@@ -306,7 +307,9 @@ class _CommentFilterChipState extends State<_CommentFilterChip> {
               ),
               shape: WidgetStatePropertyAll(shape),
               foregroundColor: WidgetStatePropertyAll(
-                selected ? Colors.white : BTColors.textSecondary(context),
+                selected
+                    ? theme.resources.textOnAccentFillColorPrimary
+                    : BTColors.textSecondary(context),
               ),
               backgroundColor: WidgetStatePropertyAll(
                 selected
