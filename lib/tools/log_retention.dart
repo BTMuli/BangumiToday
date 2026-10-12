@@ -174,7 +174,8 @@ class BTLogRetention {
   /// Re-scan before deleting so a dialog's snapshot cannot remove newly active
   /// sessions. Running markers are never user-cleanable crash records.
   Future<LogCleanupResult> clearGroups(Set<String> keys) async {
-    var entries = await _readEntries([]);
+    var datedDirectories = <Directory>[];
+    var entries = await _readEntries(datedDirectories);
     var active = _activeSessions(entries);
     var times = _latestSessionTimes(entries);
     var deleted = 0;
@@ -204,6 +205,7 @@ class BTLogRetention {
         onError(error);
       }
     }
+    await _removeEmptyDirectories(datedDirectories, active);
     return LogCleanupResult(deleted, skipped, failed);
   }
 
@@ -281,16 +283,31 @@ class BTLogRetention {
         onError(error);
       }
     }
-    // 只移除已扫描的空日期/转储目录，不递归删除，不触碰用户文件。
-    for (var folder in datedDirectories.reversed) {
+    await _removeEmptyDirectories(
+      datedDirectories,
+      active,
+      cutoff: regularCutoff,
+    );
+    return removed;
+  }
+
+  // 只移除已扫描的空日期/转储目录，不递归删除，不触碰用户文件。
+  Future<void> _removeEmptyDirectories(
+    List<Directory> folders,
+    Set<String?> active, {
+    DateTime? cutoff,
+  }) async {
+    for (var folder in folders.reversed) {
       var name = path.basename(folder.path);
       var dayName = name == 'crashes'
           ? path.basename(folder.parent.path)
           : name;
       var day = _parseDay(dayName, padded: true)!;
-      if (!day.isBefore(regularCutoff) ||
+      if ((cutoff != null && !day.isBefore(cutoff)) ||
           active.any(
-            (session) => session.startsWith(dayName.replaceAll('-', '')),
+            (session) =>
+                session != null &&
+                session.startsWith(dayName.replaceAll('-', '')),
           )) {
         continue;
       }
@@ -302,7 +319,6 @@ class BTLogRetention {
         if (await folder.exists()) onError(error);
       }
     }
-    return removed;
   }
 
   Future<void> _scan(
