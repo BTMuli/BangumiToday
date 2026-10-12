@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import '../../core/cache/cache_manager.dart';
 import '../../core/cache/subject_cache.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/container.dart';
 import '../../core/services/bangumi_token_service.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
@@ -17,6 +18,7 @@ import '../../models/bangumi/request_episode.dart';
 import '../../models/bangumi/request_search.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../models/bangumi/request_user.dart';
+import '../../store/bgm_user_hive.dart';
 import '../../tools/log_tool.dart';
 import '../core/client.dart';
 import 'bangumi_error_handler.dart';
@@ -76,12 +78,35 @@ class BtrBangumiApi {
   /// 请求管理器
   final RequestManager _requestManager = RequestManager();
 
+  final BangumiRequestAccount Function() _accountSession;
+
   /// 构造函数
-  BtrBangumiApi({BangumiTokenService? tokenService}) {
+  BtrBangumiApi({
+    BangumiTokenService? tokenService,
+    BangumiRequestAccount Function()? accountSession,
+  }) : _accountSession = accountSession ?? _defaultAccountSession {
     client = BtrClient.withAuth(tokenService: tokenService);
     client.dio.options.baseUrl = baseUrl;
     client.dio.interceptors.insert(0, _BangumiBaseUrlInterceptor());
   }
+
+  static BangumiRequestAccount _defaultAccountSession() {
+    var user = globalContainer.read(bgmUserStoreProvider);
+    return (userId: user.user?.id, generation: user.sessionGeneration);
+  }
+
+  String _requestKey(
+    String method,
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? data,
+  }) => RequestKey.http(
+    method,
+    Uri.parse(baseUrl).resolve(path).toString(),
+    account: _accountSession(),
+    queryParameters: queryParameters,
+    data: data,
+  );
 
   /// 条目模块
 
@@ -110,7 +135,7 @@ class BtrBangumiApi {
 
     try {
       var result = await _requestManager.request<Response>(
-        key: RequestKey.calendar(),
+        key: _requestKey('GET', '/calendar'),
         deduplicate: deduplicate,
         cancelPrevious: cancelPrevious,
         request: (token) => client.dio.get('/calendar', cancelToken: token),
@@ -180,7 +205,12 @@ class BtrBangumiApi {
     BTLogTool.info('searchSubjectsParams: ${jsonEncode(params)}');
     try {
       var result = await _requestManager.request<Response>(
-        key: RequestKey.search(keyword, offset, tag: tag),
+        key: _requestKey(
+          'POST',
+          '/v0/search/subjects',
+          queryParameters: params,
+          data: data,
+        ),
         deduplicate: deduplicate,
         cancelPrevious: cancelPrevious,
         request: (token) => client.dio.post(
@@ -222,7 +252,7 @@ class BtrBangumiApi {
   }) async {
     try {
       var result = await _requestManager.request<Response>(
-        key: RequestKey.subjectDetail(int.parse(id)),
+        key: _requestKey('GET', '/v0/subjects/$id'),
         deduplicate: deduplicate,
         cancelPrevious: cancelPrevious,
         request: (token) => client.dio.get(
@@ -380,7 +410,7 @@ class BtrBangumiApi {
   }) async {
     try {
       var response = await _requestManager.request<Response>(
-        key: '${baseUrl}_${path}_${queryParameters ?? const {}}',
+        key: _requestKey('GET', path, queryParameters: queryParameters),
         request: (token) => client.dio.get(
           path,
           queryParameters: queryParameters,
@@ -418,12 +448,7 @@ class BtrBangumiApi {
     if (offset != null) params['offset'] = offset;
     try {
       var resp = await _requestManager.request<Response>(
-        key: RequestKey.subjectEpisodes(
-          id,
-          type: type?.value,
-          offset: offset,
-          limit: limit,
-        ),
+        key: _requestKey('GET', '/v0/episodes', queryParameters: params),
         deduplicate: deduplicate,
         cancelPrevious: cancelPrevious,
         request: (token) => client.dio.get(
@@ -535,7 +560,7 @@ class BtrBangumiApi {
   }) async {
     try {
       var resp = await _requestManager.request<Response>(
-        key: RequestKey.userCollection(username, subjectId),
+        key: _requestKey('GET', '/v0/users/$username/collections/$subjectId'),
         deduplicate: deduplicate,
         cancelPrevious: cancelPrevious,
         request: (token) => client.dio.get(
@@ -678,10 +703,10 @@ class BtrBangumiApi {
     if (type != null) params['type'] = type.value;
     try {
       var resp = await _requestManager.request<Response>(
-        key: RequestKey.userCollectionEpisodes(
-          subjectId,
-          offset: offset,
-          limit: limit,
+        key: _requestKey(
+          'GET',
+          '/v0/users/-/collections/$subjectId/episodes',
+          queryParameters: params,
         ),
         deduplicate: deduplicate,
         cancelPrevious: cancelPrevious,

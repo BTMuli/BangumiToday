@@ -1,5 +1,11 @@
+// Dart imports:
+import 'dart:convert';
+
 // Package imports:
 import 'package:dio/dio.dart';
+
+/// Token 续期保留会话代数，退出或重新登录时递增。
+typedef BangumiRequestAccount = ({int? userId, int generation});
 
 class _DeduplicatedRequest {
   final Future<dynamic> future;
@@ -129,39 +135,24 @@ class RequestManager {
 }
 
 class RequestKey {
-  static String calendar() => 'bangumi_calendar';
-
-  static String subjectDetail(int id) => 'subject_detail_$id';
-
-  static String subjectEpisodes(int id, {int? type, int? offset, int? limit}) {
-    var prefix = type == null
-        ? 'subject_episodes_$id'
-        : 'subject_episodes_${id}_type_$type';
-    if (offset == null && limit == null) {
-      return prefix;
-    }
-    return '${prefix}_${offset ?? 0}_${limit ?? 0}';
-  }
-
-  static String userCollection(String username, int subjectId) =>
-      'user_collection_${username}_$subjectId';
-
-  static String userCollectionEpisodes(
-    int subjectId, {
-    int? offset,
-    int? limit,
-  }) {
-    return 'user_collection_episodes_${subjectId}_'
-        '${offset ?? 0}_${limit ?? 0}';
-  }
+  /// 直接编码实际请求，避免筛选字段遗漏及分隔符碰撞；不包含授权凭据。
+  static String http(
+    String method,
+    String url, {
+    required BangumiRequestAccount account,
+    Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? data,
+  }) => jsonEncode([
+    method,
+    url,
+    account.userId,
+    account.generation,
+    queryParameters ?? const <String, dynamic>{},
+    data,
+  ]);
 
   static String userCollections(String username) =>
       'user_collections_$username';
-
-  static String search(String keyword, int offset, {List<String>? tag}) {
-    if (tag == null || tag.isEmpty) return 'search_${keyword}_$offset';
-    return 'search_${keyword}_${offset}_tag_${tag.join('|')}';
-  }
 
   static String rss(String source) => 'rss_$source';
 }
