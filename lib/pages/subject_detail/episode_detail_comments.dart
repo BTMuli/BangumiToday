@@ -292,7 +292,7 @@ class _ReplyBlock extends StatelessWidget {
   }
 }
 
-/// 吐槽标题行：头像、昵称与发布时间。
+/// 吐槽标题行：头像、两行用户信息与发布时间。
 class _CommentHeader extends StatelessWidget {
   const _CommentHeader({
     required this.user,
@@ -319,31 +319,37 @@ class _CommentHeader extends StatelessWidget {
         : '${BtrBangumiApi.siteBaseUrl}/user/'
               '${Uri.encodeComponent(author.username)}';
     var time = DateTime.fromMillisecondsSinceEpoch(createdAt * 1000).toLocal();
-    Widget username = Text(
-      name,
-      style: BTTypography.bodyStrong(context),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    );
-    if (author != null && profile != null) {
-      username = Tooltip(
-        message: author.username,
-        child: HyperlinkButton(
-          onPressed: () => unawaited(launchUrlString(profile)),
-          child: username,
-        ),
-      );
-    }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    var userInfo = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildAvatar(context, name, profile),
-        const SizedBox(width: 10),
-        // 昵称按内容宽度自适应，剩余空间留给右侧时间
+        Text(
+          name,
+          style: BTTypography.bodyStrong(context).copyWith(height: 1.2),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (author != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            '@${author.username}',
+            style: BTTypography.caption(context).copyWith(height: 1.2),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ],
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Expanded(
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: username,
+          child: Row(
+            children: [
+              _buildAvatar(context, name, profile),
+              const SizedBox(width: 8),
+              Expanded(child: userInfo),
+            ],
           ),
         ),
         const SizedBox(width: 10),
