@@ -151,6 +151,7 @@ class PlaybackStore extends ChangeNotifier {
   VoidCallback? _textureListener;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   Timer? _saveTimer;
+  Timer? _idlePlayerTimer;
   Future<void> _operation = Future.value();
   Future<void>? _clearPlaybackFuture;
   bool _clearingPlayback = false;
@@ -420,6 +421,10 @@ class PlaybackStore extends ChangeNotifier {
   void _setOpeningStatus(String? value) {
     if (_openingStatus == value || (_closed && value != null)) return;
     if (_openingStatus == null && value != null) error = null;
+    if (value != null) {
+      _idlePlayerTimer?.cancel();
+      _idlePlayerTimer = null;
+    }
     _openingStatus = value;
     _notify();
   }
@@ -432,6 +437,7 @@ class PlaybackStore extends ChangeNotifier {
         await action();
       } finally {
         _setOpeningStatus(null);
+        _syncIdlePlayerTimer();
       }
     });
     _operation = next.catchError((Object e, StackTrace s) {
@@ -444,6 +450,79 @@ class PlaybackStore extends ChangeNotifier {
       _notify();
     });
     return next;
+  }
+
+  // A paused or completed file still owns its Player. Only unloaded media can
+  // release the native render context without interrupting a viewing session.
+  bool get _canReleaseIdlePlayer =>
+      !_closed &&
+      _player != null &&
+      current == null &&
+      _player!.state.playlist.medias.isEmpty &&
+      !loading &&
+      !isOpening &&
+      !_clearingPlayback;
+
+  void _syncIdlePlayerTimer() {
+    if (!_canReleaseIdlePlayer) {
+      _idlePlayerTimer?.cancel();
+      _idlePlayerTimer = null;
+      return;
+    }
+    // Settings and history operations must not extend the idle deadline.
+    if (_idlePlayerTimer != null) return;
+    late Timer timer;
+    timer = _idlePlayerTimer = Timer(const Duration(hours: 2), () {
+      unawaited(
+        _serial(() async {
+          // An open may have cancelled this timeout while it was queued.
+          if (!identical(_idlePlayerTimer, timer) || !_canReleaseIdlePlayer) {
+            return;
+          }
+          _idlePlayerTimer = null;
+          await _releaseIdlePlayer();
+        }).catchError((Object _) {}),
+      );
+    });
+  }
+
+  Future<void> _releaseIdlePlayer() async {
+    var player = _player!;
+    var upscale = _upscaler;
+    var textureListener = _textureListener;
+    if (textureListener != null) _video?.rect.removeListener(textureListener);
+    _textureListener = null;
+    // Detach synchronously so shutdown cannot take ownership of this Player
+    // while listener cancellation or native disposal is still pending.
+    _player = null;
+    _video = null;
+    _upscaler = null;
+    _diagnostics?.close();
+    _diagnostics = null;
+    _janaiVideoSource?.close();
+    _janaiVideoSource = null;
+    _chapters?.close();
+    _chapters = null;
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    _audioRefreshTimer?.cancel();
+    _audioRefreshTimer = null;
+    _audioWatchdog?.cancel();
+    _audioWatchdog = null;
+    _wasapiFormat = null;
+    _viewports.clear();
+    _viewportOwner = null;
+    _viewportFullscreen = false;
+    _aspectRatio = null;
+    _videoSize = null;
+    var subscriptions = List<StreamSubscription<dynamic>>.of(_subscriptions);
+    _subscriptions.clear();
+    BTLogTool.info('未加载文件已满 2 小时，释放原生播放器');
+    _notify();
+    await Future.wait(
+      subscriptions.map((subscription) => subscription.cancel()),
+    );
+    await _disposePlayer(player, upscale: upscale);
   }
 
   Future<void> _initializePlayer() async {
@@ -1298,7 +1377,7 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> stop() => _serial(_stop);
 
-  /// Unload media while retaining the Player and its native render context.
+  /// Unload media, retaining its native context for up to two idle hours.
   Future<void> clearCurrentPlayback({PlaybackCloseProgress? progress}) =>
       _clearPlaybackFuture ??= _clearCurrentPlayback(
         progress ?? const PlaybackCloseProgress(),
@@ -1320,7 +1399,10 @@ class PlaybackStore extends ChangeNotifier {
       error = null;
       _diagnostics?.stopped();
       _notify();
-    }).whenComplete(() => _clearingPlayback = false);
+    }).whenComplete(() {
+      _clearingPlayback = false;
+      _syncIdlePlayerTimer();
+    });
   }
 
   Future<void> _stop({
@@ -1455,8 +1537,7 @@ class PlaybackStore extends ChangeNotifier {
     }
   }
 
-  Future<void> _disposePlayer(Player player) {
-    var upscale = _upscaler;
+  Future<void> _disposePlayer(Player player, {PlaybackUpscaler? upscale}) {
     var disposal = () async {
       BTLogTool.info('开始释放原生播放器');
       // This wait is not cancelled by the shutdown budget: native commands may
@@ -1482,6 +1563,8 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _shutdown() async {
     // Refuse newly queued work before waiting for the current operation.
     _closed = true;
+    _idlePlayerTimer?.cancel();
+    _idlePlayerTimer = null;
     _janaiBenchmarks?.dispose();
     _tensorRtResources?.dispose();
     _diagnostics?.close();
@@ -1566,7 +1649,7 @@ class PlaybackStore extends ChangeNotifier {
     if (player != null && drained) {
       await _shutdownStep(
         '释放原生播放器',
-        () => _disposePlayer(player),
+        () => _disposePlayer(player, upscale: upscale),
         const Duration(seconds: 2),
       );
     } else if (player != null) {
@@ -1584,7 +1667,7 @@ class PlaybackStore extends ChangeNotifier {
             BTLogTool.warn('迟到播放位置保存失败：$error');
           }
         }
-        await _disposePlayer(player);
+        await _disposePlayer(player, upscale: upscale);
       }();
       _shutdownWork.add(
         cleanup.catchError((Object error) {

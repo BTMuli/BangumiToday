@@ -198,8 +198,8 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
   }
 
   void _onVideoChanged() {
-    if (_closing) return;
     _observePlaying();
+    if (_closing) return;
     mode.updateVideo(store.aspectRatio, store.videoSize);
   }
 
@@ -333,7 +333,7 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
       await windowManager.hide();
       _hidden = true;
       await call('hidden', {});
-      BTLogTool.info('播放器窗口已隐藏，保留 mpv 等待下次播放');
+      BTLogTool.info('播放器窗口已隐藏，mpv 最多保留 2 小时等待下次播放');
     } catch (error) {
       if (!_exiting) {
         _closing = false;
