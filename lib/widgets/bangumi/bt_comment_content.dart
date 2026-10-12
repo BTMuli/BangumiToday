@@ -19,7 +19,7 @@ import 'comment_image_viewer.dart';
 ///
 /// 表情包按 bgm 的图片路径加载，链接可点击；`[img]` 图片点击后交给
 /// [BtCommentContent.onImageTap]（通常是图片弹窗），表情包只提供右键复制/另存，
-/// `[mask]` 悬停或点击后显示，`[spoiler]` 折叠。
+/// `[mask]` 悬停时显示、移开后恢复遮挡，`[spoiler]` 折叠。
 class BtCommentContent extends StatefulWidget {
   const BtCommentContent({
     super.key,
@@ -420,7 +420,7 @@ class _ContentImage extends StatelessWidget {
   }
 }
 
-/// `[mask]` 遮挡文本：悬停或点击后显示
+/// `[mask]` 遮挡文本：悬停时淡出遮罩，移开后恢复遮挡。
 class _MaskedText extends StatefulWidget {
   const _MaskedText({required this.text, required this.style});
 
@@ -432,34 +432,28 @@ class _MaskedText extends StatefulWidget {
 }
 
 class _MaskedTextState extends State<_MaskedText> {
-  var _revealed = false;
+  var _hovered = false;
 
   @override
   Widget build(BuildContext context) {
-    if (_revealed) return Text(widget.text, style: widget.style);
-    var label = '点击查看被遮挡的内容';
-    return Tooltip(
-      message: label,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
       child: Semantics(
-        label: label,
-        button: true,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _revealed = true),
-          child: GestureDetector(
-            onTap: () => setState(() => _revealed = true),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-              decoration: BoxDecoration(
-                color: BTColors.textSecondary(context).withValues(alpha: 0.35),
-                borderRadius: BTRadius.smallBR,
-              ),
-              child: Text(
-                widget.text,
-                style: widget.style.copyWith(color: Colors.transparent),
-              ),
-            ),
+        label: _hovered ? widget.text : '悬停查看被遮挡的内容，移开后恢复遮挡',
+        excludeSemantics: true,
+        child: AnimatedContainer(
+          duration: BTTheme.animationDurationFast,
+          curve: BTTheme.animationCurve,
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+          // 遮罩绘制在文字上方，只改变透明度，保持文字样式与布局稳定。
+          foregroundDecoration: BoxDecoration(
+            color: BTColors.textSecondary(
+              context,
+            ).withValues(alpha: _hovered ? 0 : 1),
+            borderRadius: BTRadius.smallBR,
           ),
+          child: Text(widget.text, style: widget.style),
         ),
       ),
     );
