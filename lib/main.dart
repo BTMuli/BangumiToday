@@ -5,6 +5,7 @@ import 'dart:ui';
 
 // Flutter imports:
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 // Package imports:
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -125,18 +126,22 @@ Future<void> _initDesktopTray() async {
               globalContainer.read(navStoreProvider.notifier).goToDownload();
             }
           : null,
-      onExit: () async {
-        await _exitApplication();
-      },
+      onExit: _exitApplication,
     );
   });
 }
 
 Future<bool> _exitApplication() =>
-    _applicationExitFuture ??= _performApplicationExit().then((exited) {
-      if (!exited) _applicationExitFuture = null;
-      return exited;
-    });
+    _applicationExitFuture ??= _performApplicationExit().then(
+      (exited) {
+        if (!exited) _applicationExitFuture = null;
+        return exited;
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        _applicationExitFuture = null;
+        Error.throwWithStackTrace(error, stackTrace);
+      },
+    );
 
 Future<bool> _performApplicationExit() async {
   // 先移除视频与控制条，使其取消流监听；隐藏窗口后可能不再绘制帧。
@@ -158,9 +163,8 @@ Future<bool> _performApplicationExit() async {
     });
     return false;
   }
-  // 再藏窗、拆托盘，避免协议还原 / 引擎 shutdown 期间主窗体假死。
+  // 先藏窗；托盘及其消息泵保留到数据清理完成，最后再销毁。
   await _runExitStep('隐藏主窗口', windowManager.hide);
-  await _runExitStep('系统托盘', BTDesktopTrayService.instance.dispose);
   await _runExitStep('系统代理监听', SystemProxyWatchService.instance.stop);
   await _runExitStep('Shader 缓存维护', PlaybackShaderCacheService.instance.stop);
   await _runExitStep('Windows 协议还原', restoreWindowsAppProtocol);
@@ -176,7 +180,22 @@ Future<bool> _performApplicationExit() async {
   );
   // Explicitly release Drift's cached statements and database isolate after
   // the playback/background exit steps, before destroying the main engine.
-  await _runExitStep('SQLite', BTSqlite.close, timeout: null);
+  var sqliteClosed = await _runExitStep(
+    'SQLite',
+    BTSqlite.close,
+    timeout: null,
+  );
+  var hiveClosed = await _runExitStep('Hive', BTHiveTool.close, timeout: null);
+  if (Platform.isWindows && sqliteClosed && hiveClosed) {
+    // Only arm after playback, downloads and storage have finished. A Dart
+    // timer cannot interrupt a blocked FFI call or native engine destructor.
+    await _runExitStep('原生退出超时保护', () async {
+      await const MethodChannel(
+        'bangumi_today/application_exit',
+      ).invokeMethod<void>('armExitTimeout');
+    });
+  }
+  await _runExitStep('系统托盘', BTDesktopTrayService.instance.dispose);
   await _runExitStep('主窗口', windowManager.destroy);
   return true;
 }
@@ -186,9 +205,12 @@ Future<bool> _runExitStep(
   Future<void> Function() action, {
   Duration? timeout = const Duration(seconds: 5),
 }) async {
+  var elapsed = Stopwatch()..start();
+  BTLogTool.info('$name 退出清理开始');
   try {
     var step = action();
     await (timeout == null ? step : step.timeout(timeout));
+    BTLogTool.info('$name 退出清理完成，耗时 ${elapsed.elapsedMilliseconds}ms');
     return true;
   } on TimeoutException {
     BTLogTool.warn('$name 退出清理超时');

@@ -3,6 +3,7 @@
 
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
+#include <flutter/method_channel.h>
 
 #include <memory>
 
@@ -28,6 +29,10 @@ class FlutterWindow : public Win32Window {
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
+
+  // Root-only channel, armed after Dart has saved and closed application data.
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> exit_channel_;
+  bool exit_timeout_armed_ = false;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

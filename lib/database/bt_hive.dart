@@ -27,6 +27,9 @@ class BTHiveTool {
     return await instance.fileTool.getAppDataPath('hive');
   }
 
+  /// Flush and close all boxes before native application teardown begins.
+  static Future<void> close() => Hive.close();
+
   /// 初始化
   static Future<void> init() async {
     var dir = await getDataDir();

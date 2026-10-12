@@ -212,7 +212,7 @@ class BTDesktopTrayService with WindowListener {
   Future<void> Function()? _onOpenMain;
   Future<void> Function()? _onOpenBmf;
   Future<void> Function()? _onOpenDownload;
-  Future<void> Function()? _onExit;
+  Future<bool> Function()? _onExit;
 
   bool _initialized = false;
   bool _trayCreated = false;
@@ -224,6 +224,7 @@ class BTDesktopTrayService with WindowListener {
   DateTime? _lastLeftClick;
   DateTime? _ignoreClicksUntil;
   Menu? _menu;
+  final _menuItems = <({MenuItem item, ListenerId listener})>[];
   Future<void>? _contextMenuFuture;
   _TrayMessagePump? _messagePump;
 
@@ -234,12 +235,13 @@ class BTDesktopTrayService with WindowListener {
   ///
   /// 只有图标、菜单和监听器全部准备成功后才启用窗口关闭拦截；初始化失败
   /// 会向上抛出，由启动流程记录并继续显示普通窗口。
+  /// [onExit] 返回 false 表示退出取消，允许再次从托盘请求退出。
   Future<void> initialize({
     required Future<bool> Function() readMinimizeToTray,
     required Future<void> Function() onOpenMain,
     required Future<void> Function() onOpenBmf,
     Future<void> Function()? onOpenDownload,
-    required Future<void> Function() onExit,
+    required Future<bool> Function() onExit,
     String windowsIconPath = 'assets/images/tray/tray_icon.ico',
     String macIconPath = 'assets/images/tray/tray_icon.png',
   }) async {
@@ -291,6 +293,7 @@ class BTDesktopTrayService with WindowListener {
     if (menu == null) {
       throw StateError('创建系统托盘菜单失败');
     }
+    _menu = menu;
     menu.addItem(_buildMenuItem(showMainKey, '打开主界面'));
     menu.addSeparator();
     menu.addItem(_buildMenuItem(openBmfKey, 'BMF'));
@@ -308,14 +311,14 @@ class BTDesktopTrayService with WindowListener {
     if (item == null) {
       throw StateError('创建系统托盘菜单项 $label 失败');
     }
-    item.addListener((event) {
+    var listener = item.addListener((event) {
       if (event is MenuItemClickedEvent) _onTrayMenuItemClick(key);
     });
+    _menuItems.add((item: item, listener: listener));
     return item;
   }
 
   Future<void> _cleanupAfterFailedInitialize() async {
-    _stopMessagePump();
     if (_listenersRegistered) {
       _window.removeListener(this);
       _listenersRegistered = false;
@@ -328,16 +331,17 @@ class BTDesktopTrayService with WindowListener {
       await _destroyTraySafely();
       _trayCreated = false;
     }
-    _menu = null;
+    _destroyMenuSafely();
+    _stopMessagePump();
   }
 
   /// 注销监听器、关闭关闭拦截并销毁托盘图标。
   Future<void> dispose() async {
+    await _waitForContextMenuToClose();
     _lastLeftClick = null;
     _ignoreClicksUntil = null;
     _contextMenuFuture = null;
     _initialized = false;
-    _stopMessagePump();
     if (_listenersRegistered) {
       _window.removeListener(this);
       _listenersRegistered = false;
@@ -349,6 +353,25 @@ class BTDesktopTrayService with WindowListener {
     if (_trayCreated) {
       await _destroyTraySafely();
       _trayCreated = false;
+    }
+    _destroyMenuSafely();
+    _stopMessagePump();
+  }
+
+  void _destroyMenuSafely() {
+    for (var entry in _menuItems) {
+      try {
+        entry.item.removeListener(entry.listener);
+        entry.item.dispose();
+      } catch (error, stackTrace) {
+        BTLogTool.warn(['销毁托盘菜单项失败', '$error', '$stackTrace']);
+      }
+    }
+    _menuItems.clear();
+    try {
+      _menu?.dispose();
+    } catch (error, stackTrace) {
+      BTLogTool.warn(['销毁托盘菜单失败', '$error', '$stackTrace']);
     }
     _menu = null;
   }
@@ -541,7 +564,9 @@ class BTDesktopTrayService with WindowListener {
       await _waitForContextMenuToClose();
       // main.dart hides the window after playback has saved and unmounted.
       // Hiding here can prevent the frames needed to detach the video surface.
-      await _onExit?.call();
+      if (!await (_onExit?.call() ?? Future.value(false))) {
+        _exitRequested = false;
+      }
     } catch (error, stackTrace) {
       _exitRequested = false;
       BTLogTool.error(['退出应用失败', error.toString(), stackTrace.toString()]);

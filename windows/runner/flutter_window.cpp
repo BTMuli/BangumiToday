@@ -1,11 +1,27 @@
 #include "flutter_window.h"
 
+#include <cstdlib>
 #include <optional>
 
 #include <desktop_multi_window/desktop_multi_window_plugin.h>
 #include <dwmapi.h>
+#include <flutter/standard_method_codec.h>
 
+#include "../playback/native_log.h"
 #include "playback_plugin_registrant.h"
+
+namespace {
+DWORD WINAPI EnforceApplicationExit(LPVOID) {
+  // This thread must survive a blocked Dart FFI call, COM shutdown or engine
+  // destructor. It is started only after playback and persistence are closed.
+  Sleep(10000);
+  BangumiNativeLog(
+      "Application data cleanup completed, but native teardown exceeded 10s; "
+      "terminating the remaining process", true);
+  TerminateProcess(GetCurrentProcess(), EXIT_SUCCESS);
+  return 0;
+}
+}  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -45,6 +61,29 @@ bool FlutterWindow::OnCreate() {
     RegisterPlaybackPlugins(view);
   });
   RegisterMainPlugins(flutter_controller_->engine());
+  exit_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(),
+          "bangumi_today/application_exit",
+          &flutter::StandardMethodCodec::GetInstance());
+  exit_channel_->SetMethodCallHandler([this](const auto& call, auto result) {
+    if (call.method_name() != "armExitTimeout") {
+      result->NotImplemented();
+      return;
+    }
+    if (!exit_timeout_armed_) {
+      HANDLE thread =
+          CreateThread(nullptr, 0, EnforceApplicationExit, nullptr, 0, nullptr);
+      if (!thread) {
+        result->Error("exit_timeout_failed", "Could not start exit timeout.");
+        return;
+      }
+      CloseHandle(thread);
+      exit_timeout_armed_ = true;
+      BangumiNativeLog("Application cleanup completed; native exit timeout armed");
+    }
+    result->Success();
+  });
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -60,6 +99,10 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  if (exit_channel_) {
+    exit_channel_->SetMethodCallHandler(nullptr);
+    exit_channel_ = nullptr;
+  }
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
