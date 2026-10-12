@@ -14,6 +14,7 @@ import 'package:window_manager/window_manager.dart';
 
 // Project imports:
 import '../../tools/log_tool.dart';
+import 'windows_tray_resources.dart';
 
 /// 在 Dart 所在线程上派发 Win32 消息。
 ///
@@ -73,6 +74,9 @@ abstract interface class BTTrayAdapter {
 
 /// [tray_manager] 的默认适配器。
 class _TrayManagerAdapter implements BTTrayAdapter {
+  _TrayManagerAdapter(this._windowsResources);
+
+  final WindowsTrayResources? _windowsResources;
   TrayIcon? _trayIcon;
   Image? _icon;
   ListenerId? _listenerId;
@@ -89,17 +93,20 @@ class _TrayManagerAdapter implements BTTrayAdapter {
       throw StateError('创建系统托盘图标失败');
     }
     try {
+      _trayIcon = trayIcon;
+      _windowsResources?.rememberTrayIcon(trayIcon);
       var icon = ImageAsset.fromAsset(iconPath) ?? Image.fromFile(iconPath);
       if (icon == null) {
         throw ArgumentError.value(iconPath, 'iconPath', '无法加载托盘图标');
       }
+      _icon = icon;
+      _windowsResources?.rememberImage(icon);
       trayIcon
         ..icon = icon
         ..setTooltip(toolTip)
         ..setContextMenu(menu);
       _listenerId = trayIcon.addListener(onEvent);
-      _trayIcon = trayIcon;
-      _icon = icon;
+      _windowsResources?.rememberTrayIcon(trayIcon, listener: _listenerId!);
       // 图标配置完成后再交给系统，避免托盘短暂显示默认图标。
       trayIcon.setVisible(true);
     } catch (_) {
@@ -186,8 +193,7 @@ class _WindowManagerAdapter implements BTWindowAdapter {
 class BTDesktopTrayService with WindowListener {
   /// 创建默认的桌面托盘服务。
   BTDesktopTrayService()
-    : _tray = _TrayManagerAdapter(),
-      _window = _WindowManagerAdapter(),
+    : _window = _WindowManagerAdapter(),
       _isSupported = Platform.isWindows || Platform.isMacOS,
       _isWindows = Platform.isWindows,
       _now = DateTime.now,
@@ -201,7 +207,9 @@ class BTDesktopTrayService with WindowListener {
   static const String openDownloadKey = 'open_download';
   static const String exitAppKey = 'exit_app';
 
-  final BTTrayAdapter _tray;
+  final WindowsTrayResources? _windowsResources =
+      kDebugMode && Platform.isWindows ? WindowsTrayResources() : null;
+  late final BTTrayAdapter _tray = _TrayManagerAdapter(_windowsResources);
   final BTWindowAdapter _window;
   final bool _isSupported;
   final bool _isWindows;
@@ -263,6 +271,7 @@ class BTDesktopTrayService with WindowListener {
     _exitRequested = false;
 
     try {
+      await _windowsResources?.recover();
       _menu = _buildMenu();
       _tray.initialize(
         iconPath: _isWindows ? windowsIconPath : macIconPath,
@@ -294,6 +303,7 @@ class BTDesktopTrayService with WindowListener {
       throw StateError('创建系统托盘菜单失败');
     }
     _menu = menu;
+    _windowsResources?.rememberMenu(menu);
     menu.addItem(_buildMenuItem(showMainKey, '打开主界面'));
     menu.addSeparator();
     menu.addItem(_buildMenuItem(openBmfKey, 'BMF'));
@@ -311,11 +321,20 @@ class BTDesktopTrayService with WindowListener {
     if (item == null) {
       throw StateError('创建系统托盘菜单项 $label 失败');
     }
-    var listener = item.addListener((event) {
-      if (event is MenuItemClickedEvent) _onTrayMenuItemClick(key);
-    });
-    _menuItems.add((item: item, listener: listener));
-    return item;
+    ListenerId? listener;
+    try {
+      _windowsResources?.rememberMenuItem(item);
+      listener = item.addListener((event) {
+        if (event is MenuItemClickedEvent) _onTrayMenuItemClick(key);
+      });
+      _windowsResources?.rememberMenuItem(item, listener: listener);
+      _menuItems.add((item: item, listener: listener));
+      return item;
+    } catch (_) {
+      if (listener != null) item.removeListener(listener);
+      item.dispose();
+      rethrow;
+    }
   }
 
   Future<void> _cleanupAfterFailedInitialize() async {
@@ -333,6 +352,7 @@ class BTDesktopTrayService with WindowListener {
     }
     _destroyMenuSafely();
     _stopMessagePump();
+    _windowsResources?.dispose();
   }
 
   /// 注销监听器、关闭关闭拦截并销毁托盘图标。
@@ -356,6 +376,7 @@ class BTDesktopTrayService with WindowListener {
     }
     _destroyMenuSafely();
     _stopMessagePump();
+    _windowsResources?.dispose();
   }
 
   void _destroyMenuSafely() {
