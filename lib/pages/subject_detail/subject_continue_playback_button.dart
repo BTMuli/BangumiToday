@@ -8,7 +8,7 @@ import '../../providers/subject_playback_providers.dart';
 import '../playback/playback_actions.dart';
 import '../playback/playback_label.dart';
 
-/// 收藏与观看进度旁的本地续播入口，无记录时隐藏。
+/// 收藏与观看进度旁的本地播放入口，无可用记录时播放首个匹配章节。
 class SubjectContinuePlaybackButton extends ConsumerStatefulWidget {
   const SubjectContinuePlaybackButton({super.key, required this.subject});
 
@@ -35,11 +35,32 @@ class _SubjectContinuePlaybackButtonState
 
   @override
   Widget build(BuildContext context) {
-    var item = ref.watch(subjectPlaybackHistoryProvider(widget.subject)).value;
-    if (item == null) return const SizedBox.shrink();
+    var history = ref.watch(subjectPlaybackHistoryProvider(widget.subject));
+    if (!history.hasValue) return const SizedBox.shrink();
+    var previous = history.value;
+    var fileData = ref.watch(subjectPlaybackFilesProvider(widget.subject));
+    if (fileData.hasError) return const SizedBox.shrink();
+    var files = fileData.value;
+    if (files == null) return const SizedBox.shrink();
+    var canResume =
+        previous != null && files.any((file) => file.key == previous.key);
+    var item = canResume
+        ? previous
+        : ref.watch(subjectFirstPlaybackItemProvider(widget.subject)).value;
+    if (item == null || !files.any((file) => file.key == item.key)) {
+      return const SizedBox.shrink();
+    }
     var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
-    var action = item.completed ? '重新播放' : '继续播放';
-    var progress = item.completed
+    var action = !canResume
+        ? '开始播放'
+        : item.completed
+        ? '重新播放'
+        : '继续播放';
+    var progress = !canResume
+        ? previous == null
+              ? '尚无播放记录，将播放首个匹配章节'
+              : '上次播放文件不可用，将播放首个匹配章节'
+        : item.completed
         ? '上次已播完，将从头播放'
         : [
             '上次播放到 ${_time(item.resumePosition)}',

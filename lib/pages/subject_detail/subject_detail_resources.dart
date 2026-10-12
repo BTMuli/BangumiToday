@@ -5,12 +5,10 @@ import 'dart:async';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_material_design_icons/flutter_material_design_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../core/services/bmf_rss_service.dart';
-import '../../core/services/bt_engine/protocol.dart';
 import '../../core/services/download_directory.dart';
 import '../../core/services/download_service.dart';
 import '../../core/services/file_service.dart';
@@ -18,6 +16,7 @@ import '../../core/theme/bt_theme.dart';
 import '../../core/utils/playback_episode_files.dart';
 import '../../core/utils/playback_paths.dart';
 import '../../data/repositories/episode_mark_gateway_impl.dart';
+import '../../data/repositories/subject_local_files.dart';
 import '../../database/app/app_subscription.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../models/database/app_subscription_model.dart';
@@ -80,20 +79,15 @@ class _SubjectDetailResourcesState
   StreamSubscription<BmfChange>? _modelSubscription;
   StreamSubscription<BmfRssUpdateEvent>? _rssSubscription;
   StreamSubscription<BmfRssStatusEvent>? _statusSubscription;
-  Timer? _fileTimer;
-  Timer? _storeDebounce;
   bool _initialized = false;
   bool _busy = false;
   bool _refreshingRss = false;
   bool _refreshingFiles = false;
-  bool _filesQueued = false;
   bool _fileStateUnknown = false;
   bool _showFiles = false;
-  bool _active = true;
   String? _loadError;
   String? _fileError;
   int _modelGeneration = 0;
-  int _fileGeneration = 0;
 
   AppBmfModel _emptyModel() => AppBmfModel(
     subject: widget.subjectId,
@@ -122,25 +116,11 @@ class _SubjectDetailResourcesState
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    var active = TickerMode.valuesOf(context).enabled;
-    if (active != _active) {
-      _active = active;
-      _syncFileTimer();
-      if (active && _showFiles) unawaited(_refreshFiles());
-    }
-  }
-
-  @override
   void dispose() {
     _modelGeneration++;
-    _fileGeneration++;
     _modelSubscription?.cancel();
     _rssSubscription?.cancel();
     _statusSubscription?.cancel();
-    _fileTimer?.cancel();
-    _storeDebounce?.cancel();
     _rss.removeListener(_onRssChanged);
     _rss.dispose();
     _sourceFlyout.dispose();
@@ -182,13 +162,10 @@ class _SubjectDetailResourcesState
       });
       _rss.updateBmf(_bmf);
       if (oldDirectory != _bmf.download) {
-        _fileGeneration++;
         _files = [];
         _fileSizes = {};
         _dirState = null;
         _fileError = null;
-        _syncFileTimer();
-        await _refreshFiles();
       }
     } catch (error) {
       if (!mounted || generation != _modelGeneration) return;
@@ -214,43 +191,17 @@ class _SubjectDetailResourcesState
 
   void _selectFiles(bool value) {
     setState(() => _showFiles = value);
-    _syncFileTimer();
-    if (value) unawaited(_refreshFiles());
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<List<(String, String, String)>>(
-      btDownloadStoreProvider.select(
-        (store) => [
-          for (var task in store.tasks) (task.id, task.state, task.savePath),
-        ],
-      ),
-      (previous, next) {
-        if (_bmf.download?.isNotEmpty != true || !mounted) return;
-        var directory = path.normalize(_bmf.download!).toLowerCase();
-        var before =
-            previous
-                ?.where(
-                  (task) => path.normalize(task.$3).toLowerCase() == directory,
-                )
-                .toList() ??
-            [];
-        var after = next
-            .where((task) => path.normalize(task.$3).toLowerCase() == directory)
-            .toList();
-        if (before.length == after.length &&
-            Iterable<int>.generate(
-              after.length,
-            ).every((i) => before[i] == after[i])) {
-          return;
-        }
-        _storeDebounce ??= Timer(const Duration(seconds: 1), () {
-          _storeDebounce = null;
-          if (mounted) unawaited(_refreshFiles());
-        });
-      },
-    );
+    var localFiles = ref.watch(subjectLocalFilesProvider(widget.subjectId));
+    _refreshingFiles = localFiles.isLoading;
+    _fileError = localFiles.hasError ? '读取下载目录失败，请重试' : null;
+    var snapshot = localFiles.value;
+    if (snapshot != null && snapshot.directory == _bmf.download) {
+      _applyFiles(snapshot);
+    }
     if (!_initialized) return const Center(child: ProgressRing());
     if (_loadError != null) {
       return _emptyState(_loadError!, action: _loadModel, label: '重试');

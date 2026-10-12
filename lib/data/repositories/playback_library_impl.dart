@@ -141,22 +141,36 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
   Future<List<PlaybackItem>> discover(String dir, {int? subject}) async {
     var directory = Directory(dir);
     if (!await directory.exists()) return [];
+    var files = await directory
+        .list(recursive: true, followLinks: false)
+        .where((entity) => entity is File)
+        .map((entity) => entity.path)
+        .toList();
+    return discoverFiles(files, subject: subject);
+  }
+
+  /// Reuse a directory listing and task details already loaded by the caller.
+  Future<List<PlaybackItem>> discoverFiles(
+    Iterable<String> files, {
+    int? subject,
+    Map<String, List<BtTaskFileDetail>> taskFiles = const {},
+  }) async {
     var linked = await links.readAll();
     var items = <PlaybackItem>[];
-    var cachedFiles = <String, List<BtTaskFileDetail>>{};
-    await for (var entity in directory.list(
-      recursive: true,
-      followLinks: false,
-    )) {
-      if (entity is! File || !PlaybackPaths.isVideo(entity.path)) continue;
+    var cachedFiles = Map<String, List<BtTaskFileDetail>>.of(taskFiles);
+    var seen = <String>{};
+    for (var file in files) {
+      if (!PlaybackPaths.isVideo(file) ||
+          !seen.add(PlaybackItem.pathKey(file))) {
+        continue;
+      }
       try {
-        var size = await _ensureReady(entity.path, cachedFiles);
+        var size = await _ensureReady(file, cachedFiles);
         items.add(
           PlaybackItem(
-            filePath: path.absolute(entity.path),
-            title: path.basename(entity.path),
-            subject:
-                linked[PlaybackItem.pathKey(entity.path)]?.subject ?? subject,
+            filePath: path.absolute(file),
+            title: path.basename(file),
+            subject: linked[PlaybackItem.pathKey(file)]?.subject ?? subject,
             sizeBytes: size,
           ),
         );

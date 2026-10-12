@@ -1,105 +1,20 @@
 part of '../subject_detail_resources.dart';
 
 extension _ResourceFiles on _SubjectDetailResourcesState {
-  void _syncFileTimer() {
-    var poll = _active && _showFiles && _dirState?.hasActiveTasks == true;
-    if (poll) {
-      _fileTimer ??= Timer.periodic(
-        const Duration(seconds: 5),
-        (_) => unawaited(_refreshFiles()),
-      );
-    } else {
-      _fileTimer?.cancel();
-      _fileTimer = null;
-    }
+  void _applyFiles(SubjectLocalFiles snapshot) {
+    _files = snapshot.files;
+    _fileSizes = snapshot.sizes;
+    _fileStateUnknown = snapshot.stateUnknown;
+    _dirState = snapshot.downloadState;
   }
 
-  List<BtTaskSnapshot> _directoryTasks(String directory) => [
-    for (var task in ref.read(btDownloadStoreProvider).tasks)
-      if (path.normalize(task.savePath).toLowerCase() ==
-          path.normalize(directory).toLowerCase())
-        task,
-  ];
-
   Future<void> _refreshFiles() async {
-    if (_refreshingFiles) {
-      _filesQueued = true;
-      return;
-    }
-    var directory = _bmf.download;
-    if (directory == null || directory.isEmpty || !mounted) return;
-    _update(() => _refreshingFiles = true);
-    var generation = ++_fileGeneration;
     try {
-      var files = await _fileTool.getFileNames(directory, recursive: true);
-      files.sort(PlaybackPaths.naturalCompare);
-      var sizes = <String, int>{};
-      for (var file in files) {
-        var size = _fileTool.getFileSize(
-          PlaybackPaths.resolveTaskPath(directory, file),
-        );
-        if (size >= 0) sizes[file] = size;
-      }
-      if (!mounted || generation != _fileGeneration) return;
-      var detailsById = <String, List<BtTaskFileDetail>>{};
-      for (var task in _directoryTasks(directory)) {
-        try {
-          var details = <BtTaskFileDetail>[];
-          var offset = 0;
-          while (true) {
-            var result = await ref
-                .read(btDownloadStoreProvider.notifier)
-                .taskFiles(task.id, offset: offset);
-            if (!mounted || generation != _fileGeneration) return;
-            details.addAll(result.files);
-            if (!result.truncated) break;
-            var next = result.nextOffset;
-            if (next == null || next <= offset) throw StateError('下载文件列表分页未就绪');
-            offset = next;
-          }
-          detailsById[task.id] = details;
-        } catch (error) {
-          BTLogTool.warn('刷新详情页文件下载状态失败：${error.runtimeType}');
-        }
-      }
-      if (!mounted || generation != _fileGeneration) return;
-      var tasks = ref.read(btDownloadStoreProvider).tasks;
-      var state = computeDirDownloadState(
-        dir: directory,
-        tasks: tasks,
-        fileDetailsByTaskId: detailsById,
-        dirFileNames: files,
-      );
-      var filesChanged =
-          _files.length != files.length ||
-          Iterable<int>.generate(
-            files.length,
-          ).any((i) => _files[i] != files[i]);
-      if (filesChanged) {
-        ref.invalidate(subjectPlaybackFilesProvider(widget.subjectId));
-      }
-      _update(() {
-        _files = files;
-        _fileSizes = sizes;
-        _fileStateUnknown = _directoryTasks(
-          directory,
-        ).any((task) => !detailsById.containsKey(task.id));
-        _dirState = state;
-        _fileError = null;
-      });
-      _syncFileTimer();
+      await ref
+          .read(subjectLocalFilesProvider(widget.subjectId).notifier)
+          .refresh();
     } catch (error) {
-      if (!mounted || generation != _fileGeneration) return;
-      _update(() => _fileError = '读取下载目录失败，请重试');
       BTLogTool.warn('读取详情页下载目录失败：${error.runtimeType}');
-    } finally {
-      if (mounted) {
-        _update(() => _refreshingFiles = false);
-        if (_filesQueued) {
-          _filesQueued = false;
-          unawaited(_refreshFiles());
-        }
-      }
     }
   }
 
@@ -154,14 +69,7 @@ extension _ResourceFiles on _SubjectDetailResourcesState {
                   _iconAction(
                     '刷新文件',
                     FluentIcons.refresh,
-                    _refreshingFiles
-                        ? null
-                        : () async {
-                            ref.invalidate(
-                              subjectPlaybackFilesProvider(widget.subjectId),
-                            );
-                            await _refreshFiles();
-                          },
+                    _refreshingFiles ? null : _refreshFiles,
                   ),
                   _iconAction(
                     '打开下载目录',

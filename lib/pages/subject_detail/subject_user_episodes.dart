@@ -87,8 +87,6 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
   String? _loadError;
 
   bool _gridExpanded = false;
-  bool _playbackFilesActive = true;
-  bool _playbackFilesRefreshPending = false;
 
   late bool _loading = widget.subject.type == BangumiSubjectType.anime;
 
@@ -178,23 +176,8 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
     await _loads.refresh();
     if (!mounted) return;
     // 先刷新剧集首屏，再让文件匹配复用新分页，避免同时重复拉取。
-    ref.invalidate(subjectPlaybackFilesProvider(subjectId));
+    ref.invalidate(subjectLocalFilesProvider(subjectId));
     ref.invalidate(subjectFileEpisodesProvider(subjectId));
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    var active = TickerMode.valuesOf(context).enabled;
-    if (active && !_playbackFilesActive && !_playbackFilesRefreshPending) {
-      _playbackFilesRefreshPending = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _playbackFilesRefreshPending = false;
-        if (!mounted || !_playbackFilesActive) return;
-        ref.invalidate(subjectPlaybackFilesProvider(subjectId));
-      });
-    }
-    _playbackFilesActive = active;
   }
 
   Future<void> _refreshEpisodes() async {

@@ -3,27 +3,21 @@ import 'dart:async';
 
 // Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as path;
 
 // Project imports:
-import '../core/errors/playback_unavailable.dart';
 import '../core/utils/playback_episode_files.dart';
 import '../data/repositories/episode_mark_gateway_impl.dart';
 import '../data/repositories/playback_episodes.dart';
-import '../database/app/app_playback.dart';
 import '../models/bangumi/bangumi_model.dart';
 import '../models/playback/playback_episode_link.dart';
 import '../models/playback/playback_item.dart';
-import '../store/bt_download_store.dart';
-import '../store/playback_store.dart';
 import 'bangumi_providers.dart';
-import 'bmf_providers.dart';
 import 'playback_episode_link_providers.dart';
+import 'subject_local_file_providers.dart';
 
-/// 直接监听持久化记录，浏览详情无需初始化播放器或扫描本地目录。
-final subjectPlaybackHistoryProvider = StreamProvider.autoDispose
-    .family<PlaybackItem?, int>((ref, subject) {
-      return BtsAppPlayback().watchLatestForSubject(subject);
-    });
+export 'subject_local_file_providers.dart'
+    show subjectLocalFilesProvider, subjectPlaybackHistoryProvider;
 
 final subjectFileEpisodesProvider = FutureProvider.autoDispose
     .family<List<BangumiEpisode>, int>((ref, subject) async {
@@ -35,55 +29,12 @@ final subjectFileEpisodesProvider = FutureProvider.autoDispose
       );
     });
 
-/// Scan once per subject; rescan on configuration or download-state changes.
+/// Share the file list's scan and download metadata instead of scanning twice.
 final subjectPlaybackFilesProvider = FutureProvider.autoDispose
     .family<List<PlaybackItem>, int>((ref, subject) async {
-      var repository = ref.watch(bmfRepositoryProvider);
-      var subscription = repository.changes.listen((change) {
-        if (ref.mounted && change.subject == subject) ref.invalidateSelf();
-      });
-      ref.onDispose(() => unawaited(subscription.cancel()));
-      var manual = ref.watch(subjectEpisodeLinksProvider(subject));
-      var library = ref.watch(
-        playbackStoreProvider.select((store) => store.library),
-      );
-      var model = await repository.read(subject);
-      if (!ref.mounted) return const [];
-      var directory = model?.download;
-      if (directory != null && directory.isNotEmpty) {
-        var root = PlaybackItem.pathKey(directory);
-        // Progress ticks do not change this signature or repeat scans.
-        ref.watch(
-          btDownloadStoreProvider.select(
-            (store) => [
-              for (var task in store.tasks)
-                if (PlaybackItem.pathKey(task.savePath) == root)
-                  '${task.id}:${task.state}',
-            ].join('|'),
-          ),
-        );
-      }
-      var files = directory == null || directory.isEmpty
-          ? <PlaybackItem>[]
-          : await library.discover(directory, subject: subject);
-      var keys = files.map((file) => file.key).toSet();
-      for (var link in manual) {
-        if (!ref.mounted) return const [];
-        if (!keys.add(link.key)) continue;
-        try {
-          await library.ensureReady(link.filePath);
-          files.add(
-            PlaybackItem(
-              filePath: link.filePath,
-              title: link.filePath,
-              subject: subject,
-            ),
-          );
-        } on PlaybackUnavailable {
-          // Missing files and incomplete downloads cannot be offered for play.
-        }
-      }
-      return files;
+      return (await ref.watch(
+        subjectLocalFilesProvider(subject).future,
+      )).playable;
     });
 
 /// Inferred associations are live projections, not durable per-episode writes.
@@ -109,4 +60,30 @@ final subjectEpisodeFilesProvider = FutureProvider.autoDispose
         manualLinks: manual.value ?? const {},
         rules: savedRules,
       ).values.toList();
+    });
+
+/// Follow the detail page's chapter order, keeping the first file per chapter.
+final subjectFirstPlaybackItemProvider = FutureProvider.autoDispose
+    .family<PlaybackItem?, int>((ref, subject) async {
+      var files = await ref.watch(subjectEpisodeFilesProvider(subject).future);
+      if (!ref.mounted || files.isEmpty) return null;
+      var chapters =
+          List<BangumiEpisode>.of(
+            await ref.watch(subjectFileEpisodesProvider(subject).future),
+          )..sort((a, b) {
+            var type = a.type.value.compareTo(b.type.value);
+            return type != 0 ? type : a.sort.compareTo(b.sort);
+          });
+      for (var chapter in chapters) {
+        var file = files
+            .where((file) => file.episode == chapter.id)
+            .firstOrNull;
+        if (file == null) continue;
+        return PlaybackItem(
+          filePath: file.filePath,
+          title: path.basename(file.filePath),
+          subject: subject,
+        );
+      }
+      return null;
     });

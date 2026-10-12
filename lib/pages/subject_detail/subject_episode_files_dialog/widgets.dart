@@ -141,9 +141,7 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
             icon: const Icon(FluentIcons.refresh, size: 16),
             onPressed: canChoose
                 ? () => _run(() async {
-                    ref.invalidate(
-                      subjectPlaybackFilesProvider(widget.subject),
-                    );
+                    ref.invalidate(subjectLocalFilesProvider(widget.subject));
                     await _loadFiles();
                   })
                 : null,
