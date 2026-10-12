@@ -2,6 +2,9 @@
 import 'dart:ffi';
 import 'dart:io';
 
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
 // Package imports:
 import 'package:ffi/ffi.dart';
 
@@ -26,13 +29,13 @@ Future<void> registerWindowsAppProtocol() {
   return WindowsAppProtocol.instance.register();
 }
 
-/// 退出 unpackaged 进程时，把商店版 AppX 协议处理还原回去。
+/// 退出调试进程时，把商店版 AppX 协议处理还原回去。
 Future<void> restoreWindowsAppProtocol() {
   return WindowsAppProtocol.instance.restore();
 }
 
 /// 商店版通过 AppX ProgID 的 `DelegateExecute` 接管协议，HKCU Classes
-/// 里的 `command` 会被忽略。unpackaged 进程要改写该 ProgID，退出时再还原。
+/// 里的 `command` 会被忽略。仅调试版临时改写该 ProgID，退出时再还原。
 class WindowsAppProtocol {
   WindowsAppProtocol({
     WindowsProcessRunner? runProcess,
@@ -40,11 +43,13 @@ class WindowsAppProtocol {
     String? Function(String scheme)? protocolProgId,
     void Function()? notifyAssocChanged,
     bool? isWindows,
+    bool? isDebugMode,
   }) : _runProcess = runProcess ?? Process.run,
        _executable = executable ?? _resolvedExecutable,
        _protocolProgId = protocolProgId ?? _queryProtocolProgId,
        _notifyAssocChanged = notifyAssocChanged ?? _notifyAssocChangedNative,
-       _isWindows = isWindows ?? Platform.isWindows;
+       _isWindows = isWindows ?? Platform.isWindows,
+       _isDebugMode = isDebugMode ?? kDebugMode;
 
   static final WindowsAppProtocol instance = WindowsAppProtocol();
 
@@ -53,6 +58,7 @@ class WindowsAppProtocol {
   final String? Function(String scheme) _protocolProgId;
   final void Function() _notifyAssocChanged;
   final bool _isWindows;
+  final bool _isDebugMode;
 
   Future<void> register() async {
     if (!_isWindows) return;
@@ -68,9 +74,11 @@ class WindowsAppProtocol {
       await _regAdd(prefix, name: 'URL Protocol', value: '');
       await _regAdd('$prefix\\shell\\open\\command', value: command);
 
-      var progId = _protocolProgId(scheme);
-      if (progId != null && progId.toLowerCase().startsWith('appx')) {
-        await _takeOverAppX(progId, command);
+      if (_isDebugMode) {
+        var progId = _protocolProgId(scheme);
+        if (progId != null && progId.toLowerCase().startsWith('appx')) {
+          await _takeOverAppX(progId, command);
+        }
       }
       _notifyAssocChanged();
       BTLogTool.info('已注册 $scheme:// -> $exe');
@@ -80,7 +88,7 @@ class WindowsAppProtocol {
   }
 
   Future<void> restore() async {
-    if (!_isWindows) return;
+    if (!_isWindows || !_isDebugMode) return;
     try {
       var progId = await _regQuery(_backupKey, 'ProgId');
       var delegate = await _regQuery(_backupKey, _delegateExecuteName);

@@ -166,7 +166,9 @@ Future<bool> _performApplicationExit() async {
   await _runExitStep('隐藏主窗口', windowManager.hide);
   await _runExitStep('系统代理监听', SystemProxyWatchService.instance.stop);
   await _runExitStep('Shader 缓存维护', PlaybackShaderCacheService.instance.stop);
-  await _runExitStep('Windows 协议还原', restoreWindowsAppProtocol);
+  if (kDebugMode) {
+    await _runExitStep('Windows 协议还原', restoreWindowsAppProtocol);
+  }
   await _runExitStep('BMF RSS 服务', () async {
     BmfRssService.instance.stop();
   });
