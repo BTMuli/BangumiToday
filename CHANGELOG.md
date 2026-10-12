@@ -2,12 +2,24 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2026-10-11
+Update: 2026-10-12
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:15`
 >
-> 更新于 `2026-10-11 17:06:58`
+> 更新于 `2026-10-12 21:03:14`
+
+## [v1.0.1](https://github.com/BTMuli/BangumiToday/releases/tag/v1.0.1) (2026-10-12)
+
+- ✨ BMF 新增“最近一话放送”，“即将一话放送”排序，显示放送信息
+- ✨ 条目详情新增“继续播放”入口
+- ⚡️ 在未加载文件两小时后释放 mpv
+- ⚡️ 优化应用退出处理
+- 🚸 完善请求去重账号校验
+- 🐛 调整倍速记忆逻辑，从旧版本切换到1倍速存储改为即时存储
+- 🐛 完善剧集匹配，修复诸如“S02E13.1080p”识别异常
+- 🐛 修复收藏同步与本地状态一致性，修复标记章节后误删本地收藏记录
+- 🐛 修复收藏接口用户名传参错误
 
 ## [v1.0.0](https://github.com/BTMuli/BangumiToday/releases/tag/v1.0.0) (2026-10-11)
 
