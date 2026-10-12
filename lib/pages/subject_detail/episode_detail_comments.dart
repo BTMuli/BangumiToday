@@ -155,16 +155,26 @@ class _EpisodeDetailCommentsState extends ConsumerState<EpisodeDetailComments> {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       itemCount: _comments.length,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, index) => _CommentCard(_comments[index]),
+      itemBuilder: (context, index) => _CommentCard(
+        _comments[index],
+        episodeId: widget.episodeId,
+        floor: index + 1,
+      ),
     );
   }
 }
 
 /// 单条章节吐槽：正文可选中，回复跟随在正文下方。
 class _CommentCard extends StatefulWidget {
-  const _CommentCard(this.comment);
+  const _CommentCard(
+    this.comment, {
+    required this.episodeId,
+    required this.floor,
+  });
 
   final BangumiEpisodeComment comment;
+  final int episodeId;
+  final int floor;
 
   @override
   State<_CommentCard> createState() => _CommentCardState();
@@ -194,6 +204,7 @@ class _CommentCardState extends State<_CommentCard> {
   @override
   Widget build(BuildContext context) {
     var comment = widget.comment;
+    var episodeUrl = '${BtrBangumiApi.siteBaseUrl}/ep/${widget.episodeId}';
     var accent = FluentTheme.of(context).accentColor;
     var content = comment.content.trim();
     _syncImages();
@@ -216,7 +227,12 @@ class _CommentCardState extends State<_CommentCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _CommentHeader(user: comment.user, createdAt: comment.createdAt),
+            _CommentHeader(
+              user: comment.user,
+              createdAt: comment.createdAt,
+              floor: '#${widget.floor}',
+              commentUrl: '$episodeUrl#post_${comment.id}',
+            ),
             const SizedBox(height: 8),
             if (content.isEmpty)
               Text('未填写吐槽内容', style: BTTypography.caption(context))
@@ -231,6 +247,8 @@ class _CommentCardState extends State<_CommentCard> {
               for (var index = 0; index < comment.replies.length; index++)
                 _ReplyBlock(
                   reply: comment.replies[index],
+                  floor: '#${widget.floor}-${index + 1}',
+                  commentUrl: '$episodeUrl#post_${comment.replies[index].id}',
                   imageIndexBase: _textImageBase[index + 1],
                   onImageTap: (image) =>
                       unawaited(_images.show(context, image)),
@@ -247,11 +265,15 @@ class _CommentCardState extends State<_CommentCard> {
 class _ReplyBlock extends StatelessWidget {
   const _ReplyBlock({
     required this.reply,
+    required this.floor,
+    required this.commentUrl,
     required this.imageIndexBase,
     required this.onImageTap,
   });
 
   final BangumiEpisodeCommentReply reply;
+  final String floor;
+  final String commentUrl;
 
   /// 本段正文的图片在整条吐槽里的起始下标
   final int imageIndexBase;
@@ -275,6 +297,8 @@ class _ReplyBlock extends StatelessWidget {
           _CommentHeader(
             user: reply.user,
             createdAt: reply.createdAt,
+            floor: floor,
+            commentUrl: commentUrl,
             avatarSize: 24,
           ),
           const SizedBox(height: 6),
@@ -292,11 +316,13 @@ class _ReplyBlock extends StatelessWidget {
   }
 }
 
-/// 吐槽标题行：头像、两行用户信息与发布时间。
+/// 吐槽标题行：头像、两行用户信息、发布时间与楼层定位链接。
 class _CommentHeader extends StatelessWidget {
   const _CommentHeader({
     required this.user,
     required this.createdAt,
+    required this.floor,
+    required this.commentUrl,
     this.avatarSize = 36,
   });
 
@@ -304,6 +330,8 @@ class _CommentHeader extends StatelessWidget {
 
   /// 发布时间，Unix 秒
   final int createdAt;
+  final String floor;
+  final String commentUrl;
   final double avatarSize;
 
   @override
@@ -319,6 +347,7 @@ class _CommentHeader extends StatelessWidget {
         : '${BtrBangumiApi.siteBaseUrl}/user/'
               '${Uri.encodeComponent(author.username)}';
     var time = DateTime.fromMillisecondsSinceEpoch(createdAt * 1000).toLocal();
+    var floorLabel = '在浏览器中定位到 $floor 楼评论';
     var userInfo = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,9 +382,39 @@ class _CommentHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        Text(
-          DateFormat('yyyy-MM-dd HH:mm').format(time),
-          style: BTTypography.caption(context),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              DateFormat('yyyy-MM-dd HH:mm').format(time),
+              style: BTTypography.caption(context),
+            ),
+            const SizedBox(height: 2),
+            Tooltip(
+              message: floorLabel,
+              child: Semantics(
+                label: floorLabel,
+                link: true,
+                child: HyperlinkButton(
+                  style: const ButtonStyle(
+                    padding: WidgetStatePropertyAll(EdgeInsets.zero),
+                    backgroundColor: WidgetStatePropertyAll(Colors.transparent),
+                    textStyle: WidgetStatePropertyAll(
+                      TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        height: 1.2,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                  onPressed: () => unawaited(launchUrlString(commentUrl)),
+                  child: Text(floor),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
