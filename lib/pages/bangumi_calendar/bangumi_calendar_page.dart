@@ -179,13 +179,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     }
     ref.listenManual(bangumiCollectionTypesProvider, (_, next) {
       next.whenData((types) {
-        if (!mounted || mapEquals(_collectionTypes, types)) return;
-        _collectionTypes = types;
-        _collectionIds = types.keys.toSet();
-        _watchedIds = {
-          for (var entry in types.entries)
-            if (entry.value == BangumiCollectionType.collect) entry.key,
-        };
+        if (!mounted || !applyCollectionTypes(types)) return;
         if (_items.isEmpty && _remote.isEmpty) return;
         unawaited(rebuildDays());
         // 新收藏可能让尚未补全的条目进入展示范围。
@@ -563,12 +557,26 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     }
   }
 
-  /// 等待本地收藏快照就绪；后续变更由监听器同步。
+  /// 同步收藏筛选与看过标记，始终使用同一份快照。
+  bool applyCollectionTypes(Map<int, BangumiCollectionType> types) {
+    if (mapEquals(_collectionTypes, types)) return false;
+    _collectionTypes = types;
+    _collectionIds = types.keys.toSet();
+    _watchedIds = {
+      for (var entry in types.entries)
+        if (entry.value == BangumiCollectionType.collect) entry.key,
+    };
+    return true;
+  }
+
+  /// 读取并应用本地收藏快照；后续变更由监听器同步。
   ///
   /// 读取失败会退回未过滤，并把开关同步关掉，避免开关开着却不生效。
   Future<void> loadCollectionTypes() async {
     try {
-      await ref.read(bangumiCollectionTypesProvider.future);
+      var types = await ref.read(bangumiCollectionTypesProvider.future);
+      if (!mounted) return;
+      applyCollectionTypes(types);
     } catch (error, stackTrace) {
       BTLogTool.warn(['读取本地收藏条目失败', error.toString(), stackTrace.toString()]);
       if (mounted) setState(() => isShowCollection = false);
