@@ -136,6 +136,22 @@ void main() {
       expect(link.link, 'https://bgm.tv/ep/1');
     });
 
+    test('长地址的链接标签显示文字并保留完整地址', () {
+      const url =
+          'https://www.crunchyroll.com/es/news/seasonal-lineup/2024/4/1/'
+          'crunchyroll-calendario-semanal-primavera-2024';
+      const label = 'CR你是真行啊……';
+      const source = '[url=$url]$label[/url]';
+      var named = _spans(source).single;
+
+      expect(named.text, label);
+      expect(named.link, url);
+
+      var surrounded = _spans('前文 $source 后文');
+      expect(surrounded.map((span) => span.text), ['前文 ', label, ' 后文']);
+      expect(surrounded.map((span) => span.link), [null, url, null]);
+    });
+
     test('[img] 与 [mask]', () {
       var image = _spans('[img]//lain.bgm.tv/pic/1.jpg[/img]').single;
       expect(image.isImage, isTrue);

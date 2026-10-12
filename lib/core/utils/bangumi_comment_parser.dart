@@ -502,7 +502,7 @@ class _CommentParser {
     var end = source.indexOf(']', _index);
     if (end == -1) return null;
     var raw = source.substring(_index, end + 1);
-    if (raw.length > 64 || raw.contains('\n')) return null;
+    if (raw.contains('\n')) return null;
     var body = source.substring(_index + 1, end).trim();
     if (body.isEmpty) return null;
     if (body.startsWith('/')) {
