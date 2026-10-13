@@ -336,10 +336,11 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     var chapters = _availableChapters;
     var position = widget.player.state.position;
     var current = playbackChapterAt(chapters, position);
-    return [
+    var navigation = <MenuFlyoutItemBase>[
       for (var next in [false, true])
         MenuFlyoutItem(
           text: Text(next ? '下一章节' : '上一章节'),
+          leading: const Icon(null),
           trailing: _PlaybackMenuShortcut(next ? 'D' : 'A'),
           onPressed:
               !widget.store.loading &&
@@ -353,14 +354,25 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
               : null,
         ),
       const MenuFlyoutSeparator(),
-      for (var chapter in chapters)
-        ToggleMenuFlyoutItem(
-          text: Text('${_playbackTime(chapter.start)} · ${chapter.title}'),
-          value: identical(chapter, current),
-          onChanged: widget.store.loading
-              ? null
-              : (_) => unawaited(widget.run(() => _seekChapter(chapter))),
+    ];
+    return [
+      MenuFlyoutItemBuilder(
+        builder: (_) => _PlaybackChapterMenu(
+          navigation: navigation,
+          chapters: [
+            for (var chapter in chapters)
+              ToggleMenuFlyoutItem(
+                text: Text(
+                  '${_playbackTime(chapter.start)} · ${chapter.title}',
+                ),
+                value: identical(chapter, current),
+                onChanged: widget.store.loading
+                    ? null
+                    : (_) => unawaited(widget.run(() => _seekChapter(chapter))),
+              ),
+          ],
         ),
+      ),
     ];
   }
 
@@ -1225,6 +1237,52 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
       );
     },
   );
+}
+
+/// 章节导航固定在列表上方，列表高度同时受菜单可用空间限制。
+class _PlaybackChapterMenu extends StatelessWidget {
+  const _PlaybackChapterMenu({
+    required this.navigation,
+    required this.chapters,
+  });
+
+  final List<MenuFlyoutItemBase> navigation;
+  final List<MenuFlyoutItemBase> chapters;
+
+  @override
+  Widget build(BuildContext context) {
+    var menu = context.findAncestorWidgetOfExactType<MenuFlyout>()!;
+    // MenuFlyout gives its items unbounded height inside its scroll view.
+    // Restore the menu's height budget so only the chapter list can scroll.
+    var maxHeight =
+        ((menu.constraints?.maxHeight ?? double.infinity) -
+                kDefaultMenuPadding.vertical)
+            .clamp(0.0, double.infinity);
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var item in navigation) item.build(context),
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 280),
+              child: SingleChildScrollView(
+                primary: false,
+                physics: const ClampingScrollPhysics(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [for (var item in chapters) item.build(context)],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// 三态置顶图标：关闭空心、播放时空心加播放角标、始终置顶实心。
