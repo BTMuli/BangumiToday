@@ -11,10 +11,14 @@ import 'bangumi_providers.dart';
 
 typedef DownloadSubjectKey = ({String taskId, String savePath, bool manual});
 
-final _downloadSubjectLinkProvider = StreamProvider.autoDispose
-    .family<int?, String>((ref, taskId) {
-      return downloadSubjectsStorage.watch(taskId);
-    });
+// 保留已读取的关联，切换标签、搜索过滤后可同步恢复分组和折叠状态。
+// 自动释放会重新进入 loading，让任务先显示为独立卡片再合并回分组。
+final _downloadSubjectLinkProvider = StreamProvider.family<int?, String>((
+  ref,
+  taskId,
+) {
+  return downloadSubjectsStorage.watch(taskId);
+});
 
 /// 参数只包含关联所需字段，进度、速率刷新不会重新加载条目。
 final downloadTaskSubjectProvider = Provider.autoDispose
