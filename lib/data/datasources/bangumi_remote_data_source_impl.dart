@@ -89,6 +89,22 @@ class BTBangumiRemoteDataSourceImpl implements BTBangumiRemoteDataSource {
   }) => _api.getSubjectComments(id, type: type, offset: offset, limit: limit);
 
   @override
+  Future<BTResponse<BangumiPageT<BangumiSubjectReview>>> getSubjectReviews(
+    int id, {
+    int offset = 0,
+    int limit = 20,
+  }) => _api.getSubjectReviews(id, offset: offset, limit: limit);
+
+  @override
+  Future<BTResponse<BangumiReviewDetail>> getReviewDetail(int entryId) =>
+      _api.getReviewDetail(entryId);
+
+  @override
+  Future<BTResponse<List<BangumiEpisodeComment>>> getReviewComments(
+    int entryId,
+  ) => _api.getReviewComments(entryId);
+
+  @override
   Future<BTResponse<BangumiPageT<BangumiEpisode>>> getEpisodeList(
     int id, {
     BangumiLegacyEpisodeType? type,

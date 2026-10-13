@@ -24,6 +24,7 @@ import 'subject_detail_prefetch.dart';
 import 'subject_detail_refreshable.dart';
 import 'subject_detail_resources.dart';
 import 'subject_detail_view_data.dart';
+import 'subject_review_detail_page.dart';
 import 'subject_stat_providers.dart';
 
 part 'subject_detail_page/header.dart';
@@ -66,6 +67,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
 
   /// 当前展开的章节详情，null 表示停留在条目详情。
   String? _episodeId;
+  int? _reviewEntryId;
 
   int _loadGeneration = 0;
   SubjectDetailPrefetch? _prefetch;
@@ -75,6 +77,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   final GlobalKey _charactersKey = GlobalKey();
   final GlobalKey _personsKey = GlobalKey();
   final GlobalKey _commentsKey = GlobalKey();
+  final GlobalKey _reviewsKey = GlobalKey();
   final GlobalKey _resourcesKey = GlobalKey();
 
   /// 当id改变时, 重新加载数据
@@ -83,6 +86,8 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.id != widget.id) {
       data = null;
+      _episodeId = null;
+      _reviewEntryId = null;
       Future.microtask(init);
     }
   }
@@ -163,6 +168,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
               _charactersKey,
               _personsKey,
               _commentsKey,
+              _reviewsKey,
             ]) {
       var state = key.currentState;
       if (state is! SubjectDetailRefreshable) continue;
@@ -266,7 +272,22 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   void openEpisode(int episode) {
     var id = episode.toString();
     if (_episodeId == id) return;
-    setState(() => _episodeId = id);
+    setState(() {
+      _episodeId = id;
+      _reviewEntryId = null;
+    });
+  }
+
+  void openReview(int entryId) {
+    if (_reviewEntryId == entryId) return;
+    setState(() {
+      _reviewEntryId = entryId;
+      _episodeId = null;
+    });
+  }
+
+  void closeReview() {
+    setState(() => _reviewEntryId = null);
   }
 
   /// 关闭章节详情子页面，回到条目详情
@@ -309,11 +330,12 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
       });
     }
     var episodeId = _episodeId;
-    // 章节详情是条目详情的下一级页面：条目详情的内容树保持挂载，
+    var reviewEntryId = _reviewEntryId;
+    // 剧集和评论详情是条目详情的下一级页面，条目内容树保持挂载，
     // 返回时不会丢掉页签选择与滚动位置。
     return IndexedStack(
       sizing: StackFit.expand,
-      index: episodeId == null ? 0 : 1,
+      index: episodeId != null || reviewEntryId != null ? 1 : 0,
       children: [
         buildSubjectPage(),
         if (episodeId != null)
@@ -322,6 +344,15 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
             onBack: closeEpisode,
             onOpenSubject: openSubjectFromEpisode,
             onOpenEpisode: openEpisode,
+          ),
+        if (reviewEntryId != null)
+          SubjectReviewDetailPage(
+            key: ValueKey(reviewEntryId),
+            entryId: reviewEntryId,
+            subjectTitle: data == null
+                ? '返回条目详情'
+                : (data!.nameCn.isEmpty ? data!.name : data!.nameCn),
+            onBack: closeReview,
           ),
       ],
     );

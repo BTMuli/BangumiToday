@@ -18,7 +18,8 @@ enum _DetailTab {
   characters('角色'),
   persons('制作人员'),
   relations('关联条目'),
-  comments('吐槽');
+  comments('吐槽'),
+  reviews('评论');
 
   const _DetailTab(this.label);
 
@@ -211,6 +212,7 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
       return view.buildPersons(grouping: _staffGrouping);
     }
     if (tab == _DetailTab.comments) return view.buildComments();
+    if (tab == _DetailTab.reviews) return view.buildReviews();
     return SingleChildScrollView(
       key: PageStorageKey('subject-${view.subject.id}-${tab.name}'),
       primary: false,
@@ -227,7 +229,8 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
           _DetailTab.resources ||
           _DetailTab.characters ||
           _DetailTab.persons ||
-          _DetailTab.comments => const SizedBox.shrink(),
+          _DetailTab.comments ||
+          _DetailTab.reviews => const SizedBox.shrink(),
         },
       ),
     );

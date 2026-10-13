@@ -37,6 +37,18 @@ abstract class BTBangumiRemoteDataSource {
     int limit = 20,
   });
 
+  Future<BTResponse<BangumiPageT<BangumiSubjectReview>>> getSubjectReviews(
+    int id, {
+    int offset = 0,
+    int limit = 20,
+  });
+
+  Future<BTResponse<BangumiReviewDetail>> getReviewDetail(int entryId);
+
+  Future<BTResponse<List<BangumiEpisodeComment>>> getReviewComments(
+    int entryId,
+  );
+
   Future<BTResponse<BangumiPageT<BangumiEpisode>>> getEpisodeList(
     int id, {
     BangumiLegacyEpisodeType? type,

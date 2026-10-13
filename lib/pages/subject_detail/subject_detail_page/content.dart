@@ -8,6 +8,7 @@ extension _SubjectDetailContent on _SubjectDetailPageState {
       collectProvider: collectProvider,
       onTagTap: searchByTag,
       onOpenEpisode: openEpisode,
+      onOpenReview: openReview,
       contextMenuBuilder: buildContextMenu,
       collectionKey: _collectionKey,
       episodesKey: _episodesKey,
@@ -15,6 +16,7 @@ extension _SubjectDetailContent on _SubjectDetailPageState {
       charactersKey: _charactersKey,
       personsKey: _personsKey,
       commentsKey: _commentsKey,
+      reviewsKey: _reviewsKey,
       prefetch: _prefetch,
     );
   }

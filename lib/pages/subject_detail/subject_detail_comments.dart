@@ -5,19 +5,16 @@ import 'dart:async';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/bangumi_utils.dart';
-import '../../core/utils/tool_func.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
-import '../../request/bangumi/bangumi_api.dart';
-import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/bangumi/bt_comment_content.dart';
 import '../../widgets/bangumi/comment_image_viewer.dart';
+import 'detail_comment_author.dart';
 import 'subject_detail_colors.dart';
 import 'subject_detail_module_status.dart';
 import 'subject_detail_refreshable.dart';
@@ -363,13 +360,6 @@ class _CommentCardState extends State<_CommentCard> {
   @override
   Widget build(BuildContext context) {
     var comment = widget.comment;
-    var user = comment.user;
-    var name = replaceEscape(
-      user.nickname.isEmpty ? user.username : user.nickname,
-    );
-    var profile =
-        '${BtrBangumiApi.siteBaseUrl}/user/'
-        '${Uri.encodeComponent(user.username)}';
     var content = comment.comment.trim();
     var updatedAt = DateTime.fromMillisecondsSinceEpoch(
       comment.updatedAt * 1000,
@@ -392,91 +382,48 @@ class _CommentCardState extends State<_CommentCard> {
                 : BTColors.divider(context),
           ),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildAvatar(context, name, profile),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildMeta(context, name, profile)),
-                      const SizedBox(width: 10),
-                      Text(
-                        DateFormat('yyyy-MM-dd HH:mm').format(updatedAt),
-                        style: BTTypography.caption(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (content.isEmpty)
-                    Text('未填写吐槽内容', style: BTTypography.caption(context))
-                  else
-                    BtCommentContent(
-                      text: content,
-                      imageIndexBase: _imageBase,
-                      onImageTap: (index) =>
-                          unawaited(_images.show(context, index)),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: DetailCommentAuthor(user: comment.user)),
+                const SizedBox(width: 10),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      DateFormat('yyyy-MM-dd HH:mm').format(updatedAt),
+                      style: BTTypography.caption(context),
                     ),
-                ],
-              ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _CollectionTypeChip(type: comment.type),
+                        if (comment.rate > 0) _CommentRate(rate: comment.rate),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
             ),
+            const SizedBox(height: 8),
+            if (content.isEmpty)
+              Text('未填写吐槽内容', style: BTTypography.caption(context))
+            else
+              BtCommentContent(
+                text: content,
+                imageIndexBase: _imageBase,
+                onImageTap: (index) => unawaited(_images.show(context, index)),
+              ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildAvatar(BuildContext context, String name, String profile) {
-    var label = '在浏览器中查看 $name 的主页';
-    return Tooltip(
-      message: label,
-      child: Semantics(
-        label: label,
-        button: true,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: () => unawaited(launchUrlString(profile)),
-            child: BtBangumiCover(
-              imageUrl: widget.comment.user.avatar.medium,
-              width: 36,
-              height: 36,
-              maxRequestEdge: BangumiCoverUrl.thumbMaxEdge,
-              borderRadius: BTRadius.mediumBR,
-              progressSize: 14,
-              errorBuilder: (context, {err}) => const SizedBox.square(
-                dimension: 36,
-                child: Icon(FluentIcons.contact, size: 22),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMeta(BuildContext context, String name, String profile) {
-    var comment = widget.comment;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 6,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Tooltip(
-          message: comment.user.username,
-          child: HyperlinkButton(
-            onPressed: () => unawaited(launchUrlString(profile)),
-            child: Text(name, style: BTTypography.bodyStrong(context)),
-          ),
-        ),
-        _CollectionTypeChip(type: comment.type),
-        if (comment.rate > 0) _CommentRate(rate: comment.rate),
-      ],
     );
   }
 }

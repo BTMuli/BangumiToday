@@ -13,5 +13,6 @@ export 'bangumi_model_index.dart';
 export 'bangumi_model_legacy.dart';
 export 'bangumi_model_person.dart';
 export 'bangumi_model_revision.dart';
+export 'bangumi_model_review.dart';
 export 'bangumi_model_subject.dart';
 export 'bangumi_model_user.dart';

@@ -142,6 +142,22 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   );
 
   @override
+  Future<BTResponse<BangumiPageT<BangumiSubjectReview>>> getSubjectReviews(
+    int id, {
+    int offset = 0,
+    int limit = 20,
+  }) => _remoteDataSource.getSubjectReviews(id, offset: offset, limit: limit);
+
+  @override
+  Future<BTResponse<BangumiReviewDetail>> getReviewDetail(int entryId) =>
+      _remoteDataSource.getReviewDetail(entryId);
+
+  @override
+  Future<BTResponse<List<BangumiEpisodeComment>>> getReviewComments(
+    int entryId,
+  ) => _remoteDataSource.getReviewComments(entryId);
+
+  @override
   Future<BTResponse<BangumiPageT<BangumiEpisode>>> getEpisodeList(
     int id, {
     BangumiLegacyEpisodeType? type,

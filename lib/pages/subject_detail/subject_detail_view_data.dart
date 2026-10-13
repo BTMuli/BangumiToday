@@ -7,6 +7,7 @@ import 'subject_detail_comments.dart';
 import 'subject_detail_people.dart';
 import 'subject_detail_prefetch.dart';
 import 'subject_detail_relation.dart';
+import 'subject_detail_reviews.dart';
 import 'subject_stat_providers.dart';
 import 'subject_user_collection.dart';
 import 'subject_user_episodes.dart';
@@ -22,6 +23,7 @@ class SubjectDetailViewData {
     required this.collectProvider,
     required this.onTagTap,
     required this.onOpenEpisode,
+    required this.onOpenReview,
     required this.contextMenuBuilder,
     this.collectionKey,
     this.episodesKey,
@@ -29,6 +31,7 @@ class SubjectDetailViewData {
     this.charactersKey,
     this.personsKey,
     this.commentsKey,
+    this.reviewsKey,
     this.prefetch,
   });
 
@@ -39,6 +42,7 @@ class SubjectDetailViewData {
 
   /// 打开章节详情下一级页面
   final ValueChanged<int> onOpenEpisode;
+  final ValueChanged<int> onOpenReview;
   final SubjectDetailContextMenuBuilder contextMenuBuilder;
   final Key? collectionKey;
   final Key? episodesKey;
@@ -46,6 +50,7 @@ class SubjectDetailViewData {
   final Key? charactersKey;
   final Key? personsKey;
   final Key? commentsKey;
+  final Key? reviewsKey;
   final SubjectDetailPrefetch? prefetch;
 
   Widget buildCollection({bool compact = false, bool filled = true}) {
@@ -99,4 +104,10 @@ class SubjectDetailViewData {
 
   Widget buildComments() =>
       SubjectDetailComments(key: commentsKey, subjectId: subject.id);
+
+  Widget buildReviews() => SubjectDetailReviews(
+    key: reviewsKey,
+    subjectId: subject.id,
+    onOpenReview: onOpenReview,
+  );
 }

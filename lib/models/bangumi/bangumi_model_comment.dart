@@ -32,7 +32,7 @@ class BangumiSubjectComment {
   Map<String, dynamic> toJson() => _$BangumiSubjectCommentToJson(this);
 }
 
-/// Next API 的章节吐槽，[replies] 为同一吐槽下的回复。
+/// Next API 的章节与日志吐槽共用此结构，[replies] 为同一吐槽下的回复。
 /// 文档：https://github.com/bangumi/server-private/blob/master/openapi.json
 @JsonSerializable(explicitToJson: true)
 class BangumiEpisodeComment {

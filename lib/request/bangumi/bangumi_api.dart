@@ -378,6 +378,49 @@ class BtrBangumiApi {
     fallbackMessage: '加载吐槽失败',
   );
 
+  /// 条目长篇评论，按 Next API 的 limit / offset 分页。
+  Future<BTResponse<BangumiPageT<BangumiSubjectReview>>> getSubjectReviews(
+    int id, {
+    int offset = 0,
+    int limit = 20,
+  }) => _getModule(
+    '$nextBaseUrl/p1/subjects/$id/reviews',
+    (data) {
+      var json = data as Map<String, dynamic>;
+      return BangumiPageT(
+        total: (json['total'] as num).toInt(),
+        limit: limit,
+        offset: offset,
+        data: (json['data'] as List)
+            .map(
+              (e) => BangumiSubjectReview.fromJson(e as Map<String, dynamic>),
+            )
+            .toList(),
+      );
+    },
+    queryParameters: {'limit': limit, 'offset': offset},
+    fallbackMessage: '加载评论失败',
+  );
+
+  /// 评论详情使用日志 ID，而非条目评论关联 ID。
+  Future<BTResponse<BangumiReviewDetail>> getReviewDetail(int entryId) =>
+      _getModule(
+        '$nextBaseUrl/p1/blogs/$entryId',
+        (data) => BangumiReviewDetail.fromJson(data as Map<String, dynamic>),
+        fallbackMessage: '加载评论详情失败',
+      );
+
+  /// 日志与章节共用 Comment 结构，一次返回所有顶层回复及楼中楼。
+  Future<BTResponse<List<BangumiEpisodeComment>>> getReviewComments(
+    int entryId,
+  ) => _getModule(
+    '$nextBaseUrl/p1/blogs/$entryId/comments',
+    (data) => (data as List)
+        .map((e) => BangumiEpisodeComment.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    fallbackMessage: '加载评论回复失败',
+  );
+
   /// 获取章节详情（Next API）
   ///
   /// 一次返回章节本体、所属条目摘要与当前用户的章节收藏状态。
