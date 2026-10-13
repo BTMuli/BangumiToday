@@ -721,7 +721,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     ),
   );
 
-  List<MenuFlyoutItemBase> _settingsItems() => [
+  List<MenuFlyoutItemBase> _settingsItems({bool includeUpscale = true}) => [
     ..._playbackSettingsItems(
       widget.player,
       widget.store,
@@ -729,6 +729,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
       widget.pickSubtitle,
       _execute,
       widget.windowMode,
+      includeUpscale: includeUpscale,
     ),
     // 无边框播放器窗口没有标题栏入口，来源操作放在设置与右键菜单里。
     const MenuFlyoutSeparator(),
@@ -929,6 +930,16 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           leading: const Icon(material.Icons.playlist_play_rounded, size: 16),
           items: (_) => [
             MenuFlyoutItem(
+              text: const Text('后退 5 秒'),
+              trailing: const _PlaybackMenuShortcut('←'),
+              onPressed: () => _execute(_PlaybackCommand.back5),
+            ),
+            MenuFlyoutItem(
+              text: const Text('前进 5 秒'),
+              trailing: const _PlaybackMenuShortcut('→'),
+              onPressed: () => _execute(_PlaybackCommand.forward5),
+            ),
+            MenuFlyoutItem(
               text: const Text('后退 10 秒'),
               trailing: const _PlaybackMenuShortcut('J'),
               onPressed: () => _execute(_PlaybackCommand.back10),
@@ -953,25 +964,24 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
             ),
           ],
         ),
-        ToggleMenuFlyoutItem(
+        MenuFlyoutItem(
           text: const Text('静音'),
+          leading: Icon(
+            player.state.volume == 0
+                ? material.Icons.volume_off_rounded
+                : material.Icons.volume_up_rounded,
+            size: 16,
+          ),
           trailing: const _PlaybackMenuShortcut('M'),
-          value: player.state.volume == 0,
-          onChanged: (_) => _execute(_PlaybackCommand.mute),
+          selected: player.state.volume == 0,
+          onPressed: () => _execute(_PlaybackCommand.mute),
         ),
         const MenuFlyoutSeparator(),
-        if (widget.store.chapters.isNotEmpty)
-          MenuFlyoutSubItem(
-            text: const Text('章节'),
-            showBehavior: SubItemShowAction.press,
-            leading: const Icon(material.Icons.bookmarks_outlined, size: 16),
-            items: (_) => _chapterItems(),
-          ),
         MenuFlyoutSubItem(
           text: const Text('播放设置'),
           showBehavior: SubItemShowAction.press,
           leading: const Icon(material.Icons.settings_outlined, size: 16),
-          items: (_) => _settingsItems(),
+          items: (_) => _settingsItems(includeUpscale: false),
         ),
         MenuFlyoutItem(
           text: const Text('截屏并复制到剪贴板'),
@@ -980,11 +990,17 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           onPressed: () => _execute(_PlaybackCommand.screenshot),
         ),
         const MenuFlyoutSeparator(),
-        ToggleMenuFlyoutItem(
-          text: const Text('视频信息覆盖层'),
+        MenuFlyoutItem(
+          text: const Text('视频信息'),
+          leading: Icon(
+            overlay.showInfo
+                ? material.Icons.info_rounded
+                : material.Icons.info_outline_rounded,
+            size: 16,
+          ),
           trailing: const _PlaybackMenuShortcut('Tab'),
-          value: overlay.showInfo,
-          onChanged: (_) => _execute(_PlaybackCommand.info),
+          selected: overlay.showInfo,
+          onPressed: () => _execute(_PlaybackCommand.info),
         ),
         MenuFlyoutItem(
           text: const Text('查看快捷键'),
@@ -1542,8 +1558,9 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
   Future<void> Function(Future<void> Function()) run,
   Future<void> Function() pickSubtitle,
   ValueChanged<_PlaybackCommand> execute,
-  PlaybackWindowMode? windowMode,
-) => [
+  PlaybackWindowMode? windowMode, {
+  required bool includeUpscale,
+}) => [
   MenuFlyoutSubItem(
     text: _PlaybackMenuLabel(
       '播放速度',
@@ -1552,7 +1569,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
     showBehavior: SubItemShowAction.press,
     items: (_) => _playbackRateItems(player, store, run, execute),
   ),
-  if (Platform.isWindows)
+  if (includeUpscale && Platform.isWindows)
     MenuFlyoutSubItem(
       // fluent_ui 4.16.1 does not cancel its hover timer on disposal.
       showBehavior: SubItemShowAction.press,
