@@ -355,6 +355,12 @@ class BTDesktopTrayService with WindowListener {
     _windowsResources?.dispose();
   }
 
+  /// 停止托盘操作，保留消息泵和窗口关闭拦截直到持久化清理完成。
+  Future<void> prepareForExit() async {
+    _exitRequested = true;
+    await _waitForContextMenuToClose();
+  }
+
   /// 注销监听器、关闭关闭拦截并销毁托盘图标。
   Future<void> dispose() async {
     await _waitForContextMenuToClose();

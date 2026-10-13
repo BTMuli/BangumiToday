@@ -162,7 +162,25 @@ Future<bool> _performApplicationExit() async {
     });
     return false;
   }
-  // 先藏窗；托盘及其消息泵保留到数据清理完成，最后再销毁。
+  // 后台页面的 Riverpod 查询订阅可能处于暂停状态。先卸载 Consumer，
+  // 再释放容器和数据库，避免 Drift 等待无法送达的 stream done 事件。
+  var interfaceDetached = await _runExitStep('移除主界面', () async {
+    runApp(
+      ExcludeSemantics(
+        excluding: Platform.isWindows,
+        child: const SizedBox.shrink(),
+      ),
+    );
+    // runApp 会安排 warm-up frame，已隐藏的窗口也能完成卸载。
+    await WidgetsBinding.instance.endOfFrame;
+  });
+  if (!interfaceDetached) {
+    _runApp(const BTApp());
+    return false;
+  }
+  // 托盘导航会读取容器。退出期间停止交互，但保留消息泵和关闭拦截。
+  await _runExitStep('停止托盘交互', BTDesktopTrayService.instance.prepareForExit);
+  // 主界面已卸载，随后停止仍可能访问 provider 或持久化数据的服务。
   await _runExitStep('隐藏主窗口', windowManager.hide);
   await _runExitStep('系统代理监听', SystemProxyWatchService.instance.stop);
   await _runExitStep('Shader 缓存维护', PlaybackShaderCacheService.instance.stop);
@@ -179,8 +197,10 @@ Future<bool> _performApplicationExit() async {
     // shutdown 自己控制完整的退出预算，并在超时后终止、回收进程。
     timeout: null,
   );
-  // Explicitly release Drift's cached statements and database isolate after
-  // the playback/background exit steps, before destroying the main engine.
+  await _runExitStep('应用状态', () async {
+    globalContainer.dispose();
+  });
+  // 容器销毁会取消所有查询订阅（包括暂停的订阅），随后才关闭 Drift。
   var sqliteClosed = await _runExitStep(
     'SQLite',
     BTSqlite.close,

@@ -83,11 +83,13 @@ class BTSqlite {
 
   static Future<void> _close() async {
     _closing = true;
+    BTLogTool.info('SQLite 等待初始化结束：开始');
     try {
       await _initFuture;
     } catch (_) {
       // Failed opens already close their executor before reporting failure.
     }
+    BTLogTool.info('SQLite 等待初始化结束：完成');
     var database = _instance._database;
     _instance._database = null;
     _isInitialized = false;

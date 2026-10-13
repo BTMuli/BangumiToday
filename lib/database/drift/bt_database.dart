@@ -99,11 +99,17 @@ class BtDatabase extends _$BtDatabase {
   @override
   Future<void> close() async {
     try {
+      onMigration?.call('SQLite 关闭查询流与执行器：开始');
       await super.close();
+      onMigration?.call('SQLite 关闭查询流与执行器：完成');
     } finally {
       var lock = _processLock;
       _processLock = null;
-      await lock?.release();
+      if (lock != null) {
+        onMigration?.call('SQLite 释放进程锁：开始');
+        await lock.release();
+        onMigration?.call('SQLite 释放进程锁：完成');
+      }
     }
   }
 }
