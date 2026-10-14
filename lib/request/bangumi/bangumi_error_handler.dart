@@ -24,11 +24,7 @@ BTResponse<T> handleBangumiDioException<T>(
   var responseData = exception.response?.data;
   var statusCode = exception.response?.statusCode;
   var responseMessage = _readJsonErrorMessage(responseData);
-  var message = responseMessage;
-  var networkFailure = _isNetworkFailure(exception);
-  if (message == null && networkFailure) {
-    message = '网络连接失败，请稍后重试';
-  }
+  var message = responseMessage ?? _networkFailureMessage(exception);
   message ??= _readHtmlTitle(responseData);
   message ??= exception.error?.toString();
   message ??= exception.message;
@@ -43,9 +39,13 @@ BTResponse<T> handleBangumiDioException<T>(
 
   var uri = exception.requestOptions.uri;
   try {
-    BTLogTool.error(
-      '$fallbackMessage [$uri]: ${_logMessage(message, responseData)}',
-    );
+    BTLogTool.error([
+      '$fallbackMessage [${exception.requestOptions.method} $uri]: '
+          '${_logMessage(message, responseData)}',
+      'type=${exception.type.name}, status=${statusCode ?? 'none'}',
+      if (exception.error != null) 'cause=${exception.error}',
+      if (exception.message != null) 'detail=${exception.message}',
+    ]);
   } catch (_) {
     // Error handling must not fail when logging is not initialized yet.
   }
@@ -153,22 +153,45 @@ BTResponse<T>? readBangumiOauthError<T>(
   return BTResponse.error(code: 400, message: message, data: null);
 }
 
-bool _isNetworkFailure(DioException exception) {
+String? _networkFailureMessage(DioException exception) {
   switch (exception.type) {
     case DioExceptionType.connectionTimeout:
+      return '连接 Bangumi 超时，请检查网络或代理设置后重试';
     case DioExceptionType.sendTimeout:
+      return '发送 Bangumi 请求超时，请检查网络或代理设置后重试';
     case DioExceptionType.receiveTimeout:
-    case DioExceptionType.connectionError:
-      return true;
+      return '等待 Bangumi 响应超时，请稍后重试或切换 Bangumi 线路';
+    case DioExceptionType.badCertificate:
+      return 'Bangumi 的 HTTPS 证书校验失败，请检查系统时间或代理设置';
     default:
       break;
   }
   var error = exception.error;
-  if (error is SocketException || error is HandshakeException) return true;
-  var text = '${error ?? ''} ${exception.message ?? ''}';
-  return text.contains('HandshakeException') ||
-      text.contains('SocketException') ||
-      text.contains('Failed host lookup');
+  var text = '${error ?? ''} ${exception.message ?? ''}'.toLowerCase();
+  if (text.contains('failed host lookup') ||
+      text.contains('no such host is known')) {
+    return '访问 Bangumi 时域名解析失败，请检查 DNS 或代理设置';
+  }
+  if (error is TlsException ||
+      text.contains('handshakeexception') ||
+      text.contains('tlsexception')) {
+    return '与 Bangumi 建立 HTTPS 安全连接失败，请检查代理设置或切换 Bangumi 线路';
+  }
+  if (text.contains('connection refused') ||
+      text.contains('actively refused')) {
+    return '连接 Bangumi 被拒绝，请检查代理设置或切换 Bangumi 线路';
+  }
+  if (text.contains('connection reset') ||
+      text.contains('connection closed') ||
+      text.contains('connection aborted')) {
+    return '与 Bangumi 的连接意外中断，请稍后重试或检查代理设置';
+  }
+  if (exception.type == DioExceptionType.connectionError ||
+      error is SocketException ||
+      text.contains('socketexception')) {
+    return '无法连接 Bangumi，请检查网络或代理设置，或切换 Bangumi 线路';
+  }
+  return null;
 }
 
 String? _readErrorMessage(dynamic data) {
