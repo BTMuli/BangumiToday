@@ -37,14 +37,18 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
   late final EpisodeMarkService service;
   late final PlaybackStore _playback;
   int _accountGeneration = 0;
-  (int?, String?) _observedAuthorization = (null, null);
+  (int?, int, bool) _observedAuthorization = (null, 0, false);
   bool _closed = false;
 
   @override
   EpisodeMarkState build() {
     _playback = ref.read(playbackStoreProvider);
     var initialUser = ref.read(bgmUserStoreProvider);
-    _observedAuthorization = (initialUser.user?.id, initialUser.accessToken);
+    _observedAuthorization = (
+      initialUser.user?.id,
+      initialUser.sessionGeneration,
+      initialUser.accessToken != null,
+    );
     service = EpisodeMarkService(
       gateway: BangumiEpisodeMarkGateway(ref.read(bangumiRepositoryProvider)),
       accountSession: currentAccount,
@@ -55,9 +59,13 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
         state = service.progressState;
       }
     });
-    ref.listen<(int?, String?)>(
+    ref.listen<(int?, int, bool)>(
       bgmUserStoreProvider.select(
-        (value) => (value.user?.id, value.accessToken),
+        (value) => (
+          value.user?.id,
+          value.sessionGeneration,
+          value.accessToken != null,
+        ),
       ),
       (_, authorization) {
         _observedAuthorization = authorization;
@@ -78,9 +86,14 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
   String? currentAccount() {
     if (_closed || _playback.isClosed) return null;
     var user = ref.read(bgmUserStoreProvider);
-    var authorization = (user.user?.id, user.accessToken);
+    var authorization = (
+      user.user?.id,
+      user.sessionGeneration,
+      user.accessToken != null,
+    );
     // Read live authorization at every guard, including while page listeners
-    // are paused. Only the generation crosses engines, never the token.
+    // are paused. Token renewal keeps pending work in the same login session.
+    // Only the generation crosses engines, never the token.
     if (authorization != _observedAuthorization) {
       _observedAuthorization = authorization;
       _accountGeneration++;

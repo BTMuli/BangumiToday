@@ -179,7 +179,14 @@ void main() {
             : EpisodeMarkWriteStatus.marked,
       );
       expect(local.deletions, 0);
-      expect(remote.writes, scenario.done ? 0 : 1);
+      expect(
+        remote.writes,
+        scenario.done
+            ? 0
+            : scenario.fail
+            ? 3
+            : 1,
+      );
       var after = await db.select(db.bangumiCollection).getSingle();
       var expected = before.toJson();
       if (!scenario.fail && !scenario.refreshFails) expected['epStat'] = 2;

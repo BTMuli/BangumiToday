@@ -1,6 +1,7 @@
 // Project imports:
 import '../../domain/repositories/bangumi_repository.dart';
 import '../../domain/repositories/episode_mark_gateway.dart';
+import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 
@@ -30,12 +31,31 @@ class BangumiEpisodeMarkGateway implements EpisodeMarkGateway {
 
   final BTBangumiRepository repository;
 
+  static bool _retryable(int code) =>
+      code == 666 || code == 408 || const [500, 502, 503, 504].contains(code);
+
+  static Future<void> _retryDelay(int attempt) =>
+      Future<void>.delayed(Duration(milliseconds: 300 * (attempt + 1)));
+
+  /// Reads can recover from a transient failure without joining playback work.
+  Future<BTResponse<T>> _read<T>(
+    Future<BTResponse<T>> Function() request, {
+    bool Function()? authScope,
+  }) async {
+    for (var attempt = 0; ; attempt++) {
+      if (authScope != null && !authScope()) {
+        throw const EpisodeMarkFailure('账户会话已变化');
+      }
+      var response = await request();
+      if (!_retryable(response.code) || attempt >= 2) return response;
+      await _retryDelay(attempt);
+    }
+  }
+
   @override
   Future<EpisodeMarkPage> episodes(int subject, int offset) async {
-    var response = await repository.getEpisodeList(
-      subject,
-      limit: 100,
-      offset: offset,
+    var response = await _read(
+      () => repository.getEpisodeList(subject, limit: 100, offset: offset),
     );
     var page = response.data;
     if (response.code != 0 || page == null) {
@@ -50,22 +70,23 @@ class BangumiEpisodeMarkGateway implements EpisodeMarkGateway {
 
   @override
   Future<bool> isDone(int episode) async {
-    var response = await repository.getCollectionEpisode(episode);
+    var response = await _read(() => repository.getCollectionEpisode(episode));
     if (response.code != 0 || response.data == null) {
-      throw EpisodeMarkFailure(
-        '无法读取章节收藏，请确认已登录且条目已收藏：'
-        '${response.message}',
-      );
+      var hint = switch (response.code) {
+        401 => '请重新登录 Bangumi：',
+        404 => '请确认条目已收藏：',
+        _ => '',
+      };
+      throw EpisodeMarkFailure('无法读取章节收藏：$hint${response.message}');
     }
     return response.data!.type == BangumiEpisodeCollectionType.done;
   }
 
   @override
   Future<EpisodeMarkPage> progress(int subject, int offset) async {
-    var response = await repository.getCollectionEpisodes(
-      subject,
-      limit: 100,
-      offset: offset,
+    var response = await _read(
+      () =>
+          repository.getCollectionEpisodes(subject, limit: 100, offset: offset),
     );
     var page = response.data;
     if (response.code != 0 || page == null) {
@@ -83,14 +104,25 @@ class BangumiEpisodeMarkGateway implements EpisodeMarkGateway {
     int episode, {
     required bool Function() authScope,
   }) async {
-    if (!authScope()) throw const EpisodeMarkFailure('账户会话已变化');
-    var response = await repository.updateCollectionEpisode(
-      type: BangumiEpisodeCollectionType.done,
-      episode: episode,
-      authScope: authScope,
-    );
-    if (response.code != 0) {
-      throw EpisodeMarkFailure('标记看过失败：${response.message}');
+    for (var attempt = 0; ; attempt++) {
+      if (!authScope()) throw const EpisodeMarkFailure('账户会话已变化');
+      var response = await repository.updateCollectionEpisode(
+        type: BangumiEpisodeCollectionType.done,
+        episode: episode,
+        authScope: authScope,
+      );
+      if (response.code == 0) return;
+      if (!_retryable(response.code)) {
+        throw EpisodeMarkFailure('标记看过失败：${response.message}');
+      }
+      if (attempt < 2) await _retryDelay(attempt);
+      if (!authScope()) throw const EpisodeMarkFailure('账户会话已变化');
+      // A failed reply does not prove the write failed. Read it back before
+      // retrying, always against this captured episode rather than playback.
+      if (await isDone(episode)) return;
+      if (attempt >= 2) {
+        throw EpisodeMarkFailure('标记看过失败：${response.message}');
+      }
     }
   }
 
@@ -99,9 +131,8 @@ class BangumiEpisodeMarkGateway implements EpisodeMarkGateway {
     int subject, {
     required bool Function() authScope,
   }) async {
-    if (!authScope()) throw const EpisodeMarkFailure('账户会话已变化');
-    var response = await repository.refreshCollectionSubject(
-      subject,
+    var response = await _read(
+      () => repository.refreshCollectionSubject(subject, authScope: authScope),
       authScope: authScope,
     );
     if (response.code != 0 || response.data == null) {
