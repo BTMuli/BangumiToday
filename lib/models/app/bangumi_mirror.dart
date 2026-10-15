@@ -87,10 +87,14 @@ class BangumiMirrorCatalog {
 
   const BangumiMirrorCatalog._(this._entries, this._previousUrls);
 
-  factory BangumiMirrorCatalog.fromJson(Map<String, dynamic> json) {
+  /// [json] 也可能来自跨引擎的方法通道，StandardMessageCodec 将所有映射
+  /// 解码为 `Map<Object?, Object?>`，嵌套映射需要逐层复制为字符串键映射。
+  factory BangumiMirrorCatalog.fromJson(Map<Object?, Object?> json) {
     var catalog = const BangumiMirrorCatalog();
     var previous = <BangumiMirrorType, List<String>>{};
-    var savedPrevious = json['previousUrls'] as Map<String, dynamic>? ?? {};
+    var savedPrevious = Map<String, Object?>.from(
+      json['previousUrls'] as Map? ?? const {},
+    );
     for (var type in BangumiMirrorType.values) {
       for (var item in json[type.name] as List? ?? const []) {
         catalog = catalog.save(
