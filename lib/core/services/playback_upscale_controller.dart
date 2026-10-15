@@ -129,7 +129,15 @@ class PlaybackUpscaleController {
     if (tensorRtResources.busy) {
       tensorRtResources.cancel();
     } else {
-      await setMode(PlaybackUpscaleMode.off);
+      tensorRtResources.requestBuildCancellation();
+      readUpscaler()?.cancelInferenceBuild();
+      try {
+        await setMode(PlaybackUpscaleMode.off);
+        if (readUpscaler() == null) tensorRtResources.observe(null);
+      } catch (_) {
+        tensorRtResources.clearBuildCancellation();
+        rethrow;
+      }
     }
   }
 

@@ -38,9 +38,11 @@ class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
   @override
   Widget build(BuildContext context) {
     var resources = widget.store.tensorRtResources;
-    var preparing = resources.native?.preparing == true;
+    var preparing =
+        resources.native?.preparing == true || resources.cancellingBuild;
     var missing = resources.native?.phase == 'resources_missing';
-    var failed = resources.native?.phase == 'failed';
+    var failed =
+        !resources.cancellingBuild && resources.native?.phase == 'failed';
     var theme = FluentTheme.of(context);
     var showLog = _details || failed;
     var compact = widget.maxHeight < 150;
@@ -90,9 +92,12 @@ class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
                   ),
                 if (preparing)
                   Button(
-                    onPressed: () =>
-                        unawaited(widget.run(widget.store.cancelTensorRt)),
-                    child: const Text('取消编译'),
+                    onPressed: resources.cancellingBuild
+                        ? null
+                        : () => unawaited(
+                            widget.run(widget.store.cancelTensorRt),
+                          ),
+                    child: Text(resources.cancellingBuild ? '正在取消' : '取消编译'),
                   ),
                 if (failed && widget.store.tensorRtEnabled)
                   Button(

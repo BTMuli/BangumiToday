@@ -14,6 +14,7 @@ import '../../models/playback/playback_janai_status.dart';
 import '../../models/playback/playback_upscale.dart';
 import '../utils/playback_build_log.dart';
 import 'native_upscale_adapter.dart';
+import 'playback_build_cancellation.dart';
 import 'playback_tensorrt_resources.dart';
 import 'playback_upscaler.dart';
 
@@ -51,6 +52,8 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
   PlaybackJanaiFrameRate? _frameRate;
   int _configRevision = 0;
   final List<File> _files = [];
+  final List<PlaybackBuildCancellation> _buildCancellations = [];
+  bool _cancelBuildRequested = false;
 
   Future<String> _janaiConfiguration() async {
     if (!tensorRtEnabled() || !tensorRtResources.canEnable) {
@@ -84,11 +87,17 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
           return line;
         })
         .where(
-          (line) =>
-              !RegExp(r'^\s*(backend|trt_dir|engine_cache)\s*=').hasMatch(line),
+          (line) => !RegExp(
+            r'^\s*(backend|trt_dir|engine_cache|build_cancel_event)\s*=',
+          ).hasMatch(line),
         )
         .join('\n');
     var revision = ++_configRevision;
+    var cancellation = PlaybackBuildCancellation(
+      'Local\\BangumiToday.TrtBuild.Cancel.$_identity-$revision',
+    );
+    _buildCancellations.add(cancellation);
+    if (_cancelBuildRequested) cancellation.cancel();
     var config = _config = File(
       path.join(directory.path, '$_identity-$revision.conf'),
     );
@@ -100,6 +109,7 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
       '$text\nbackend=tensorrt\n'
       'trt_dir=${tensorRtResources.runtimeDirectory}\n'
       'engine_cache=${tensorRtResources.engineDirectory}\n'
+      'build_cancel_event=${cancellation.name}\n'
       'stats=${status.path}\n',
     );
     // mpv's fixed-length quoting protects Windows colons, commas, spaces and
@@ -121,17 +131,21 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
   /// mpv refreshes a paused frame when vf changes, without an extra seek here.
   @override
   Future<void> janai(int? slot, {PlaybackJanaiFrameRate? frameRate}) async {
+    var preserveFailure = false;
     if (slot == null) {
+      cancelJanaiBuild();
       // Capture the terminal build log before mpv releases the old filter.
       try {
         var previous = await janaiStatus();
-        if (previous?.phase != 'failed') tensorRtResources.observe(null);
+        preserveFailure =
+            previous?.phase == 'failed' && !tensorRtResources.cancellingBuild;
       } on FileSystemException {
-        tensorRtResources.observe(null);
+        // Removing the filter still settles its build and cancellation event.
       } on FormatException {
-        tensorRtResources.observe(null);
+        // A partial diagnostic file must not block cancellation.
       }
     } else {
+      _cancelBuildRequested = false;
       tensorRtResources.beginBuild();
     }
     // The config path is what makes the pinned filter load the shim at all, so
@@ -149,12 +163,29 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
     );
     _janaiFilter = filter;
     _frameRate = filter == null ? null : frameRate;
+    // mpv has released the previous configuration. Native workers also own
+    // their event handles, so closing ours cannot invalidate their handles.
+    var keep = slot == null ? null : _buildCancellations.lastOrNull;
+    for (var cancellation in _buildCancellations.toList()) {
+      if (cancellation == keep) continue;
+      cancellation.dispose();
+      _buildCancellations.remove(cancellation);
+    }
+    if (slot == null && !preserveFailure) tensorRtResources.observe(null);
     for (var file in _files.toList()) {
       if (slot != null && (file == _config || file == _status)) continue;
       if (await file.exists()) await file.delete();
       _files.remove(file);
     }
     if (slot == null) _config = _status = null;
+  }
+
+  @override
+  void cancelJanaiBuild() {
+    _cancelBuildRequested = true;
+    for (var cancellation in _buildCancellations) {
+      cancellation.cancel();
+    }
   }
 
   /// The metadata-only selector preserves the decoder's D3D11 textures and
@@ -238,5 +269,15 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
       video.setSize(width: size?.width, height: size?.height);
 
   @override
-  Future<void> close() => adapter.close();
+  Future<void> close() async {
+    cancelJanaiBuild();
+    try {
+      await adapter.close();
+    } finally {
+      for (var cancellation in _buildCancellations) {
+        cancellation.dispose();
+      }
+      _buildCancellations.clear();
+    }
+  }
 }

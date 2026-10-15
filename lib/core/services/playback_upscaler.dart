@@ -27,6 +27,9 @@ abstract class PlaybackUpscaleBackend {
   Future<void> janaiFrameRate(PlaybackJanaiFrameRate? value);
   Future<PlaybackJanaiStatus?> janaiStatus();
 
+  /// Interrupts compilation immediately, independently of pending mpv calls.
+  void cancelJanaiBuild() {}
+
   /// The installed video filter entries as mpv reports them: one map per filter
   /// with at least `name`, plus `enabled` and `params` when mpv provides them.
   /// Verification reads this structure rather than a serialized string, so a
@@ -193,6 +196,13 @@ class PlaybackUpscaler {
       _performanceFailureRate = null;
     }
     _schedule(immediate: true, invalidate: true);
+  }
+
+  void cancelInferenceBuild() {
+    backend.cancelJanaiBuild();
+    // Invalidate pending installs now, before the Store can persist the new
+    // preference through its media-operation queue.
+    preferences(PlaybackUpscaleMode.off);
   }
 
   void playbackRate(double value) {

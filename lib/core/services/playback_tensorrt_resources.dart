@@ -98,7 +98,8 @@ class PlaybackTensorRtResources {
       : '尚未安装 TensorRT 组件';
   bool get visible =>
       !_noticeDismissed &&
-      (native?.preparing == true ||
+      (cancellingBuild ||
+          native?.preparing == true ||
           native?.phase == 'resources_missing' ||
           native?.phase == 'failed' ||
           _buildCompleted);
@@ -106,7 +107,11 @@ class PlaybackTensorRtResources {
   double? get progress => stage == 'downloading' && total > 0
       ? (received / total).clamp(0.0, 1.0)
       : null;
-  String get label => _buildCompleted
+  bool get cancellingBuild => _cancellingBuild;
+  bool _cancellingBuild = false;
+  String get label => cancellingBuild
+      ? '正在取消 TensorRT 编译并清理临时文件'
+      : _buildCompleted
       ? native?.active == true
             ? 'TensorRT 模型编译完成，AI 超分已启用'
             : 'TensorRT 模型编译完成，等待视频帧'
@@ -237,6 +242,7 @@ class PlaybackTensorRtResources {
   }
 
   void beginBuild() {
+    _cancellingBuild = false;
     _buildLog = '';
     _buildLines = const [];
     observe(null);
@@ -244,6 +250,7 @@ class PlaybackTensorRtResources {
 
   void observe(PlaybackJanaiStatus? status) {
     if (_disposed) return;
+    if (status == null) _cancellingBuild = false;
     var previous = native;
     if (status == null || status.preparing) {
       _buildNoticeTimer?.cancel();
@@ -272,6 +279,18 @@ class PlaybackTensorRtResources {
       _checkedSnapshot = null;
     }
     native = status;
+    onChanged();
+  }
+
+  void requestBuildCancellation() {
+    if (_disposed || _cancellingBuild) return;
+    _cancellingBuild = true;
+    onChanged();
+  }
+
+  void clearBuildCancellation() {
+    if (_disposed || !_cancellingBuild) return;
+    _cancellingBuild = false;
     onChanged();
   }
 
