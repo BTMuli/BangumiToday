@@ -119,7 +119,116 @@ class _Links extends Fake implements PlaybackEpisodeLinks {
   Stream<List<PlaybackEpisodeRule>> watchRules() => const Stream.empty();
 }
 
+class _ConcurrentRemote extends _Remote {
+  _ConcurrentRemote() : super(done: false, failWrite: false);
+
+  final marked = <int>{};
+  final pendingRefreshes = <({Completer<void> gate, int progress})>[];
+
+  @override
+  Future<BTResponse<BangumiUserEpisodeCollection>> getCollectionEpisode(
+    int episodeId,
+  ) async {
+    var response = await super.getCollectionEpisode(episodeId);
+    response.data!.type = marked.contains(episodeId)
+        ? BangumiEpisodeCollectionType.done
+        : BangumiEpisodeCollectionType.none;
+    return response;
+  }
+
+  @override
+  Future<BTResponse<void>> updateCollectionEpisode({
+    required BangumiEpisodeCollectionType type,
+    required int episode,
+    bool Function()? authScope,
+  }) async {
+    expect(authScope?.call(), isTrue);
+    expect(type, BangumiEpisodeCollectionType.done);
+    writes++;
+    marked.add(episode);
+    return BTResponse(code: 0, message: 'success', data: null);
+  }
+
+  @override
+  Future<BTResponse<BangumiUserSubjectCollection>> getCollectionSubject(
+    String username,
+    int subjectId, {
+    bool fresh = false,
+    bool Function()? authScope,
+  }) async {
+    expect(fresh, isTrue);
+    expect(authScope?.call(), isTrue);
+    refreshes++;
+    var pending = (gate: Completer<void>(), progress: marked.length);
+    pendingRefreshes.add(pending);
+    await pending.gate.future;
+    return BTResponse.success(
+      data: collectionFixture(epStatus: pending.progress),
+    );
+  }
+}
+
 void main() {
+  test('连续标记不同章节时收藏进度刷新不互相失效，并保留最后一次进度', () async {
+    var db = BtDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    var local = _Local(db);
+    await local.insertCollection(collectionFixture());
+    var remote = _ConcurrentRemote();
+    var service = EpisodeMarkService(
+      gateway: BangumiEpisodeMarkGateway(
+        BTBangumiRepositoryImpl(
+          remoteDataSource: remote,
+          localDataSource: local,
+          accountSession: () => (username: 'test', generation: 1),
+        ),
+      ),
+      accountSession: () => 'test:1',
+      links: _Links(),
+    );
+    addTearDown(service.close);
+    Future<EpisodeMarkWriteResult> mark(int number) => service.confirm(
+      EpisodeMarkCandidate(
+        item: PlaybackItem(
+          filePath: 'D:/Anime/536270/$number.mkv',
+          title: 'episode $number',
+          subject: 536270,
+        ),
+        account: 'test:1',
+        episode: EpisodeMarkEpisode(
+          id: 10000 + number,
+          type: 0,
+          sort: number.toDouble(),
+          name: 'episode $number',
+        ),
+        number: number.toDouble(),
+      ),
+    );
+
+    var first = mark(2);
+    await pumpEventQueue();
+    expect(remote.pendingRefreshes.single.progress, 1);
+    var pending = [first, mark(3), mark(4)];
+    await pumpEventQueue();
+    expect(remote.marked, {10002, 10003, 10004});
+    // Each response reflects progress when its request started. A refresh
+    // queued after a later mark must fetch again rather than reuse the first.
+    for (var index = 0; index < pending.length; index++) {
+      await pumpEventQueue();
+      remote.pendingRefreshes[index].gate.complete();
+      await pending[index];
+    }
+    var results = await Future.wait(pending);
+    expect(
+      results.map((result) => result.status),
+      everyElement(EpisodeMarkWriteStatus.marked),
+    );
+    expect(results.map((result) => result.message), everyElement(isNull));
+    expect(remote.writes, 3);
+    expect(local.deletions, 0);
+    expect((await local.getCollection(536270))!.epStatus, 3);
+  });
+
   for (var scenario in [
     (name: '标记章节成功', done: false, fail: false, refreshFails: false),
     (name: '确认章节已看过', done: true, fail: false, refreshFails: false),

@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:async';
+
 // Project imports:
 import '../../domain/repositories/bangumi_repository.dart';
 import '../../models/app/response.dart';
@@ -26,6 +29,11 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   final BangumiAccountSession Function() _accountSession;
   final _subjectRevisions = <int, int>{};
   final _pendingWrites = <(BangumiAccountSession, int)>{};
+  final _collectionRefreshes =
+      <
+        (BangumiAccountSession, int),
+        Future<BTResponse<BangumiUserSubjectCollection>>
+      >{};
   int _snapshotRevision = 0;
   int _collectionRevision = 0;
 
@@ -365,12 +373,37 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   Future<BTResponse<BangumiUserSubjectCollection>> refreshCollectionSubject(
     int subjectId, {
     bool Function()? authScope,
-  }) => _readCollectionSubject(
-    _accountSession(),
-    subjectId,
-    fresh: true,
-    authScope: authScope,
-  );
+  }) {
+    var session = _accountSession();
+    var key = (session, subjectId);
+    var previous = _collectionRefreshes[key];
+    late Future<BTResponse<BangumiUserSubjectCollection>> future;
+    future =
+        () async {
+          if (previous != null) {
+            try {
+              await previous;
+            } catch (_) {
+              // A failed refresh must not prevent later chapter edits syncing.
+            }
+          }
+          // Read each edit after the preceding refresh commits locally.
+          // Parallel reads share a version and invalidate one another;
+          // reusing a read can instead omit later chapter edits.
+          return _readCollectionSubject(
+            session,
+            subjectId,
+            fresh: true,
+            authScope: authScope,
+          );
+        }().whenComplete(() {
+          if (identical(_collectionRefreshes[key], future)) {
+            unawaited(_collectionRefreshes.remove(key));
+          }
+        });
+    _collectionRefreshes[key] = future;
+    return future;
+  }
 
   Future<BTResponse<BangumiUserSubjectCollection>> _readCollectionSubject(
     BangumiAccountSession session,

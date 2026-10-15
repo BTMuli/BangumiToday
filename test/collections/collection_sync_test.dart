@@ -193,6 +193,69 @@ void main() {
     expect((await local.getCollections()).single.subjectId, item.subjectId);
   });
 
+  for (var changeAccount in [false, true]) {
+    test('收藏进度刷新排队期间${changeAccount ? '换号' : '会话失效'}不再请求或写入', () async {
+      var gate = Completer<_Subject>();
+      remote.subject = (_) => gate.future;
+      var active = true;
+      var first = repository.refreshCollectionSubject(536270);
+      var queued = repository.refreshCollectionSubject(
+        536270,
+        authScope: () => active,
+      );
+      await pumpEventQueue();
+      expect(remote.reads, 1);
+      if (changeAccount) {
+        account = (username: '2', generation: 1);
+      } else {
+        active = false;
+      }
+      gate.complete(BTResponse.success(data: collectionFixture(epStatus: 1)));
+      expect((await first).code, changeAccount ? 409 : 0);
+      expect((await queued).code, 409);
+      expect(remote.reads, 1);
+      expect(
+        await local.getCollection(536270),
+        changeAccount ? isNull : isNotNull,
+      );
+    });
+  }
+
+  test('不同番剧的收藏进度刷新独立进行', () async {
+    var gates = <int, Completer<_Subject>>{};
+    remote.subject = (id) =>
+        gates.putIfAbsent(id, Completer<_Subject>.new).future;
+    var first = repository.refreshCollectionSubject(1);
+    var second = repository.refreshCollectionSubject(2);
+    await pumpEventQueue();
+    expect(remote.reads, 2);
+    gates[2]!.complete(BTResponse.success(data: collectionFixture(id: 2)));
+    expect((await second).code, 0);
+    gates[1]!.complete(BTResponse.success(data: collectionFixture(id: 1)));
+    expect((await first).code, 0);
+    expect(await local.getCollections(), hasLength(2));
+  });
+
+  test('收藏进度刷新异常不阻塞后续刷新，结束后仍可继续刷新', () async {
+    var gate = Completer<_Subject>();
+    remote.subject = (_) => remote.reads == 1
+        ? gate.future
+        : Future.value(
+            BTResponse.success(data: collectionFixture(epStatus: 3)),
+          );
+    var first = repository.refreshCollectionSubject(536270);
+    var failure = expectLater(first, throwsStateError);
+    var queued = repository.refreshCollectionSubject(536270);
+    await pumpEventQueue();
+    expect(remote.reads, 1);
+    gate.completeError(StateError('refresh failed'));
+    await failure;
+    expect((await queued).code, 0);
+    expect((await repository.refreshCollectionSubject(536270)).code, 0);
+    expect(remote.reads, 3);
+    expect((await local.getCollection(536270))!.epStatus, 3);
+  });
+
   test('升级绑定旧收藏，同账号保留，切换账号和退出清空', () async {
     await local.insertCollection(collectionFixture());
     await table.setOwner('1', adoptLegacy: true);

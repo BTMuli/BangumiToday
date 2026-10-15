@@ -8,6 +8,7 @@ import '../../models/playback/episode_mark_state.dart';
 import '../../models/playback/playback_episode_link.dart';
 import '../../models/playback/playback_episode_rule.dart';
 import '../../models/playback/playback_item.dart';
+import '../../tools/log_tool.dart';
 import '../utils/episode_num_extractor.dart';
 
 class EpisodeMarkCandidate {
@@ -584,7 +585,11 @@ class EpisodeMarkService {
           candidate.subject,
           authScope: () => _current(candidate.account),
         );
-      } catch (_) {
+      } catch (error) {
+        BTLogTool.warn(
+          '章节 ${candidate.episode.id} 已标记看过，'
+          '同步条目 ${candidate.subject} 收藏进度失败：$error',
+        );
         warning = '已标记看过，本地进度同步失败，请刷新收藏';
       }
       if (_current(candidate.account)) {
