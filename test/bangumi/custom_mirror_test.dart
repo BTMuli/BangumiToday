@@ -172,6 +172,7 @@ void main() {
         'http://image.example.test:8082/pic/test.jpg',
       );
       expect(BtrBangumiOauth.oauthBaseUrl, 'https://api.bgmapi.com/oauth');
+      expect(BtrBangumiOauth.oauthAuthorizeBaseUrl, 'https://bgm.tv/oauth');
       expect(
         BtrBangumiApi.nextBaseUrl,
         BTAppConstants.officialBangumiNextBaseUrl,

@@ -30,11 +30,18 @@ class BtrBangumiOauth implements BangumiOauthGateway {
   /// 请求客户端
   late final BtrClient client;
 
-  /// 授权页固定使用官方 OAuth，与站点、API、图片镜像选择无关。
+  /// 授权页固定在主站，与站点、API、图片镜像选择无关。
+  ///
+  /// API 域未登录时会跳到 `/login`，而该域只有一个前端外壳，
+  /// 其 `/p1/login` 在 API 域不可用，登录无法完成；主站才有可用登录页。
+  static const String oauthAuthorizeBaseUrl =
+      '${BTAppConstants.officialBangumiSiteBaseUrl}/oauth';
+
+  /// 换取和刷新 token 均走官方 API 域的 OAuth，与镜像选择无关。
   static const String oauthBaseUrl =
       '${BTAppConstants.officialBangumiApiBaseUrl}/oauth';
 
-  /// 换取和刷新 token 均使用官方 OAuth。
+  /// 换取和刷新 token 的地址。
   static const String oauthTokenBaseUrl = oauthBaseUrl;
 
   /// 构造函数
@@ -57,7 +64,7 @@ class BtrBangumiOauth implements BangumiOauthGateway {
       if (value != null) query[key] = value.toString();
     });
     var url = Uri.parse(
-      '$oauthBaseUrl/authorize',
+      '$oauthAuthorizeBaseUrl/authorize',
     ).replace(queryParameters: query);
     if (!await launchUrl(url)) {
       throw StateError('无法打开授权页面，请检查默认浏览器设置后重试');
