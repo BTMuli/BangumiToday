@@ -26,12 +26,12 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `flutter_riverpod` (
 | `lib/controller/` | Page-scoped controllers (nav index, progress) |
 | `lib/core/` | Cross-cutting: constants, cache, layout, theme, services, errors, utils |
 | `lib/data/` + `lib/domain/` | Bangumi/BMF repositories；`data/parsers/` 为无状态解析器 |
-| `lib/database/` | SQLite access: `drift/`（`BtDatabase` + 8 张表的 schema 与生成代码）、`app/` (AppConfig, AppBmf, AppRss, playback, Mikan credential) and `bangumi/` (user, collection, data); `bt_hive.dart` opens Hive boxes |
+| `lib/database/` | SQLite access: `drift/`（`BtDatabase` v3 + 10 张表的 schema、迁移与生成代码）、`app/` (AppConfig, AppBmf, subscriptions/RSS cache, playback, Mikan credential) and `bangumi/` (user, collection, data); `bt_hive.dart` opens Hive boxes |
 | `lib/models/` | JSON / Hive / database models with generated `.g.dart`（含 `mikan/`） |
 | `lib/pages/` | Feature pages (`download`, `app_setting`, `bangumi_calendar`, `rss_bmf`, `subject_detail`, `subject_search`, `user_collection`) + 仅该页使用的组件 |
 | `lib/providers/` | Riverpod provider exports；`bangumi_providers.dart` / `bmf_providers.dart` 组装仓储 |
 | `lib/request/` | dio clients: `bangumi/`, `rss/`, `mikan/`, `core/` (BtrClient, RequestManager) |
-| `lib/store/` | ChangeNotifier stores (app, nav, bmf, download) + Hive boxes |
+| `lib/store/` | Riverpod Notifier / AsyncNotifier stores (app, nav, account, BMF, download, tracker) + playback ChangeNotifier + Hive boxes |
 | `lib/tools/` | 过渡目录，目前只剩日志工具 |
 | `lib/ui/` | Shared dialogs, infobars, icons, engine switch |
 | `lib/widgets/` | 共享组件（`common/`、`shell/`、`bangumi/`、`subject_detail/`、`bmf/`、`rss/`）；仅 ≥2 页复用时放这里 |
@@ -48,7 +48,7 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `flutter_riverpod` (
 
 - UI page: add under `lib/pages/<feature>/`; page-only components stay there, shared ones go to `lib/widgets/<feature>/`. Register as a constant `PaneItem` in `lib/widgets/shell/nav.dart` or add dynamically via `BTNavStore.addNavItemB(subject: id)` (subject detail tabs).
 - Data model: add under `lib/models/` with `@JsonSerializable()` and regenerate `.g.dart`.
-- Database table / column: add or alter in `lib/database/<domain>/`, following the `preCheck()` + `PRAGMA table_info` migration pattern - never assume a column exists on old installs.
+- Database table / column: define the schema in `lib/database/drift/tables/` and add a versioned, validated migration owned by `BtDatabase`; keep legacy conversion in `drift/migrations/` and never put DDL in accessors.
 - Network call: extend `BtrBangumiApi`, `BtrMikanApi`, or the RSS clients; wrap with `RequestManager` (dedup/cancel) and cache via `BTCacheManager`.
 - Background work: add a singleton service in `lib/core/services/` with an `instance`; wire it into `_initBackgroundServices()` in `lib/main.dart`.
 
@@ -67,7 +67,7 @@ Stack: `fluent_ui` + `flutter_acrylic` (UI), Riverpod 3 via `flutter_riverpod` (
 
 Tables live in `lib/database/drift/tables/` (`@DataClassName(...)`, explicit `.named()` for camelCase columns) and are registered in `@DriftDatabase(tables: [...])` in `lib/database/drift/bt_database.dart`. Regenerate with `dart run build_runner build --delete-conflicting-outputs` and commit `bt_database.g.dart` / `drift_schema` artifacts as the project already does.
 
-Accessors (`lib/database/app/*.dart`, `lib/database/bangumi/*.dart`) hold no DDL: they get the connection from `BTSqlite().db` and use Drift's typed API, converting rows to models with `row.toJson()` plus the model's `fromJson` / `fromSqlJson`. Structure changes are owned by `BtDatabase.migration` (`beforeOpen` backfills missing columns for old installs), so never re-add `preCheck()` / `ALTER TABLE` in an accessor.
+Accessors (`lib/database/app/*.dart`, `lib/database/bangumi/*.dart`) hold no DDL: they get the connection from `BTSqlite().db` and use Drift's typed API, converting rows to models with `row.toJson()` plus the model's `fromJson` / `fromSqlJson`. Structure changes are owned by `BtDatabase.migration` (currently v3, 10 tables; `onCreate` / `onUpgrade` convert data and `beforeOpen` validates the resulting schema and foreign keys), so never re-add `preCheck()` / `ALTER TABLE` in an accessor. See [architecture](references/architecture.md#sqlite-btsqlite--btdatabase) for the current table responsibilities.
 
 ### Code quality (local, before commit)
 

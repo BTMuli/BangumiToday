@@ -7,6 +7,7 @@ Contents:
 4. Persistence (SQLite + Hive)
 5. Request layer
 6. Key singletons
+7. Playback responsibilities
 
 ## Startup sequence (`lib/main.dart`)
 
@@ -18,10 +19,10 @@ Contents:
 
 ## State management
 
-- Riverpod 3; store providers import `package:flutter_riverpod/legacy.dart` and use `ChangeNotifierProvider` / `AsyncNotifierProvider` (`appStoreProvider`, `navStoreProvider`, `bmfListProvider`, `bmfNavigationProvider`, `btDownloadStoreProvider`). `lib/providers/providers.dart` re-exports the stores.
+- Riverpod 3; app, navigation, account, tracker and download stores use `NotifierProvider` with immutable state, while `bmfListProvider` uses `AsyncNotifierProvider`. Playback retains `ChangeNotifierProvider` from `package:flutter_riverpod/legacy.dart`. `lib/providers/providers.dart` re-exports the stores.
 - Bangumi reads/writes go through `bangumiRepositoryProvider` (`lib/providers/bangumi_providers.dart`): remote API plus SQLite collections. Remote collection failures other than 404 fall back to local rows; 404 deletes the local row.
 - BMF subscriptions: `bmfRepositoryProvider` (`lib/providers/bmf_providers.dart`; interface `lib/domain/repositories/bmf_repository.dart`, impl `lib/data/repositories/bmf_repository_impl.dart`). Only the impl triggers the post-write RSS refresh, and it publishes `BmfChange` events that `bmfListProvider` consumes.
-- Store classes in `lib/store/` are `ChangeNotifier`s: write to SQLite/Hive, then `notifyListeners()`.
+- Stores persist through their storage/repository interfaces and then publish state. Riverpod notifiers replace state snapshots; `PlaybackStore` publishes its coordinated media state with `notifyListeners()`.
 - `lib/core/services/` singletons expose `instance` (`BmfRssService`, `BangumiOAuthCoordinator`, `BtEngineClient`) and are used without Riverpod; `BTFileTool` / `BTDownloadTool` / `BTNotifierTool` live here, `BTLogTool` in `lib/tools/`, `BTHiveTool` in `lib/database/bt_hive.dart`.
 
 ## Navigation model
@@ -35,9 +36,20 @@ Contents:
 
 ### SQLite (`BTSqlite` / `BtDatabase`)
 
-- DB file: `<appData>/app/BangumiToday.db`, owned by `BtDatabase` (`lib/database/drift/bt_database.dart`) and opened with `NativeDatabase.createInBackground` at `schemaVersion` 1. `BTSqlite.init()` opens it once and runs a `SELECT 1` so `migration.beforeOpen` (per-table column backfill) finishes before business reads.
-- Tables: `AppConfig` (key-value settings), `AppBmf` (subject -> Mikan RSS + download dir; columns `subject, title, airDate, rss, download, autoUpdate, mkBgmId, mkGroupId`), `AppRss` (cached raw RSS XML per URL/mkId, with `ttl`, `updated`, `pendingItems`, `cacheVersion`, `lastFailed`), `AppPlayback` (local playback history), `BangumiCollection`, `BangumiUser`, `BangumiDataSite` / `BangumiDataItem` (bangumi-data schedule).
-- Schema evolution lives only in `BtDatabase.migration`; accessors go through `BTSqlite().db` and Drift's typed queries (`select`/`into`/`update`/`delete`), then map rows into the existing models. There is no `preCheck()` / `ALTER TABLE` in accessors anymore.
+- DB file: `<appData>/app/BangumiToday.db`, owned by `BtDatabase` (`lib/database/drift/bt_database.dart`) and opened with `NativeDatabase.createInBackground` at `schemaVersion` **3**. `BtDatabase.open()` acquires the database process lock before opening the executor. `BTSqlite.init()` runs `SELECT 1` so migration and validation finish before business reads.
+- The current schema registers **10 tables**:
+  - `AppConfig`: key-value settings.
+  - `AppBmf`: parent identity and download configuration (`id, subject, title, download, airDate`); `subject` is unique.
+  - `AppSubscription`: RSS source URL/configuration, refresh policy, baseline, known and pending item keys; references `AppBmf.id` with cascading deletion, unique on `(bmfId, feedKey)`.
+  - `AppRssCache`: raw XML and success/failure metadata shared by `feedKey`. Pending items belong to subscriptions, not this cache.
+  - `AppMigrationRecovery`: legacy migration payloads, candidate BMF IDs and resolution state.
+  - `AppPlayback`: local playback history.
+  - `BangumiCollection`: account collection cache, including v3 `name` / `nameCn` search projections.
+  - `BangumiUser`: cached account profile.
+  - `BangumiDataSite`: bangumi-data site definitions.
+  - `BangumiDataItem`: schedule data with v3 `itemKey` identity and title index.
+- Schema evolution lives only in `BtDatabase.migration`. v1 subscriptions are converted to the v2 parent/subscription/cache/recovery structure by `migrations/subscription_migration.dart`; `migrations/catalog_migration.dart` adds the v3 catalog projections and indexes. Existing data is backed up before migration; conversion validates its input and uses transactions. `beforeOpen` validates v3, enables/verifies foreign keys and resolves recoverable no-RSS records. The old `AppRss` table is migration input, not part of the current schema.
+- Accessors go through `BTSqlite().db` and Drift's typed queries (`select`/`into`/`update`/`delete`), then map rows into models. Do not add `preCheck()` / `ALTER TABLE` to accessors or silently backfill an unexpected schema in `beforeOpen`.
 - Secrets: Mikan token in `flutter_secure_storage` (`BtsMikanCredential`); Bangumi user tokens in secure storage + Hive `bgmUser`.
 
 ### Hive
@@ -70,7 +82,15 @@ Contents:
 | `BmfRssService` | `lib/core/services/bmf_rss_service.dart` | Background RSS refresh + notifications |
 | `BtEngineClient` | `lib/core/services/bt_engine/client.dart` | bt_download process client |
 | `BTSqlite` | `lib/database/bt_sqlite.dart` | SQLite singleton holding the single `BtDatabase` connection |
-| `BtDatabase` | `lib/database/drift/bt_database.dart` | Drift schema owner (8 tables, `migration.beforeOpen`) |
+| `BtDatabase` | `lib/database/drift/bt_database.dart` | Drift schema owner (v3, 10 tables, validated migrations) |
 | `BTHiveTool` | `lib/database/bt_hive.dart` | Opens Hive boxes |
 | `BTLogTool` | `lib/tools/log_tool.dart` | Structured logging with `sanitize` |
 | `BTCacheManager` / `LRUCacheManager` | `lib/core/cache/` | App cache and LRU cache |
+
+## Playback responsibilities
+
+- `lib/store/playback_store.dart` remains the public `ChangeNotifier` facade. It coordinates playlist discovery, media changes, progress/history, subtitles and per-Player subscriptions. Existing callers continue to use the same Store methods and getters.
+- `PlaybackAudioController` (`lib/core/services/playback_audio_controller.dart`) owns HiRes/exclusive/loudness preferences, audio metadata, WASAPI observations, refresh timers and output recovery. Preference changes run on the Store's serial queue; delayed refreshes retain the session ID so a previous file cannot change the current file's output.
+- `PlaybackUpscaleController` (`lib/core/services/playback_upscale_controller.dart`) owns upscale/TensorRT preferences, lazy TensorRT and benchmark resources, GPU/source recommendations and upscaler construction. The Store retains the per-Player upscaler, texture and viewport lifecycle. Browsing history still avoids initializing inference resources.
+- `PlaybackSessionLifecycle` (`lib/core/services/playback_session_lifecycle.dart`) owns the serial operation queue and shutdown bookkeeping. Closing rejects new work; a timeout does not cancel accepted work. UI detachment/work settlement and delayed native destruction retain their separate waits. `PlaybackSession` in `models/playback/playback_completion.dart` still owns media identity and EOF deduplication.
+- `lib/pages/playback/playback_controls.dart` owns control State, focus, visibility and gesture/shortcut wiring. Its `playback_page.dart` library parts group commands (`playback_control_commands.dart`), bar/chrome layout (`playback_control_bar.dart`), flyout placement and chapter menus (`playback_control_menus.dart`), reusable buttons (`playback_control_buttons.dart`) and settings/track/upscale menus (`playback_control_settings.dart`). These parts share private State without exposing new page APIs; keep interaction changes separate from responsibility extraction.
