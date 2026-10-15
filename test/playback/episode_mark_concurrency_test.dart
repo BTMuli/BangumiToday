@@ -13,6 +13,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:bangumi_today/core/services/episode_mark_service.dart';
 import 'package:bangumi_today/data/repositories/episode_mark_gateway_impl.dart';
 import 'package:bangumi_today/domain/repositories/bangumi_repository.dart';
+import 'package:bangumi_today/domain/repositories/bmf_repository.dart';
 import 'package:bangumi_today/domain/repositories/episode_mark_gateway.dart';
 import 'package:bangumi_today/domain/repositories/playback_episode_links.dart';
 import 'package:bangumi_today/models/app/response.dart';
@@ -22,9 +23,11 @@ import 'package:bangumi_today/models/playback/playback_episode_link.dart';
 import 'package:bangumi_today/models/playback/playback_episode_rule.dart';
 import 'package:bangumi_today/models/playback/playback_item.dart';
 import 'package:bangumi_today/providers/bangumi_providers.dart';
+import 'package:bangumi_today/providers/bmf_providers.dart';
 import 'package:bangumi_today/providers/episode_mark_providers.dart';
 import 'package:bangumi_today/providers/playback_episode_link_providers.dart';
 import 'package:bangumi_today/store/bgm_user_hive.dart';
+import 'package:bangumi_today/store/bt_download_store.dart';
 import 'package:bangumi_today/store/playback_store.dart';
 import '../collections/collection_fixture.dart';
 
@@ -61,6 +64,8 @@ class _Repository extends Fake implements BTBangumiRepository {
   final writes = <int>[];
   final done = <int>{};
   Completer<void>? readGate;
+  Completer<void>? progressGate;
+  int progressPageReads = 0;
   bool commitOnFailure = false;
 
   @override
@@ -102,6 +107,34 @@ class _Repository extends Fake implements BTBangumiRepository {
   }
 
   @override
+  Future<BTResponse<BangumiPageT<BangumiUserEpisodeCollection>>>
+  getCollectionEpisodes(
+    int subjectId, {
+    int? offset,
+    int? limit,
+    BangumiLegacyEpisodeType? type,
+  }) async {
+    progressPageReads++;
+    await progressGate?.future;
+    return BTResponse.success(
+      data: BangumiPageT(
+        total: 2,
+        limit: 100,
+        offset: 0,
+        data: [
+          for (var id in [10002, 10003])
+            BangumiUserEpisodeCollection(
+              episode: _episode(id),
+              type: done.contains(id)
+                  ? BangumiEpisodeCollectionType.done
+                  : BangumiEpisodeCollectionType.none,
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Future<BTResponse<void>> updateCollectionEpisode({
     required BangumiEpisodeCollectionType type,
     required int episode,
@@ -138,6 +171,13 @@ class _Links extends Fake implements PlaybackEpisodeLinks {
   @override
   Stream<List<PlaybackEpisodeRule>> watchRules() => const Stream.empty();
 }
+
+class _Downloads extends BtDownloadStore {
+  @override
+  BtDownloadState build() => const BtDownloadState();
+}
+
+class _Bmf extends Fake implements BmfRepository {}
 
 class _User extends BgmUserStore {
   @override
@@ -331,5 +371,91 @@ void main() {
       );
       expect(repository.writes, [10002]);
     }
+  });
+
+  group('实际播放器 provider 的章节共享', () {
+    late ProviderContainer actualContainer;
+
+    setUp(() {
+      // Keep the real PlaybackStore provider and its chapter-loading callbacks.
+      // Only replace external data sources; no player or UI is started.
+      actualContainer = ProviderContainer(
+        overrides: [
+          bgmUserStoreProvider.overrideWith(_User.new),
+          bangumiRepositoryProvider.overrideWithValue(repository),
+          btDownloadStoreProvider.overrideWith(_Downloads.new),
+          bmfRepositoryProvider.overrideWithValue(_Bmf()),
+          playbackEpisodeLinksProvider.overrideWithValue(_Links()),
+        ],
+      );
+      (actualContainer.read(bgmUserStoreProvider.notifier) as _User).authorize(
+        'token-1',
+      );
+    });
+
+    tearDown(() async {
+      await actualContainer.read(playbackStoreProvider).shutdown();
+      actualContainer.dispose();
+    });
+
+    test('实际 provider 初始化后预加载章节不出现循环依赖', () async {
+      var actualPlayback = actualContainer.read(playbackStoreProvider);
+      await actualPlayback.library.prepareNextEpisode([_item, _next], 0);
+
+      expect(
+        await actualPlayback.library.nextEpisodeIndex([_item, _next], 0),
+        1,
+      );
+      expect(repository.progressPageReads, 1);
+    });
+
+    test('章节控制器先初始化时连续切集仍复用章节', () async {
+      actualContainer.read(episodeMarkProvider);
+      var actualPlayback = actualContainer.read(playbackStoreProvider);
+      await actualPlayback.library.prepareNextEpisode([_item, _next], 0);
+      actualPlayback.notifyCoverResolved();
+      await actualPlayback.library.prepareNextEpisode([_item, _next], 1);
+
+      expect(
+        await actualPlayback.library.nextEpisodeIndex([_item, _next], 0),
+        1,
+      );
+      expect(repository.progressPageReads, 1);
+    });
+
+    test('实际 provider 的预加载和列表进度共用并发请求', () async {
+      var gate = repository.progressGate = Completer<void>();
+      var actualPlayback = actualContainer.read(playbackStoreProvider);
+      var preparing = actualPlayback.library.prepareNextEpisode([
+        _item,
+        _next,
+      ], 0);
+      var actualController = actualContainer.read(episodeMarkProvider.notifier);
+      var syncing = actualController.syncItems([_item, _next]);
+      await pumpEventQueue();
+      expect(repository.progressPageReads, 1);
+      gate.complete();
+      await Future.wait([preparing, syncing]);
+
+      expect(
+        await actualPlayback.library.nextEpisodeIndex([_item, _next], 0),
+        1,
+      );
+      expect(repository.progressPageReads, 1);
+    });
+
+    test('关闭实际播放会话仍使进行中的章节标记失效', () async {
+      var actualPlayback = actualContainer.read(playbackStoreProvider);
+      var actualController = actualContainer.read(episodeMarkProvider.notifier);
+      var gate = repository.readGate = Completer<void>();
+      var pending = actualController.markItem(_item);
+      await pumpEventQueue();
+
+      await actualPlayback.shutdown();
+      expect(actualController.currentAccount(), isNull);
+      gate.complete();
+      expect((await pending).status, EpisodeMarkWriteStatus.expired);
+      expect(repository.writes, isEmpty);
+    });
   });
 }

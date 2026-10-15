@@ -72,11 +72,17 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
         discardWindowWork();
       },
     );
-    ref.listen(playbackStoreProvider, (_, value) {
-      if (value.isClosed) discardWindowWork();
-    });
+    // Playback reads this controller to reuse chapter metadata. Listening to
+    // its provider would make that read circular; only the session's close
+    // notification is needed, so subscribe to the captured object directly.
+    void onPlaybackChanged() {
+      if (_playback.isClosed) discardWindowWork();
+    }
+
+    _playback.addListener(onPlaybackChanged);
     ref.onDispose(() {
       _closed = true;
+      _playback.removeListener(onPlaybackChanged);
       unawaited(progressSubscription.cancel());
       service.close();
     });
