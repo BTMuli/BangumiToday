@@ -78,6 +78,20 @@ class BgmUserState {
 /// 表、Hive box 与 OAuth 客户端留在实现内部，对外只发布不可变快照。写入顺序
 /// 统一为“先持久化、再替换内存状态”，避免请求在刷新过程中读到半套凭据。
 class BgmUserStore extends Notifier<BgmUserState> {
+  Future<void> _accountWrites = Future.value();
+
+  /// 安全存储没有跨 key 事务，账号的写入与清理共用一条队列。
+  Future<T> _writeAccount<T>(Future<T> Function() action) {
+    var next = _accountWrites.then((_) => action());
+    _accountWrites = next.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return next;
+  }
+
+  Future<void> settleWrites() => _accountWrites;
+
   /// 相关数据库
   final BtsBangumiUser sqlite = BtsBangumiUser();
 
@@ -175,12 +189,14 @@ class BgmUserStore extends Notifier<BgmUserState> {
   /// 删除用户
   Future<void> deleteUser() async {
     state = BgmUserState(sessionGeneration: state.sessionGeneration + 1);
-    await BtsBangumiCollection().setOwner(null);
-    await sqlite.deleteUser();
-    await sqlite.deleteAccessToken();
-    await sqlite.deleteRefreshToken();
-    await sqlite.deleteExpireTime();
-    await box.put('user', _model());
+    await _writeAccount(() async {
+      await BtsBangumiCollection().setOwner(null);
+      await sqlite.deleteUser();
+      await sqlite.deleteAccessToken();
+      await sqlite.deleteRefreshToken();
+      await sqlite.deleteExpireTime();
+      await box.put('user', _model());
+    });
   }
 
   /// 更新用户数据
@@ -194,52 +210,71 @@ class BgmUserStore extends Notifier<BgmUserState> {
       );
     }
     var generation = state.sessionGeneration;
-    var collections = BtsBangumiCollection();
-    var saved = await collections.writeScoped(() async {
-      await collections.setOwner(user.id.toString());
-      await sqlite.writeUser(user);
-    }, isCurrent: () => state.sessionGeneration == generation);
-    if (!saved) return;
-    state = BgmUserState(
-      user: user,
-      accessToken: state.accessToken,
-      refreshToken: state.refreshToken,
-      expireTime: state.expireTime,
-      sessionGeneration: generation,
-    );
-    await box.put('user', _model());
+    await _writeAccount(() async {
+      if (!ref.mounted || state.sessionGeneration != generation) return;
+      var collections = BtsBangumiCollection();
+      var saved = await collections.writeScoped(() async {
+        await collections.setOwner(user.id.toString());
+        await sqlite.writeUser(user);
+      }, isCurrent: () => ref.mounted && state.sessionGeneration == generation);
+      if (!saved) return;
+      state = BgmUserState(
+        user: user,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        expireTime: state.expireTime,
+        sessionGeneration: generation,
+      );
+      await box.put('user', _model());
+    });
   }
 
   /// 一次性更新一组授权信息。
   ///
   /// 安全存储的多个 key 没有跨 key 事务，因此先完成所有持久化写入，再替换
   /// 内存状态，避免请求在刷新过程中读到半套凭据。
-  Future<void> updateTokenSet({
+  Future<bool> updateTokenSet({
     required String accessToken,
     required String refreshToken,
     required int expiresIn,
     bool newSession = false,
+    int? expectedGeneration,
+    String? expectedRefreshToken,
   }) async {
     if (newSession) {
       // Hide the previous account immediately, but keep its owned cache until
       // user info establishes the new identity. Reauthorizing the same account
       // must not discard all collections; a different owner clears them there.
       state = BgmUserState(sessionGeneration: state.sessionGeneration + 1);
-      await sqlite.deleteUser();
-      await box.put('user', _model());
     }
-    await sqlite.writeAccessToken(accessToken);
-    await sqlite.writeRefreshToken(refreshToken);
-    await sqlite.writeExpireTime(expiresIn);
-
-    state = BgmUserState(
-      user: state.user,
-      accessToken: accessToken,
-      refreshToken: refreshToken,
-      expireTime: await sqlite.readExpireTime(),
-      sessionGeneration: state.sessionGeneration,
-    );
-    await box.put('user', _model());
+    var generation = expectedGeneration ?? state.sessionGeneration;
+    return _writeAccount(() async {
+      if (!ref.mounted ||
+          state.sessionGeneration != generation ||
+          (expectedRefreshToken != null &&
+              state.refreshToken != expectedRefreshToken)) {
+        return false;
+      }
+      if (newSession) {
+        await sqlite.deleteUser();
+        await box.put('user', _model());
+      }
+      await sqlite.writeAccessToken(accessToken);
+      await sqlite.writeRefreshToken(refreshToken);
+      await sqlite.writeExpireTime(expiresIn);
+      var expireTime = await sqlite.readExpireTime();
+      // 退出和重新登录会立即使旧会话失效，后续排队的清理/写入负责落盘。
+      if (!ref.mounted || state.sessionGeneration != generation) return false;
+      state = BgmUserState(
+        user: state.user,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        expireTime: expireTime,
+        sessionGeneration: generation,
+      );
+      await box.put('user', _model());
+      return true;
+    });
   }
 
   /// 更新授权
@@ -248,6 +283,7 @@ class BgmUserStore extends Notifier<BgmUserState> {
     Future<void> Function(BTResponse)? onErr,
     bool force = false,
   }) async {
+    var generation = state.sessionGeneration;
     var refreshToken = state.refreshToken;
     if (refreshToken == null || refreshToken.isEmpty) return false;
     if (!force) {
@@ -260,12 +296,13 @@ class BgmUserStore extends Notifier<BgmUserState> {
       return false;
     }
     var data = resp.data! as BangumiOauthTokenRefreshData;
-    await updateTokenSet(
+    return updateTokenSet(
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
       expiresIn: data.expiresIn,
+      expectedGeneration: generation,
+      expectedRefreshToken: refreshToken,
     );
-    return true;
   }
 
   /// 检测是否过期，为null表示无法刷新
@@ -301,17 +338,23 @@ class BgmUserHive {
   /// expireTime
   static DateTime? get expireTime => _store.expireTime;
 
+  static int get sessionGeneration => _store.data.sessionGeneration;
+
   /// 初始化用户
   static Future<void> initUser() => _store.initUser();
 
   /// 更新token集合
-  static Future<void> updateTokenSet({
+  static Future<bool> updateTokenSet({
     required String accessToken,
     required String refreshToken,
     required int expiresIn,
+    required int expectedGeneration,
+    required String expectedRefreshToken,
   }) => _store.updateTokenSet(
     accessToken: accessToken,
     refreshToken: refreshToken,
     expiresIn: expiresIn,
+    expectedGeneration: expectedGeneration,
+    expectedRefreshToken: expectedRefreshToken,
   );
 }

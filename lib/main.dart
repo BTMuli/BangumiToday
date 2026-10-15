@@ -38,6 +38,7 @@ import 'pages/playback/playback_window.dart';
 import 'request/bangumi/bangumi_api.dart';
 import 'request/core/client.dart';
 import 'request/mikan/mikan_api.dart';
+import 'store/bgm_user_hive.dart';
 import 'store/bt_download_store.dart';
 import 'store/nav_store.dart';
 import 'store/playback_store.dart';
@@ -200,6 +201,11 @@ Future<bool> _performApplicationExit() async {
   await _runExitStep('网络客户端', () async {
     BtrClient.disposeAll();
   });
+  await _runExitStep(
+    '账号存储',
+    globalContainer.read(bgmUserStoreProvider.notifier).settleWrites,
+    timeout: null,
+  );
   await _runExitStep('应用状态', () async {
     globalContainer.dispose();
   });

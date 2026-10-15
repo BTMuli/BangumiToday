@@ -13,10 +13,12 @@ typedef BangumiExpireTimeReader = DateTime? Function();
 
 /// 刷新成功后的 Token 状态写入器。
 typedef BangumiTokenSetWriter =
-    Future<void> Function({
+    Future<bool> Function({
       required String accessToken,
       required String refreshToken,
       required int expiresIn,
+      required int expectedGeneration,
+      required String expectedRefreshToken,
     });
 
 /// OAuth refresh token 请求器。
@@ -49,12 +51,13 @@ class BangumiTokenService {
   /// 应用级单例。
   static final BangumiTokenService instance = BangumiTokenService._default();
 
-  BangumiTokenService._({
+  BangumiTokenService({
     required BangumiTokenReader readAccessToken,
     required BangumiTokenReader readRefreshToken,
     required BangumiExpireTimeReader readExpireTime,
     required BangumiTokenRefresher refreshToken,
     required BangumiTokenSetWriter writeTokenSet,
+    required int Function() readGeneration,
     required DateTime Function() now,
     this.refreshAhead = BangumiTokenService.defaultRefreshAhead,
   }) : _readAccessToken = readAccessToken,
@@ -62,15 +65,17 @@ class BangumiTokenService {
        _readExpireTime = readExpireTime,
        _refreshToken = refreshToken,
        _writeTokenSet = writeTokenSet,
+       _readGeneration = readGeneration,
        _now = now;
 
   BangumiTokenService._default()
-    : this._(
+    : this(
         readAccessToken: () => BgmUserHive.tokenAC,
         readRefreshToken: () => BgmUserHive.tokenRF,
         readExpireTime: () => BgmUserHive.expireTime,
         refreshToken: BtrBangumiOauth().refreshToken,
         writeTokenSet: BgmUserHive.updateTokenSet,
+        readGeneration: () => BgmUserHive.sessionGeneration,
         now: DateTime.now,
       );
 
@@ -79,6 +84,7 @@ class BangumiTokenService {
   final BangumiExpireTimeReader _readExpireTime;
   final BangumiTokenRefresher _refreshToken;
   final BangumiTokenSetWriter _writeTokenSet;
+  final int Function() _readGeneration;
   final DateTime Function() _now;
 
   /// 可配置的提前刷新窗口。
@@ -86,6 +92,7 @@ class BangumiTokenService {
 
   /// 当前正在进行的刷新请求。所有调用方共享同一个 Future。
   Future<BangumiTokenRefreshResult>? _refreshing;
+  int? _refreshingGeneration;
 
   /// 刷新成功后的短期抑制点。
   ///
@@ -121,19 +128,22 @@ class BangumiTokenService {
 
   /// 在需要时刷新 Token，并保证同一时刻只有一个刷新请求。
   Future<BangumiTokenRefreshResult> ensureFresh({bool force = false}) {
+    var generation = _readGeneration();
     var current = _refreshing;
-    if (current != null) return current;
+    if (current != null && _refreshingGeneration == generation) return current;
     if (!force && !shouldRefresh) {
       return Future.value(BangumiTokenRefreshResult.notNeeded);
     }
 
-    var refreshFuture = _refreshInternal();
-    _refreshing = refreshFuture;
-    return refreshFuture.whenComplete(() {
+    late Future<BangumiTokenRefreshResult> refreshFuture;
+    refreshFuture = _refreshInternal(generation).whenComplete(() {
       if (identical(_refreshing, refreshFuture)) {
         _refreshing = null;
+        _refreshingGeneration = null;
       }
     });
+    _refreshingGeneration = generation;
+    return _refreshing = refreshFuture;
   }
 
   /// 请求前获取最新 access token。
@@ -148,7 +158,7 @@ class BangumiTokenService {
   /// 返回当前内存中的 access token，用于识别其它请求是否已经完成轮换。
   String? get currentAccessToken => _readAccessToken();
 
-  Future<BangumiTokenRefreshResult> _refreshInternal() async {
+  Future<BangumiTokenRefreshResult> _refreshInternal(int generation) async {
     var refreshToken = _readRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) {
       BTLogTool.warn('无 refreshToken，无法刷新');
@@ -169,11 +179,20 @@ class BangumiTokenService {
         return BangumiTokenRefreshResult.failed;
       }
 
-      await _writeTokenSet(
+      if (_readGeneration() != generation ||
+          _readRefreshToken() != refreshToken) {
+        return BangumiTokenRefreshResult.unavailable;
+      }
+      var written = await _writeTokenSet(
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
         expiresIn: data.expiresIn,
+        expectedGeneration: generation,
+        expectedRefreshToken: refreshToken,
       );
+      if (!written || _readGeneration() != generation) {
+        return BangumiTokenRefreshResult.unavailable;
+      }
       _refreshNotBefore = _now().add(Duration(seconds: data.expiresIn ~/ 2));
       _refreshNotBeforeToken = data.accessToken;
       return BangumiTokenRefreshResult.refreshed;
