@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:async';
+
 // Project imports:
 import '../../core/cache/subject_cache.dart';
 import '../../domain/repositories/bangumi_repository.dart';
@@ -6,89 +9,94 @@ import '../../models/bangumi/bangumi_model.dart';
 
 /// 通过 Bangumi 仓储解析条目信息的封面实现，结果缓存在内存。
 ///
-/// 只保留解析出的字段，图片字节由 `CachedNetworkImage` 另行缓存；查询失败记
-/// 为 `null`，避免重复请求。条目名与封面都是静态展示字段，解析前先看请求层
-/// 写下的 [BgmSubjectCache]：播放记录、选集与首页日历因此共用同一份磁盘缓存。
+/// 只保留展示字段，优先复用详情缓存与本地收藏，同一条目的并发解析共用请求。
 class BangumiPlaybackCoverResolver implements PlaybackCoverResolver {
   BangumiPlaybackCoverResolver(this._repository);
 
   final BTBangumiRepository _repository;
-  final Map<int, BangumiSubject?> _subjects = {};
-  final Set<int> _inFlight = {};
-  final Set<int> _hydrating = {};
+  final _subjects = <int, ({String name, String? cover})>{};
+  final _pending = <int, Future<String?>>{};
+  final _hydrating = <int, Future<bool>>{};
 
   @override
   bool contains(int subject) => _subjects.containsKey(subject);
 
   @override
-  String? coverOf(int subject) {
-    var data = _subjects[subject];
-    if (data == null) return null;
-    return _firstNonEmpty([
-      data.images.large,
-      data.images.medium,
-      data.images.common,
-      data.images.grid,
-    ]);
-  }
+  String? coverOf(int subject) => _subjects[subject]?.cover;
 
   @override
-  String? nameOf(int subject) {
-    var data = _subjects[subject];
-    if (data == null) return null;
-    return data.nameCn.isNotEmpty ? data.nameCn : data.name;
-  }
+  String? nameOf(int subject) => _subjects[subject]?.name;
 
   @override
-  Future<bool> hydrate(int subject) async {
-    if (_subjects.containsKey(subject)) return _subjects[subject] != null;
-    if (!_hydrating.add(subject)) return false;
+  Future<bool> hydrate(int subject) {
+    if (contains(subject)) return Future.value(true);
+    return _hydrating.putIfAbsent(subject, () => _hydrate(subject));
+  }
+
+  Future<bool> _hydrate(int subject) async {
     try {
-      var cached = await _readCache(subject);
-      // 列表标题要的是译名；缓存里恰好缺译名的条目留给真正的解析去补。
-      if (cached == null || cached.nameCn.isEmpty) return false;
-      _subjects[subject] = cached;
+      var cached = await _readLocal(subject);
+      if (cached == null) return false;
+      _subjects.putIfAbsent(subject, () => cached);
       return true;
     } finally {
-      _hydrating.remove(subject);
+      unawaited(_hydrating.remove(subject));
     }
   }
 
   @override
-  Future<String?> resolve(int subject) async {
-    if (_subjects.containsKey(subject)) return coverOf(subject);
-    if (!_inFlight.add(subject)) return null;
+  Future<String?> resolve(int subject) {
+    if (contains(subject)) return Future.value(coverOf(subject));
+    return _pending.putIfAbsent(subject, () => _resolve(subject));
+  }
+
+  Future<String?> _resolve(int subject) async {
     try {
-      var cached = await _readCache(subject);
-      BangumiSubject? data;
-      if (cached != null && cached.nameCn.isNotEmpty) {
-        // 覆盖仍有中文名就直接用，不再为播放记录重建一次请求。
-        data = cached;
-      } else {
-        try {
-          var response = await _repository.getSubjectDetail(subject.toString());
-          data = response.code == 0 ? response.data : null;
-        } catch (_) {
-          data = null;
+      if (await hydrate(subject)) return coverOf(subject);
+      try {
+        var response = await _repository.getSubjectDetail(subject.toString());
+        var data = response.code == 0 ? response.data : null;
+        if (data != null) {
+          var name = _firstNonEmpty([data.nameCn, data.name]);
+          if (name != null) {
+            _subjects[subject] = (name: name, cover: _image(data.images));
+            // 原名同样可用于展示，持久化后重启也不必重复请求详情。
+            await _writeCache(data);
+          }
         }
-        // 仓储会用本地 bangumi-data 补上没有译名的条目：把补过的结果写回
-        // 缓存，下次连这一次详情请求也省掉。
-        if (data != null && data.nameCn.isNotEmpty) await _writeCache(data);
+      } catch (_) {
+        // 保留文件名作为暂时回退；下一次打开记录或手动刷新时允许重试。
       }
-      _subjects[subject] = data;
       return coverOf(subject);
     } finally {
-      _inFlight.remove(subject);
+      unawaited(_pending.remove(subject));
     }
   }
 
-  /// 只读磁盘缓存，允许用过期的条目名与封面。
-  Future<BangumiSubject?> _readCache(int subject) async {
+  /// 只读本地数据，允许复用过期详情；收藏里的名称也可独立用于历史标题。
+  Future<({String name, String? cover})?> _readLocal(int subject) async {
+    BangumiSubject? cached;
     try {
-      return await BgmSubjectCache().read(subject, allowStale: true);
-    } catch (_) {
-      return null;
+      cached = await BgmSubjectCache().read(subject, allowStale: true);
+    } catch (_) {}
+    if (cached != null && cached.nameCn.trim().isNotEmpty) {
+      return (name: cached.nameCn.trim(), cover: _image(cached.images));
     }
+    BangumiSlimSubject? collected;
+    try {
+      collected = (await _repository.getLocalCollection(subject))?.subject;
+    } catch (_) {}
+    var name = _firstNonEmpty([
+      collected?.nameCn ?? '',
+      cached?.name ?? '',
+      collected?.name ?? '',
+    ]);
+    return name == null
+        ? null
+        : (
+            name: name,
+            cover: _image(cached?.images) ?? _image(collected?.images),
+          );
   }
 
   Future<void> _writeCache(BangumiSubject subject) async {
@@ -101,8 +109,17 @@ class BangumiPlaybackCoverResolver implements PlaybackCoverResolver {
 
   static String? _firstNonEmpty(List<String> values) {
     for (var value in values) {
-      if (value.isNotEmpty) return value;
+      if (value.trim().isNotEmpty) return value.trim();
     }
     return null;
   }
+
+  static String? _image(BangumiImages? images) => images == null
+      ? null
+      : _firstNonEmpty([
+          images.large,
+          images.medium,
+          images.common,
+          images.grid,
+        ]);
 }

@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:async';
+
 // Project imports:
 import '../../core/services/playback_window_protocol.dart';
 import '../../domain/repositories/playback_cover.dart';
@@ -129,12 +132,14 @@ class RemotePlaybackCover implements PlaybackCoverResolver {
     if (contains(subject)) return Future.value(coverOf(subject));
     return _pending.putIfAbsent(subject, () async {
       try {
-        _cache[subject] = playbackMap(
+        var data = playbackMap(
           await call('cover.resolve', {'subject': subject}),
         );
+        if (data['name'] != null) _cache[subject] = data;
         return coverOf(subject);
       } finally {
-        await _pending.remove(subject);
+        // Removing returns this very Future; awaiting it would wait on itself.
+        unawaited(_pending.remove(subject));
       }
     });
   }

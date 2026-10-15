@@ -39,7 +39,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   int _columns = 4;
   PlaybackEpisodeLayout? _lastLayout;
   (String?, String)? _progressSignature;
-  String _hydratedSubjects = '';
+  final _resolvedHistorySubjects = <int>{};
   static const _cellHeight = 48.0;
   static const _rowHeight = 46.0;
   static const _gap = 6.0;
@@ -212,6 +212,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
                             ? null
                             : () => widget.run(() async {
                                 if (_showHistory) {
+                                  _resolvedHistorySubjects.clear();
                                   await store.refreshHistory();
                                 } else {
                                   await store.refresh();
@@ -602,7 +603,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
     );
   }
 
-  /// 播放动作才解析条目：记录列表本身只用文件名派生的标题，不请求 bgm。
+  /// 播放动作也可补齐尚未载入的条目信息。
   void _resolveBeforePlayback(PlaybackStore store, int? subject) {
     if (subject == null) return;
     unawaited(store.resolveCover(subject));
@@ -610,17 +611,6 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
 
   Widget _history(PlaybackStore store) {
     if (store.historyGroups.isEmpty) return _empty('暂无播放记录');
-    // 标题先取本地缓存的条目名；没有缓存就先用文件名派生的标题，bgm 请求留给
-    // 真正播放的时候。按条目集合做签名，避免每次重建都重读一遍缓存。
-    var subjects = <int>[
-      for (var group in store.historyGroups)
-        if (group.subject != null) group.subject!,
-    ];
-    var signature = subjects.join(',');
-    if (signature != _hydratedSubjects) {
-      _hydratedSubjects = signature;
-      unawaited(store.hydrateCovers(subjects));
-    }
     return Scrollbar(
       controller: _historyScroll,
       child: ListView.builder(
@@ -634,6 +624,18 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   }
 
   Widget _historyRow(PlaybackStore store, PlaybackHistoryGroup group) {
+    var subject = group.subject;
+    // 按实际构建的历史项加载名称，优先命中本地数据，不遍历请求整份历史。
+    if (subject != null && _resolvedHistorySubjects.add(subject)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(
+          store.resolveCover(subject).catchError((Object failure) {
+            BTLogTool.warn('加载播放记录条目名称失败：$failure');
+          }),
+        );
+      });
+    }
     var expanded =
         group.items.length > 1 && _expandedHistory.contains(group.key);
     return Container(

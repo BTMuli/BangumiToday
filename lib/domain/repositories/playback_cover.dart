@@ -3,7 +3,7 @@
 /// 主窗口负责解析与缓存，独立播放窗口通过通信适配器实现同一契约；播放会话
 /// 不直接持有 Bangumi 仓储。
 abstract class PlaybackCoverResolver {
-  /// Whether [subject] has already been resolved (with data or a miss).
+  /// Whether [subject] has usable cached display data.
   bool contains(int subject);
 
   /// The cached cover URL for [subject], or `null` when it is not yet
@@ -18,7 +18,6 @@ abstract class PlaybackCoverResolver {
 
   /// Fills [subject] from local caches only, without touching the network.
   ///
-  /// 列表标题只需要条目名，读磁盘缓存足够；返回是否拿到了可展示的数据，
-  /// 没命中时调用方应继续用文件名派生的标题。
+  /// 返回是否拿到了可展示的数据；未命中时调用方可按需 [resolve]。
   Future<bool> hydrate(int subject);
 }

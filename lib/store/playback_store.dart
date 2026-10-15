@@ -314,8 +314,7 @@ class PlaybackStore extends ChangeNotifier {
 
   /// Fills names for list titles from local caches only.
   ///
-  /// 打开播放记录或选集不应该顺带请求 bgm：命中磁盘缓存就直接用条目名，没命中
-  /// 就让列表继续显示文件名，等真正播放时再由 [resolveCover] 解析。
+  /// 命中本地详情或收藏就使用条目名；缺少信息时由调用方按需 [resolveCover]。
   Future<void> hydrateCovers(Iterable<int> subjects) async {
     var changed = false;
     for (var subject in subjects) {
