@@ -26,6 +26,7 @@ import 'package:bangumi_today/providers/bangumi_providers.dart';
 import 'package:bangumi_today/providers/bmf_providers.dart';
 import 'package:bangumi_today/providers/episode_mark_providers.dart';
 import 'package:bangumi_today/providers/playback_episode_link_providers.dart';
+import 'package:bangumi_today/providers/subject_playback_providers.dart';
 import 'package:bangumi_today/store/bgm_user_hive.dart';
 import 'package:bangumi_today/store/bt_download_store.dart';
 import 'package:bangumi_today/store/playback_store.dart';
@@ -456,6 +457,29 @@ void main() {
       gate.complete();
       expect((await pending).status, EpisodeMarkWriteStatus.expired);
       expect(repository.writes, isEmpty);
+    });
+
+    test('条目续播读取已有单章标记，换号后不保留旧观看状态', () async {
+      var actualController = actualContainer.read(episodeMarkProvider.notifier);
+      actualController.receiveSubjectProgress(536270, [
+        BangumiUserEpisodeCollection(
+          episode: _episode(10002),
+          type: BangumiEpisodeCollectionType.done,
+        ),
+      ], account: actualController.currentAccount());
+      var provider = subjectEpisodeProgressProvider(536270);
+      var subscription = actualContainer.listen(provider, (_, _) {});
+      addTearDown(subscription.close);
+      expect(actualContainer.read(provider), {10002: true});
+
+      (actualContainer.read(bgmUserStoreProvider.notifier) as _User).authorize(
+        'token-2',
+        id: 2,
+        generation: 1,
+      );
+      await actualContainer.pump();
+      expect(actualContainer.read(provider), isEmpty);
+      expect(repository.progressPageReads, 0);
     });
   });
 }

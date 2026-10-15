@@ -111,6 +111,16 @@ void main() {
 
   tearDown(() => service.close());
 
+  test('已有的单章标记可复用，账号变化后清除旧状态', () {
+    service.observeProgress(42, [_chapter(1).withDone(true)], account: account);
+
+    expect(service.knownProgress(42), {101: true});
+    expect(service.knownChapters(42), isNull);
+    account = 'another account';
+    expect(service.knownProgress(42), isEmpty);
+    expect(gateway.progressReads, 0);
+  });
+
   test('连续切集复用已经匹配的完整章节，不重复请求', () async {
     await service.syncItems(_items);
 

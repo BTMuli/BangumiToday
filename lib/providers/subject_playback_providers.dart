@@ -3,17 +3,17 @@ import 'dart:async';
 
 // Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../core/utils/playback_episode_files.dart';
+import '../core/utils/subject_playback_selection.dart';
 import '../data/repositories/episode_mark_gateway_impl.dart';
 import '../data/repositories/playback_episodes.dart';
-import '../models/bangumi/bangumi_enum.dart';
 import '../models/bangumi/bangumi_model.dart';
 import '../models/playback/playback_episode_link.dart';
 import '../models/playback/playback_item.dart';
 import 'bangumi_providers.dart';
+import 'episode_mark_providers.dart';
 import 'playback_episode_link_providers.dart';
 import 'subject_local_file_providers.dart';
 
@@ -63,37 +63,51 @@ final subjectEpisodeFilesProvider = FutureProvider.autoDispose
       ).values.toList();
     });
 
-/// Follow chapter order, skipping watched main episodes when progress is known.
-final subjectNextPlaybackItemProvider = FutureProvider.autoDispose
+/// Read already observed progress without issuing another account request.
+final subjectEpisodeProgressProvider = Provider.autoDispose
+    .family<Map<int, bool>, int>((ref, subject) {
+      ref.watch(episodeMarkProvider);
+      return ref
+          .read(episodeMarkProvider.notifier)
+          .service
+          .knownProgress(subject);
+    });
+
+/// Resume unfinished history; completed chapters advance to a matched file.
+final subjectContinuePlaybackItemProvider = FutureProvider.autoDispose
     .family<PlaybackItem?, ({int subject, int watchedEpisodes})>((
       ref,
       request,
     ) async {
       var subject = request.subject;
-      var files = await ref.watch(subjectEpisodeFilesProvider(subject).future);
+      var files = await ref.watch(subjectPlaybackFilesProvider(subject).future);
       if (!ref.mounted || files.isEmpty) return null;
-      var chapters =
-          List<BangumiEpisode>.of(
-            await ref.watch(subjectFileEpisodesProvider(subject).future),
-          )..sort((a, b) {
-            var type = a.type.value.compareTo(b.type.value);
-            return type != 0 ? type : a.sort.compareTo(b.sort);
-          });
-      for (var chapter in chapters) {
-        if (request.watchedEpisodes > 0 &&
-            (chapter.type != BangumiEpType.main ||
-                chapter.sort <= request.watchedEpisodes)) {
-          continue;
-        }
-        var file = files
-            .where((file) => file.episode == chapter.id)
-            .firstOrNull;
-        if (file == null) continue;
-        return PlaybackItem(
-          filePath: file.filePath,
-          title: path.basename(file.filePath),
-          subject: subject,
-        );
-      }
-      return null;
+      var progress = ref.watch(subjectEpisodeProgressProvider(subject));
+      var historyFuture = ref.watch(
+        subjectPlaybackHistoryProvider(subject).future,
+      );
+      var linksFuture = ref.watch(subjectEpisodeFilesProvider(subject).future);
+      var chaptersFuture = ref.watch(
+        subjectFileEpisodesProvider(subject).future,
+      );
+      var (previous, links, chapters) = await (
+        historyFuture,
+        linksFuture,
+        chaptersFuture,
+      ).wait;
+      if (!ref.mounted) return null;
+      return selectSubjectPlaybackItem(
+        subject: subject,
+        previous: previous,
+        files: files,
+        links: links,
+        chapters: [
+          for (var episode in chapters)
+            if (progress[episode.id] case var done?)
+              episodeMarkChapter(episode).withDone(done)
+            else
+              episodeMarkChapter(episode),
+        ],
+        watchedEpisodes: request.watchedEpisodes,
+      );
     });

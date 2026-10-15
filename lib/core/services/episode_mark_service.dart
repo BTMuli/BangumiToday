@@ -307,6 +307,16 @@ class EpisodeMarkService {
     return List.unmodifiable(_progress[subject]!.values);
   }
 
+  /// Reuse observed chapter states, including partial details-page updates.
+  Map<int, bool> knownProgress(int subject) {
+    _ensureProgressAccount();
+    if (_closed) return const {};
+    return Map.unmodifiable({
+      for (var chapter in _progress[subject]?.values ?? <EpisodeMarkEpisode>[])
+        if (chapter.done != null) chapter.id: chapter.done!,
+    });
+  }
+
   /// Share the playlist's initial progress load with automatic matching.
   /// Public chapter loading remains available when logged out or uncollected.
   Future<List<EpisodeMarkEpisode>?> chaptersForPlayback(int subject) async {
