@@ -47,6 +47,7 @@ import 'tools/log_tool.dart';
 import 'widgets/shell/splash.dart';
 
 Future<bool>? _applicationExitFuture;
+Timer? _rssStartupTimer;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -189,8 +190,10 @@ Future<bool> _performApplicationExit() async {
     await _runExitStep('Windows 协议还原', restoreWindowsAppProtocol);
   }
   await _runExitStep('BMF RSS 服务', () async {
-    BmfRssService.instance.stop();
-  });
+    _rssStartupTimer?.cancel();
+    _rssStartupTimer = null;
+    await BmfRssService.instance.stop();
+  }, timeout: null);
   await _runExitStep('App Link 服务', AppLinkService.instance.dispose);
   await _runExitStep(
     'BT 下载引擎',
@@ -352,10 +355,10 @@ Future<void> _initBackgroundServices() async {
   );
 
   // Let the first frame become interactive before the bulk RSS refresh.
-  unawaited(
-    Future<void>.delayed(
-      const Duration(seconds: 3),
-      () => _runOptionalService('BMF RSS 服务', BmfRssService.instance.start),
+  _rssStartupTimer = Timer(
+    const Duration(seconds: 3),
+    () => unawaited(
+      _runOptionalService('BMF RSS 服务', BmfRssService.instance.start),
     ),
   );
 }

@@ -2,6 +2,9 @@
 import 'dart:async';
 import 'dart:math';
 
+// Package imports:
+import 'package:dio/dio.dart';
+
 // Project imports:
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_subscription.dart';
@@ -95,7 +98,10 @@ class BmfRssService {
       StreamController<BmfRssStatusEvent>.broadcast();
   Timer? _refreshTimer;
   bool _isInitialized = false;
-  bool _cancelRequested = false;
+  bool _stopped = false;
+  Future<void>? _stopFuture;
+  final Set<Future<Object?>> _operations = {};
+  CancelToken _cancelToken = CancelToken();
   int _refreshEpoch = 0;
   Duration _freshnessWindow = defaultFreshnessWindow;
   RssRefreshMetrics? lastRefreshMetrics;
@@ -105,53 +111,91 @@ class BmfRssService {
   Stream<BmfRssStatusEvent> get statusStream => _statusController.stream;
   bool get isInitialized => _isInitialized;
 
+  bool _isCurrent(int epoch) => !_stopped && epoch == _refreshEpoch;
+
+  Future<T> _track<T>(Future<T> Function() action) {
+    late Future<T> operation;
+    operation = Future<T>.sync(action).whenComplete(() {
+      _operations.remove(operation);
+    });
+    _operations.add(operation);
+    return operation;
+  }
+
   Future<void> start({
     Duration refreshInterval = defaultFreshnessWindow,
     Duration checkInterval = defaultCheckInterval,
   }) async {
-    if (_isInitialized) return;
-    await _startGuard.run(() async {
-      _freshnessWindow = refreshInterval;
-      await _refreshAll(respectAutoUpdate: true);
-      _refreshTimer = Timer.periodic(
-        checkInterval,
-        (_) => unawaited(_timerRefresh()),
-      );
-      _isInitialized = true;
-    });
+    if (_isInitialized || _stopped) return;
+    await _track(
+      () => _startGuard.run(() async {
+        var epoch = _refreshEpoch;
+        _freshnessWindow = refreshInterval;
+        await _refreshAll(respectAutoUpdate: true, epoch: epoch);
+        if (!_isCurrent(epoch)) return;
+        _refreshTimer = Timer.periodic(
+          checkInterval,
+          (_) => unawaited(_timerRefresh()),
+        );
+        _isInitialized = true;
+      }),
+    );
   }
 
   Future<void> _timerRefresh() async {
+    if (_stopped) return;
     try {
-      await _refreshAll(respectAutoUpdate: true);
+      await _track(() => _refreshAll(respectAutoUpdate: true));
     } catch (error) {
       BTLogTool.warn('BMF RSS 定时刷新失败：${error.runtimeType}');
     }
   }
 
-  void stop() {
+  /// 永久停止此应用级服务；关闭数据库前等待已接受的操作排空。
+  Future<void> stop() => _stopFuture ??= _stop();
+
+  Future<void> _stop() async {
+    _stopped = true;
     _refreshTimer?.cancel();
     _refreshTimer = null;
     cancelPendingRefresh();
     _isInitialized = false;
+    await Future.wait(
+      _operations.toList().map(
+        (operation) => operation.then<void>(
+          (_) {},
+          onError: (Object error, StackTrace _) {
+            BTLogTool.warn('RSS 停止时结束刷新：${error.runtimeType}');
+          },
+        ),
+      ),
+    );
+    _api.client.dispose();
   }
 
   Future<void> _refreshAll({
     required bool respectAutoUpdate,
     bool force = false,
+    int? epoch,
   }) async {
+    var refreshEpoch = epoch ?? _refreshEpoch;
+    if (!_isCurrent(refreshEpoch)) return;
     await _bulkRefreshGuard.run(() async {
+      if (!_isCurrent(refreshEpoch)) return;
       var started = DateTime.now();
       var subscriptions = (await _storage.readAll())
           .where((s) => s.canRefresh && (!respectAutoUpdate || s.autoUpdate))
           .toList();
+      if (!_isCurrent(refreshEpoch)) return;
       var caches = await _storage.readCaches();
+      if (!_isCurrent(refreshEpoch)) return;
       var parsedCaches = <String, RssFeed>{};
       var groups = <String, List<AppSubscriptionModel>>{};
       var cacheHits = 0;
       var backoff = 0;
       var freshness = RssFreshness(window: _freshnessWindow);
       for (var subscription in subscriptions) {
+        if (!_isCurrent(refreshEpoch)) return;
         var cache = caches[subscription.feedKey];
         if (!force && freshness.isFresh(cache, started)) {
           if (subscription.hasBaseline) {
@@ -165,6 +209,7 @@ class BmfRssService {
               [subscription.id],
               cache.data!,
               cache.lastSuccessAt,
+              epoch: refreshEpoch,
               fromCache: true,
               parsedFeed: parsedCaches.putIfAbsent(
                 subscription.feedKey,
@@ -188,7 +233,6 @@ class BmfRssService {
         }
         groups.putIfAbsent(subscription.feedKey, () => []).add(subscription);
       }
-      _cancelRequested = false;
       var successes = 0;
       var failures = 0;
       var active = 0;
@@ -197,11 +241,11 @@ class BmfRssService {
         groups.values,
         maxConcurrent: defaultConcurrency,
         action: (group) async {
-          if (_cancelRequested) return;
+          if (!_isCurrent(refreshEpoch)) return;
           active++;
           if (active > peak) peak = active;
           try {
-            if (await _refreshGroup(group)) {
+            if (await _refreshGroup(group, refreshEpoch)) {
               successes++;
             } else {
               failures++;
@@ -231,16 +275,19 @@ class BmfRssService {
     });
   }
 
-  Future<bool> _refreshGroup(List<AppSubscriptionModel> group) async {
-    if (group.isEmpty) return false;
+  Future<bool> _refreshGroup(
+    List<AppSubscriptionModel> group,
+    int epoch,
+  ) async {
+    if (group.isEmpty || !_isCurrent(epoch)) return false;
     var first = group.first;
     var ids = group.map((s) => s.id).toList();
     try {
-      var epoch = _refreshEpoch;
       var response = await _requests.run(
-        first.feedKey,
+        '$epoch:${first.feedKey}',
         () => _fetchWithRetry(first.url, epoch),
       );
+      if (!_isCurrent(epoch)) return false;
       if (response.code != 0 || response.data is! String) {
         throw const FormatException('RSS request failed');
       }
@@ -250,11 +297,13 @@ class BmfRssService {
         ids,
         response.data as String,
         DateTime.now().millisecondsSinceEpoch,
+        epoch: epoch,
       );
       return true;
     } on RequestPoolCancelled {
       return false;
     } catch (error) {
+      if (!_isCurrent(epoch)) return false;
       BTLogTool.warn(
         'RSS 刷新失败：subscription=${first.id}，'
         '${error.runtimeType}',
@@ -275,9 +324,11 @@ class BmfRssService {
     List<int> ids,
     String xml,
     int at, {
+    required int epoch,
     bool fromCache = false,
     RssFeed? parsedFeed,
   }) async {
+    if (!_isCurrent(epoch)) return;
     var feed = parsedFeed ?? RssFeed.parse(xml);
     var updates = await _storage.applyFeed(
       feedKey: feedKey,
@@ -288,11 +339,13 @@ class BmfRssService {
       fromCache: fromCache,
       parsedFeed: feed,
     );
+    if (!_isCurrent(epoch)) return;
     var items = feed.items;
     var notifications = <int, String>{};
     var itemCount = 0;
     for (var update in updates) {
       var bmf = await _bmfFor(update.subscription);
+      if (!_isCurrent(epoch)) return;
       if (bmf == null) continue;
       _updateController.add(
         BmfRssUpdateEvent(
@@ -305,6 +358,7 @@ class BmfRssService {
         ),
       );
       await notifySubscriptionStateChanged(update.subscription.id);
+      if (!_isCurrent(epoch)) return;
       if (update.newItems.isNotEmpty) {
         notifications[bmf.subject] = bmf.title ?? '动画 ${bmf.subject}';
         itemCount += update.newItems.length;
@@ -316,6 +370,7 @@ class BmfRssService {
           title: 'RSS 订阅更新',
           body: '${notifications.values.join('、')} 有 $itemCount 条更新',
           onClick: () {
+            if (_stopped) return;
             var navigation = globalContainer.read(
               bmfNavigationProvider.notifier,
             );
@@ -341,87 +396,131 @@ class BmfRssService {
   }
 
   Future<void> notifySubscriptionStateChanged(int id) async {
-    var subscription = await _storage.read(id);
-    if (subscription == null) return;
-    var bmf = await _bmfFor(subscription);
-    if (bmf == null) return;
-    var count = bmf.subscriptions.fold<int>(
-      0,
-      (sum, s) => sum + s.pendingItemKeys.length,
-    );
-    _statusController.add(
-      BmfRssStatusEvent(
-        subject: bmf.subject,
-        subscriptionId: id,
-        pendingCount: count,
-      ),
-    );
+    if (_stopped) return;
+    var epoch = _refreshEpoch;
+    await _track(() async {
+      var subscription = await _storage.read(id);
+      if (subscription == null || !_isCurrent(epoch)) return;
+      var bmf = await _bmfFor(subscription);
+      if (bmf == null || !_isCurrent(epoch)) return;
+      var count = bmf.subscriptions.fold<int>(
+        0,
+        (sum, s) => sum + s.pendingItemKeys.length,
+      );
+      _statusController.add(
+        BmfRssStatusEvent(
+          subject: bmf.subject,
+          subscriptionId: id,
+          pendingCount: count,
+        ),
+      );
+    });
   }
 
   Future<BTResponse> _fetchWithRetry(String url, int epoch) async {
-    if (epoch != _refreshEpoch) throw const RequestPoolCancelled();
+    if (!_isCurrent(epoch)) throw const RequestPoolCancelled();
+    var cancelToken = _cancelToken;
     var response = await _api.getCustomRSS(
       url,
       preserveRequestUrl: true,
       connectTimeout: defaultTimeout,
       receiveTimeout: defaultTimeout,
+      cancelToken: cancelToken,
     );
+    if (!_isCurrent(epoch)) throw const RequestPoolCancelled();
     for (
       var attempt = 1;
       response.code != 0 && attempt < defaultMaxAttempts;
       attempt++
     ) {
-      if (epoch != _refreshEpoch) throw const RequestPoolCancelled();
-      await Future<void>.delayed(
+      await _waitForRetry(
         Duration(milliseconds: 1000 * (1 << attempt) + Random().nextInt(300)),
+        cancelToken,
       );
-      if (epoch != _refreshEpoch) throw const RequestPoolCancelled();
+      if (!_isCurrent(epoch)) throw const RequestPoolCancelled();
       response = await _api.getCustomRSS(
         url,
         preserveRequestUrl: true,
         connectTimeout: defaultTimeout,
         receiveTimeout: defaultTimeout,
+        cancelToken: cancelToken,
       );
     }
-    if (response.code != 0 && epoch != _refreshEpoch) {
+    if (!_isCurrent(epoch)) {
       throw const RequestPoolCancelled();
     }
     return response;
   }
 
+  Future<void> _waitForRetry(Duration delay, CancelToken cancelToken) async {
+    var ready = Completer<void>();
+    var timer = Timer(delay, ready.complete);
+    var cancellation = cancelToken.whenCancel.asStream().listen((_) {
+      if (!ready.isCompleted) {
+        ready.completeError(const RequestPoolCancelled());
+      }
+    });
+    try {
+      await ready.future;
+    } finally {
+      timer.cancel();
+      await cancellation.cancel();
+    }
+  }
+
   /// 立即刷新自动更新的订阅；[includeManual] 为 true 时包含手动更新的订阅。
-  Future<void> refreshNow({bool includeManual = false}) =>
-      _forcedRefreshGuard.run(() async {
+  Future<void> refreshNow({bool includeManual = false}) async {
+    if (_stopped) return;
+    var epoch = _refreshEpoch;
+    await _track(
+      () => _forcedRefreshGuard.run(() async {
         // A forced refresh must not be swallowed by an in-flight cache check.
         if (_bulkRefreshGuard.isRunning) {
           await _bulkRefreshGuard.run(() async {});
         }
-        await _refreshAll(respectAutoUpdate: !includeManual, force: true);
-      });
+        await _refreshAll(
+          respectAutoUpdate: !includeManual,
+          force: true,
+          epoch: epoch,
+        );
+      }),
+    );
+  }
+
   void cancelPendingRefresh() {
-    _cancelRequested = true;
     _refreshEpoch++;
+    _cancelToken.cancel('RSS 刷新已取消');
+    _cancelToken = CancelToken();
     _requests.cancelPending();
   }
 
   Future<bool> refreshSubscription(int id) async {
-    var subscription = await _storage.read(id);
-    if (subscription == null || !subscription.canRefresh) return false;
-    return _refreshGroup([subscription]);
+    if (_stopped) return false;
+    var epoch = _refreshEpoch;
+    return _track(() async {
+      var subscription = await _storage.read(id);
+      if (subscription == null || !subscription.canRefresh) return false;
+      return _refreshGroup([subscription], epoch);
+    });
   }
 
   Future<bool> refreshBmf(AppBmfModel bmf) async {
-    var current = await BtsAppBmf().read(bmf.subject);
-    if (current == null) return false;
-    var results = await Future.wait(
-      current.subscriptions
-          .where((s) => s.canRefresh)
-          .map((s) => refreshSubscription(s.id)),
-    );
-    return results.isNotEmpty && results.every((r) => r);
+    if (_stopped) return false;
+    var epoch = _refreshEpoch;
+    return _track(() async {
+      var current = await BtsAppBmf().read(bmf.subject);
+      if (current == null || !_isCurrent(epoch)) return false;
+      var results = await Future.wait(
+        current.subscriptions
+            .where((s) => s.canRefresh)
+            .map((s) => _refreshGroup([s], epoch)),
+      );
+      return results.isNotEmpty && results.every((r) => r);
+    });
   }
 
   bool willRefreshOnWrite(AppBmfModel bmf) =>
+      !_stopped &&
       _isInitialized &&
       bmf.subscriptions.any((s) => s.canRefresh && s.autoUpdate);
 
@@ -437,6 +536,7 @@ class BmfRssService {
   }
 
   Future<void> onBmfDeleted(int subject) async {
+    if (_stopped) return;
     _statusController.add(BmfRssStatusEvent(subject: subject, pendingCount: 0));
   }
 }

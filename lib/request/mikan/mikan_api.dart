@@ -228,11 +228,13 @@ class BtrMikanApi {
     bool preserveRequestUrl = false,
     Duration? connectTimeout,
     Duration? receiveTimeout,
+    CancelToken? cancelToken,
   }) async {
     var fetchUrl = preserveRequestUrl ? url : rewriteUrl(url);
     try {
       var resp = await client.dio.get(
         fetchUrl,
+        cancelToken: cancelToken,
         options: Options(
           connectTimeout: connectTimeout,
           receiveTimeout: receiveTimeout,
