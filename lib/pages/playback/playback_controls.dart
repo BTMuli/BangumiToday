@@ -132,6 +132,31 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     });
   }
 
+  Widget _buildUpscaleWarning(String warning) {
+    var upscaler = widget.store.upscaler!;
+    var restoreMode = upscaler.restorableMode;
+    return GestureDetector(
+      onDoubleTap: () {},
+      child: InfoBar(
+        title: const Text('视频超分'),
+        content: Text(warning),
+        severity: InfoBarSeverity.warning,
+        isLong: true,
+        onClose: upscaler.dismissWarning,
+        action: restoreMode == null
+            ? null
+            : Tooltip(
+                message: '重新应用「${restoreMode.label}」档位',
+                child: Button(
+                  onPressed: () =>
+                      unawaited(widget.run(widget.store.restoreUpscaleMode)),
+                  child: const Text('恢复超分配置'),
+                ),
+              ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: Listenable.merge([widget.store, widget.windowMode]),
@@ -145,6 +170,7 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         builder: (context, _) => LayoutBuilder(
           builder: (context, constraints) {
             var theme = _controlsTheme(constraints.maxWidth);
+            var warningBottom = constraints.maxHeight >= 300 ? 92.0 : 16.0;
             return CallbackShortcuts(
               bindings: {
                 for (var shortcut in _playbackShortcuts)
@@ -252,6 +278,31 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
                                   child: _PlaybackShortcutHelp(
                                     onClose: () =>
                                         _execute(_PlaybackCommand.help),
+                                  ),
+                                ),
+                              // Keep the notice in the video controls shared
+                              // by windowed/fullscreen routes. Do not consume
+                              // it before a visible surface can render it.
+                              if (widget.store.upscaler?.warning
+                                  case var warning?)
+                                Positioned(
+                                  left: 16,
+                                  right: 16,
+                                  bottom: warningBottom,
+                                  child: Center(
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxWidth: 560,
+                                        maxHeight:
+                                            (constraints.maxHeight -
+                                                    warningBottom -
+                                                    16)
+                                                .clamp(0.0, double.infinity),
+                                      ),
+                                      child: SingleChildScrollView(
+                                        child: _buildUpscaleWarning(warning),
+                                      ),
+                                    ),
                                   ),
                                 ),
                             ],

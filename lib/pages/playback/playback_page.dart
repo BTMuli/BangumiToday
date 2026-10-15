@@ -164,10 +164,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
   }
 
   void _schedulePlaybackNotices() {
-    if (_noticeFramePending ||
-        (_store.error == null && _store.upscaler?.warning == null)) {
-      return;
-    }
+    if (_noticeFramePending || _store.error == null) return;
     _noticeFramePending = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _noticeFramePending = false;
@@ -176,27 +173,6 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
       if (error != null) {
         _store.clearError();
         unawaited(BtInfobar.error(context, error));
-      }
-      var upscaler = _store.upscaler;
-      var warning = upscaler?.warning;
-      if (warning != null) {
-        upscaler!.dismissWarning();
-        unawaited(
-          displayInfoBar(
-            context,
-            alignment: Alignment.bottomCenter,
-            duration: const Duration(seconds: 12),
-            builder: (_, close) => InfoBar(
-              title: const Text('视频超分'),
-              content: Text(warning),
-              severity: InfoBarSeverity.warning,
-              action: IconButton(
-                icon: const Icon(FluentIcons.chrome_close),
-                onPressed: close,
-              ),
-            ),
-          ),
-        );
       }
     });
   }

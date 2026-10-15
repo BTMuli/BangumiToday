@@ -1026,6 +1026,13 @@ class PlaybackStore extends ChangeNotifier {
     await _upscale.setUpscaleMode(mode);
   });
 
+  Future<void> restoreUpscaleMode() => _serial(() async {
+    // Recheck after queued media/settings changes to avoid restoring a stale
+    // notice's mode in another episode or after the user selects a new mode.
+    var mode = _upscaler?.restorableMode;
+    if (mode != null) await _upscale.setUpscaleMode(mode);
+  });
+
   Future<void> setTensorRtEnabled(bool enabled) => _serial(() async {
     await _loadPreferences();
     await _upscale.setTensorRtEnabled(enabled);

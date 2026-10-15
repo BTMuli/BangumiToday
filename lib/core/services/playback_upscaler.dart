@@ -94,6 +94,17 @@ class PlaybackUpscaler {
       ? PlaybackUpscaleMode.off
       : mode;
 
+  /// Retry the retained preference only after recovery has completed.
+  PlaybackUpscaleMode? get restorableMode =>
+      !_closed &&
+          _mediaReady &&
+          _failed &&
+          !_dirty &&
+          !_restorationFailed &&
+          mode != PlaybackUpscaleMode.off
+      ? mode
+      : null;
+
   /// Reason of the last failed apply, surfaced so a failure can be diagnosed
   /// from the playback UI instead of only from the log.
   Object? _lastFailure;
@@ -902,7 +913,7 @@ class PlaybackUpscaler {
       warning = _restorationFailed
           ? '超分清理失败，请关闭并重新打开播放器'
           : _performanceFailureRate != null
-          ? 'AI 超分性能不足，已回退到普通播放，可通过底部右侧超分按钮重新开启'
+          ? 'AI 超分性能不足，已回退到普通播放'
           : reason.isEmpty
           ? '超分暂不可用，已回退到普通播放'
           : '超分暂不可用，已回退到普通播放：$reason';
