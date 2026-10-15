@@ -166,7 +166,7 @@ class BangumiOauthTokenGetData {
   String refreshToken;
 
   /// user_id
-  @JsonKey(name: 'user_id')
+  @JsonKey(name: 'user_id', fromJson: _userIdFromJson)
   int userId;
 
   /// constructor
@@ -178,6 +178,10 @@ class BangumiOauthTokenGetData {
     required this.refreshToken,
     required this.userId,
   });
+
+  // 旧站返回数字，新版 OAuth 返回十进制字符串。
+  static int _userIdFromJson(Object value) =>
+      value is num ? value.toInt() : int.parse(value as String);
 
   /// from json
   factory BangumiOauthTokenGetData.fromJson(Map<String, dynamic> json) =>

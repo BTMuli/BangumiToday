@@ -13,7 +13,7 @@ void main() {
 
   setUp(() {
     originalBaseUrl = BtrBangumiApi.baseUrl;
-    BtrBangumiApi.setBaseUrl(BTAppConstants.bangumiProApiBaseUrl);
+    BtrBangumiApi.setBaseUrl(BTAppConstants.bangumiVipApiBaseUrl);
   });
 
   tearDown(() => BtrBangumiApi.setBaseUrl(originalBaseUrl));
@@ -32,22 +32,22 @@ void main() {
   test('relative paths resolve against their corresponding mirror', () {
     expect(
       resolveBangumiCommentImage('/img/smiles/tv/15.gif'),
-      '${BTAppConstants.bangumiProImageBaseUrl}/img/smiles/tv/15.gif',
+      '${BTAppConstants.bangumiVipImageBaseUrl}/img/smiles/tv/15.gif',
     );
     expect(
       resolveBangumiCommentLink('/user/test'),
-      '${BTAppConstants.bangumiProSiteBaseUrl}/user/test',
+      '${BTAppConstants.bangumiVipSiteBaseUrl}/user/test',
     );
   });
 
   test('official absolute and protocol-relative URLs follow the mirror', () {
     expect(
       resolveBangumiCommentImage('//lain.bgm.tv/pic/test.jpg'),
-      '${BTAppConstants.bangumiProImageBaseUrl}/pic/test.jpg',
+      '${BTAppConstants.bangumiVipImageBaseUrl}/pic/test.jpg',
     );
     expect(
       resolveBangumiCommentLink('https://bgm.tv/ep/522'),
-      '${BTAppConstants.bangumiProSiteBaseUrl}/ep/522',
+      '${BTAppConstants.bangumiVipSiteBaseUrl}/ep/522',
     );
   });
 

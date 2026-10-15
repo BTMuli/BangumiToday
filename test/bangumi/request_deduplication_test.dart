@@ -257,7 +257,7 @@ void main() {
     BtrBangumiApi.setBaseUrl('https://api.bgm.tv');
     var first = api.getCollectionEpisodes(42);
     await pumpEventQueue();
-    BtrBangumiApi.setBaseUrl('https://api.bangumi.pro');
+    BtrBangumiApi.setBaseUrl('https://api.bangumi.vip');
     var results = await finish([first, api.getCollectionEpisodes(42)]);
     expect(adapter.requests, hasLength(2));
     expect(results.map((result) => result.data.total), [1, 2]);

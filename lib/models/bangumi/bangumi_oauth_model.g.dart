@@ -81,7 +81,7 @@ BangumiOauthTokenGetData _$BangumiOauthTokenGetDataFromJson(
   tokenType: json['token_type'] as String,
   scope: json['scope'] as String?,
   refreshToken: json['refresh_token'] as String,
-  userId: (json['user_id'] as num).toInt(),
+  userId: BangumiOauthTokenGetData._userIdFromJson(json['user_id'] as Object),
 );
 
 Map<String, dynamic> _$BangumiOauthTokenGetDataToJson(
