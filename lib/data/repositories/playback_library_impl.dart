@@ -1,4 +1,5 @@
 // Dart imports:
+import 'dart:async';
 import 'dart:io';
 
 // Package imports:
@@ -25,10 +26,45 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
     required this.taskFiles,
     required this.links,
     required this.episodes,
+    this.knownEpisodes,
   });
 
   final PlaybackEpisodeLinks links;
   final Future<List<EpisodeMarkEpisode>> Function(int subject) episodes;
+  final List<EpisodeMarkEpisode>? Function(int subject)? knownEpisodes;
+
+  final _chapterLists = <int, Future<List<EpisodeMarkEpisode>>>{};
+
+  Future<List<EpisodeMarkEpisode>> _chapters(int subject) async {
+    // The playlist's complete progress snapshot already includes chapter
+    // metadata. Prefer it, including updates from an explicit progress refresh.
+    var known = knownEpisodes?.call(subject);
+    if (known != null) return known;
+    var pending = _chapterLists.putIfAbsent(
+      subject,
+      () => Future<List<EpisodeMarkEpisode>>.sync(() => episodes(subject)),
+    );
+    try {
+      return await pending;
+    } catch (_) {
+      // Retry failures without evicting a newer load after a directory refresh.
+      if (identical(_chapterLists[subject], pending)) {
+        unawaited(_chapterLists.remove(subject));
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> prepareNextEpisode(
+    List<PlaybackItem> items,
+    int currentIndex,
+  ) async {
+    if (currentIndex < 0 || currentIndex >= items.length) return;
+    var subject = items[currentIndex].subject;
+    if (subject == null) return;
+    await _chapters(subject);
+  }
 
   @override
   Future<int?> nextEpisodeIndex(
@@ -54,7 +90,7 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
     }
     var chapters = subject == null
         ? const <EpisodeMarkEpisode>[]
-        : await episodes(subject);
+        : await _chapters(subject);
     return nextPlaybackEpisodeIndex(
       items: items,
       currentIndex: currentIndex,
@@ -155,6 +191,7 @@ class PlaybackLibraryImpl implements PlaybackLibrary {
     int? subject,
     Map<String, List<BtTaskFileDetail>> taskFiles = const {},
   }) async {
+    _chapterLists.clear();
     var linked = await links.readAll();
     var items = <PlaybackItem>[];
     var cachedFiles = Map<String, List<BtTaskFileDetail>>.of(taskFiles);

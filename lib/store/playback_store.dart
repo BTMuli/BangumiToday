@@ -55,6 +55,7 @@ import '../models/playback/playback_subtitle.dart';
 import '../models/playback/playback_upscale.dart';
 import '../providers/bangumi_providers.dart';
 import '../providers/bmf_providers.dart';
+import '../providers/episode_mark_providers.dart';
 import '../providers/playback_episode_link_providers.dart';
 import '../tools/log_tool.dart';
 import 'bt_download_store.dart';
@@ -68,10 +69,19 @@ final playbackStoreProvider = ChangeNotifierProvider<PlaybackStore>((ref) {
       tasks: () => downloads.tasks,
       taskFiles: (id, offset) => downloads.taskFiles(id, offset: offset),
       links: ref.read(playbackEpisodeLinksProvider),
-      episodes: (subject) async => (await loadPlaybackEpisodes(
-        ref.read(bangumiRepositoryProvider),
-        subject,
-      )).map(episodeMarkChapter).toList(),
+      knownEpisodes: (subject) =>
+          ref.read(episodeMarkProvider.notifier).service.knownChapters(subject),
+      episodes: (subject) async {
+        var known = await ref
+            .read(episodeMarkProvider.notifier)
+            .service
+            .chaptersForPlayback(subject);
+        return known ??
+            (await loadPlaybackEpisodes(
+              ref.read(bangumiRepositoryProvider),
+              subject,
+            )).map(episodeMarkChapter).toList();
+      },
     ),
     cover: BangumiPlaybackCoverResolver(ref.read(bangumiRepositoryProvider)),
     historyStore: AppPlaybackHistoryStore(),
@@ -624,29 +634,29 @@ class PlaybackStore extends ChangeNotifier {
         var items = playlist;
         var finishedIndex = index;
         unawaited(
-          _serial(() async {
-                if (_session.id != snapshot.sessionId) return;
-                await historyStore.write(snapshot.historyItem);
-                if (_closed) return;
-                // Broadcast asynchronously; UI/network work must never join the
-                // playback queue or delay the next episode.
-                _completions.add(snapshot);
-                await refreshHistory();
-                _notify();
-              })
-              .then((_) async {
+          // Matching runs alongside the durable write, outside the operation
+          // queue. Refreshing the full history waits until after the switch.
+          Future.wait<int?>([
+                _serial(() async {
+                  if (_session.id != snapshot.sessionId) return;
+                  await historyStore.write(snapshot.historyItem);
+                  if (_closed) return;
+                  _completions.add(snapshot);
+                  _notify();
+                }).then((_) => null),
+                library.nextEpisodeIndex(items, finishedIndex),
+              ])
+              .then((results) async {
                 if (_closed ||
                     _clearingPlayback ||
                     _session.id != snapshot.sessionId) {
                   return;
                 }
-                // Resolve chapters outside the operation queue: a manual file
-                // change remains responsive while matching data is loading.
-                var nextIndex = await library.nextEpisodeIndex(
-                  items,
-                  finishedIndex,
-                );
-                if (nextIndex == null) return;
+                var nextIndex = results[1];
+                if (nextIndex == null) {
+                  await refreshHistory();
+                  return;
+                }
                 await _serial(() async {
                   if (_closed ||
                       _clearingPlayback ||
@@ -695,6 +705,16 @@ class PlaybackStore extends ChangeNotifier {
     history = result;
     historyGroups = groupPlaybackHistory(result);
     _notify();
+  }
+
+  void _prepareNextEpisode() {
+    if (_closed || current == null) return;
+    unawaited(
+      library.prepareNextEpisode(playlist, index).catchError((Object failure) {
+        // Preloading is optional; EOF matching retries a failed chapter load.
+        BTLogTool.warn('预加载自动切集章节失败：$failure');
+      }),
+    );
   }
 
   /// Opens a single local file, resolving its Bangumi subject when the caller
@@ -749,6 +769,7 @@ class PlaybackStore extends ChangeNotifier {
     if (keepCurrent) {
       playlist = List.unmodifiable(items);
       index = selectedIndex;
+      _prepareNextEpisode();
       _notify();
       return;
     }
@@ -781,6 +802,7 @@ class PlaybackStore extends ChangeNotifier {
     }
     playlist = List.unmodifiable(discovered);
     index = nextIndex;
+    _prepareNextEpisode();
     _notify();
   });
 
@@ -817,6 +839,7 @@ class PlaybackStore extends ChangeNotifier {
       playlist = nextPlaylist;
       index = nextIndex;
       _session.begin(item);
+      _prepareNextEpisode();
       _janaiVideoSource?.reset(active: true);
       _manualSubtitles = false;
       position = previous?.resumePosition ?? Duration.zero;

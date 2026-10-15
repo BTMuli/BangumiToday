@@ -108,6 +108,12 @@ class PlaybackWindowDataHost {
           playbackString(body, 'filePath'),
           subject: playbackSubject(body),
         );
+      case 'library.prepareNextEpisode':
+        await library.prepareNextEpisode(
+          (body['items'] as List).map(decodePlaybackItem).toList(),
+          playbackInt(body, 'index'),
+        );
+        return null;
       case 'library.nextEpisode':
         return library.nextEpisodeIndex(
           (body['items'] as List).map(decodePlaybackItem).toList(),

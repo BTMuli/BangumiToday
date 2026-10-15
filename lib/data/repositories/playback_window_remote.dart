@@ -30,6 +30,17 @@ class RemotePlaybackLibrary implements PlaybackLibrary {
   }
 
   @override
+  Future<void> prepareNextEpisode(
+    List<PlaybackItem> items,
+    int currentIndex,
+  ) async {
+    await call('library.prepareNextEpisode', {
+      'items': [for (var item in items) item.toRow()],
+      'index': currentIndex,
+    });
+  }
+
+  @override
   Future<int?> nextEpisodeIndex(
     List<PlaybackItem> items,
     int currentIndex,

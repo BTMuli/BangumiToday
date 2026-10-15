@@ -299,6 +299,29 @@ class EpisodeMarkService {
                     null,
           );
 
+  /// A complete progress response also supplies public chapter metadata.
+  /// Partial details-page observations must never stand in for a full list.
+  List<EpisodeMarkEpisode>? knownChapters(int subject) {
+    _ensureProgressAccount();
+    if (_closed || !_loadedSubjects.contains(subject)) return null;
+    return List.unmodifiable(_progress[subject]!.values);
+  }
+
+  /// Share the playlist's initial progress load with automatic matching.
+  /// Public chapter loading remains available when logged out or uncollected.
+  Future<List<EpisodeMarkEpisode>?> chaptersForPlayback(int subject) async {
+    var known = knownChapters(subject);
+    if (known != null) return known;
+    var account = _progressAccount;
+    if (_closed || account == null) return null;
+    try {
+      await _loadProgress(subject, account);
+    } catch (_) {
+      return null;
+    }
+    return knownChapters(subject);
+  }
+
   /// Fetch each subject once for the whole playlist, independently of playback.
   Future<void> syncItems(
     Iterable<PlaybackItem> items, {

@@ -13,6 +13,10 @@ abstract class PlaybackLibrary {
   /// 扫描目录下的可播放文件，优先按季号、集数排序，同集按文件名自然排序。
   Future<List<PlaybackItem>> discover(String dir, {int? subject});
 
+  /// Load chapter metadata during playback, without blocking media operations.
+  /// Reuse metadata across selections; read links and rules when advancing.
+  Future<void> prepareNextEpisode(List<PlaybackItem> items, int currentIndex);
+
   /// Resolve the next chapter, skipping alternate and unmatched files.
   /// Null means the current file is unmatched or there is no later chapter.
   Future<int?> nextEpisodeIndex(List<PlaybackItem> items, int currentIndex);
