@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../controller/progress_controller.dart';
-import '../../core/constants/app_constants.dart';
 import '../../core/services/bangumi_oauth_coordinator.dart';
 import '../../core/services/bangumi_token_service.dart';
+import '../../models/app/bangumi_mirror.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../providers/app_providers.dart';
@@ -18,8 +18,10 @@ import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
+import '../../ui/bt_select.dart';
 import '../../widgets/common/bt_buttons.dart';
 import '../../widgets/common/bt_setting_section.dart';
+import 'bangumi_mirror_dialog.dart';
 
 /// 设置页BangumiUserInfo
 class AppConfigBgmWidget extends ConsumerStatefulWidget {
@@ -31,9 +33,6 @@ class AppConfigBgmWidget extends ConsumerStatefulWidget {
 }
 
 class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
-  /// 当前 Bangumi API 镜像地址
-  String get bangumiUrl => ref.watch(app_store.appStoreProvider).bangumiUrl;
-
   /// 当前登录用户
   BgmUserState get _user => ref.watch(bgmUserStoreProvider);
 
@@ -47,6 +46,8 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
   bool _refreshingAuth = false;
 
   bool _isLoggingIn = false;
+
+  String? _mirrorAction;
 
   @override
   void dispose() {
@@ -221,6 +222,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
           Text(
             _user.expireTime == null ? '未找到授权信息' : '授权过期时间：${_user.expireTime}',
           ),
+          const Text('账号授权始终使用官方服务'),
         ],
       ),
       trailing: Row(
@@ -250,44 +252,183 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     );
   }
 
-  /// 构建 Bangumi API 镜像站配置
+  /// 分别配置网页、API 与图片镜像。
   Widget buildMirror() {
+    var settings = ref.watch(app_store.appStoreProvider);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var type in BangumiMirrorType.values)
+          _buildMirrorSetting(type, settings),
+      ],
+    );
+  }
+
+  Widget _buildMirrorSetting(
+    BangumiMirrorType type,
+    app_store.BTAppSettings settings,
+  ) {
+    var value = settings.bangumiMirrorUrl(type);
+    var catalog = settings.bangumiMirrorCatalog;
+    var custom = catalog.entries(type);
+    var selected = custom.where((mirror) => mirror.url == value).firstOrNull;
+    var enabled = settings.loaded && _mirrorAction == null;
+    var choices = [...type.builtIns, ...custom];
+    if (!choices.any((mirror) => mirror.url == value)) {
+      choices.add(BangumiMirror(name: value, url: value));
+    }
     return ListTile(
       leading: const BtIcon(FluentIcons.globe),
-      title: const Text('Bangumi 镜像站'),
-      subtitle: Text(
-        '站点：${BtrBangumiApi.siteBaseUrl}\n'
-        'API：$bangumiUrl\n'
-        '图片：${BtrBangumiApi.imageBaseUrl}',
-      ),
-      trailing: ComboBox<String>(
-        value: bangumiUrl,
-        items: const [
-          ComboBoxItem(
-            value: BTAppConstants.bgmApiBaseUrl,
-            child: Text('bgmapi.com'),
-          ),
-          ComboBoxItem(
-            value: BTAppConstants.bangumiVipApiBaseUrl,
-            child: Text('bangumi.vip'),
-          ),
-          ComboBoxItem(
-            value: BTAppConstants.anibtBangumiApiBaseUrl,
-            child: Text('AniBT'),
-          ),
-          ComboBoxItem(
-            value: BTAppConstants.officialBangumiApiBaseUrl,
-            child: Text('bangumi.tv（官方）'),
+      title: Text(type.label),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 190,
+                child: BtSelect<String>(
+                  value: value,
+                  isExpanded: true,
+                  items: [
+                    for (var mirror in choices)
+                      ComboBoxItem(
+                        value: mirror.url,
+                        child: Text(
+                          mirror.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: !enabled
+                      ? null
+                      : (url) async {
+                          if (url == null || url == value) return;
+                          await _changeMirror(
+                            '${type.name}:select',
+                            () => ref
+                                .read(app_store.appStoreProvider.notifier)
+                                .setBangumiMirror(type, url),
+                          );
+                        },
+                ),
+              ),
+              _mirrorActionButton(
+                '${type.name}:add',
+                icon: FluentIcons.add,
+                label: '新增${type.label}',
+                onPressed: enabled ? () => _editMirror(type) : null,
+              ),
+              _mirrorActionButton(
+                '${type.name}:edit',
+                icon: FluentIcons.edit,
+                label: selected == null ? '内置镜像不能编辑' : '编辑${type.label}',
+                onPressed: enabled && selected != null
+                    ? () => _editMirror(type, mirror: selected)
+                    : null,
+              ),
+              _mirrorActionButton(
+                '${type.name}:delete',
+                icon: FluentIcons.delete,
+                label: selected == null ? '内置镜像不能删除' : '删除${type.label}',
+                onPressed: enabled && selected != null
+                    ? () => _deleteMirror(type, selected)
+                    : null,
+              ),
+            ],
           ),
         ],
-        onChanged: (value) async {
-          if (value == null || value == bangumiUrl) return;
-          await ref
-              .read(app_store.appStoreProvider.notifier)
-              .setBangumiUrl(value);
-          if (mounted) await BtInfobar.success(context, 'Bangumi 镜像站已更新');
-        },
       ),
+    );
+  }
+
+  Widget _mirrorActionButton(
+    String action, {
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+  }) => Tooltip(
+    message: _mirrorAction == action ? '正在保存镜像' : label,
+    child: Semantics(
+      button: true,
+      label: label,
+      child: SizedBox(
+        width: 34,
+        height: 34,
+        child: IconButton(
+          onPressed: onPressed,
+          icon: _mirrorAction == action
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: ProgressRing(strokeWidth: 2),
+                )
+              : Icon(icon, size: 18),
+        ),
+      ),
+    ),
+  );
+
+  Future<void> _changeMirror(
+    String action,
+    Future<void> Function() save,
+  ) async {
+    if (_mirrorAction != null) return;
+    setState(() => _mirrorAction = action);
+    try {
+      await save();
+      if (mounted) await BtInfobar.success(context, '镜像设置已更新');
+    } on FormatException catch (error) {
+      if (mounted) await BtInfobar.error(context, error.message);
+    } catch (error) {
+      BTLogTool.error('保存 Bangumi 镜像失败：$error');
+      if (mounted) await BtInfobar.error(context, '保存镜像失败，请重试');
+    } finally {
+      if (mounted) setState(() => _mirrorAction = null);
+    }
+  }
+
+  Future<void> _editMirror(
+    BangumiMirrorType type, {
+    BangumiMirror? mirror,
+  }) async {
+    var result = await showBangumiMirrorDialog(
+      context,
+      type: type,
+      catalog: ref.read(app_store.appStoreProvider).bangumiMirrorCatalog,
+      mirror: mirror,
+    );
+    if (!mounted || result == null) return;
+    await _changeMirror(
+      '${type.name}:${mirror == null ? 'add' : 'edit'}',
+      () => ref
+          .read(app_store.appStoreProvider.notifier)
+          .saveBangumiMirror(type, result, originalUrl: mirror?.url),
+    );
+  }
+
+  Future<void> _deleteMirror(
+    BangumiMirrorType type,
+    BangumiMirror mirror,
+  ) async {
+    var confirmed = await showConfirmAction(
+      context,
+      title: '删除${type.label}',
+      content: '删除“${mirror.name}”后将恢复该类别的默认镜像。',
+      confirmText: '删除',
+    );
+    if (!mounted || !confirmed) return;
+    await _changeMirror(
+      '${type.name}:delete',
+      () => ref
+          .read(app_store.appStoreProvider.notifier)
+          .deleteBangumiMirror(type, mirror.url),
     );
   }
 

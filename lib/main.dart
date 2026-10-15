@@ -272,7 +272,11 @@ Future<void> _initBackgroundServices() async {
 
   await BTSqlite.init();
   var appConfig = BtsAppConfig();
-  BtrBangumiApi.setBaseUrl(await appConfig.readBangumiUrl());
+  var bangumiMirrors = await appConfig.readBangumiMirrors();
+  BtrBangumiApi.setBaseUrl(bangumiMirrors.apiUrl);
+  BtrBangumiApi.setSiteBaseUrl(bangumiMirrors.siteUrl);
+  BtrBangumiApi.setImageBaseUrl(bangumiMirrors.imageUrl);
+  BtrBangumiApi.setMirrorCatalog(bangumiMirrors.catalog);
   BtrMikanApi.setBaseUrl(await appConfig.readMikanUrl());
   await BtrClient.configureSystemProxy(
     await appConfig.readUseSystemProxy(),

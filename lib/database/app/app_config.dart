@@ -7,6 +7,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 // Project imports:
 import '../../core/constants/app_constants.dart';
+import '../../models/app/bangumi_mirror.dart';
 import '../../models/app/bt_download_config.dart';
 import '../../models/app/bt_tracker_config.dart';
 import '../../models/app/proxy_settings.dart';
@@ -303,6 +304,70 @@ class BtsAppConfig {
       BTAppConstants.normalizeBangumiApiUrl(url),
     );
   }
+
+  /// 新配置采用独立默认值；旧配置按原 API 选项补齐站点和图片地址。
+  Future<
+    ({
+      String apiUrl,
+      String siteUrl,
+      String imageUrl,
+      BangumiMirrorCatalog catalog,
+    })
+  >
+  readBangumiMirrors() => _db.transaction(() async {
+    var hasLegacySelection =
+        (await read('bangumiUrl'))?.trim().isNotEmpty == true;
+    var apiUrl = await readBangumiUrl();
+    var savedSite = await read('bangumiSiteUrl');
+    var savedImage = await read('bangumiImageUrl');
+    var initialSiteUrl = hasLegacySelection
+        ? BTAppConstants.bangumiSiteBaseUrlFor(apiUrl)
+        : BTAppConstants.defaultBangumiSiteBaseUrl;
+    var initialImageUrl = hasLegacySelection
+        ? BTAppConstants.bangumiImageBaseUrlFor(apiUrl)
+        : BTAppConstants.defaultBangumiImageBaseUrl;
+    var siteUrl = BTAppConstants.normalizeBangumiSiteUrl(
+      savedSite == null || savedSite.isEmpty ? initialSiteUrl : savedSite,
+    );
+    var imageUrl = BTAppConstants.normalizeBangumiImageUrl(
+      savedImage == null || savedImage.isEmpty ? initialImageUrl : savedImage,
+    );
+    if (savedSite != siteUrl) await writeBangumiSiteUrl(siteUrl);
+    if (savedImage != imageUrl) await writeBangumiImageUrl(imageUrl);
+    var savedCatalog = await read('bangumiCustomMirrors');
+    var catalog = const BangumiMirrorCatalog();
+    if (savedCatalog != null && savedCatalog.isNotEmpty) {
+      try {
+        catalog = BangumiMirrorCatalog.fromJson(
+          Map<String, dynamic>.from(jsonDecode(savedCatalog) as Map),
+        );
+      } catch (error) {
+        BTLogTool.warn('Invalid Bangumi mirror catalog: $error');
+      }
+    }
+    return (
+      apiUrl: apiUrl,
+      siteUrl: siteUrl,
+      imageUrl: imageUrl,
+      catalog: catalog,
+    );
+  });
+
+  /// 自定义列表和选中地址在同一事务中保存，避免改址或删除留下悬空选项。
+  Future<void> writeBangumiMirrorCatalog(
+    BangumiMirrorCatalog catalog, {
+    required BangumiMirrorType type,
+    required String selectedUrl,
+  }) => _db.transaction(() async {
+    await write('bangumiCustomMirrors', jsonEncode(catalog.toJson()));
+    await write(type.configKey, type.normalize(selectedUrl));
+  });
+
+  Future<void> writeBangumiSiteUrl(String url) =>
+      write('bangumiSiteUrl', BTAppConstants.normalizeBangumiSiteUrl(url));
+
+  Future<void> writeBangumiImageUrl(String url) =>
+      write('bangumiImageUrl', BTAppConstants.normalizeBangumiImageUrl(url));
 
   Future<BtDownloadConfig> readBtDownloadConfig() async {
     var value = await _instance.read('btDownloadConfig');

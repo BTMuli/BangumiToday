@@ -190,6 +190,9 @@ class PlaybackWindowService extends ChangeNotifier {
       'theme': settings.themeMode.name,
       'accent': settings.effectiveAccentColor.toARGB32(),
       'bangumiUrl': settings.bangumiUrl,
+      'bangumiSiteUrl': settings.bangumiSiteUrl,
+      'bangumiImageUrl': settings.bangumiImageUrl,
+      'bangumiMirrorCatalog': settings.bangumiMirrorCatalog.toJson(),
       'episodes': encodeEpisodeMarkState(
         ref.read(episodeMarkProvider),
         account: marking.currentAccount(),

@@ -10,6 +10,7 @@ import '../../core/cache/subject_cache.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/container.dart';
 import '../../core/services/bangumi_token_service.dart';
+import '../../models/app/bangumi_mirror.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
@@ -28,6 +29,15 @@ import 'bangumi_manager.dart';
 /// 详细文档请参考 https://bangumi.github.io/api/
 class BtrBangumiApi {
   static String _baseUrl = BTAppConstants.defaultBangumiApiBaseUrl;
+  static String _siteBaseUrl = BTAppConstants.defaultBangumiSiteBaseUrl;
+  static String _imageBaseUrl = BTAppConstants.defaultBangumiImageBaseUrl;
+  static BangumiMirrorCatalog _mirrorCatalog = const BangumiMirrorCatalog();
+
+  static BangumiMirrorCatalog get mirrorCatalog => _mirrorCatalog;
+
+  static void setMirrorCatalog(BangumiMirrorCatalog value) {
+    _mirrorCatalog = value;
+  }
 
   /// 请求客户端
   late final BtrClient client;
@@ -36,12 +46,10 @@ class BtrBangumiApi {
   static String get baseUrl => _baseUrl;
 
   /// 当前站点 URL
-  static String get siteBaseUrl =>
-      BTAppConstants.bangumiSiteBaseUrlFor(baseUrl);
+  static String get siteBaseUrl => _siteBaseUrl;
 
   /// 当前图片 URL
-  static String get imageBaseUrl =>
-      BTAppConstants.bangumiImageBaseUrlFor(baseUrl);
+  static String get imageBaseUrl => _imageBaseUrl;
 
   /// 当前 Next URL
   static String get nextBaseUrl =>
@@ -49,7 +57,24 @@ class BtrBangumiApi {
 
   /// 将官方 URL 改写为当前镜像 URL
   static String rewriteUrl(String value) {
-    return BTAppConstants.rewriteBangumiUrl(value, baseUrl);
+    return BTAppConstants.rewriteBangumiUrl(
+      value,
+      apiBaseUrl: baseUrl,
+      siteBaseUrl: siteBaseUrl,
+      imageBaseUrl: imageBaseUrl,
+      siteMirrorUrls: [
+        siteBaseUrl,
+        ..._mirrorCatalog.knownUrls(BangumiMirrorType.site),
+      ],
+      apiMirrorUrls: [
+        baseUrl,
+        ..._mirrorCatalog.knownUrls(BangumiMirrorType.api),
+      ],
+      imageMirrorUrls: [
+        imageBaseUrl,
+        ..._mirrorCatalog.knownUrls(BangumiMirrorType.image),
+      ],
+    );
   }
 
   /// 递归改写响应数据中的官方 URL，并保留原有 JSON 容器类型
@@ -73,6 +98,16 @@ class BtrBangumiApi {
   /// 更新基础 URL
   static void setBaseUrl(String value) {
     _baseUrl = BTAppConstants.normalizeBangumiApiUrl(value);
+  }
+
+  /// 更新网页镜像，不影响 API 和图片地址。
+  static void setSiteBaseUrl(String value) {
+    _siteBaseUrl = BTAppConstants.normalizeBangumiSiteUrl(value);
+  }
+
+  /// 更新图片镜像，不影响 API 和网页地址。
+  static void setImageBaseUrl(String value) {
+    _imageBaseUrl = BTAppConstants.normalizeBangumiImageUrl(value);
   }
 
   /// 请求管理器

@@ -9,7 +9,6 @@ import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../tools/log_tool.dart';
 import '../core/client.dart';
-import 'bangumi_api.dart';
 import 'bangumi_error_handler.dart';
 
 /// OAuth 授权网关抽象，便于测试注入可控实现。
@@ -31,20 +30,12 @@ class BtrBangumiOauth implements BangumiOauthGateway {
   /// 请求客户端
   late final BtrClient client;
 
-  /// 当前站点 URL
-  static String get siteBaseUrl => BtrBangumiApi.siteBaseUrl;
+  /// 授权页固定使用官方 OAuth，与站点、API、图片镜像选择无关。
+  static const String oauthBaseUrl =
+      '${BTAppConstants.officialBangumiApiBaseUrl}/oauth';
 
-  /// bgmapi 同时提供 OAuth；其余授权页跟随所选站点。
-  static String get oauthBaseUrl =>
-      BtrBangumiApi.baseUrl == BTAppConstants.bgmApiBaseUrl
-      ? '${BTAppConstants.bgmApiBaseUrl}/oauth'
-      : '$siteBaseUrl/oauth';
-
-  /// bgmapi 的 token 请求走同域 OAuth；网页镜像仍优先走官方站。
-  static String get oauthTokenBaseUrl =>
-      BtrBangumiApi.baseUrl == BTAppConstants.bgmApiBaseUrl
-      ? oauthBaseUrl
-      : '${BTAppConstants.officialBangumiSiteBaseUrl}/oauth';
+  /// 换取和刷新 token 均使用官方 OAuth。
+  static const String oauthTokenBaseUrl = oauthBaseUrl;
 
   /// 构造函数
   BtrBangumiOauth() {
@@ -185,11 +176,9 @@ class BtrBangumiOauth implements BangumiOauthGateway {
   Future<BTResponse> getStatus(String accessToken) async {
     try {
       // bgmapi 的新版 OAuth 未提供旧版 token_status 接口。
-      var response = await _postOauthForm(
-        '/token_status',
-        {'access_token': accessToken},
-        useOfficialSite: BtrBangumiApi.baseUrl == BTAppConstants.bgmApiBaseUrl,
-      );
+      var response = await _postOauthForm('/token_status', {
+        'access_token': accessToken,
+      }, useOfficialSite: true);
       var map = bangumiJsonMap(response.data);
       if (map == null) {
         return handleBangumiUnexpectedResponse(
@@ -231,34 +220,17 @@ class BtrBangumiOauth implements BangumiOauthGateway {
   Future<Response<dynamic>> _postOauthForm(
     String path,
     Map<String, String> payload, {
-    bool useSelectedSite = false,
     bool useOfficialSite = false,
     CancelToken? cancelToken,
-  }) async {
+  }) {
     var options = Options(
       contentType: Headers.formUrlEncodedContentType,
-      extra: {
-        if (useSelectedSite) 'oauthUseSelectedSite': true,
-        if (useOfficialSite) 'oauthUseOfficialSite': true,
-      },
+      extra: {if (useOfficialSite) 'oauthUseOfficialSite': true},
     );
-    var response = await client.dio.post(
+    return client.dio.post(
       path,
       data: payload,
       options: options,
-      cancelToken: cancelToken,
-    );
-    if (bangumiJsonMap(response.data) != null ||
-        useSelectedSite ||
-        useOfficialSite) {
-      return response;
-    }
-    if (oauthBaseUrl == oauthTokenBaseUrl) return response;
-    BTLogTool.warn('官方 OAuth $path 非 JSON，改走 $oauthBaseUrl');
-    return _postOauthForm(
-      path,
-      payload,
-      useSelectedSite: true,
       cancelToken: cancelToken,
     );
   }
@@ -267,11 +239,8 @@ class BtrBangumiOauth implements BangumiOauthGateway {
 class _BangumiOauthBaseUrlInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    var useSelectedSite = options.extra['oauthUseSelectedSite'] == true;
     options.baseUrl = options.extra['oauthUseOfficialSite'] == true
         ? '${BTAppConstants.officialBangumiSiteBaseUrl}/oauth'
-        : useSelectedSite
-        ? BtrBangumiOauth.oauthBaseUrl
         : BtrBangumiOauth.oauthTokenBaseUrl;
     handler.next(options);
   }

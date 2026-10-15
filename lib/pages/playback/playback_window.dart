@@ -18,6 +18,7 @@ import '../../core/services/playback_close_progress.dart';
 import '../../core/services/playback_window_protocol.dart';
 import '../../core/utils/window_effect.dart';
 import '../../data/repositories/playback_window_remote.dart';
+import '../../models/app/bangumi_mirror.dart';
 import '../../models/playback/playback_on_top.dart';
 import '../../providers/episode_mark_providers.dart';
 import '../../providers/playback_window_providers.dart';
@@ -193,6 +194,11 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
     if (_closing || revision <= _presentationRevision) return;
     _presentationRevision = revision;
     BtrBangumiApi.setBaseUrl(data['bangumiUrl'] as String);
+    BtrBangumiApi.setSiteBaseUrl(data['bangumiSiteUrl'] as String);
+    BtrBangumiApi.setImageBaseUrl(data['bangumiImageUrl'] as String);
+    BtrBangumiApi.setMirrorCatalog(
+      BangumiMirrorCatalog.fromJson(playbackMap(data['bangumiMirrorCatalog'])),
+    );
     marking.receive(episodes);
     presentation.value = data;
   }

@@ -10,13 +10,23 @@ import 'package:bangumi_today/widgets/bangumi/comment_image_viewer.dart';
 
 void main() {
   late String originalBaseUrl;
+  late String originalSiteUrl;
+  late String originalImageUrl;
 
   setUp(() {
     originalBaseUrl = BtrBangumiApi.baseUrl;
+    originalSiteUrl = BtrBangumiApi.siteBaseUrl;
+    originalImageUrl = BtrBangumiApi.imageBaseUrl;
     BtrBangumiApi.setBaseUrl(BTAppConstants.bangumiVipApiBaseUrl);
+    BtrBangumiApi.setSiteBaseUrl(BTAppConstants.bangumiVipSiteBaseUrl);
+    BtrBangumiApi.setImageBaseUrl(BTAppConstants.bangumiVipImageBaseUrl);
   });
 
-  tearDown(() => BtrBangumiApi.setBaseUrl(originalBaseUrl));
+  tearDown(() {
+    BtrBangumiApi.setBaseUrl(originalBaseUrl);
+    BtrBangumiApi.setSiteBaseUrl(originalSiteUrl);
+    BtrBangumiApi.setImageBaseUrl(originalImageUrl);
+  });
 
   test('protocol-relative URLs retain their external host', () {
     expect(
@@ -51,8 +61,10 @@ void main() {
     );
   });
 
-  test('relative paths also resolve with the official API selected', () {
+  test('relative paths follow site and image mirrors independently of API', () {
     BtrBangumiApi.setBaseUrl(BTAppConstants.officialBangumiApiBaseUrl);
+    BtrBangumiApi.setSiteBaseUrl(BTAppConstants.anibtBangumiSiteBaseUrl);
+    BtrBangumiApi.setImageBaseUrl(BTAppConstants.officialBangumiImageBaseUrl);
 
     expect(
       resolveBangumiCommentImage('/img/smiles/tv/15.gif'),
@@ -60,7 +72,7 @@ void main() {
     );
     expect(
       resolveBangumiCommentLink('/user/test'),
-      '${BTAppConstants.officialBangumiSiteBaseUrl}/user/test',
+      '${BTAppConstants.anibtBangumiSiteBaseUrl}/user/test',
     );
   });
 

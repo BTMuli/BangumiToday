@@ -6,6 +6,7 @@ import 'package:system_theme/system_theme.dart';
 // Project imports:
 import '../core/constants/app_constants.dart';
 import '../database/app/app_config.dart';
+import '../models/app/bangumi_mirror.dart';
 import '../models/app/proxy_settings.dart';
 import '../models/app/rss_selection_behavior.dart';
 import '../request/bangumi/bangumi_api.dart';
@@ -29,6 +30,9 @@ class BTAppSettings {
     this.accentColor,
     this.mikanRss = BTAppConstants.defaultMikanMirror,
     this.bangumiUrl = BTAppConstants.defaultBangumiApiBaseUrl,
+    this.bangumiSiteUrl = BTAppConstants.defaultBangumiSiteBaseUrl,
+    this.bangumiImageUrl = BTAppConstants.defaultBangumiImageBaseUrl,
+    this.bangumiMirrorCatalog = const BangumiMirrorCatalog(),
     this.minimizeToTray = true,
     this.useSystemProxy = false,
     this.proxySettings = const ProxySettings(),
@@ -47,6 +51,27 @@ class BTAppSettings {
 
   /// Bangumi API 镜像地址
   final String bangumiUrl;
+
+  /// Bangumi 网页镜像地址。
+  final String bangumiSiteUrl;
+
+  /// Bangumi 图片镜像地址。
+  final String bangumiImageUrl;
+
+  final BangumiMirrorCatalog bangumiMirrorCatalog;
+
+  String bangumiMirrorUrl(BangumiMirrorType type) => switch (type) {
+    BangumiMirrorType.site => bangumiSiteUrl,
+    BangumiMirrorType.api => bangumiUrl,
+    BangumiMirrorType.image => bangumiImageUrl,
+  };
+
+  BTAppSettings withBangumiMirrorUrl(BangumiMirrorType type, String url) =>
+      switch (type) {
+        BangumiMirrorType.site => copyWith(bangumiSiteUrl: url),
+        BangumiMirrorType.api => copyWith(bangumiUrl: url),
+        BangumiMirrorType.image => copyWith(bangumiImageUrl: url),
+      };
 
   /// 关闭主窗口后是否隐藏到系统托盘。
   final bool minimizeToTray;
@@ -76,6 +101,9 @@ class BTAppSettings {
     AccentColor? accentColor,
     String? mikanRss,
     String? bangumiUrl,
+    String? bangumiSiteUrl,
+    String? bangumiImageUrl,
+    BangumiMirrorCatalog? bangumiMirrorCatalog,
     bool? minimizeToTray,
     bool? useSystemProxy,
     ProxySettings? proxySettings,
@@ -87,6 +115,9 @@ class BTAppSettings {
       accentColor: accentColor ?? this.accentColor,
       mikanRss: mikanRss ?? this.mikanRss,
       bangumiUrl: bangumiUrl ?? this.bangumiUrl,
+      bangumiSiteUrl: bangumiSiteUrl ?? this.bangumiSiteUrl,
+      bangumiImageUrl: bangumiImageUrl ?? this.bangumiImageUrl,
+      bangumiMirrorCatalog: bangumiMirrorCatalog ?? this.bangumiMirrorCatalog,
       minimizeToTray: minimizeToTray ?? this.minimizeToTray,
       useSystemProxy: useSystemProxy ?? this.useSystemProxy,
       proxySettings: proxySettings ?? this.proxySettings,
@@ -103,6 +134,9 @@ class BTAppSettings {
         accentColor == other.accentColor &&
         mikanRss == other.mikanRss &&
         bangumiUrl == other.bangumiUrl &&
+        bangumiSiteUrl == other.bangumiSiteUrl &&
+        bangumiImageUrl == other.bangumiImageUrl &&
+        bangumiMirrorCatalog == other.bangumiMirrorCatalog &&
         minimizeToTray == other.minimizeToTray &&
         useSystemProxy == other.useSystemProxy &&
         proxySettings == other.proxySettings &&
@@ -116,6 +150,9 @@ class BTAppSettings {
     accentColor,
     mikanRss,
     bangumiUrl,
+    bangumiSiteUrl,
+    bangumiImageUrl,
+    bangumiMirrorCatalog,
     minimizeToTray,
     useSystemProxy,
     proxySettings,
@@ -145,13 +182,16 @@ class BTAppStore extends Notifier<BTAppSettings> {
     var themeMode = await sqlite.readThemeMode();
     var accentColor = await sqlite.readAccentColor();
     var minimizeToTray = await sqlite.readMinimizeToTray();
-    var bangumiUrl = await sqlite.readBangumiUrl();
+    var bangumiMirrors = await sqlite.readBangumiMirrors();
     var mikanRss = await sqlite.readMikanUrl();
     var useSystemProxy = await sqlite.readUseSystemProxy();
     var proxySettings = await sqlite.readProxySettings();
     var rssSelectionBehavior = await sqlite.readRssSelectionBehavior();
 
-    BtrBangumiApi.setBaseUrl(bangumiUrl);
+    BtrBangumiApi.setBaseUrl(bangumiMirrors.apiUrl);
+    BtrBangumiApi.setSiteBaseUrl(bangumiMirrors.siteUrl);
+    BtrBangumiApi.setImageBaseUrl(bangumiMirrors.imageUrl);
+    BtrBangumiApi.setMirrorCatalog(bangumiMirrors.catalog);
     BtrMikanApi.setBaseUrl(mikanRss);
     await BtrClient.configureSystemProxy(
       useSystemProxy,
@@ -163,7 +203,10 @@ class BTAppStore extends Notifier<BTAppSettings> {
       themeMode: themeMode,
       accentColor: accentColor,
       mikanRss: BtrMikanApi.baseUrl,
-      bangumiUrl: bangumiUrl,
+      bangumiUrl: bangumiMirrors.apiUrl,
+      bangumiSiteUrl: bangumiMirrors.siteUrl,
+      bangumiImageUrl: bangumiMirrors.imageUrl,
+      bangumiMirrorCatalog: bangumiMirrors.catalog,
       minimizeToTray: minimizeToTray,
       useSystemProxy: useSystemProxy,
       proxySettings: proxySettings,
@@ -250,10 +293,72 @@ class BTAppStore extends Notifier<BTAppSettings> {
   }
 
   /// 设置 Bangumi API 镜像地址：写入成功后才替换状态。
-  Future<void> setBangumiUrl(String value) async {
-    BtrBangumiApi.setBaseUrl(value);
-    var normalized = BtrBangumiApi.baseUrl;
-    await sqlite.writeBangumiUrl(normalized);
-    state = state.copyWith(bangumiUrl: normalized);
+  Future<void> setBangumiUrl(String value) =>
+      setBangumiMirror(BangumiMirrorType.api, value);
+
+  /// 单独设置网页镜像，写入成功后更新客户端和状态。
+  Future<void> setBangumiSiteUrl(String value) =>
+      setBangumiMirror(BangumiMirrorType.site, value);
+
+  /// 单独设置图片镜像，写入成功后更新客户端和状态。
+  Future<void> setBangumiImageUrl(String value) =>
+      setBangumiMirror(BangumiMirrorType.image, value);
+
+  Future<void> setBangumiMirror(BangumiMirrorType type, String value) async {
+    var normalized = type.normalize(value);
+    await sqlite.write(type.configKey, normalized);
+    _applyBangumiMirror(type, normalized);
+    state = state.withBangumiMirrorUrl(type, normalized);
+  }
+
+  Future<void> saveBangumiMirror(
+    BangumiMirrorType type,
+    BangumiMirror mirror, {
+    String? originalUrl,
+  }) async {
+    var catalog = state.bangumiMirrorCatalog.save(
+      type,
+      mirror,
+      originalUrl: originalUrl,
+    );
+    await _saveBangumiMirrorCatalog(type, catalog, mirror.url);
+  }
+
+  Future<void> deleteBangumiMirror(BangumiMirrorType type, String url) async {
+    var catalog = state.bangumiMirrorCatalog.remove(type, url);
+    var selectedUrl = state.bangumiMirrorUrl(type);
+    await _saveBangumiMirrorCatalog(
+      type,
+      catalog,
+      selectedUrl == url ? type.defaultUrl : selectedUrl,
+    );
+  }
+
+  Future<void> _saveBangumiMirrorCatalog(
+    BangumiMirrorType type,
+    BangumiMirrorCatalog catalog,
+    String selectedUrl,
+  ) async {
+    await sqlite.writeBangumiMirrorCatalog(
+      catalog,
+      type: type,
+      selectedUrl: selectedUrl,
+    );
+    BtrBangumiApi.setMirrorCatalog(catalog);
+    _applyBangumiMirror(type, selectedUrl);
+    state = state
+        .withBangumiMirrorUrl(type, selectedUrl)
+        .copyWith(bangumiMirrorCatalog: catalog);
+  }
+
+  void _applyBangumiMirror(BangumiMirrorType type, String url) {
+    switch (type) {
+      case BangumiMirrorType.site:
+        BtrBangumiApi.setSiteBaseUrl(url);
+      case BangumiMirrorType.api:
+        BtrBangumiApi.setBaseUrl(url);
+      case BangumiMirrorType.image:
+        BtrBangumiApi.setImageBaseUrl(url);
+    }
   }
 }
