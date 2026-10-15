@@ -114,6 +114,36 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     );
   }
 
+  void _showOnTopFlyout(BuildContext buttonContext, PlaybackWindowMode mode) {
+    var navigatorBox =
+        Navigator.of(context).context.findRenderObject() as RenderBox;
+    var layout = _playbackLibraryFlyoutLayout(
+      buttonContext: buttonContext,
+      navigatorBox: navigatorBox,
+      preferBelow: true,
+      maximumWidth: _PlaybackVideoControlsState._playbackMenuMaxWidth,
+    );
+    unawaited(
+      _run(() async {
+        await _libraryFlyout.showFlyout<void>(
+          placementMode: FlyoutPlacementMode.bottomLeft,
+          position: layout.position,
+          builder: (_) => DisableAcrylic(
+            child: MenuFlyout(
+              items: _playbackOnTopItems(mode, _run),
+              constraints: BoxConstraints(
+                minWidth: _PlaybackVideoControlsState._playbackMenuMinWidth,
+                maxWidth: layout.size.width,
+                maxHeight: layout.size.height,
+              ),
+              itemMargin: const EdgeInsetsDirectional.symmetric(horizontal: 4),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
   /// 播放页是否为当前页
   bool get _isPlaybackActive {
     if (widget.independent) return true;
@@ -639,16 +669,22 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Tooltip(
-                message: _playbackOnTopTooltip(mode.onTop),
-                child: material.IconButton(
-                  color: _stageForeground(context),
-                  icon: _PlaybackOnTopIcon(
-                    onTop: mode.onTop,
-                    size: 20,
-                    color: _stageForeground(context),
+              Builder(
+                builder: (buttonContext) => Tooltip(
+                  message: _playbackOnTopTooltip(mode.onTop),
+                  child: GestureDetector(
+                    onLongPress: () => _showOnTopFlyout(buttonContext, mode),
+                    child: material.IconButton(
+                      color: _stageForeground(context),
+                      icon: _PlaybackOnTopIcon(
+                        onTop: mode.onTop,
+                        size: 20,
+                        color: _stageForeground(context),
+                      ),
+                      onPressed: () =>
+                          _run(() => mode.setOnTop(mode.onTop.next)),
+                    ),
                   ),
-                  onPressed: () => _run(() => mode.setOnTop(mode.onTop.next)),
                 ),
               ),
               Tooltip(

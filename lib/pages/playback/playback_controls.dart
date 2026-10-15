@@ -550,17 +550,25 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
           ),
         ),
         if (frameless) ...[
-          _videoIconButton(
-            _PlaybackOnTopIcon(
-              onTop: widget.windowMode!.onTop,
-              size: 20,
-              color: Colors.white,
-            ),
-            _playbackOnTopTooltip(widget.windowMode!.onTop),
-            () => unawaited(
-              widget.run(
-                () =>
-                    widget.windowMode!.setOnTop(widget.windowMode!.onTop.next),
+          Builder(
+            builder: (buttonContext) => _videoIconButton(
+              _PlaybackOnTopIcon(
+                onTop: widget.windowMode!.onTop,
+                size: 20,
+                color: Colors.white,
+              ),
+              _playbackOnTopTooltip(widget.windowMode!.onTop),
+              () => unawaited(
+                widget.run(
+                  () => widget.windowMode!.setOnTop(
+                    widget.windowMode!.onTop.next,
+                  ),
+                ),
+              ),
+              onLongPress: () => _showButtonMenu(
+                buttonContext,
+                () => _playbackOnTopItems(widget.windowMode!, widget.run),
+                belowButton: true,
               ),
             ),
           ),
@@ -707,17 +715,21 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
     VoidCallback? onPressed, {
     Key? key,
     bool selected = false,
+    VoidCallback? onLongPress,
   }) => Tooltip(
     message: tooltip,
-    child: material.IconButton(
-      key: key,
-      padding: const EdgeInsets.all(6),
-      constraints: const BoxConstraints(minWidth: 34, minHeight: 36),
-      iconSize: 22,
-      color: selected ? FluentTheme.of(context).accentColor : Colors.white,
-      disabledColor: Colors.white.withValues(alpha: 0.25),
-      onPressed: onPressed,
-      icon: icon,
+    child: GestureDetector(
+      onLongPress: onPressed == null ? null : onLongPress,
+      child: material.IconButton(
+        key: key,
+        padding: const EdgeInsets.all(6),
+        constraints: const BoxConstraints(minWidth: 34, minHeight: 36),
+        iconSize: 22,
+        color: selected ? FluentTheme.of(context).accentColor : Colors.white,
+        disabledColor: Colors.white.withValues(alpha: 0.25),
+        onPressed: onPressed,
+        icon: icon,
+      ),
     ),
   );
 
@@ -1344,14 +1356,20 @@ class _PlaybackOnTopIcon extends StatelessWidget {
   }
 }
 
-String _playbackOnTopTooltip(PlaybackOnTop value) => switch (value) {
-  PlaybackOnTop.off =>
-    '窗口置顶：${PlaybackOnTop.off.label}（点击切换为${PlaybackOnTop.playing.label}）',
-  PlaybackOnTop.playing =>
-    '窗口置顶：${PlaybackOnTop.playing.label}（点击切换为'
-        '${PlaybackOnTop.always.label}）',
-  PlaybackOnTop.always => '窗口置顶：${PlaybackOnTop.always.label}（点击关闭置顶）',
-};
+String _playbackOnTopTooltip(PlaybackOnTop value) =>
+    '窗口置顶：${value.label}（短按切换为${value.next.label}，长按选择模式）';
+
+List<MenuFlyoutItemBase> _playbackOnTopItems(
+  PlaybackWindowMode windowMode,
+  Future<void> Function(Future<void> Function()) run,
+) => [
+  for (var mode in PlaybackOnTop.values)
+    ToggleMenuFlyoutItem(
+      text: _PlaybackMenuLabel(mode.label, description: mode.description),
+      value: windowMode.onTop == mode,
+      onChanged: (_) => unawaited(run(() => windowMode.setOnTop(mode))),
+    ),
+];
 
 /// Shortcut hints follow the flyout's text colors, including disabled items.
 class _PlaybackMenuShortcut extends StatelessWidget {
@@ -1617,14 +1635,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
     MenuFlyoutSubItem(
       text: _PlaybackMenuLabel('窗口置顶', description: windowMode.onTop.label),
       showBehavior: SubItemShowAction.press,
-      items: (_) => [
-        for (var mode in PlaybackOnTop.values)
-          ToggleMenuFlyoutItem(
-            text: _PlaybackMenuLabel(mode.label, description: mode.description),
-            value: windowMode.onTop == mode,
-            onChanged: (_) => unawaited(run(() => windowMode.setOnTop(mode))),
-          ),
-      ],
+      items: (_) => _playbackOnTopItems(windowMode, run),
     ),
   MenuFlyoutSubItem(
     text: const Text('音轨'),
