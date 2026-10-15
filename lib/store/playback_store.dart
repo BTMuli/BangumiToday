@@ -15,9 +15,8 @@ import 'package:path/path.dart' as path;
 // Project imports:
 import '../core/errors/playback_unavailable.dart';
 import '../core/services/native_playback_upscale_backend.dart';
-import '../core/services/playback_assets.dart';
 import '../core/services/playback_audio.dart';
-import '../core/services/playback_audio_metadata.dart';
+import '../core/services/playback_audio_controller.dart';
 import '../core/services/playback_cache.dart';
 import '../core/services/playback_chapters.dart';
 import '../core/services/playback_close_progress.dart';
@@ -26,11 +25,11 @@ import '../core/services/playback_janai_benchmarks.dart';
 import '../core/services/playback_janai_video_source.dart';
 import '../core/services/playback_loudness.dart';
 import '../core/services/playback_screenshot.dart';
+import '../core/services/playback_session_lifecycle.dart';
 import '../core/services/playback_subtitles.dart';
-import '../core/services/playback_tensorrt_gpu.dart';
 import '../core/services/playback_tensorrt_resources.dart';
+import '../core/services/playback_upscale_controller.dart';
 import '../core/services/playback_upscaler.dart';
-import '../core/utils/playback_audio_recovery.dart';
 import '../data/repositories/episode_mark_gateway_impl.dart';
 import '../data/repositories/playback_cover_impl.dart';
 import '../data/repositories/playback_episodes.dart';
@@ -117,22 +116,21 @@ class PlaybackStore extends ChangeNotifier {
     write: (value) => settingsStore.write('playbackRememberedRate', value),
   );
   Future<void>? _preferencesFuture;
-  bool _loudnessEnabled = Platform.isWindows;
-  bool _hiResEnabled = false;
-  bool _hiResConfigured = false;
-  bool _audioExclusiveEnabled = false;
-  bool _audioExclusiveConfigured = false;
-  PlaybackAudioSource? _audioSource;
-  PlaybackAudioOutput? _audioOutput;
-  String? _hiResFailure;
-  String? _hiResBlockedSource;
-  String? _lastAudioSourceKey;
-  final _audioClock = Stopwatch()..start();
-  final _audioRecovery = PlaybackAudioRecovery();
-  Timer? _audioRefreshTimer;
-  Timer? _audioWatchdog;
-  final _audioMetadata = PlaybackAudioMetadata();
-  PlaybackWasapiFormat? _wasapiFormat;
+  late final _audio = PlaybackAudioController(
+    settingsStore: settingsStore,
+    readPlayer: () => _player,
+    readSession: () => (id: _session.id, item: current, completed: completed),
+    isClosed: () => _closed,
+    serial: _serial,
+    onDiagnostic: (message) => _diagnostics?.event(message),
+    onChanged: _notify,
+  );
+  late final _upscale = PlaybackUpscaleController(
+    settingsStore: settingsStore,
+    readUpscaler: () => _upscaler,
+    isClosed: () => _closed,
+    onChanged: _notify,
+  );
   PlaybackEpisodeLayout _episodeLayout = PlaybackEpisodeLayout.grid;
   double? _aspectRatio;
   Size? _videoSize;
@@ -143,8 +141,6 @@ class PlaybackStore extends ChangeNotifier {
   bool _manualSubtitles = true;
   VideoController? _video;
   PlaybackUpscaler? _upscaler;
-  PlaybackUpscaleMode _upscaleMode = PlaybackUpscaleMode.off;
-  bool _tensorRtEnabled = false;
   Object? _viewportOwner;
   bool _viewportFullscreen = false;
   final _viewports = <Object, ({PlaybackViewport value, bool fullscreen})>{};
@@ -152,7 +148,17 @@ class PlaybackStore extends ChangeNotifier {
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   Timer? _saveTimer;
   Timer? _idlePlayerTimer;
-  Future<void> _operation = Future.value();
+  late final _lifecycle = PlaybackSessionLifecycle(
+    onOperationError: (errorValue, stackTrace) {
+      error = errorValue.toString();
+      BTLogTool.error([
+        '播放操作失败：file=$_operationFile',
+        errorValue.toString(),
+        stackTrace.toString(),
+      ]);
+      _notify();
+    },
+  );
   Future<void>? _clearPlaybackFuture;
   bool _clearingPlayback = false;
   String? _operationFile;
@@ -166,14 +172,8 @@ class PlaybackStore extends ChangeNotifier {
   Duration position = Duration.zero;
   Duration duration = Duration.zero;
   bool completed = false;
-  bool _closed = false;
+  bool get _closed => _lifecycle.isClosed;
   bool _disposed = false;
-  Future<void>? _shutdownFuture;
-  Future<void>? _shutdownWorkFuture;
-  Future<void>? _settlementFuture;
-  final _shutdownWork = <Future<void>>[];
-  final _nativeDestructions = <Future<void>>[];
-  final _shutdownFailures = <Object>[];
   final _session = PlaybackSession();
   final _completions = StreamController<PlaybackCompletion>.broadcast();
 
@@ -191,116 +191,30 @@ class PlaybackStore extends ChangeNotifier {
   bool get automaticSubtitles => !_manualSubtitles;
   VideoController? get video => _video;
   PlaybackUpscaler? get upscaler => _upscaler;
-  PlaybackUpscaleMode get upscaleMode =>
-      _upscaler?.selectedMode ?? _upscaleMode;
-  bool get tensorRtEnabled => _tensorRtEnabled && tensorRtResources.canEnable;
-  PlaybackTensorRtResources? _tensorRtResources;
-  PlaybackTensorRtResources get tensorRtResources =>
-      _tensorRtResources ??= PlaybackTensorRtResources(onChanged: _notify);
+  PlaybackUpscaleMode get upscaleMode => _upscale.selectedMode;
+  bool get tensorRtEnabled => _upscale.tensorRtEnabled;
+  PlaybackTensorRtResources get tensorRtResources => _upscale.tensorRtResources;
+  PlaybackJanaiBenchmarks get janaiBenchmarks => _upscale.janaiBenchmarks;
 
-  PlaybackJanaiBenchmarks? _janaiBenchmarks;
-  PlaybackJanaiBenchmarks get janaiBenchmarks =>
-      _janaiBenchmarks ??= PlaybackJanaiBenchmarks(
-        directory: tensorRtResources.dataDirectory,
-        onChanged: _notify,
-        loadBundled: () =>
-            rootBundle.loadString('assets/benchmarks/animejanai.json'),
-      );
-
-  /// Use the actual renderer's adapter, not the first detected CUDA device.
   PlaybackJanaiRecommendation get janaiRecommendation {
-    var catalog = janaiBenchmarks.catalog;
-    if (catalog == null) {
-      return PlaybackJanaiRecommendation(
-        janaiBenchmarks.error ?? '正在读取 benchmark',
-      );
-    }
-    var native = _upscaler?.janaiStatus;
-    var gpu = native?.gpuName ?? '';
-    if (gpu.isEmpty) {
-      gpu = PlaybackJanaiBenchmarkCatalog.rendererGpu(
-        _upscaler?.renderer ?? '',
-      );
-    }
-    var detected = tensorRtResources.gpu;
-    var supported = native != null && native.gpuName.isNotEmpty
-        ? native.gpuVendor == 0x10de &&
-              PlaybackTensorRtGpu(
-                name: native.gpuName,
-                sm: native.gpuSm,
-                driver: native.gpuDriver,
-              ).supported
-        : gpu.isEmpty ||
-              (detected?.supported == true &&
-                  PlaybackJanaiBenchmarkCatalog.gpuKey(gpu) ==
-                      PlaybackJanaiBenchmarkCatalog.gpuKey(detected!.name));
     var state = !loading && current != null ? _player?.state : null;
-    var source = state == null ? null : _janaiVideoSource?.parameters;
-    var trackId = source?.trackId ?? state?.track.video.id;
-    var track = state?.tracks.video
-        .where(
-          (track) =>
-              track.id == trackId && track.id != 'auto' && track.id != 'no',
-        )
-        .firstOrNull;
-    if (track == null &&
-        state?.track.video.id == trackId &&
-        trackId != 'auto' &&
-        trackId != 'no') {
-      track = state?.track.video;
-    }
-    return catalog.recommend(
-      gpu: gpu,
-      supported: supported,
-      width: source?.width ?? track?.w ?? 0,
-      height: source?.height ?? track?.h ?? 0,
-      fps: source?.fps ?? track?.fps ?? 0,
-      rate: state?.rate ?? 1,
+    return _upscale.recommendation(
+      state: state,
+      source: state == null ? null : _janaiVideoSource?.parameters,
     );
   }
 
-  Future<void> downloadTensorRt() async {
-    if (_closed || !Platform.isWindows) return;
-    await tensorRtResources.initialize();
-    if (_closed) return;
-    var installed = await tensorRtResources.install();
-    // Use the current preference and media generation after installation.
-    if (installed && !_closed && _tensorRtEnabled) {
-      _upscaler?.inferencePreferenceChanged();
-      _notify();
-    }
-  }
+  Future<void> downloadTensorRt() => _upscale.downloadTensorRt();
+  Future<void> cancelTensorRt() => _upscale.cancelTensorRt(setUpscaleMode);
+  Future<void> retryTensorRt() => _upscale.retryTensorRt();
 
-  Future<void> cancelTensorRt() async {
-    if (tensorRtResources.busy) {
-      tensorRtResources.cancel();
-    } else {
-      await setUpscaleMode(PlaybackUpscaleMode.off);
-    }
-  }
-
-  Future<void> retryTensorRt() async {
-    if (tensorRtEnabled) {
-      _upscaler?.inferencePreferenceChanged();
-    }
-  }
-
-  bool get loudnessEnabled => _loudnessEnabled;
-  bool get hiResEnabled => _hiResEnabled;
-  bool get audioExclusiveEnabled => _audioExclusiveEnabled;
-  bool get canEnableAudioExclusive => PlaybackAudio.supported && _hiResEnabled;
-  PlaybackHiResState get hiRes => PlaybackHiResState(
-    source: _audioSource,
-    output: _audioOutput,
-    requested: _hiResEnabled,
-    configured: _hiResConfigured,
-    exclusiveRequested: _hiResEnabled && _audioExclusiveEnabled,
-    supported: PlaybackAudio.supported,
-    rate: _player?.state.rate ?? 1,
-    failure: _hiResFailure,
-  );
-  bool get loudnessActive => _loudnessEnabled && !_hiResConfigured;
-  bool get loudnessPausedForHiRes => _hiResConfigured;
+  bool get loudnessEnabled => _audio.loudnessEnabled;
+  bool get hiResEnabled => _audio.hiResEnabled;
+  bool get audioExclusiveEnabled => _audio.audioExclusiveEnabled;
+  bool get canEnableAudioExclusive => _audio.canEnableAudioExclusive;
+  PlaybackHiResState get hiRes => _audio.hiRes;
+  bool get loudnessActive => _audio.loudnessActive;
+  bool get loudnessPausedForHiRes => _audio.loudnessPausedForHiRes;
   PlaybackEpisodeLayout get episodeLayout => _episodeLayout;
   double? get aspectRatio => _aspectRatio;
 
@@ -429,28 +343,16 @@ class PlaybackStore extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> _serial(Future<void> Function() action, {String? file}) {
-    var next = _operation.then((_) async {
-      if (_closed) return;
-      _operationFile = file ?? current?.filePath;
-      try {
-        await action();
-      } finally {
-        _setOpeningStatus(null);
-        _syncIdlePlayerTimer();
-      }
-    });
-    _operation = next.catchError((Object e, StackTrace s) {
-      error = e.toString();
-      BTLogTool.error([
-        '播放操作失败：file=$_operationFile',
-        e.toString(),
-        s.toString(),
-      ]);
-      _notify();
-    });
-    return next;
-  }
+  Future<void> _serial(Future<void> Function() action, {String? file}) =>
+      _lifecycle.run(() async {
+        _operationFile = file ?? current?.filePath;
+        try {
+          await action();
+        } finally {
+          _setOpeningStatus(null);
+          _syncIdlePlayerTimer();
+        }
+      });
 
   // A paused or completed file still owns its Player. Only unloaded media can
   // release the native render context without interrupting a viewing session.
@@ -505,11 +407,7 @@ class PlaybackStore extends ChangeNotifier {
     _chapters = null;
     _saveTimer?.cancel();
     _saveTimer = null;
-    _audioRefreshTimer?.cancel();
-    _audioRefreshTimer = null;
-    _audioWatchdog?.cancel();
-    _audioWatchdog = null;
-    _wasapiFormat = null;
+    _audio.releasePlayer();
     _viewports.clear();
     _viewportOwner = null;
     _viewportFullscreen = false;
@@ -545,11 +443,11 @@ class PlaybackStore extends ChangeNotifier {
         return {
           'file': current?.filePath,
           'loading': loading,
-          'upscale': _upscaleMode.name,
+          'upscale': _upscale.preferredMode.name,
           'loudness': loudnessActive,
-          'hires_requested': _hiResEnabled,
-          'audio_exclusive_requested': _audioExclusiveEnabled,
-          'audio_exclusive_configured': _audioExclusiveConfigured,
+          'hires_requested': _audio.hiResEnabled,
+          'audio_exclusive_requested': _audio.audioExclusiveEnabled,
+          'audio_exclusive_configured': _audio.exclusiveConfigured,
           'hires_status': hiRes.status,
           'texture': rect == null ? null : '${rect.width}x${rect.height}',
           'upscale_configured': _upscaler?.configuredMode?.name,
@@ -561,13 +459,7 @@ class PlaybackStore extends ChangeNotifier {
     var earlyLogs = <PlayerLog>[];
     var logs = player.stream.log.listen((value) {
       diagnostics.log(value);
-      if (value.prefix == 'ao/wasapi') {
-        var format = PlaybackWasapiFormat.parse(value.text);
-        if (format != null) {
-          _wasapiFormat = format;
-          _scheduleAudioRefresh();
-        }
-      }
+      _audio.log(value);
       var upscale = _upscaler;
       if (upscale != null) {
         upscale.log(value.prefix, value.level, value.text);
@@ -606,7 +498,7 @@ class PlaybackStore extends ChangeNotifier {
       }
       for (var property in ['audio-out-params', 'current-tracks/audio']) {
         await native.observeProperty(property, (_) async {
-          _scheduleAudioRefresh();
+          _audio.scheduleRefresh();
         });
       }
       if (Platform.isWindows) {
@@ -644,36 +536,7 @@ class PlaybackStore extends ChangeNotifier {
     );
     if (Platform.isWindows) {
       var video = _video!;
-      var assets = PlaybackAnime4kAssets(
-        path.join(
-          PlaybackAssets.directory(
-            executable: Platform.resolvedExecutable,
-            operatingSystem: Platform.operatingSystem,
-          ),
-          'shaders',
-          'anime4k',
-          'v4.0.1',
-        ),
-      );
-      _upscaler =
-          PlaybackUpscaler(
-              backend: NativePlaybackUpscaleBackend(
-                player,
-                video,
-                tensorRtEnabled: () => tensorRtEnabled,
-                tensorRtResources: tensorRtResources,
-              ),
-              loadShaders: assets.load,
-              onChanged: _notify,
-              onError: (error) => BTLogTool.warn('视频超分：$error'),
-              onDiagnostics: diagnostics.upscaleEvent,
-            )
-            ..preferences(_upscaleMode)
-            ..playbackState(
-              playing: player.state.playing,
-              buffering: player.state.buffering,
-            )
-            ..playbackRate(player.state.rate);
+      _upscaler = _upscale.createUpscaler(player, video, diagnostics);
       for (var value in earlyLogs) {
         _upscaler!.log(value.prefix, value.level, value.text);
       }
@@ -700,15 +563,11 @@ class PlaybackStore extends ChangeNotifier {
       player.stream.rate.listen((value) {
         diagnostics.event('播放速率改变：rate=$value');
         _upscaler?.playbackRate(value);
-        _scheduleAudioRefresh();
+        _audio.scheduleRefresh();
         _notify();
       }),
-      player.stream.audioParams.listen((_) => _scheduleAudioRefresh()),
-      player.stream.audioDevice.listen((_) {
-        _hiResBlockedSource = null;
-        _hiResFailure = null;
-        _scheduleAudioRefresh();
-      }),
+      player.stream.audioParams.listen((_) => _audio.scheduleRefresh()),
+      player.stream.audioDevice.listen((_) => _audio.deviceChanged()),
       player.stream.tracks.listen((_) {
         if (Platform.isWindows) unawaited(janaiSource.refresh());
         if (_closed || completed || _manualSubtitles || current == null) return;
@@ -953,7 +812,7 @@ class PlaybackStore extends ChangeNotifier {
       await _upscaler?.resetMedia(keepOutput: true);
       if (_closed) return;
       await _player!.stop();
-      await _resetAudio();
+      await _audio.reset();
       if (_closed) return;
       playlist = nextPlaylist;
       index = nextIndex;
@@ -972,7 +831,7 @@ class PlaybackStore extends ChangeNotifier {
       await _player!.open(Media(item.filePath, start: position));
       if (_closed) return;
       _setOpeningStatus('正在恢复播放状态…');
-      _scheduleAudioRefresh();
+      _audio.scheduleRefresh();
       await _autoSelectSubtitle();
       await _chapters?.refresh();
       _upscaler?.mediaReady(_videoSource(_player!.state.videoParams));
@@ -1086,29 +945,15 @@ class PlaybackStore extends ChangeNotifier {
     if (pending != null) return pending;
     var operation = () async {
       await _rateMemory.load();
-      _hiResEnabled =
-          await settingsStore.read(PlaybackAudio.settingKey) == 'true';
-      _audioExclusiveEnabled =
-          await settingsStore.read(PlaybackAudio.exclusiveSettingKey) == 'true';
+      await _audio.loadPreferences();
       _episodeLayout = PlaybackEpisodeLayout.parse(
         await settingsStore.read('playbackEpisodeLayout'),
       );
       if (Platform.isWindows) {
         // Resolves the component root before the benchmark cache reads it.
-        await tensorRtResources.initialize();
-        unawaited(janaiBenchmarks.initialize());
-        _loudnessEnabled = PlaybackLoudness.parse(
-          await settingsStore.read(PlaybackLoudness.settingKey),
-        );
-        _upscaleMode = PlaybackUpscaleMode.parse(
-          await settingsStore.read('playbackUpscaleMode'),
-        );
-        _tensorRtEnabled =
-            await settingsStore.read('playbackTensorRTEnabled') == 'true' &&
-            tensorRtResources.canEnable;
-        if (_upscaleMode.isJanai && !_tensorRtEnabled) {
-          _upscaleMode = PlaybackUpscaleMode.off;
-        }
+        await _upscale.initializeResources();
+        await _audio.loadLoudnessPreference();
+        await _upscale.loadPreferences();
       }
       _notify();
     }();
@@ -1125,24 +970,7 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> setLoudnessEnabled(bool enabled) => _serial(() async {
     await _loadPreferences();
-    if (_closed || _loudnessEnabled == enabled || !Platform.isWindows) return;
-    var player = _player;
-    if (player != null && !_hiResConfigured) {
-      await PlaybackLoudness.apply(player, enabled);
-    }
-    if (_closed) return;
-    try {
-      await settingsStore.write(PlaybackLoudness.settingKey, '$enabled');
-    } catch (_) {
-      if (!_closed && player != null && !_hiResConfigured) {
-        await PlaybackLoudness.apply(player, loudnessActive);
-      }
-      rethrow;
-    }
-    if (_closed) return;
-    _loudnessEnabled = enabled;
-    _diagnostics?.event('音量标准化改变：enabled=$enabled');
-    _notify();
+    await _audio.setLoudnessEnabled(enabled);
   });
 
   Future<void> setRate(double rate) => _serial(() => _setRate(rate));
@@ -1172,168 +1000,16 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> setHiResEnabled(bool enabled) => _serial(() async {
     await _loadPreferences();
-    if (_closed || _hiResEnabled == enabled) return;
-    await settingsStore.write(PlaybackAudio.settingKey, '$enabled');
-    if (_closed) return;
-    _hiResEnabled = enabled;
-    _hiResBlockedSource = null;
-    _hiResFailure = null;
-    await _refreshAudio();
-    _diagnostics?.event('HiRes 偏好改变：enabled=$enabled，${hiRes.status}');
-    _notify();
+    await _audio.setHiResEnabled(enabled);
   });
 
-  Future<void> setAudioTrack(AudioTrack track) => _serial(() async {
-    await _resetAudio();
-    await _player?.setAudioTrack(track);
-    _scheduleAudioRefresh();
-  });
+  Future<void> setAudioTrack(AudioTrack track) =>
+      _serial(() => _audio.setAudioTrack(track));
 
   Future<void> setAudioExclusiveEnabled(bool enabled) => _serial(() async {
     await _loadPreferences();
-    if (_closed ||
-        _audioExclusiveEnabled == enabled ||
-        (enabled && !canEnableAudioExclusive)) {
-      return;
-    }
-    await settingsStore.write(PlaybackAudio.exclusiveSettingKey, '$enabled');
-    if (_closed) return;
-    _audioExclusiveEnabled = enabled;
-    _hiResBlockedSource = null;
-    _hiResFailure = null;
-    await _refreshAudio();
-    _diagnostics?.event('独占输出偏好改变：enabled=$enabled，${hiRes.status}');
-    _notify();
+    await _audio.setAudioExclusiveEnabled(enabled);
   });
-
-  void _scheduleAudioRefresh({
-    Duration delay = const Duration(milliseconds: 150),
-  }) {
-    if (_closed || current == null || _audioRefreshTimer?.isActive == true) {
-      return;
-    }
-    var sessionId = _session.id;
-    _audioRefreshTimer = Timer(delay, () {
-      unawaited(
-        _serial(() async {
-          if (_session.id != sessionId || current == null) return;
-          await _refreshAudio();
-        }).catchError((Object _) {}),
-      );
-    });
-  }
-
-  Future<void> _configureHiRes(bool enabled) async {
-    var player = _player;
-    var exclusive = enabled && _audioExclusiveEnabled;
-    if (player == null ||
-        (_hiResConfigured == enabled &&
-            _audioExclusiveConfigured == exclusive)) {
-      return;
-    }
-    var previous = _hiResConfigured;
-    var previousExclusive = _audioExclusiveConfigured;
-    // Shared HiRes can keep the current device open when only its filters
-    // change. Retain its accepted format unless the access mode changes.
-    if (previousExclusive != exclusive) _wasapiFormat = null;
-    _diagnostics?.event('HiRes 输出配置开始：enabled=$enabled，exclusive=$exclusive');
-    try {
-      if (Platform.isWindows) {
-        await PlaybackLoudness.apply(player, _loudnessEnabled && !enabled);
-      }
-      await PlaybackAudio.apply(player, exclusive);
-    } catch (_) {
-      if (!_closed) {
-        await PlaybackAudio.apply(player, previousExclusive);
-        if (Platform.isWindows) {
-          await PlaybackLoudness.apply(player, _loudnessEnabled && !previous);
-        }
-      }
-      rethrow;
-    }
-    if (_closed) return;
-    _hiResConfigured = enabled;
-    _audioExclusiveConfigured = exclusive;
-    if (enabled) {
-      _audioRecovery.configured(_audioClock.elapsed);
-      _audioWatchdog ??= Timer.periodic(const Duration(seconds: 5), (_) {
-        if (_player?.state.playing == true && !completed) {
-          _scheduleAudioRefresh();
-        }
-      });
-    } else {
-      _audioRecovery.reset();
-      _audioWatchdog?.cancel();
-      _audioWatchdog = null;
-    }
-    _diagnostics?.event('HiRes 输出配置完成：enabled=$enabled，exclusive=$exclusive');
-  }
-
-  String? _audioSourceKey(PlaybackAudioSource? source) => source == null
-      ? null
-      : '${source.id}/${source.codec}/${source.sampleRate}/${source.format}/${source.channels}';
-
-  Future<void> _refreshAudio() async {
-    var player = _player;
-    if (_closed || player == null || current == null) return;
-    var sessionId = _session.id;
-    var before = hiRes.tooltip;
-    var params = await PlaybackAudio.read(
-      player,
-      filePath: current!.filePath,
-      metadata: _audioMetadata,
-      deviceFormat: _wasapiFormat,
-    );
-    if (_closed || sessionId != _session.id) return;
-    _audioSource = params.source;
-    _audioOutput = params.output;
-    var key = _audioSourceKey(params.source) ?? _lastAudioSourceKey;
-    _lastAudioSourceKey = key;
-    if (_hiResBlockedSource != key) _hiResFailure = null;
-    var desired =
-        _hiResEnabled &&
-        PlaybackAudio.supported &&
-        (params.source?.hiRes ?? _hiResConfigured) &&
-        (_hiResBlockedSource == null || _hiResBlockedSource != key);
-    try {
-      await _configureHiRes(desired);
-      if (_closed) return;
-      if (_hiResConfigured) {
-        var recovery = _audioRecovery.check(_audioClock.elapsed, hiRes);
-        if (recovery.retry) {
-          _scheduleAudioRefresh(delay: const Duration(milliseconds: 500));
-        } else if (recovery.failure != null) {
-          _hiResFailure = recovery.failure;
-          _hiResBlockedSource = key;
-          await _configureHiRes(false);
-          if (_closed) return;
-          await PlaybackAudio.reopenOutput(player);
-          _diagnostics?.event('HiRes 回退共享输出：$_hiResFailure');
-          _scheduleAudioRefresh(delay: const Duration(milliseconds: 500));
-        }
-      }
-    } catch (failure) {
-      _hiResFailure = failure.toString();
-      _hiResBlockedSource = key;
-      _diagnostics?.event('HiRes 配置失败：$failure');
-    }
-    if (before != hiRes.tooltip) _notify();
-  }
-
-  Future<void> _resetAudio() async {
-    _audioRefreshTimer?.cancel();
-    _audioWatchdog?.cancel();
-    _audioWatchdog = null;
-    _audioRecovery.reset();
-    _lastAudioSourceKey = null;
-    _audioMetadata.clear();
-    _audioSource = null;
-    _audioOutput = null;
-    _hiResFailure = null;
-    _hiResBlockedSource = null;
-    await _configureHiRes(false);
-    _notify();
-  }
 
   Future<void> setEpisodeLayout(PlaybackEpisodeLayout layout) =>
       _serial(() async {
@@ -1347,32 +1023,12 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> setUpscaleMode(PlaybackUpscaleMode mode) => _serial(() async {
     await _loadPreferences();
-    if (_closed ||
-        (_upscaleMode == mode && upscaleMode == mode) ||
-        !Platform.isWindows) {
-      return;
-    }
-    if (mode.isJanai && !tensorRtEnabled) return;
-    await settingsStore.write('playbackUpscaleMode', mode.name);
-    if (_closed) return;
-    _upscaleMode = mode;
-    _upscaler?.preferences(_upscaleMode);
-    _notify();
+    await _upscale.setUpscaleMode(mode);
   });
 
   Future<void> setTensorRtEnabled(bool enabled) => _serial(() async {
     await _loadPreferences();
-    if (_closed || !Platform.isWindows || _tensorRtEnabled == enabled) return;
-    if (enabled && !tensorRtResources.canEnable) return;
-    await settingsStore.write('playbackTensorRTEnabled', enabled.toString());
-    if (_closed) return;
-    _tensorRtEnabled = enabled;
-    if (!enabled && _upscaleMode.isJanai) {
-      _upscaleMode = PlaybackUpscaleMode.off;
-      _upscaler?.preferences(_upscaleMode);
-    }
-    _upscaler?.inferencePreferenceChanged();
-    _notify();
+    await _upscale.setTensorRtEnabled(enabled);
   });
 
   Future<void> stop() => _serial(_stop);
@@ -1385,7 +1041,7 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> _clearCurrentPlayback(PlaybackCloseProgress progress) {
     _clearingPlayback = true;
-    var pending = _operation;
+    var pending = _lifecycle.pending;
     var ready = progress.run('等待当前播放操作完成', () => pending);
     return _serial(() async {
       await ready;
@@ -1422,7 +1078,7 @@ class PlaybackStore extends ChangeNotifier {
       // and inference chain. Stop first, then clear options on the idle player.
       await stages.run('停止媒体播放', () async => _player?.stop());
       await stages.run('清理超分配置', () async => _upscaler?.resetMedia());
-      await stages.run('恢复音频配置', _resetAudio);
+      await stages.run('恢复音频配置', _audio.reset);
       _session.clear();
       index = -1;
       playlist = [];
@@ -1494,7 +1150,7 @@ class PlaybackStore extends ChangeNotifier {
         if (_closed) return;
         await _player?.stop();
         await _upscaler?.resetMedia();
-        await _resetAudio();
+        await _audio.reset();
         _session.clear();
         index = -1;
         playlist = [];
@@ -1507,35 +1163,14 @@ class PlaybackStore extends ChangeNotifier {
     }
   }
 
-  Future<void> shutdown() => _shutdownFuture ??= _shutdown();
+  Future<void> shutdown() => _lifecycle.shutdown(_shutdown);
 
-  /// The window can be hidden after UI detachment and accepted work settle.
-  /// Keep its engine alive separately for mpv's delayed native destruction.
-  Future<void> waitForShutdownWork() =>
-      _shutdownWorkFuture ??= _waitForShutdownWork();
+  /// Wait for UI detachment and accepted work before hiding the window.
+  Future<void> waitForShutdownWork() => _lifecycle.waitForWork(shutdown);
 
-  Future<void> _waitForShutdownWork() async {
-    await shutdown();
-    await Future.wait(_shutdownWork);
-    _checkShutdownFailures();
-  }
-
-  /// Closing a child engine must not cancel timed-out writes or mpv's delayed
-  /// destruction. Keep the engine alive until every accepted operation settles.
+  /// Keep the engine alive until delayed native destruction also settles.
   Future<void> waitForShutdownSettlement() =>
-      _settlementFuture ??= _waitForShutdownSettlement();
-
-  Future<void> _waitForShutdownSettlement() async {
-    await waitForShutdownWork();
-    await Future.wait(_nativeDestructions);
-    _checkShutdownFailures();
-  }
-
-  void _checkShutdownFailures() {
-    if (_shutdownFailures.isNotEmpty) {
-      throw StateError('播放器未能完成保存或清理：${_shutdownFailures.first}');
-    }
-  }
+      _lifecycle.waitForSettlement(shutdown);
 
   Future<void> _disposePlayer(Player player, {PlaybackUpscaler? upscale}) {
     var disposal = () async {
@@ -1549,32 +1184,25 @@ class PlaybackStore extends ChangeNotifier {
     // media_kit 1.2.6 schedules mpv_terminate_destroy 5 seconds after dispose.
     // Do not destroy the child isolate before that timer runs, or call the
     // native destructor ourselves (which would double-free the same handle).
-    var destruction = disposal
-        .then((_) async {
-          if (waitForNativeDestroy) {
-            await Future<void>.delayed(const Duration(milliseconds: 5200));
-          }
-        })
-        .catchError(_shutdownFailures.add);
-    _nativeDestructions.add(destruction);
+    _lifecycle.trackNativeDisposal(
+      disposal,
+      waitForNativeDestroy: waitForNativeDestroy,
+    );
     return disposal;
   }
 
   Future<void> _shutdown() async {
     // Refuse newly queued work before waiting for the current operation.
-    _closed = true;
     _idlePlayerTimer?.cancel();
     _idlePlayerTimer = null;
-    _janaiBenchmarks?.dispose();
-    _tensorRtResources?.dispose();
+    _upscale.dispose();
     _diagnostics?.close();
     _janaiVideoSource?.close();
     _chapters?.close();
     _session.close();
     _saveTimer?.cancel();
-    _audioRefreshTimer?.cancel();
-    var pending = _operation;
-    _audioWatchdog?.cancel();
+    _audio.releasePlayer();
+    var pending = _lifecycle.pending;
     var drained = await _shutdownStep(
       '等待播放操作',
       () => pending,
@@ -1663,15 +1291,15 @@ class PlaybackStore extends ChangeNotifier {
           try {
             await historyStore.write(finalRecord);
           } catch (error) {
-            _shutdownFailures.add(error);
+            _lifecycle.recordFailure(error);
             BTLogTool.warn('迟到播放位置保存失败：$error');
           }
         }
         await _disposePlayer(player, upscale: upscale);
       }();
-      _shutdownWork.add(
+      _lifecycle.trackCleanup(
         cleanup.catchError((Object error) {
-          _shutdownFailures.add(error);
+          _lifecycle.recordFailure(error);
           BTLogTool.warn('迟到原生播放器释放失败：$error');
         }),
       );
@@ -1682,24 +1310,11 @@ class PlaybackStore extends ChangeNotifier {
     String name,
     Future<void> Function() action,
     Duration timeout,
-  ) async {
-    var work = Future<void>.sync(action);
-    _shutdownWork.add(work.catchError(_shutdownFailures.add));
-    try {
-      await work.timeout(timeout);
-      return true;
-    } on TimeoutException {
-      BTLogTool.warn('播放器清理超时：$name');
-    } catch (error, stackTrace) {
-      BTLogTool.error(['播放器清理失败：$name，$error', stackTrace.toString()]);
-    }
-    return false;
-  }
+  ) => _lifecycle.step(name, action, timeout);
 
   @override
   void dispose() {
-    _janaiBenchmarks?.dispose();
-    _tensorRtResources?.dispose();
+    _upscale.dispose();
     _disposed = true;
     unawaited(
       shutdown().catchError((Object e) {
