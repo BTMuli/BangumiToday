@@ -29,6 +29,7 @@ import '../../request/bangumi/bangumi_oauth.dart';
 import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import '../../ui/bt_oauth_notice.dart';
 import 'nav_page_stack.dart';
 
 /// 应用导航
@@ -191,6 +192,8 @@ class _NavWidgetState extends ConsumerState<NavWidget>
   Future<void> oauthUser() async {
     var coordinator = BangumiOAuthCoordinator.instance;
     if (_isLoggingIn || coordinator.isAuthorizing || progress.isShow) return;
+    if (!await showBangumiLoginNotice(context)) return;
+    if (!mounted) return;
     _isLoggingIn = true;
     var authProgress = ProgressWidget.show(
       context,
