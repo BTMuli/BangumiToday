@@ -1,4 +1,5 @@
 // Dart imports:
+import 'dart:async';
 import 'dart:io';
 
 // Package imports:
@@ -44,14 +45,27 @@ Future<String> getClientUA() async {
 class BtrClient {
   static final Set<BtrClient> _clients = <BtrClient>{};
   static bool _usesSystemProxy = true;
+  static const defaultRequestTimeout = Duration(seconds: 45);
+  static const _deadlineKey = 'btr.requestDeadline';
+  static const _timedOutKey = 'btr.requestTimedOut';
 
   late Dio _dio;
+  final Map<
+    RequestOptions,
+    ({
+      CancelToken token,
+      Timer timer,
+      StreamSubscription<DioException>? cancellation,
+    })
+  >
+  _requests = {};
 
   /// 构造函数
   BtrClient() {
     _dio = _createDio();
     var interceptor = getInterceptor();
     _dio.interceptors.add(interceptor);
+    _addCompletionInterceptor();
     _clients.add(this);
   }
 
@@ -59,6 +73,7 @@ class BtrClient {
     _dio = _createDio();
     var interceptor = getInterceptor();
     _dio.interceptors.add(interceptor);
+    _addCompletionInterceptor();
     _clients.add(this);
     Future.microtask(() async {
       var headers = {'User-Agent': await getClientUA()} as Map<String, dynamic>;
@@ -73,6 +88,7 @@ class BtrClient {
         status != null && status >= 200 && status < 300;
     _dio.interceptors.add(getInterceptor());
     _dio.interceptors.add(AuthInterceptor(_dio, tokenService: tokenService));
+    _addCompletionInterceptor();
     _clients.add(this);
     Future.microtask(() async {
       var headers = {'User-Agent': await getClientUA()} as Map<String, dynamic>;
@@ -121,10 +137,94 @@ class BtrClient {
   }
 
   Dio _createDio() {
-    var dio = Dio(BaseOptions());
+    var dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 20),
+        receiveTimeout: const Duration(seconds: 20),
+      ),
+    );
     dio.options.validateStatus = (status) => true;
     dio.httpClientAdapter = _createHttpClientAdapter();
+    // 放在认证之前，让总时限也覆盖等待 Token 刷新和 401 重试。
+    dio.interceptors.add(InterceptorsWrapper(onRequest: _beginRequest));
     return dio;
+  }
+
+  void _addCompletionInterceptor() {
+    // 认证处理器可能等待刷新或重试，结束后才回收总时限。
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onResponse: (response, handler) {
+          _finishRequest(response.requestOptions);
+          handler.next(response);
+        },
+        onError: (error, handler) {
+          var options = error.requestOptions;
+          _finishRequest(options);
+          handler.next(
+            options.extra[_timedOutKey] == true
+                ? error.copyWith(
+                    type: DioExceptionType.receiveTimeout,
+                    message: '请求超过总时限',
+                  )
+                : error,
+          );
+        },
+      ),
+    );
+  }
+
+  void _beginRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) {
+    var parent = options.cancelToken;
+    var token = CancelToken()..requestOptions = options;
+    options.cancelToken = token;
+    if (parent?.isCancelled == true) {
+      token.cancel(parent!.cancelError);
+      handler.reject(token.cancelError!);
+      return;
+    }
+    // 单次请求可通过 extra.requestTimeout 覆盖预算；重试沿用原截止时间。
+    var timeout =
+        options.extra['requestTimeout'] as Duration? ?? defaultRequestTimeout;
+    var deadline =
+        options.extra[_deadlineKey] as DateTime? ?? DateTime.now().add(timeout);
+    options.extra[_deadlineKey] = deadline;
+    _finishRequest(options);
+    void expire() {
+      options.extra[_timedOutKey] = true;
+      if (!token.isCancelled) token.cancel('请求超过总时限');
+    }
+
+    var remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      expire();
+      handler.reject(
+        DioException(
+          requestOptions: options,
+          type: DioExceptionType.receiveTimeout,
+          message: '请求超过总时限',
+        ),
+      );
+      return;
+    }
+    _requests[options] = (
+      token: token,
+      timer: Timer(remaining, expire),
+      // 单次超时只取消自己的请求。完成后解除父 token 监听，避免长期共享
+      // token 的订阅刷新保留所有历史 RequestOptions。
+      cancellation: parent?.whenCancel.asStream().listen(token.cancel),
+    );
+    handler.next(options);
+  }
+
+  void _finishRequest(RequestOptions options) {
+    var request = _requests.remove(options);
+    request?.timer.cancel();
+    unawaited(request?.cancellation?.cancel());
   }
 
   IOHttpClientAdapter _createHttpClientAdapter() {
