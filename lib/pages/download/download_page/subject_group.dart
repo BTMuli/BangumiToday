@@ -28,8 +28,18 @@ class _DownloadSubjectGroup extends ConsumerWidget {
     var selectedCount = tasks
         .where((task) => selectedIds.contains(task.id))
         .length;
-    var downloadRate = tasks.fold(0, (sum, task) => sum + task.downloadRate);
-    var uploadRate = tasks.fold(0, (sum, task) => sum + task.uploadRate);
+    var rates = ref.watch(
+      btDownloadStoreProvider.select((state) {
+        var downloadRate = 0;
+        var uploadRate = 0;
+        for (var task in tasks) {
+          var current = state.tasksById[task.id];
+          downloadRate += current?.downloadRate ?? 0;
+          uploadRate += current?.uploadRate ?? 0;
+        }
+        return (downloadRate, uploadRate);
+      }),
+    );
     var accentColor = FluentTheme.of(context).accentColor;
     var collapsed = ref.watch(
       downloadCollapsedSubjectsProvider.select(
@@ -140,11 +150,11 @@ class _DownloadSubjectGroup extends ConsumerWidget {
                                 style: BTTypography.caption(context),
                               ),
                               Text(
-                                '下载 ${BTFileTool.formatSize(downloadRate)}/s',
+                                '下载 ${BTFileTool.formatSize(rates.$1)}/s',
                                 style: BTTypography.caption(context),
                               ),
                               Text(
-                                '上传 ${BTFileTool.formatSize(uploadRate)}/s',
+                                '上传 ${BTFileTool.formatSize(rates.$2)}/s',
                                 style: BTTypography.caption(context),
                               ),
                             ],

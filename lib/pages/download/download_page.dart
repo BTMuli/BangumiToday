@@ -28,6 +28,19 @@ part 'download_page/removal_dialog.dart';
 part 'download_page/subject_group.dart';
 part 'download_page/task_card.dart';
 
+final _sortedDownloadIdsProvider = Provider.autoDispose
+    .family<
+      DownloadTaskOrder,
+      ({DownloadTaskSortField field, bool descending})
+    >((ref, key) {
+      var values = ref.watch(
+        btDownloadStoreProvider.select(
+          (state) => DownloadTaskSortValues(state.activeTasks, key.field),
+        ),
+      );
+      return DownloadTaskOrder(values.sortedIds(descending: key.descending));
+    });
+
 class DownloadPage extends ConsumerStatefulWidget {
   const DownloadPage({super.key});
 
@@ -63,10 +76,10 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
     );
     var tasks = ref.watch(
       btDownloadStoreProvider.select(
-        (store) => _tabIndex == 0 ? store.activeTasks : store.stoppedTasks,
+        (store) => _tabIndex == 0 ? store.activeEntries : store.stoppedEntries,
       ),
     );
-    var currentTasks = _filterDownloadTasks(tasks, _searchQuery);
+    var currentTasks = _filterDownloadEntries(tasks, _searchQuery);
     var availableActions = ref.watch(
       btDownloadStoreProvider.select(
         (store) => (
@@ -462,23 +475,31 @@ class _DownloadTaskPane extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     var tasks = ref.watch(
       btDownloadStoreProvider.select(
-        (store) => tabIndex == 0 ? store.activeTasks : store.stoppedTasks,
+        (store) => tabIndex == 0 ? store.activeEntries : store.stoppedEntries,
       ),
     );
-    var filteredTasks = _filterDownloadTasks(tasks, searchQuery);
-    if (tabIndex == 0) {
-      filteredTasks = sortDownloadTasks(
-        filteredTasks,
-        sortField,
-        descending: sortDescending,
-      );
-    }
+    var filteredEntries = _filterDownloadEntries(tasks, searchQuery);
     if (tasks.isEmpty) {
       return tabIndex == 0 ? const _EmptyDownloads() : const _EmptyStopped();
     }
-    if (filteredTasks.isEmpty) {
+    if (filteredEntries.isEmpty) {
       return _EmptySearchResults(query: searchQuery.trim());
     }
+    Iterable<String> taskIds = filteredEntries.map((task) => task.id);
+    if (tabIndex == 0 && sortField != DownloadTaskSortField.defaultOrder) {
+      var visible = taskIds.toSet();
+      taskIds = ref
+          .watch(
+            _sortedDownloadIdsProvider((
+              field: sortField,
+              descending: sortDescending,
+            )),
+          )
+          .ids
+          .where(visible.contains);
+    }
+    var byId = ref.read(btDownloadStoreProvider).tasksById;
+    var filteredTasks = [for (var id in taskIds) byId[id]!];
     var subjectIds = {
       for (var task in filteredTasks)
         task.id: ref.watch(
@@ -525,14 +546,14 @@ class _DownloadTaskPane extends ConsumerWidget {
   }
 }
 
-List<BtTaskSnapshot> _filterDownloadTasks(
-  List<BtTaskSnapshot> tasks,
+List<BtTaskListEntry> _filterDownloadEntries(
+  List<BtTaskListEntry> tasks,
   String query,
 ) {
   var normalizedQuery = query.trim().toLowerCase();
   if (normalizedQuery.isEmpty) return tasks;
   return tasks
-      .where((task) => _taskTitle(task).toLowerCase().contains(normalizedQuery))
+      .where((task) => task.title.toLowerCase().contains(normalizedQuery))
       .toList();
 }
 
@@ -560,12 +581,7 @@ class _DownloadTaskTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     var task = ref.watch(
-      btDownloadStoreProvider.select((store) {
-        for (var item in store.tasks) {
-          if (item.id == taskId) return item;
-        }
-        return null;
-      }),
+      btDownloadStoreProvider.select((store) => store.tasksById[taskId]),
     );
     var busy = ref.watch(
       btDownloadStoreProvider.select((store) => store.isTaskBusy(taskId)),

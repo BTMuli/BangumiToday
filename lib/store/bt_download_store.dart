@@ -45,6 +45,15 @@ final btDownloadStoreProvider =
 
 enum BtBatchAction { pause, resume, stop }
 
+/// 列表结构只依赖这些字段，进度和速率交给卡片各自订阅。
+typedef BtTaskListEntry = ({
+  String id,
+  String state,
+  String title,
+  String savePath,
+  bool manual,
+});
+
 /// 下载页可见的任务快照。
 ///
 /// 只保存可比较的数据：任务列表、引擎状态、错误与忙碌标记。引擎客户端、
@@ -55,6 +64,9 @@ class BtDownloadState {
     this.tasks = const [],
     this.activeTasks = const [],
     this.stoppedTasks = const [],
+    this.tasksById = const {},
+    this.activeEntries = const [],
+    this.stoppedEntries = const [],
     this.taskBaseStates = const {},
     this.busyTaskIds = const {},
     this.engineState = BtEngineClientState.stopped,
@@ -71,6 +83,10 @@ class BtDownloadState {
 
   /// 已停止任务（下载出错 / 已完成做种）。
   final List<BtTaskSnapshot> stoppedTasks;
+
+  final Map<String, BtTaskSnapshot> tasksById;
+  final List<BtTaskListEntry> activeEntries;
+  final List<BtTaskListEntry> stoppedEntries;
 
   /// 每个任务进入“校验中”之前的稳定状态。
   final Map<String, String> taskBaseStates;
@@ -244,17 +260,52 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
     BtDownloadState previous, [
     List<BtTaskSnapshot>? tasks,
   ]) {
-    var all = List<BtTaskSnapshot>.of(tasks ?? previous.tasks);
+    var all = tasks ?? previous.tasks;
+    var byId = tasks == null
+        ? previous.tasksById
+        : Map<String, BtTaskSnapshot>.unmodifiable({
+            for (var task in all) task.id: task,
+          });
+    var orderChanged = all.length != previous.tasks.length;
+    if (tasks != null && !orderChanged) {
+      for (var i = 0; i < all.length; i++) {
+        var old = previous.tasks[i];
+        var oldState = previous.taskBaseStates[old.id] ?? old.state;
+        if (old.id != all[i].id ||
+            _stateRank(oldState) != _stateRankFor(all[i]) ||
+            previous.isStoppedTask(old) != isStoppedTask(all[i])) {
+          orderChanged = true;
+          break;
+        }
+      }
+    }
+    var active = tasks == null
+        ? previous.activeTasks
+        : _reuseSnapshots(
+            previous.activeTasks,
+            orderChanged
+                ? _sortTasks(all.where((task) => !isStoppedTask(task)))
+                : [for (var task in previous.activeTasks) byId[task.id]!],
+          );
+    var stopped = tasks == null
+        ? previous.stoppedTasks
+        : _reuseSnapshots(
+            previous.stoppedTasks,
+            orderChanged
+                ? _sortTasks(all.where(isStoppedTask))
+                : [for (var task in previous.stoppedTasks) byId[task.id]!],
+          );
     var next = BtDownloadState(
       tasks: _reuseSnapshots(previous.tasks, all),
-      activeTasks: _reuseSnapshots(
-        previous.activeTasks,
-        _sortTasks(all.where((task) => !isStoppedTask(task))),
-      ),
-      stoppedTasks: _reuseSnapshots(
-        previous.stoppedTasks,
-        _sortTasks(all.where(isStoppedTask)),
-      ),
+      tasksById: byId,
+      activeTasks: active,
+      stoppedTasks: stopped,
+      activeEntries: tasks == null
+          ? previous.activeEntries
+          : _listEntries(previous.activeEntries, active),
+      stoppedEntries: tasks == null
+          ? previous.stoppedEntries
+          : _listEntries(previous.stoppedEntries, stopped),
       taskBaseStates: Map.unmodifiable(_taskBaseStates),
       busyTaskIds: Set.unmodifiable(_busyTaskIds),
       engineState: _engineState,
@@ -264,6 +315,27 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
     );
     // 内容完全一致时保留原实例，避免向监听者推送无意义的新状态。
     return next == previous ? previous : next;
+  }
+
+  static List<BtTaskListEntry> _listEntries(
+    List<BtTaskListEntry> previous,
+    List<BtTaskSnapshot> tasks,
+  ) {
+    var entries = [
+      for (var task in tasks)
+        (
+          id: task.id,
+          state: task.state,
+          title: task.displayName.isNotEmpty
+              ? task.displayName
+              : task.displayInfoHash ?? task.id,
+          savePath: task.savePath,
+          manual: task.manual,
+        ),
+    ];
+    return listEquals(previous, entries)
+        ? previous
+        : List.unmodifiable(entries);
   }
 
   static List<BtTaskSnapshot> _reuseSnapshots(
@@ -684,12 +756,7 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
     _publish();
   }
 
-  BtTaskSnapshot? _taskById(String id) {
-    for (var task in state.tasks) {
-      if (task.id == id) return task;
-    }
-    return null;
-  }
+  BtTaskSnapshot? _taskById(String id) => state.tasksById[id];
 
   /// 分组排序：进行中为 正在下载 > 未下载 > 正在做种 > 已暂停，
   /// 已停止为 错误 > 已完成做种，

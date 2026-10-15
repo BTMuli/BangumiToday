@@ -50,6 +50,7 @@ class BtEngineClient implements BtEngineGateway {
   StreamSubscription<String>? _stderrSubscription;
   Completer<Map<String, dynamic>>? _readyCompleter;
   Future<void>? _taskRefresh;
+  Timer? _taskPublishTimer;
   Future<void>? _shutdownFuture;
   var _nextRequestId = 0;
   Future<void> _sendQueue = Future.value();
@@ -524,13 +525,27 @@ class BtEngineClient implements BtEngineGateway {
       return;
     }
     var task = BtTaskSnapshot.fromJson(Map<String, dynamic>.from(taskJson));
+    var previous = _tasks[task.id];
     if (method == 'event.taskRemoved') {
       _tasks.remove(task.id);
     } else {
       _tasks[task.id] = task;
     }
     _sequence = eventSequence;
-    _emitTasks();
+    // 同一轮中每个任务都会发送进度。合并进度突发，结构/状态变化立即发布。
+    _emitTasks(
+      immediate:
+          method == 'event.taskRemoved' ||
+          previous == null ||
+          previous.state != task.state ||
+          previous.manual != task.manual ||
+          previous.savePath != task.savePath ||
+          previous.displayName != task.displayName ||
+          previous.infoHash != task.infoHash ||
+          (previous.verifiedBytes < previous.totalBytes &&
+              task.totalBytes > 0 &&
+              task.verifiedBytes >= task.totalBytes),
+    );
   }
 
   void _scheduleTaskRefresh() {
@@ -570,7 +585,16 @@ class BtEngineClient implements BtEngineGateway {
     _emitTasks();
   }
 
-  void _emitTasks() {
+  void _emitTasks({bool immediate = true}) {
+    if (!immediate) {
+      _taskPublishTimer ??= Timer(
+        const Duration(milliseconds: 100),
+        _emitTasks,
+      );
+      return;
+    }
+    _taskPublishTimer?.cancel();
+    _taskPublishTimer = null;
     _taskController.add(List.unmodifiable(_tasks.values));
   }
 
@@ -623,6 +647,7 @@ class BtEngineClient implements BtEngineGateway {
   }
 
   Future<void> _resetProcess() async {
+    if (_taskPublishTimer != null) _emitTasks();
     await _stdoutSubscription?.cancel();
     await _stderrSubscription?.cancel();
     _stdoutSubscription = null;

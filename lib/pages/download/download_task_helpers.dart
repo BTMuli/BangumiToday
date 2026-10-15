@@ -1,3 +1,6 @@
+// Flutter imports:
+import 'package:flutter/foundation.dart';
+
 // Project imports:
 import '../../core/services/bt_engine/protocol.dart';
 
@@ -57,28 +60,70 @@ List<BtTaskSnapshot> sortDownloadTasks(
   if (field == DownloadTaskSortField.defaultOrder || tasks.length < 2) {
     return tasks;
   }
-  var values = tasks.map((task) {
-    return switch (field) {
-      DownloadTaskSortField.downloadRate => task.downloadRate,
-      DownloadTaskSortField.uploadRate => task.uploadRate,
-      DownloadTaskSortField.remainingTime => downloadTaskRemainingSeconds(task),
-      DownloadTaskSortField.defaultOrder => null,
-    };
-  }).toList();
-  var order = List.generate(tasks.length, (index) => index);
-  order.sort((a, b) {
-    var valueA = values[a];
-    var valueB = values[b];
-    // Unknown remaining times stay last in either direction.
-    if (valueA == null && valueB == null) return a.compareTo(b);
-    if (valueA == null) return 1;
-    if (valueB == null) return -1;
-    var comparison = descending
-        ? valueB.compareTo(valueA)
-        : valueA.compareTo(valueB);
-    return comparison == 0 ? a.compareTo(b) : comparison;
-  });
-  return order.map((index) => tasks[index]).toList();
+  var byId = {for (var task in tasks) task.id: task};
+  return DownloadTaskSortValues(
+    tasks,
+    field,
+  ).sortedIds(descending: descending).map((id) => byId[id]!).toList();
+}
+
+/// 相等性仅包含当前排序字段，上传等无关变化不会重新计算下载速率排序。
+class DownloadTaskSortValues {
+  DownloadTaskSortValues(
+    List<BtTaskSnapshot> tasks,
+    DownloadTaskSortField field,
+  ) : values = [
+        for (var task in tasks)
+          (
+            task.id,
+            switch (field) {
+              DownloadTaskSortField.downloadRate => task.downloadRate,
+              DownloadTaskSortField.uploadRate => task.uploadRate,
+              DownloadTaskSortField.remainingTime =>
+                downloadTaskRemainingSeconds(task),
+              DownloadTaskSortField.defaultOrder => null,
+            },
+          ),
+      ];
+
+  final List<(String, int?)> values;
+
+  List<String> sortedIds({required bool descending}) {
+    var order = List.generate(values.length, (index) => index);
+    order.sort((a, b) {
+      var valueA = values[a].$2;
+      var valueB = values[b].$2;
+      // 未知剩余时间在两个方向都保持最后，同值保留默认顺序。
+      if (valueA == null && valueB == null) return a.compareTo(b);
+      if (valueA == null) return 1;
+      if (valueB == null) return -1;
+      var comparison = descending
+          ? valueB.compareTo(valueA)
+          : valueA.compareTo(valueB);
+      return comparison == 0 ? a.compareTo(b) : comparison;
+    });
+    return order.map((index) => values[index].$1).toList();
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is DownloadTaskSortValues && listEquals(values, other.values);
+
+  @override
+  int get hashCode => Object.hashAll(values);
+}
+
+class DownloadTaskOrder {
+  DownloadTaskOrder(List<String> ids) : ids = List.unmodifiable(ids);
+
+  final List<String> ids;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DownloadTaskOrder && listEquals(ids, other.ids);
+
+  @override
+  int get hashCode => Object.hashAll(ids);
 }
 
 /// Use the same estimate for sorting and display; round up partial seconds.
