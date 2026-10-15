@@ -108,7 +108,9 @@ class _SubjectDetailResourcesState
       _rss.applyUpdate,
     );
     _statusSubscription = BmfRssService.instance.statusStream.listen((event) {
-      if (event.subscriptionId == _rss.selectedSubscriptionId) {
+      if (event.subject == widget.subjectId &&
+          (event.subscriptionId == null ||
+              event.subscriptionId == _rss.selectedSubscriptionId)) {
         unawaited(_rss.load());
       }
     });

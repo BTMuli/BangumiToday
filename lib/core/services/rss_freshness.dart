@@ -10,9 +10,22 @@ class RssFreshness {
   final int cacheVersion;
 
   bool isFresh(AppRssCacheModel? cache, DateTime now) {
+    return isMetadataFresh(
+      cache == null
+          ? null
+          : AppRssCacheMetadata(
+              hasData: cache.data?.isNotEmpty ?? false,
+              lastSuccessAt: cache.lastSuccessAt,
+              lastFailedAt: cache.lastFailedAt,
+              cacheVersion: cache.cacheVersion,
+            ),
+      now,
+    );
+  }
+
+  bool isMetadataFresh(AppRssCacheMetadata? cache, DateTime now) {
     if (cache == null ||
-        cache.data == null ||
-        cache.data!.isEmpty ||
+        !cache.hasData ||
         cache.lastSuccessAt == 0 ||
         cache.cacheVersion != cacheVersion) {
       return false;

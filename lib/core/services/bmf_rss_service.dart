@@ -187,37 +187,41 @@ class BmfRssService {
           .where((s) => s.canRefresh && (!respectAutoUpdate || s.autoUpdate))
           .toList();
       if (!_isCurrent(refreshEpoch)) return;
-      var caches = await _storage.readCaches();
+      var caches = await _storage.readCacheMetadata();
       if (!_isCurrent(refreshEpoch)) return;
-      var parsedCaches = <String, RssFeed>{};
       var groups = <String, List<AppSubscriptionModel>>{};
       var cacheHits = 0;
       var backoff = 0;
       var freshness = RssFreshness(window: _freshnessWindow);
+      var byFeed = <String, List<AppSubscriptionModel>>{};
       for (var subscription in subscriptions) {
+        byFeed.putIfAbsent(subscription.feedKey, () => []).add(subscription);
+      }
+      for (var entry in byFeed.entries) {
         if (!_isCurrent(refreshEpoch)) return;
-        var cache = caches[subscription.feedKey];
-        if (!force && freshness.isFresh(cache, started)) {
-          if (subscription.hasBaseline) {
-            cacheHits++;
+        var cache = caches[entry.key];
+        if (!force && freshness.isMetadataFresh(cache, started)) {
+          var withoutBaseline = entry.value.where((s) => !s.hasBaseline);
+          if (withoutBaseline.isEmpty) {
+            cacheHits += entry.value.length;
             continue;
           }
           try {
-            await _apply(
-              subscription.feedKey,
-              cache!.requestUrl,
-              [subscription.id],
-              cache.data!,
-              cache.lastSuccessAt,
-              epoch: refreshEpoch,
-              fromCache: true,
-              parsedFeed: parsedCaches.putIfAbsent(
-                subscription.feedKey,
-                () => RssFeed.parse(cache.data!),
-              ),
-            );
-            cacheHits++;
-            continue;
+            var cachedFeed = await _storage.readCache(entry.key);
+            if (!_isCurrent(refreshEpoch)) return;
+            if (freshness.isFresh(cachedFeed, started)) {
+              await _apply(
+                entry.key,
+                cachedFeed!.requestUrl,
+                withoutBaseline.map((s) => s.id).toList(),
+                cachedFeed.data!,
+                cachedFeed.lastSuccessAt,
+                epoch: refreshEpoch,
+                fromCache: true,
+              );
+              cacheHits += entry.value.length;
+              continue;
+            }
           } on FormatException {
             // Invalid XML is rebuilt by the normal request path.
           }
@@ -228,10 +232,10 @@ class BmfRssService {
             started.millisecondsSinceEpoch - cache.lastFailedAt >= 0 &&
             started.millisecondsSinceEpoch - cache.lastFailedAt <
                 const Duration(minutes: 5).inMilliseconds) {
-          backoff++;
+          backoff += entry.value.length;
           continue;
         }
-        groups.putIfAbsent(subscription.feedKey, () => []).add(subscription);
+        groups[entry.key] = entry.value;
       }
       var successes = 0;
       var failures = 0;
@@ -326,10 +330,9 @@ class BmfRssService {
     int at, {
     required int epoch,
     bool fromCache = false,
-    RssFeed? parsedFeed,
   }) async {
     if (!_isCurrent(epoch)) return;
-    var feed = parsedFeed ?? RssFeed.parse(xml);
+    var feed = RssFeed.parse(xml);
     var updates = await _storage.applyFeed(
       feedKey: feedKey,
       requestUrl: url,
@@ -340,12 +343,15 @@ class BmfRssService {
       parsedFeed: feed,
     );
     if (!_isCurrent(epoch)) return;
+    var summaries = await _storage.readBmfSummaries(
+      updates.map((update) => update.subscription.bmfId),
+    );
+    if (!_isCurrent(epoch)) return;
     var items = feed.items;
     var notifications = <int, String>{};
     var itemCount = 0;
     for (var update in updates) {
-      var bmf = await _bmfFor(update.subscription);
-      if (!_isCurrent(epoch)) return;
+      var bmf = summaries[update.subscription.bmfId];
       if (bmf == null) continue;
       _updateController.add(
         BmfRssUpdateEvent(
@@ -357,12 +363,15 @@ class BmfRssService {
           pendingItemKeys: update.subscription.pendingItemKeys,
         ),
       );
-      await notifySubscriptionStateChanged(update.subscription.id);
-      if (!_isCurrent(epoch)) return;
       if (update.newItems.isNotEmpty) {
         notifications[bmf.subject] = bmf.title ?? '动画 ${bmf.subject}';
         itemCount += update.newItems.length;
       }
+    }
+    for (var bmf in summaries.values) {
+      _statusController.add(
+        BmfRssStatusEvent(subject: bmf.subject, pendingCount: bmf.pendingCount),
+      );
     }
     if (notifications.isNotEmpty) {
       try {
@@ -388,30 +397,20 @@ class BmfRssService {
     }
   }
 
-  Future<AppBmfModel?> _bmfFor(AppSubscriptionModel subscription) async {
-    var query = _storage.db.select(_storage.db.appBmf)
-      ..where((b) => b.id.equals(subscription.bmfId));
-    var row = await query.getSingleOrNull();
-    return row == null ? null : BtsAppBmf().read(row.subject);
-  }
-
   Future<void> notifySubscriptionStateChanged(int id) async {
     if (_stopped) return;
     var epoch = _refreshEpoch;
     await _track(() async {
       var subscription = await _storage.read(id);
       if (subscription == null || !_isCurrent(epoch)) return;
-      var bmf = await _bmfFor(subscription);
+      var summaries = await _storage.readBmfSummaries([subscription.bmfId]);
+      var bmf = summaries[subscription.bmfId];
       if (bmf == null || !_isCurrent(epoch)) return;
-      var count = bmf.subscriptions.fold<int>(
-        0,
-        (sum, s) => sum + s.pendingItemKeys.length,
-      );
       _statusController.add(
         BmfRssStatusEvent(
           subject: bmf.subject,
           subscriptionId: id,
-          pendingCount: count,
+          pendingCount: bmf.pendingCount,
         ),
       );
     });

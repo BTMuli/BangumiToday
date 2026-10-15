@@ -3,6 +3,21 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'app_rss_cache_model.g.dart';
 
+/// 刷新调度只读取时间与缓存可用性，避免每分钟传输全部 XML。
+class AppRssCacheMetadata {
+  const AppRssCacheMetadata({
+    required this.hasData,
+    required this.lastSuccessAt,
+    required this.lastFailedAt,
+    required this.cacheVersion,
+  });
+
+  final bool hasData;
+  final int lastSuccessAt;
+  final int lastFailedAt;
+  final int cacheVersion;
+}
+
 @JsonSerializable()
 class AppRssCacheModel {
   const AppRssCacheModel({

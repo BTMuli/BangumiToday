@@ -18,6 +18,12 @@ class SubscriptionFeedUpdate {
   final List<RssItem> newItems;
 }
 
+typedef SubscriptionBmfSummary = ({
+  int subject,
+  String? title,
+  int pendingCount,
+});
+
 /// Transactional state transitions, usable without Flutter or singleton state.
 class SubscriptionStorage {
   const SubscriptionStorage(this.db);
@@ -42,6 +48,64 @@ class SubscriptionStorage {
     for (var row in await db.select(db.appRssCache).get())
       row.feedKey: AppRssCacheModel.fromJson(row.toJson()),
   };
+
+  Future<Map<String, AppRssCacheMetadata>> readCacheMetadata() async {
+    var table = db.appRssCache;
+    var hasData = table.data.isNotNull() & table.data.equals('').not();
+    var query = db.selectOnly(table)
+      ..addColumns([
+        table.feedKey,
+        hasData,
+        table.lastSuccessAt,
+        table.lastFailedAt,
+        table.cacheVersion,
+      ]);
+    return {
+      for (var row in await query.get())
+        row.read(table.feedKey)!: AppRssCacheMetadata(
+          hasData: row.read(hasData) ?? false,
+          lastSuccessAt: row.read(table.lastSuccessAt)!,
+          lastFailedAt: row.read(table.lastFailedAt)!,
+          cacheVersion: row.read(table.cacheVersion)!,
+        ),
+    };
+  }
+
+  /// 一次查询取得所有受影响 BMF 的标题与总待处理数。
+  Future<Map<int, SubscriptionBmfSummary>> readBmfSummaries(
+    Iterable<int> bmfIds,
+  ) async {
+    var ids = bmfIds.toSet();
+    if (ids.isEmpty) return {};
+    var bmfs = db.appBmf;
+    var subscriptions = db.appSubscription;
+    var query = db.selectOnly(bmfs)
+      ..join([
+        leftOuterJoin(subscriptions, subscriptions.bmfId.equalsExp(bmfs.id)),
+      ])
+      ..addColumns([
+        bmfs.id,
+        bmfs.subject,
+        bmfs.title,
+        subscriptions.pendingItems,
+      ])
+      ..where(bmfs.id.isIn(ids));
+    var result = <int, SubscriptionBmfSummary>{};
+    for (var row in await query.get()) {
+      var id = row.read(bmfs.id)!;
+      var pending = row.read(subscriptions.pendingItems);
+      result[id] = (
+        subject: row.read(bmfs.subject)!,
+        title: row.read(bmfs.title),
+        pendingCount:
+            (result[id]?.pendingCount ?? 0) +
+            (pending == null
+                ? 0
+                : AppSubscriptionModel.decodeKeys(pending).length),
+      );
+    }
+    return result;
+  }
 
   Future<AppRssCacheModel?> readCache(String feedKey) async {
     var query = db.select(db.appRssCache)
@@ -209,11 +273,11 @@ class SubscriptionStorage {
         }
       }
       var updates = <SubscriptionFeedUpdate>[];
-      for (var id in subscriptionIds.toSet()) {
-        var current = await read(id);
-        if (current == null ||
-            current.feedKey != feedKey ||
-            !current.canRefresh) {
+      var query = db.select(db.appSubscription)
+        ..where((s) => s.id.isIn(subscriptionIds.toSet()));
+      for (var row in await query.get()) {
+        var current = AppSubscriptionModel.fromJson(row.toJson());
+        if (current.feedKey != feedKey || !current.canRefresh) {
           continue;
         }
         if (fromCache && current.hasBaseline) continue;
@@ -227,16 +291,28 @@ class SubscriptionStorage {
         pending.addAll(newItems.map(rssItemKey));
         // Keep historical known keys even when the feed window rolls forward.
         known.addAll(currentKeys);
+        var pendingJson = jsonEncode(pending.toList()..sort());
+        var knownJson = jsonEncode(known.toList()..sort());
         await (db.update(
           db.appSubscription,
-        )..where((s) => s.id.equals(id))).write(
+        )..where((s) => s.id.equals(current.id))).write(
           AppSubscriptionCompanion(
-            pendingItems: Value(jsonEncode(pending.toList()..sort())),
-            knownItems: Value(jsonEncode(known.toList()..sort())),
+            pendingItems: Value(pendingJson),
+            knownItems: Value(knownJson),
             hasBaseline: const Value(1),
           ),
         );
-        updates.add(SubscriptionFeedUpdate((await read(id))!, newItems));
+        updates.add(
+          SubscriptionFeedUpdate(
+            AppSubscriptionModel.fromJson({
+              ...current.toJson(),
+              'pendingItems': pendingJson,
+              'knownItems': knownJson,
+              'hasBaseline': true,
+            }),
+            newItems,
+          ),
+        );
       }
       if (updates.isNotEmpty && !fromCache) {
         await db

@@ -52,7 +52,10 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
       _data.applyUpdate(event);
     });
     _statusSubscription = BmfRssService.instance.statusStream.listen((event) {
-      if (mounted && event.subscriptionId == _data.selectedSubscriptionId) {
+      if (mounted &&
+          event.subject == widget.bmf.subject &&
+          (event.subscriptionId == null ||
+              event.subscriptionId == _data.selectedSubscriptionId)) {
         unawaited(_data.load());
       }
     });
