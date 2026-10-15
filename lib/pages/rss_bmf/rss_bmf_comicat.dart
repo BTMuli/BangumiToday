@@ -50,6 +50,7 @@ class _RssBmfComicatState extends State<RssBmfComicat>
 
   @override
   void dispose() {
+    comicatAPI.client.dispose();
     _searchController.dispose();
     super.dispose();
   }

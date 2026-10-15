@@ -124,6 +124,8 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
   @override
   void dispose() {
     _generation++;
+    _mikanApi.client.dispose();
+    _anibtApi.client.dispose();
     _query.dispose();
     super.dispose();
   }

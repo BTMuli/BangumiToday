@@ -54,6 +54,7 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
 
   @override
   void dispose() {
+    anibtAPI.client.dispose();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();

@@ -51,6 +51,7 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
   @override
   void dispose() {
     if (_isLoggingIn) BangumiOAuthCoordinator.instance.cancel();
+    apiOauth.client.dispose();
     super.dispose();
   }
 

@@ -50,6 +50,7 @@ class BtrClient {
   static const _timedOutKey = 'btr.requestTimedOut';
 
   late Dio _dio;
+  bool _disposed = false;
   final Map<
     RequestOptions,
     ({
@@ -98,6 +99,30 @@ class BtrClient {
 
   /// 获取 Dio 实例
   Dio get dio => _dio;
+
+  /// 取消本客户端的在途请求，保留客户端供后续刷新使用。
+  void cancelPendingRequests([String reason = '客户端请求已取消']) {
+    for (var request in _requests.values.toList()) {
+      request.timer.cancel();
+      unawaited(request.cancellation?.cancel());
+      if (!request.token.isCancelled) request.token.cancel(reason);
+    }
+    _requests.clear();
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _clients.remove(this);
+    cancelPendingRequests('客户端已释放');
+    _dio.close(force: true);
+  }
+
+  static void disposeAll() {
+    for (var client in _clients.toList()) {
+      client.dispose();
+    }
+  }
 
   /// 获取是否启用应用代理。
   static bool get useSystemProxy => SystemProxyController.enabled;
@@ -182,8 +207,8 @@ class BtrClient {
     var parent = options.cancelToken;
     var token = CancelToken()..requestOptions = options;
     options.cancelToken = token;
-    if (parent?.isCancelled == true) {
-      token.cancel(parent!.cancelError);
+    if (_disposed || parent?.isCancelled == true) {
+      token.cancel(_disposed ? '客户端已释放' : parent!.cancelError);
       handler.reject(token.cancelError!);
       return;
     }

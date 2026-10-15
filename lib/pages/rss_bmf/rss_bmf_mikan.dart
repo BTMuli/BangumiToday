@@ -95,6 +95,7 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
 
   @override
   void dispose() {
+    mikanAPI.client.dispose();
     _searchController.dispose();
     super.dispose();
   }

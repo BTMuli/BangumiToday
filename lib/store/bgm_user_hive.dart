@@ -103,7 +103,10 @@ class BgmUserStore extends Notifier<BgmUserState> {
   DateTime? get expireTime => state.expireTime;
 
   @override
-  BgmUserState build() => const BgmUserState();
+  BgmUserState build() {
+    ref.onDispose(api.client.dispose);
+    return const BgmUserState();
+  }
 
   BgmUserHiveModel _model() =>
       BgmUserHiveModel(user: state.user, expireTime: state.expireTime);

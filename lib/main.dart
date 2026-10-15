@@ -197,6 +197,9 @@ Future<bool> _performApplicationExit() async {
     // shutdown 自己控制完整的退出预算，并在超时后终止、回收进程。
     timeout: null,
   );
+  await _runExitStep('网络客户端', () async {
+    BtrClient.disposeAll();
+  });
   await _runExitStep('应用状态', () async {
     globalContainer.dispose();
   });

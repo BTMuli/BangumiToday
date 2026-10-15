@@ -202,6 +202,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   /// 清理
   @override
   void dispose() {
+    apiBgd.client.dispose();
     _dayChangeTimer?.cancel();
     _scrollController.removeListener(syncActiveSlot);
     _scrollController.dispose();

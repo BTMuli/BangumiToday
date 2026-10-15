@@ -119,6 +119,7 @@ class _NavWidgetState extends ConsumerState<NavWidget>
   @override
   void dispose() {
     if (_isLoggingIn) BangumiOAuthCoordinator.instance.cancel();
+    apiOauth.client.dispose();
     _appLinkSubscription?.cancel();
     flyoutMore.dispose();
     super.dispose();
