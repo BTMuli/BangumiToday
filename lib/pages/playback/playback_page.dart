@@ -44,6 +44,11 @@ import 'playback_episode_mark.dart';
 import 'playback_label.dart';
 import 'playback_window_mode.dart';
 
+part 'playback_control_commands.dart';
+part 'playback_control_bar.dart';
+part 'playback_control_menus.dart';
+part 'playback_control_buttons.dart';
+part 'playback_control_settings.dart';
 part 'playback_controls.dart';
 part 'playback_overlay.dart';
 part 'playback_seek_bar.dart';
