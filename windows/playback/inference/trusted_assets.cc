@@ -44,7 +44,10 @@ class ReadFileLease final {
   HANDLE handle = INVALID_HANDLE_VALUE;
 };
 
-std::string Digest(HANDLE file, const std::string* text = nullptr) {
+std::string Digest(HANDLE file, const std::string* text = nullptr,
+                   const AssetReadProgress& progress = {}) {
+  uint64_t read = 0;
+  if (progress) progress(read);
   struct Hash final {
     BCRYPT_ALG_HANDLE algorithm = nullptr;
     BCRYPT_HASH_HANDLE hash = nullptr;
@@ -75,6 +78,8 @@ std::string Digest(HANDLE file, const std::string* text = nullptr) {
     }
     if (!count) break;
     check(BCryptHashData(context.hash, buffer.data(), count, 0));
+    read += count;
+    if (progress) progress(read);
   }
   std::array<uint8_t, 32> digest{};
   check(BCryptFinishHash(context.hash, digest.data(),
@@ -93,14 +98,15 @@ bool Match(const detail::Asset& asset, uint64_t bytes,
   return asset.bytes == bytes && digest == asset.sha256;
 }
 
-HANDLE Verify(const std::filesystem::path& path, bool model) {
+HANDLE Verify(const std::filesystem::path& path, bool model,
+              const AssetReadProgress& progress = {}) {
   ReadFileLease file(path);
   LARGE_INTEGER length{};
   if (!GetFileSizeEx(file.handle, &length) || length.QuadPart <= 0 ||
       length.QuadPart > 32 * 1024 * 1024) {
     throw std::runtime_error("Inference asset has an invalid length");
   }
-  const auto digest = Digest(file.handle);
+  const auto digest = Digest(file.handle, nullptr, progress);
   const bool valid =
       model ? Match(detail::kPerformance, length.QuadPart, digest) ||
                   Match(detail::kBalanced, length.QuadPart, digest)
@@ -124,17 +130,18 @@ std::unique_ptr<LockedAsset> LockedAsset::Runtime(
   return std::unique_ptr<LockedAsset>(new LockedAsset(Verify(path, false)));
 }
 std::unique_ptr<LockedAsset> LockedAsset::Model(
-    const std::filesystem::path& path) {
-  return std::unique_ptr<LockedAsset>(new LockedAsset(Verify(path, true)));
+    const std::filesystem::path& path, const AssetReadProgress& progress) {
+  return std::unique_ptr<LockedAsset>(
+      new LockedAsset(Verify(path, true, progress)));
 }
 std::unique_ptr<LockedAsset> LockedAsset::File(
     const std::filesystem::path& path, uint64_t bytes,
-    const std::string& sha256) {
+    const std::string& sha256, const AssetReadProgress& progress) {
   ReadFileLease file(path);
   LARGE_INTEGER length{};
   if (!GetFileSizeEx(file.handle, &length) || length.QuadPart <= 0 ||
       static_cast<uint64_t>(length.QuadPart) != bytes ||
-      Digest(file.handle) != sha256) {
+      Digest(file.handle, nullptr, progress) != sha256) {
     throw std::runtime_error("TensorRT asset failed the compiled lock: " +
                              Describe(path));
   }
@@ -142,9 +149,10 @@ std::unique_ptr<LockedAsset> LockedAsset::File(
   file.handle = INVALID_HANDLE_VALUE;
   return std::unique_ptr<LockedAsset>(new LockedAsset(handle));
 }
-std::string LockedAsset::Sha256(const std::filesystem::path& path) {
+std::string LockedAsset::Sha256(const std::filesystem::path& path,
+                               const AssetReadProgress& progress) {
   ReadFileLease file(path);
-  return Digest(file.handle);
+  return Digest(file.handle, nullptr, progress);
 }
 std::string LockedAsset::HashText(const std::string& text) {
   return Digest(INVALID_HANDLE_VALUE, &text);

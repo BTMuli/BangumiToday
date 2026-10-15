@@ -1,6 +1,7 @@
 // Copyright (c) BangumiToday contributors. Licensed under the project MIT.
 #pragma once
 #include <atomic>
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <mutex>
@@ -19,7 +20,9 @@ struct TrtResources {
   // Checks architecture and driver before locking every file from the compiled
   // manifest. installed.json is never a source of expected hashes.
   static std::shared_ptr<TrtResources> Open(const std::filesystem::path& root,
-                                            const GpuCapabilities& gpu);
+      const GpuCapabilities& gpu,
+      const std::function<void(const std::filesystem::path&, uint64_t, uint64_t)>&
+          progress = {});
 };
 
 class TrtEngineBuild final {
@@ -35,20 +38,27 @@ class TrtEngineBuild final {
   };
   TrtEngineBuild(std::filesystem::path runtime, std::filesystem::path cache,
                  std::filesystem::path model, GpuCapabilities gpu,
-                 uint32_t width, uint32_t height);
+                 uint32_t width, uint32_t height,
+                 const std::wstring& cancel_event = {});
   ~TrtEngineBuild();
   TrtEngineBuild(const TrtEngineBuild&) = delete;
   TrtEngineBuild& operator=(const TrtEngineBuild&) = delete;
   Result snapshot() const;
 
  private:
+  bool IsCancelled() const;
+  void CheckCancelled() const;
   void Work(const std::filesystem::path& runtime,
             const std::filesystem::path& cache,
             const std::filesystem::path& model, const GpuCapabilities& gpu,
             uint32_t width, uint32_t height) noexcept;
   std::atomic<bool> cancel_{false};
+  HANDLE cancel_event_ = nullptr;
   mutable std::mutex mutex_;
   Result result_;
+  std::chrono::steady_clock::time_point started_ =
+      std::chrono::steady_clock::now();
+  std::chrono::steady_clock::time_point stage_started_ = started_;
   std::thread worker_;
 };
 }  // namespace bangumi::inference

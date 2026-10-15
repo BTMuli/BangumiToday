@@ -3,6 +3,7 @@
 #include <d3d11.h>
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -16,7 +17,9 @@ class TrtSession final {
  public:
   TrtSession(std::shared_ptr<TrtResources> resources,
              const std::filesystem::path& engine, const GpuCapabilities& gpu,
-             uint32_t width, uint32_t height);
+             uint32_t width, uint32_t height,
+             const std::function<void()>& checkpoint = {},
+             const std::function<void(const char*)>& progress = {});
   ~TrtSession();
   TrtSession(const TrtSession&) = delete;
   TrtSession& operator=(const TrtSession&) = delete;

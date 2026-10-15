@@ -128,6 +128,7 @@ struct aji_ctx {
   int build_slot = 0, build_width = 0, build_height = 0;
   std::filesystem::path trt_dir;
   std::filesystem::path engine_cache;
+  std::wstring build_cancel_event;
   std::unique_ptr<TrtEngineBuild> build;
   std::filesystem::path trt_engine;
   std::shared_ptr<TrtResources> trt_resources;
@@ -227,6 +228,8 @@ bool ParseConfig(aji_ctx& state, const std::filesystem::path& path) {
       state.trt_dir = resolve(value);
     } else if (key == "engine_cache") {
       state.engine_cache = resolve(value);
+    } else if (key == "build_cancel_event") {
+      state.build_cancel_event = std::filesystem::u8path(value).wstring();
     } else if (key == "default_slot") {
       state.slot = std::atoi(value.c_str());
     } else if (key.rfind("slot", 0) == 0 && key.size() > 4) {
@@ -620,7 +623,7 @@ AJI_EXPORT int aji_configure(aji_ctx* c, int w, int h, double fps, int* out_w,
           const auto plan = MakeFramePlan(frame);
           c->build = std::make_unique<TrtEngineBuild>(
               c->trt_dir, c->engine_cache, c->slot_models[c->slot], gpu,
-              plan.model_width, plan.model_height);
+              plan.model_width, plan.model_height, c->build_cancel_event);
         }
       }
     }

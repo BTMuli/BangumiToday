@@ -4,6 +4,7 @@
 #include <NvInferRuntime.h>
 #include <wrl/client.h>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstring>
@@ -214,9 +215,19 @@ struct TrtSession::State {
 TrtSession::TrtSession(std::shared_ptr<TrtResources> resources,
                        const std::filesystem::path& file,
                        const GpuCapabilities& gpu, uint32_t width,
-                       uint32_t height)
+                       uint32_t height,
+                       const std::function<void()>& checkpoint,
+                       const std::function<void(const char*)>& progress)
     : state_(std::make_unique<State>()) {
   try {
+    const auto step = [&](const char* reason) {
+      if (checkpoint) checkpoint();
+      if (progress) progress(reason);
+    };
+    const AssetReadProgress reading = [&](uint64_t) {
+      if (checkpoint) checkpoint();
+    };
+    step("正在初始化 CUDA 上下文");
     auto& state = *state_;
     state.width = width;
     state.height = height;
@@ -225,7 +236,9 @@ TrtSession::TrtSession(std::shared_ptr<TrtResources> resources,
         state.cuda.cuDevicePrimaryCtxRetain(&state.context, state.device),
         "Retain playback CUDA context");
     CudaScope scope(state.cuda, state.context);
+    step("正在加载 TensorRT 运行库");
     state.library = GetRuntime(std::move(resources));
+    step("正在创建 TensorRT 运行时");
     state.runtime.reset(static_cast<nvinfer1::IRuntime*>(
         state.library->create(&state.logger, NV_TENSORRT_VERSION)));
     Check(state.runtime != nullptr, "Cannot create TensorRT runtime");
@@ -233,12 +246,21 @@ TrtSession::TrtSession(std::shared_ptr<TrtResources> resources,
     const uint64_t bytes = std::filesystem::file_size(file);
     Check(bytes > 0 && bytes <= 512 * 1024 * 1024,
           "Invalid TensorRT engine size");
+    step("正在校验并读取引擎文件");
     state.engine_lease =
-        LockedAsset::File(file, bytes, LockedAsset::Sha256(file));
+        LockedAsset::File(file, bytes, LockedAsset::Sha256(file, reading),
+                          reading);
     std::ifstream input(file, std::ios::binary);
     std::vector<char> data(static_cast<size_t>(bytes));
-    input.read(data.data(), static_cast<std::streamsize>(data.size()));
+    for (size_t offset = 0; offset < data.size();) {
+      if (checkpoint) checkpoint();
+      const auto count = std::min(size_t{1048576}, data.size() - offset);
+      input.read(data.data() + offset, static_cast<std::streamsize>(count));
+      Check(input.good(), "Cannot read TensorRT engine");
+      offset += count;
+    }
     Check(input.good(), "Cannot read TensorRT engine");
+    step("正在反序列化 TensorRT 引擎");
     state.engine.reset(
         state.runtime->deserializeCudaEngine(data.data(), data.size()));
     Check(state.engine != nullptr, state.logger.error.empty()
@@ -246,6 +268,7 @@ TrtSession::TrtSession(std::shared_ptr<TrtResources> resources,
                                        : state.logger.error.c_str());
     Check(state.engine->getNbIOTensors() == 2,
           "TensorRT model IO count mismatch");
+    step("正在创建执行上下文并校验张量");
     state.execution.reset(state.engine->createExecutionContext());
     Check(state.execution != nullptr,
           "Cannot create TensorRT execution context");
@@ -279,6 +302,7 @@ TrtSession::TrtSession(std::shared_ptr<TrtResources> resources,
                               : nvinfer1::TensorIOMode::kOUTPUT),
             "TensorRT model must be static FP16 NCHW with 2x output");
     }
+    step("正在分配 GPU 张量和预热资源");
     CudaApi::Check(
         state.cuda.cuStreamCreate(&state.stream, CU_STREAM_NON_BLOCKING),
         "Create CUDA stream");
@@ -298,6 +322,7 @@ TrtSession::TrtSession(std::shared_ptr<TrtResources> resources,
               state.execution->setTensorAddress(
                   "output", reinterpret_cast<void*>(state.output)),
           "Cannot bind TensorRT GPU tensors");
+    step("正在执行首次 GPU 预热推理");
     CudaApi::Check(state.cuda.cuEventRecord(state.events[0], state.stream),
                    "Warmup start");
     state.pending = true;
@@ -311,15 +336,18 @@ TrtSession::TrtSession(std::shared_ptr<TrtResources> resources,
     CudaApi::Check(state.cuda.cuEventRecord(state.completion, state.stream),
                    "Warmup completion");
     state.Wait();
+    step("正在捕获 CUDA Graph");
     state.CaptureGraph();
     // Warm the captured launch too, outside the graphics-context lock.
     if (state.graph) {
+      step("正在预热 CUDA Graph");
       state.pending = true;
       state.Enqueue();
       CudaApi::Check(state.cuda.cuEventRecord(state.completion, state.stream),
                      "Graph warmup completion");
       state.Wait();
     }
+    step("引擎张量校验和 GPU 预热通过");
     state.gpu_ms = 0;
   } catch (...) {
     // Constructor failures bypass ~TrtSession. Keep resources alive if CUDA

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <stdexcept>
 
@@ -28,6 +29,24 @@ struct Handle final {
 
 void Check(bool success, const char* operation) {
   if (!success) throw std::runtime_error(operation);
+}
+void AppendBuildLog(const std::filesystem::path& path,
+                    const std::string& message) {
+  if (path.empty()) return;
+  SYSTEMTIME time{};
+  GetLocalTime(&time);
+  std::ostringstream line;
+  line << '[' << std::setfill('0') << std::setw(2) << time.wHour << ':'
+       << std::setw(2) << time.wMinute << ':' << std::setw(2) << time.wSecond
+       << "] [BangumiToday] " << message << "\r\n";
+  const auto text = line.str();
+  Handle file(CreateFileW(path.c_str(), FILE_APPEND_DATA,
+      FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+      FILE_ATTRIBUTE_NORMAL, nullptr));
+  if (file.value == INVALID_HANDLE_VALUE) return;
+  DWORD written = 0;
+  WriteFile(file.value, text.data(), static_cast<DWORD>(text.size()),
+            &written, nullptr);
 }
 std::wstring Quote(const std::wstring& argument) {
   std::wstring result = L"\"";
@@ -62,7 +81,7 @@ void WriteText(const std::filesystem::path& path, const std::string& text) {
 
 std::string Identity(const std::filesystem::path& model,
                      const GpuCapabilities& gpu, uint32_t width,
-                     uint32_t height) {
+                     uint32_t height, const AssetReadProgress& progress) {
   CudaApi cuda;
   CUuuid uuid{};
   CudaApi::Check(cuda.cuDeviceGetUuid(&uuid, gpu.cuda_device),
@@ -79,7 +98,7 @@ std::string Identity(const std::filesystem::path& model,
     result << alphabet[byte >> 4] << alphabet[byte & 15];
   result << ";shape=1x3x" << height << 'x' << width
          << ";type=fp16;format=linear;opt=3;aux=0;workspace=1024MiB;model="
-         << LockedAsset::Sha256(model) << '\n';
+         << LockedAsset::Sha256(model, progress) << '\n';
   return result.str();
 }
 
@@ -88,7 +107,8 @@ void RunBuilder(const TrtResources& resources,
                 const std::filesystem::path& output,
                 const std::filesystem::path& log_path,
                 const GpuCapabilities& gpu, uint32_t width, uint32_t height,
-                const std::atomic<bool>& cancel) {
+                const std::function<void()>& checkpoint, HANDLE cancel_event) {
+  checkpoint();
   const auto executable = resources.directory / L"trtexec.exe";
   const std::wstring shape =
       L"input:1x3x" + std::to_wstring(height) + L"x" + std::to_wstring(width);
@@ -100,7 +120,7 @@ void RunBuilder(const TrtResources& resources,
            L"--device=" + std::to_wstring(gpu.cuda_device), L"--skipInference",
            L"--builderOptimizationLevel=3", L"--maxAuxStreams=0",
            L"--memPoolSize=workspace:1024", L"--inputIOFormats=chw",
-           L"--outputIOFormats=chw"})
+           L"--outputIOFormats=chw", L"--verbose"})
     command += L" " + Quote(argument);
   // The FP16 model supplies the types. TensorRT 11 removed --fp16.
   std::vector<wchar_t> writable(command.begin(), command.end());
@@ -122,8 +142,9 @@ void RunBuilder(const TrtResources& resources,
   }
   block.push_back(0);
   SECURITY_ATTRIBUTES security{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
-  Handle log(CreateFileW(log_path.c_str(), GENERIC_WRITE, FILE_SHARE_READ,
-                         &security, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
+  Handle log(CreateFileW(log_path.c_str(), FILE_APPEND_DATA,
+                         FILE_SHARE_READ | FILE_SHARE_WRITE,
+                         &security, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
                          nullptr));
   Check(log.value != INVALID_HANDLE_VALUE, "Cannot open TensorRT build log");
   Handle null_input(CreateFileW(L"NUL", GENERIC_READ,
@@ -161,6 +182,7 @@ void RunBuilder(const TrtResources& resources,
   Check(SetInformationJobObject(job.value, JobObjectExtendedLimitInformation,
                                 &limits, sizeof(limits)) != FALSE,
         "Cannot configure builder job");
+  checkpoint();
   PROCESS_INFORMATION process{};
   Check(CreateProcessW(
             executable.c_str(), writable.data(), nullptr, nullptr, TRUE,
@@ -179,20 +201,32 @@ void RunBuilder(const TrtResources& resources,
   Check(ResumeThread(process.hThread) != static_cast<DWORD>(-1),
         "Cannot resume builder");
   const auto deadline = Clock::now() + std::chrono::minutes(15);
+  const auto started = Clock::now();
+  auto last_report = started;
   for (;;) {
-    const DWORD wait = WaitForSingleObject(process.hProcess, 100);
+    HANDLE waiting[]{process.hProcess, cancel_event};
+    const DWORD wait = WaitForMultipleObjects(
+        cancel_event ? 2 : 1, waiting, FALSE, 100);
     if (wait == WAIT_OBJECT_0) break;
-    if (cancel || Clock::now() >= deadline || wait == WAIT_FAILED) {
+    try {
+      checkpoint();
+      Check(Clock::now() < deadline && wait != WAIT_FAILED,
+            "TensorRT builder timeout or wait failure");
+    } catch (...) {
       TerminateJobObject(job.value, 1);
       WaitForSingleObject(process.hProcess, 5000);
-      throw std::runtime_error(
-          cancel ? "TensorRT preparation cancelled"
-                 : "TensorRT builder timeout or wait failure");
+      throw;
+    }
+    if (Clock::now() - last_report >= std::chrono::seconds(5)) {
+      last_report = Clock::now();
+      AppendBuildLog(log_path, "编译器仍在运行（网络优化 / 算子策略搜索可能耗时较长）· 已耗时 " +
+          std::to_string(std::chrono::duration_cast<std::chrono::seconds>(
+              last_report - started).count()) + " 秒");
     }
     // Bound diagnostics so a failed tool cannot fill the cache volume.
     LARGE_INTEGER length{};
     if (GetFileSizeEx(log.value, &length) &&
-        length.QuadPart > 32 * 1024 * 1024) {
+        length.QuadPart > 128 * 1024 * 1024) {
       TerminateJobObject(job.value, 1);
       WaitForSingleObject(process.hProcess, 5000);
       throw std::runtime_error("TensorRT builder log limit exceeded");
@@ -205,12 +239,14 @@ void RunBuilder(const TrtResources& resources,
 
 void Prune(const std::filesystem::path& directory,
            const std::filesystem::path& active,
-           const std::filesystem::path& active_log) {
+           const std::filesystem::path& active_log,
+           const std::function<void()>& checkpoint) {
   std::vector<std::filesystem::directory_entry> engines;
   std::vector<std::filesystem::directory_entry> logs;
   uintmax_t bytes = 0;
   uintmax_t log_bytes = 0;
   for (const auto& item : std::filesystem::directory_iterator(directory)) {
+    checkpoint();
     const auto filename = item.path().filename().wstring();
     if (item.is_regular_file() && !item.is_symlink() && filename.size() > 80 &&
         filename.substr(0, 64).find_first_not_of(L"0123456789abcdef") ==
@@ -230,7 +266,8 @@ void Prune(const std::filesystem::path& directory,
     bytes += item.file_size();
   }
   std::sort(engines.begin(), engines.end(),
-            [](const auto& left, const auto& right) {
+            [&](const auto& left, const auto& right) {
+              checkpoint();
               const auto usage = [](const auto& item) {
                 const auto stamp =
                     std::filesystem::path(item.path().wstring() + L".used");
@@ -240,10 +277,12 @@ void Prune(const std::filesystem::path& directory,
               };
               return usage(left) < usage(right);
             });
-  std::sort(logs.begin(), logs.end(), [](const auto& left, const auto& right) {
+  std::sort(logs.begin(), logs.end(), [&](const auto& left, const auto& right) {
+    checkpoint();
     return left.last_write_time() < right.last_write_time();
   });
   for (const auto& item : logs) {
+    checkpoint();
     if (log_bytes <= uint64_t{128} * 1024 * 1024) break;
     if (item.path() == active_log) continue;
     const auto size = item.file_size();
@@ -251,6 +290,7 @@ void Prune(const std::filesystem::path& directory,
   }
   bytes += log_bytes;
   for (const auto& item : engines) {
+    checkpoint();
     if (bytes <= uint64_t{4} * 1024 * 1024 * 1024) break;
     if (item.path() == active) continue;
     const auto size = item.file_size();
@@ -266,7 +306,9 @@ void Prune(const std::filesystem::path& directory,
 }  // namespace
 
 std::shared_ptr<TrtResources> TrtResources::Open(
-    const std::filesystem::path& root, const GpuCapabilities& gpu) {
+    const std::filesystem::path& root, const GpuCapabilities& gpu,
+    const std::function<void(const std::filesystem::path&, uint64_t, uint64_t)>&
+        progress) {
   Check(gpu.cuda_device >= 0 && gpu.cuda_reason.empty(),
         gpu.cuda_reason.c_str());
   const int sm = gpu.compute_major * 10 + gpu.compute_minor;
@@ -285,7 +327,10 @@ std::shared_ptr<TrtResources> TrtResources::Open(
               !(attributes &
                 (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)),
           "TensorRT resource is missing or is a link");
-    result->leases.push_back(LockedAsset::File(path, file.bytes, file.sha256));
+    result->leases.push_back(LockedAsset::File(path, file.bytes, file.sha256,
+        [&](uint64_t read) {
+          if (progress) progress(path, read, file.bytes);
+        }));
   }
   return result;
 }
@@ -293,40 +338,113 @@ std::shared_ptr<TrtResources> TrtResources::Open(
 TrtEngineBuild::TrtEngineBuild(std::filesystem::path runtime,
                                std::filesystem::path cache,
                                std::filesystem::path model, GpuCapabilities gpu,
-                               uint32_t width, uint32_t height) {
-  worker_ =
-      std::thread([this, runtime = std::move(runtime), cache = std::move(cache),
-                   model = std::move(model), gpu, width, height]() {
-        Work(runtime, cache, model, gpu, width, height);
-      });
+                               uint32_t width, uint32_t height,
+                               const std::wstring& cancel_event) {
+  if (!cancel_event.empty()) {
+    cancel_event_ = CreateEventW(nullptr, TRUE, FALSE, cancel_event.c_str());
+    Check(cancel_event_ != nullptr, "Cannot open TensorRT cancellation event");
+  }
+  try {
+    worker_ =
+        std::thread([this, runtime = std::move(runtime), cache = std::move(cache),
+                     model = std::move(model), gpu, width, height]() {
+          Work(runtime, cache, model, gpu, width, height);
+        });
+  } catch (...) {
+    if (cancel_event_) CloseHandle(cancel_event_);
+    throw;
+  }
 }
 TrtEngineBuild::~TrtEngineBuild() {
   cancel_ = true;
   if (worker_.joinable()) worker_.join();
+  if (cancel_event_) CloseHandle(cancel_event_);
+}
+bool TrtEngineBuild::IsCancelled() const {
+  return cancel_ || (cancel_event_ &&
+      WaitForSingleObject(cancel_event_, 0) == WAIT_OBJECT_0);
+}
+void TrtEngineBuild::CheckCancelled() const {
+  if (IsCancelled()) throw std::runtime_error("TensorRT 编译已取消");
 }
 TrtEngineBuild::Result TrtEngineBuild::snapshot() const {
   std::lock_guard<std::mutex> lock(mutex_);
-  return result_;
+  auto result = result_;
+  if (result.phase == Phase::kPreparing && !result.reason.empty()) {
+    const auto now = Clock::now();
+    result.reason += " · 本阶段 " + std::to_string(
+        std::chrono::duration_cast<std::chrono::seconds>(
+            now - stage_started_).count()) + " 秒 · 累计 " + std::to_string(
+        std::chrono::duration_cast<std::chrono::seconds>(
+            now - started_).count()) + " 秒";
+  }
+  return result;
 }
 void TrtEngineBuild::Work(const std::filesystem::path& runtime,
                           const std::filesystem::path& cache,
                           const std::filesystem::path& model,
                           const GpuCapabilities& gpu, uint32_t width,
                           uint32_t height) noexcept {
+  std::filesystem::path build_log;
   try {
-    const auto progress = [this](const char* reason,
-                                 const std::filesystem::path& log = {}) {
-      std::lock_guard<std::mutex> lock(mutex_);
-      result_.reason = reason;
-      if (!log.empty()) result_.log = log;
-    };
-    progress("正在校验 TensorRT 组件和模型");
-    auto resources = TrtResources::Open(runtime, gpu);
-    if (cancel_) throw std::runtime_error("TensorRT preparation cancelled");
-    auto model_lease = LockedAsset::Model(model);
-    const std::string identity = Identity(model, gpu, width, height);
-    const std::string key = LockedAsset::HashText(identity);
+    CheckCancelled();
     std::filesystem::create_directories(cache);
+    // Diagnostics start before the large runtime files are hashed. The name
+    // follows the same bounded cache-log contract as the compiler's output.
+    const auto log_key = LockedAsset::HashText(
+        model.u8string() + ";" + std::to_string(width) + "x" +
+        std::to_string(height));
+    build_log = cache / (log_key + ".engine.part-" +
+        std::to_string(GetCurrentProcessId()) + "-" +
+        std::to_string(Clock::now().time_since_epoch().count()) + ".log");
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      result_.log = build_log;
+    }
+    const auto progress = [&](const std::string& reason) {
+      CheckCancelled();
+      const auto now = Clock::now();
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (!result_.reason.empty()) {
+        AppendBuildLog(build_log, result_.reason + " · 耗时 " +
+            std::to_string(std::chrono::duration_cast<
+                std::chrono::milliseconds>(now - stage_started_).count()) +
+            " 毫秒");
+      }
+      result_.reason = reason;
+      stage_started_ = now;
+      AppendBuildLog(build_log, reason);
+    };
+    const AssetReadProgress checkpoint = [this](uint64_t) {
+      CheckCancelled();
+    };
+    auto last_asset_report = Clock::now();
+    auto resources = TrtResources::Open(runtime, gpu,
+        [&](const std::filesystem::path& file, uint64_t read, uint64_t total) {
+          CheckCancelled();
+          const auto now = Clock::now();
+          if (read != 0 && read != total && now - last_asset_report <
+                  std::chrono::seconds(1)) return;
+          const auto reason = "正在校验组件 " + file.filename().u8string();
+          if (read == 0) progress(reason);
+          if (read == total || now - last_asset_report >=
+                                   std::chrono::seconds(1)) {
+            last_asset_report = now;
+            const auto detail = reason + " · " +
+                std::to_string(read / 1048576) + " / " +
+                std::to_string(total / 1048576) + " MiB";
+            {
+              std::lock_guard<std::mutex> lock(mutex_);
+              result_.reason = detail;
+            }
+            AppendBuildLog(build_log, detail);
+          }
+        });
+    progress("正在校验模型 " + model.filename().u8string());
+    auto model_lease = LockedAsset::Model(model, checkpoint);
+    progress("正在生成显卡、模型和尺寸的缓存身份");
+    const std::string identity = Identity(model, gpu, width, height, checkpoint);
+    const std::string key = LockedAsset::HashText(identity);
     // A process-wide and cross-process budget of one build per physical GPU.
     const std::wstring mutex_name = L"Local\\BangumiToday.TrtBuild." +
                                     std::to_wstring(gpu.luid.HighPart) + L"." +
@@ -336,7 +454,7 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
     progress("等待当前显卡的其他编译任务完成");
     const auto deadline = Clock::now() + std::chrono::minutes(20);
     for (;;) {
-      if (cancel_) throw std::runtime_error("TensorRT preparation cancelled");
+      CheckCancelled();
       const auto wait = WaitForSingleObject(build_lock.value, 100);
       if (wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED) break;
       Check(wait == WAIT_TIMEOUT && Clock::now() < deadline,
@@ -350,15 +468,19 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
     const auto metadata = std::filesystem::path(engine.wstring() + L".meta");
     const auto used = std::filesystem::path(engine.wstring() + L".used");
     bool valid = false;
-    std::filesystem::path build_log;
     progress("正在检查引擎缓存");
     try {
       valid =
-          ReadText(metadata) == identity + LockedAsset::Sha256(engine) + '\n';
+          ReadText(metadata) ==
+              identity + LockedAsset::Sha256(engine, checkpoint) + '\n';
       if (valid) {
-        TrtSession warm(resources, engine, gpu, width, height);
+        progress("命中缓存，正在加载并预热已有引擎");
+        TrtSession warm(resources, engine, gpu, width, height,
+                       [this] { CheckCancelled(); }, progress);
       }
     } catch (...) {
+      CheckCancelled();
+      AppendBuildLog(build_log, "引擎缓存不可用，需要重新编译");
       valid = false;
     }
     if (!valid) {
@@ -372,21 +494,19 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
         }
       } cleanup{temporary, temporary_meta};
       DeleteFileW(temporary.c_str());
-      build_log = engine.wstring() + L".part-" +
-                  std::to_wstring(GetCurrentProcessId()) + L"-" +
-                  std::to_wstring(Clock::now().time_since_epoch().count()) +
-                  L".log";
-      progress("正在编译 TensorRT 引擎", build_log);
+      progress("正在编译 TensorRT 引擎（网络优化 / 算子策略搜索）");
       RunBuilder(*resources, model, temporary, build_log, gpu, width, height,
-                 cancel_);
-      if (cancel_) throw std::runtime_error("TensorRT preparation cancelled");
+                 [this] { CheckCancelled(); }, cancel_event_);
+      CheckCancelled();
       progress("正在加载并预热编译结果");
       {
-        TrtSession warm(resources, temporary, gpu, width, height);
+        TrtSession warm(resources, temporary, gpu, width, height,
+                       [this] { CheckCancelled(); }, progress);
       }
-      if (cancel_) throw std::runtime_error("TensorRT preparation cancelled");
+      progress("正在校验编译结果并写入缓存元数据");
       WriteText(temporary_meta,
-                identity + LockedAsset::Sha256(temporary) + '\n');
+                identity + LockedAsset::Sha256(temporary, checkpoint) + '\n');
+      progress("正在发布校验通过的引擎缓存");
       Check(MoveFileExW(temporary.c_str(), engine.c_str(),
                         MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) !=
                 FALSE,
@@ -396,34 +516,47 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
                 FALSE,
             "Cannot publish TensorRT engine metadata");
     }
+    progress("正在锁定引擎缓存");
     auto engine_lease = std::shared_ptr<LockedAsset>(
         LockedAsset::File(engine, std::filesystem::file_size(engine),
-                          LockedAsset::Sha256(engine)));
+                          LockedAsset::Sha256(engine, checkpoint), checkpoint));
     // A separate usage stamp can be refreshed while another Player holds a
     // read-only engine lease. In-flight results also keep a lease until taken.
     WriteText(used, key);
+    progress("正在清理旧引擎与编译日志");
     try {
-      Prune(cache, engine, build_log);
+      Prune(cache, engine, build_log, [this] { CheckCancelled(); });
     } catch (...) {
     }
+    progress("TensorRT 引擎已就绪");
+    AppendBuildLog(build_log, "准备完成 · 累计 " + std::to_string(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            Clock::now() - started_).count()) + " 毫秒");
     std::lock_guard<std::mutex> lock(mutex_);
     result_ = {Phase::kReady, engine, {}, resources, engine_lease, result_.log};
   } catch (const std::exception& error) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    result_ = {Phase::kFailed, {}, error.what(), {}, {}, result_.log};
-    try {
-      Prune(cache, {}, result_.log);
-    } catch (...) {
+    AppendBuildLog(build_log, std::string(error.what()) + " · 累计 " +
+        std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
+            Clock::now() - started_).count()) + " 毫秒");
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      result_ = {Phase::kFailed, {}, error.what(), {}, {}, result_.log};
+    }
+    // Cancellation must not spend time pruning a directory before it joins.
+    // Other failures still enforce the diagnostic cache budget, outside the
+    // status mutex so polling and cancellation remain available.
+    if (!IsCancelled()) {
+      try {
+        Prune(cache, {}, build_log, [this] { CheckCancelled(); });
+      } catch (...) {
+      }
     }
   } catch (...) {
+    AppendBuildLog(build_log, "Unexpected TensorRT preparation failure");
     std::lock_guard<std::mutex> lock(mutex_);
     result_ = {
         Phase::kFailed, {}, "Unexpected TensorRT preparation failure", {}, {},
         result_.log};
-    try {
-      Prune(cache, {}, result_.log);
-    } catch (...) {
-    }
   }
 }
 }  // namespace bangumi::inference
