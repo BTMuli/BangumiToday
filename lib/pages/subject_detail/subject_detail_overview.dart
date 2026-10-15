@@ -223,6 +223,7 @@ class SubjectDetailOverview extends StatelessWidget {
             SubjectContinuePlaybackButton(
               key: ValueKey(subject.id),
               subject: subject.id,
+              watchedEpisodes: view.user == null ? 0 : done,
             ),
             if (view.user == null)
               Text('登录后可收藏和记录进度', style: BTTypography.caption(context)),

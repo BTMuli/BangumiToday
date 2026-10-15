@@ -8,11 +8,16 @@ import '../../providers/subject_playback_providers.dart';
 import '../playback/playback_actions.dart';
 import '../playback/playback_label.dart';
 
-/// 收藏与观看进度旁的本地播放入口，无可用记录时播放首个匹配章节。
+/// 优先续播本地记录，无可用记录时按账号观看进度选择匹配章节。
 class SubjectContinuePlaybackButton extends ConsumerStatefulWidget {
-  const SubjectContinuePlaybackButton({super.key, required this.subject});
+  const SubjectContinuePlaybackButton({
+    super.key,
+    required this.subject,
+    required this.watchedEpisodes,
+  });
 
   final int subject;
+  final int watchedEpisodes;
 
   @override
   ConsumerState<SubjectContinuePlaybackButton> createState() =>
@@ -46,20 +51,30 @@ class _SubjectContinuePlaybackButtonState
         previous != null && files.any((file) => file.key == previous.key);
     var item = canResume
         ? previous
-        : ref.watch(subjectFirstPlaybackItemProvider(widget.subject)).value;
+        : ref
+              .watch(
+                subjectNextPlaybackItemProvider((
+                  subject: widget.subject,
+                  watchedEpisodes: widget.watchedEpisodes,
+                )),
+              )
+              .value;
     if (item == null || !files.any((file) => file.key == item.key)) {
       return const SizedBox.shrink();
     }
     var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
-    var action = !canResume
-        ? '开始播放'
-        : item.completed
+    var action = canResume && item.completed
         ? '重新播放'
-        : '继续播放';
+        : canResume || widget.watchedEpisodes > 0
+        ? '继续播放'
+        : '开始播放';
     var progress = !canResume
-        ? previous == null
-              ? '尚无播放记录，将播放首个匹配章节'
-              : '上次播放文件不可用，将播放首个匹配章节'
+        ? [
+            previous == null ? '尚无播放记录' : '上次播放文件不可用',
+            widget.watchedEpisodes > 0
+                ? '账号已看到第 ${widget.watchedEpisodes} 话，将播放下一个匹配正片章节'
+                : '将播放首个匹配章节',
+          ].join('，')
         : item.completed
         ? '上次已播完，将从头播放'
         : [

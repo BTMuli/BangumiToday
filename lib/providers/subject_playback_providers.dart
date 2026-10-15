@@ -9,6 +9,7 @@ import 'package:path/path.dart' as path;
 import '../core/utils/playback_episode_files.dart';
 import '../data/repositories/episode_mark_gateway_impl.dart';
 import '../data/repositories/playback_episodes.dart';
+import '../models/bangumi/bangumi_enum.dart';
 import '../models/bangumi/bangumi_model.dart';
 import '../models/playback/playback_episode_link.dart';
 import '../models/playback/playback_item.dart';
@@ -62,9 +63,13 @@ final subjectEpisodeFilesProvider = FutureProvider.autoDispose
       ).values.toList();
     });
 
-/// Follow the detail page's chapter order, keeping the first file per chapter.
-final subjectFirstPlaybackItemProvider = FutureProvider.autoDispose
-    .family<PlaybackItem?, int>((ref, subject) async {
+/// Follow chapter order, skipping watched main episodes when progress is known.
+final subjectNextPlaybackItemProvider = FutureProvider.autoDispose
+    .family<PlaybackItem?, ({int subject, int watchedEpisodes})>((
+      ref,
+      request,
+    ) async {
+      var subject = request.subject;
       var files = await ref.watch(subjectEpisodeFilesProvider(subject).future);
       if (!ref.mounted || files.isEmpty) return null;
       var chapters =
@@ -75,6 +80,11 @@ final subjectFirstPlaybackItemProvider = FutureProvider.autoDispose
             return type != 0 ? type : a.sort.compareTo(b.sort);
           });
       for (var chapter in chapters) {
+        if (request.watchedEpisodes > 0 &&
+            (chapter.type != BangumiEpType.main ||
+                chapter.sort <= request.watchedEpisodes)) {
+          continue;
+        }
         var file = files
             .where((file) => file.episode == chapter.id)
             .firstOrNull;
