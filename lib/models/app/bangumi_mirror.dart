@@ -28,12 +28,13 @@ enum BangumiMirrorType {
     site => const [
       BangumiMirror._('bgm.tv（官方）', BTAppConstants.officialBangumiSiteBaseUrl),
       BangumiMirror._('bangumi.vip', BTAppConstants.bangumiVipSiteBaseUrl),
-      BangumiMirror._('AniBT', BTAppConstants.anibtBangumiSiteBaseUrl),
     ],
     api => const [
       BangumiMirror._('bgm.tv（官方）', BTAppConstants.officialBangumiApiBaseUrl),
+      BangumiMirror._('bgmapi.com', BTAppConstants.bgmapiBangumiApiBaseUrl),
       BangumiMirror._('bangumi.vip', BTAppConstants.bangumiVipApiBaseUrl),
-      BangumiMirror._('AniBT', BTAppConstants.anibtBangumiApiBaseUrl),
+      // AniBT API 镜像不支持需要认证的接口（如剧集进度），暂不提供该选项。
+      // BangumiMirror._('AniBT', BTAppConstants.anibtBangumiApiBaseUrl),
     ],
     image => const [
       BangumiMirror._('bgm.tv（官方）', BTAppConstants.officialBangumiImageBaseUrl),

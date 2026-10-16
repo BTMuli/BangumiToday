@@ -10,6 +10,7 @@ import '../../core/cache/subject_cache.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/container.dart';
 import '../../core/services/bangumi_token_service.dart';
+import '../../data/parsers/bangumi_private_parser.dart';
 import '../../models/app/bangumi_mirror.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
@@ -25,6 +26,8 @@ import '../core/client.dart';
 import 'bangumi_error_handler.dart';
 import 'bangumi_manager.dart';
 
+part 'bangumi_private_api.dart';
+
 /// bangumi.tv 的 API
 /// 详细文档请参考 https://bangumi.github.io/api/
 class BtrBangumiApi {
@@ -32,6 +35,20 @@ class BtrBangumiApi {
   static String _siteBaseUrl = BTAppConstants.defaultBangumiSiteBaseUrl;
   static String _imageBaseUrl = BTAppConstants.defaultBangumiImageBaseUrl;
   static BangumiMirrorCatalog _mirrorCatalog = const BangumiMirrorCatalog();
+  static bool _usePrivateApi = false;
+  static int _routingGeneration = 0;
+
+  static bool get usePrivateApi =>
+      baseUrl == BTAppConstants.officialBangumiApiBaseUrl || _usePrivateApi;
+
+  static int get routingGeneration => _routingGeneration;
+
+  static void setUsePrivateApi(bool value) {
+    if (_usePrivateApi != value) _routingGeneration++;
+    _usePrivateApi = value;
+  }
+
+  _BangumiPrivateApi get _private => _BangumiPrivateApi(this);
 
   static BangumiMirrorCatalog get mirrorCatalog => _mirrorCatalog;
 
@@ -54,6 +71,11 @@ class BtrBangumiApi {
   /// 当前 Next URL
   static String get nextBaseUrl =>
       BTAppConstants.bangumiNextBaseUrlFor(baseUrl);
+
+  /// 启用新版接口时随 API 镜像；官方及未启用时沿用 Next 地址。
+  static String get privateApiBaseUrl => usePrivateApi
+      ? BTAppConstants.bangumiPrivateApiBaseUrlFor(baseUrl)
+      : nextBaseUrl;
 
   /// 将官方 URL 改写为当前镜像 URL
   static String rewriteUrl(String value) {
@@ -97,7 +119,9 @@ class BtrBangumiApi {
 
   /// 更新基础 URL
   static void setBaseUrl(String value) {
-    _baseUrl = BTAppConstants.normalizeBangumiApiUrl(value);
+    var normalized = BTAppConstants.normalizeBangumiApiUrl(value);
+    if (_baseUrl != normalized) _routingGeneration++;
+    _baseUrl = normalized;
   }
 
   /// 更新网页镜像，不影响 API 和图片地址。
@@ -114,12 +138,20 @@ class BtrBangumiApi {
   final RequestManager _requestManager = RequestManager();
 
   final BangumiRequestAccount Function() _accountSession;
+  final String? Function() _accountUsername;
+
+  bool _ownCollection(String username) =>
+      username == '-' ||
+      username == _accountSession().userId?.toString() ||
+      username == _accountUsername();
 
   /// 构造函数
   BtrBangumiApi({
     BangumiTokenService? tokenService,
     BangumiRequestAccount Function()? accountSession,
-  }) : _accountSession = accountSession ?? _defaultAccountSession {
+    String? Function()? accountUsername,
+  }) : _accountSession = accountSession ?? _defaultAccountSession,
+       _accountUsername = accountUsername ?? _defaultAccountUsername {
     client = BtrClient.withAuth(tokenService: tokenService);
     client.dio.options.baseUrl = baseUrl;
     client.dio.interceptors.insert(0, _BangumiBaseUrlInterceptor());
@@ -129,6 +161,9 @@ class BtrBangumiApi {
     var user = globalContainer.read(bgmUserStoreProvider);
     return (userId: user.user?.id, generation: user.sessionGeneration);
   }
+
+  static String? _defaultAccountUsername() =>
+      globalContainer.read(bgmUserStoreProvider).user?.username;
 
   String _requestKey(
     String method,
@@ -152,6 +187,14 @@ class BtrBangumiApi {
     bool useCache = true,
     Duration? cacheMaxAge,
   }) async {
+    if (usePrivateApi) {
+      return _private.calendar(
+        useCache: useCache,
+        deduplicate: deduplicate,
+        cancelPrevious: cancelPrevious,
+        cacheMaxAge: cacheMaxAge,
+      );
+    }
     if (useCache) {
       var cached = await BTCacheManager.instance.get<List<dynamic>>(
         CacheKeys.bangumiCalendar,
@@ -236,6 +279,14 @@ class BtrBangumiApi {
     filter['nsfw'] = nsfw;
     data['filter'] = filter;
     var params = <String, dynamic>{'limit': limit, 'offset': offset};
+    if (usePrivateApi) {
+      return _private.search(
+        data,
+        params,
+        deduplicate: deduplicate,
+        cancelPrevious: cancelPrevious,
+      );
+    }
     BTLogTool.info('searchSubjectsData: ${jsonEncode(data)}');
     BTLogTool.info('searchSubjectsParams: ${jsonEncode(params)}');
     try {
@@ -285,6 +336,13 @@ class BtrBangumiApi {
     bool deduplicate = true,
     bool cancelPrevious = false,
   }) async {
+    if (usePrivateApi) {
+      return _private.subject(
+        id,
+        deduplicate: deduplicate,
+        cancelPrevious: cancelPrevious,
+      );
+    }
     try {
       var result = await _requestManager.request<Response>(
         key: _requestKey('GET', '/v0/subjects/$id'),
@@ -333,6 +391,12 @@ class BtrBangumiApi {
 
   /// 获取条目关联条目
   Future<BTResponse> getSubjectRelations(int id) async {
+    if (usePrivateApi) {
+      return _private.list(
+        '/subjects/$id/relations',
+        (row) => [BangumiPrivateParser.relation(row)],
+      );
+    }
     try {
       var resp = await client.dio.get(
         '/v0/subjects/$id/subjects',
@@ -363,24 +427,37 @@ class BtrBangumiApi {
   /// 获取条目角色及声优。
   Future<BTResponse<List<BangumiRelatedCharacter>>> getSubjectCharacters(
     int id,
-  ) => _getModule(
-    '/v0/subjects/$id/characters',
-    (data) => (data as List)
-        .map((e) => BangumiRelatedCharacter.fromJson(e as Map<String, dynamic>))
-        .toList(),
-    fallbackMessage: '加载角色失败',
-  );
+  ) => usePrivateApi
+      ? _private.list(
+          '/subjects/$id/characters',
+          (row) => [BangumiPrivateParser.character(row)],
+        )
+      : _getModule(
+          '/v0/subjects/$id/characters',
+          (data) => (data as List)
+              .map(
+                (e) =>
+                    BangumiRelatedCharacter.fromJson(e as Map<String, dynamic>),
+              )
+              .toList(),
+          fallbackMessage: '加载角色失败',
+        );
 
   Future<BTResponse<List<BangumiRelatedPerson>>> getSubjectPersons(int id) =>
-      _getModule(
-        '/v0/subjects/$id/persons',
-        (data) => (data as List)
-            .map(
-              (e) => BangumiRelatedPerson.fromJson(e as Map<String, dynamic>),
-            )
-            .toList(),
-        fallbackMessage: '加载制作人员失败',
-      );
+      usePrivateApi
+      ? _private.list(
+          '/subjects/$id/staffs/persons',
+          BangumiPrivateParser.staff,
+        )
+      : _getModule(
+          '/v0/subjects/$id/persons',
+          (data) => (data as List)
+              .map(
+                (e) => BangumiRelatedPerson.fromJson(e as Map<String, dynamic>),
+              )
+              .toList(),
+          fallbackMessage: '加载制作人员失败',
+        );
 
   /// 吐槽使用 Next API 的 type / limit / offset 在服务端筛选和分页。
   /// https://github.com/bangumi/server-private/blob/master/openapi.json
@@ -390,7 +467,7 @@ class BtrBangumiApi {
     int offset = 0,
     int limit = 20,
   }) => _getModule(
-    '$nextBaseUrl/p1/subjects/$id/comments',
+    '$privateApiBaseUrl/p1/subjects/$id/comments',
     (data) {
       var json = data as Map<String, dynamic>;
       return BangumiPageT(
@@ -419,7 +496,7 @@ class BtrBangumiApi {
     int offset = 0,
     int limit = 20,
   }) => _getModule(
-    '$nextBaseUrl/p1/subjects/$id/reviews',
+    '$privateApiBaseUrl/p1/subjects/$id/reviews',
     (data) {
       var json = data as Map<String, dynamic>;
       return BangumiPageT(
@@ -440,7 +517,7 @@ class BtrBangumiApi {
   /// 评论详情使用日志 ID，而非条目评论关联 ID。
   Future<BTResponse<BangumiReviewDetail>> getReviewDetail(int entryId) =>
       _getModule(
-        '$nextBaseUrl/p1/blogs/$entryId',
+        '$privateApiBaseUrl/p1/blogs/$entryId',
         (data) => BangumiReviewDetail.fromJson(data as Map<String, dynamic>),
         fallbackMessage: '加载评论详情失败',
       );
@@ -449,7 +526,7 @@ class BtrBangumiApi {
   Future<BTResponse<List<BangumiEpisodeComment>>> getReviewComments(
     int entryId,
   ) => _getModule(
-    '$nextBaseUrl/p1/blogs/$entryId/comments',
+    '$privateApiBaseUrl/p1/blogs/$entryId/comments',
     (data) => (data as List)
         .map((e) => BangumiEpisodeComment.fromJson(e as Map<String, dynamic>))
         .toList(),
@@ -461,7 +538,7 @@ class BtrBangumiApi {
   /// 一次返回章节本体、所属条目摘要与当前用户的章节收藏状态。
   Future<BTResponse<BangumiEpisodeDetail>> getEpisodeDetail(int id) =>
       _getModule(
-        '$nextBaseUrl/p1/episodes/$id',
+        '$privateApiBaseUrl/p1/episodes/$id',
         (data) => BangumiEpisodeDetail.fromJson(data as Map<String, dynamic>),
         fallbackMessage: '加载章节详情失败',
       );
@@ -471,7 +548,7 @@ class BtrBangumiApi {
   /// 接口一次返回全部顶层吐槽及其回复，服务端不支持分页参数。
   Future<BTResponse<List<BangumiEpisodeComment>>> getEpisodeComments(int id) =>
       _getModule(
-        '$nextBaseUrl/p1/episodes/$id/comments',
+        '$privateApiBaseUrl/p1/episodes/$id/comments',
         (data) => (data as List)
             .map(
               (e) => BangumiEpisodeComment.fromJson(e as Map<String, dynamic>),
@@ -520,6 +597,17 @@ class BtrBangumiApi {
     bool deduplicate = true,
     bool cancelPrevious = false,
   }) async {
+    if (usePrivateApi) {
+      return _private.episodes(
+        id,
+        BangumiPrivateParser.episode,
+        type: type?.value,
+        limit: limit ?? 100,
+        offset: offset ?? 0,
+        deduplicate: deduplicate,
+        cancelPrevious: cancelPrevious,
+      );
+    }
     var params = <String, dynamic>{'subject_id': id};
     if (type != null) params['type'] = type.value;
     if (limit != null) params['limit'] = limit;
@@ -560,6 +648,7 @@ class BtrBangumiApi {
 
   /// 获取用户信息
   Future<BTResponse> getUserInfo() async {
+    if (usePrivateApi) return _private.user();
     try {
       var resp = await client.dio.get(
         '/v0/me',
@@ -594,6 +683,16 @@ class BtrBangumiApi {
     int? offset,
     bool Function()? authScope,
   }) async {
+    // /p1 exposes complete progress/private fields only for one's own list.
+    if (usePrivateApi && _ownCollection(username)) {
+      return _private.collections(
+        subjectType: subjectType?.value,
+        type: collectionType?.value,
+        limit: limit ?? 30,
+        offset: offset ?? 0,
+        authScope: authScope,
+      );
+    }
     var params = <String, dynamic>{};
     if (subjectType != null) params['subject_type'] = subjectType.value;
     if (collectionType != null) params['type'] = collectionType.value;
@@ -636,6 +735,14 @@ class BtrBangumiApi {
     bool cancelPrevious = false,
     bool Function()? authScope,
   }) async {
+    if (usePrivateApi && _ownCollection(username)) {
+      return _private.collection(
+        subjectId,
+        deduplicate: deduplicate,
+        cancelPrevious: cancelPrevious,
+        authScope: authScope,
+      );
+    }
     try {
       var resp = await _requestManager.request<Response>(
         key: _requestKey('GET', '/v0/users/$username/collections/$subjectId'),
@@ -689,6 +796,11 @@ class BtrBangumiApi {
     int subjectId, {
     bool Function()? authScope,
   }) async {
+    if (usePrivateApi) {
+      return _private.write('/collections/subjects/$subjectId', 'PUT', {
+        'type': BangumiCollectionType.wish.value,
+      }, authScope: authScope);
+    }
     const fallbackMessage = 'Failed to add user collection item';
     try {
       var resp = await client.dio.post(
@@ -730,6 +842,28 @@ class BtrBangumiApi {
     List<String>? tags,
     bool Function()? authScope,
   }) async {
+    // /p1 uses a separate book-progress write. Retain the atomic /v0 operation
+    // when progress is requested rather than turn it into two partial writes.
+    if (usePrivateApi && ep == null && vol == null) {
+      return _private.write('/collections/subjects/$subjectId', 'PUT', {
+        if (type != null) 'type': type.value,
+        'rate': ?rate,
+        'comment': ?comment,
+        'private': ?private,
+        'tags': ?tags,
+      }, authScope: authScope);
+    }
+    if (usePrivateApi &&
+        type == null &&
+        rate == null &&
+        comment == null &&
+        private == null &&
+        tags == null) {
+      return _private.write('/collections/subjects/$subjectId', 'PATCH', {
+        'epStatus': ?ep,
+        'volStatus': ?vol,
+      }, authScope: authScope);
+    }
     var data = <String, dynamic>{};
     if (type != null) data['type'] = type.value;
     if (rate != null) data['rate'] = rate;
@@ -775,6 +909,17 @@ class BtrBangumiApi {
     bool deduplicate = true,
     bool cancelPrevious = false,
   }) async {
+    if (usePrivateApi) {
+      return _private.episodes(
+        subjectId,
+        BangumiPrivateParser.episodeCollection,
+        type: type?.value,
+        limit: limit ?? 100,
+        offset: offset ?? 0,
+        deduplicate: deduplicate,
+        cancelPrevious: cancelPrevious,
+      );
+    }
     var params = <String, dynamic>{'subject_id': subjectId};
     if (offset != null) params['offset'] = offset;
     if (limit != null) params['limit'] = limit;
@@ -817,6 +962,7 @@ class BtrBangumiApi {
 
   /// 获取用户单个章节收藏
   Future<BTResponse> getCollectionEpisode(int episodeId) async {
+    if (usePrivateApi) return _private.episode(episodeId);
     try {
       var resp = await client.dio.get(
         '/v0/users/-/collections/-/episodes/$episodeId',
@@ -852,6 +998,12 @@ class BtrBangumiApi {
     required int episode,
     bool Function()? authScope,
   }) async {
+    if (usePrivateApi) {
+      return _private.write('/collections/episodes/$episode', 'PATCH', {
+        'type': type.value,
+        'batch': false,
+      }, authScope: authScope);
+    }
     const fallbackMessage = 'Failed to update user collection episode item';
     try {
       var resp = await client.dio.put(

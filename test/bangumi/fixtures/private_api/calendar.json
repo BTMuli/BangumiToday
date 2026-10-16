@@ -1,0 +1,44 @@
+{
+  "1": [
+    {
+      "subject": {
+        "id": 390200,
+        "name": "列女战纪：女娲石记",
+        "nameCN": "列女战纪：女娲石记",
+        "type": 2,
+        "info": "2026年10月5日 / 猫已巴 / 猫已巴、李大饼、装配厂一枝花、严佳鸣、托普尤topyu",
+        "metaTags": [
+          "中国",
+          "WEB"
+        ],
+        "rating": {
+          "rank": 0,
+          "count": [
+            3,
+            0,
+            0,
+            0,
+            2,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          "score": 3.17,
+          "total": 6
+        },
+        "locked": false,
+        "nsfw": false,
+        "images": {
+          "large": "https://lain.bgm.tv/pic/cover/l/1c/b4/390200_Z9jPp.jpg",
+          "common": "https://lain.bgm.tv/r/400/pic/cover/l/1c/b4/390200_Z9jPp.jpg",
+          "medium": "https://lain.bgm.tv/r/200/pic/cover/l/1c/b4/390200_Z9jPp.jpg",
+          "small": "https://lain.bgm.tv/r/100/pic/cover/l/1c/b4/390200_Z9jPp.jpg",
+          "grid": "https://lain.bgm.tv/r/100x100/pic/cover/l/1c/b4/390200_Z9jPp.jpg"
+        }
+      },
+      "watchers": 5
+    }
+  ]
+}

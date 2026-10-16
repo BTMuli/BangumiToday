@@ -194,6 +194,7 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
     if (_closing || revision <= _presentationRevision) return;
     _presentationRevision = revision;
     BtrBangumiApi.setBaseUrl(data['bangumiUrl'] as String);
+    BtrBangumiApi.setUsePrivateApi(data['bangumiUsePrivateApi'] as bool);
     BtrBangumiApi.setSiteBaseUrl(data['bangumiSiteUrl'] as String);
     BtrBangumiApi.setImageBaseUrl(data['bangumiImageUrl'] as String);
     BtrBangumiApi.setMirrorCatalog(

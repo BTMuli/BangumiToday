@@ -284,6 +284,13 @@ class BtsAppConfig {
     await _instance.write('mikanUrl', BTAppConstants.normalizeMikanUrl(url));
   }
 
+  /// 非官方 API 是否采用新版接口，默认为关闭。
+  Future<bool> readBangumiUsePrivateApi() async =>
+      await read('bangumiUsePrivateApi') == 'true';
+
+  Future<void> writeBangumiUsePrivateApi(bool value) =>
+      write('bangumiUsePrivateApi', value.toString());
+
   /// 读取 Bangumi API 镜像地址
   Future<String> readBangumiUrl() async {
     var res = await _instance.read('bangumiUrl');

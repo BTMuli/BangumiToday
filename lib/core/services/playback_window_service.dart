@@ -190,6 +190,7 @@ class PlaybackWindowService extends ChangeNotifier {
       'theme': settings.themeMode.name,
       'accent': settings.effectiveAccentColor.toARGB32(),
       'bangumiUrl': settings.bangumiUrl,
+      'bangumiUsePrivateApi': settings.bangumiUsePrivateApi,
       'bangumiSiteUrl': settings.bangumiSiteUrl,
       'bangumiImageUrl': settings.bangumiImageUrl,
       'bangumiMirrorCatalog': settings.bangumiMirrorCatalog.toJson(),

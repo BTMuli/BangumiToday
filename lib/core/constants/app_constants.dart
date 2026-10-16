@@ -33,11 +33,12 @@ class BTAppConstants {
   static const String anibtBangumiSiteBaseUrl = 'https://bgmmi.anibt.net';
   static const String anibtBangumiApiBaseUrl = 'https://bgmapi.anibt.net';
   static const String anibtBangumiImageBaseUrl = 'https://bgmimg.anibt.net';
+  static const String bgmapiBangumiApiBaseUrl = 'https://api.bgmapi.com';
   static const String defaultBangumiApiBaseUrl = officialBangumiApiBaseUrl;
   static const String defaultBangumiSiteBaseUrl = bangumiVipSiteBaseUrl;
   static const String defaultBangumiImageBaseUrl = anibtBangumiImageBaseUrl;
   static const String officialBangumiSiteBaseUrl = 'https://bgm.tv';
-  static const String officialBangumiApiBaseUrl = 'https://api.bgmapi.com';
+  static const String officialBangumiApiBaseUrl = 'https://api.bgm.tv';
   static const String officialBangumiImageBaseUrl = 'https://lain.bgm.tv';
   static const String officialBangumiFastBaseUrl = 'https://fast.bgm.tv';
   static const String officialBangumiNextBaseUrl = 'https://next.bgm.tv';
@@ -66,9 +67,6 @@ class BTAppConstants {
     var normalized = normalizeBangumiMirrorOrigin(value);
     if (normalized == 'https://api.bangumi.pro') {
       return bangumiVipApiBaseUrl;
-    }
-    if (normalized == 'https://api.bgm.tv') {
-      return officialBangumiApiBaseUrl;
     }
     return normalized ?? defaultBangumiApiBaseUrl;
   }
@@ -107,6 +105,13 @@ class BTAppConstants {
     return normalizeBangumiApiUrl(apiBaseUrl) == bangumiVipApiBaseUrl
         ? bangumiVipNextBaseUrl
         : officialBangumiNextBaseUrl;
+  }
+
+  static String bangumiPrivateApiBaseUrlFor(String apiBaseUrl) {
+    var normalized = normalizeBangumiApiUrl(apiBaseUrl);
+    return normalized == officialBangumiApiBaseUrl
+        ? officialBangumiNextBaseUrl
+        : normalized;
   }
 
   static String mikanMirrorLabel(String value) {

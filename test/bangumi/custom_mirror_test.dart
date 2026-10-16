@@ -29,6 +29,31 @@ void main() {
     BtrBangumiApi.setMirrorCatalog(originalCatalog);
   });
 
+  test('bgmapi is an independent API-only built-in mirror', () {
+    var mirrors = BangumiMirrorType.api.builtIns;
+    expect(
+      mirrors.singleWhere((mirror) => mirror.name == 'bgm.tv（官方）').url,
+      'https://api.bgm.tv',
+    );
+    expect(
+      mirrors.singleWhere((mirror) => mirror.name == 'bgmapi.com').url,
+      'https://api.bgmapi.com',
+    );
+    expect(BangumiMirrorType.api.defaultUrl, 'https://api.bgm.tv');
+    expect(
+      BangumiMirrorType.api.normalize('  https://api.bgmapi.com/  '),
+      'https://api.bgmapi.com',
+    );
+    BtrBangumiApi.setBaseUrl('  https://api.bgmapi.com/  ');
+    expect(BtrBangumiApi.baseUrl, 'https://api.bgmapi.com');
+    for (var type in [BangumiMirrorType.site, BangumiMirrorType.image]) {
+      expect(
+        type.builtIns.any((mirror) => mirror.name == 'bgmapi.com'),
+        isFalse,
+      );
+    }
+  });
+
   test('mirror names and origins normalize without losing HTTP or ports', () {
     var mirror = BangumiMirror(
       name: '  自建镜像  ',
@@ -93,29 +118,24 @@ void main() {
     }
   });
 
-  test(
-    'duplicate names, normalized origins and official aliases are rejected',
-    () {
-      var mirror = BangumiMirror(
-        name: '自建',
-        url: 'https://mirror.example.test',
+  test('duplicate names, normalized origins and built-ins are rejected', () {
+    var mirror = BangumiMirror(name: '自建', url: 'https://mirror.example.test');
+    var catalog = const BangumiMirrorCatalog().save(
+      BangumiMirrorType.api,
+      mirror,
+    );
+    for (var duplicate in [
+      BangumiMirror(name: '另一个', url: 'https://MIRROR.example.test:443/'),
+      BangumiMirror(name: '自建', url: 'https://other.example.test'),
+      BangumiMirror(name: '旧官方', url: 'https://api.bgm.tv'),
+      BangumiMirror(name: '独立 API', url: 'https://api.bgmapi.com'),
+    ]) {
+      expect(
+        () => catalog.save(BangumiMirrorType.api, duplicate),
+        throwsFormatException,
       );
-      var catalog = const BangumiMirrorCatalog().save(
-        BangumiMirrorType.api,
-        mirror,
-      );
-      for (var duplicate in [
-        BangumiMirror(name: '另一个', url: 'https://MIRROR.example.test:443/'),
-        BangumiMirror(name: '自建', url: 'https://other.example.test'),
-        BangumiMirror(name: '旧官方', url: 'https://api.bgm.tv'),
-      ]) {
-        expect(
-          () => catalog.save(BangumiMirrorType.api, duplicate),
-          throwsFormatException,
-        );
-      }
-    },
-  );
+    }
+  });
 
   test('edit and delete retain old origins across JSON round trips', () {
     var old = BangumiMirror(name: '原镜像', url: 'http://old.example.test:8080');
@@ -171,7 +191,7 @@ void main() {
         BtrBangumiApi.rewriteUrl('https://lain.bgm.tv/pic/test.jpg'),
         'http://image.example.test:8082/pic/test.jpg',
       );
-      expect(BtrBangumiOauth.oauthBaseUrl, 'https://api.bgmapi.com/oauth');
+      expect(BtrBangumiOauth.oauthBaseUrl, 'https://bgm.tv/oauth');
       expect(BtrBangumiOauth.oauthAuthorizeBaseUrl, 'https://bgm.tv/oauth');
       expect(
         BtrBangumiApi.nextBaseUrl,

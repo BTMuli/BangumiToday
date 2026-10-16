@@ -103,6 +103,8 @@ void main() {
 
   setUp(() {
     baseUrl = BtrBangumiApi.baseUrl;
+    BtrBangumiApi.setBaseUrl('https://api.bangumi.vip');
+    BtrBangumiApi.setUsePrivateApi(false);
     container = ProviderContainer(
       overrides: [bgmUserStoreProvider.overrideWith(_UserStore.new)],
     );
@@ -120,6 +122,7 @@ void main() {
     api.client.dio.close(force: true);
     container.dispose();
     BtrBangumiApi.setBaseUrl(baseUrl);
+    BtrBangumiApi.setUsePrivateApi(false);
   });
 
   Future<List<dynamic>> finish(List<Future<dynamic>> requests) async {
@@ -130,6 +133,30 @@ void main() {
 
   Future<dynamic> search() =>
       api.searchSubjects('同一关键词', cancelPrevious: false);
+
+  test('切换新版接口后不复用旧版章节分页缓存', () async {
+    var repository = container.read(bangumiRepositoryProvider);
+    var first = await finish([repository.getEpisodeList(8)]);
+    expect(first.single.code, 0);
+    expect(adapter.requests, hasLength(1));
+    BtrBangumiApi.setUsePrivateApi(true);
+    var pending = repository.getEpisodeList(8);
+    await pumpEventQueue();
+    expect(adapter.requests, hasLength(2));
+    expect(adapter.requests.last.options.uri.path, '/p1/subjects/8/episodes');
+    adapter.requests.last.response.complete(
+      ResponseBody.fromString(
+        jsonEncode({'total': 0, 'data': <dynamic>[]}),
+        200,
+        headers: {
+          Headers.contentTypeHeader: ['application/json'],
+        },
+      ),
+    );
+    var result = await pending;
+    expect(result.code, 0);
+    expect(result.data!.total, 0);
+  });
 
   var searches = <String, Future<dynamic> Function(BtrBangumiApi)>{
     '排序': (api) =>
@@ -254,7 +281,7 @@ void main() {
   });
 
   test('切换站点后不会复用旧站点的请求', () async {
-    BtrBangumiApi.setBaseUrl('https://api.bgm.tv');
+    BtrBangumiApi.setBaseUrl('https://api.example.test');
     var first = api.getCollectionEpisodes(42);
     await pumpEventQueue();
     BtrBangumiApi.setBaseUrl('https://api.bangumi.vip');

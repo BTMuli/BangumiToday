@@ -15,6 +15,7 @@ import '../store/bgm_user_hive.dart';
 
 final bangumiApiProvider = Provider<BtrBangumiApi>((ref) {
   var api = BtrBangumiApi(
+    accountUsername: () => ref.read(bgmUserStoreProvider).user?.username,
     accountSession: () {
       var user = ref.read(bgmUserStoreProvider);
       return (userId: user.user?.id, generation: user.sessionGeneration);
@@ -38,6 +39,7 @@ final bangumiLocalDataSourceProvider = Provider<BTBangumiLocalDataSource>((
 
 final bangumiRepositoryProvider = Provider<BTBangumiRepository>((ref) {
   return BTBangumiRepositoryImpl(
+    requestSource: () => BtrBangumiApi.routingGeneration,
     remoteDataSource: ref.watch(bangumiRemoteDataSourceProvider),
     localDataSource: ref.watch(bangumiLocalDataSourceProvider),
     accountSession: () {

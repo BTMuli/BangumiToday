@@ -68,14 +68,18 @@ void main() {
   );
 
   test(
-    'saved official selections migrate to bgmapi and rewrite cached VIP links',
+    'saved official selections stay official and rewrite cached mirror links',
     () {
       selectMirrors('  https://api.bgm.tv/  ');
 
-      expect(BtrBangumiApi.baseUrl, 'https://api.bgmapi.com');
+      expect(BtrBangumiApi.baseUrl, 'https://api.bgm.tv');
       expect(
         BtrBangumiApi.rewriteUrl('https://api.bangumi.vip/v0/subjects/876'),
-        'https://api.bgmapi.com/v0/subjects/876',
+        'https://api.bgm.tv/v0/subjects/876',
+      );
+      expect(
+        BtrBangumiApi.rewriteUrl('https://api.bgmapi.com/v0/subjects/876'),
+        'https://api.bgm.tv/v0/subjects/876',
       );
       expect(
         BtrBangumiApi.rewriteUrl('https://bangumi.vip/subject/876'),
@@ -93,7 +97,7 @@ void main() {
   );
 
   test(
-    'OAuth login stays on the site host and token calls on the API host',
+    'OAuth stays on bgm.tv regardless of site, API and image mirrors',
     () async {
       selectMirrors(BTAppConstants.bangumiVipApiBaseUrl);
       var oauth = BtrBangumiOauth();
@@ -109,26 +113,30 @@ void main() {
       );
 
       expect(BtrBangumiOauth.oauthAuthorizeBaseUrl, 'https://bgm.tv/oauth');
-      expect(BtrBangumiOauth.oauthBaseUrl, 'https://api.bgmapi.com/oauth');
+      expect(BtrBangumiOauth.oauthBaseUrl, 'https://bgm.tv/oauth');
       BtrBangumiApi.setBaseUrl(BTAppConstants.officialBangumiApiBaseUrl);
       expect(BtrBangumiOauth.oauthAuthorizeBaseUrl, 'https://bgm.tv/oauth');
-      expect(BtrBangumiOauth.oauthBaseUrl, 'https://api.bgmapi.com/oauth');
+      expect(BtrBangumiOauth.oauthBaseUrl, 'https://bgm.tv/oauth');
+      await oauth.client.dio.post('/access_token');
+      BtrBangumiApi.setBaseUrl('https://api.bgmapi.com');
+      expect(BtrBangumiOauth.oauthBaseUrl, 'https://bgm.tv/oauth');
       await oauth.client.dio.post('/access_token');
       BtrBangumiApi.setBaseUrl(BTAppConstants.anibtBangumiApiBaseUrl);
       BtrBangumiApi.setSiteBaseUrl(BTAppConstants.officialBangumiSiteBaseUrl);
       expect(BtrBangumiOauth.oauthAuthorizeBaseUrl, 'https://bgm.tv/oauth');
-      expect(BtrBangumiOauth.oauthBaseUrl, 'https://api.bgmapi.com/oauth');
+      expect(BtrBangumiOauth.oauthBaseUrl, 'https://bgm.tv/oauth');
       await oauth.client.dio.post('/access_token');
       BtrBangumiApi.setSiteBaseUrl(BTAppConstants.anibtBangumiSiteBaseUrl);
       BtrBangumiApi.setImageBaseUrl(BTAppConstants.anibtBangumiImageBaseUrl);
       expect(BtrBangumiOauth.oauthAuthorizeBaseUrl, 'https://bgm.tv/oauth');
-      expect(BtrBangumiOauth.oauthBaseUrl, 'https://api.bgmapi.com/oauth');
+      expect(BtrBangumiOauth.oauthBaseUrl, 'https://bgm.tv/oauth');
       await oauth.client.dio.post('/access_token');
 
       expect(requests.map((uri) => uri.toString()), [
-        'https://api.bgmapi.com/oauth/access_token',
-        'https://api.bgmapi.com/oauth/access_token',
-        'https://api.bgmapi.com/oauth/access_token',
+        'https://bgm.tv/oauth/access_token',
+        'https://bgm.tv/oauth/access_token',
+        'https://bgm.tv/oauth/access_token',
+        'https://bgm.tv/oauth/access_token',
       ]);
     },
   );
@@ -171,6 +179,7 @@ void main() {
   test('all site, API and image mirror combinations rewrite independently', () {
     const apiUrls = [
       BTAppConstants.officialBangumiApiBaseUrl,
+      BTAppConstants.bgmapiBangumiApiBaseUrl,
       BTAppConstants.bangumiVipApiBaseUrl,
       BTAppConstants.anibtBangumiApiBaseUrl,
     ];
@@ -193,6 +202,12 @@ void main() {
           expect(
             BtrBangumiApi.rewriteUrl(
               'https://api.bgm.tv/v0/subjects/876?x=1#section',
+            ),
+            '$api/v0/subjects/876?x=1#section',
+          );
+          expect(
+            BtrBangumiApi.rewriteUrl(
+              'https://api.bgmapi.com/v0/subjects/876?x=1#section',
             ),
             '$api/v0/subjects/876?x=1#section',
           );

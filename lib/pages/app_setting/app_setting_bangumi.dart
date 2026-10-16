@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../controller/progress_controller.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/services/bangumi_oauth_coordinator.dart';
 import '../../core/services/bangumi_token_service.dart';
 import '../../models/app/bangumi_mirror.dart';
@@ -23,6 +24,7 @@ import '../../ui/bt_select.dart';
 import '../../widgets/common/bt_buttons.dart';
 import '../../widgets/common/bt_setting_section.dart';
 import 'bangumi_mirror_dialog.dart';
+import 'bangumi_private_api_test_dialog.dart';
 
 /// 设置页BangumiUserInfo
 class AppConfigBgmWidget extends ConsumerStatefulWidget {
@@ -276,75 +278,112 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     var custom = catalog.entries(type);
     var selected = custom.where((mirror) => mirror.url == value).firstOrNull;
     var enabled = settings.loaded && _mirrorAction == null;
+    var officialApi =
+        type == BangumiMirrorType.api &&
+        value == BTAppConstants.officialBangumiApiBaseUrl;
     var choices = [...type.builtIns, ...custom];
     if (!choices.any((mirror) => mirror.url == value)) {
       choices.add(BangumiMirror(name: value, url: value));
     }
     return ListTile(
       leading: const BtIcon(FluentIcons.globe),
-      title: Text(type.label),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(value),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              SizedBox(
-                width: 190,
-                child: BtSelect<String>(
-                  value: value,
-                  isExpanded: true,
-                  items: [
-                    for (var mirror in choices)
-                      ComboBoxItem(
-                        value: mirror.url,
-                        child: Text(
-                          mirror.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: !enabled
-                      ? null
-                      : (url) async {
-                          if (url == null || url == value) return;
-                          await _changeMirror(
-                            '${type.name}:select',
-                            () => ref
-                                .read(app_store.appStoreProvider.notifier)
-                                .setBangumiMirror(type, url),
-                          );
-                        },
+          SizedBox(
+            width: 220,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(type.label),
+                Tooltip(
+                  message: value,
+                  child: Text(
+                    value,
+                    style: FluentTheme.of(context).typography.caption,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              _mirrorActionButton(
-                '${type.name}:add',
-                icon: FluentIcons.add,
-                label: '新增${type.label}',
-                onPressed: enabled ? () => _editMirror(type) : null,
-              ),
-              _mirrorActionButton(
-                '${type.name}:edit',
-                icon: FluentIcons.edit,
-                label: selected == null ? '内置镜像不能编辑' : '编辑${type.label}',
-                onPressed: enabled && selected != null
-                    ? () => _editMirror(type, mirror: selected)
-                    : null,
-              ),
-              _mirrorActionButton(
-                '${type.name}:delete',
-                icon: FluentIcons.delete,
-                label: selected == null ? '内置镜像不能删除' : '删除${type.label}',
-                onPressed: enabled && selected != null
-                    ? () => _deleteMirror(type, selected)
-                    : null,
-              ),
-            ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Flexible(
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(
+                  width: 190,
+                  child: BtSelect<String>(
+                    value: value,
+                    isExpanded: true,
+                    items: [
+                      for (var mirror in choices)
+                        ComboBoxItem(
+                          value: mirror.url,
+                          child: Text(
+                            mirror.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: !enabled
+                        ? null
+                        : (url) async {
+                            if (url == null || url == value) return;
+                            await _changeMirror(
+                              '${type.name}:select',
+                              () => ref
+                                  .read(app_store.appStoreProvider.notifier)
+                                  .setBangumiMirror(type, url),
+                            );
+                          },
+                  ),
+                ),
+                _mirrorActionButton(
+                  '${type.name}:add',
+                  icon: FluentIcons.add,
+                  label: '新增${type.label}',
+                  onPressed: enabled ? () => _editMirror(type) : null,
+                ),
+                _mirrorActionButton(
+                  '${type.name}:edit',
+                  icon: FluentIcons.edit,
+                  label: selected == null ? '内置镜像不能编辑' : '编辑${type.label}',
+                  onPressed: enabled && selected != null
+                      ? () => _editMirror(type, mirror: selected)
+                      : null,
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _mirrorActionButton(
+                      '${type.name}:delete',
+                      icon: FluentIcons.delete,
+                      label: selected == null ? '内置镜像不能删除' : '删除${type.label}',
+                      onPressed: enabled && selected != null
+                          ? () => _deleteMirror(type, selected)
+                          : null,
+                    ),
+                    if (type == BangumiMirrorType.api) ...[
+                      const SizedBox(width: 4),
+                      Checkbox(
+                        content: const Text('采用新版接口'),
+                        checked: officialApi || settings.bangumiUsePrivateApi,
+                        onChanged: !enabled || officialApi
+                            ? null
+                            : (checked) => _changeApiVersion(checked ?? false),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -377,6 +416,27 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       ),
     ),
   );
+
+  Future<void> _changeApiVersion(bool value) async {
+    if (value) {
+      var apiBaseUrl = ref.read(app_store.appStoreProvider).bangumiUrl;
+      var confirmed = await showBangumiPrivateApiTestDialog(
+        context,
+        apiBaseUrl: apiBaseUrl,
+      );
+      if (!mounted ||
+          !confirmed ||
+          ref.read(app_store.appStoreProvider).bangumiUrl != apiBaseUrl) {
+        return;
+      }
+    }
+    await _changeMirror(
+      'api:version',
+      () => ref
+          .read(app_store.appStoreProvider.notifier)
+          .setBangumiUsePrivateApi(value),
+    );
+  }
 
   Future<void> _changeMirror(
     String action,

@@ -31,6 +31,7 @@ Map<String, Object?> _presentationPayload() => {
   'theme': 'system',
   'accent': 0xFF0078D4,
   'bangumiUrl': 'https://api.bgm.tv',
+  'bangumiUsePrivateApi': true,
   'bangumiSiteUrl': 'https://bgm.tv',
   'bangumiImageUrl': 'https://lain.bgm.tv',
   'bangumiMirrorCatalog': _sampleCatalog().toJson(),
@@ -78,6 +79,7 @@ void main() {
       var body = playbackMap(_codecRoundTrip(_presentationPayload()));
       expect(body['theme'], 'system');
       expect(body['accent'], 0xFF0078D4);
+      expect(body['bangumiUsePrivateApi'], isTrue);
       expect(playbackMap(body['episodes'])['revision'], 1);
     });
   });

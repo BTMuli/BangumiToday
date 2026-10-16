@@ -31,15 +31,11 @@ class BtrBangumiOauth implements BangumiOauthGateway {
   late final BtrClient client;
 
   /// 授权页固定在主站，与站点、API、图片镜像选择无关。
-  ///
-  /// API 域未登录时会跳到 `/login`，而该域只有一个前端外壳，
-  /// 其 `/p1/login` 在 API 域不可用，登录无法完成；主站才有可用登录页。
   static const String oauthAuthorizeBaseUrl =
       '${BTAppConstants.officialBangumiSiteBaseUrl}/oauth';
 
-  /// 换取和刷新 token 均走官方 API 域的 OAuth，与镜像选择无关。
-  static const String oauthBaseUrl =
-      '${BTAppConstants.officialBangumiApiBaseUrl}/oauth';
+  /// 换取和刷新 token 均走 bgm.tv 的 OAuth，与镜像选择无关。
+  static const String oauthBaseUrl = oauthAuthorizeBaseUrl;
 
   /// 换取和刷新 token 的地址。
   static const String oauthTokenBaseUrl = oauthBaseUrl;
@@ -182,10 +178,9 @@ class BtrBangumiOauth implements BangumiOauthGateway {
   /// 查询授权信息
   Future<BTResponse> getStatus(String accessToken) async {
     try {
-      // bgmapi 的新版 OAuth 未提供旧版 token_status 接口。
       var response = await _postOauthForm('/token_status', {
         'access_token': accessToken,
-      }, useOfficialSite: true);
+      });
       var map = bangumiJsonMap(response.data);
       if (map == null) {
         return handleBangumiUnexpectedResponse(
@@ -227,13 +222,9 @@ class BtrBangumiOauth implements BangumiOauthGateway {
   Future<Response<dynamic>> _postOauthForm(
     String path,
     Map<String, String> payload, {
-    bool useOfficialSite = false,
     CancelToken? cancelToken,
   }) {
-    var options = Options(
-      contentType: Headers.formUrlEncodedContentType,
-      extra: {if (useOfficialSite) 'oauthUseOfficialSite': true},
-    );
+    var options = Options(contentType: Headers.formUrlEncodedContentType);
     return client.dio.post(
       path,
       data: payload,
@@ -246,9 +237,7 @@ class BtrBangumiOauth implements BangumiOauthGateway {
 class _BangumiOauthBaseUrlInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    options.baseUrl = options.extra['oauthUseOfficialSite'] == true
-        ? '${BTAppConstants.officialBangumiSiteBaseUrl}/oauth'
-        : BtrBangumiOauth.oauthTokenBaseUrl;
+    options.baseUrl = BtrBangumiOauth.oauthTokenBaseUrl;
     handler.next(options);
   }
 }

@@ -30,6 +30,7 @@ class BTAppSettings {
     this.accentColor,
     this.mikanRss = BTAppConstants.defaultMikanMirror,
     this.bangumiUrl = BTAppConstants.defaultBangumiApiBaseUrl,
+    this.bangumiUsePrivateApi = false,
     this.bangumiSiteUrl = BTAppConstants.defaultBangumiSiteBaseUrl,
     this.bangumiImageUrl = BTAppConstants.defaultBangumiImageBaseUrl,
     this.bangumiMirrorCatalog = const BangumiMirrorCatalog(),
@@ -51,6 +52,9 @@ class BTAppSettings {
 
   /// Bangumi API 镜像地址
   final String bangumiUrl;
+
+  /// 非官方 API 是否采用新版接口；官方 API 始终采用新版接口。
+  final bool bangumiUsePrivateApi;
 
   /// Bangumi 网页镜像地址。
   final String bangumiSiteUrl;
@@ -101,6 +105,7 @@ class BTAppSettings {
     AccentColor? accentColor,
     String? mikanRss,
     String? bangumiUrl,
+    bool? bangumiUsePrivateApi,
     String? bangumiSiteUrl,
     String? bangumiImageUrl,
     BangumiMirrorCatalog? bangumiMirrorCatalog,
@@ -115,6 +120,7 @@ class BTAppSettings {
       accentColor: accentColor ?? this.accentColor,
       mikanRss: mikanRss ?? this.mikanRss,
       bangumiUrl: bangumiUrl ?? this.bangumiUrl,
+      bangumiUsePrivateApi: bangumiUsePrivateApi ?? this.bangumiUsePrivateApi,
       bangumiSiteUrl: bangumiSiteUrl ?? this.bangumiSiteUrl,
       bangumiImageUrl: bangumiImageUrl ?? this.bangumiImageUrl,
       bangumiMirrorCatalog: bangumiMirrorCatalog ?? this.bangumiMirrorCatalog,
@@ -134,6 +140,7 @@ class BTAppSettings {
         accentColor == other.accentColor &&
         mikanRss == other.mikanRss &&
         bangumiUrl == other.bangumiUrl &&
+        bangumiUsePrivateApi == other.bangumiUsePrivateApi &&
         bangumiSiteUrl == other.bangumiSiteUrl &&
         bangumiImageUrl == other.bangumiImageUrl &&
         bangumiMirrorCatalog == other.bangumiMirrorCatalog &&
@@ -150,6 +157,7 @@ class BTAppSettings {
     accentColor,
     mikanRss,
     bangumiUrl,
+    bangumiUsePrivateApi,
     bangumiSiteUrl,
     bangumiImageUrl,
     bangumiMirrorCatalog,
@@ -183,12 +191,14 @@ class BTAppStore extends Notifier<BTAppSettings> {
     var accentColor = await sqlite.readAccentColor();
     var minimizeToTray = await sqlite.readMinimizeToTray();
     var bangumiMirrors = await sqlite.readBangumiMirrors();
+    var bangumiUsePrivateApi = await sqlite.readBangumiUsePrivateApi();
     var mikanRss = await sqlite.readMikanUrl();
     var useSystemProxy = await sqlite.readUseSystemProxy();
     var proxySettings = await sqlite.readProxySettings();
     var rssSelectionBehavior = await sqlite.readRssSelectionBehavior();
 
     BtrBangumiApi.setBaseUrl(bangumiMirrors.apiUrl);
+    BtrBangumiApi.setUsePrivateApi(bangumiUsePrivateApi);
     BtrBangumiApi.setSiteBaseUrl(bangumiMirrors.siteUrl);
     BtrBangumiApi.setImageBaseUrl(bangumiMirrors.imageUrl);
     BtrBangumiApi.setMirrorCatalog(bangumiMirrors.catalog);
@@ -204,6 +214,7 @@ class BTAppStore extends Notifier<BTAppSettings> {
       accentColor: accentColor,
       mikanRss: BtrMikanApi.baseUrl,
       bangumiUrl: bangumiMirrors.apiUrl,
+      bangumiUsePrivateApi: bangumiUsePrivateApi,
       bangumiSiteUrl: bangumiMirrors.siteUrl,
       bangumiImageUrl: bangumiMirrors.imageUrl,
       bangumiMirrorCatalog: bangumiMirrors.catalog,
@@ -295,6 +306,12 @@ class BTAppStore extends Notifier<BTAppSettings> {
   /// 设置 Bangumi API 镜像地址：写入成功后才替换状态。
   Future<void> setBangumiUrl(String value) =>
       setBangumiMirror(BangumiMirrorType.api, value);
+
+  Future<void> setBangumiUsePrivateApi(bool value) async {
+    await sqlite.writeBangumiUsePrivateApi(value);
+    BtrBangumiApi.setUsePrivateApi(value);
+    state = state.copyWith(bangumiUsePrivateApi: value);
+  }
 
   /// 单独设置网页镜像，写入成功后更新客户端和状态。
   Future<void> setBangumiSiteUrl(String value) =>

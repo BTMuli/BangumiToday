@@ -274,6 +274,7 @@ Future<void> _initBackgroundServices() async {
   var appConfig = BtsAppConfig();
   var bangumiMirrors = await appConfig.readBangumiMirrors();
   BtrBangumiApi.setBaseUrl(bangumiMirrors.apiUrl);
+  BtrBangumiApi.setUsePrivateApi(await appConfig.readBangumiUsePrivateApi());
   BtrBangumiApi.setSiteBaseUrl(bangumiMirrors.siteUrl);
   BtrBangumiApi.setImageBaseUrl(bangumiMirrors.imageUrl);
   BtrBangumiApi.setMirrorCatalog(bangumiMirrors.catalog);

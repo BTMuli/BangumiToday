@@ -12,6 +12,7 @@ import '../datasources/bangumi_local_data_source.dart';
 import '../datasources/bangumi_remote_data_source.dart';
 
 typedef _EpisodePageKey = ({
+  int source,
   int subject,
   BangumiLegacyEpisodeType? type,
   int? limit,
@@ -27,6 +28,7 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   final BTBangumiRemoteDataSource _remoteDataSource;
   final BTBangumiLocalDataSource _localDataSource;
   final BangumiAccountSession Function() _accountSession;
+  final int Function() _requestSource;
   final _subjectRevisions = <int, int>{};
   final _pendingWrites = <(BangumiAccountSession, int)>{};
   final _collectionRefreshes =
@@ -47,9 +49,13 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     required BTBangumiRemoteDataSource remoteDataSource,
     required BTBangumiLocalDataSource localDataSource,
     required BangumiAccountSession Function() accountSession,
+    int Function()? requestSource,
   }) : _remoteDataSource = remoteDataSource,
        _localDataSource = localDataSource,
-       _accountSession = accountSession;
+       _accountSession = accountSession,
+       _requestSource = requestSource ?? _defaultRequestSource;
+
+  static int _defaultRequestSource() => 0;
 
   bool _current(BangumiAccountSession session) =>
       session.username != null && session == _accountSession();
@@ -178,7 +184,13 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
       return completed != null &&
           now.difference(completed) >= _episodePageMaxAge;
     });
-    var key = (subject: id, type: type, limit: limit, offset: offset);
+    var key = (
+      source: _requestSource(),
+      subject: id,
+      type: type,
+      limit: limit,
+      offset: offset,
+    );
     var cached = _episodePages[key];
     if (cached != null) return cached.result;
     while (_episodePages.length >= _maxEpisodePages) {
@@ -200,6 +212,13 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
         limit: key.limit,
         offset: key.offset,
       );
+      if (key.source != _requestSource()) {
+        return BTResponse.error(
+          code: 499,
+          message: '接口设置已变化，请重新读取章节',
+          data: null,
+        );
+      }
       if (response.code == 0 && response.data != null) {
         entry.completedAt = DateTime.now();
       } else if (identical(_episodePages[key], entry)) {
