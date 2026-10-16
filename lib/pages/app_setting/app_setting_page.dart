@@ -9,7 +9,12 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../core/constants/app_constants.dart';
 import '../../core/theme/bt_theme.dart';
+import '../../request/app_update_api.dart';
+import '../../tools/log_tool.dart';
+import '../../ui/bt_dialog.dart';
+import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_content_frame.dart';
 import 'app_setting_bangumi.dart';
 import 'app_setting_device.dart';
@@ -33,6 +38,8 @@ class _SettingPageState extends ConsumerState<SettingPage>
   /// 应用信息
   PackageInfo? packageInfo;
 
+  bool _checkingUpdate = false;
+
   /// 保存状态
   @override
   bool get wantKeepAlive => false;
@@ -45,6 +52,53 @@ class _SettingPageState extends ConsumerState<SettingPage>
       packageInfo = await PackageInfo.fromPlatform();
       if (mounted) setState(() {});
     });
+  }
+
+  Future<void> _openBadgeLink(String url) async {
+    try {
+      if (!await launchUrlString(url) && mounted) {
+        await BtInfobar.error(context, '无法打开链接，请检查默认浏览器设置');
+      }
+    } catch (error) {
+      BTLogTool.warn('打开应用信息链接失败：$error');
+      if (mounted) await BtInfobar.error(context, '打开链接失败，请稍后重试');
+    }
+  }
+
+  Future<void> _checkForUpdates() async {
+    if (_checkingUpdate) return;
+    setState(() => _checkingUpdate = true);
+    try {
+      var current = packageInfo ?? await PackageInfo.fromPlatform();
+      var response = await BtrAppUpdateApi.getLatestRelease();
+      if (!mounted) return;
+      packageInfo = current;
+      var release = response.data;
+      if (response.code != 0 || release == null) {
+        await BtInfobar.error(context, response.message);
+        return;
+      }
+      if (!release.isNewerThan(current.version)) {
+        await BtInfobar.success(context, '当前 v${current.version} 已是最新版本');
+        return;
+      }
+      var openRelease = await showConfirmAction(
+        context,
+        title: '发现新版本 ${release.tag}',
+        content:
+            '当前版本：v${current.version}\n'
+            '最新版本：${release.tag}\n\n'
+            '前往发布页查看更新内容并下载新版。',
+        confirmText: '前往下载',
+        cancelText: '稍后再说',
+      );
+      if (openRelease && mounted) await _openBadgeLink(release.url);
+    } catch (error) {
+      BTLogTool.warn('检测应用更新失败：$error');
+      if (mounted) await BtInfobar.error(context, '检测更新失败，请稍后重试');
+    } finally {
+      if (mounted) setState(() => _checkingUpdate = false);
+    }
   }
 
   /// 构建页面头部
@@ -156,22 +210,32 @@ class _SettingPageState extends ConsumerState<SettingPage>
               ),
             ),
             SizedBox(height: 14),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 buildBadgeAction(
-                  context,
                   // ignore: deprecated_member_use
                   icon: MdiIcons.github,
                   label: 'GitHub 仓库',
-                  url: 'https://github.com/BTMuli/BangumiToday',
+                  onPressed: () => _openBadgeLink(BTAppConstants.appLink),
                 ),
-                SizedBox(width: 8),
                 buildBadgeAction(
-                  context,
                   // ignore: deprecated_member_use
                   icon: MdiIcons.qqchat,
                   label: 'QQ 群',
-                  url: 'https://qm.qq.com/q/hUxIfSWluo',
+                  onPressed: () => _openBadgeLink(BTAppConstants.appQqGroup),
+                ),
+                buildBadgeAction(
+                  icon: FluentIcons.globe,
+                  label: '官方网站',
+                  onPressed: () => _openBadgeLink(BTAppConstants.appWebsite),
+                ),
+                buildBadgeAction(
+                  icon: FluentIcons.sync,
+                  label: _checkingUpdate ? '正在检测更新…' : '检测更新',
+                  onPressed: _checkingUpdate ? null : _checkForUpdates,
+                  loading: _checkingUpdate,
                 ),
               ],
             ),
@@ -190,36 +254,43 @@ class _SettingPageState extends ConsumerState<SettingPage>
   }
 
   /// 构建应用徽章操作按钮
-  Widget buildBadgeAction(
-    BuildContext context, {
+  Widget buildBadgeAction({
     required IconData icon,
     required String label,
-    required String url,
+    required VoidCallback? onPressed,
+    bool loading = false,
   }) {
-    return Expanded(
-      child: Button(
-        style: ButtonStyle(
-          backgroundColor: WidgetStatePropertyAll(
-            Colors.white.withValues(alpha: 0.12),
+    return Tooltip(
+      message: label,
+      child: SizedBox.square(
+        dimension: 32,
+        child: IconButton(
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.isPressed) {
+                return Colors.white.withValues(alpha: 0.26);
+              }
+              if (states.isHovered) {
+                return Colors.white.withValues(alpha: 0.2);
+              }
+              return Colors.white.withValues(alpha: 0.12);
+            }),
+            foregroundColor: const WidgetStatePropertyAll(Colors.white),
+            padding: const WidgetStatePropertyAll(EdgeInsets.all(8)),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BTRadius.mediumBR),
+            ),
           ),
-          foregroundColor: WidgetStatePropertyAll(Colors.white),
-          padding: WidgetStatePropertyAll(
-            EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          ),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BTRadius.mediumBR),
-          ),
-        ),
-        onPressed: () async {
-          await launchUrlString(url);
-        },
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14),
-            SizedBox(width: 6),
-            Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
-          ],
+          onPressed: onPressed,
+          icon: loading
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: ProgressRing(
+                    strokeWidth: 2,
+                    activeColor: Colors.white,
+                  ),
+                )
+              : Icon(icon, size: 16),
         ),
       ),
     );
