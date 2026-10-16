@@ -2,6 +2,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Project imports:
 import '../../controller/progress_controller.dart';
@@ -21,7 +23,6 @@ import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../../ui/bt_oauth_notice.dart';
 import '../../ui/bt_select.dart';
-import '../../widgets/common/bt_buttons.dart';
 import '../../widgets/common/bt_setting_section.dart';
 import 'bangumi_mirror_dialog.dart';
 import 'bangumi_private_api_test_dialog.dart';
@@ -190,7 +191,16 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
 
   /// 构建用户信息与授权信息（合并展示）
   Widget buildUserAuth() {
-    var user = _user.user;
+    var state = _user;
+    var user = state.user;
+    var theme = FluentTheme.of(context);
+    var expireTime = state.expireTime;
+    var formattedExpiry = expireTime == null
+        ? null
+        : DateFormat('yyyy-MM-dd HH:mm:ss').format(expireTime.toLocal());
+    var authInfo = formattedExpiry == null
+        ? '未找到授权信息'
+        : '授权过期时间：$formattedExpiry';
     Widget leading;
     if (user == null) {
       leading = const BtIcon(FluentIcons.user_sync);
@@ -198,10 +208,11 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
       leading = Container(
         width: 32,
         height: 32,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(4)),
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: FluentTheme.of(context).accentColor.withValues(alpha: 0.4),
+            color: theme.accentColor.withValues(alpha: 0.4),
             width: 1.5,
           ),
         ),
@@ -211,51 +222,147 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
           width: 32,
           height: 32,
           fit: BoxFit.cover,
-          placeholder: (_, _) => const ProgressRing(),
-          errorWidget: (_, _, _) => const Icon(FluentIcons.error),
+          placeholder: (_, _) => const Center(
+            child: SizedBox(
+              width: 16,
+              height: 16,
+              child: ProgressRing(strokeWidth: 2),
+            ),
+          ),
+          errorWidget: (_, _, _) => const Icon(FluentIcons.error, size: 16),
         ),
       );
     }
-    return ListTile(
-      leading: leading,
-      title: Text(user?.nickname ?? '未找到用户信息'),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (user != null) Text('ID: ${user.id}(${user.userGroup.label})'),
-          Text(
-            _user.expireTime == null ? '未找到授权信息' : '授权过期时间：${_user.expireTime}',
+    var userInfo = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                user?.nickname ?? '未找到用户信息',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (user != null)
+              for (var label in ['ID: ${user.id}', user.userGroup.label]) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.accentColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: theme.accentColor.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Text(label, style: theme.typography.caption),
+                ),
+              ],
+          ],
+        ),
+        Tooltip(
+          message: authInfo,
+          child: Text(
+            authInfo,
+            style: theme.typography.caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          const Text('账号授权始终使用官方服务'),
+        ),
+      ],
+    );
+    return ListTile(
+      title: Row(
+        children: [
+          leading,
+          const SizedBox(width: 8),
+          Expanded(child: userInfo),
         ],
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          _userActionButton(
+            icon: FluentIcons.open_in_new_window,
+            label: '查看授权 Token',
+            onPressed: () async {
+              var opened = await launchUrl(
+                Uri.parse(
+                  '${BTAppConstants.officialBangumiNextBaseUrl}'
+                  '/demo/access-token',
+                ),
+                mode: LaunchMode.externalApplication,
+              );
+              if (!opened && mounted) {
+                await BtInfobar.error(context, '无法打开 Token 管理页面');
+              }
+            },
+          ),
+          const SizedBox(width: 4),
+          _userActionButton(
+            icon: FluentIcons.refresh,
+            label: '刷新授权',
+            tooltip: _refreshingAuth
+                ? '正在刷新授权'
+                : _canRefreshAuth
+                ? '刷新授权'
+                : '未找到刷新令牌，无法刷新授权',
+            isLoading: _refreshingAuth,
+            onPressed: _canRefreshAuth && !_refreshingAuth ? refreshAuth : null,
+          ),
+          const SizedBox(width: 4),
+          _userActionButton(
+            icon: FluentIcons.user_sync,
+            label: user == null ? '前往授权' : '重新授权',
+            onPressed: oauthUser,
+          ),
           if (user != null) ...[
-            BTIconButton(
+            const SizedBox(width: 4),
+            _userActionButton(
               icon: FluentIcons.delete,
-              tooltip: '删除用户',
+              label: '删除用户',
               onPressed: tryDeleteUserInfo,
             ),
-            SizedBox(width: 8),
           ],
-          if (_canRefreshAuth) ...[
-            Button(
-              onPressed: _refreshingAuth ? null : refreshAuth,
-              child: Text(_refreshingAuth ? '刷新中…' : '刷新授权'),
-            ),
-            SizedBox(width: 8),
-          ],
-          FilledButton(
-            onPressed: oauthUser,
-            child: Text(user == null ? '前往授权' : '重新授权'),
-          ),
         ],
       ),
     );
   }
+
+  Widget _userActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+    String? tooltip,
+    bool isLoading = false,
+  }) => Tooltip(
+    message: tooltip ?? label,
+    child: Semantics(
+      button: true,
+      label: label,
+      child: SizedBox(
+        width: 34,
+        height: 34,
+        child: IconButton(
+          onPressed: onPressed,
+          icon: isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: ProgressRing(strokeWidth: 2),
+                )
+              : Icon(icon, size: 18),
+        ),
+      ),
+    ),
+  );
 
   /// 分别配置网页、API 与图片镜像。
   Widget buildMirror() {
