@@ -450,6 +450,11 @@ void TrtSession::Attach(ID3D11Texture2D* input, ID3D11Buffer* output) {
         state.cuda.cuGraphicsUnmapResources(2, state.graphics.data(),
                                             state.stream) == CUDA_SUCCESS)
       state.mapped = false;
+    // A previous warmup's event cannot retire this attachment's work,
+    // including map/unmap before or after the inference itself.
+    state.pending = true;
+    state.completion_failed =
+        state.cuda.cuEventRecord(state.completion, state.stream) != CUDA_SUCCESS;
     throw;
   }
   // The scratch output only carried the pre-attachment validation inference.
