@@ -36,7 +36,7 @@ class NativePlaybackPropertyReader {
       <int, ({String name, Completer<NativePlaybackPropertyValue> result})>{};
   final _byName = <String, int>{};
   final _closedResult = Completer<void>();
-  Timer? _poll;
+  NativeCallable<Void Function(Pointer<Void>)>? _wakeup;
   int _nextId = 0;
   int _generation = 0;
   bool _closed = false;
@@ -52,6 +52,16 @@ class NativePlaybackPropertyReader {
     for (var id = 0; id <= mpv.mpv_event_id.MPV_EVENT_HOOK; id++) {
       _player.mpv.mpv_request_event(_client, id, 0);
     }
+    // NativeCallable.listener forwards wakeups from mpv's own threads.
+    var wakeup = _wakeup =
+        NativeCallable<Void Function(Pointer<Void>)>.listener(
+          (Pointer<Void> _) => _drain(),
+        );
+    _player.mpv.mpv_set_wakeup_callback(
+      _client,
+      wakeup.nativeFunction,
+      nullptr,
+    );
   });
 
   Future<NativePlaybackPropertyValue> read(String property) async {
@@ -90,14 +100,14 @@ class NativePlaybackPropertyReader {
     if (status < 0) return NativePlaybackPropertyValue(errorCode: status);
     _requests[id] = (name: property, result: result);
     _byName[property] = id;
-    _poll ??= Timer.periodic(const Duration(milliseconds: 16), (_) => _drain());
     return result.future;
   }
 
   void _drain() {
     // Copy event-owned strings before the next mpv_wait_event invalidates them.
     // A zero timeout never waits for the playback core or a rendered frame.
-    for (var count = 0; count < 128; count++) {
+    var count = 0;
+    for (; count < 128 && _client != nullptr; count++) {
       var event = _player.mpv.mpv_wait_event(_client, 0).ref;
       if (event.event_id == mpv.mpv_event_id.MPV_EVENT_NONE) break;
       if (event.event_id != mpv.mpv_event_id.MPV_EVENT_GET_PROPERTY_REPLY) {
@@ -126,9 +136,8 @@ class NativePlaybackPropertyReader {
         );
       }
     }
+    if (count == 128 && _client != nullptr) scheduleMicrotask(_drain);
     if (_requests.isEmpty) {
-      _poll?.cancel();
-      _poll = null;
       if (_closed) _destroy();
     }
   }
@@ -159,9 +168,12 @@ class NativePlaybackPropertyReader {
     // mpv_destroy waits for outstanding async requests. Drain their replies
     // first, and let Player.release await this cleanup before core destruction.
     if (_client != nullptr) {
+      _player.mpv.mpv_set_wakeup_callback(_client, nullptr, nullptr);
       _player.mpv.mpv_destroy(_client);
       _client = nullptr;
     }
+    _wakeup?.close();
+    _wakeup = null;
     if (!_closedResult.isCompleted) _closedResult.complete();
   }
 }

@@ -42,8 +42,10 @@ GPL build; sources and licensing are listed in the
   unregistration before releasing ANGLE.
 
 The Dart supersampling adapter uses a separate weak mpv client with asynchronous
-replies. Mutations await completion in order, reads coalesce, and disposal drains
-accepted replies before destroying the client.
+replies. Native wakeup callbacks post replies to the Dart isolate instead of
+polling every 16 ms. Mutations await completion in order, reads coalesce, and
+disposal drains accepted replies and unregisters the callback before destroying
+the client.
 
 ## Diagnostics and caches
 
