@@ -169,6 +169,11 @@ class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
         listenable: widget.overlay,
         builder: (context, _) => LayoutBuilder(
           builder: (context, constraints) {
+            // 窗口缩放或启动过渡的极小尺寸放不下上下控制栏；先只显示画面，
+            // 避免 RenderFlex 溢出。尺寸恢复后控制栏会自动回来。
+            if (constraints.maxWidth < 300 || constraints.maxHeight < 140) {
+              return const SizedBox.shrink();
+            }
             var theme = _controlsTheme(constraints.maxWidth);
             var warningBottom = constraints.maxHeight >= 300 ? 92.0 : 16.0;
             return CallbackShortcuts(
