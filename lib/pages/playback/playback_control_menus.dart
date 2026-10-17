@@ -137,7 +137,28 @@ extension _PlaybackControlMenus on _PlaybackVideoControlsState {
     );
   }
 
-  /// 选集与播放记录各自浮出独立内容，按按钮上方的空间限制面板高度。
+  /// 播放窗口浮出层统一入口。超分实际生效时省去过场动画：动画帧会与
+  /// 超分渲染争用 GPU 预算，而菜单与选集面板本就需要稳定尺寸才可阅读。
+  Future<T?> _showPlaybackFlyout<T>({
+    required Offset position,
+    required FlyoutPlacementMode placement,
+    required WidgetBuilder builder,
+  }) => _contextMenu.showFlyout<T>(
+    position: position,
+    placementMode: placement,
+    // Set the transitions on the route: the root menu and every submenu
+    // inherit them through `Flyout.of`.
+    transitionDuration: _upscalingActive ? Duration.zero : null,
+    transitionBuilder: _upscalingActive ? (_, _, _, child) => child : null,
+    builder: builder,
+  );
+
+  /// 着色器链或 AI 滤镜已实际安装。只按“已选择”判断会把回退到普通播放的
+  /// 场景也算作超分，所以这里依据配置成功的状态。
+  bool get _upscalingActive => widget.store.upscaler?.configuredMode != null;
+
+  /// 选集与播放记录各自浮出独立内容。选集按列表内容收缩，切换排版时同步
+  /// 调整高度；记录页保持最大高度。两者都受按钮上方的可用空间限制。
   void _showLibrary(
     BuildContext buttonContext,
     _PlaybackLibrarySection section,
@@ -151,15 +172,23 @@ extension _PlaybackControlMenus on _PlaybackVideoControlsState {
       buttonContext: buttonContext,
       navigatorBox: navigatorBox,
     );
+    // 面板宽度与外层定位盒相差 FlyoutContent 的 1px 描边。
+    var box = Size(
+      layout.size.width + _playbackFlyoutBorder,
+      layout.size.height,
+    );
     unawaited(
       widget.run(() async {
         try {
-          await _contextMenu.showFlyout<void>(
-            placementMode: FlyoutPlacementMode.bottomLeft,
+          await _showPlaybackFlyout<void>(
+            placement: FlyoutPlacementMode.bottomLeft,
             position: layout.position,
-            builder: (_) => _playbackLibraryFlyout(
-              widget.buildLibraryPanel(section),
-              layout.size,
+            builder: (_) => _playbackLibraryDynamicFlyout(
+              store: widget.store,
+              section: section,
+              panel: widget.buildLibraryPanel(section),
+              box: box,
+              above: layout.above,
             ),
           );
         } finally {
@@ -195,14 +224,9 @@ extension _PlaybackControlMenus on _PlaybackVideoControlsState {
     unawaited(
       widget.run(() async {
         try {
-          // Only suppress motion for an installed upscale shader chain. Set
-          // transitions on the route so the root and all submenus inherit them.
-          var upscaling = widget.store.upscaler?.configuredMode != null;
-          await _contextMenu.showFlyout<void>(
+          await _showPlaybackFlyout<void>(
             position: position,
-            placementMode: placement,
-            transitionDuration: upscaling ? Duration.zero : null,
-            transitionBuilder: upscaling ? (_, _, _, child) => child : null,
+            placement: placement,
             // FlyoutContent.useAcrylic only changes tint opacity in fluent_ui
             // 4.16.1. DisableAcrylic removes the actual video backdrop filter
             // and MenuFlyout carries it into every submenu's overlay entry.

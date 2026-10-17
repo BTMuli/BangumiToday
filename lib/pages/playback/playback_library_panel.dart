@@ -45,6 +45,14 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   static const _gap = 6.0;
   static const _gridPadding = 8.0;
   static const _listPadding = 6.0;
+  static const _minCellWidth = 56.0;
+
+  /// 面板外框线宽；`Container` 会把 decoration 的边框计入内边距。
+  static const _borderWidth = 1.0;
+
+  /// 标题行高 32、上下内边距各 6、分隔线 1。
+  static const _headerHeight = 45.0;
+  bool _revealed = false;
 
   @override
   void initState() {
@@ -77,6 +85,8 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
       if (!scroll.hasClients) return;
       var index = store.index;
       if (index < 0) return;
+      var first = !_revealed;
+      _revealed = true;
       var position = scroll.position;
       var height = layout == PlaybackEpisodeLayout.list
           ? _rowHeight
@@ -88,18 +98,49 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
           top + height <= position.pixels + position.viewportDimension) {
         return;
       }
+      var target = (top - position.viewportDimension / 2 + height / 2).clamp(
+        0.0,
+        position.maxScrollExtent,
+      );
+      if (first) {
+        // 浮出层打开时直接就位，避免定位过程与入场动画叠加。
+        scroll.jumpTo(target);
+        return;
+      }
       unawaited(
         scroll.animateTo(
-          (top - position.viewportDimension / 2 + height / 2).clamp(
-            0.0,
-            position.maxScrollExtent,
-          ),
+          target,
           duration: BTTheme.animationDurationNormal,
           curve: BTTheme.animationCurve,
         ),
       );
     });
   }
+
+  /// 选集浮出层的自然高度（含面板边框）：标题、分隔线和当前排版下的完整
+  /// 列表。记录页的条目高度随展开状态变化，由最大高度与内部滚动处理。
+  static double playlistFlyoutHeight(PlaybackStore store, double width) {
+    // 边框会缩进面板内容，列表实际宽度与列数按内宽计算。
+    var innerWidth = width - 2 * _borderWidth;
+    var count = store.playlist.length;
+    var content = switch (store.episodeLayout) {
+      PlaybackEpisodeLayout.grid => () {
+        var columns = _columnsFor(innerWidth);
+        var rows = (count + columns - 1) ~/ columns;
+        var spacing = rows > 1 ? (rows - 1) * _gap : 0.0;
+        return 2 * _gridPadding + rows * _cellHeight + spacing;
+      }(),
+      PlaybackEpisodeLayout.list =>
+        2 * _listPadding + count * (_rowHeight + _gap),
+    };
+    return _headerHeight + content + 2 * _borderWidth;
+  }
+
+  /// 栏宽与 `_playlist` 共用同一列规则，浮出层高度才能与列表布局一致。
+  static int _columnsFor(double width) =>
+      ((width - 2 * _gridPadding + _gap) / (_minCellWidth + _gap))
+          .floor()
+          .clamp(1, 6);
 
   @override
   Widget build(BuildContext context) {
@@ -149,7 +190,10 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context),
         borderRadius: BTRadius.largeBR,
-        border: Border.all(color: BTColors.divider(context)),
+        border: Border.all(
+          width: _borderWidth,
+          color: BTColors.divider(context),
+        ),
       ),
       child: Column(
         children: [
@@ -349,9 +393,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
     if (store.playlist.isEmpty) return _empty('暂无播放列表');
     return LayoutBuilder(
       builder: (context, constraints) {
-        var columns = ((constraints.maxWidth - 16 + _gap) / (56 + _gap))
-            .floor()
-            .clamp(1, 6);
+        var columns = _columnsFor(constraints.maxWidth);
         if (_columns != columns) {
           _columns = columns;
           revealCurrent();
@@ -833,8 +875,15 @@ IconData _playbackLayoutIcon(PlaybackEpisodeLayout layout) => switch (layout) {
   PlaybackEpisodeLayout.list => material.Icons.view_list_rounded,
 };
 
+/// 播放控制浮出层的最大高度；内容超过后由内部列表滚动。
+const _playbackFlyoutMaxHeight = 420.0;
+
+/// `FlyoutContent` 的 1px 描边在内容外再占两像素。
+const _playbackFlyoutBorder = 2.0;
+
 /// 空态面板优先在按钮右侧居中；控制栏面板优先在上方，尺寸受可用空间限制。
-({Offset position, Size size}) _playbackLibraryFlyoutLayout({
+/// 返回内容盒的尺寸与按钮侧；控制栏面板可以在盒内按自身内容贴边显示。
+({Offset position, Size size, bool above}) _playbackLibraryFlyoutLayout({
   required BuildContext buttonContext,
   required RenderBox navigatorBox,
   bool besideButton = false,
@@ -848,7 +897,7 @@ IconData _playbackLayoutIcon(PlaybackEpisodeLayout layout) => switch (layout) {
   var button = topLeft & buttonBox.size;
   var bounds = (Offset.zero & navigatorBox.size).deflate(margin);
   var width = bounds.width.clamp(0.0, maximumWidth);
-  var height = bounds.height.clamp(0.0, 420.0);
+  var height = bounds.height.clamp(0.0, _playbackFlyoutMaxHeight);
   var rightSpace = bounds.right - button.right - gap;
   if (besideButton && rightSpace >= 140) {
     width = width.clamp(0.0, rightSpace);
@@ -861,6 +910,7 @@ IconData _playbackLayoutIcon(PlaybackEpisodeLayout layout) => switch (layout) {
         ),
       ),
       size: Size(width, height),
+      above: false,
     );
   }
   var above = (button.top - gap - bounds.top).clamp(0.0, bounds.height);
@@ -875,8 +925,53 @@ IconData _playbackLayoutIcon(PlaybackEpisodeLayout layout) => switch (layout) {
       showAbove ? button.top - gap - height : button.bottom + gap,
     ),
     size: Size(width, height),
+    above: showAbove,
   );
 }
+
+/// 控制栏浮出层：外层盒保持最大可用高度用于定位，面板按当前排版的实际
+/// 高度贴边显示；切换排版后随内容重新计算，不需要重新打开浮出层。
+Widget _playbackLibraryDynamicFlyout({
+  required PlaybackStore store,
+  required _PlaybackLibrarySection section,
+  required Widget panel,
+  required Size box,
+  required bool above,
+}) => SizedBox(
+  width: box.width,
+  height: box.height,
+  child: Align(
+    alignment: above ? Alignment.bottomCenter : Alignment.topCenter,
+    child: DisableAcrylic(
+      child: FlyoutContent(
+        padding: EdgeInsets.zero,
+        useAcrylic: false,
+        child: RepaintBoundary(
+          child: ListenableBuilder(
+            listenable: store,
+            builder: (context, _) {
+              var panelWidth = box.width - _playbackFlyoutBorder;
+              var maximumPanelHeight = (box.height - _playbackFlyoutBorder)
+                  .clamp(0.0, double.infinity)
+                  .toDouble();
+              var panelHeight = section == _PlaybackLibrarySection.playlist
+                  ? _PlaybackLibraryPanelState.playlistFlyoutHeight(
+                      store,
+                      panelWidth,
+                    ).clamp(0.0, maximumPanelHeight).toDouble()
+                  : maximumPanelHeight;
+              return SizedBox(
+                width: panelWidth,
+                height: panelHeight,
+                child: panel,
+              );
+            },
+          ),
+        ),
+      ),
+    ),
+  ),
+);
 
 Widget _playbackLibraryFlyout(Widget panel, Size size) => DisableAcrylic(
   // useAcrylic alone does not remove fluent_ui's BackdropFilter.
