@@ -18,6 +18,9 @@ class _PlaybackTensorRtProgress extends StatefulWidget {
 }
 
 class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
+  /// Marks the stage and total elapsed times the bridge appends to the reason.
+  static const _timingMarker = ' · 本阶段 ';
+
   bool _details = true;
   bool _preparing = false;
 
@@ -35,6 +38,16 @@ class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
     _preparing = preparing;
   }
 
+  /// Keeps the long stage title on its own line and the elapsed times below it.
+  static (String, String) _splitTiming(String label) {
+    var index = label.lastIndexOf(_timingMarker);
+    if (index < 0) return (label, '');
+    return (
+      label.substring(0, index),
+      '本阶段 ${label.substring(index + _timingMarker.length)}',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     var resources = widget.store.tensorRtResources;
@@ -46,6 +59,9 @@ class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
     var theme = FluentTheme.of(context);
     var showLog = _details || failed;
     var compact = widget.maxHeight < 150;
+    var (title, timing) = _splitTiming(
+      missing ? 'TensorRT 组件不可用，请在应用设置中重新安装' : resources.label,
+    );
     return GestureDetector(
       onDoubleTap: () {},
       child: Container(
@@ -63,11 +79,26 @@ class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    missing ? 'TensorRT 组件不可用，请在应用设置中重新安装' : resources.label,
-                    maxLines: compact ? 1 : 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.typography.bodyStrong,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: compact ? 1 : 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.typography.bodyStrong,
+                      ),
+                      if (timing.isNotEmpty)
+                        Text(
+                          timing,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.typography.caption?.copyWith(
+                            color: theme.resources.textFillColorSecondary,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 if (!preparing)
@@ -80,7 +111,7 @@ class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: compact ? 6 : 8),
             Wrap(
               spacing: 8,
               runSpacing: 6,
@@ -118,9 +149,12 @@ class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
                   ),
               ],
             ),
-            if (preparing) ...[const SizedBox(height: 8), const ProgressBar()],
+            if (preparing) ...[
+              SizedBox(height: compact ? 6 : 8),
+              const ProgressBar(),
+            ],
             if (showLog && (preparing || resources.lines.isNotEmpty)) ...[
-              const SizedBox(height: 10),
+              SizedBox(height: compact ? 6 : 10),
               Flexible(
                 child: SizedBox(
                   height: 160,
