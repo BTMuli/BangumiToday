@@ -1071,6 +1071,7 @@ class PlaybackUpscaler {
       )) {
         return;
       }
+      _trace('performance fallback ${_dropMonitor.lastWindow}');
       _lastFailure = StateError('AI 超分持续掉帧或输出速度不足');
       _performanceFailureRate = _dropMonitor.rate;
       _failed = true;

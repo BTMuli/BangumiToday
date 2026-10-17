@@ -7,6 +7,7 @@ class PlaybackFrameDropMonitor {
   Duration _eligibleAt = Duration.zero;
   ({num dropped, num frame, num position, Duration elapsed})? _baseline;
   int _windows = 0;
+  Map<String, Object?>? lastWindow;
 
   bool speed(double value, Duration elapsed) {
     if (!value.isFinite || value <= 0 || value == _rate) return false;
@@ -25,6 +26,7 @@ class PlaybackFrameDropMonitor {
   void reset() {
     _baseline = null;
     _windows = 0;
+    lastWindow = null;
   }
 
   bool observe({
@@ -87,6 +89,19 @@ class PlaybackFrameDropMonitor {
     var starved =
         expected.isFinite && expected > 0 && frames / wallSeconds < minimum;
     _windows = fraction > 0.01 || starved ? _windows + 1 : 0;
+    lastWindow = {
+      'wall_seconds': wallSeconds,
+      'inferred_frames': frames,
+      'vo_drops': drops,
+      'inferred_fps': frames / wallSeconds,
+      'expected_fps': expected,
+      'drop_fraction': fraction,
+      'drop_threshold': 0.01,
+      'minimum_fps': minimum,
+      'starved': starved,
+      'consecutive_bad_windows': _windows,
+      'required_bad_windows': 3,
+    };
     return _windows >= 3;
   }
 }
