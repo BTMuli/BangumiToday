@@ -811,16 +811,20 @@ class PlaybackStore extends ChangeNotifier {
     if (nextIndex < 0 || nextIndex >= nextPlaylist.length) return;
     var item = nextPlaylist[nextIndex];
     _operationFile = item.filePath;
+    var timing = _PlaybackOpenTiming();
     BTLogTool.info('准备播放：${item.filePath}');
     _setOpeningStatus('正在读取播放记录…');
-    await library.ensureReady(item.filePath);
+    await timing.measure('读取任务状态', () => library.ensureReady(item.filePath));
     if (_closed) return;
-    var previous = await historyStore.read(item.filePath);
+    var previous = await timing.measure(
+      '读取播放记录',
+      () => historyStore.read(item.filePath),
+    );
     _setOpeningStatus('正在加载播放设置…');
-    await _loadPreferences();
+    await timing.measure('加载播放设置', _loadPreferences);
     if (_closed) return;
     _setOpeningStatus('正在初始化播放器…');
-    await _initializePlayer();
+    await timing.measure('初始化原生播放器', _initializePlayer);
     if (_closed) return;
     _setOpeningStatus('正在打开视频…');
     loading = true;
@@ -830,10 +834,13 @@ class PlaybackStore extends ChangeNotifier {
       _manualSubtitles = true;
       _chapters?.reset();
       _janaiVideoSource?.reset();
-      await _upscaler?.resetMedia(keepOutput: true);
+      await timing.measure(
+        '重置超分',
+        () => _upscaler?.resetMedia(keepOutput: true) ?? Future<void>.value(),
+      );
       if (_closed) return;
-      await _player!.stop();
-      await _audio.reset();
+      await timing.measure('停止旧媒体', () => _player!.stop());
+      await timing.measure('重置音频', _audio.reset);
       if (_closed) return;
       playlist = nextPlaylist;
       index = nextIndex;
@@ -848,14 +855,23 @@ class PlaybackStore extends ChangeNotifier {
       // Keep the previous aspect ratio until the new stream reports its own, so
       // auto-advancing between episodes (usually the same ratio) does not make
       // the playback surface size jump.
-      await _player!.setSubtitleTrack(SubtitleTrack.no());
+      await timing.measure(
+        '设置字幕轨道',
+        () => _player!.setSubtitleTrack(SubtitleTrack.no()),
+      );
       _chapters?.reset(active: true);
-      await _player!.open(Media(item.filePath, start: position));
+      await timing.measure(
+        '打开媒体',
+        () => _player!.open(Media(item.filePath, start: position)),
+      );
       if (_closed) return;
       _setOpeningStatus('正在恢复播放状态…');
       _audio.scheduleRefresh();
-      await _autoSelectSubtitle();
-      await _chapters?.refresh();
+      await timing.measure('选择字幕', _autoSelectSubtitle);
+      await timing.measure(
+        '读取章节',
+        () => _chapters?.refresh() ?? Future<void>.value(),
+      );
       _upscaler?.mediaReady(_videoSource(_player!.state.videoParams));
       if (Platform.isWindows) unawaited(_janaiVideoSource?.refresh());
       _updateTexture();
@@ -871,6 +887,7 @@ class PlaybackStore extends ChangeNotifier {
     } finally {
       loading = false;
       _notify();
+      BTLogTool.info('播放打开结束：${timing.summary}');
     }
     await _save();
   }
@@ -965,19 +982,27 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> _loadPreferences() {
     var pending = _preferencesFuture;
     if (pending != null) return pending;
+    var timing = _PlaybackOpenTiming();
     var operation = () async {
-      await _rateMemory.load();
-      await _audio.loadPreferences();
-      _episodeLayout = PlaybackEpisodeLayout.parse(
-        await settingsStore.read('playbackEpisodeLayout'),
-      );
-      if (Platform.isWindows) {
-        // Resolves the component root before the benchmark cache reads it.
-        await _upscale.initializeResources();
-        await _audio.loadLoudnessPreference();
-        await _upscale.loadPreferences();
+      try {
+        await timing.measure('读取倍速记忆', _rateMemory.load);
+        await timing.measure('读取音频设置', _audio.loadPreferences);
+        _episodeLayout = PlaybackEpisodeLayout.parse(
+          await timing.measure(
+            '读取剧集布局',
+            () => settingsStore.read('playbackEpisodeLayout'),
+          ),
+        );
+        if (Platform.isWindows) {
+          // Resolves the component root before the benchmark cache reads it.
+          await timing.measure('初始化 TensorRT 资源', _upscale.initializeResources);
+          await timing.measure('读取响度设置', _audio.loadLoudnessPreference);
+          await timing.measure('读取超分设置', _upscale.loadPreferences);
+        }
+        _notify();
+      } finally {
+        BTLogTool.info('播放设置加载耗时：${timing.summary}');
       }
-      _notify();
     }();
     _preferencesFuture = operation;
     unawaited(
@@ -1352,4 +1377,32 @@ class PlaybackStore extends ChangeNotifier {
     );
     super.dispose();
   }
+}
+
+/// Attributes one player-open operation to its sequential waits. Slow stages
+/// log immediately, so a failed or cancelled open still explains where the
+/// time went; the caller logs the complete breakdown when the operation ends.
+class _PlaybackOpenTiming {
+  final _watch = Stopwatch()..start();
+  final _stages = <String>[];
+
+  Future<T> measure<T>(String name, Future<T> Function() action) async {
+    var started = _watch.elapsedMicroseconds;
+    try {
+      return await action();
+    } finally {
+      var elapsed = _watch.elapsedMicroseconds - started;
+      _stages.add('$name=${_format(elapsed)}ms');
+      if (elapsed >= 50 * 1000) {
+        BTLogTool.info('播放打开阶段：$name=${_format(elapsed)}ms');
+      }
+    }
+  }
+
+  String get summary =>
+      '${_stages.join(' ')} total=${_format(_watch.elapsedMicroseconds)}ms';
+
+  static String _format(int microseconds) => microseconds < 100 * 1000
+      ? (microseconds / 1000).toStringAsFixed(1)
+      : (microseconds / 1000).round().toString();
 }
