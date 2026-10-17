@@ -2,12 +2,29 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2026-10-16
+Update: 2026-10-17
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:15`
 >
-> 更新于 `2026-10-16 08:38:25`
+> 更新于 `2026-10-17 21:02:19`
+
+## [v1.1.1](https://github.com/BTMuli/BangumiToday/releases/tag/v1.1.1) (2026-10-17)
+
+- 🐛 修复登录授权异常
+- ✨ 接入可配置的 Bangumi P1 接口
+- ✨ 完善应用信息栏并添加更新检测
+- 💄 优化 Bangumi 用户信息与授权操作布局
+- 💄 将 TensorRT 编译阶段与耗时分行展示
+- 🚸 优化播放控制浮出层的自适应高度与定位
+- ⚡️ 优化诸多性能：
+  - ⚡️ 降低离线数据转换的主线程开销
+  - ⚡️ 降低 RSS 刷新与搜索请求开销
+  - ⚡️ 降低原生播放控制回复延迟
+  - ⚡️ 复用日志文件句柄减少写入开销
+  - ⚡️ 优化原生渲染与快照同步
+  - ⚡️ 移除 TensorRT 输出的每帧回写拷贝
+  - ⚡️ 优化播放器预热、倍速切换与快照分配
 
 ## [v1.1.0](https://github.com/BTMuli/BangumiToday/releases/tag/v1.1.0) (2026-10-16)
 
