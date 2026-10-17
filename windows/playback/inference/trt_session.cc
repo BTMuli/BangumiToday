@@ -105,7 +105,7 @@ struct TrtSession::State {
   CUcontext context = nullptr;
   int device = -1;
   CUstream stream = nullptr;
-  std::array<CUevent, 2> events{};
+  std::array<CUevent, 4> events{};
   CUevent completion = nullptr;
   CUgraphExec graph = nullptr;
   CUdeviceptr input = 0;
@@ -125,19 +125,27 @@ struct TrtSession::State {
   bool mapped = false;
   bool completion_failed = false;
   bool timing_pending = false;
-  double gpu_ms = 0;
+  GpuTiming gpu_timing;
   SubmissionTiming submission_timing;
 
-  void CollectTiming() {
-    if (!timing_pending) return;
-    const auto result = cuda.cuEventQuery(events[1]);
-    if (result == CUDA_ERROR_NOT_READY) return;
+  bool CollectTiming() {
+    if (!timing_pending) return false;
+    const auto result = cuda.cuEventQuery(events.back());
+    if (result == CUDA_ERROR_NOT_READY) return false;
     CudaApi::Check(result, "CUDA timing completion");
-    float elapsed = 0;
-    CudaApi::Check(cuda.cuEventElapsedTime(&elapsed, events[0], events[1]),
-                   "CUDA inference timing");
-    gpu_ms = elapsed;
+    const auto elapsed = [&](size_t begin, size_t end) {
+      float milliseconds = 0;
+      CudaApi::Check(cuda.cuEventElapsedTime(&milliseconds, events[begin],
+                                             events[end]),
+                     "CUDA frame stage timing");
+      return static_cast<double>(milliseconds);
+    };
+    gpu_timing.input_copy_ms = elapsed(0, 1);
+    gpu_timing.inference_ms = elapsed(1, 2);
+    gpu_timing.output_copy_ms = elapsed(2, 3);
+    gpu_timing.total_ms = elapsed(0, 3);
     timing_pending = false;
+    return true;
   }
 
   void CaptureGraph() {
@@ -323,16 +331,11 @@ TrtSession::TrtSession(std::shared_ptr<TrtResources> resources,
                   "output", reinterpret_cast<void*>(state.output)),
           "Cannot bind TensorRT GPU tensors");
     step("正在执行首次 GPU 预热推理");
-    CudaApi::Check(state.cuda.cuEventRecord(state.events[0], state.stream),
-                   "Warmup start");
     state.pending = true;
     CudaApi::Check(
         state.cuda.cuMemsetD8Async(state.input, 0, tensor_bytes, state.stream),
         "Initialize warmup input");
     Check(state.execution->enqueueV3(state.stream), "TensorRT warmup failed");
-    CudaApi::Check(state.cuda.cuEventRecord(state.events[1], state.stream),
-                   "Warmup end");
-    state.timing_pending = true;
     CudaApi::Check(state.cuda.cuEventRecord(state.completion, state.stream),
                    "Warmup completion");
     state.Wait();
@@ -348,7 +351,6 @@ TrtSession::TrtSession(std::shared_ptr<TrtResources> resources,
       state.Wait();
     }
     step("引擎张量校验和 GPU 预热通过");
-    state.gpu_ms = 0;
   } catch (...) {
     // Constructor failures bypass ~TrtSession. Keep resources alive if CUDA
     // accepted work but its completion cannot be established.
@@ -397,14 +399,14 @@ void TrtSession::Attach(ID3D11Texture2D* input, ID3D11Texture2D* output) {
   }
 }
 
-void TrtSession::Run(ID3D11DeviceContext* context) {
+void TrtSession::Run(ID3D11DeviceContext* context, bool measure) {
   auto& state = *state_;
   Check(context && state.source && state.destination,
         "Missing TensorRT conversion textures or playback context");
   CudaScope scope(state.cuda, state.context);
   Check(!state.completion_failed, "CUDA completion event could not be recorded");
-  state.CollectTiming();
-  const bool measuring = !state.timing_pending;
+  Check(!measure || !state.timing_pending,
+        "The previous CUDA measurement has not been consumed");
   // The CUDA stream orders tensor reuse; graphics map/unmap orders the D3D11
   // conversion shaders. No CPU wait is needed before submitting another frame.
   context->Flush();
@@ -418,7 +420,7 @@ void TrtSession::Run(ID3D11DeviceContext* context) {
   state.mapped = true;
   state.pending = true;
   try {
-    if (measuring)
+    if (measure)
       CudaApi::Check(state.cuda.cuEventRecord(state.events[0], state.stream),
                      "CUDA start");
     std::array<CUarray, 2> arrays{};
@@ -435,7 +437,13 @@ void TrtSession::Run(ID3D11DeviceContext* context) {
     copy.Height = size_t{state.height} * 3;
     CudaApi::Check(state.cuda.cuMemcpy2DAsync(&copy, state.stream),
                    "Pack FP16 NCHW");
+    if (measure)
+      CudaApi::Check(state.cuda.cuEventRecord(state.events[1], state.stream),
+                     "CUDA input ready");
     state.Enqueue();
+    if (measure)
+      CudaApi::Check(state.cuda.cuEventRecord(state.events[2], state.stream),
+                     "CUDA inference ready");
     copy = {};
     copy.srcMemoryType = CU_MEMORYTYPE_DEVICE;
     copy.srcDevice = state.output;
@@ -445,8 +453,8 @@ void TrtSession::Run(ID3D11DeviceContext* context) {
     copy.Height = size_t{state.height} * 6;
     CudaApi::Check(state.cuda.cuMemcpy2DAsync(&copy, state.stream),
                    "Unpack FP16 RGB");
-    if (measuring) {
-      CudaApi::Check(state.cuda.cuEventRecord(state.events[1], state.stream),
+    if (measure) {
+      CudaApi::Check(state.cuda.cuEventRecord(state.events[3], state.stream),
                      "CUDA end");
       state.timing_pending = true;
     }
@@ -471,7 +479,13 @@ void TrtSession::Run(ID3D11DeviceContext* context) {
   }
   // CUDA unmap orders the converter's following D3D11 reads after CUDA writes.
 }
-double TrtSession::last_gpu_ms() const { return state_->gpu_ms; }
+bool TrtSession::ReadGpuTiming(GpuTiming* timing) {
+  if (!timing) throw std::invalid_argument("Missing CUDA timing destination");
+  CudaScope scope(state_->cuda, state_->context);
+  if (!state_->CollectTiming()) return false;
+  *timing = state_->gpu_timing;
+  return true;
+}
 TrtSession::SubmissionTiming TrtSession::last_submission_timing() const {
   return state_->submission_timing;
 }

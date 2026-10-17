@@ -96,12 +96,13 @@ class FramePipeline final {
     double to_output_planes_ms = 0;
     double to_frame_ms = 0;
     // GPU timestamps of the last completed measurement. They cover the D3D12
-    // copies and the DirectML run; the D3D11 conversion shaders run on the
-    // playback context and are not included.
+    // copies and the DirectML run, or CUDA packing/inference/unpacking plus
+    // the final plane copies. D3D11 conversion shaders are not included.
     double gpu_input_copy_ms = 0;
     double gpu_inference_ms = 0;
     double gpu_output_copy_ms = 0;
     double gpu_total_ms = 0;
+    uint64_t gpu_frame = 0;
     bool gpu_measured = false;
   };
   Timing last_timing() const;

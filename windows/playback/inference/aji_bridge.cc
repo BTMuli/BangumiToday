@@ -396,6 +396,12 @@ void PublishStats(aji_ctx& state, const char* phase, bool force) noexcept try {
     stream << "cpuCudaUnmapMs=" << timing.cuda_unmap_ms << "\n";
     stream << "cpuInteropSubmitMs=" << timing.interop_submit_ms << "\n";
     stream << "cpuFrameSubmitMs=" << timing.to_frame_ms << "\n";
+    stream << "gpuInputCopyMs=" << timing.gpu_input_copy_ms << "\n";
+    stream << "gpuInferenceMs=" << timing.gpu_inference_ms << "\n";
+    stream << "gpuOutputCopyMs=" << timing.gpu_output_copy_ms << "\n";
+    stream << "gpuTotalMs=" << timing.gpu_total_ms << "\n";
+    stream << "gpuMeasuredFrame=" << timing.gpu_frame << "\n";
+    stream << "gpuTimingValid=" << (timing.gpu_measured ? 1 : 0) << "\n";
     stream << "ticket=" << state.last_ticket << "\n";
     stream << "reason=" << state.status_reason << "\n";
   }

@@ -148,10 +148,12 @@ struct FramePipeline::State {
   Timing timing;
   FrameBudgetMonitor budget;
   Clock::time_point measured_at;
+  uint64_t measured_frame = 0;
   // Deferred GPU measurement: the last frame whose timestamps were resolved.
   struct Measurement {
     uint32_t buffer = 0;
     uint64_t ticket = 0;
+    uint64_t frame = 0;
     bool pending = false;
   } measurement;
 
@@ -345,8 +347,11 @@ uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
   // feeds the performance gate; it never blocks.
   if (state.measurement.pending) {
     std::vector<uint64_t> ticks;
+    TrtSession::GpuTiming cuda_timing;
     if (state.interop->ReadTimestamps(state.measurement.ticket,
-                                      state.measurement.buffer, 4, &ticks)) {
+                                      state.measurement.buffer, 4, &ticks) &&
+        (!state.trt_session ||
+         state.trt_session->ReadGpuTiming(&cuda_timing))) {
       state.measurement.pending = false;
       state.timing.gpu_input_copy_ms =
           state.interop->MillisecondsBetween(ticks[0], ticks[1]);
@@ -357,29 +362,31 @@ uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
       state.timing.gpu_total_ms =
           state.interop->MillisecondsBetween(ticks[0], ticks[3]);
       if (state.trt_session) {
-        state.timing.gpu_inference_ms = state.trt_session->last_gpu_ms();
-        state.timing.gpu_total_ms += state.timing.gpu_inference_ms;
+        state.timing.gpu_input_copy_ms += cuda_timing.input_copy_ms;
+        state.timing.gpu_inference_ms = cuda_timing.inference_ms;
+        state.timing.gpu_output_copy_ms += cuda_timing.output_copy_ms;
+        state.timing.gpu_total_ms += cuda_timing.total_ms;
       }
+      state.timing.gpu_frame = state.measurement.frame;
       state.timing.gpu_measured = state.timing.gpu_total_ms > 0.0;
       const Clock::time_point now = Clock::now();
       if (state.measured_at != Clock::time_point{}) {
         const double wall_ms = Milliseconds(state.measured_at, now);
         if (wall_ms > 0.0)
-          state.budget.AddFrame(state.timing.gpu_total_ms, wall_ms);
+          state.budget.AddFrame(state.timing.gpu_total_ms, wall_ms,
+                               state.measurement.frame - state.measured_frame);
       }
       state.measured_at = now;
+      state.measured_frame = state.measurement.frame;
     }
   }
 
-  bool measuring = state.interop->timestamps_supported();
+  // Keep the CUDA events and D3D timestamps attached to one frame until both
+  // are consumed. Skipping measurements under load never stalls rendering.
+  const bool measuring =
+      state.interop->timestamps_supported() && !state.measurement.pending;
   const uint32_t measurement_buffer =
       static_cast<uint32_t>(state.frames % InteropContext::kTimestampBuffers);
-  if (measuring && state.measurement.pending &&
-      state.measurement.buffer == measurement_buffer) {
-    // The ring slot is still owned by an unfinished measurement; skip this
-    // frame's GPU timing instead of overwriting it.
-    measuring = false;
-  }
   const uint32_t measurement_base = measuring ? measurement_buffer * 4 : 0;
 
   // Resolve the copy target: the pipeline's own frame unless the caller
@@ -447,7 +454,7 @@ uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
     after_input = Clock::now();
 
     if (state.trt_session) {
-      state.trt_session->Run(context);
+      state.trt_session->Run(context, measuring);
     } else {
       state.interop->Submit(input_ready, [&](ID3D12GraphicsCommandList* list) {
         if (measuring) state.interop->WriteTimestamp(list, measurement_base);
@@ -504,9 +511,8 @@ uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
   const uint64_t ticket =
       state.interop->Submit(planes_ready, [&](ID3D12GraphicsCommandList* list) {
         if (measuring && state.trt_session) {
-          // CUDA event timings cover packing/inference/unpacking. These D3D12
-          // timestamps add the final YUV plane copies without pretending the
-          // DirectML queue can time CUDA work.
+          // Separate CUDA events cover packing, inference and unpacking. These
+          // D3D12 timestamps add the final YUV plane copies of that same frame.
           state.interop->WriteTimestamp(list, measurement_base);
           state.interop->WriteTimestamp(list, measurement_base + 1);
           state.interop->WriteTimestamp(list, measurement_base + 2);
@@ -539,6 +545,7 @@ uint64_t FramePipeline::Submit(ID3D11DeviceContext* context,
   if (measuring) {
     state.measurement.buffer = measurement_buffer;
     state.measurement.ticket = ticket;
+    state.measurement.frame = state.frames;
     state.measurement.pending = true;
   }
   state.timing.to_model_input_ms = Milliseconds(start, after_input);

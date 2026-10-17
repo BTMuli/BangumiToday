@@ -27,14 +27,22 @@ class TrtSession final {
   // (width * 2) x (height * 6), on the same playback device. The converter's
   // graphics accesses are ordered by CUDA map/unmap in Run.
   void Attach(ID3D11Texture2D* input, ID3D11Texture2D* output);
-  void Run(ID3D11DeviceContext* context);
+  void Run(ID3D11DeviceContext* context, bool measure);
+  struct GpuTiming {
+    double input_copy_ms = 0;
+    double inference_ms = 0;
+    double output_copy_ms = 0;
+    double total_ms = 0;
+  };
+  // Consume the requested frame's measurement without waiting. No later Run
+  // may replace its events until this returns true.
+  bool ReadGpuTiming(GpuTiming* timing);
   // Host API timings, separate from asynchronous GPU event measurements.
   struct SubmissionTiming {
     double map_ms = 0;
     double unmap_ms = 0;
   };
   SubmissionTiming last_submission_timing() const;
-  double last_gpu_ms() const;
   bool uses_cuda_graph() const;
 
  private:

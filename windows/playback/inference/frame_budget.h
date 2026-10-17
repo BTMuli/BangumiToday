@@ -32,11 +32,12 @@ class FrameBudgetMonitor final {
   // frames_per_second comes from the media's frame rate. Zero disables gating
   // (a window can then never be over budget).
   void Configure(double frames_per_second);
-  // One finished frame: its GPU service time and the wall-clock time since the
-  // previous frame. Both must be finite and non-negative. Long gaps not spent
+  // A completed GPU sample and wall time since the previous sample. When GPU
+  // measurements skip frames, completed_frames still counts actual throughput.
+  // Both times must be finite and non-negative. Long gaps not spent
   // on GPU work reset the windows: the bridge has no pause/buffering state.
   // Playback-aware throughput protection belongs to the Dart coordinator.
-  void AddFrame(double gpu_ms, double wall_ms);
+  void AddFrame(double gpu_ms, double wall_ms, uint64_t completed_frames = 1);
   // Optional renderer feedback (VO drop rate). The native bridge only measures
   // its own GPU work; the drop rate arrives from the playback integration.
   void ReportDropRate(double percent);
@@ -55,6 +56,7 @@ class FrameBudgetMonitor final {
   double budget_ms_ = 0;
   double drop_rate_percent_ = 0;
   double window_elapsed_ms_ = 0;
+  uint64_t window_frames_ = 0;
   std::vector<double> window_gpu_ms_;
   uint32_t consecutive_over_budget_ = 0;
   Snapshot snapshot_;

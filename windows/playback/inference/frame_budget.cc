@@ -20,9 +20,10 @@ void FrameBudgetMonitor::Configure(double frames_per_second) {
   Reset();
 }
 
-void FrameBudgetMonitor::AddFrame(double gpu_ms, double wall_ms) {
+void FrameBudgetMonitor::AddFrame(double gpu_ms, double wall_ms,
+                                  uint64_t completed_frames) {
   if (!std::isfinite(gpu_ms) || gpu_ms < 0.0 || !std::isfinite(wall_ms) ||
-      wall_ms < 0.0)
+      wall_ms < 0.0 || completed_frames == 0)
     throw std::invalid_argument("Invalid frame timing");
   // A pause, seek or suspended page can leave a finished GPU measurement
   // pending until the next frame. That idle time is not inference demand.
@@ -35,6 +36,7 @@ void FrameBudgetMonitor::AddFrame(double gpu_ms, double wall_ms) {
   if (window_gpu_ms_.size() < kMaximumWindowSamples)
     window_gpu_ms_.push_back(gpu_ms);
   window_elapsed_ms_ += wall_ms;
+  window_frames_ += completed_frames;
   if (window_elapsed_ms_ >= kWindowMs) CloseWindow();
 }
 
@@ -46,6 +48,7 @@ void FrameBudgetMonitor::ReportDropRate(double percent) {
 
 void FrameBudgetMonitor::Reset() {
   window_elapsed_ms_ = 0;
+  window_frames_ = 0;
   window_gpu_ms_.clear();
   consecutive_over_budget_ = 0;
   drop_rate_percent_ = 0;
@@ -54,11 +57,11 @@ void FrameBudgetMonitor::Reset() {
 }
 
 void FrameBudgetMonitor::CloseWindow() {
-  const uint64_t frames = window_gpu_ms_.size();
-  const bool valid = frames >= kMinimumWindowFrames;
+  const uint64_t frames = window_frames_;
+  const bool valid = window_gpu_ms_.size() >= kMinimumWindowFrames;
   double median = 0;
   double p95 = 0;
-  if (frames > 0) {
+  if (!window_gpu_ms_.empty()) {
     std::vector<double> sorted = window_gpu_ms_;
     std::sort(sorted.begin(), sorted.end());
     median = sorted[sorted.size() / 2];
@@ -97,6 +100,7 @@ void FrameBudgetMonitor::CloseWindow() {
   snapshot_.fallback_recommended =
       consecutive_over_budget_ >= kOverBudgetWindowsBeforeFallback;
   window_elapsed_ms_ = 0;
+  window_frames_ = 0;
   window_gpu_ms_.clear();
 }
 
