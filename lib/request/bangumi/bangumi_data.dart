@@ -2,6 +2,7 @@
 import 'package:dio/dio.dart';
 
 // Project imports:
+import '../../data/parsers/bangumi_data_parser.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_data_model.dart';
 import '../../tools/log_tool.dart';
@@ -39,7 +40,7 @@ class BtrBangumiDataApi {
       );
       assert(response.data is Map<String, dynamic>);
       return BangumiDataResp.success(
-        data: BangumiDataJson.fromJson(response.data),
+        data: await parseBangumiDataset(response.data as Map<String, dynamic>),
       );
     } on DioException catch (e) {
       BTLogTool.error('Failed to load bangumi data ${e.response?.data}');

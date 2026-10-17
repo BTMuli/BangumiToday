@@ -8,7 +8,7 @@ import '../../tools/log_tool.dart';
 import '../app/app_config.dart';
 import '../bt_sqlite.dart';
 import '../drift/bt_database.dart';
-import '../drift/catalog_projection.dart';
+import '../drift/dataset_import.dart';
 import '../drift/dataset_storage.dart';
 
 /// 负责bangumi-data相关处理
@@ -137,7 +137,7 @@ class BtsBangumiData {
     void Function(int completed, int total)? onProgress,
   }) async {
     await DatasetStorage(_db).saveItems(
-      items.map(_itemCompanion).toList(),
+      await prepareDatasetItems(items),
       batchSize: batchSize,
       onProgress: onProgress,
     );
@@ -149,12 +149,12 @@ class BtsBangumiData {
     required String version,
     required String checkedAt,
     void Function(int completed, int total)? onProgress,
-  }) => DatasetStorage(_db).replaceAll(
+  }) async => DatasetStorage(_db).replaceAll(
     sites: [
       for (var entry in data.siteMeta.entries)
         _siteCompanion(BangumiDataSiteFull.fromSite(entry.key, entry.value)),
     ],
-    items: data.items.map(_itemCompanion).toList(),
+    items: await prepareDatasetItems(data.items),
     version: version,
     checkedAt: checkedAt,
     onProgress: onProgress,
@@ -183,23 +183,6 @@ class BtsBangumiData {
       urlTemplate: Value(values['urlTemplate'] as String),
       type: Value(values['type'] as String),
       regions: Value(values['regions'] as String),
-    );
-  }
-
-  BangumiDataItemCompanion _itemCompanion(BangumiDataItem item) {
-    var values = item.toSqlJson();
-    return BangumiDataItemCompanion(
-      itemKey: Value(dataItemKey(values)!),
-      title: Value(values['title'] as String),
-      titleTranslate: Value(values['titleTranslate'] as String),
-      type: Value(values['type'] as String),
-      lang: Value(values['lang'] as String),
-      officialSite: Value(values['officialSite'] as String),
-      begin: Value(values['begin'] as String),
-      broadcast: Value(values['broadcast'] as String?),
-      end: Value(values['end'] as String),
-      comment: Value(values['comment'] as String?),
-      sites: Value(values['sites'] as String),
     );
   }
 }
