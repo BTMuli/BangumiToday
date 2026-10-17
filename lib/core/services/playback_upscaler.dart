@@ -987,8 +987,11 @@ class PlaybackUpscaler {
         status = await backend.janaiStatus();
         if (_closed || epoch != _dropEpoch || _failed) return;
       }
+      var presentationChanged = status == null
+          ? janaiStatus != null
+          : !status.hasSamePresentation(janaiStatus);
       janaiStatus = status;
-      onChanged();
+      if (presentationChanged) onChanged();
       if (status != null &&
           (status.phase == 'failed' ||
               (status.active && status.backend != 'tensorrt'))) {

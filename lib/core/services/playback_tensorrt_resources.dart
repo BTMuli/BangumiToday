@@ -250,6 +250,9 @@ class PlaybackTensorRtResources {
 
   void observe(PlaybackJanaiStatus? status) {
     if (_disposed) return;
+    var presentationChanged = status == null
+        ? native != null || _cancellingBuild || _buildCompleted
+        : !status.hasSamePresentation(native);
     if (status == null) _cancellingBuild = false;
     var previous = native;
     if (status == null || status.preparing) {
@@ -279,7 +282,7 @@ class PlaybackTensorRtResources {
       _checkedSnapshot = null;
     }
     native = status;
-    onChanged();
+    if (presentationChanged) onChanged();
   }
 
   void requestBuildCancellation() {

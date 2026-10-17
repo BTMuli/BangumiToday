@@ -31,6 +31,30 @@ class PlaybackJanaiStatus {
   final List<String> buildLines;
   bool get preparing => phase == 'preparing';
   bool get active => phase == 'active' && frames > 0;
+
+  /// Counters and GPU timings are sampled by the OSD's own timer. Only changes
+  /// to controls, recommendations or build notices need a Store notification.
+  bool hasSamePresentation(PlaybackJanaiStatus? other) {
+    if (other == null ||
+        phase != other.phase ||
+        backend != other.backend ||
+        reason != other.reason ||
+        backendReason != other.backendReason ||
+        active != other.active ||
+        gpuName != other.gpuName ||
+        gpuVendor != other.gpuVendor ||
+        gpuSm != other.gpuSm ||
+        gpuDriver != other.gpuDriver ||
+        buildLog != other.buildLog ||
+        buildLines.length != other.buildLines.length) {
+      return false;
+    }
+    for (var i = 0; i < buildLines.length; i++) {
+      if (buildLines[i] != other.buildLines[i]) return false;
+    }
+    return true;
+  }
+
   String get label => preparing
       ? '正在准备 TensorRT 模型，准备期间正常播放'
       : phase == 'resources_missing'
