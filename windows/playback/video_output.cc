@@ -19,6 +19,22 @@
 #define SW_RENDERING_PIXEL_BUFFER_SIZE \
   (SW_RENDERING_MAX_WIDTH) * (SW_RENDERING_MAX_HEIGHT) * (4)
 
+static_assert(PlaybackFrameInfo::kPresent == MPV_RENDER_FRAME_INFO_PRESENT,
+              "libmpv PRESENT frame flag changed");
+static_assert(PlaybackFrameInfo::kRedraw == MPV_RENDER_FRAME_INFO_REDRAW,
+              "libmpv REDRAW frame flag changed");
+static_assert(PlaybackFrameInfo::kRepeat == MPV_RENDER_FRAME_INFO_REPEAT,
+              "libmpv REPEAT frame flag changed");
+static_assert(PlaybackFrameInfo::kBlockVsync ==
+                  MPV_RENDER_FRAME_INFO_BLOCK_VSYNC,
+              "libmpv BLOCK_VSYNC frame flag changed");
+
+namespace {
+PlaybackFrameInfo FrameInfo(const mpv_render_frame_info& frame) {
+  return {frame.flags, frame.target_time};
+}
+}  // namespace
+
 VideoOutput::VideoOutput(int64_t handle, VideoOutputConfiguration configuration,
                          flutter::PluginRegistrarWindows* registrar,
                          ThreadPool* thread_pool_ref)
@@ -240,6 +256,7 @@ void VideoOutput::ProcessRender(bool force, double queue_ms,
       sample.finished = PlaybackRenderClock::now();
       sample.elapsed_ms = PlaybackRenderMilliseconds(sample.finished - started);
       RecordSkip(sample);
+      PrefetchSnapshot();
       return;
     }
     if (!Render(&sample)) return;
@@ -263,6 +280,7 @@ void VideoOutput::ProcessRender(bool force, double queue_ms,
   sample.finished = PlaybackRenderClock::now();
   sample.elapsed_ms = PlaybackRenderMilliseconds(sample.finished - started);
   RecordRender(sample, true);
+  PrefetchSnapshot();
 }
 
 bool VideoOutput::SkipLateFrame(PlaybackRenderSample* sample,
@@ -272,7 +290,7 @@ bool VideoOutput::SkipLateFrame(PlaybackRenderSample* sample,
   sample->frame_flags = frame.flags;
   if (frame.target_time > 0 && now > frame.target_time)
     sample->lateness_ms = (now - frame.target_time) / 1'000'000.0;
-  if (!frame_scheduler_.ShouldSkip(frame, now, sample->force,
+  if (!frame_scheduler_.ShouldSkip(FrameInfo(frame), now, sample->force,
                                    texture_update_pending_))
     return false;
 
@@ -360,6 +378,20 @@ void VideoOutput::RecordSkip(PlaybackRenderSample& sample) {
   }
 }
 
+void VideoOutput::PrefetchSnapshot() {
+  if (!surface_manager_) return;
+  const auto started = PlaybackRenderClock::now();
+  try {
+    if (!surface_manager_->PrepareSnapshot()) return;
+  } catch (const std::exception&) {
+    // The next rendered frame retries allocation on the frame path and reports
+    // a lost device or a persistent failure there.
+    return;
+  }
+  render_statistics_.RecordPrefetch(
+      PlaybackRenderMilliseconds(PlaybackRenderClock::now() - started));
+}
+
 void VideoOutput::LogRenderSample(const PlaybackRenderSample& sample,
                                   const char* kind, const char* error) {
   char stages[1024]{};
@@ -399,6 +431,10 @@ void VideoOutput::RecordRender(PlaybackRenderSample& sample, bool success,
   sample.texture = texture_id_;
   sample.width = width();
   sample.height = height();
+  if (success && !sample.force) {
+    frame_scheduler_.RecordRender(
+        {sample.frame_flags, sample.target_time_ns}, sample.elapsed_ms);
+  }
   if (success && sample.target_time_ns > 0) {
     const auto now = mpv_get_time_ns(handle_);
     if (now > sample.target_time_ns)
@@ -426,7 +462,9 @@ void VideoOutput::RecordRender(PlaybackRenderSample& sample, bool success,
 void VideoOutput::FlushRenderStatistics(
     PlaybackRenderClock::time_point finished) {
   const auto& stats = render_statistics_;
-  if (stats.attempts == 0 && stats.deadline_skips == 0) return;
+  if (stats.attempts == 0 && stats.deadline_skips == 0 &&
+      stats.prefetches == 0)
+    return;
   const auto divisor = stats.attempts ? stats.attempts : uint64_t{1};
   char stages[1536]{};
   size_t used = 0;
@@ -444,7 +482,8 @@ void VideoOutput::FlushRenderStatistics(
               "attempts=%llu frames=%llu failures=%llu interval_ms=%.1f "
               "render_avg_ms=%.2f render_max_ms=%.2f "
               "over_20ms=%llu over_33ms=%llu slow_frames=%llu "
-              "errors_total=%llu queue_avg_ms=%.2f queue_max_ms=%.2f "
+              "errors_total=%llu prefetch_count=%llu prefetch_avg_ms=%.2f "
+              "prefetch_max_ms=%.2f queue_avg_ms=%.2f queue_max_ms=%.2f "
               "deadline_skips=%llu deadline_skips_total=%llu "
               "skip_avg_ms=%.2f skip_max_ms=%.2f skip_queue_max_ms=%.2f "
               "skip_lateness_max_ms=%.2f lateness_max_ms=%.2f "
@@ -456,7 +495,11 @@ void VideoOutput::FlushRenderStatistics(
               PlaybackRenderMilliseconds(finished - statistics_since_),
               stats.total_ms / divisor, stats.worst.elapsed_ms,
               stats.over_20, stats.over_33, stats.over_50, render_errors_,
-              stats.queue_total_ms / divisor, stats.queue_max_ms,
+              stats.prefetches,
+              stats.prefetches ? stats.prefetch_total_ms / stats.prefetches
+                               : 0.0,
+              stats.prefetch_max_ms, stats.queue_total_ms / divisor,
+              stats.queue_max_ms,
               stats.deadline_skips, deadline_skips_,
               stats.deadline_skips
                   ? stats.skip_total_ms / stats.deadline_skips

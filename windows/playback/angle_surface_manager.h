@@ -65,10 +65,18 @@ class ANGLESurfaceManager {
 
   void MakeCurrent(bool value, PlaybackRenderSample* sample = nullptr);
 
+  // Allocate the immutable snapshot for the next published frame. Returns false
+  // when a prepared snapshot already exists. Callers use this after publishing
+  // a frame so allocation spikes do not extend the frame's deadline, and after
+  // a resize so the first frame already has its snapshot.
+  bool PrepareSnapshot(PlaybackRenderSample* sample = nullptr);
+
  private:
   void SwapBuffers();
 
-  void PrepareSnapshot(PlaybackRenderSample* sample);
+  // Initialize the copy/query path once while the player is still opening
+  // media. The snapshot is left allocated for the first real frame.
+  void WarmUp();
 
   void WaitForCopy(PlaybackRenderSample* sample = nullptr,
                    PlaybackRenderStage stage = PlaybackRenderStage::prior_copy);

@@ -78,6 +78,7 @@ ANGLESurfaceManager::ANGLESurfaceManager(int32_t width, int32_t height)
   if (!mutex_) throw std::runtime_error("Unable to create the surface mutex.");
   try {
     Create();
+    WarmUp();
   } catch (...) {
     CleanUp(true);
     ::CloseHandle(mutex_);
@@ -106,6 +107,10 @@ void ANGLESurfaceManager::SetSize(int32_t width, int32_t height,
   height_ = height;
   Create(sample);
   frame_available_ = false;
+  // Prepare the first snapshot of the new size before its first frame. The
+  // allocation and shared-handle setup then happen during the resize instead
+  // of extending the frame that first uses the new surface.
+  PrepareSnapshot(sample);
 }
 
 void ANGLESurfaceManager::Draw(std::function<void()> callback,
@@ -122,8 +127,9 @@ void ANGLESurfaceManager::Draw(std::function<void()> callback,
       ScopedPlaybackTiming timing(sample, PlaybackRenderStage::mpv_render);
       callback();
     }
-    // Allocate while ANGLE's submitted GPU work can still be running, rather
-    // than adding allocation and handle creation after its completion wait.
+    // The snapshot is normally prepared after the previous publish or by a
+    // resize. Allocate here only as a fallback, while ANGLE's submitted GPU
+    // work can still run, rather than after its completion wait.
     {
       ScopedPlaybackTiming timing(sample, PlaybackRenderStage::swap);
       glFlush();
@@ -170,10 +176,37 @@ void ANGLESurfaceManager::Read(PlaybackRenderSample* sample) {
   }
 }
 
-void ANGLESurfaceManager::PrepareSnapshot(PlaybackRenderSample* sample) {
+void ANGLESurfaceManager::WarmUp() {
+  const auto started = PlaybackRenderClock::now();
+  PrepareSnapshot();
+  // Run one complete copy/query round-trip at the initial size. This pays the
+  // driver's copy and shared-context setup while the player is still opening
+  // media, so the first visible frame does not. The copied content is never
+  // published.
+  {
+    const D3DContextLock context_lock(shared_context_lock_.Get());
+    d3d_11_device_context_->CopyResource(prepared_snapshot_.Get(),
+                                         internal_d3d_11_texture_2D_.Get());
+    d3d_11_device_context_->End(copy_completion_.Get());
+    copy_pending_ = true;
+    copy_wait_.Flush(d3d_11_device_context_);
+  }
+  WaitForCopy();
+  char message[128]{};
+  _snprintf_s(message, sizeof(message), _TRUNCATE,
+              "ANGLESurfaceManager warm-up copy elapsed_ms=%.2f size=%dx%d",
+              PlaybackRenderMilliseconds(PlaybackRenderClock::now() - started),
+              width_, height_);
+  BangumiNativeLog(message);
+}
+
+bool ANGLESurfaceManager::PrepareSnapshot(PlaybackRenderSample* sample) {
   // Flutter imports the shared handle and samples it later on its own GPU
   // device. Its release callback only acknowledges the import, not the end
   // of sampling. Never overwrite a resource that has been handed to Flutter.
+  if (prepared_snapshot_) return false;
+  if (!internal_d3d_11_texture_2D_ || !d3d_11_device_)
+    throw std::runtime_error("Unable to prepare the video frame snapshot.");
   D3D11_TEXTURE2D_DESC description{};
   internal_d3d_11_texture_2D_->GetDesc(&description);
   // Only the published immutable snapshot needs a shared handle for Flutter.
@@ -206,6 +239,7 @@ void ANGLESurfaceManager::PrepareSnapshot(PlaybackRenderSample* sample) {
   sharing.Finish();
   prepared_snapshot_ = std::move(snapshot);
   prepared_handle_ = shared_handle;
+  return true;
 }
 
 void ANGLESurfaceManager::WaitForCopy(PlaybackRenderSample* sample,

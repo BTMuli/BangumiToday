@@ -22,13 +22,22 @@ GPL build; sources and licensing are listed in the
 - `render_queue.h` coalesces callbacks while allowing resize and disposal work
   between frames. Updates run with the correct GL context; dimensions arrive
   through `SetSize`, without synchronous mpv property reads on the render worker.
-- `frame_scheduler.h` skips timed frames more than 5 ms late, with at most eight
-  consecutive skips. First frames, forced changes, redraws and repeats still
-  render. Deadlines from the pinned runtime use nanoseconds.
-- Each rendered frame is copied into an immutable shared D3D snapshot. An event
-  query confirms GPU completion before publication; Flutter texture callbacks
-  return completed snapshots without GPU work or waits. Resizes retain the old
-  frame until Flutter samples the replacement.
+- `frame_scheduler.h` derives each frame's deadline headroom from the observed
+  cadence and recent render cost. A slightly late frame still displays when it
+  can finish before its successor; frames that cannot are skipped, at most eight
+  in a row. Cadence changes, including playback-rate switches, recalibrate
+  immediately, and pause/seek discontinuities reset the estimate. First frames,
+  forced changes, redraws and repeats still render. Deadlines from the pinned
+  runtime use nanoseconds.
+- Each rendered frame is copied into an immutable shared D3D snapshot. The
+  snapshot for a new size is allocated before that size's first frame, and the
+  next snapshot is allocated after each publish, so driver allocation spikes
+  overlap presentation instead of extending the frame deadline. Allocation on
+  the frame path remains only a fallback. A one-shot 1x1 copy during player
+  creation initializes the copy/query path. An event query confirms GPU
+  completion before publication; Flutter texture callbacks return completed
+  snapshots without GPU work or waits. Resizes retain the old frame until
+  Flutter samples the replacement.
 - `gpu_copy_wait.h` uses a private high-resolution timer, falling back to
   `Sleep(1)`. A 100 ms copy timeout preserves the last published frame and waits
   for the copy before reusing its source. `_HAS_EXCEPTIONS=1` lets queued tasks
@@ -62,7 +71,10 @@ Logs are in `Documents/BangumiToday/log`, accessible from settings:
   with native records.
 - Native logs record ANGLE/D3D errors and render timing. Stage times are
   CPU wall times; deadline skips and render failures are separate counters.
-  `first frame ready` confirms snapshot publication, before Flutter presentation.
+  The periodic summary also reports `prefetch_count`, `prefetch_avg_ms` and
+  `prefetch_max_ms`, so snapshot allocation cost can be checked independently
+  from on-frame render time. `first frame ready` confirms snapshot publication,
+  before Flutter presentation.
 - Native crashes produce triage/full dumps and a matching text report through a
   separate helper process, stored in the startup day's `crashes/` directory.
   Filenames include the run identity and actual crash timestamp.

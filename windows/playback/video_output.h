@@ -128,6 +128,11 @@ class VideoOutput {
   bool SkipLateFrame(PlaybackRenderSample* sample,
                      const mpv_render_frame_info& frame);
 
+  // Allocate the immutable snapshot for the next frame after the current one
+  // has been published. Allocation spikes then overlap presentation instead
+  // of extending this frame's deadline.
+  void PrefetchSnapshot();
+
   void CheckAndResize(PlaybackRenderSample* sample);
 
   void Resize(int64_t required_width, int64_t required_height,

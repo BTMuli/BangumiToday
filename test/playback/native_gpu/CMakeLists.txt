@@ -18,6 +18,16 @@ enable_testing()
 add_test(NAME playback_gpu_regression COMMAND playback_gpu_regression)
 set_tests_properties(playback_gpu_regression PROPERTIES TIMEOUT 30)
 
+add_executable(frame_scheduler_regression frame_scheduler_regression.cc)
+target_compile_features(frame_scheduler_regression PRIVATE cxx_std_17)
+target_compile_definitions(frame_scheduler_regression PRIVATE
+  NOMINMAX WIN32_LEAN_AND_MEAN)
+target_compile_options(frame_scheduler_regression PRIVATE /W4 /WX /EHsc /utf-8)
+target_include_directories(frame_scheduler_regression PRIVATE
+  "${REPO_ROOT}/windows/playback")
+add_test(NAME frame_scheduler_regression COMMAND frame_scheduler_regression)
+set_tests_properties(frame_scheduler_regression PROPERTIES TIMEOUT 10)
+
 set(ANGLE_ROOT "${REPO_ROOT}/build/windows/x64/ANGLE" CACHE PATH "ANGLE SDK")
 set(RENDERER_HEADERS "${REPO_ROOT}/build/windows/x64/bangumi_playback_renderer"
   CACHE PATH "Prepared renderer headers")

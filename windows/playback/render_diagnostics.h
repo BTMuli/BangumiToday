@@ -95,6 +95,9 @@ struct PlaybackRenderStatistics {
   uint64_t frames = 0;
   uint64_t failures = 0;
   uint64_t deadline_skips = 0;
+  uint64_t prefetches = 0;
+  double prefetch_total_ms = 0;
+  double prefetch_max_ms = 0;
   double skip_total_ms = 0;
   double skip_queue_max_ms = 0;
   double skip_lateness_max_ms = 0;
@@ -122,6 +125,12 @@ struct PlaybackRenderStatistics {
       worst_skip = sample;
     if (deadline_skips == 1 || sample.queue_ms > longest_skip_queue.queue_ms)
       longest_skip_queue = sample;
+  }
+
+  void RecordPrefetch(double elapsed_ms) {
+    ++prefetches;
+    prefetch_total_ms += elapsed_ms;
+    prefetch_max_ms = (std::max)(prefetch_max_ms, elapsed_ms);
   }
 
   void Record(const PlaybackRenderSample& sample, bool success) {
