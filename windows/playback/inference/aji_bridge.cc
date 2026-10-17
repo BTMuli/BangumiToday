@@ -42,6 +42,7 @@
 #include "frame_contract.h"
 #include "frame_pipeline.h"
 #include "gpu_capabilities.h"
+#include "stats_writer.h"
 #include "trt_assets_data.h"
 #include "trt_engine_cache.h"
 
@@ -137,6 +138,7 @@ struct aji_ctx {
   // Low-frequency diagnostics snapshot (config key `stats`). The hot path only
   // updates counters; the file is rewritten at most once per second.
   std::filesystem::path stats_path;
+  PlaybackStatsWriter stats_writer;
   uint64_t frames_inferred = 0;
   uint64_t frames_failed = 0;
   double last_gpu_ms = 0;
@@ -321,8 +323,8 @@ void DescribePlan(aji_ctx& state) {
 }
 
 // Writes the fixed-schema status snapshot the coordinator and the info panel
-// read. Only counters are updated on the hot path; the file is rewritten at
-// most once per second and replaced atomically.
+// read. Snapshot serialization is throttled to once per second; ordinary file
+// writes run off the playback thread and replace the file atomically.
 void PublishStats(aji_ctx& state, const char* phase, bool force) noexcept try {
   if (state.stats_path.empty()) return;
   const auto now = std::chrono::steady_clock::now();
@@ -331,11 +333,8 @@ void PublishStats(aji_ctx& state, const char* phase, bool force) noexcept try {
       now - state.stats_written < std::chrono::seconds(1))
     return;
   state.stats_written = now;
-  std::filesystem::path temporary = state.stats_path;
-  temporary += L".tmp";
+  std::ostringstream stream;
   {
-    std::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
-    if (!stream) return;
     // Fixed schema, one field per line: simple to parse and to extend.
     stream << "schemaVersion=1\n";
     stream << "phase=" << (phase ? phase : "unknown") << "\n";
@@ -405,11 +404,7 @@ void PublishStats(aji_ctx& state, const char* phase, bool force) noexcept try {
     stream << "ticket=" << state.last_ticket << "\n";
     stream << "reason=" << state.status_reason << "\n";
   }
-  if (!MoveFileExW(temporary.c_str(), state.stats_path.c_str(),
-                   MOVEFILE_REPLACE_EXISTING)) {
-    std::error_code error;
-    std::filesystem::remove(temporary, error);
-  }
+  state.stats_writer.Publish(state.stats_path, stream.str(), force);
 } catch (...) {
   // Diagnostics must never make an inference call cross the C ABI with an
   // exception, including when the user's writable directory is unavailable.

@@ -15,6 +15,16 @@ target_include_directories(playback_gpu_regression PRIVATE
   "${REPO_ROOT}/windows/playback")
 target_link_libraries(playback_gpu_regression PRIVATE d3d11 d3d12 dxgi)
 enable_testing()
+add_executable(stats_writer_regression stats_writer_regression.cc)
+target_compile_features(stats_writer_regression PRIVATE cxx_std_17)
+target_compile_definitions(stats_writer_regression PRIVATE
+  NOMINMAX WIN32_LEAN_AND_MEAN)
+target_compile_options(stats_writer_regression PRIVATE /W4 /WX /EHsc /utf-8)
+target_include_directories(stats_writer_regression PRIVATE
+  "${REPO_ROOT}/windows/playback")
+add_test(NAME stats_writer_regression COMMAND stats_writer_regression)
+set_tests_properties(stats_writer_regression PROPERTIES TIMEOUT 15)
+
 add_test(NAME playback_gpu_regression COMMAND playback_gpu_regression)
 set_tests_properties(playback_gpu_regression PROPERTIES TIMEOUT 30)
 
