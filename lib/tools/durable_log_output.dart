@@ -27,6 +27,8 @@ class BTDurableLogOutput extends LogOutput {
   Timer? _cleanupTimer;
   Future<void>? _cleanupTask;
   Directory? _outputDirectory;
+  RandomAccessFile? _output;
+  String? _outputPath;
 
   @override
   Future<void> init() async {
@@ -56,6 +58,7 @@ class BTDurableLogOutput extends LogOutput {
   Future<void> destroy() async {
     _cleanupTimer?.cancel();
     await _cleanupTask;
+    _closeOutput(flush: true);
   }
 
   @override
@@ -67,13 +70,33 @@ class BTDurableLogOutput extends LogOutput {
         file.parent.createSync(recursive: true);
         _outputDirectory = file.parent;
       }
-      file.writeAsStringSync(
-        '${event.lines.join('\n')}\n',
-        mode: FileMode.append,
-        flush: event.level.index >= Level.warning.index,
-      );
+      if (_outputPath != file.path) {
+        _closeOutput();
+        _output = file.openSync(mode: FileMode.append);
+        _outputPath = file.path;
+      }
+      // Keep crash diagnostics synchronous without opening a handle per entry.
+      _output!.writeStringSync('${event.lines.join('\n')}\n');
+      if (event.level.index >= Level.warning.index) _output!.flushSync();
     } on FileSystemException catch (error) {
       // 文件输出自身失败时不能再次调用 logger，避免递归。
+      _closeOutput();
+      onError(error);
+    }
+  }
+
+  void _closeOutput({bool flush = false}) {
+    var output = _output;
+    _output = null;
+    _outputPath = null;
+    if (output == null) return;
+    try {
+      try {
+        if (flush) output.flushSync();
+      } finally {
+        output.closeSync();
+      }
+    } on FileSystemException catch (error) {
       onError(error);
     }
   }
