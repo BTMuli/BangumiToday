@@ -7,7 +7,9 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
+import '../../core/utils/latest_request.dart';
 import '../../domain/rss/comicat_feed.dart';
+import '../../models/app/response.dart';
 import '../../models/rss/rss.dart';
 import '../../request/rss/comicat_api.dart';
 import '../../ui/bt_dialog.dart';
@@ -35,6 +37,7 @@ class _RssBmfComicatState extends State<RssBmfComicat>
   final TextEditingController _searchController = TextEditingController();
   ComicatFeed _feed = _defaultFeed;
   int _requestId = 0;
+  final _requests = LatestRequest<BTResponse>();
 
   /// RSS 数据
   List<RssItem> rssItems = [];
@@ -50,6 +53,7 @@ class _RssBmfComicatState extends State<RssBmfComicat>
 
   @override
   void dispose() {
+    _requests.cancel();
     comicatAPI.client.dispose();
     _searchController.dispose();
     super.dispose();
@@ -64,7 +68,11 @@ class _RssBmfComicatState extends State<RssBmfComicat>
       _lastAttempt = DateTime.now();
       _loadFailed = false;
     });
-    var resGet = await comicatAPI.getRSS(feed: _feed);
+    var feed = _feed;
+    var resGet = await _requests.run(
+      feed.path,
+      (token) => comicatAPI.getRSS(feed: feed, cancelToken: token),
+    );
     if (!mounted || requestId != _requestId) return;
     var success = resGet.code == 0 && resGet.data != null;
     setState(() {

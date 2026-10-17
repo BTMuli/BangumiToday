@@ -1,6 +1,5 @@
 // Dart imports:
 import 'dart:async';
-import 'dart:math';
 
 // Package imports:
 import 'package:dio/dio.dart';
@@ -9,7 +8,6 @@ import 'package:dio/dio.dart';
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_subscription.dart';
 import '../../database/drift/subscription_storage.dart';
-import '../../models/app/response.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../models/database/app_subscription_model.dart';
 import '../../models/rss/rss.dart';
@@ -21,6 +19,7 @@ import '../container.dart';
 import '../utils/async_pool.dart';
 import '../utils/keyed_request_pool.dart';
 import 'notification_service.dart';
+import 'rss_fetch_scheduler.dart';
 import 'rss_freshness.dart';
 
 class BmfRssUpdateEvent {
@@ -89,8 +88,17 @@ class BmfRssService {
   final AsyncSingleFlight _startGuard = AsyncSingleFlight();
   final AsyncSingleFlight _bulkRefreshGuard = AsyncSingleFlight();
   final AsyncSingleFlight _forcedRefreshGuard = AsyncSingleFlight();
-  final KeyedRequestPool<BTResponse> _requests = KeyedRequestPool(
+  late final RssFetchScheduler _requests = RssFetchScheduler(
     maxConcurrent: defaultConcurrency,
+    maxAttempts: defaultMaxAttempts,
+    request: (url, token, timeout) => _api.getCustomRSS(
+      url,
+      preserveRequestUrl: true,
+      connectTimeout: defaultTimeout,
+      receiveTimeout: defaultTimeout,
+      requestTimeout: timeout,
+      cancelToken: token,
+    ),
   );
   final StreamController<BmfRssUpdateEvent> _updateController =
       StreamController<BmfRssUpdateEvent>.broadcast();
@@ -239,25 +247,16 @@ class BmfRssService {
       }
       var successes = 0;
       var failures = 0;
-      var active = 0;
-      var peak = 0;
-      await forEachConcurrent(
-        groups.values,
-        maxConcurrent: defaultConcurrency,
-        action: (group) async {
+      _requests.resetPeakConcurrency();
+      await Future.wait(
+        groups.values.map((group) async {
           if (!_isCurrent(refreshEpoch)) return;
-          active++;
-          if (active > peak) peak = active;
-          try {
-            if (await _refreshGroup(group, refreshEpoch)) {
-              successes++;
-            } else {
-              failures++;
-            }
-          } finally {
-            active--;
+          if (await _refreshGroup(group, refreshEpoch)) {
+            successes++;
+          } else {
+            failures++;
           }
-        },
+        }),
       );
       lastRefreshMetrics = RssRefreshMetrics(
         total: subscriptions.length,
@@ -266,14 +265,16 @@ class BmfRssService {
         successes: successes,
         failures: failures,
         backoffSkips: backoff,
-        peakConcurrency: peak,
+        peakConcurrency: _requests.peakConcurrency,
         elapsedMs: DateTime.now().difference(started).inMilliseconds,
       );
       if (successes + failures > 0) {
         BTLogTool.info(
           'BMF RSS 刷新：${subscriptions.length} 个订阅，'
           '缓存 $cacheHits，退避 $backoff，请求 ${successes + failures} 个 feed，'
-          '成功 $successes，失败 $failures，峰值并发 $peak',
+          '成功 $successes，失败 $failures，'
+          '峰值并发 ${_requests.peakConcurrency}，'
+          '耗时 ${lastRefreshMetrics!.elapsedMs} ms',
         );
       }
     });
@@ -287,9 +288,10 @@ class BmfRssService {
     var first = group.first;
     var ids = group.map((s) => s.id).toList();
     try {
-      var response = await _requests.run(
+      var response = await _requests.fetch(
         '$epoch:${first.feedKey}',
-        () => _fetchWithRetry(first.url, epoch),
+        first.url,
+        _cancelToken,
       );
       if (!_isCurrent(epoch)) return false;
       if (response.code != 0 || response.data is! String) {
@@ -332,7 +334,8 @@ class BmfRssService {
     bool fromCache = false,
   }) async {
     if (!_isCurrent(epoch)) return;
-    var feed = RssFeed.parse(xml);
+    var feed = await parseRssFeed(xml);
+    if (!_isCurrent(epoch)) return;
     var updates = await _storage.applyFeed(
       feedKey: feedKey,
       requestUrl: url,
@@ -414,57 +417,6 @@ class BmfRssService {
         ),
       );
     });
-  }
-
-  Future<BTResponse> _fetchWithRetry(String url, int epoch) async {
-    if (!_isCurrent(epoch)) throw const RequestPoolCancelled();
-    var cancelToken = _cancelToken;
-    var response = await _api.getCustomRSS(
-      url,
-      preserveRequestUrl: true,
-      connectTimeout: defaultTimeout,
-      receiveTimeout: defaultTimeout,
-      cancelToken: cancelToken,
-    );
-    if (!_isCurrent(epoch)) throw const RequestPoolCancelled();
-    for (
-      var attempt = 1;
-      response.code != 0 && attempt < defaultMaxAttempts;
-      attempt++
-    ) {
-      await _waitForRetry(
-        Duration(milliseconds: 1000 * (1 << attempt) + Random().nextInt(300)),
-        cancelToken,
-      );
-      if (!_isCurrent(epoch)) throw const RequestPoolCancelled();
-      response = await _api.getCustomRSS(
-        url,
-        preserveRequestUrl: true,
-        connectTimeout: defaultTimeout,
-        receiveTimeout: defaultTimeout,
-        cancelToken: cancelToken,
-      );
-    }
-    if (!_isCurrent(epoch)) {
-      throw const RequestPoolCancelled();
-    }
-    return response;
-  }
-
-  Future<void> _waitForRetry(Duration delay, CancelToken cancelToken) async {
-    var ready = Completer<void>();
-    var timer = Timer(delay, ready.complete);
-    var cancellation = cancelToken.whenCancel.asStream().listen((_) {
-      if (!ready.isCompleted) {
-        ready.completeError(const RequestPoolCancelled());
-      }
-    });
-    try {
-      await ready.future;
-    } finally {
-      timer.cancel();
-      await cancellation.cancel();
-    }
   }
 
   /// 立即刷新自动更新的订阅；[includeManual] 为 true 时包含手动更新的订阅。

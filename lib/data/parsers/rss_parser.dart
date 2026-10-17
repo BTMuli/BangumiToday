@@ -1,6 +1,14 @@
+// Dart imports:
+import 'dart:isolate';
+
 // Package imports:
 import 'package:intl/intl.dart';
 import 'package:xml/xml.dart';
+
+/// Small feed windows avoid isolate overhead; large documents parse off-thread.
+Future<RssFeed> parseRssFeed(String xml) async => xml.length <= 128 * 1024
+    ? RssFeed.parse(xml)
+    : await Isolate.run(() => RssFeed.parse(xml));
 
 /// A parsed RSS 2.0 feed.
 class RssFeed {

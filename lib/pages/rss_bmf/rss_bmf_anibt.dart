@@ -8,6 +8,8 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
+import '../../core/utils/latest_request.dart';
+import '../../models/app/response.dart';
 import '../../models/rss/anibt_filters.dart';
 import '../../models/rss/rss.dart';
 import '../../request/rss/anibt_api.dart';
@@ -38,6 +40,7 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
   bool _loadFailed = false;
   bool _localFallback = false;
   int _requestId = 0;
+  final _requests = LatestRequest<BTResponse>();
   DateTime? _lastUpdated;
   DateTime? _lastAttempt;
 
@@ -54,6 +57,7 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
 
   @override
   void dispose() {
+    _requests.cancel();
     anibtAPI.client.dispose();
     _searchController.dispose();
     _scrollController.dispose();
@@ -69,7 +73,10 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
       _lastAttempt = DateTime.now();
       _loadFailed = false;
     });
-    var resGet = await anibtAPI.getMagnetsRSS(filters: filters);
+    var resGet = await _requests.run(
+      jsonEncode(filters.queryParameters),
+      (token) => anibtAPI.getMagnetsRSS(filters: filters, cancelToken: token),
+    );
     if (!mounted || requestId != _requestId) return;
     var localFallback = false;
     // 关键词搜索必须查询站点，只对无关键词的标签筛选保留 RSS 回退。
@@ -78,7 +85,10 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
         (resGet.data as String).contains('Search backend unavailable') &&
         filters.query.trim().isEmpty &&
         filters.queryParameters.isNotEmpty) {
-      resGet = await anibtAPI.getMagnetsRSS();
+      resGet = await _requests.run(
+        'latest-fallback',
+        (token) => anibtAPI.getMagnetsRSS(cancelToken: token),
+      );
       if (!mounted || requestId != _requestId) return;
       localFallback = resGet.code == 0 && resGet.data != null;
     }

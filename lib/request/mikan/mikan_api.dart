@@ -7,6 +7,7 @@ import '../../data/parsers/mikan_parser.dart';
 import '../../models/app/response.dart';
 import '../../models/mikan/mikan_model.dart';
 import '../../models/rss/rss.dart';
+import '../../models/rss/rss_request_failure.dart';
 import '../../tools/log_tool.dart';
 import '../core/client.dart';
 
@@ -48,12 +49,15 @@ class BtrMikanApi {
   }
 
   /// 更新列表的 RSS
-  Future<BTResponse> getClassicRSS() async {
+  Future<BTResponse> getClassicRSS({CancelToken? cancelToken}) async {
     try {
-      var resp = await client.dio.get('/RSS/Classic');
-      var channel = RssFeed.parse(resp.data.toString());
+      var resp = await client.dio.get('/RSS/Classic', cancelToken: cancelToken);
+      var channel = await parseRssFeed(resp.data.toString());
       return BTResponse.success(data: channel.items);
     } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) {
+        return BTResponse.error(code: 499, message: '请求已取消', data: null);
+      }
       var errInfo = ["Fail to load mikan classic RSS", "DioErr: ${e.error}"];
       BTLogTool.error(errInfo);
       return BTResponse.error(
@@ -73,11 +77,15 @@ class BtrMikanApi {
   }
 
   /// 搜索站点发布的资源，不受首页或个人订阅 RSS 的范围限制。
-  Future<BTResponse<List<RssItem>>> searchRSS(String query) async {
+  Future<BTResponse<List<RssItem>>> searchRSS(
+    String query, {
+    CancelToken? cancelToken,
+  }) async {
     try {
       var resp = await client.dio.get<String>(
         '/RSS/Search',
         queryParameters: {'searchstr': query.trim()},
+        cancelToken: cancelToken,
         options: Options(
           responseType: ResponseType.plain,
           connectTimeout: const Duration(seconds: 15),
@@ -86,8 +94,12 @@ class BtrMikanApi {
               status != null && status >= 200 && status < 300,
         ),
       );
-      return BTResponse.success(data: RssFeed.parse(resp.data ?? '').items);
+      var feed = await parseRssFeed(resp.data ?? '');
+      return BTResponse.success(data: feed.items);
     } on DioException catch (error) {
+      if (CancelToken.isCancel(error)) {
+        return BTResponse.error(code: 499, message: '请求已取消', data: null);
+      }
       var status = error.response?.statusCode;
       BTLogTool.error('Mikan 资源搜索失败：$status ${error.type}');
       return BTResponse.error(
@@ -106,15 +118,22 @@ class BtrMikanApi {
   }
 
   /// 获取用户的 RSS
-  Future<BTResponse> getUserRSS(String token) async {
+  Future<BTResponse> getUserRSS(
+    String token, {
+    CancelToken? cancelToken,
+  }) async {
     try {
       var resp = await client.dio.get(
         '/RSS/MyBangumi',
         queryParameters: {'token': token},
+        cancelToken: cancelToken,
       );
-      var channel = RssFeed.parse(resp.data.toString());
+      var channel = await parseRssFeed(resp.data.toString());
       return BTResponse.success(data: channel.items);
     } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) {
+        return BTResponse.error(code: 499, message: '请求已取消', data: null);
+      }
       var errInfo = ["Fail to load user RSS", "DioErr: ${e.error}"];
       BTLogTool.error(errInfo);
       return BTResponse.error(
@@ -229,6 +248,7 @@ class BtrMikanApi {
     Duration? connectTimeout,
     Duration? receiveTimeout,
     CancelToken? cancelToken,
+    Duration? requestTimeout,
   }) async {
     var fetchUrl = preserveRequestUrl ? url : rewriteUrl(url);
     try {
@@ -238,16 +258,38 @@ class BtrMikanApi {
         options: Options(
           connectTimeout: connectTimeout,
           receiveTimeout: receiveTimeout,
+          responseType: ResponseType.plain,
+          extra: {'requestTimeout': ?requestTimeout},
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 300,
         ),
       );
       return BTResponse.success(data: resp.data);
     } on DioException catch (e) {
       var errInfo = ['Fail to load custom RSS', 'DioErr: ${e.type}'];
-      BTLogTool.error(errInfo);
+      if (!CancelToken.isCancel(e)) BTLogTool.error(errInfo);
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
         message: 'Failed to load custom RSS',
-        data: e.error,
+        data: RssRequestFailure(
+          retryable: switch (e.type) {
+            DioExceptionType.connectionTimeout ||
+            DioExceptionType.sendTimeout ||
+            DioExceptionType.receiveTimeout ||
+            DioExceptionType.connectionError => true,
+            DioExceptionType.badResponse =>
+              e.response?.statusCode == 408 ||
+                  e.response?.statusCode == 429 ||
+                  (e.response?.statusCode ?? 0) >= 500,
+            _ => false,
+          },
+          retryAfter: switch (int.tryParse(
+            e.response?.headers.value('retry-after') ?? '',
+          )) {
+            int seconds when seconds > 0 => Duration(seconds: seconds),
+            _ => null,
+          },
+        ),
       );
     } on Exception catch (e) {
       var errInfo = ['Fail to load custom RSS', 'Err: ${e.runtimeType}'];

@@ -8,7 +8,9 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../core/theme/bt_theme.dart';
+import '../../core/utils/latest_request.dart';
 import '../../database/app/app_mikan_credential.dart';
+import '../../models/app/response.dart';
 import '../../models/rss/rss.dart';
 import '../../request/mikan/mikan_api.dart';
 import '../../store/app_store.dart';
@@ -40,6 +42,7 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
   List<RssItem> _searchItems = [];
   bool _searchLoaded = false;
   int _requestId = 0;
+  final _requests = LatestRequest<BTResponse>();
 
   bool get _isSearch => _query.isNotEmpty;
 
@@ -95,6 +98,7 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
 
   @override
   void dispose() {
+    _requests.cancel();
     mikanAPI.client.dispose();
     _searchController.dispose();
     super.dispose();
@@ -126,11 +130,14 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
         _mikanAttempt = at;
       }
     });
-    var resGet = query.isNotEmpty
-        ? await mikanAPI.searchRSS(query)
-        : personal
-        ? await mikanAPI.getUserRSS(token)
-        : await mikanAPI.getClassicRSS();
+    var resGet = await _requests.run(
+      (query, personal, token, mikanRss),
+      (cancelToken) => query.isNotEmpty
+          ? mikanAPI.searchRSS(query, cancelToken: cancelToken)
+          : personal
+          ? mikanAPI.getUserRSS(token, cancelToken: cancelToken)
+          : mikanAPI.getClassicRSS(cancelToken: cancelToken),
+    );
     if (!mounted || requestId != _requestId) return;
     var success = resGet.code == 0 && resGet.data != null;
     setState(() {
@@ -271,6 +278,7 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
     _searchController.clear();
     setState(() {
       ++_requestId;
+      _requests.cancel();
       _query = '';
       useUserRSS = personal;
       _refreshing = false;

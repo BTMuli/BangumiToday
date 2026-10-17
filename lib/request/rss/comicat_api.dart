@@ -26,19 +26,24 @@ class ComicatAPI {
   /// 获取首页、指定分类或关键词搜索的 RSS。
   Future<BTResponse> getRSS({
     ComicatFeed feed = const ComicatFeed.category(),
+    CancelToken? cancelToken,
   }) async {
     try {
       var resp = await client.dio.get<String>(
         feed.path,
+        cancelToken: cancelToken,
         options: Options(
           responseType: ResponseType.plain,
           validateStatus: (status) =>
               status != null && status >= 200 && status < 300,
         ),
       );
-      var channel = RssFeed.parse(resp.data.toString());
+      var channel = await parseRssFeed(resp.data.toString());
       return BTResponse.success(data: channel.items);
     } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) {
+        return BTResponse.error(code: 499, message: '请求已取消', data: null);
+      }
       BTLogTool.error('Failed to load comicat RSS ${e.response?.data}');
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,

@@ -111,11 +111,15 @@ class AnibtAPI {
     return message is String ? message : null;
   }
 
-  Future<BTResponse> getMagnetsRSS({AnibtFilters? filters}) async {
+  Future<BTResponse> getMagnetsRSS({
+    AnibtFilters? filters,
+    CancelToken? cancelToken,
+  }) async {
     try {
       var resp = await client.dio.get<String>(
         rssUrl,
         queryParameters: filters?.queryParameters,
+        cancelToken: cancelToken,
         options: Options(
           responseType: ResponseType.plain,
           listFormat: ListFormat.multi,
@@ -125,9 +129,12 @@ class AnibtAPI {
               status != null && status >= 200 && status < 300,
         ),
       );
-      var channel = RssFeed.parse(resp.data ?? '');
+      var channel = await parseRssFeed(resp.data ?? '');
       return BTResponse.success(data: channel.items);
     } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) {
+        return BTResponse.error(code: 499, message: '请求已取消', data: null);
+      }
       BTLogTool.error('Failed to load anibt RSS ${e.response?.data}');
       return BTResponse.error(
         code: e.response?.statusCode ?? 666,
