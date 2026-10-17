@@ -15,6 +15,7 @@ jobs:
       BANGUMI_APP_ID: ${{ secrets.BANGUMI_APP_ID }}
       BANGUMI_APP_SECRET: ${{ secrets.BANGUMI_APP_SECRET }}
       MSIX_CERTIFICATE_BASE64: ${{ secrets.MSIX_CERTIFICATE_BASE64 }}
+      RELEASE_VERSION: ${{ github.ref_name }}
     steps:
       - name: 签出仓库
         uses: actions/checkout@v4
@@ -82,7 +83,7 @@ jobs:
           ./scripts/verify_windows_bundle.ps1 `
             -BundlePath build/windows/x64/runner/Release `
             -EngineRuntimePath $env:BT_DOWNLOAD_RUNTIME_DIR
-          Compress-Archive -Path ./build/windows/x64/runner/Release/* -DestinationPath BangumiToday.zip
+          Compress-Archive -Path ./build/windows/x64/runner/Release/* -DestinationPath "BangumiToday_${env:RELEASE_VERSION}.zip"
 
       - name: 准备 MSIX 签名证书
         shell: pwsh
@@ -121,6 +122,7 @@ jobs:
       - name: 打包msix
         run: >
           dart run msix:create
+          -n "BangumiToday_${{ env.RELEASE_VERSION }}"
           --build-windows false
           --certificate-path build_certificate.pfx
           -p ${{ secrets.SIGN_SECRET }}
@@ -131,7 +133,7 @@ jobs:
           --store true
           -i "27581BTMuli.BangumiToday"
           -b "CN=5FE33156-C3CE-4E71-A036-81BAA99521CB"
-          -n "BangumiToday_Store"
+          -n "BangumiToday_${{ env.RELEASE_VERSION }}_Store"
           --build-windows false
           --certificate-path build_certificate.pfx
           -p ${{ secrets.SIGN_SECRET }}
@@ -150,20 +152,22 @@ jobs:
       - name: 上传文件
         uses: actions/upload-artifact@v4
         with:
-          name: BangumiToday
+          name: BangumiToday_${{ env.RELEASE_VERSION }}
           path: |
-            BangumiToday.zip
-            BangumiToday.msix
-            BangumiToday_Store.msix
+            BangumiToday_${{ env.RELEASE_VERSION }}.zip
+            BangumiToday_${{ env.RELEASE_VERSION }}.msix
+            BangumiToday_${{ env.RELEASE_VERSION }}_Store.msix
             BTMuli.cer
 
       - name: 发行Release
-        uses: marvinpinto/action-automatic-releases@latest
+        uses: softprops/action-gh-release@v2
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
+          prerelease: true
+          generate_release_notes: false
           files: |
-            BangumiToday.zip
-            BangumiToday.msix
-            BangumiToday_Store.msix
+            BangumiToday_${{ env.RELEASE_VERSION }}.zip
+            BangumiToday_${{ env.RELEASE_VERSION }}.msix
+            BangumiToday_${{ env.RELEASE_VERSION }}_Store.msix
             BTMuli.cer
