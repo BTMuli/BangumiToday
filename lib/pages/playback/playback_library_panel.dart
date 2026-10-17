@@ -186,6 +186,13 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
       _lastLayout = store.episodeLayout;
       revealCurrent();
     }
+    var header = _header(store);
+    var divider = Container(height: 1, color: BTColors.divider(context));
+    var content = Expanded(
+      child: _showHistory ? _history(store) : _playlist(store),
+    );
+    // 选集浮出层的标题、排版切换和刷新靠近控制栏；侧栏与记录页保持顶部。
+    var headerAtBottom = widget.section == _PlaybackLibrarySection.playlist;
     return Container(
       decoration: BoxDecoration(
         color: BTColors.surfaceSecondary(context),
@@ -196,89 +203,84 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
         ),
       ),
       child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(6),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // 窄浮出层优先保留入口，排版切换在宽度足够时才出现。
-                var showLayout =
-                    !_showHistory &&
-                    store.playlist.isNotEmpty &&
-                    constraints.maxWidth >= 220;
-                return Row(
-                  children: [
-                    if (widget.section == null) ...[
-                      _tab('选集', false, store.playlist.length),
-                      const SizedBox(width: 4),
-                      _tab('记录', true, store.historyGroups.length),
-                    ] else
-                      Expanded(child: _sectionTitle(store)),
-                    if (store.openingStatus case var status?)
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: constraints.maxWidth / 2,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Tooltip(
-                            message: status,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const SizedBox.square(
-                                  dimension: 16,
-                                  child: ProgressRing(strokeWidth: 2),
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(
-                                    status,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: BTTypography.caption(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (showLayout) ...[
-                      const SizedBox(width: 4),
-                      _layoutSwitch(store),
-                    ],
-                    Tooltip(
-                      message: '刷新',
-                      child: IconButton(
-                        icon: const Icon(FluentIcons.refresh, size: 14),
-                        onPressed: !_showHistory && !store.canRefresh
-                            ? null
-                            : () => widget.run(() async {
-                                if (_showHistory) {
-                                  _resolvedHistorySubjects.clear();
-                                  await store.refreshHistory();
-                                } else {
-                                  await store.refresh();
-                                  if (!mounted) return;
-                                  await ref
-                                      .read(episodeMarkProvider.notifier)
-                                      .syncItems(store.playlist, refresh: true);
-                                }
-                              }),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          Container(height: 1, color: BTColors.divider(context)),
-          Expanded(child: _showHistory ? _history(store) : _playlist(store)),
-        ],
+        children: headerAtBottom
+            ? [content, divider, header]
+            : [header, divider, content],
       ),
     );
   }
+
+  Widget _header(PlaybackStore store) => Padding(
+    padding: const EdgeInsets.all(6),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        // 窄浮出层优先保留入口，排版切换在宽度足够时才出现。
+        var showLayout =
+            !_showHistory &&
+            store.playlist.isNotEmpty &&
+            constraints.maxWidth >= 220;
+        return Row(
+          children: [
+            if (widget.section == null) ...[
+              _tab('选集', false, store.playlist.length),
+              const SizedBox(width: 4),
+              _tab('记录', true, store.historyGroups.length),
+            ] else
+              Expanded(child: _sectionTitle(store)),
+            if (store.openingStatus case var status?)
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: constraints.maxWidth / 2),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Tooltip(
+                    message: status,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox.square(
+                          dimension: 16,
+                          child: ProgressRing(strokeWidth: 2),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            status,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: BTTypography.caption(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            if (showLayout) ...[const SizedBox(width: 4), _layoutSwitch(store)],
+            Tooltip(
+              message: '刷新',
+              child: IconButton(
+                icon: const Icon(FluentIcons.refresh, size: 14),
+                onPressed: !_showHistory && !store.canRefresh
+                    ? null
+                    : () => widget.run(() async {
+                        if (_showHistory) {
+                          _resolvedHistorySubjects.clear();
+                          await store.refreshHistory();
+                        } else {
+                          await store.refresh();
+                          if (!mounted) return;
+                          await ref
+                              .read(episodeMarkProvider.notifier)
+                              .syncItems(store.playlist, refresh: true);
+                        }
+                      }),
+              ),
+            ),
+          ],
+        );
+      },
+    ),
+  );
 
   /// 单一内容的浮出层标题，替代侧栏里的两个标签页。
   Widget _sectionTitle(PlaybackStore store) => Container(
