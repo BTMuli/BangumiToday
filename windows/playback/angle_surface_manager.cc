@@ -8,12 +8,16 @@
 #include "angle_surface_manager.h"
 
 #include <chrono>
+#include <cstring>
 #include <iostream>
+#include <mutex>
 #include <utility>
 
 #include "native_log.h"
 
 namespace {
+std::mutex display_lifecycle_mutex;
+
 class MutexLock {
  public:
   explicit MutexLock(HANDLE mutex, DWORD timeout = INFINITE) : mutex_(mutex) {
@@ -30,6 +34,19 @@ class MutexLock {
   HANDLE mutex_;
   bool owned_;
   bool valid_;
+};
+
+class D3DContextLock {
+ public:
+  explicit D3DContextLock(ID3D11Multithread* context) : context_(context) {
+    if (context_) context_->Enter();
+  }
+  ~D3DContextLock() {
+    if (context_) context_->Leave();
+  }
+
+ private:
+  ID3D11Multithread* context_;
 };
 }  // namespace
 
@@ -56,16 +73,23 @@ int ANGLESurfaceManager::instance_count_ = 0;
 
 ANGLESurfaceManager::ANGLESurfaceManager(int32_t width, int32_t height)
     : width_(width), height_(height) {
+  const std::lock_guard<std::mutex> lifecycle(display_lifecycle_mutex);
   mutex_ = ::CreateMutex(NULL, FALSE, NULL);
-  Create();
-  instance_count_++;
+  if (!mutex_) throw std::runtime_error("Unable to create the surface mutex.");
+  try {
+    Create();
+  } catch (...) {
+    CleanUp(true);
+    ::CloseHandle(mutex_);
+    throw;
+  }
 }
 
 ANGLESurfaceManager::~ANGLESurfaceManager() {
+  const std::lock_guard<std::mutex> lifecycle(display_lifecycle_mutex);
   CleanUp(true);
   ::ReleaseMutex(mutex_);
   ::CloseHandle(mutex_);
-  instance_count_--;
 }
 
 void ANGLESurfaceManager::SetSize(int32_t width, int32_t height,
@@ -98,7 +122,14 @@ void ANGLESurfaceManager::Draw(std::function<void()> callback,
       ScopedPlaybackTiming timing(sample, PlaybackRenderStage::mpv_render);
       callback();
     }
+    // Allocate while ANGLE's submitted GPU work can still be running, rather
+    // than adding allocation and handle creation after its completion wait.
     {
+      ScopedPlaybackTiming timing(sample, PlaybackRenderStage::swap);
+      glFlush();
+    }
+    PrepareSnapshot(sample);
+    if (!uses_angle_device_) {
       ScopedPlaybackTiming timing(sample, PlaybackRenderStage::swap);
       SwapBuffers();
     }
@@ -117,51 +148,64 @@ void ANGLESurfaceManager::Read(PlaybackRenderSample* sample) {
   lock_timing.Finish();
   if (frame_available_ && d3d_11_device_context_ != nullptr) {
     WaitForCopy(sample);
-    // Flutter imports the shared handle and samples it later on its own GPU
-    // device. Its release callback only acknowledges the import, not the end
-    // of sampling. Never overwrite a resource that has been handed to Flutter.
-    D3D11_TEXTURE2D_DESC description{};
-    internal_d3d_11_texture_2D_->GetDesc(&description);
-    Microsoft::WRL::ComPtr<ID3D11Texture2D> snapshot;
-    ScopedPlaybackTiming allocation(sample, PlaybackRenderStage::snapshot);
-    auto hr = d3d_11_device_->CreateTexture2D(&description, nullptr, &snapshot);
-    if (FAILED(hr)) {
-      char detail[128]{};
-      _snprintf_s(detail, sizeof(detail), _TRUNCATE,
-                  "CreateTexture2D snapshot HRESULT=0x%08lX",
-                  static_cast<unsigned long>(hr));
-      BangumiNativeGraphicsError(detail);
-      throw std::runtime_error("Unable to create the video frame snapshot.");
-    }
-    allocation.Finish();
-    ScopedPlaybackTiming sharing(sample, PlaybackRenderStage::share);
-    Microsoft::WRL::ComPtr<IDXGIResource> resource;
-    HANDLE shared_handle = nullptr;
-    hr = snapshot.As(&resource);
-    if (SUCCEEDED(hr)) hr = resource->GetSharedHandle(&shared_handle);
-    if (FAILED(hr) || shared_handle == nullptr) {
-      char detail[128]{};
-      _snprintf_s(detail, sizeof(detail), _TRUNCATE,
-                  "GetSharedHandle snapshot HRESULT=0x%08lX",
-                  static_cast<unsigned long>(hr));
-      BangumiNativeGraphicsError(detail);
-      throw std::runtime_error("Unable to share the video frame snapshot.");
-    }
-    sharing.Finish();
     ScopedPlaybackTiming submission(sample, PlaybackRenderStage::copy_submit);
-    d3d_11_device_context_->CopyResource(snapshot.Get(),
-                                        internal_d3d_11_texture_2D_.Get());
-    d3d_11_device_context_->End(copy_completion_.Get());
-    copy_pending_ = true;
-    d3d_11_device_context_->Flush();
+    {
+      const D3DContextLock context_lock(shared_context_lock_.Get());
+      // On the unified path glFlush submitted the draw on this very context.
+      // This query therefore covers rendering AND copying with one CPU wait.
+      d3d_11_device_context_->CopyResource(prepared_snapshot_.Get(),
+                                          internal_d3d_11_texture_2D_.Get());
+      d3d_11_device_context_->End(copy_completion_.Get());
+      copy_pending_ = true;
+      copy_wait_.Flush(d3d_11_device_context_);
+    }
     submission.Finish();
     // Flush submits commands asynchronously. Publish only after the copy has
     // completed; on failure the previously completed frame remains available.
     WaitForCopy(sample, PlaybackRenderStage::copy_wait);
-    d3d_11_texture_2D_ = std::move(snapshot);
-    handle_ = shared_handle;
+    d3d_11_texture_2D_ = std::move(prepared_snapshot_);
+    handle_ = prepared_handle_;
+    prepared_handle_ = nullptr;
     frame_available_ = false;
   }
+}
+
+void ANGLESurfaceManager::PrepareSnapshot(PlaybackRenderSample* sample) {
+  // Flutter imports the shared handle and samples it later on its own GPU
+  // device. Its release callback only acknowledges the import, not the end
+  // of sampling. Never overwrite a resource that has been handed to Flutter.
+  D3D11_TEXTURE2D_DESC description{};
+  internal_d3d_11_texture_2D_->GetDesc(&description);
+  // Only the published immutable snapshot needs a shared handle for Flutter.
+  description.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
+  Microsoft::WRL::ComPtr<ID3D11Texture2D> snapshot;
+  ScopedPlaybackTiming allocation(sample, PlaybackRenderStage::snapshot);
+  auto hr = d3d_11_device_->CreateTexture2D(&description, nullptr, &snapshot);
+  if (FAILED(hr)) {
+    char detail[128]{};
+    _snprintf_s(detail, sizeof(detail), _TRUNCATE,
+                "CreateTexture2D snapshot HRESULT=0x%08lX",
+                static_cast<unsigned long>(hr));
+    BangumiNativeGraphicsError(detail);
+    throw std::runtime_error("Unable to create the video frame snapshot.");
+  }
+  allocation.Finish();
+  ScopedPlaybackTiming sharing(sample, PlaybackRenderStage::share);
+  Microsoft::WRL::ComPtr<IDXGIResource> resource;
+  HANDLE shared_handle = nullptr;
+  hr = snapshot.As(&resource);
+  if (SUCCEEDED(hr)) hr = resource->GetSharedHandle(&shared_handle);
+  if (FAILED(hr) || shared_handle == nullptr) {
+    char detail[128]{};
+    _snprintf_s(detail, sizeof(detail), _TRUNCATE,
+                "GetSharedHandle snapshot HRESULT=0x%08lX",
+                static_cast<unsigned long>(hr));
+    BangumiNativeGraphicsError(detail);
+    throw std::runtime_error("Unable to share the video frame snapshot.");
+  }
+  sharing.Finish();
+  prepared_snapshot_ = std::move(snapshot);
+  prepared_handle_ = shared_handle;
 }
 
 void ANGLESurfaceManager::WaitForCopy(PlaybackRenderSample* sample,
@@ -169,6 +213,10 @@ void ANGLESurfaceManager::WaitForCopy(PlaybackRenderSample* sample,
   if (!copy_pending_) return;
   ScopedPlaybackTiming timing(sample, stage);
   const auto started = std::chrono::steady_clock::now();
+  // The shared-context query includes rendering, which could previously spend
+  // an unbounded time in glFinish. Keep a bounded whole-frame deadline without
+  // mistaking a >100 ms render for a copy timeout. The legacy copy stays 100 ms.
+  const auto timeout = std::chrono::milliseconds(uses_angle_device_ ? 1000 : 100);
   uint64_t polls = 0;
   for (;;) {
     ++polls;
@@ -194,14 +242,15 @@ void ANGLESurfaceManager::WaitForCopy(PlaybackRenderSample* sample,
       }
       throw std::runtime_error("Unable to complete the video frame copy.");
     }
-    if (std::chrono::steady_clock::now() - started >=
-        std::chrono::milliseconds(100)) {
+    const auto elapsed = std::chrono::steady_clock::now() - started;
+    if (elapsed >= timeout) {
       const auto removed = d3d_11_device_->GetDeviceRemovedReason();
       char detail[256]{};
       _snprintf_s(
           detail, sizeof(detail), _TRUNCATE,
-          "GPU frame copy timed out after 100ms wait_ms=%.2f "
+          "GPU frame completion timed out after %lldms wait_ms=%.2f "
           "polls=%llu size=%dx%d device_removed=0x%08lX",
+          static_cast<long long>(timeout.count()),
           PlaybackRenderMilliseconds(PlaybackRenderClock::now() - started),
           polls, width_, height_,
           static_cast<unsigned long>(removed));
@@ -210,9 +259,13 @@ void ANGLESurfaceManager::WaitForCopy(PlaybackRenderSample* sample,
         copy_pending_ = false;
         throw PlaybackGraphicsDeviceLost(detail);
       }
-      throw std::runtime_error("Timed out copying the video frame.");
+      throw std::runtime_error("Timed out completing the video frame.");
     }
-    copy_wait_.Wait();
+    const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+        timeout - elapsed).count();
+    // Recheck device removal at least every 100 ms, even on a long render.
+    copy_wait_.Wait(static_cast<DWORD>(remaining > 100 ? 100
+                                      : remaining > 0 ? remaining : 1));
   }
 }
 
@@ -244,19 +297,22 @@ void ANGLESurfaceManager::SwapBuffers() { glFinish(); }
 void ANGLESurfaceManager::Create(PlaybackRenderSample* sample) {
   ScopedPlaybackTiming timing(sample, PlaybackRenderStage::surface_create);
   CleanUp(false);
-  if (!CreateD3DTexture()) {
+  if (!CreateD3DDevice()) {
     throw std::runtime_error("Unable to create Windows Direct3D device.");
-    return;
   }
   if (!CreateEGLDisplay()) {
     throw std::runtime_error("Unable to create ANGLE EGL display.");
+    return;
+  }
+  if (!CreateD3DTexture()) {
+    throw std::runtime_error("Unable to create Windows Direct3D device.");
     return;
   }
   if (!CreateAndBindEGLSurface()) {
     throw std::runtime_error("Unable to create ANGLE EGL surface.");
     return;
   }
-  if (internal_handle_ == nullptr) {
+  if (!uses_angle_device_ && internal_handle_ == nullptr) {
     throw std::runtime_error("Unable to retrieve Direct3D shared HANDLE.");
     return;
   }
@@ -275,12 +331,21 @@ void ANGLESurfaceManager::CleanUp(bool release_context) {
       eglDestroySurface(display_, surface_);
       surface_ = EGL_NO_SURFACE;
     }
-    if (instance_count_ == 1) {
+    if (egl_device_ != EGL_NO_DEVICE_EXT) {
       eglTerminate(display_);
+      release_egl_device_(egl_device_);
+      egl_device_ = EGL_NO_DEVICE_EXT;
+      release_egl_device_ = nullptr;
+    } else if (registered_default_display_) {
+      registered_default_display_ = false;
+      if (--instance_count_ == 0) eglTerminate(display_);
     }
     display_ = EGL_NO_DISPLAY;
     // Release D3D device & context if the instance is being destroyed.
     copy_completion_.Reset();
+    copy_wait_.SetContext(nullptr);
+    shared_context_lock_.Reset();
+    uses_angle_device_ = false;
     if (d3d_11_device_context_) {
       d3d_11_device_context_->Release();
       d3d_11_device_context_ = nullptr;
@@ -299,10 +364,72 @@ void ANGLESurfaceManager::CleanUp(bool release_context) {
   // Release D3D 11 texture(s).
   internal_d3d_11_texture_2D_.Reset();
   d3d_11_texture_2D_.Reset();
+  prepared_snapshot_.Reset();
+  prepared_handle_ = nullptr;
   internal_handle_ = handle_ = nullptr;
 }
 
-bool ANGLESurfaceManager::CreateD3DTexture() {
+bool ANGLESurfaceManager::CreateDeviceDisplay() {
+  const auto extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+  if (!extensions || !std::strstr(extensions, "EGL_ANGLE_device_creation_d3d11") ||
+      !std::strstr(extensions, "EGL_EXT_platform_device") ||
+      d3d_11_device_->GetFeatureLevel() < D3D_FEATURE_LEVEL_10_0) {
+    eglGetError();
+    return false;
+  }
+  const auto create_device = reinterpret_cast<PFNEGLCREATEDEVICEANGLEPROC>(
+      eglGetProcAddress("eglCreateDeviceANGLE"));
+  const auto release_device = reinterpret_cast<PFNEGLRELEASEDEVICEANGLEPROC>(
+      eglGetProcAddress("eglReleaseDeviceANGLE"));
+  const auto get_display = reinterpret_cast<PFNEGLGETPLATFORMDISPLAYEXTPROC>(
+      eglGetProcAddress("eglGetPlatformDisplayEXT"));
+  const auto query_display = reinterpret_cast<PFNEGLQUERYDISPLAYATTRIBEXTPROC>(
+      eglGetProcAddress("eglQueryDisplayAttribEXT"));
+  const auto query_device = reinterpret_cast<PFNEGLQUERYDEVICEATTRIBEXTPROC>(
+      eglGetProcAddress("eglQueryDeviceAttribEXT"));
+  if (!create_device || !release_device || !get_display || !query_display ||
+      !query_device)
+    return false;
+  Microsoft::WRL::ComPtr<ID3D11Multithread> multithread;
+  if (FAILED(d3d_11_device_context_->QueryInterface(IID_PPV_ARGS(&multithread))))
+    return false;
+  multithread->SetMultithreadProtected(TRUE);
+  if (!multithread->GetMultithreadProtected()) return false;
+
+  // A private EGL device gives each player its own ANGLE renderer. Reusing the
+  // process-wide default renderer would expose its state cache to other workers.
+  const auto device = create_device(EGL_D3D11_DEVICE_ANGLE, d3d_11_device_, nullptr);
+  if (device == EGL_NO_DEVICE_EXT) {
+    eglGetError();
+    return false;
+  }
+  const auto display = get_display(EGL_PLATFORM_DEVICE_EXT, device, nullptr);
+  const bool initialized = display != EGL_NO_DISPLAY && eglInitialize(display, 0, 0);
+  const auto display_extensions = initialized
+      ? eglQueryString(display, EGL_EXTENSIONS) : nullptr;
+  EGLAttrib actual_device = 0;
+  EGLAttrib native_device = 0;
+  if (!display_extensions ||
+      !std::strstr(display_extensions, "EGL_ANGLE_d3d_texture_client_buffer") ||
+      !query_display(display, EGL_DEVICE_EXT, &actual_device) ||
+      !query_device(reinterpret_cast<EGLDeviceEXT>(actual_device),
+                    EGL_D3D11_DEVICE_ANGLE, &native_device) ||
+      reinterpret_cast<ID3D11Device*>(native_device) != d3d_11_device_) {
+    if (display != EGL_NO_DISPLAY) eglTerminate(display);
+    release_device(device);
+    eglGetError();
+    return false;
+  }
+  display_ = display;
+  egl_device_ = device;
+  release_egl_device_ = release_device;
+  shared_context_lock_ = std::move(multithread);
+  uses_angle_device_ = true;
+  BangumiNativeLog("ANGLE rendering and snapshots share one D3D11 context");
+  return true;
+}
+
+bool ANGLESurfaceManager::CreateD3DDevice() {
   if (d3d_11_device_ == nullptr) {
     // NOTE: Not enabling Feature Level 12. It crashes directly on Windows 7.
     const auto feature_levels = {
@@ -335,8 +462,12 @@ bool ANGLESurfaceManager::CreateD3DTexture() {
         static_cast<UINT>(feature_levels.size()), D3D11_SDK_VERSION,
         &d3d_11_device_, 0, &d3d_11_device_context_);
     CHECK_HRESULT("D3D11CreateDevice");
+    copy_wait_.SetContext(d3d_11_device_context_);
   }
+  return true;
+}
 
+bool ANGLESurfaceManager::CreateD3DTexture() {
   if (!copy_completion_) {
     const D3D11_QUERY_DESC description{D3D11_QUERY_EVENT, 0};
     auto hr = d3d_11_device_->CreateQuery(&description, &copy_completion_);
@@ -347,7 +478,8 @@ bool ANGLESurfaceManager::CreateD3DTexture() {
   auto dxgi_device_success = d3d_11_device_->QueryInterface(
       __uuidof(IDXGIDevice), (void**)&dxgi_device);
   if (SUCCEEDED(dxgi_device_success) && dxgi_device != nullptr) {
-    dxgi_device->SetGPUThreadPriority(5);  // Must be in interval [-7, 7].
+    if (!uses_angle_device_)
+      dxgi_device->SetGPUThreadPriority(5);  // Must be in interval [-7, 7].
     Microsoft::WRL::ComPtr<IDXGIAdapter> adapter;
     DXGI_ADAPTER_DESC description{};
     if (SUCCEEDED(dxgi_device->GetAdapter(&adapter)) &&
@@ -385,7 +517,8 @@ bool ANGLESurfaceManager::CreateD3DTexture() {
   d3d11_texture2D_desc.BindFlags =
       D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
   d3d11_texture2D_desc.CPUAccessFlags = 0;
-  d3d11_texture2D_desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
+  d3d11_texture2D_desc.MiscFlags =
+      uses_angle_device_ ? 0 : D3D11_RESOURCE_MISC_SHARED;
 
   // ANGLE draws into one internal texture. Read creates an immutable shared
   // snapshot of each completed frame for Flutter's independent GPU device.
@@ -394,6 +527,7 @@ bool ANGLESurfaceManager::CreateD3DTexture() {
   auto hr = d3d_11_device_->CreateTexture2D(&d3d11_texture2D_desc, nullptr,
                                             &internal_d3d_11_texture_2D_);
   CHECK_HRESULT("ID3D11Device::CreateTexture2D");
+  if (uses_angle_device_) return true;
   auto resource = Microsoft::WRL::ComPtr<IDXGIResource>{};
   hr = internal_d3d_11_texture_2D_.As(&resource);
   CHECK_HRESULT("ID3D11Texture2D::As");
@@ -406,6 +540,7 @@ bool ANGLESurfaceManager::CreateD3DTexture() {
 
 bool ANGLESurfaceManager::CreateEGLDisplay() {
   if (display_ == EGL_NO_DISPLAY) {
+    if (CreateDeviceDisplay()) return true;
     auto eglGetPlatformDisplayEXT =
         reinterpret_cast<PFNEGLGETPLATFORMDISPLAYEXTPROC>(
             eglGetProcAddress("eglGetPlatformDisplayEXT"));
@@ -434,6 +569,8 @@ bool ANGLESurfaceManager::CreateEGLDisplay() {
     } else {
       FAIL("eglGetProcAddress");
     }
+    registered_default_display_ = true;
+    instance_count_++;
   }
   return true;
 }
@@ -460,7 +597,12 @@ bool ANGLESurfaceManager::CreateAndBindEGLSurface() {
       EGL_NONE,
   };
   surface_ = eglCreatePbufferFromClientBuffer(
-      display_, EGL_D3D_TEXTURE_2D_SHARE_HANDLE_ANGLE, internal_handle_,
+      display_,
+      uses_angle_device_ ? EGL_D3D_TEXTURE_ANGLE
+                         : EGL_D3D_TEXTURE_2D_SHARE_HANDLE_ANGLE,
+      uses_angle_device_
+          ? reinterpret_cast<EGLClientBuffer>(internal_d3d_11_texture_2D_.Get())
+          : internal_handle_,
       config_, buffer_attributes);
   if (surface_ == EGL_NO_SURFACE) {
     FAIL("eglCreatePbufferFromClientBuffer");

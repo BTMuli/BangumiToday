@@ -17,6 +17,7 @@
 #include <Windows.h>
 #include <d3d.h>
 #include <d3d11.h>
+#include <d3d11_4.h>
 #include <wrl.h>
 
 #include <cstdint>
@@ -36,7 +37,7 @@ class PlaybackGraphicsDeviceLost : public std::runtime_error {
 // OpenGL ES 2.0 content & read as D3D 11 texture using shared |HANDLE|.
 // * |Draw|: Takes callback where OpenGL ES 2.0 calls can be made for rendering.
 // * |Read|: Copies the drawn content to an immutable shared D3D 11 snapshot,
-//           waits for GPU completion and updates |texture| and |handle|.
+//           waits for rendering/copy completion and updates |texture|/|handle|.
 
 // A large part of implementation is inspired from Flutter.
 // https://github.com/flutter/engine/blob/master/shell/platform/windows/angle_surface_manager.h
@@ -67,6 +68,8 @@ class ANGLESurfaceManager {
  private:
   void SwapBuffers();
 
+  void PrepareSnapshot(PlaybackRenderSample* sample);
+
   void WaitForCopy(PlaybackRenderSample* sample = nullptr,
                    PlaybackRenderStage stage = PlaybackRenderStage::prior_copy);
 
@@ -75,6 +78,10 @@ class ANGLESurfaceManager {
   void CleanUp(bool release_context);
 
   bool CreateD3DTexture();
+
+  bool CreateD3DDevice();
+
+  bool CreateDeviceDisplay();
 
   bool CreateEGLDisplay();
 
@@ -91,14 +98,22 @@ class ANGLESurfaceManager {
   // D3D 11
   ID3D11Device* d3d_11_device_ = nullptr;
   ID3D11DeviceContext* d3d_11_device_context_ = nullptr;
+  // Only copies/query submission take this lock, never GL calls or CPU waits.
+  Microsoft::WRL::ComPtr<ID3D11Multithread> shared_context_lock_;
+  bool uses_angle_device_ = false;
   Microsoft::WRL::ComPtr<ID3D11Texture2D> internal_d3d_11_texture_2D_;
   Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d_11_texture_2D_;
+  Microsoft::WRL::ComPtr<ID3D11Texture2D> prepared_snapshot_;
+  HANDLE prepared_handle_ = nullptr;
   Microsoft::WRL::ComPtr<ID3D11Query> copy_completion_;
   bool copy_pending_ = false;
   PlaybackGpuCopyWait copy_wait_;
   // ANGLE
   EGLSurface surface_ = EGL_NO_SURFACE;
   EGLDisplay display_ = EGL_NO_DISPLAY;
+  EGLDeviceEXT egl_device_ = EGL_NO_DEVICE_EXT;
+  PFNEGLRELEASEDEVICEANGLEPROC release_egl_device_ = nullptr;
+  bool registered_default_display_ = false;
   EGLContext context_ = nullptr;
   EGLConfig config_ = nullptr;
 
@@ -145,7 +160,7 @@ class ANGLESurfaceManager {
       EGL_NONE,
   };
 
-  // Number of active instances of ANGLESurfaceManager.
+  // Users of the legacy default display. Device-backed displays are private.
   static int32_t instance_count_;
 };
 
