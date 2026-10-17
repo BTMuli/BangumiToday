@@ -98,6 +98,18 @@ void ValidateCudaTexture(ID3D11Texture2D* source, uint32_t width,
             description.MiscFlags == 0,
         "CUDA texture must be private planar FP16 of the fixed tensor shape");
 }
+
+void ValidateOutputBuffer(ID3D11Buffer* destination, uint32_t width,
+                          uint32_t height) {
+  D3D11_BUFFER_DESC description{};
+  destination->GetDesc(&description);
+  const uint64_t bytes = uint64_t{width} * 2 * height * 6 * 2;
+  Check(description.ByteWidth == bytes &&
+            description.Usage == D3D11_USAGE_DEFAULT &&
+            (description.BindFlags & D3D11_BIND_SHADER_RESOURCE) != 0 &&
+            description.CPUAccessFlags == 0,
+        "TensorRT output must be a mapped FP16 plane buffer");
+}
 }  // namespace
 
 struct TrtSession::State {
@@ -109,7 +121,11 @@ struct TrtSession::State {
   CUevent completion = nullptr;
   CUgraphExec graph = nullptr;
   CUdeviceptr input = 0;
-  CUdeviceptr output = 0;
+  // Warmup tensor used until the session is attached to the converter.
+  CUdeviceptr warmup_output = 0;
+  // Device pointer of the converter's mapped output buffer. TensorRT writes
+  // here directly; the converter never copies the planes back into a texture.
+  CUdeviceptr output_pointer = 0;
   std::array<CUgraphicsResource, 2> graphics{};
   std::shared_ptr<Runtime> library;
   Logger logger;
@@ -118,7 +134,7 @@ struct TrtSession::State {
   std::unique_ptr<nvinfer1::ICudaEngine> engine;
   std::unique_ptr<nvinfer1::IExecutionContext> execution;
   ComPtr<ID3D11Texture2D> source;
-  ComPtr<ID3D11Texture2D> destination;
+  ComPtr<ID3D11Buffer> destination;
   uint32_t width = 0;
   uint32_t height = 0;
   bool pending = false;
@@ -150,8 +166,8 @@ struct TrtSession::State {
 
   void CaptureGraph() {
     // Shape updates were flushed by warmup. Only capture inference: graphics
-    // arrays can change on every map, while these GPU tensor addresses and the
-    // execution context remain fixed for the session's entire lifetime.
+    // map/unmap happen per frame, while the input tensor address and the mapped
+    // output buffer address stay fixed for the session's entire lifetime.
     if (cuda.cuStreamBeginCapture(stream, CU_STREAM_CAPTURE_MODE_THREAD_LOCAL) !=
         CUDA_SUCCESS)
       return;
@@ -207,7 +223,7 @@ struct TrtSession::State {
       engine.reset();
       runtime.reset();
       if (input) cuda.cuMemFree(input);
-      if (output) cuda.cuMemFree(output);
+      if (warmup_output) cuda.cuMemFree(warmup_output);
       for (auto event : events)
         if (event) cuda.cuEventDestroy(event);
       if (completion) cuda.cuEventDestroy(completion);
@@ -323,12 +339,15 @@ TrtSession::TrtSession(std::shared_ptr<TrtResources> resources,
     const size_t tensor_bytes = size_t{width} * height * 3 * 2;
     CudaApi::Check(state.cuda.cuMemAlloc(&state.input, tensor_bytes),
                    "CUDA input");
-    CudaApi::Check(state.cuda.cuMemAlloc(&state.output, tensor_bytes * 4),
-                   "CUDA output");
+    // Validation happens before the converter exists, so the first inference
+    // uses a scratch output. Attach rebinds the tensor to the converter's
+    // mapped buffer and captures the graph against that address.
+    CudaApi::Check(state.cuda.cuMemAlloc(&state.warmup_output, tensor_bytes * 4),
+                   "CUDA warmup output");
     Check(state.execution->setTensorAddress(
               "input", reinterpret_cast<void*>(state.input)) &&
               state.execution->setTensorAddress(
-                  "output", reinterpret_cast<void*>(state.output)),
+                  "output", reinterpret_cast<void*>(state.warmup_output)),
           "Cannot bind TensorRT GPU tensors");
     step("正在执行首次 GPU 预热推理");
     state.pending = true;
@@ -339,17 +358,6 @@ TrtSession::TrtSession(std::shared_ptr<TrtResources> resources,
     CudaApi::Check(state.cuda.cuEventRecord(state.completion, state.stream),
                    "Warmup completion");
     state.Wait();
-    step("正在捕获 CUDA Graph");
-    state.CaptureGraph();
-    // Warm the captured launch too, outside the graphics-context lock.
-    if (state.graph) {
-      step("正在预热 CUDA Graph");
-      state.pending = true;
-      state.Enqueue();
-      CudaApi::Check(state.cuda.cuEventRecord(state.completion, state.stream),
-                     "Graph warmup completion");
-      state.Wait();
-    }
     step("引擎张量校验和 GPU 预热通过");
   } catch (...) {
     // Constructor failures bypass ~TrtSession. Keep resources alive if CUDA
@@ -371,38 +379,90 @@ TrtSession::~TrtSession() {
   }
 }
 
-void TrtSession::Attach(ID3D11Texture2D* input, ID3D11Texture2D* output) {
+void TrtSession::Attach(ID3D11Texture2D* input, ID3D11Buffer* output) {
   auto& state = *state_;
-  Check(input && output && !state.source,
-        "Invalid TensorRT texture attachment");
+  Check(input && output && !state.source, "Invalid TensorRT frame attachment");
   ValidateCudaTexture(input, state.width, state.height * 3);
-  ValidateCudaTexture(output, state.width * 2, state.height * 6);
+  ValidateOutputBuffer(output, state.width, state.height);
   ComPtr<ID3D11Device> input_device;
   ComPtr<ID3D11Device> output_device;
   input->GetDevice(&input_device);
   output->GetDevice(&output_device);
   Check(input_device.Get() == output_device.Get(),
-        "TensorRT textures must use the same playback device");
+        "TensorRT resources must use the same playback device");
   CudaScope scope(state.cuda, state.context);
   state.source = input;
   state.destination = output;
-  // The converter owns private RGB textures on this playback device. CUDA
-  // maps them directly, avoiding a second pair of textures and full-frame
-  // D3D11 copies before packing and after unpacking each frame.
+  // The converter owns a private input texture and an output buffer on this
+  // playback device. CUDA maps them directly, so no D3D11 copy is needed
+  // before packing the input or after the model writes the output.
   for (size_t i = 0; i < state.graphics.size(); ++i) {
+    ID3D11Resource* resource =
+        i == 0 ? static_cast<ID3D11Resource*>(state.source.Get())
+               : static_cast<ID3D11Resource*>(state.destination.Get());
+    CudaApi::Check(state.cuda.cuGraphicsD3D11RegisterResource(
+                       &state.graphics[i], resource,
+                       CU_GRAPHICS_REGISTER_FLAGS_NONE),
+                   "Register CUDA D3D11 frame resource");
+  }
+  // Bind the model output while the buffer is mapped. A registered resource's
+  // mapping is stable; Run still verifies it and drops the captured graph if a
+  // driver ever returns a different pointer.
+  CudaApi::Check(
+      state.cuda.cuGraphicsMapResources(2, state.graphics.data(), state.stream),
+      "Map TensorRT frame resources");
+  state.mapped = true;
+  try {
+    size_t bytes = 0;
+    CudaApi::Check(state.cuda.cuGraphicsResourceGetMappedPointer(
+                       &state.output_pointer, &bytes, state.graphics[1]),
+                   "Map the TensorRT output buffer");
+    Check(bytes >= size_t{state.width} * 2 * state.height * 6 * 2,
+          "TensorRT output mapping is too small");
+    Check(state.execution->setTensorAddress(
+              "output", reinterpret_cast<void*>(state.output_pointer)),
+          "Cannot bind the TensorRT output buffer");
+    state.pending = true;
     CudaApi::Check(
-        state.cuda.cuGraphicsD3D11RegisterResource(
-            &state.graphics[i],
-            i == 0 ? state.source.Get() : state.destination.Get(),
-            CU_GRAPHICS_REGISTER_FLAGS_NONE),
-        "Register CUDA D3D11 RGB texture");
+        state.cuda.cuMemsetD8Async(state.input, 0,
+                                   size_t{state.width} * state.height * 3 * 2,
+                                   state.stream),
+        "Initialize warmup input");
+    Check(state.execution->enqueueV3(state.stream), "TensorRT warmup failed");
+    CudaApi::Check(state.cuda.cuEventRecord(state.completion, state.stream),
+                   "Warmup completion");
+    state.Wait();
+    state.CaptureGraph();
+    // Warm the captured launch too, outside the graphics-context lock.
+    if (state.graph) {
+      state.pending = true;
+      state.Enqueue();
+      CudaApi::Check(state.cuda.cuEventRecord(state.completion, state.stream),
+                     "Graph warmup completion");
+      state.Wait();
+    }
+    CudaApi::Check(state.cuda.cuGraphicsUnmapResources(
+                       2, state.graphics.data(), state.stream),
+                   "Release TensorRT frame resources");
+    state.mapped = false;
+  } catch (...) {
+    if (state.mapped &&
+        state.cuda.cuGraphicsUnmapResources(2, state.graphics.data(),
+                                            state.stream) == CUDA_SUCCESS)
+      state.mapped = false;
+    throw;
+  }
+  // The scratch output only carried the pre-attachment validation inference.
+  if (state.warmup_output) {
+    state.cuda.cuMemFree(state.warmup_output);
+    state.warmup_output = 0;
   }
 }
 
 void TrtSession::Run(ID3D11DeviceContext* context, bool measure) {
   auto& state = *state_;
   Check(context && state.source && state.destination,
-        "Missing TensorRT conversion textures or playback context");
+        "Missing TensorRT frame resources or playback context");
   CudaScope scope(state.cuda, state.context);
   Check(!state.completion_failed, "CUDA completion event could not be recorded");
   Check(!measure || !state.timing_pending,
@@ -420,17 +480,32 @@ void TrtSession::Run(ID3D11DeviceContext* context, bool measure) {
   state.mapped = true;
   state.pending = true;
   try {
+    size_t mapped_bytes = 0;
+    CUdeviceptr mapped_output = 0;
+    CudaApi::Check(state.cuda.cuGraphicsResourceGetMappedPointer(
+                       &mapped_output, &mapped_bytes, state.graphics[1]),
+                   "Map the TensorRT output buffer");
+    if (mapped_output != state.output_pointer) {
+      state.output_pointer = mapped_output;
+      Check(state.execution->setTensorAddress(
+                "output", reinterpret_cast<void*>(mapped_output)),
+            "Cannot bind the TensorRT output buffer");
+      // The captured graph still writes to the previous mapping.
+      if (state.graph) {
+        state.cuda.cuGraphExecDestroy(state.graph);
+        state.graph = nullptr;
+      }
+    }
     if (measure)
       CudaApi::Check(state.cuda.cuEventRecord(state.events[0], state.stream),
                      "CUDA start");
-    std::array<CUarray, 2> arrays{};
-    for (size_t i = 0; i < arrays.size(); ++i)
-      CudaApi::Check(state.cuda.cuGraphicsSubResourceGetMappedArray(
-                         &arrays[i], state.graphics[i], 0, 0),
-                     "Get CUDA texture array");
+    CUarray array = nullptr;
+    CudaApi::Check(state.cuda.cuGraphicsSubResourceGetMappedArray(
+                       &array, state.graphics[0], 0, 0),
+                   "Get CUDA texture array");
     CUDA_MEMCPY2D copy{};
     copy.srcMemoryType = CU_MEMORYTYPE_ARRAY;
-    copy.srcArray = arrays[0];
+    copy.srcArray = array;
     copy.dstMemoryType = CU_MEMORYTYPE_DEVICE;
     copy.dstDevice = state.input;
     copy.dstPitch = copy.WidthInBytes = size_t{state.width} * 2;
@@ -440,20 +515,12 @@ void TrtSession::Run(ID3D11DeviceContext* context, bool measure) {
     if (measure)
       CudaApi::Check(state.cuda.cuEventRecord(state.events[1], state.stream),
                      "CUDA input ready");
+    // The model output tensor already points at the mapped buffer: TensorRT
+    // writes the unpacked planes there, with no device-to-texture copy.
     state.Enqueue();
-    if (measure)
+    if (measure) {
       CudaApi::Check(state.cuda.cuEventRecord(state.events[2], state.stream),
                      "CUDA inference ready");
-    copy = {};
-    copy.srcMemoryType = CU_MEMORYTYPE_DEVICE;
-    copy.srcDevice = state.output;
-    copy.srcPitch = copy.WidthInBytes = size_t{state.width} * 4;
-    copy.dstMemoryType = CU_MEMORYTYPE_ARRAY;
-    copy.dstArray = arrays[1];
-    copy.Height = size_t{state.height} * 6;
-    CudaApi::Check(state.cuda.cuMemcpy2DAsync(&copy, state.stream),
-                   "Unpack FP16 RGB");
-    if (measure) {
       CudaApi::Check(state.cuda.cuEventRecord(state.events[3], state.stream),
                      "CUDA end");
       state.timing_pending = true;
@@ -461,7 +528,7 @@ void TrtSession::Run(ID3D11DeviceContext* context, bool measure) {
     const auto unmap_started = Clock::now();
     CudaApi::Check(state.cuda.cuGraphicsUnmapResources(2, state.graphics.data(),
                                                        state.stream),
-                   "Release textures to D3D11");
+                   "Release frame resources to D3D11");
     state.submission_timing.unmap_ms =
         std::chrono::duration<double, std::milli>(Clock::now() - unmap_started)
             .count();

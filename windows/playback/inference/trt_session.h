@@ -23,10 +23,12 @@ class TrtSession final {
   ~TrtSession();
   TrtSession(const TrtSession&) = delete;
   TrtSession& operator=(const TrtSession&) = delete;
-  // Private R16_FLOAT textures of width x (height * 3) and
-  // (width * 2) x (height * 6), on the same playback device. The converter's
-  // graphics accesses are ordered by CUDA map/unmap in Run.
-  void Attach(ID3D11Texture2D* input, ID3D11Texture2D* output);
+  // Private R16_FLOAT input texture of width x (height * 3) and a DEFAULT
+  // R32_UINT D3D11 buffer of (width * 2) x (height * 6) FP16 planes, both on
+  // the same playback device. TensorRT writes the model output directly into
+  // the CUDA-mapped buffer; the converter reads it without an unpack copy.
+  // The converter's graphics accesses are ordered by CUDA map/unmap in Run.
+  void Attach(ID3D11Texture2D* input, ID3D11Buffer* output);
   void Run(ID3D11DeviceContext* context, bool measure);
   struct GpuTiming {
     double input_copy_ms = 0;

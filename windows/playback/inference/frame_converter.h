@@ -23,11 +23,13 @@ class FrameConverter final {
  public:
   // Returns nullptr when the playback device cannot run the verified path;
   // `reason` then carries a short user-facing explanation.
-  // DirectML needs shared RGB textures; TensorRT registers private RGB textures
-  // with CUDA so no additional D3D11 texture copies are needed each frame.
+  // `direct_ml` selects the shared-texture storage the D3D12 session copies
+  // from. Otherwise the model input stays a private CUDA-mapped texture and the
+  // model output becomes a CUDA-mapped D3D11 buffer that TensorRT writes
+  // directly, removing the unpack copy back into a texture.
   static std::unique_ptr<FrameConverter> Create(
       ID3D11Device* device, const FramePlan& plan, const ColorConversion& color,
-      std::string* reason, bool share_model_textures = true);
+      std::string* reason, bool direct_ml = true);
   ~FrameConverter();
   FrameConverter(const FrameConverter&) = delete;
   FrameConverter& operator=(const FrameConverter&) = delete;
@@ -37,12 +39,15 @@ class FrameConverter final {
   void ConvertToPlanarRgb(ID3D11DeviceContext* context,
                           ID3D11ShaderResourceView* luma,
                           ID3D11ShaderResourceView* chroma);
-  // Model output planes -> luma and chroma output planes. The model output
-  // texture must be filled and handed back by D3D12 or CUDA first.
+  // Model output planes -> luma and chroma output planes. The DirectML session
+  // must have filled the shared texture, or TensorRT the mapped buffer, first.
   void ConvertFromPlanarRgb(ID3D11DeviceContext* context);
 
   ID3D11Texture2D* planar_rgb() const;
-  ID3D11Texture2D* model_output_rgb() const;
+  // DirectML only; null on the TensorRT path.
+  ID3D11Texture2D* model_output_texture() const;
+  // TensorRT only; null on the DirectML path.
+  ID3D11Buffer* model_output_buffer() const;
   ID3D11Texture2D* out_luma() const;
   ID3D11Texture2D* out_chroma() const;
 

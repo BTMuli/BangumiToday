@@ -31,6 +31,8 @@ Windows x64 内置播放器提供以下两档，沿用 `playbackUpscaleMode` 保
 
 帧路径为 `mpv D3D11 解码 → GPU RGB / FP16 张量 → TensorRT →
 D3D11 NV12 / P010 → mpv / ANGLE → Flutter 纹理`，像素不经 CPU 回读。
+TensorRT 的模型输出直接写入 CUDA 映射的 D3D11 缓冲区，转换着色器读取同一块
+打包 FP16 内存，不再有模型输出回写纹理的拷贝；DirectML 诊断路径仍使用共享纹理。
 字幕和控件在模型处理后合成；Dart 负责偏好、滤镜调度、状态及失败恢复。
 原生端已加入共享上下文保护、CUDA Graph 与异步 GPU 计时，详细契约和
 隔离性能记录见[原生实现说明](../../windows/playback/inference/README.md)。

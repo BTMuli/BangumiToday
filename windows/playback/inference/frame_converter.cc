@@ -90,22 +90,25 @@ struct FrameConverter::State {
   Microsoft::WRL::ComPtr<ID3D11Device> device;
   Microsoft::WRL::ComPtr<ID3D11ComputeShader> yuv_to_rgb;
   Microsoft::WRL::ComPtr<ID3D11ComputeShader> rgb_to_yuv;
+  Microsoft::WRL::ComPtr<ID3D11ComputeShader> rgb_to_yuv_buffer;
   Microsoft::WRL::ComPtr<ID3D11Buffer> constants;
   Microsoft::WRL::ComPtr<ID3D11Texture2D> planar_rgb;
   Microsoft::WRL::ComPtr<ID3D11Texture2D> model_output_rgb;
+  Microsoft::WRL::ComPtr<ID3D11Buffer> model_output_words;
   Microsoft::WRL::ComPtr<ID3D11Texture2D> out_luma;
   Microsoft::WRL::ComPtr<ID3D11Texture2D> out_chroma;
   Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> planar_rgb_uav;
   Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> out_luma_uav;
   Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> out_chroma_uav;
   Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> model_output_srv;
+  Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> model_output_words_srv;
   FrameShaderParams params{};
   FramePlan plan;
 };
 
 std::unique_ptr<FrameConverter> FrameConverter::Create(
     ID3D11Device* device, const FramePlan& plan, const ColorConversion& color,
-    std::string* reason, bool share_model_textures) {
+    std::string* reason, bool direct_ml) {
   auto report = [reason](const char* message) {
     if (reason) *reason = message;
     return nullptr;
@@ -127,15 +130,43 @@ std::unique_ptr<FrameConverter> FrameConverter::Create(
   state.device = device;
   state.plan = plan;
   state.yuv_to_rgb = CreateShader(device, kFrameShaderYuvToPlanarRgb);
-  state.rgb_to_yuv = CreateShader(device, kFrameShaderPlanarRgbToYuv);
-
   state.planar_rgb = CreateTexture(
       device, plan.model_width, plan.model_height * 3, kRgbFormat,
-      D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE,
-      share_model_textures);
-  state.model_output_rgb = CreateTexture(
-      device, plan.model_output_width, plan.model_output_height * 3, kRgbFormat,
-      D3D11_BIND_SHADER_RESOURCE, share_model_textures);
+      D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE, direct_ml);
+  if (direct_ml) {
+    state.rgb_to_yuv = CreateShader(device, kFrameShaderPlanarRgbToYuv);
+    state.model_output_rgb = CreateTexture(
+        device, plan.model_output_width, plan.model_output_height * 3,
+        kRgbFormat, D3D11_BIND_SHADER_RESOURCE);
+  } else {
+    // TensorRT binds this buffer as the model output tensor through CUDA, so
+    // the FP16 planes never make a round trip through a texture.
+    state.rgb_to_yuv = CreateShader(device, kFrameShaderPlanarRgbBufferToYuv);
+    const uint64_t words_bytes = uint64_t{plan.model_output_width} *
+                                 plan.model_output_height * 3 * 2;
+    // D3D11 buffers are limited to 128 MiB; the 2x output of a 1920x1080 model
+    // input stays below that by the frame contract.
+    constexpr uint64_t kMaxBufferBytes = 128ull * 1024 * 1024;
+    Check(words_bytes > 0 && words_bytes % 4 == 0 &&
+              words_bytes <= kMaxBufferBytes,
+          "The model output does not fit a D3D11 buffer");
+    D3D11_BUFFER_DESC buffer_description{};
+    buffer_description.ByteWidth = static_cast<UINT>(words_bytes);
+    buffer_description.Usage = D3D11_USAGE_DEFAULT;
+    buffer_description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    Check(device->CreateBuffer(&buffer_description, nullptr,
+                               &state.model_output_words),
+          "Create the model output buffer");
+    D3D11_SHADER_RESOURCE_VIEW_DESC words_view{};
+    words_view.Format = DXGI_FORMAT_R32_UINT;
+    words_view.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+    words_view.Buffer.FirstElement = 0;
+    words_view.Buffer.NumElements = static_cast<UINT>(words_bytes / 4);
+    Check(device->CreateShaderResourceView(state.model_output_words.Get(),
+                                          &words_view,
+                                          &state.model_output_words_srv),
+          "Create the model output buffer view");
+  }
   state.out_luma = CreateTexture(
       device, plan.visible_width * 2, plan.visible_height * 2, luma_format,
       D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE);
@@ -160,14 +191,16 @@ std::unique_ptr<FrameConverter> FrameConverter::Create(
                                           &uav_description,
                                           &state.out_chroma_uav),
         "Create the chroma output UAV");
-  D3D11_SHADER_RESOURCE_VIEW_DESC srv_description{};
-  srv_description.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-  srv_description.Format = kRgbFormat;
-  srv_description.Texture2D.MipLevels = 1;
-  Check(device->CreateShaderResourceView(state.model_output_rgb.Get(),
-                                         &srv_description,
-                                         &state.model_output_srv),
-        "Create the model output view");
+  if (direct_ml) {
+    D3D11_SHADER_RESOURCE_VIEW_DESC srv_description{};
+    srv_description.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srv_description.Format = kRgbFormat;
+    srv_description.Texture2D.MipLevels = 1;
+    Check(device->CreateShaderResourceView(state.model_output_rgb.Get(),
+                                           &srv_description,
+                                           &state.model_output_srv),
+          "Create the model output view");
+  }
 
   state.params.visible_width = plan.visible_width;
   state.params.visible_height = plan.visible_height;
@@ -203,8 +236,11 @@ FrameConverter::~FrameConverter() = default;
 ID3D11Texture2D* FrameConverter::planar_rgb() const {
   return state_->planar_rgb.Get();
 }
-ID3D11Texture2D* FrameConverter::model_output_rgb() const {
+ID3D11Texture2D* FrameConverter::model_output_texture() const {
   return state_->model_output_rgb.Get();
+}
+ID3D11Buffer* FrameConverter::model_output_buffer() const {
+  return state_->model_output_words.Get();
 }
 ID3D11Texture2D* FrameConverter::out_luma() const {
   return state_->out_luma.Get();
@@ -238,21 +274,25 @@ void FrameConverter::ConvertToPlanarRgb(ID3D11DeviceContext* context,
 void FrameConverter::ConvertFromPlanarRgb(ID3D11DeviceContext* context) {
   if (!context) throw std::invalid_argument("Missing conversion context");
   auto& state = *state_;
-  ID3D11ShaderResourceView* views[] = {state.model_output_srv.Get()};
   ID3D11Buffer* buffers[] = {state.constants.Get()};
   context->CSSetConstantBuffers(0, 1, buffers);
 
   ID3D11UnorderedAccessView* uavs[] = {state.out_luma_uav.Get(),
                                     state.out_chroma_uav.Get()};
   context->CSSetShader(state.rgb_to_yuv.Get(), nullptr, 0);
-  context->CSSetShaderResources(0, 1, views);
+  // The DirectML session fills the shared texture (t0); TensorRT fills the
+  // mapped buffer, which is read as packed words at t2.
+  ID3D11ShaderResourceView* views[] = {
+      state.model_output_words ? nullptr : state.model_output_srv.Get(),
+      nullptr, state.model_output_words_srv.Get()};
+  context->CSSetShaderResources(0, 3, views);
   context->CSSetUnorderedAccessViews(0, 2, uavs, nullptr);
   context->Dispatch(Groups(state.plan.visible_width),
                     Groups(state.plan.visible_height), 1);
 
-  ID3D11ShaderResourceView* no_views[] = {nullptr};
+  ID3D11ShaderResourceView* no_views[] = {nullptr, nullptr, nullptr};
   ID3D11UnorderedAccessView* no_uavs[] = {nullptr, nullptr};
-  context->CSSetShaderResources(0, 1, no_views);
+  context->CSSetShaderResources(0, 3, no_views);
   context->CSSetUnorderedAccessViews(0, 2, no_uavs, nullptr);
   context->CSSetShader(nullptr, nullptr, 0);
 }

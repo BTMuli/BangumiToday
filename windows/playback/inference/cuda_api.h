@@ -34,6 +34,7 @@ class CudaApi final {
   X(cuGraphicsD3D11RegisterResource) X(cuGraphicsUnregisterResource) \
   X(cuGraphicsMapResources) X(cuGraphicsUnmapResources) \
   X(cuGraphicsSubResourceGetMappedArray) \
+  X(cuGraphicsResourceGetMappedPointer) \
   X(cuEventCreate) X(cuEventDestroy) X(cuEventRecord) X(cuEventQuery) \
   X(cuEventElapsedTime) X(cuDeviceGetUuid)
 // clang-format on

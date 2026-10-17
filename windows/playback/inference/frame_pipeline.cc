@@ -219,7 +219,7 @@ std::unique_ptr<FramePipeline> FramePipeline::Create(
     state.planar_rgb = OpenSharedTexture(state.converter->planar_rgb(),
                                         state.interop->device());
     state.model_output_rgb = OpenSharedTexture(
-        state.converter->model_output_rgb(), state.interop->device());
+        state.converter->model_output_texture(), state.interop->device());
   }
   state.out_luma =
       OpenSharedTexture(state.converter->out_luma(), state.interop->device());
@@ -233,8 +233,19 @@ std::unique_ptr<FramePipeline> FramePipeline::Create(
       state.trt_session = std::make_unique<TrtSession>(config.trt_resources,
           config.trt_engine, QueryGpuCapabilities(playback_device),
           plan.model_width, plan.model_height);
+      // Attachment maps the fresh converter resources through CUDA once and
+      // captures the graph. CUDA map/unmap flushes the shared immediate
+      // context, so hold the same multithread critical section as Submit.
+      ComPtr<ID3D11DeviceContext> immediate;
+      playback_device->GetImmediateContext(&immediate);
+      ComPtr<ID3D11Multithread> multithread;
+      Check(immediate->QueryInterface(IID_PPV_ARGS(&multithread)),
+            "ID3D11Multithread is required for TensorRT attachment");
+      multithread->SetMultithreadProtected(TRUE);
+      ScopedContextLock context_lock(multithread.Get());
+      immediate->Flush();
       state.trt_session->Attach(state.converter->planar_rgb(),
-                                 state.converter->model_output_rgb());
+                                 state.converter->model_output_buffer());
     } else {
       DmlSession::Options session_options;
       session_options.placement_profile = config.placement_profile;
@@ -273,7 +284,9 @@ ID3D11Texture2D* FramePipeline::model_input_texture() const {
 }
 
 ID3D11Texture2D* FramePipeline::model_output_texture() const {
-  return state_->converter->model_output_rgb();
+  // DirectML only: TensorRT writes the model output straight into a buffer and
+  // exposes no intermediate texture.
+  return state_->converter->model_output_texture();
 }
 
 ID3D12Device* FramePipeline::diagnostics_device() const {

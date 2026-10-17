@@ -10,7 +10,7 @@ Windows x64 原生实现，通过项目自有 aji ABI v8 垫片接入固定版�
 | 文件 | 职责 |
 |---|---|
 | `aji_abi.h` / `aji_bridge.cc` | 滤镜 ABI、配置、模型 slot、状态与错误边界 |
-| `frame_contract.*` / `frame_converter.*` / `shaders/` | 输入准入、尺寸规划、GPU YUV ↔ FP16 RGB 转换 |
+| `frame_contract.*` / `frame_converter.*` / `shaders/` | 输入准入、尺寸规划、GPU YUV ↔ FP16 RGB 转换；TensorRT 输出缓冲区由转换着色器直接读取 |
 | `frame_pipeline.*` / `interop.*` | 帧编排、共享纹理、fence 与资源回收 |
 | `cuda_api.*` / `trt_session.*` | CUDA 互操作、TensorRT 推理及 CUDA Graph 复用 |
 | `trt_engine_cache.*` / `trt_precompile.*` | 本机引擎构建、缓存及设置页预编译入口 |
@@ -20,14 +20,16 @@ Windows x64 原生实现，通过项目自有 aji ABI v8 垫片接入固定版�
 
 ```text
 D3D11 NV12/P010 → FP16 RGB 纹理 → NCHW 张量
-  TensorRT：CUDA 映射 / 拷贝 → 模型推理 → RGB 纹理
-  DirectML：D3D12 共享纹理 / buffer → 模型推理 → RGB 纹理
+  TensorRT：CUDA 映射 / 输入打包拷贝 → 模型推理 → 直接写入 CUDA 映射的 D3D11 缓冲区
+  DirectML：D3D12 共享纹理 / buffer → 模型推理 → 共享 RGB 纹理
 → GPU YUV 转换 → NV12/P010 输出帧
 ```
 
 像素不经 CPU 回读。D3D11 提交使用完整的多线程临界区，与硬解和 ANGLE
 协调共享上下文；跨 API 访问通过 CUDA map/unmap 或共享 fence 排序。
-TensorRT 预热后尝试捕获 CUDA Graph，不可用时继续普通 enqueue。
+TensorRT 的模型输出张量绑定到注册给 CUDA 的 D3D11 缓冲区，推理结果不再回写成
+纹理；转换着色器按平面偏移读取同一块打包 FP16 内存。CUDA Graph 在缓冲区地址
+绑定后捕获，地址变化时回退普通 enqueue。
 
 ## 播放契约
 
@@ -61,6 +63,8 @@ slot2=<Balanced 模型文件名>
 可用 `stats=<路径>` 覆盖默认 `%LOCALAPPDATA%/BangumiToday/animejanai-stats.txt`；
 快照最多每秒更新一次，包含后端、GPU、阶段、尺寸、计数、GPU 耗时和错误原因。
 `cpu*Ms` 字段用于区分上下文争用与提交耗时，不代表 GPU 时间。
+TensorRT 路径的 `gpuOutputCopyMs` 接近 0（输出直接写入缓冲区），
+`gpuInputCopyMs` 仍是输入打包拷贝。
 
 ## 准备与打包
 
@@ -126,6 +130,9 @@ SDK 头文件和 NVIDIA 大运行库不进入应用包；`verify_windows_bundle.
 
 已有隔离检查覆盖帧转换、同步、ABI、缓存、组件安装及纯 Dart 控制逻辑，
 并做过 RTX 4070 Laptop 的独立原生链路短片段复测。
+本轮另用一次性原生 harness 验证了映射缓冲区的写入与读取：TensorRT 输出直接
+落在 D3D11 缓冲区，转换着色器的亮度结果与 CPU 参考逐点一致（9424 个样本最大
+差 0 个码值），输出回写耗时从播放实测的 1.26 ms/帧降到 0.002 ms/帧。
 这些结果不代表完整 Flutter 播放或各支持架构均已验收。
 长播放、PTS / seek / 暂停 / 连播、全屏切换、设备对齐与恢复、画质及端到端性能、
 干净 Windows/MSIX 环境仍需手工验收；SM90 / SM100 / SM120 实机验证、

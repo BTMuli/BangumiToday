@@ -43,6 +43,9 @@ Texture2D<float> g_luma : register(t0);
 Texture2D<float2> g_chroma : register(t1);
 RWTexture2D<float> g_planar_rgb : register(u0);
 Texture2D<float> g_model_rgb : register(t0);
+// TensorRT writes the packed FP16 planes straight into a CUDA-mapped D3D11
+// buffer, so the same planes are read as packed halfwords instead of a texture.
+Buffer<uint> g_model_words : register(t2);
 RWTexture2D<float> g_luma_out : register(u0);
 RWTexture2D<float2> g_chroma_out : register(u1);
 
@@ -102,6 +105,24 @@ float3 PlanarRgbAt(uint2 position)
     return float3(g_model_rgb.Load(int3(position.x, position.y, 0)).r,
                   g_model_rgb.Load(int3(position.x, position.y + plane_height, 0)).r,
                   g_model_rgb.Load(int3(position.x, position.y + 2 * plane_height, 0)).r);
+}
+
+// The buffer holds exactly the texture's packed memory: plane p starts at
+// p * (2 * model_width) * (2 * model_height) halfwords and every row is
+// contiguous. Each word carries two adjacent FP16 samples.
+float ModelHalfAt(uint2 position, uint plane)
+{
+    const uint width = g_model_width * 2;
+    const uint plane_halves = width * g_model_height * 2;
+    const uint half_index = plane * plane_halves + position.y * width + position.x;
+    const uint word = g_model_words.Load(half_index >> 1);
+    return f16tof32((half_index & 1u) ? (word >> 16) : (word & 0xffffu));
+}
+
+float3 PlanarRgbBufferAt(uint2 position)
+{
+    return float3(ModelHalfAt(position, 0), ModelHalfAt(position, 1),
+                  ModelHalfAt(position, 2));
 }
 
 float Luma(float3 rgb) { return g_kr * rgb.r + g_kg * rgb.g + g_kb * rgb.b; }
@@ -169,18 +190,11 @@ void YuvToPlanarRgb(uint3 id : SV_DispatchThreadID,
     g_planar_rgb[uint2(id.x, id.y + 2 * g_model_height)] = rgb.b;
 }
 
-[numthreads(8, 8, 1)]
-void PlanarRgbToYuv(uint3 id : SV_DispatchThreadID)
+// Stores one 2x2 model quad: four luma samples and the box-filtered chroma
+// sample that reuses the same RGB values.
+void StoreYuv(uint2 id, float3 rgb00, float3 rgb10, float3 rgb01, float3 rgb11)
 {
-    if (id.x >= g_visible_width || id.y >= g_visible_height)
-        return;
-    // Each thread reads one 2x2 quad once, writes its four luma samples and
-    // reuses those RGB values for the same box-filtered chroma sample.
-    const uint2 origin = id.xy * 2;
-    const float3 rgb00 = PlanarRgbAt(origin);
-    const float3 rgb10 = PlanarRgbAt(origin + uint2(1, 0));
-    const float3 rgb01 = PlanarRgbAt(origin + uint2(0, 1));
-    const float3 rgb11 = PlanarRgbAt(origin + uint2(1, 1));
+    const uint2 origin = id * 2;
     g_luma_out[origin] = StoreLuma(Luma(rgb00));
     g_luma_out[origin + uint2(1, 0)] = StoreLuma(Luma(rgb10));
     g_luma_out[origin + uint2(0, 1)] = StoreLuma(Luma(rgb01));
@@ -190,4 +204,29 @@ void PlanarRgbToYuv(uint3 id : SV_DispatchThreadID)
     const float cb = (rgb.b - luminance) / (2.0f * (1.0f - g_kb));
     const float cr = (rgb.r - luminance) / (2.0f * (1.0f - g_kr));
     g_chroma_out[id.xy] = float2(StoreChroma(cb), StoreChroma(cr));
+}
+
+[numthreads(8, 8, 1)]
+void PlanarRgbToYuv(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= g_visible_width || id.y >= g_visible_height)
+        return;
+    // Each thread reads one 2x2 quad once, writes its four luma samples and
+    // reuses those RGB values for the same box-filtered chroma sample.
+    const uint2 origin = id.xy * 2;
+    StoreYuv(id.xy, PlanarRgbAt(origin), PlanarRgbAt(origin + uint2(1, 0)),
+             PlanarRgbAt(origin + uint2(0, 1)),
+             PlanarRgbAt(origin + uint2(1, 1)));
+}
+
+[numthreads(8, 8, 1)]
+void PlanarRgbBufferToYuv(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= g_visible_width || id.y >= g_visible_height)
+        return;
+    const uint2 origin = id.xy * 2;
+    StoreYuv(id.xy, PlanarRgbBufferAt(origin),
+             PlanarRgbBufferAt(origin + uint2(1, 0)),
+             PlanarRgbBufferAt(origin + uint2(0, 1)),
+             PlanarRgbBufferAt(origin + uint2(1, 1)));
 }
