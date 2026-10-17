@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 
 // Project imports:
 import 'bt_database.dart';
+import 'dataset_subject_projection.dart';
 
 /// Offline BangumiData cache. Titles are lookup values, never identities.
 class DatasetStorage {
@@ -30,15 +31,14 @@ class DatasetStorage {
         .customSelect(
           '''
       SELECT item.* FROM BangumiDataItem AS item
-      WHERE EXISTS (
-        SELECT 1 FROM json_each(item.sites) AS site
-        WHERE json_extract(site.value, '\$.site') = 'bangumi'
-          AND json_extract(site.value, '\$.id') IN ($placeholders)
+      WHERE item.id IN (
+        SELECT itemId FROM BangumiDataSubject
+        WHERE subjectId IN ($placeholders)
       )
       ORDER BY item.id
       ''',
           variables: subjectIds.map((id) => Variable(id.toString())).toList(),
-          readsFrom: {db.bangumiDataItem},
+          readsFrom: {db.bangumiDataItem, db.bangumiDataSubject},
         )
         .get();
     return rows.map((row) => db.bangumiDataItem.map(row.data)).toList();
@@ -50,19 +50,15 @@ class DatasetStorage {
         .customSelect(
           '''
       SELECT title.value AS name_cn
-      FROM BangumiDataItem AS item,
+      FROM BangumiDataSubject AS mapping
+      JOIN BangumiDataItem AS item ON item.id = mapping.itemId,
            json_each(item.titleTranslate, '\$."zh-Hans"') AS title
-      WHERE title.type = 'text' AND title.value != ''
-        AND EXISTS (
-          SELECT 1 FROM json_each(item.sites) AS site
-          WHERE json_extract(site.value, '\$.site') = 'bangumi'
-            AND json_extract(site.value, '\$.id') = ?
-        )
+      WHERE mapping.subjectId = ? AND title.type = 'text' AND title.value != ''
       ORDER BY item.id, title.key
       LIMIT 1
       ''',
           variables: [Variable(subjectId.toString())],
-          readsFrom: {db.bangumiDataItem},
+          readsFrom: {db.bangumiDataItem, db.bangumiDataSubject},
         )
         .getSingleOrNull();
     return row?.read<String>('name_cn');
@@ -129,9 +125,10 @@ class DatasetStorage {
     for (var start = 0; start < items.length; start += batchSize) {
       var end = start + batchSize;
       if (end > items.length) end = items.length;
-      await db.transaction(
-        () => db.batch((batch) {
-          for (var row in items.getRange(start, end)) {
+      var rows = items.getRange(start, end).toList();
+      await db.transaction(() async {
+        await db.batch((batch) {
+          for (var row in rows) {
             batch.insert(
               db.bangumiDataItem,
               row,
@@ -141,8 +138,12 @@ class DatasetStorage {
               ),
             );
           }
-        }),
-      );
+        });
+        await rebuildDatasetSubjects(
+          db,
+          itemKeys: rows.map((row) => row.itemKey.value).toList(),
+        );
+      });
       onProgress?.call(end, items.length);
     }
   }

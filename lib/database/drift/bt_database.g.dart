@@ -4973,6 +4973,224 @@ class BangumiDataItemCompanion extends UpdateCompanion<DataItemRow> {
   }
 }
 
+class $BangumiDataSubjectTable extends BangumiDataSubject
+    with TableInfo<$BangumiDataSubjectTable, DataSubjectRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BangumiDataSubjectTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _subjectIdMeta = const VerificationMeta(
+    'subjectId',
+  );
+  @override
+  late final GeneratedColumn<String> subjectId = GeneratedColumn<String>(
+    'subjectId',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
+  @override
+  late final GeneratedColumn<int> itemId = GeneratedColumn<int>(
+    'itemId',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES BangumiDataItem (id) ON DELETE CASCADE',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [subjectId, itemId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'BangumiDataSubject';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DataSubjectRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('subjectId')) {
+      context.handle(
+        _subjectIdMeta,
+        subjectId.isAcceptableOrUnknown(data['subjectId']!, _subjectIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_subjectIdMeta);
+    }
+    if (data.containsKey('itemId')) {
+      context.handle(
+        _itemIdMeta,
+        itemId.isAcceptableOrUnknown(data['itemId']!, _itemIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_itemIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {subjectId, itemId};
+  @override
+  DataSubjectRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DataSubjectRow(
+      subjectId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subjectId'],
+      )!,
+      itemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}itemId'],
+      )!,
+    );
+  }
+
+  @override
+  $BangumiDataSubjectTable createAlias(String alias) {
+    return $BangumiDataSubjectTable(attachedDatabase, alias);
+  }
+}
+
+class DataSubjectRow extends DataClass implements Insertable<DataSubjectRow> {
+  final String subjectId;
+  final int itemId;
+  const DataSubjectRow({required this.subjectId, required this.itemId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['subjectId'] = Variable<String>(subjectId);
+    map['itemId'] = Variable<int>(itemId);
+    return map;
+  }
+
+  BangumiDataSubjectCompanion toCompanion(bool nullToAbsent) {
+    return BangumiDataSubjectCompanion(
+      subjectId: Value(subjectId),
+      itemId: Value(itemId),
+    );
+  }
+
+  factory DataSubjectRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DataSubjectRow(
+      subjectId: serializer.fromJson<String>(json['subjectId']),
+      itemId: serializer.fromJson<int>(json['itemId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'subjectId': serializer.toJson<String>(subjectId),
+      'itemId': serializer.toJson<int>(itemId),
+    };
+  }
+
+  DataSubjectRow copyWith({String? subjectId, int? itemId}) => DataSubjectRow(
+    subjectId: subjectId ?? this.subjectId,
+    itemId: itemId ?? this.itemId,
+  );
+  DataSubjectRow copyWithCompanion(BangumiDataSubjectCompanion data) {
+    return DataSubjectRow(
+      subjectId: data.subjectId.present ? data.subjectId.value : this.subjectId,
+      itemId: data.itemId.present ? data.itemId.value : this.itemId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DataSubjectRow(')
+          ..write('subjectId: $subjectId, ')
+          ..write('itemId: $itemId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(subjectId, itemId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DataSubjectRow &&
+          other.subjectId == this.subjectId &&
+          other.itemId == this.itemId);
+}
+
+class BangumiDataSubjectCompanion extends UpdateCompanion<DataSubjectRow> {
+  final Value<String> subjectId;
+  final Value<int> itemId;
+  final Value<int> rowid;
+  const BangumiDataSubjectCompanion({
+    this.subjectId = const Value.absent(),
+    this.itemId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BangumiDataSubjectCompanion.insert({
+    required String subjectId,
+    required int itemId,
+    this.rowid = const Value.absent(),
+  }) : subjectId = Value(subjectId),
+       itemId = Value(itemId);
+  static Insertable<DataSubjectRow> custom({
+    Expression<String>? subjectId,
+    Expression<int>? itemId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (subjectId != null) 'subjectId': subjectId,
+      if (itemId != null) 'itemId': itemId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BangumiDataSubjectCompanion copyWith({
+    Value<String>? subjectId,
+    Value<int>? itemId,
+    Value<int>? rowid,
+  }) {
+    return BangumiDataSubjectCompanion(
+      subjectId: subjectId ?? this.subjectId,
+      itemId: itemId ?? this.itemId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (subjectId.present) {
+      map['subjectId'] = Variable<String>(subjectId.value);
+    }
+    if (itemId.present) {
+      map['itemId'] = Variable<int>(itemId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BangumiDataSubjectCompanion(')
+          ..write('subjectId: $subjectId, ')
+          ..write('itemId: $itemId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$BtDatabase extends GeneratedDatabase {
   _$BtDatabase(QueryExecutor e) : super(e);
   $BtDatabaseManager get managers => $BtDatabaseManager(this);
@@ -4994,6 +5212,8 @@ abstract class _$BtDatabase extends GeneratedDatabase {
   late final $BangumiDataItemTable bangumiDataItem = $BangumiDataItemTable(
     this,
   );
+  late final $BangumiDataSubjectTable bangumiDataSubject =
+      $BangumiDataSubjectTable(this);
   late final Index appSubscriptionFeedKey = Index(
     'AppSubscription_feedKey',
     'CREATE INDEX AppSubscription_feedKey ON AppSubscription (feedKey)',
@@ -5010,6 +5230,10 @@ abstract class _$BtDatabase extends GeneratedDatabase {
     'BangumiDataItem_itemKey',
     'CREATE UNIQUE INDEX BangumiDataItem_itemKey ON BangumiDataItem (itemKey)',
   );
+  late final Index bangumiDataSubjectItemId = Index(
+    'BangumiDataSubject_itemId',
+    'CREATE INDEX BangumiDataSubject_itemId ON BangumiDataSubject (itemId)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5025,10 +5249,12 @@ abstract class _$BtDatabase extends GeneratedDatabase {
     bangumiCollection,
     bangumiDataSite,
     bangumiDataItem,
+    bangumiDataSubject,
     appSubscriptionFeedKey,
     bangumiCollectionSearch,
     bangumiDataItemTitle,
     bangumiDataItemItemKey,
+    bangumiDataSubjectItemId,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -5038,6 +5264,13 @@ abstract class _$BtDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('AppSubscription', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'BangumiDataItem',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('BangumiDataSubject', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -7545,6 +7778,36 @@ typedef $$BangumiDataItemTableUpdateCompanionBuilder =
       Value<String?> sites,
     });
 
+final class $$BangumiDataItemTableReferences
+    extends BaseReferences<_$BtDatabase, $BangumiDataItemTable, DataItemRow> {
+  $$BangumiDataItemTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$BangumiDataSubjectTable, List<DataSubjectRow>>
+  _bangumiDataSubjectRefsTable(_$BtDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.bangumiDataSubject,
+        aliasName: 'BangumiDataItem__id__BangumiDataSubject__itemId',
+      );
+
+  $$BangumiDataSubjectTableProcessedTableManager get bangumiDataSubjectRefs {
+    final manager = $$BangumiDataSubjectTableTableManager(
+      $_db,
+      $_db.bangumiDataSubject,
+    ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _bangumiDataSubjectRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
 class $$BangumiDataItemTableFilterComposer
     extends Composer<_$BtDatabase, $BangumiDataItemTable> {
   $$BangumiDataItemTableFilterComposer({
@@ -7613,6 +7876,31 @@ class $$BangumiDataItemTableFilterComposer
     column: $table.sites,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> bangumiDataSubjectRefs(
+    Expression<bool> Function($$BangumiDataSubjectTableFilterComposer f) f,
+  ) {
+    final $$BangumiDataSubjectTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bangumiDataSubject,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BangumiDataSubjectTableFilterComposer(
+            $db: $db,
+            $table: $db.bangumiDataSubject,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BangumiDataItemTableOrderingComposer
@@ -7733,6 +8021,32 @@ class $$BangumiDataItemTableAnnotationComposer
 
   GeneratedColumn<String> get sites =>
       $composableBuilder(column: $table.sites, builder: (column) => column);
+
+  Expression<T> bangumiDataSubjectRefs<T extends Object>(
+    Expression<T> Function($$BangumiDataSubjectTableAnnotationComposer a) f,
+  ) {
+    final $$BangumiDataSubjectTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.bangumiDataSubject,
+          getReferencedColumn: (t) => t.itemId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$BangumiDataSubjectTableAnnotationComposer(
+                $db: $db,
+                $table: $db.bangumiDataSubject,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$BangumiDataItemTableTableManager
@@ -7746,12 +8060,9 @@ class $$BangumiDataItemTableTableManager
           $$BangumiDataItemTableAnnotationComposer,
           $$BangumiDataItemTableCreateCompanionBuilder,
           $$BangumiDataItemTableUpdateCompanionBuilder,
-          (
-            DataItemRow,
-            BaseReferences<_$BtDatabase, $BangumiDataItemTable, DataItemRow>,
-          ),
+          (DataItemRow, $$BangumiDataItemTableReferences),
           DataItemRow,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool bangumiDataSubjectRefs})
         > {
   $$BangumiDataItemTableTableManager(
     _$BtDatabase db,
@@ -7826,15 +8137,42 @@ class $$BangumiDataItemTableTableManager
               .map(
                 (e) => (
                   e.readTable<$BangumiDataItemTable, DataItemRow>(table),
-                  BaseReferences<
-                    _$BtDatabase,
-                    $BangumiDataItemTable,
-                    DataItemRow
-                  >(db, table, e),
+                  $$BangumiDataItemTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({bangumiDataSubjectRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (bangumiDataSubjectRefs) db.bangumiDataSubject,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (bangumiDataSubjectRefs)
+                    await $_getPrefetchedData<
+                      DataItemRow,
+                      $BangumiDataItemTable,
+                      DataSubjectRow
+                    >(
+                      currentTable: table,
+                      referencedTable: $$BangumiDataItemTableReferences
+                          ._bangumiDataSubjectRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$BangumiDataItemTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).bangumiDataSubjectRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.itemId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -7849,12 +8187,282 @@ typedef $$BangumiDataItemTableProcessedTableManager =
       $$BangumiDataItemTableAnnotationComposer,
       $$BangumiDataItemTableCreateCompanionBuilder,
       $$BangumiDataItemTableUpdateCompanionBuilder,
-      (
-        DataItemRow,
-        BaseReferences<_$BtDatabase, $BangumiDataItemTable, DataItemRow>,
-      ),
+      (DataItemRow, $$BangumiDataItemTableReferences),
       DataItemRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool bangumiDataSubjectRefs})
+    >;
+typedef $$BangumiDataSubjectTableCreateCompanionBuilder =
+    BangumiDataSubjectCompanion Function({
+      required String subjectId,
+      required int itemId,
+      Value<int> rowid,
+    });
+typedef $$BangumiDataSubjectTableUpdateCompanionBuilder =
+    BangumiDataSubjectCompanion Function({
+      Value<String> subjectId,
+      Value<int> itemId,
+      Value<int> rowid,
+    });
+
+final class $$BangumiDataSubjectTableReferences
+    extends
+        BaseReferences<_$BtDatabase, $BangumiDataSubjectTable, DataSubjectRow> {
+  $$BangumiDataSubjectTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $BangumiDataItemTable _itemIdTable(_$BtDatabase db) => db
+      .bangumiDataItem
+      .createAlias('BangumiDataSubject__itemId__BangumiDataItem__id');
+
+  $$BangumiDataItemTableProcessedTableManager get itemId {
+    final $_column = $_itemColumn<int>('itemId')!;
+
+    final manager = $$BangumiDataItemTableTableManager(
+      $_db,
+      $_db.bangumiDataItem,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_itemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$BangumiDataSubjectTableFilterComposer
+    extends Composer<_$BtDatabase, $BangumiDataSubjectTable> {
+  $$BangumiDataSubjectTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get subjectId => $composableBuilder(
+    column: $table.subjectId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BangumiDataItemTableFilterComposer get itemId {
+    final $$BangumiDataItemTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.bangumiDataItem,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BangumiDataItemTableFilterComposer(
+            $db: $db,
+            $table: $db.bangumiDataItem,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BangumiDataSubjectTableOrderingComposer
+    extends Composer<_$BtDatabase, $BangumiDataSubjectTable> {
+  $$BangumiDataSubjectTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get subjectId => $composableBuilder(
+    column: $table.subjectId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BangumiDataItemTableOrderingComposer get itemId {
+    final $$BangumiDataItemTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.bangumiDataItem,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BangumiDataItemTableOrderingComposer(
+            $db: $db,
+            $table: $db.bangumiDataItem,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BangumiDataSubjectTableAnnotationComposer
+    extends Composer<_$BtDatabase, $BangumiDataSubjectTable> {
+  $$BangumiDataSubjectTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get subjectId =>
+      $composableBuilder(column: $table.subjectId, builder: (column) => column);
+
+  $$BangumiDataItemTableAnnotationComposer get itemId {
+    final $$BangumiDataItemTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.bangumiDataItem,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BangumiDataItemTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bangumiDataItem,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BangumiDataSubjectTableTableManager
+    extends
+        RootTableManager<
+          _$BtDatabase,
+          $BangumiDataSubjectTable,
+          DataSubjectRow,
+          $$BangumiDataSubjectTableFilterComposer,
+          $$BangumiDataSubjectTableOrderingComposer,
+          $$BangumiDataSubjectTableAnnotationComposer,
+          $$BangumiDataSubjectTableCreateCompanionBuilder,
+          $$BangumiDataSubjectTableUpdateCompanionBuilder,
+          (DataSubjectRow, $$BangumiDataSubjectTableReferences),
+          DataSubjectRow,
+          PrefetchHooks Function({bool itemId})
+        > {
+  $$BangumiDataSubjectTableTableManager(
+    _$BtDatabase db,
+    $BangumiDataSubjectTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BangumiDataSubjectTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BangumiDataSubjectTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BangumiDataSubjectTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> subjectId = const Value.absent(),
+                Value<int> itemId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BangumiDataSubjectCompanion(
+                subjectId: subjectId,
+                itemId: itemId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String subjectId,
+                required int itemId,
+                Value<int> rowid = const Value.absent(),
+              }) => BangumiDataSubjectCompanion.insert(
+                subjectId: subjectId,
+                itemId: itemId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$BangumiDataSubjectTable, DataSubjectRow>(table),
+                  $$BangumiDataSubjectTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({itemId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (itemId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.itemId,
+                                referencedTable:
+                                    $$BangumiDataSubjectTableReferences
+                                        ._itemIdTable(db),
+                                referencedColumn:
+                                    $$BangumiDataSubjectTableReferences
+                                        ._itemIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$BangumiDataSubjectTableProcessedTableManager =
+    ProcessedTableManager<
+      _$BtDatabase,
+      $BangumiDataSubjectTable,
+      DataSubjectRow,
+      $$BangumiDataSubjectTableFilterComposer,
+      $$BangumiDataSubjectTableOrderingComposer,
+      $$BangumiDataSubjectTableAnnotationComposer,
+      $$BangumiDataSubjectTableCreateCompanionBuilder,
+      $$BangumiDataSubjectTableUpdateCompanionBuilder,
+      (DataSubjectRow, $$BangumiDataSubjectTableReferences),
+      DataSubjectRow,
+      PrefetchHooks Function({bool itemId})
     >;
 
 class $BtDatabaseManager {
@@ -7880,4 +8488,6 @@ class $BtDatabaseManager {
       $$BangumiDataSiteTableTableManager(_db, _db.bangumiDataSite);
   $$BangumiDataItemTableTableManager get bangumiDataItem =>
       $$BangumiDataItemTableTableManager(_db, _db.bangumiDataItem);
+  $$BangumiDataSubjectTableTableManager get bangumiDataSubject =>
+      $$BangumiDataSubjectTableTableManager(_db, _db.bangumiDataSubject);
 }

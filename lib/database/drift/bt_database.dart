@@ -12,6 +12,7 @@ import 'package:sqlite3/sqlite3.dart' as sqlite;
 // Project imports:
 import '../database_process_lock.dart';
 import 'catalog_projection.dart';
+import 'dataset_subject_projection.dart';
 import 'migrations/legacy_subscription_converter.dart';
 import 'migrations/schema_v1.dart';
 import 'tables/app_bmf.dart';
@@ -23,10 +24,12 @@ import 'tables/app_subscription.dart';
 import 'tables/bangumi_collection.dart';
 import 'tables/bangumi_data_item.dart';
 import 'tables/bangumi_data_site.dart';
+import 'tables/bangumi_data_subject.dart';
 import 'tables/bangumi_user.dart';
 
 part 'bt_database.g.dart';
 part 'migrations/catalog_migration.dart';
+part 'migrations/dataset_subject_migration.dart';
 part 'migrations/subscription_migration.dart';
 
 /// Schema owner. Conversion completes before business queries run.
@@ -42,6 +45,7 @@ part 'migrations/subscription_migration.dart';
     BangumiCollection,
     BangumiDataSite,
     BangumiDataItem,
+    BangumiDataSubject,
   ],
 )
 class BtDatabase extends _$BtDatabase {
@@ -69,30 +73,32 @@ class BtDatabase extends _$BtDatabase {
   }
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (_) async {
       await _migrateSubscriptions();
       await _migrateCatalog(backup: false);
+      await _migrateDatasetSubjects();
     },
     onUpgrade: (_, from, to) async {
-      if (from < 1 || from > 2 || to != 3) {
+      if (from < 1 || from > 3 || to != 4) {
         throw StateError('不支持的数据库版本，请使用匹配的客户端或迁移前快照');
       }
       if (from == 1) await _migrateSubscriptions();
-      await _migrateCatalog(backup: from == 2);
+      if (from < 3) await _migrateCatalog(backup: from == 2);
+      await _migrateDatasetSubjects(backup: from == 3);
     },
     beforeOpen: (_) async {
-      await _validateV3();
+      await _validateV4();
       await customStatement('PRAGMA foreign_keys = ON');
       var enabled = await customSelect('PRAGMA foreign_keys').getSingle();
       if (enabled.read<int>('foreign_keys') != 1) {
         throw StateError('无法开启数据库外键约束');
       }
       await _resolveNoRssRecovery();
-      onMigration?.call('SQLite opened: schema v3');
+      onMigration?.call('SQLite opened: schema v4');
     },
   );
 

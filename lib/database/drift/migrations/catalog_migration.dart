@@ -48,7 +48,9 @@ extension _CatalogMigration on BtDatabase {
         }
       });
       for (var index in allSchemaEntities.whereType<Index>().where(
-        (index) => index.entityName != 'AppSubscription_feedKey',
+        (index) =>
+            index.entityName != 'AppSubscription_feedKey' &&
+            index.entityName != 'BangumiDataSubject_itemId',
       )) {
         await migrator.createIndex(index);
       }
@@ -64,8 +66,11 @@ extension _CatalogMigration on BtDatabase {
     onMigration?.call('SQLite v3 migration phase: committed');
   }
 
-  Future<void> _validateV3() async {
-    await _validateV2(includeProjections: true);
+  Future<void> _validateV3({bool includeDatasetSubjects = false}) async {
+    await _validateV2(
+      includeProjections: true,
+      includeDatasetSubjects: includeDatasetSubjects,
+    );
     for (var entry in const {
       'BangumiCollection': ['name', 'nameCn'],
       'BangumiDataItem': ['itemKey'],

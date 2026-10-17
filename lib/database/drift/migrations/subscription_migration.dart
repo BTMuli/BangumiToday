@@ -314,7 +314,10 @@ extension _SubscriptionMigration on BtDatabase {
     [DateTime.now().millisecondsSinceEpoch],
   );
 
-  Future<void> _validateV2({bool includeProjections = false}) async {
+  Future<void> _validateV2({
+    bool includeProjections = false,
+    bool includeDatasetSubjects = false,
+  }) async {
     const subscriptionTables = {
       'AppBmf',
       'AppSubscription',
@@ -338,6 +341,7 @@ extension _SubscriptionMigration on BtDatabase {
       }
     }
     for (var table in allTables) {
+      if (!includeDatasetSubjects && table == bangumiDataSubject) continue;
       var actual = await _rows('PRAGMA table_info("${table.actualTableName}")');
       if (actual.isEmpty) throw StateError('新版数据库缺表，拒绝自动修复');
       var subscriptionTable = subscriptionTables.contains(
