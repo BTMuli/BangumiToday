@@ -655,19 +655,45 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
 
   Widget _history(PlaybackStore store) {
     if (store.historyGroups.isEmpty) return _empty('暂无播放记录');
+    var slivers = <Widget>[];
+    var collapsedStart = 0;
+    // 折叠条目连续放在懒加载列表里，避免为吸顶表头预先解析整份历史。
+    void addCollapsedRows(int end) {
+      if (collapsedStart == end) return;
+      var groups = store.historyGroups.sublist(collapsedStart, end);
+      slivers.add(
+        SliverList.builder(
+          itemCount: groups.length,
+          itemBuilder: (_, index) => _historyRow(store, groups[index]),
+        ),
+      );
+    }
+
+    for (var index = 0; index < store.historyGroups.length; index++) {
+      var group = store.historyGroups[index];
+      if (group.items.length <= 1 || !_expandedHistory.contains(group.key)) {
+        continue;
+      }
+      addCollapsedRows(index);
+      slivers.add(_expandedHistorySliver(store, group));
+      collapsedStart = index + 1;
+    }
+    addCollapsedRows(store.historyGroups.length);
     return Scrollbar(
       controller: _historyScroll,
-      child: ListView.builder(
+      child: CustomScrollView(
         controller: _historyScroll,
-        padding: const EdgeInsets.all(6),
-        itemCount: store.historyGroups.length,
-        itemBuilder: (_, index) =>
-            _historyRow(store, store.historyGroups[index]),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(6),
+            sliver: SliverMainAxisGroup(slivers: slivers),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _historyRow(PlaybackStore store, PlaybackHistoryGroup group) {
+  void _resolveHistorySubject(PlaybackStore store, PlaybackHistoryGroup group) {
     var subject = group.subject;
     // 按实际构建的历史项加载名称，优先命中本地数据，不遍历请求整份历史。
     if (subject != null && _resolvedHistorySubjects.add(subject)) {
@@ -680,8 +706,10 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
         );
       });
     }
-    var expanded =
-        group.items.length > 1 && _expandedHistory.contains(group.key);
+  }
+
+  Widget _historyRow(PlaybackStore store, PlaybackHistoryGroup group) {
+    _resolveHistorySubject(store, group);
     return Container(
       margin: const EdgeInsets.only(bottom: _gap),
       padding: const EdgeInsets.all(2),
@@ -690,13 +718,56 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
         borderRadius: BTRadius.largeBR,
         border: Border.all(color: BTColors.divider(context)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _historySummary(store, group, expanded),
-          if (expanded)
-            for (var item in group.items) _historyEpisode(store, item),
-        ],
+      child: _historySummary(store, group, false),
+    );
+  }
+
+  Widget _expandedHistorySliver(
+    PlaybackStore store,
+    PlaybackHistoryGroup group,
+  ) {
+    _resolveHistorySubject(store, group);
+    var surface = BTColors.surfacePrimary(context);
+    var border = BorderSide(color: BTColors.divider(context));
+    return SliverPadding(
+      key: ValueKey(group.key),
+      padding: const EdgeInsets.only(bottom: _gap),
+      sliver: DecoratedSliver(
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BTRadius.largeBR,
+          border: Border.fromBorderSide(border),
+        ),
+        // 表头只在自己的记录范围内吸顶，下一条目进入时将它顶出。
+        sliver: SliverMainAxisGroup(
+          slivers: [
+            PinnedHeaderSliver(
+              child: ColoredBox(
+                // 填满圆角外侧，遮住从吸顶表头下方滚过的记录。
+                color: BTColors.surfaceSecondary(context),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(2, 2, 2, 0),
+                  decoration: BoxDecoration(
+                    color: surface,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(BTRadius.large),
+                    ),
+                    border: Border(top: border, left: border, right: border),
+                  ),
+                  child: _historySummary(store, group, true),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(3, 0, 3, 3),
+              sliver: SliverList.builder(
+                itemCount: group.items.length,
+                itemBuilder: (_, index) =>
+                    _historyEpisode(store, group.items[index]),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
