@@ -43,7 +43,7 @@ Before committing, run locally:
 3. Builds `repos/bt_download` via CMake preset `windows-x64-release` and installs the runtime (reuse an existing runtime with `-EngineRuntimePath <dir>`). Engine tests are opt-in and stay out of this path: the shipped presets force `BT_DOWNLOAD_BUILD_TESTS=OFF`, so neither `dev_build.ps1` nor `release.yml` builds or runs them. Run them by hand with `cmake --preset windows-x64-debug-tests && cmake --build --preset windows-x64-debug-tests && ctest --preset windows-x64-debug-tests`.
 4. Sets `BT_DOWNLOAD_RUNTIME_DIR`, then `flutter build windows --release --dart-define-from-file=build_config.json`.
 5. Verifies the bundle with `scripts/verify_windows_bundle.ps1` (exe present, `bt_download/` runtime files + SPDX-2.3 SBOM, and optional SHA-256 parity against the source runtime).
-6. `dart run msix:create --build-windows false --version=<v> -p <sign secret> -c BTMuli.pfx` -> `BangumiToday.msix`.
+6. `dart run msix:create --build-windows false --version=<v> --output-name=BangumiToday_dev_<v> -p <sign secret> -c BTMuli.pfx` -> `BangumiToday_dev_<v>.msix` in the project root, where `<v>` is the final four-part MSIX version after any prompted increment.
 7. Optionally installs via `Add-AppxPackage` and registers the firewall rule.
 
 ## CI release (`.github/workflows/release.yml`)

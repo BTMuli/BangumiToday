@@ -189,7 +189,8 @@ For a local MSIX release, [`dev_build.ps1`](./dev_build.ps1) reads `SIGN_SECRET`
 and the four-part `MSIX_VERSION` from the ignored `.env`, and uses `BTMuli.pfx`.
 OAuth values come from `.dart-define.json` when it exists, otherwise from `.env`.
 It prepares playback resources, builds or reuses the engine, verifies the bundle
-and creates the MSIX. `-SkipInstall -SkipFirewallRule` skips its installation
+and creates `BangumiToday_dev_<MSIX_VERSION>.msix` in the project root.
+`-SkipInstall -SkipFirewallRule` skips its installation
 prompt and firewall registration. Temporary `build_config.json` is removed in
 `finally`.
 

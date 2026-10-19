@@ -390,7 +390,6 @@ $engineSourcePath = Join-Path $projectRoot 'repos\bt_download'
 $bundlePath = Join-Path $projectRoot 'build\windows\x64\runner\Release'
 $verifyScriptPath = Join-Path $projectRoot `
     'scripts\verify_windows_bundle.ps1'
-$msixPath = Join-Path $projectRoot 'BangumiToday.msix'
 $dartDefinePath = Join-Path $projectRoot 'build_config.json'
 $certificatePath = Join-Path $projectRoot 'BTMuli.pfx'
 
@@ -447,6 +446,9 @@ if ($version -eq $installedVersion) {
 if ($version -lt $installedVersion) {
     throw "Installed version $installedVersion is newer than build version $version."
 }
+
+$msixOutputName = "BangumiToday_dev_$version"
+$msixPath = Join-Path $projectRoot "$msixOutputName.msix"
 
 Push-Location $projectRoot
 try {
@@ -507,6 +509,7 @@ try {
             '--build-windows',
             'false',
             "--version=$version",
+            "--output-name=$msixOutputName",
             '-p',
             $signPassword,
             '-c',
@@ -517,6 +520,7 @@ try {
     if (-not (Test-Path -LiteralPath $msixPath -PathType Leaf)) {
         throw "MSIX output was not created: $msixPath"
     }
+    Write-Output "Created MSIX: $msixPath"
 
     $installedThisRun = $false
     if (-not $SkipInstall) {
