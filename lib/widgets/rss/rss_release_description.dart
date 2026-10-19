@@ -23,7 +23,40 @@ String? rssDescriptionHtml(String? description, {bool isMarkdown = false}) {
       htmlBlocks[index],
     );
   }
-  return _restoreThematicBreaks(rendered);
+  return _decodeTextEntities(_restoreThematicBreaks(rendered));
+}
+
+/// AniBT 描述中的实体比常规 HTML 多转义一层（如 `&amp;nbsp;`），
+/// Markdown 渲染会原样保留，交给富文本组件后会显示成 `&nbsp;` 文本。
+/// 这里在最终文字节点上再解码一次；代码块保留原文，不参与解码。
+String _decodeTextEntities(String source) {
+  var fragment = html.parseFragment(source);
+  var unescape = HtmlUnescape();
+  void visit(dom.Node node) {
+    if (node is dom.Element) {
+      if ([
+        'pre',
+        'code',
+        'kbd',
+        'samp',
+        'script',
+        'style',
+      ].contains(node.localName)) {
+        return;
+      }
+    }
+    if (node is dom.Text) {
+      var decoded = unescape.convert(node.data);
+      if (decoded != node.data) node.data = decoded;
+      return;
+    }
+    for (var child in node.nodes.toList()) {
+      visit(child);
+    }
+  }
+
+  visit(fragment);
+  return fragment.outerHtml;
 }
 
 /// 修复仅含分隔线的独立列表；AniBT 导入的 `- - -` 会变成 `<li>- -</li>`。
