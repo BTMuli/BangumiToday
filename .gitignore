@@ -44,7 +44,10 @@ build_config.json
 *.p12
 genSign.ps1
 
-# build
-BangumiToday.msix
-# ai check
-temp
+# Build and release artifacts
+*.msix
+/BangumiToday_*.zip
+
+# Local generated output and temporary verification files
+/output/
+/temp/
