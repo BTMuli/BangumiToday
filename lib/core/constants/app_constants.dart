@@ -5,7 +5,7 @@ class BTAppConstants {
   static const String appLink = 'https://github.com/BTMuli/BangumiToday';
   static const String appWebsite =
       'https://app.btmuli.ink/docs/BangumiToday/index.html';
-  static const String appQqGroup = 'https://qm.qq.com/q/hUxIfSWluo';
+  static const String appQqGroup = 'https://qm.qq.com/q/ZEh5guBP66';
   static const String appLatestReleaseApi =
       'https://api.github.com/repos/BTMuli/BangumiToday/releases/latest';
 
