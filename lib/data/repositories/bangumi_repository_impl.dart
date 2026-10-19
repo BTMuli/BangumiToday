@@ -6,6 +6,7 @@ import '../../domain/repositories/bangumi_repository.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../models/bangumi/bangumi_subject_browse.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../tools/log_tool.dart';
 import '../datasources/bangumi_local_data_source.dart';
@@ -75,6 +76,12 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   Future<BTResponse<List<BangumiCalendarRespData>>> getToday() async {
     return await _remoteDataSource.getToday();
   }
+
+  @override
+  Future<BTResponse<BangumiSubjectBrowsePage>> getSubjectBrowse({
+    BangumiSubjectBrowseSort sort = BangumiSubjectBrowseSort.trends,
+    int page = 1,
+  }) => _remoteDataSource.getSubjectBrowse(sort: sort, page: page);
 
   @override
   Future<dynamic> searchSubjects(

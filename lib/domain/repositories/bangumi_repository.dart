@@ -2,12 +2,18 @@
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../models/bangumi/bangumi_subject_browse.dart';
 import '../../models/bangumi/request_subject.dart';
 
 typedef BangumiAccountSession = ({String? username, int generation});
 
 abstract class BTBangumiRepository {
   Future<BTResponse<List<BangumiCalendarRespData>>> getToday();
+
+  Future<BTResponse<BangumiSubjectBrowsePage>> getSubjectBrowse({
+    BangumiSubjectBrowseSort sort = BangumiSubjectBrowseSort.trends,
+    int page = 1,
+  });
 
   Future<dynamic> searchSubjects(
     String keyword, {

@@ -15,6 +15,7 @@ import '../../models/app/bangumi_mirror.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../models/bangumi/bangumi_subject_browse.dart';
 import '../../models/bangumi/request_collection.dart';
 import '../../models/bangumi/request_episode.dart';
 import '../../models/bangumi/request_search.dart';
@@ -244,6 +245,22 @@ class BtrBangumiApi {
       );
     }
   }
+
+  /// 动画榜单使用浏览接口的 trends / rank，与网页排序保持一致。
+  /// 此模块始终使用 P1；V0 的搜索热度表示累计收藏人数。
+  Future<BTResponse<BangumiSubjectBrowsePage>> getSubjectBrowse({
+    BangumiSubjectBrowseSort sort = BangumiSubjectBrowseSort.trends,
+    int page = 1,
+  }) => _getModule(
+    '$privateApiBaseUrl/p1/subjects',
+    BangumiPrivateParser.subjectBrowsePage,
+    queryParameters: {
+      'type': BangumiSubjectType.anime.value,
+      'sort': sort.name,
+      'page': page,
+    },
+    fallbackMessage: '加载动画排行榜失败',
+  );
 
   /// 条目搜索
   /// [sort] 为排序规则，有 match(默认)-匹配度, heat-收藏人数，rank-排名，score-评分

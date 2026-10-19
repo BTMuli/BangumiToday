@@ -2,6 +2,7 @@
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
+import '../../models/bangumi/bangumi_subject_browse.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import 'bangumi_remote_data_source.dart';
@@ -21,6 +22,12 @@ class BTBangumiRemoteDataSourceImpl implements BTBangumiRemoteDataSource {
       data: response.data as List<BangumiCalendarRespData>?,
     );
   }
+
+  @override
+  Future<BTResponse<BangumiSubjectBrowsePage>> getSubjectBrowse({
+    BangumiSubjectBrowseSort sort = BangumiSubjectBrowseSort.trends,
+    int page = 1,
+  }) => _api.getSubjectBrowse(sort: sort, page: page);
 
   @override
   Future<dynamic> searchSubjects(

@@ -17,7 +17,7 @@ import '../../core/services/playback_window_service.dart';
 import '../../core/utils/get_theme_label.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../pages/app_setting/app_setting_page.dart';
-import '../../pages/bangumi_calendar/bangumi_calendar_page.dart';
+import '../../pages/bangumi_home/bangumi_home_page.dart';
 import '../../pages/download/download_page.dart';
 import '../../pages/playback/playback_actions.dart';
 import '../../pages/playback/playback_page.dart';
@@ -300,8 +300,8 @@ class _NavWidgetState extends ConsumerState<NavWidget>
     return [
       PaneItem(
         icon: Image.asset('assets/images/platforms/bangumi-favicon.ico'),
-        title: const Text('Bangumi-今日放送'),
-        body: const BangumiCalendarPage(),
+        title: const Text('Bangumi-首页'),
+        body: const BangumiHomePage(),
       ),
       PaneItem(
         icon: Image.asset('assets/images/logo.png', height: 16),

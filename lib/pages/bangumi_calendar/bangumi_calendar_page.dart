@@ -1084,7 +1084,8 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
               scrollCacheExtent: const ScrollCacheExtent.pixels(160),
               slivers: [
                 buildDaysSliver(),
-                const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                // 为首页右下角的悬浮入口留出滚动空间。
+                const SliverToBoxAdapter(child: SizedBox(height: 88)),
               ],
             ),
           ),

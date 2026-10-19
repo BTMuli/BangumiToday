@@ -15,6 +15,7 @@ import 'package:bangumi_today/data/parsers/bangumi_private_parser.dart';
 import 'package:bangumi_today/models/app/response.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_enum.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_model.dart';
+import 'package:bangumi_today/models/bangumi/bangumi_subject_browse.dart';
 import 'package:bangumi_today/models/bangumi/request_subject.dart';
 import 'package:bangumi_today/request/bangumi/bangumi_api.dart';
 import 'package:bangumi_today/request/bangumi/bangumi_manager.dart';
@@ -284,6 +285,74 @@ void main() {
     expect(days.first.items.single.airDate, '');
     expect(requests.single.uri.path, '/p1/calendar');
   });
+
+  test('browse defaults to trends and treats total as a page count', () async {
+    var slim = (fixture('calendar')['1'] as List).first['subject'];
+    respond = (_) => {
+      'data': [slim],
+      'total': 42,
+    };
+    var response = await api.getSubjectBrowse();
+    expect(response.code, 0);
+    var page = response.data!;
+    expect(page.totalPages, 42);
+    expect(BangumiSubjectBrowsePage.pageSize, 24);
+    var item = page.items.single;
+    expect(item.info, slim['info']);
+    expect(item.subject.nameCn, slim['nameCN']);
+    expect(item.subject.metaTags, slim['metaTags']);
+    expect(item.subject.rating.count['1'], slim['rating']['count'][0]);
+    expect(requests.single.uri.path, '/p1/subjects');
+    expect(requests.single.queryParameters, {
+      'type': 2,
+      'sort': 'trends',
+      'page': 1,
+    });
+  });
+
+  test('browse keeps rank pagination and accepts an absent cover', () async {
+    var slim = Map<String, dynamic>.from(
+      (fixture('calendar')['1'] as List).first['subject'],
+    )..remove('images');
+    respond = (_) => {
+      'data': [slim],
+      'total': 18,
+    };
+    var response = await api.getSubjectBrowse(
+      sort: BangumiSubjectBrowseSort.rank,
+      page: 2,
+    );
+    expect(response.code, 0);
+    expect(response.data!.totalPages, 18);
+    expect(response.data!.items.single.subject.images.large, isEmpty);
+    expect(requests.single.queryParameters, {
+      'type': 2,
+      'sort': 'rank',
+      'page': 2,
+    });
+  });
+
+  test('browse uses Next when a mirror retains legacy search mode', () async {
+    BtrBangumiApi.setBaseUrl(BTAppConstants.bangumiVipApiBaseUrl);
+    BtrBangumiApi.setUsePrivateApi(false);
+    respond = (_) => {'data': [], 'total': 0};
+    var response = await api.getSubjectBrowse();
+    expect(response.code, 0);
+    expect(response.data!.totalPages, 0);
+    expect(response.data!.items, isEmpty);
+    expect(requests.single.uri.host, 'next.bangumi.vip');
+    expect(requests.single.uri.path, '/p1/subjects');
+  });
+
+  test(
+    'browse reports non-JSON failures without exposing a partial page',
+    () async {
+      respond = (_) => '<html>Service unavailable</html>';
+      var response = await api.getSubjectBrowse();
+      expect(response.code, isNot(0));
+      expect(response.data, isNull);
+    },
+  );
 
   test('search maps filters and preserves requested pagination', () async {
     var slim = (fixture('calendar')['1'] as List).first['subject'];

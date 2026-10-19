@@ -1,5 +1,6 @@
 // Project imports:
 import '../../models/bangumi/bangumi_model.dart';
+import '../../models/bangumi/bangumi_subject_browse.dart';
 import '../../models/bangumi/request_subject.dart';
 
 /// Adapt the documented /p1 contract to the application's existing models.
@@ -64,6 +65,20 @@ class BangumiPrivateParser {
 
   static BangumiSubjectSearchData search(dynamic value) =>
       BangumiSubjectSearchData.fromJson(subjectJson(map(value)));
+
+  static BangumiSubjectBrowsePage subjectBrowsePage(dynamic value) {
+    var json = map(value);
+    return BangumiSubjectBrowsePage(
+      totalPages: (json['total'] as num).toInt(),
+      items: [
+        for (var item in json['data'] as List)
+          BangumiSubjectBrowseItem(
+            subject: search(item),
+            info: map(item)['info'] as String,
+          ),
+      ],
+    );
+  }
 
   static BangumiSlimSubject slimSubject(Map<String, dynamic> json) {
     var adapted = subjectJson(json);
