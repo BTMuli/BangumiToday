@@ -156,9 +156,27 @@ class BtrClient {
     // 启动阶段 main 与 AppStore 会先后下发同一份配置，
     // 无变化时保留现有连接池，避免打断仍在进行中的请求。
     if (unchanged) return;
+    _logProxy(enabled: enabled, config: config);
     for (var client in List<BtrClient>.of(_clients)) {
       client._refreshHttpClientAdapter();
     }
+  }
+
+  /// 记录实际下发的代理，便于确认请求是否经过代理。
+  static void _logProxy({
+    required bool enabled,
+    required SystemProxyConfig config,
+  }) {
+    if (!enabled) {
+      BTLogTool.info('应用代理已关闭，网络请求直连');
+      return;
+    }
+    var source = _usesSystemProxy ? '系统代理' : '手动代理';
+    if (!config.isAvailable) {
+      BTLogTool.warn('已启用应用代理（$source），但没有可用的代理地址，请求将直连');
+      return;
+    }
+    BTLogTool.info('已启用应用代理（$source）：${config.describe()}');
   }
 
   Dio _createDio() {

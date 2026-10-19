@@ -72,6 +72,31 @@ class SystemProxyConfig {
   /// 是否至少配置了一个代理地址。
   bool get isAvailable => httpProxy != null || httpsProxy != null;
 
+  /// 供日志与设置页展示的代理地址，已移除认证信息。
+  String describe() {
+    if (!isAvailable) return 'DIRECT';
+    var http = httpProxy;
+    var https = httpsProxy;
+    if (http != null && http == https) return _displayEndpoint(http);
+    return [
+      if (http != null) 'HTTP=${_displayEndpoint(http)}',
+      if (https != null) 'HTTPS=${_displayEndpoint(https)}',
+    ].join('，');
+  }
+
+  /// 移除用户名、密码与 HTTP 默认协议前缀，避免凭据进入日志或界面。
+  static String _displayEndpoint(String value) {
+    var text = value.trim();
+    var at = text.lastIndexOf('@');
+    if (at >= 0) {
+      var schemeEnd = text.indexOf('://');
+      text = schemeEnd >= 0 && schemeEnd < at
+          ? '${text.substring(0, schemeEnd + 3)}${text.substring(at + 1)}'
+          : text.substring(at + 1);
+    }
+    return text.toLowerCase().startsWith('http://') ? text.substring(7) : text;
+  }
+
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
@@ -300,25 +325,46 @@ class WindowsSystemProxy {
     try {
       var values = await _readRegistryValues();
       var enabled = _parseDword(values['ProxyEnable']) == 1;
+      var proxyServer = values['ProxyServer'];
+      var autoConfigUrl = values['AutoConfigURL'];
+      var hasAutoConfig =
+          autoConfigUrl != null && autoConfigUrl.trim().isNotEmpty;
       var config = SystemProxyConfig.fromWindows(
         enabled: enabled,
-        proxyServer: values['ProxyServer'],
+        proxyServer: proxyServer,
         proxyOverride: values['ProxyOverride'],
       );
       if (enabled && !config.isAvailable) {
-        BTLogTool.warn('Windows system proxy is enabled but no proxy server');
+        if (hasAutoConfig) {
+          BTLogTool.warn('Windows 系统代理使用自动配置脚本，应用暂不支持，请求将直连');
+        } else if (_onlyUnsupportedScheme(proxyServer)) {
+          BTLogTool.warn('Windows 系统代理仅提供 SOCKS 代理，应用暂不支持，请求将直连');
+        } else {
+          BTLogTool.warn('Windows 系统代理已启用但没有可用的代理地址，请求将直连');
+        }
       }
-      if (!enabled && (values['AutoConfigURL']?.isNotEmpty ?? false)) {
-        BTLogTool.warn(
-          'Windows system proxy uses an auto-config script, which is not '
-          'supported',
-        );
+      if (!enabled && hasAutoConfig) {
+        BTLogTool.warn('Windows 系统代理使用自动配置脚本，应用暂不支持，请求将直连');
       }
       return config;
     } catch (error) {
       BTLogTool.warn('读取 Windows 系统代理失败：$error');
       return const SystemProxyConfig.direct();
     }
+  }
+
+  /// `ProxyServer` 是否只包含应用不支持的协议（例如 `socks=`）。
+  static bool _onlyUnsupportedScheme(String? proxyServer) {
+    if (proxyServer == null) return false;
+    var hasScheme = false;
+    for (var part in proxyServer.split(';')) {
+      var separator = part.indexOf('=');
+      if (separator <= 0) return false;
+      var scheme = part.substring(0, separator).trim().toLowerCase();
+      hasScheme = true;
+      if (scheme != 'http' && scheme != 'https') return true;
+    }
+    return hasScheme;
   }
 
   static Future<Map<String, String>> _readRegistryValues() async {

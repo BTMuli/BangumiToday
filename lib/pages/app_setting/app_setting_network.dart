@@ -6,6 +6,8 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
+import '../../core/network/system_proxy.dart';
+import '../../core/theme/bt_theme.dart';
 import '../../models/app/proxy_settings.dart';
 import '../../providers/app_providers.dart';
 import '../../store/bt_download_store.dart';
@@ -81,6 +83,19 @@ class _AppConfigNetworkWidgetState
     );
   }
 
+  /// 描述应用当前实际下发的代理，供用户确认设置是否生效。
+  String _proxyStatus(ProxySettings saved) {
+    if (!SystemProxyController.enabled) {
+      return '应用代理已关闭，网络请求直连';
+    }
+    var config = SystemProxyController.config;
+    if (!config.isAvailable) {
+      return '已启用应用代理，但没有可用的代理地址，网络请求当前会直连';
+    }
+    var source = saved.useSystemProxy ? '系统代理' : '手动代理';
+    return '当前生效：${config.describe()}（$source）';
+  }
+
   @override
   Widget build(BuildContext context) {
     var settings = ref.watch(appStoreProvider);
@@ -97,6 +112,10 @@ class _AppConfigNetworkWidgetState
     var useDownloadProxy = ref.watch(
       btDownloadStoreProvider.select((store) => store.useSystemProxy),
     );
+    var proxyUnavailable =
+        SystemProxyController.enabled &&
+        !SystemProxyController.config.isAvailable;
+    var proxyStatus = _proxyStatus(settings.proxySettings);
     return BTSettingSection(
       icon: FluentIcons.network_tower,
       title: '网络设置',
@@ -133,6 +152,32 @@ class _AppConfigNetworkWidgetState
                     success: value ? '已启用下载引擎代理' : '已关闭下载引擎代理',
                   )
                 : null,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                proxyUnavailable ? FluentIcons.warning : FluentIcons.info,
+                size: 14,
+                color: proxyUnavailable
+                    ? BTColors.warningLight(context)
+                    : BTColors.textTertiary(context),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  proxyStatus,
+                  style: BTTypography.caption(context).copyWith(
+                    color: proxyUnavailable
+                        ? BTColors.warningLight(context)
+                        : null,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const BTSettingDivider(),
