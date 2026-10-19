@@ -257,9 +257,7 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
     if (showData.isEmpty) {
       return BTEmptyState.noCollection(
         actionText: '浏览今日放送',
-        onAction: () => ref
-            .read(navStoreProvider.notifier)
-            .addNavItemB(type: '动画', subject: 0),
+        onAction: () => ref.read(navStoreProvider.notifier).goToCalendar(),
       );
     }
     return LayoutBuilder(

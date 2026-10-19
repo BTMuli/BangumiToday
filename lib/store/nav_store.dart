@@ -194,6 +194,9 @@ class BTNavNotifier extends Notifier<BTNavState> {
   /// 定位到指定索引
   void goIndex(int index) => state = _goIndex(state, index);
 
+  /// 切换到今日放送页面。
+  void goToCalendar() => goIndex(0);
+
   /// 切换到 RSS & BMF 页面。
   void goToBmf() => goIndex(1);
 
@@ -268,6 +271,7 @@ class BTNavNotifier extends Notifier<BTNavState> {
     String? paneTitle,
     bool jump = true,
   }) {
+    if (subject <= 0) return draft;
     var param = 'subjectDetail_$subject';
     var findIndex = _navIndexOf(draft, BtmAppNavItemType.subject, null, param);
     var title = paneTitle?.trim() ?? '';
