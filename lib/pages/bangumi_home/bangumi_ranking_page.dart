@@ -14,6 +14,7 @@ import '../../widgets/common/empty_state.dart';
 import '../subject_search/subject_search_page.dart';
 import 'bangumi_ranking_card.dart';
 import 'bangumi_ranking_provider.dart';
+import 'bangumi_ranking_time_filter.dart';
 
 /// 排行榜切换与首页入口共用同一份图标映射。
 extension BangumiRankingSortIcon on BangumiSubjectBrowseSort {
@@ -41,12 +42,35 @@ class _BangumiRankingPageState extends ConsumerState<BangumiRankingPage> {
   BangumiSubjectBrowseSort get _sort => widget.sort;
   final _pages = <BangumiSubjectBrowseSort, int>{};
 
+  /// 时间筛选由热度与评分排行共用，切换榜单时保留。
+  var _time = BangumiSubjectBrowseTime.all;
+
   int get _page => _pages[_sort] ?? 1;
-  BangumiRankingQuery get _query => (sort: _sort, page: _page);
+  BangumiRankingQuery get _query =>
+      (sort: _sort, page: _page, year: _time.year, month: _time.month);
 
   void _refresh() {
     setState(() => _pages[_sort] = 1);
     ref.invalidate(bangumiRankingProvider);
+  }
+
+  void _changeTime(BangumiSubjectBrowseTime time) {
+    if (time == _time) return;
+    setState(() {
+      _time = time;
+      _pages.clear();
+    });
+  }
+
+  String get _browserUrl {
+    var query = 'sort=${_sort.name}&page=$_page';
+    var year = _time.year;
+    if (year == null) {
+      return '${BtrBangumiApi.siteBaseUrl}/anime/browser/?$query';
+    }
+    var month = _time.month;
+    var airtime = month == null ? '$year' : '$year-$month';
+    return '${BtrBangumiApi.siteBaseUrl}/anime/browser/airtime/$airtime?$query';
   }
 
   @override
@@ -78,7 +102,7 @@ class _BangumiRankingPageState extends ConsumerState<BangumiRankingPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               BTIconToggleGroup<BangumiSubjectBrowseSort>(
                 value: _sort,
@@ -126,10 +150,7 @@ class _BangumiRankingPageState extends ConsumerState<BangumiRankingPage> {
                           semanticLabel: '在浏览器中打开榜单',
                         ),
                         onPressed: () async {
-                          await launchUrlString(
-                            '${BtrBangumiApi.siteBaseUrl}/anime/browser/'
-                            '?sort=${_sort.name}&page=$_page',
-                          );
+                          await launchUrlString(_browserUrl);
                         },
                       ),
                     ),
@@ -150,9 +171,22 @@ class _BangumiRankingPageState extends ConsumerState<BangumiRankingPage> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            '${_sort.description} · 每页 24 部',
-            style: BTTypography.caption(context),
+          Row(
+            children: [
+              Text('时间', style: BTTypography.caption(context)),
+              const SizedBox(width: 8),
+              BangumiRankingTimeFilter(value: _time, onChanged: _changeTime),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  '${_sort.description} · 每页 24 部',
+                  style: BTTypography.caption(context),
+                  textAlign: TextAlign.end,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -214,15 +248,18 @@ class _BangumiRankingPageState extends ConsumerState<BangumiRankingPage> {
         .where((entry) => !entry.$2.subject.nsfw)
         .toList();
     if (items.isEmpty) {
+      var hasTime = _time.isActive;
       return BTEmptyState.noData(
         title: '暂无可显示的榜单条目',
-        message: '可切换榜单、翻页或稍后刷新',
-        actionText: '刷新',
-        onAction: _refresh,
+        message: hasTime ? '可调整时间筛选、切换榜单或稍后刷新' : '可切换榜单、翻页或稍后刷新',
+        actionText: hasTime ? '清除时间筛选' : '刷新',
+        onAction: hasTime
+            ? () => _changeTime(BangumiSubjectBrowseTime.all)
+            : _refresh,
       );
     }
     return ListView.separated(
-      key: ValueKey((_sort, _page)),
+      key: ValueKey((_sort, _page, _time.year, _time.month)),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
       itemCount: items.length,
       separatorBuilder: (_, _) => const SizedBox(height: 10),

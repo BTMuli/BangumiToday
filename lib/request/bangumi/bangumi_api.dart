@@ -247,20 +247,27 @@ class BtrBangumiApi {
   }
 
   /// 动画榜单使用浏览接口的 trends / rank，与网页排序保持一致。
+  /// [year] / [month] 按放送时间筛选，月份必须与年份一起使用。
   /// 此模块始终使用 P1；V0 的搜索热度表示累计收藏人数。
   Future<BTResponse<BangumiSubjectBrowsePage>> getSubjectBrowse({
     BangumiSubjectBrowseSort sort = BangumiSubjectBrowseSort.trends,
     int page = 1,
-  }) => _getModule(
-    '$privateApiBaseUrl/p1/subjects',
-    BangumiPrivateParser.subjectBrowsePage,
-    queryParameters: {
-      'type': BangumiSubjectType.anime.value,
-      'sort': sort.name,
-      'page': page,
-    },
-    fallbackMessage: '加载动画排行榜失败',
-  );
+    int? year,
+    int? month,
+  }) {
+    assert(month == null || (year != null && month >= 1 && month <= 12));
+    return _getModule(
+      '$privateApiBaseUrl/p1/subjects',
+      BangumiPrivateParser.subjectBrowsePage,
+      queryParameters: {
+        'type': BangumiSubjectType.anime.value,
+        'sort': sort.name,
+        'page': page,
+        if (year != null) ...{'year': year, 'month': ?month},
+      },
+      fallbackMessage: '加载动画排行榜失败',
+    );
+  }
 
   /// 条目搜索
   /// [sort] 为排序规则，有 match(默认)-匹配度, heat-收藏人数，rank-排名，score-评分

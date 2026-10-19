@@ -27,7 +27,9 @@ class BTBangumiRemoteDataSourceImpl implements BTBangumiRemoteDataSource {
   Future<BTResponse<BangumiSubjectBrowsePage>> getSubjectBrowse({
     BangumiSubjectBrowseSort sort = BangumiSubjectBrowseSort.trends,
     int page = 1,
-  }) => _api.getSubjectBrowse(sort: sort, page: page);
+    int? year,
+    int? month,
+  }) => _api.getSubjectBrowse(sort: sort, page: page, year: year, month: month);
 
   @override
   Future<dynamic> searchSubjects(

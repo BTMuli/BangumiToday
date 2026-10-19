@@ -9,7 +9,12 @@ import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_subject_browse.dart';
 import '../../providers/app_providers.dart';
 
-typedef BangumiRankingQuery = ({BangumiSubjectBrowseSort sort, int page});
+typedef BangumiRankingQuery = ({
+  BangumiSubjectBrowseSort sort,
+  int page,
+  int? year,
+  int? month,
+});
 
 /// 短期复用已浏览页；切换账号或 API 设置后重新获取。
 final bangumiRankingProvider = FutureProvider.autoDispose
@@ -29,7 +34,12 @@ final bangumiRankingProvider = FutureProvider.autoDispose
       );
       var response = await ref
           .watch(bangumiRepositoryProvider)
-          .getSubjectBrowse(sort: query.sort, page: query.page);
+          .getSubjectBrowse(
+            sort: query.sort,
+            page: query.page,
+            year: query.year,
+            month: query.month,
+          );
       if (ref.mounted && response.code == 0) {
         var cache = ref.keepAlive();
         var timer = Timer(const Duration(minutes: 5), cache.close);

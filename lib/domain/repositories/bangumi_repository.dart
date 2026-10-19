@@ -13,6 +13,8 @@ abstract class BTBangumiRepository {
   Future<BTResponse<BangumiSubjectBrowsePage>> getSubjectBrowse({
     BangumiSubjectBrowseSort sort = BangumiSubjectBrowseSort.trends,
     int page = 1,
+    int? year,
+    int? month,
   });
 
   Future<dynamic> searchSubjects(

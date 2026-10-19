@@ -332,6 +332,52 @@ void main() {
     });
   });
 
+  test('browse forwards year and month time filters', () async {
+    respond = (_) => {'data': [], 'total': 0};
+    var response = await api.getSubjectBrowse(
+      sort: BangumiSubjectBrowseSort.rank,
+      page: 3,
+      year: 2024,
+      month: 3,
+    );
+    expect(response.code, 0);
+    expect(requests.single.queryParameters, {
+      'type': 2,
+      'sort': 'rank',
+      'page': 3,
+      'year': 2024,
+      'month': 3,
+    });
+  });
+
+  test('browse omits the month when only the year is set', () async {
+    respond = (_) => {'data': [], 'total': 0};
+    await api.getSubjectBrowse(year: 2024);
+    expect(requests.single.queryParameters, {
+      'type': 2,
+      'sort': 'trends',
+      'page': 1,
+      'year': 2024,
+    });
+  });
+
+  test('browse time labels year and month', () {
+    expect(BangumiSubjectBrowseTime.all.label, '全部时间');
+    expect(const BangumiSubjectBrowseTime(year: 2024).label, '2024年');
+    expect(
+      const BangumiSubjectBrowseTime(year: 2024, month: 3).label,
+      '2024年3月',
+    );
+    expect(
+      const BangumiSubjectBrowseTime(year: 2024, month: 3),
+      const BangumiSubjectBrowseTime(year: 2024, month: 3),
+    );
+    expect(
+      const BangumiSubjectBrowseTime(year: 2024),
+      isNot(const BangumiSubjectBrowseTime(year: 2024, month: 3)),
+    );
+  });
+
   test('browse uses Next when a mirror retains legacy search mode', () async {
     BtrBangumiApi.setBaseUrl(BTAppConstants.bangumiVipApiBaseUrl);
     BtrBangumiApi.setUsePrivateApi(false);
