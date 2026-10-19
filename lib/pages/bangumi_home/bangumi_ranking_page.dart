@@ -260,7 +260,7 @@ class _BangumiRankingPageState extends ConsumerState<BangumiRankingPage> {
     }
     return ListView.separated(
       key: ValueKey((_sort, _page, _time.year, _time.month)),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       itemCount: items.length,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {

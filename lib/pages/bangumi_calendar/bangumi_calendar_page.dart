@@ -1082,11 +1082,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
             child: CustomScrollView(
               controller: _scrollController,
               scrollCacheExtent: const ScrollCacheExtent.pixels(160),
-              slivers: [
-                buildDaysSliver(),
-                // 为首页右下角的悬浮入口留出滚动空间。
-                const SliverToBoxAdapter(child: SizedBox(height: 88)),
-              ],
+              slivers: [buildDaysSliver()],
             ),
           ),
         ),
