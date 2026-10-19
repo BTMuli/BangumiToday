@@ -42,25 +42,34 @@ class BangumiRankingCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 36,
-            child: Text(
-              position.toString().padLeft(2, '0'),
-              style: BTTypography.subtitle(context).copyWith(
-                color: position <= 3 ? accent : BTColors.textTertiary(context),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          BtBangumiCover(
-            imageUrl: subject.images.large,
             width: 84,
             height: 126,
-            borderRadius: BTRadius.smallBR,
-            errorBuilder: (context, {err}) => Container(
-              width: 84,
-              height: 126,
-              color: BTColors.surfaceSecondary(context),
-              child: const Center(child: Icon(FluentIcons.photo, size: 24)),
+            child: Stack(
+              fit: StackFit.expand,
+              clipBehavior: Clip.none,
+              children: [
+                ClipRRect(
+                  borderRadius: BTRadius.smallBR,
+                  child: BtBangumiCover(
+                    imageUrl: subject.images.large,
+                    width: 84,
+                    height: 126,
+                    errorBuilder: (context, {err}) => Container(
+                      width: 84,
+                      height: 126,
+                      color: BTColors.surfaceSecondary(context),
+                      child: const Center(
+                        child: Icon(FluentIcons.photo, size: 24),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: -1,
+                  left: -1,
+                  child: _RankingPositionBadge(position: position),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 14),
@@ -163,5 +172,69 @@ class BangumiRankingCard extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+/// 封面左上角的名次角标：底色沿用卡片表面色，数字按名次档位着色。
+class _RankingPositionBadge extends StatelessWidget {
+  const _RankingPositionBadge({required this.position});
+
+  /// 右下角使用更大的圆角，形成标签感。
+  static const _tailRadius = Radius.circular(10);
+
+  final int position;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(topLeft: Radius.circular(4)),
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 40, minHeight: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: BTColors.surfacePrimary(context).withValues(alpha: 0.9),
+          border: Border.all(color: BTColors.divider(context)),
+          borderRadius: const BorderRadius.only(bottomRight: _tailRadius),
+        ),
+        child: Text(
+          position.toString().padLeft(2, '0'),
+          style: TextStyle(
+            color: _textColor(context),
+            fontSize: 14,
+            height: 1,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _textColor(BuildContext context) {
+    var theme = FluentTheme.of(context);
+    var brightness = theme.brightness;
+    if (position <= 3) {
+      return switch (position) {
+        1 =>
+          brightness == Brightness.dark
+              ? const Color(0xFFFFD75E)
+              : const Color(0xFFB8860B),
+        2 =>
+          brightness == Brightness.dark
+              ? const Color(0xFFE6E6E6)
+              : const Color(0xFF8A8A8A),
+        _ =>
+          brightness == Brightness.dark
+              ? const Color(0xFFE29A5B)
+              : const Color(0xFFA0522D),
+      };
+    }
+    var accent = theme.accentColor.defaultBrushFor(brightness);
+    var secondary = BTColors.textSecondary(context);
+    if (position <= 10) return accent;
+    if (position <= 30) return Color.lerp(accent, secondary, 0.35) ?? accent;
+    if (position <= 50) return Color.lerp(accent, secondary, 0.65) ?? accent;
+    if (position <= 100) return secondary;
+    return BTColors.textTertiary(context);
   }
 }
