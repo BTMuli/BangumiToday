@@ -230,9 +230,9 @@ List<MenuFlyoutItemBase> _playbackRateItems(
     onPressed: () => execute(_PlaybackCommand.faster),
   ),
   const MenuFlyoutSeparator(),
-  for (var rate in [0.5, 0.75, 1.0, 1.25, 1.5, 2.0])
+  for (var rate in [0.5, 1.0, 1.5, 2.0, 2.5, 3.0])
     ToggleMenuFlyoutItem(
-      text: Text('${PlaybackRateMemory.label(rate)}×'),
+      text: Text('${rate.toStringAsFixed(1)}×'),
       value: player.state.rate == rate,
       onChanged: (_) => unawaited(run(() => store.setRate(rate))),
     ),
