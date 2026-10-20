@@ -159,7 +159,7 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
       await windowManager.show();
       await WidgetsBinding.instance.endOfFrame;
       _receive(await call('ready', {'windowId': window.windowId}));
-      await windowManager.focus();
+      await mode.activateWindow();
     } catch (error, stackTrace) {
       BTLogTool.error(['播放器窗口初始化失败：$error', stackTrace.toString()]);
       _closing = _exiting = true;
@@ -284,7 +284,7 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
       _hidden = false;
       await windowManager.show();
       if (_exiting || _closing) throw StateError('播放器正在关闭');
-      await windowManager.focus();
+      await mode.activateWindow();
       return null;
     }
     if (_closing) throw StateError('播放器正在关闭');

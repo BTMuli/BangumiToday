@@ -18,6 +18,8 @@ static void ActivateInstanceWindow(HWND hwnd) {
   DWORD instance = 0;
   DWORD foreground = 0;
   GetWindowThreadProcessId(hwnd, &instance);
+  // The instance may raise its own window after this process exits.
+  if (instance != 0) AllowSetForegroundWindow(instance);
   if (HWND active = GetForegroundWindow()) {
     GetWindowThreadProcessId(active, &foreground);
   }

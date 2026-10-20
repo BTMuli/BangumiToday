@@ -40,6 +40,12 @@ class PlaybackWindowMode extends ChangeNotifier {
     await _frameChannel.invokeMethod<void>('setFullscreenFrame', fullscreen);
   }
 
+  /// 通知等后台触发时也要把播放器带到前台，普通 focus 会被系统前台锁拒绝。
+  Future<void> activateWindow() async {
+    if (!Platform.isWindows) return windowManager.focus();
+    await _frameChannel.invokeMethod<void>('activateWindow');
+  }
+
   bool screenFullscreen = false;
   bool transitioning = false;
   bool _disposed = false;

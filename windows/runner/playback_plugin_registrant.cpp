@@ -109,6 +109,7 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
     channel_->SetMethodCallHandler([this](const auto& call, auto result) {
       if (call.method_name() != "setFullscreenFrame" &&
           call.method_name() != "setAlwaysOnTop" &&
+          call.method_name() != "activateWindow" &&
           call.method_name() != "getDisplayRefreshRate") {
         result->NotImplemented();
         return;
@@ -131,6 +132,14 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
         if (!UpdatePresentation(window, GetForegroundWindow() == window)) {
           result->Error("z_order_update_failed", "Could not update playback order.");
           return;
+        }
+        result->Success();
+        return;
+      }
+      if (call.method_name() == "activateWindow") {
+        // A refusal still leaves the window shown; playback must not fail.
+        if (!ActivateWindow(window)) {
+          BangumiNativeLog("Playback window activation was refused", true);
         }
         result->Success();
         return;
@@ -250,6 +259,25 @@ class PlaybackWindowFramePlugin : public flutter::Plugin {
   }
 
  private:
+  // Playback is often started from a toast while another app holds the
+  // foreground, and Windows refuses a plain SetForegroundWindow from a
+  // background process. Sharing the foreground thread's input state lifts it.
+  static bool ActivateWindow(HWND window) {
+    if (IsIconic(window)) ShowWindow(window, SW_RESTORE);
+    if (!IsWindowVisible(window)) ShowWindow(window, SW_SHOW);
+    HWND foreground = GetForegroundWindow();
+    if (foreground == window) return true;
+    const DWORD current = GetCurrentThreadId();
+    const DWORD owner =
+        foreground ? GetWindowThreadProcessId(foreground, nullptr) : 0;
+    const bool attached =
+        owner != 0 && owner != current && AttachThreadInput(current, owner, TRUE);
+    BringWindowToTop(window);
+    SetForegroundWindow(window);
+    if (attached) AttachThreadInput(current, owner, FALSE);
+    return GetForegroundWindow() == window;
+  }
+
   bool UpdatePresentation(HWND window, bool active) {
     // SetWindowPos can synchronously send window messages back to this plugin.
     if (updating_presentation_) return true;
