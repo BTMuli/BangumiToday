@@ -30,6 +30,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
   final BTFileTool fileTool = BTFileTool();
   late BtDownloadState _downloadStore;
   List<String> files = [];
+  bool _sortDescending = false;
   final Map<String, int> _fileSizes = {};
   final Map<String, List<BtTaskFileDetail>> _taskFileDetails = {};
   final Map<String, DateTime> _taskFileDetailsFetchedAt = {};
@@ -118,7 +119,7 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
       }
       if (!mounted || generation != _refreshGeneration) return;
       setState(() {
-        files = filesGet;
+        files = _sortDescending ? filesGet.reversed.toList() : filesGet;
         _fileSizes
           ..clear()
           ..addAll(fileSizesGet);
@@ -130,6 +131,13 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
         unawaited(refreshFiles());
       }
     }
+  }
+
+  void _toggleFileOrder() {
+    setState(() {
+      _sortDescending = !_sortDescending;
+      files = files.reversed.toList();
+    });
   }
 
   /// 刷新该目录下引擎任务的文件详情缓存。
@@ -297,6 +305,18 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
           ),
         ),
         const Spacer(),
+        Tooltip(
+          message: _sortDescending ? '文件名倒序，点击切换为正序' : '文件名正序，点击切换为倒序',
+          child: IconButton(
+            icon: BtIcon(
+              _sortDescending
+                  ? MdiIcons.sortDescending
+                  : MdiIcons.sortAscending,
+              size: 14,
+            ),
+            onPressed: _toggleFileOrder,
+          ),
+        ),
         if (widget.onDelete != null)
           Tooltip(
             message: '删除目录',
