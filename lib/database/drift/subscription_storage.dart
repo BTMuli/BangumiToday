@@ -56,6 +56,7 @@ class SubscriptionStorage {
       ..addColumns([
         table.feedKey,
         hasData,
+        table.ttlMinutes,
         table.lastSuccessAt,
         table.lastFailedAt,
         table.cacheVersion,
@@ -64,10 +65,23 @@ class SubscriptionStorage {
       for (var row in await query.get())
         row.read(table.feedKey)!: AppRssCacheMetadata(
           hasData: row.read(hasData) ?? false,
+          ttlMinutes: row.read(table.ttlMinutes)!,
           lastSuccessAt: row.read(table.lastSuccessAt)!,
           lastFailedAt: row.read(table.lastFailedAt)!,
           cacheVersion: row.read(table.cacheVersion)!,
         ),
+    };
+  }
+
+  /// 刷新调度只需要 BMF 对应的 Bangumi 条目 ID。
+  Future<Map<int, int>> readBmfSubjects(Set<int> bmfIds) async {
+    if (bmfIds.isEmpty) return {};
+    var query = db.selectOnly(db.appBmf)
+      ..addColumns([db.appBmf.id, db.appBmf.subject])
+      ..where(db.appBmf.id.isIn(bmfIds));
+    return {
+      for (var row in await query.get())
+        row.read(db.appBmf.id)!: row.read(db.appBmf.subject)!,
     };
   }
 

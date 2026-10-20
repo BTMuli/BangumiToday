@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:bangumi_today/core/services/rss_fetch_scheduler.dart';
 import 'package:bangumi_today/core/utils/keyed_request_pool.dart';
 import 'package:bangumi_today/core/utils/latest_request.dart';
+import 'package:bangumi_today/core/utils/rss_date.dart';
 import 'package:bangumi_today/data/parsers/rss_parser.dart';
 import 'package:bangumi_today/models/app/response.dart';
 import 'package:bangumi_today/models/rss/rss_request_failure.dart';
@@ -234,5 +235,26 @@ void main() {
       )).items.single.anibt,
       isNull,
     );
+  });
+
+  test('大型缓存 RSS 异步提取最新发布时间，空白或损坏缓存返回空值', () async {
+    var xml =
+        '<rss><channel><item><title>Old</title>'
+        '<description>${'x' * 140000}</description>'
+        '<pubDate>2026-10-12T23:05:00+08:00</pubDate></item>'
+        '<item><title>New</title>'
+        '<pubDate>2026-10-12T23:10:00+08:00</pubDate></item>'
+        '</channel></rss>';
+    expect(
+      await latestRssPublishedAtFromXml(xml),
+      DateTime.utc(2026, 10, 12, 15, 10),
+    );
+    for (var invalid in [
+      '',
+      '<rss><channel/></rss>',
+      xml.substring(0, 140000),
+    ]) {
+      expect(await latestRssPublishedAtFromXml(invalid), isNull);
+    }
   });
 }

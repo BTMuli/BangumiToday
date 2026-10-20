@@ -7,17 +7,23 @@ import 'package:dio/dio.dart';
 // Project imports:
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_subscription.dart';
+import '../../database/drift/dataset_storage.dart';
 import '../../database/drift/subscription_storage.dart';
+import '../../domain/rss/rss_poll_policy.dart';
+import '../../models/bangumi/bangumi_data_model.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../models/database/app_subscription_model.dart';
 import '../../models/rss/rss.dart';
+import '../../providers/bangumi_providers.dart';
 import '../../request/mikan/mikan_api.dart';
 import '../../store/bmf_store.dart';
 import '../../store/nav_store.dart';
 import '../../tools/log_tool.dart';
+import '../cache/subject_cache.dart';
 import '../container.dart';
 import '../utils/async_pool.dart';
 import '../utils/keyed_request_pool.dart';
+import '../utils/rss_date.dart';
 import 'notification_service.dart';
 import 'rss_fetch_scheduler.dart';
 import 'rss_freshness.dart';
@@ -55,6 +61,7 @@ class RssRefreshMetrics {
   const RssRefreshMetrics({
     required this.total,
     required this.cacheHits,
+    required this.fastFeeds,
     required this.requested,
     required this.successes,
     required this.failures,
@@ -64,6 +71,7 @@ class RssRefreshMetrics {
   });
   final int total;
   final int cacheHits;
+  final int fastFeeds;
   final int requested;
   final int successes;
   final int failures;
@@ -197,10 +205,17 @@ class BmfRssService {
       if (!_isCurrent(refreshEpoch)) return;
       var caches = await _storage.readCacheMetadata();
       if (!_isCurrent(refreshEpoch)) return;
+      var bmfSubjects = await _storage.readBmfSubjects(
+        subscriptions.map((subscription) => subscription.bmfId).toSet(),
+      );
+      if (!_isCurrent(refreshEpoch)) return;
+      var schedules = await _readSchedules(bmfSubjects.values.toSet());
+      if (!_isCurrent(refreshEpoch)) return;
+      var pollPolicy = RssPollPolicy(baseWindow: _freshnessWindow);
       var groups = <String, List<AppSubscriptionModel>>{};
       var cacheHits = 0;
       var backoff = 0;
-      var freshness = RssFreshness(window: _freshnessWindow);
+      var fastFeeds = 0;
       var byFeed = <String, List<AppSubscriptionModel>>{};
       for (var subscription in subscriptions) {
         byFeed.putIfAbsent(subscription.feedKey, () => []).add(subscription);
@@ -208,6 +223,32 @@ class BmfRssService {
       for (var entry in byFeed.entries) {
         if (!_isCurrent(refreshEpoch)) return;
         var cache = caches[entry.key];
+        var airTime = pollPolicy.waitingAirTime(
+          now: started,
+          schedules: entry.value
+              .map((subscription) => bmfSubjects[subscription.bmfId])
+              .whereType<int>()
+              .toSet()
+              .expand(
+                (subject) => schedules[subject] ?? const <RssPollSchedule>[],
+              ),
+        );
+        DateTime? latestPublishedAt;
+        if (airTime != null && cache?.hasData == true) {
+          var cached = await _storage.readCache(entry.key);
+          if (!_isCurrent(refreshEpoch)) return;
+          latestPublishedAt = await latestRssPublishedAtFromXml(
+            cached?.data ?? '',
+          );
+          if (!_isCurrent(refreshEpoch)) return;
+        }
+        var window = pollPolicy.windowFor(
+          airTime: airTime,
+          ttlMinutes: cache?.ttlMinutes ?? 0,
+          latestPublishedAt: latestPublishedAt,
+        );
+        if (window < _freshnessWindow) fastFeeds++;
+        var freshness = RssFreshness(window: window);
         if (!force && freshness.isMetadataFresh(cache, started)) {
           var withoutBaseline = entry.value.where((s) => !s.hasBaseline);
           if (withoutBaseline.isEmpty) {
@@ -261,6 +302,7 @@ class BmfRssService {
       lastRefreshMetrics = RssRefreshMetrics(
         total: subscriptions.length,
         cacheHits: cacheHits,
+        fastFeeds: fastFeeds,
         requested: successes + failures,
         successes: successes,
         failures: failures,
@@ -271,13 +313,52 @@ class BmfRssService {
       if (successes + failures > 0) {
         BTLogTool.info(
           'BMF RSS 刷新：${subscriptions.length} 个订阅，'
-          '缓存 $cacheHits，退避 $backoff，请求 ${successes + failures} 个 feed，'
+          '缓存 $cacheHits，加速 $fastFeeds，退避 $backoff，'
+          '请求 ${successes + failures} 个 feed，'
           '成功 $successes，失败 $failures，'
           '峰值并发 ${_requests.peakConcurrency}，'
           '耗时 ${lastRefreshMetrics!.elapsedMs} ms',
         );
       }
     });
+  }
+
+  /// 按 Bangumi 条目 ID 汇总排期与总话数，避免完结后继续加速轮询。
+  Future<Map<int, List<RssPollSchedule>>> _readSchedules(
+    Set<int> subjects,
+  ) async {
+    if (subjects.isEmpty) return {};
+    var rows = await DatasetStorage(_storage.db).readItemsForSubjects(subjects);
+    var itemsBySubject = <int, List<BangumiDataItem>>{};
+    for (var row in rows) {
+      var item = BangumiDataItem.fromSqlJson(row.toJson());
+      for (var site in item.sites) {
+        if (site.site != 'bangumi') continue;
+        var subject = int.tryParse(site.id ?? '');
+        if (subject == null || !subjects.contains(subject)) continue;
+        itemsBySubject.putIfAbsent(subject, () => []).add(item);
+      }
+    }
+    var result = <int, List<RssPollSchedule>>{};
+    for (var entry in itemsBySubject.entries) {
+      var cached = await BgmSubjectCache().read(entry.key, allowStale: true);
+      var totalEpisodes = [
+        cached?.totalEpisodes,
+        cached?.eps,
+      ].whereType<int>().where((total) => total > 0).firstOrNull;
+      if (totalEpisodes == null) {
+        var collection = await globalContainer
+            .read(bangumiRepositoryProvider)
+            .getLocalCollection(entry.key);
+        var total = collection?.subject.eps;
+        if (total != null && total > 0) totalEpisodes = total;
+      }
+      result[entry.key] = [
+        for (var item in entry.value)
+          (item: item, totalEpisodes: totalEpisodes),
+      ];
+    }
+    return result;
   }
 
   Future<bool> _refreshGroup(

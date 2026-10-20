@@ -7,12 +7,14 @@ part 'app_rss_cache_model.g.dart';
 class AppRssCacheMetadata {
   const AppRssCacheMetadata({
     required this.hasData,
+    required this.ttlMinutes,
     required this.lastSuccessAt,
     required this.lastFailedAt,
     required this.cacheVersion,
   });
 
   final bool hasData;
+  final int ttlMinutes;
   final int lastSuccessAt;
   final int lastFailedAt;
   final int cacheVersion;

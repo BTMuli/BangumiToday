@@ -125,6 +125,60 @@ int? bangumiEpisodeOnAir({
   return episode < 1 ? null : episode;
 }
 
+/// 排期中的一次放送，以及推算话数所需的首播时刻与周期。
+typedef BangumiAirSlot = ({DateTime time, DateTime firstAir, Duration period});
+
+/// 求 [at] 所在排期里最近的一次放送。
+///
+/// [upcoming] 为 true 时返回不早于 [at] 的最近时刻，否则返回不晚于 [at]
+/// 的最近时刻；恰好等于 [at] 的时刻对两者都有效。`broadcast` 的起点是该档
+/// 排期的锚点，`begin` 决定首话位置，[totalEpisodes] 用于截断停播或延期后
+/// 的推算。
+BangumiAirSlot? bangumiAirSlot({
+  required String? begin,
+  required String? broadcast,
+  required String? end,
+  required DateTime at,
+  required bool upcoming,
+  int? totalEpisodes,
+  bool nightMode = false,
+}) {
+  var firstAir = DateTime.tryParse(begin ?? '');
+  var anchor = parseBangumiBroadcastStart(broadcast) ?? firstAir;
+  if (anchor == null) return null;
+  firstAir ??= anchor;
+  var period =
+      parseBangumiBroadcastPeriod(broadcast) ?? const Duration(days: 7);
+  var lastAir = DateTime.tryParse(end ?? '');
+  if (totalEpisodes != null && totalEpisodes > 0) {
+    var firstEpisode = bangumiEpisodeOnAir(
+      firstAir: firstAir,
+      period: period,
+      day: bangumiCalendarStart(at: anchor, nightMode: nightMode),
+    )!;
+    var finalAir = anchor.add(period * (totalEpisodes - firstEpisode));
+    if (lastAir == null || finalAir.isBefore(lastAir)) lastAir = finalAir;
+  }
+  var limit = !upcoming && lastAir != null && at.isAfter(lastAir)
+      ? lastAir
+      : at;
+  var interval = period.inMicroseconds;
+  var elapsed = limit.difference(anchor).inMicroseconds;
+  var index = upcoming
+      ? (elapsed / interval).ceil()
+      : (elapsed / interval).floor();
+  var firstIndex = (firstAir.difference(anchor).inMicroseconds / interval)
+      .ceil();
+  if (firstIndex < 0) firstIndex = 0;
+  if (index < firstIndex) {
+    if (!upcoming) return null;
+    index = firstIndex;
+  }
+  var time = anchor.add(period * index);
+  if (lastAir != null && time.isAfter(lastAir)) return null;
+  return (time: time, firstAir: firstAir, period: period);
+}
+
 /// 把放送时刻折算成本地时间；修仙模式将次日凌晨显示为 24:00–29:59。
 String? formatBangumiAirClock(DateTime? time, {bool nightMode = false}) {
   if (time == null) return null;

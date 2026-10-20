@@ -15,6 +15,7 @@ class RssFreshness {
           ? null
           : AppRssCacheMetadata(
               hasData: cache.data?.isNotEmpty ?? false,
+              ttlMinutes: cache.ttlMinutes,
               lastSuccessAt: cache.lastSuccessAt,
               lastFailedAt: cache.lastFailedAt,
               cacheVersion: cache.cacheVersion,

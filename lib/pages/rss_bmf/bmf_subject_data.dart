@@ -69,47 +69,23 @@ class BmfSubjectData {
     required bool upcoming,
     required bool nightMode,
   }) {
-    var firstAir = DateTime.tryParse(item.begin);
-    var anchor = parseBangumiBroadcastStart(item.broadcast) ?? firstAir;
-    if (anchor == null) return null;
-    firstAir ??= anchor;
-    var period =
-        parseBangumiBroadcastPeriod(item.broadcast) ?? const Duration(days: 7);
-    var lastAir = DateTime.tryParse(item.end);
-    var total = totalEpisodes;
-    var firstEpisode = bangumiEpisodeOnAir(
-      firstAir: firstAir,
-      period: period,
-      day: bangumiCalendarStart(at: anchor, nightMode: nightMode),
-    )!;
-    if (total != null && total > 0) {
-      var finalAir = anchor.add(period * (total - firstEpisode));
-      if (lastAir == null || finalAir.isBefore(lastAir)) lastAir = finalAir;
-    }
-    var limit = !upcoming && lastAir != null && at.isAfter(lastAir)
-        ? lastAir
-        : at;
-    var elapsed = limit.difference(anchor).inMicroseconds;
-    var interval = period.inMicroseconds;
-    var index = upcoming
-        ? (elapsed / interval).ceil()
-        : (elapsed / interval).floor();
-    var firstIndex = (firstAir.difference(anchor).inMicroseconds / interval)
-        .ceil();
-    if (firstIndex < 0) firstIndex = 0;
-    if (index < firstIndex) {
-      if (!upcoming) return null;
-      index = firstIndex;
-    }
-    var time = anchor.add(period * index);
-    if (lastAir != null && time.isAfter(lastAir)) return null;
+    var slot = bangumiAirSlot(
+      begin: item.begin,
+      broadcast: item.broadcast,
+      end: item.end,
+      at: at,
+      upcoming: upcoming,
+      totalEpisodes: totalEpisodes,
+      nightMode: nightMode,
+    );
+    if (slot == null) return null;
     return BmfBroadcast(
-      time: time,
+      time: slot.time,
       episode: bangumiEpisodeOnAir(
-        firstAir: firstAir,
-        period: period,
-        day: bangumiCalendarStart(at: time, nightMode: nightMode),
-        total: total,
+        firstAir: slot.firstAir,
+        period: slot.period,
+        day: bangumiCalendarStart(at: slot.time, nightMode: nightMode),
+        total: totalEpisodes,
       )!,
       upcoming: upcoming,
       nightMode: nightMode,

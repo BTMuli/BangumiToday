@@ -31,10 +31,11 @@ DateTime? latestRssPublishedAt(Iterable<RssItem> items) {
   return latest;
 }
 
-DateTime? latestRssPublishedAtFromXml(String data) {
+Future<DateTime?> latestRssPublishedAtFromXml(String data) async {
   if (data.isEmpty) return null;
   try {
-    return latestRssPublishedAt(RssFeed.parse(data).items);
+    var feed = await parseRssFeed(data);
+    return latestRssPublishedAt(feed.items);
   } catch (_) {
     return null;
   }
