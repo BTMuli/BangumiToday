@@ -2,17 +2,26 @@
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
 
+#include <cwchar>
+
 #include "app_links/app_links_plugin_c_api.h"
 #include "crash_handler.h"
 #include "flutter_window.h"
 #include "utils.h"
 
-static bool ForwardAppLinkToWindow(const wchar_t *title) {
-  HWND hwnd = ::FindWindow(L"FLUTTER_RUNNER_WIN32_WINDOW", title);
-  if (hwnd == nullptr) {
-    return false;
+static constexpr wchar_t kMainWindowClass[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
+
+// A toast click relaunches this exe while the running instance is already
+// raising the window it chose, such as a fullscreen player. Raising the main
+// window here would then cover it, so only act for an instance in background.
+static void ActivateInstanceWindow(HWND hwnd) {
+  DWORD instance = 0;
+  DWORD foreground = 0;
+  GetWindowThreadProcessId(hwnd, &instance);
+  if (HWND active = GetForegroundWindow()) {
+    GetWindowThreadProcessId(active, &foreground);
   }
-  SendAppLink(hwnd);
+  if (instance != 0 && instance == foreground) return;
 
   WINDOWPLACEMENT place = {sizeof(WINDOWPLACEMENT)};
   GetWindowPlacement(hwnd, &place);
@@ -27,7 +36,54 @@ static bool ForwardAppLinkToWindow(const wchar_t *title) {
       ShowWindow(hwnd, SW_NORMAL);
       break;
   }
+  SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0,
+               SWP_SHOWWINDOW | SWP_NOSIZE | SWP_NOMOVE);
   SetForegroundWindow(hwnd);
+}
+
+static HWND FindInstanceWindow() {
+  struct Search {
+    HWND found;
+    wchar_t exe[MAX_PATH];
+  } search = {};
+  if (!GetModuleFileNameW(nullptr, search.exe, MAX_PATH)) return nullptr;
+  EnumWindows(
+      [](HWND hwnd, LPARAM param) -> BOOL {
+        auto *search = reinterpret_cast<Search *>(param);
+        wchar_t window_class[64] = {};
+        GetClassNameW(hwnd, window_class, 64);
+        if (_wcsicmp(window_class, kMainWindowClass) != 0) return TRUE;
+        DWORD pid = 0;
+        GetWindowThreadProcessId(hwnd, &pid);
+        HANDLE process =
+            OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+        if (!process) return TRUE;
+        wchar_t exe[MAX_PATH] = {};
+        DWORD length = MAX_PATH;
+        BOOL queried = QueryFullProcessImageNameW(process, 0, exe, &length);
+        CloseHandle(process);
+        if (!queried || _wcsicmp(exe, search->exe) != 0) return TRUE;
+        search->found = hwnd;
+        return FALSE;
+      },
+      reinterpret_cast<LPARAM>(&search));
+  return search.found;
+}
+
+static bool ForwardAppLinkToInstance() {
+  HWND hwnd = FindInstanceWindow();
+  if (hwnd == nullptr || !SendAppLink(hwnd)) return false;
+  ActivateInstanceWindow(hwnd);
+  return true;
+}
+
+static bool ForwardAppLinkToWindow(const wchar_t *title) {
+  HWND hwnd = ::FindWindow(kMainWindowClass, title);
+  if (hwnd == nullptr) {
+    return false;
+  }
+  SendAppLink(hwnd);
+  ActivateInstanceWindow(hwnd);
   return true;
 }
 
@@ -38,7 +94,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // Forward the protocol URL to the running instance. Prefer exe-path matching
   // so Debug titles like BangumiToday[Dev] still receive the callback; fall
   // back to both window titles if the path comparison misses.
-  if (SendAppLinkToInstance() ||
+  if (ForwardAppLinkToInstance() ||
       ForwardAppLinkToWindow(L"BangumiToday[Dev]") ||
       ForwardAppLinkToWindow(L"BangumiToday")) {
     return EXIT_SUCCESS;
