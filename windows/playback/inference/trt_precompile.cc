@@ -121,10 +121,10 @@ struct bt_trt_precompile {
       // locked assets and cache builder as playback; no parallel trtexec job.
       struct Task { const char* model; uint32_t width, height; const char* label; };
       const Task tasks[] = {
-          {detail::kPerformancePath, 1280, 720, "720p · AI 流畅"},
-          {detail::kBalancedPath, 1280, 720, "720p · AI 高质量"},
+          {detail::kBalancedPath, 1920, 1080, "1080p · AI 高质量"},
           {detail::kPerformancePath, 1920, 1080, "1080p · AI 流畅"},
-          {detail::kBalancedPath, 1920, 1080, "1080p · AI 高质量"}};
+          {detail::kBalancedPath, 1280, 720, "720p · AI 高质量"},
+          {detail::kPerformancePath, 1280, 720, "720p · AI 流畅"}};
       for (const auto& task : tasks) {
         CheckCancelled();
         {
