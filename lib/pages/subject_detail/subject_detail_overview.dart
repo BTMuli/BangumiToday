@@ -216,14 +216,23 @@ class SubjectDetailOverview extends StatelessWidget {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            if (view.user != null) ...[
-              view.buildCollection(compact: true),
-              Button(onPressed: onShowEpisodes, child: Text('观看进度 $progress')),
-            ],
-            SubjectContinuePlaybackButton(
-              key: ValueKey(subject.id),
-              subject: subject.id,
-              watchedEpisodes: view.user == null ? 0 : done,
+            if (view.user != null) view.buildCollection(compact: true),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (view.user != null) ...[
+                  Button(
+                    onPressed: onShowEpisodes,
+                    child: Text('观看进度 $progress'),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                SubjectContinuePlaybackButton(
+                  key: ValueKey(subject.id),
+                  subject: subject.id,
+                  watchedEpisodes: view.user == null ? 0 : done,
+                ),
+              ],
             ),
             if (view.user == null)
               Text('登录后可收藏和记录进度', style: BTTypography.caption(context)),
