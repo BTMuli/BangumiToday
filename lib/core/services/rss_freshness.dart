@@ -24,15 +24,22 @@ class RssFreshness {
     );
   }
 
-  bool isMetadataFresh(AppRssCacheMetadata? cache, DateTime now) {
+  /// 缓存的精确到期时刻，用于在到期时直接唤醒刷新。
+  DateTime? expiresAt(AppRssCacheMetadata? cache) {
     if (cache == null ||
         !cache.hasData ||
         cache.lastSuccessAt == 0 ||
         cache.cacheVersion != cacheVersion) {
-      return false;
+      return null;
     }
-    var age = now.millisecondsSinceEpoch - cache.lastSuccessAt;
+    return DateTime.fromMillisecondsSinceEpoch(cache.lastSuccessAt).add(window);
+  }
+
+  bool isMetadataFresh(AppRssCacheMetadata? cache, DateTime now) {
+    var expiry = expiresAt(cache);
+    if (expiry == null) return false;
+    var age = now.millisecondsSinceEpoch - cache!.lastSuccessAt;
     // A feed's advisory TTL must not extend the client's polling window.
-    return age >= 0 && age < window.inMilliseconds;
+    return age >= 0 && now.isBefore(expiry);
   }
 }

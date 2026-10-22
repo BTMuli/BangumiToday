@@ -81,18 +81,27 @@ class RssRefreshMetrics {
 }
 
 class BmfRssService {
-  BmfRssService._();
+  BmfRssService._() : _api = BtrMikanApi(), _storageOverride = null;
+
+  /// 隔离数据库与 HTTP 客户端，用于非 UI 的刷新调度验证。
+  BmfRssService.forTesting({
+    required SubscriptionStorage storage,
+    required BtrMikanApi api,
+  }) : _storageOverride = storage,
+       _api = api;
+
   static final BmfRssService instance = BmfRssService._();
   factory BmfRssService() => instance;
 
   static const defaultFreshnessWindow = Duration(minutes: 15);
-  // Check deadlines often enough that a slow fetch cannot cost another cycle.
+  // 排期最多每分钟检查一次，缓存和退避到期时提前唤醒。
   static const defaultCheckInterval = Duration(minutes: 1);
   static const defaultConcurrency = 4;
   static const defaultTimeout = Duration(seconds: 15);
   static const defaultMaxAttempts = 4;
 
-  final BtrMikanApi _api = BtrMikanApi();
+  final BtrMikanApi _api;
+  final SubscriptionStorage? _storageOverride;
   final AsyncSingleFlight _startGuard = AsyncSingleFlight();
   final AsyncSingleFlight _bulkRefreshGuard = AsyncSingleFlight();
   final AsyncSingleFlight _forcedRefreshGuard = AsyncSingleFlight();
@@ -120,9 +129,11 @@ class BmfRssService {
   CancelToken _cancelToken = CancelToken();
   int _refreshEpoch = 0;
   Duration _freshnessWindow = defaultFreshnessWindow;
+  Duration _checkInterval = defaultCheckInterval;
   RssRefreshMetrics? lastRefreshMetrics;
 
-  SubscriptionStorage get _storage => appSubscriptionStorage;
+  SubscriptionStorage get _storage =>
+      _storageOverride ?? appSubscriptionStorage;
   Stream<BmfRssUpdateEvent> get updateStream => _updateController.stream;
   Stream<BmfRssStatusEvent> get statusStream => _statusController.stream;
   bool get isInitialized => _isInitialized;
@@ -147,12 +158,9 @@ class BmfRssService {
       () => _startGuard.run(() async {
         var epoch = _refreshEpoch;
         _freshnessWindow = refreshInterval;
+        _checkInterval = checkInterval;
         await _refreshAll(respectAutoUpdate: true, epoch: epoch);
         if (!_isCurrent(epoch)) return;
-        _refreshTimer = Timer.periodic(
-          checkInterval,
-          (_) => unawaited(_timerRefresh()),
-        );
         _isInitialized = true;
       }),
     );
@@ -164,7 +172,18 @@ class BmfRssService {
       await _track(() => _refreshAll(respectAutoUpdate: true));
     } catch (error) {
       BTLogTool.warn('BMF RSS 定时刷新失败：${error.runtimeType}');
+      _scheduleNextRefresh(DateTime.now().add(_checkInterval));
     }
+  }
+
+  void _scheduleNextRefresh(DateTime at) {
+    if (_stopped) return;
+    _refreshTimer?.cancel();
+    var delay = at.difference(DateTime.now());
+    _refreshTimer = Timer(
+      delay.isNegative ? Duration.zero : delay,
+      () => unawaited(_timerRefresh()),
+    );
   }
 
   /// 永久停止此应用级服务；关闭数据库前等待已接受的操作排空。
@@ -199,6 +218,11 @@ class BmfRssService {
     await _bulkRefreshGuard.run(() async {
       if (!_isCurrent(refreshEpoch)) return;
       var started = DateTime.now();
+      var nextCheckAt = started.add(_checkInterval);
+      void checkBy(DateTime at) {
+        if (at.isBefore(nextCheckAt)) nextCheckAt = at;
+      }
+
       var subscriptions = (await _storage.readAll())
           .where((s) => s.canRefresh && (!respectAutoUpdate || s.autoUpdate))
           .toList();
@@ -250,6 +274,7 @@ class BmfRssService {
         if (window < _freshnessWindow) fastFeeds++;
         var freshness = RssFreshness(window: window);
         if (!force && freshness.isMetadataFresh(cache, started)) {
+          checkBy(freshness.expiresAt(cache)!);
           var withoutBaseline = entry.value.where((s) => !s.hasBaseline);
           if (withoutBaseline.isEmpty) {
             cacheHits += entry.value.length;
@@ -281,6 +306,11 @@ class BmfRssService {
             started.millisecondsSinceEpoch - cache.lastFailedAt >= 0 &&
             started.millisecondsSinceEpoch - cache.lastFailedAt <
                 const Duration(minutes: 5).inMilliseconds) {
+          checkBy(
+            DateTime.fromMillisecondsSinceEpoch(
+              cache.lastFailedAt,
+            ).add(const Duration(minutes: 5)),
+          );
           backoff += entry.value.length;
           continue;
         }
@@ -320,6 +350,7 @@ class BmfRssService {
           '耗时 ${lastRefreshMetrics!.elapsedMs} ms',
         );
       }
+      if (_isCurrent(refreshEpoch)) _scheduleNextRefresh(nextCheckAt);
     });
   }
 
