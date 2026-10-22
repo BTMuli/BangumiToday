@@ -66,6 +66,7 @@ class _Repository extends Fake implements BTBangumiRepository {
   final done = <int>{};
   Completer<void>? readGate;
   Completer<void>? progressGate;
+  int episodePageReads = 0;
   int progressPageReads = 0;
   bool commitOnFailure = false;
 
@@ -75,14 +76,17 @@ class _Repository extends Fake implements BTBangumiRepository {
     BangumiLegacyEpisodeType? type,
     int? limit,
     int? offset,
-  }) async => BTResponse.success(
-    data: BangumiPageT(
-      total: 2,
-      limit: 100,
-      offset: 0,
-      data: [_episode(10002), _episode(10003)],
-    ),
-  );
+  }) async {
+    episodePageReads++;
+    return BTResponse.success(
+      data: BangumiPageT(
+        total: 2,
+        limit: 100,
+        offset: 0,
+        data: [_episode(10002), _episode(10003)],
+      ),
+    );
+  }
 
   @override
   Future<BTResponse<BangumiUserEpisodeCollection>> getCollectionEpisode(
@@ -251,6 +255,23 @@ void main() {
   });
 
   tearDown(() => container.dispose());
+
+  test('选集进度加载后连续标记复用章节列表', () async {
+    await controller.syncItems([_item, _next]);
+    expect(repository.progressPageReads, 1);
+
+    expect(
+      (await controller.markItem(_item)).status,
+      EpisodeMarkWriteStatus.marked,
+    );
+    expect(
+      (await controller.markItem(_next)).status,
+      EpisodeMarkWriteStatus.marked,
+    );
+    expect(repository.progressPageReads, 1);
+    expect(repository.episodePageReads, 0);
+    expect(repository.writes, [10002, 10003]);
+  });
 
   test('收藏读取期间切集和续期 Token，仍完成原章节标记', () async {
     var gate = repository.readGate = Completer<void>();

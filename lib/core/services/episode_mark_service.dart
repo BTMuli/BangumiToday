@@ -317,8 +317,9 @@ class EpisodeMarkService {
     });
   }
 
-  /// Share the playlist's initial progress load with automatic matching.
-  /// Public chapter loading remains available when logged out or uncollected.
+  /// Share the playlist's initial progress load with automatic matching and
+  /// explicit chapter marks. Public chapter loading remains available when
+  /// logged out or uncollected.
   Future<List<EpisodeMarkEpisode>?> chaptersForPlayback(int subject) async {
     var known = knownChapters(subject);
     if (known != null) return known;
@@ -471,16 +472,20 @@ class EpisodeMarkService {
           evidence.kind != EpisodeNumberKind.unknown) {
         return EpisodeMarkResolution(message: evidence.reason);
       }
-      var key = '$account:$subject';
-      var future = _pages.putIfAbsent(
-        key,
-        () => _allEpisodes(subject, account),
-      );
-      List<EpisodeMarkEpisode> episodes;
-      try {
-        episodes = await future;
-      } finally {
-        if (identical(_pages[key], future)) await _pages.remove(key);
+      // Reuse the complete progress response already loaded for the playlist
+      // instead of pulling the public chapter list for every mark.
+      var episodes = await chaptersForPlayback(subject);
+      if (episodes == null) {
+        var key = '$account:$subject';
+        var future = _pages.putIfAbsent(
+          key,
+          () => _allEpisodes(subject, account),
+        );
+        try {
+          episodes = await future;
+        } finally {
+          if (identical(_pages[key], future)) await _pages.remove(key);
+        }
       }
       if (!_current(account)) return const EpisodeMarkResolution();
       var ruleSignature = linkedEpisode == null ? _ruleSignature(item) : null;
