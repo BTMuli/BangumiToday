@@ -91,6 +91,7 @@ class PlaybackUpscaler {
   PlaybackJanaiStatus? janaiStatus;
   bool _warned = false;
   bool _failed = false;
+  PlaybackUpscaleMode? _failedMode;
   bool _closed = false;
   bool _mediaReady = false;
   bool _dirty = false;
@@ -203,6 +204,7 @@ class PlaybackUpscaler {
     // Layout changes never retry, and failed restoration still blocks work.
     if (!_restorationFailed) {
       _failed = false;
+      _failedMode = null;
       _warned = false;
       _lastFailure = null;
       _performanceFailureRate = null;
@@ -222,6 +224,7 @@ class PlaybackUpscaler {
     janaiStatus = null;
     if (!_restorationFailed) {
       _failed = _warned = false;
+      _failedMode = null;
       warning = null;
       _lastFailure = null;
       _performanceFailureRate = null;
@@ -257,6 +260,7 @@ class PlaybackUpscaler {
     // and restoration failures still require an explicit retry.
     _performanceFailureRate = null;
     _failed = _warned = false;
+    _failedMode = null;
     _lastFailure = null;
     warning = null;
     _schedule(immediate: true, invalidate: true);
@@ -417,6 +421,7 @@ class PlaybackUpscaler {
     _resizeInvalidated = false;
     if (!retainOutput) actualOutput = null;
     _failed = false;
+    _failedMode = null;
     _performanceFailureRate = null;
     _restorationFailed = false;
     _warned = false;
@@ -622,6 +627,7 @@ class PlaybackUpscaler {
               _source?.pixelWidth == target.width &&
               _source?.pixelHeight == target.height) {
             _failed = true;
+            _failedMode = next.mode;
             _lastFailure = error;
           }
         }
@@ -885,6 +891,7 @@ class PlaybackUpscaler {
         onError(error);
         if (_closed) return;
         _failed = true;
+        _failedMode = next.enabled ? next.mode : _failedMode ?? mode;
         try {
           if (_dirty) await _restore(generation: generation);
         } catch (restorationError) {
@@ -905,6 +912,17 @@ class PlaybackUpscaler {
           'actual=${_pixels(actualOutput)} target=${_pixels(next.output)}',
           generation: generation,
         );
+        // A retained chain may fail while its replacement is preparing. Once
+        // recovery settles, keep pursuing the newer preference; its own errors
+        // and failed cleanup must still require an explicit retry.
+        if (_failed &&
+            !_dirty &&
+            !_restorationFailed &&
+            _failedMode != null &&
+            _failedMode != mode &&
+            mode.isJanai) {
+          preferences(mode);
+        }
       }
     }
   }
@@ -981,6 +999,7 @@ class PlaybackUpscaler {
         generation: generation,
       );
       _failed = true;
+      _failedMode = next.mode;
       _lastFailure = StateError('超分纹理尺寸未能确认');
       onError(_lastFailure!);
       _schedule(immediate: true);
@@ -1089,6 +1108,7 @@ class PlaybackUpscaler {
               : 'AI 实时超分需要 NVIDIA 显卡和已配置的 TensorRT',
         );
         _failed = true;
+        _failedMode = _loadedMode;
         onError(_lastFailure!);
         _schedule(immediate: true);
         return;
@@ -1160,6 +1180,7 @@ class PlaybackUpscaler {
       _lastFailure = StateError('AI 超分持续掉帧或输出速度不足');
       _performanceFailureRate = _dropMonitor.rate;
       _failed = true;
+      _failedMode = _loadedMode;
       onError(_lastFailure!);
       _schedule(immediate: true);
     } catch (error) {
@@ -1209,6 +1230,7 @@ class PlaybackUpscaler {
       _performanceFailureRate = _dropMonitor.rate;
     }
     _failed = true;
+    _failedMode = _loadedMode ?? _applying?.mode ?? mode;
     _lastFailure = StateError(text.trim());
     onError(_lastFailure!);
     _schedule(immediate: true);
