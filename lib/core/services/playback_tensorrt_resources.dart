@@ -63,6 +63,11 @@ class PlaybackTensorRtResources {
   bool get installed => _installed;
   bool get preparingEngines => stage == 'precompiling';
   int completedEngines = 0;
+
+  /// Bumped when the shared engine cache no longer matches what a Player
+  /// checked earlier, so prepared targets can be discarded.
+  int engineEpoch = 0;
+  String? _engineSnapshot;
   List<String> get precompileLines => _precompileLines;
   bool get ready => installed && canDownload && !busy && !checking;
   bool get canEnable =>
@@ -114,7 +119,7 @@ class PlaybackTensorRtResources {
       : _buildCompleted
       ? native?.active == true
             ? 'TensorRT 模型编译完成，AI 超分已启用'
-            : 'TensorRT 模型编译完成，等待视频帧'
+            : 'TensorRT 模型编译完成，已缓存'
       : native?.reason.isNotEmpty == true
       ? native!.reason
       : native?.label ?? '';
@@ -186,6 +191,7 @@ class PlaybackTensorRtResources {
     try {
       if (detectGpu || gpu == null) gpu = await PlaybackTensorRtGpu.detect();
       if (_disposed) return;
+      await _refreshEngineEpoch();
       if (!canDownload) {
         _installed = false;
         _checkedSnapshot = null;
@@ -239,6 +245,24 @@ class PlaybackTensorRtResources {
       _installed = false;
       _update('failed', 'TensorRT 配置检查失败：$error');
     }
+  }
+
+  /// Polls the shared cache directory so a Player drops prepared targets after
+  /// this window, another window or the Settings page rebuilds or clears it.
+  Future<void> _refreshEngineEpoch() async {
+    if (_dataDirectory == null) return;
+    var names = <String>[];
+    try {
+      await for (var entry in Directory(engineDirectory).list()) {
+        if (entry is File) names.add(path.basename(entry.path));
+      }
+    } on FileSystemException {
+      // An unreadable cache cannot be trusted to hold prepared engines.
+    }
+    names.sort();
+    var snapshot = names.join('\n');
+    if (_engineSnapshot != null && _engineSnapshot != snapshot) engineEpoch++;
+    _engineSnapshot = snapshot;
   }
 
   void beginBuild() {
@@ -316,6 +340,8 @@ class PlaybackTensorRtResources {
   void invalidateEngineCache() {
     if (_disposed || busy) return;
     completedEngines = 0;
+    _engineSnapshot = null;
+    engineEpoch++;
     onChanged();
   }
 

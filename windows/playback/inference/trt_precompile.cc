@@ -10,9 +10,11 @@
 #include <chrono>
 #include <filesystem>
 #include <mutex>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "frame_contract.h"
 #include "gpu_capabilities.h"
@@ -24,12 +26,13 @@ using namespace bangumi::inference;
 using Microsoft::WRL::ComPtr;
 
 namespace {
-GpuCapabilities FindGpu(int sm) {
+GpuCapabilities FindGpu(int sm, const std::wstring& renderer) {
   if (!detail::SupportsSm(sm))
     throw std::runtime_error("TensorRT architecture is not in the pinned lock");
   ComPtr<IDXGIFactory1> factory;
   if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory))))
     throw std::runtime_error("Cannot enumerate graphics adapters");
+  std::optional<GpuCapabilities> compatible;
   for (UINT index = 0;; ++index) {
     ComPtr<IDXGIAdapter1> adapter;
     const HRESULT enumerated = factory->EnumAdapters1(index, &adapter);
@@ -47,11 +50,19 @@ GpuCapabilities FindGpu(int sm) {
                                  nullptr, nullptr)))
       continue;
     const auto gpu = QueryGpuCapabilities(device.Get());
-    if (gpu.cuda_device >= 0 && gpu.cuda_reason.empty() &&
-        gpu.compute_major * 10 + gpu.compute_minor == sm &&
-        gpu.cuda_driver_version >= detail::kMinimumDriver)
+    if (gpu.cuda_device < 0 || !gpu.cuda_reason.empty() ||
+        gpu.compute_major * 10 + gpu.compute_minor != sm ||
+        gpu.cuda_driver_version < detail::kMinimumDriver)
+      continue;
+    if (renderer.empty() ||
+        renderer.find(description.Description) != std::wstring::npos)
       return gpu;
+    // A renderer string that names no adapter must not turn preparation into a
+    // failure. Keep the first compatible device; a mismatched cache key only
+    // costs the filter one build.
+    if (!compatible) compatible = gpu;
   }
+  if (compatible) return *compatible;
   throw std::runtime_error("未找到支持 SM" + std::to_string(sm) +
                            " / CUDA 13.4 的 NVIDIA 显卡");
 }
@@ -80,9 +91,11 @@ std::string Quote(const std::string& value) {
 }  // namespace
 
 struct bt_trt_precompile {
+  struct Task { const char* model; uint32_t width, height; std::string label; };
   struct Status {
     std::string phase = "preparing";
     int completed = 0;
+    int total = 0;
     std::string task;
     std::string reason = "正在检测编译显卡";
     std::string log;
@@ -95,9 +108,11 @@ struct bt_trt_precompile {
 
   bt_trt_precompile(std::filesystem::path bundle,
                     std::filesystem::path runtime,
-                    std::filesystem::path cache, int sm) {
-    worker = std::thread([this, bundle, runtime, cache, sm] {
-      Work(bundle, runtime, cache, sm);
+                    std::filesystem::path cache, int sm,
+                    std::vector<Task> tasks, std::wstring renderer = {}) {
+    status.total = static_cast<int>(tasks.size());
+    worker = std::thread([this, bundle, runtime, cache, sm, tasks, renderer] {
+      Work(bundle, runtime, cache, sm, tasks, renderer);
     });
   }
   ~bt_trt_precompile() {
@@ -111,20 +126,16 @@ struct bt_trt_precompile {
 
   void Work(const std::filesystem::path& bundle,
             const std::filesystem::path& runtime,
-            const std::filesystem::path& cache, int sm) noexcept {
+            const std::filesystem::path& cache, int sm,
+            const std::vector<Task>& tasks,
+            const std::wstring& renderer) noexcept {
     try {
       if (!bundle.is_absolute() || !runtime.is_absolute() || !cache.is_absolute())
         throw std::invalid_argument("TensorRT preparation requires absolute paths");
       CheckCancelled();
-      const auto gpu = FindGpu(sm);
+      const auto gpu = FindGpu(sm, renderer);
       // Use the same compiled model paths, padded frame plan, device identity,
       // locked assets and cache builder as playback; no parallel trtexec job.
-      struct Task { const char* model; uint32_t width, height; const char* label; };
-      const Task tasks[] = {
-          {detail::kBalancedPath, 1920, 1080, "1080p · AI 高质量"},
-          {detail::kPerformancePath, 1920, 1080, "1080p · AI 流畅"},
-          {detail::kBalancedPath, 1280, 720, "720p · AI 高质量"},
-          {detail::kPerformancePath, 1280, 720, "720p · AI 流畅"}};
       for (const auto& task : tasks) {
         CheckCancelled();
         {
@@ -164,7 +175,8 @@ struct bt_trt_precompile {
       CheckCancelled();
       std::lock_guard<std::mutex> lock(mutex);
       status.phase = "ready";
-      status.reason = "四个常用引擎已校验并缓存";
+      status.reason = status.total == 4 ? "四个常用引擎已校验并缓存"
+                                        : "当前模型引擎已校验并缓存";
     } catch (const std::exception& error) {
       std::lock_guard<std::mutex> lock(mutex);
       status.phase = cancelled ? "cancelled" : "failed";
@@ -183,7 +195,27 @@ bt_trt_precompile* bt_trt_precompile_start(const wchar_t* bundle,
                                          const wchar_t* cache, int sm) {
   try {
     if (!bundle || !runtime || !cache) return nullptr;
-    return new bt_trt_precompile(bundle, runtime, cache, sm);
+    return new bt_trt_precompile(bundle, runtime, cache, sm, {
+        {detail::kBalancedPath, 1920, 1080, "1080p · AI 高质量"},
+        {detail::kPerformancePath, 1920, 1080, "1080p · AI 流畅"},
+        {detail::kBalancedPath, 1280, 720, "720p · AI 高质量"},
+        {detail::kPerformancePath, 1280, 720, "720p · AI 流畅"}});
+  } catch (...) { return nullptr; }
+}
+
+bt_trt_precompile* bt_trt_precompile_target_start(
+    const wchar_t* bundle, const wchar_t* runtime, const wchar_t* cache, int sm,
+    int slot, int width, int height, const wchar_t* renderer) {
+  try {
+    if (!bundle || !runtime || !cache || !renderer || !*renderer ||
+        (slot != 1 && slot != 2) || width <= 0 || height <= 0 ||
+        width > 1920 || height > 1080)
+      return nullptr;
+    return new bt_trt_precompile(bundle, runtime, cache, sm, {{
+        slot == 1 ? detail::kPerformancePath : detail::kBalancedPath,
+        static_cast<uint32_t>(width), static_cast<uint32_t>(height),
+        std::to_string(width) + "×" + std::to_string(height) +
+            (slot == 1 ? " · AI 流畅" : " · AI 高质量")}}, renderer);
   } catch (...) { return nullptr; }
 }
 
@@ -194,7 +226,7 @@ const char* bt_trt_precompile_poll(bt_trt_precompile* job) {
     const auto& s = job->status;
     job->json = "{\"phase\":" + Quote(s.phase) +
         ",\"completed\":" + std::to_string(s.completed) +
-        ",\"total\":4,\"task\":" + Quote(s.task) +
+        ",\"total\":" + std::to_string(s.total) + ",\"task\":" + Quote(s.task) +
         ",\"reason\":" + Quote(s.reason) + ",\"log\":" + Quote(s.log) + "}";
     return job->json.c_str();
   } catch (...) { return nullptr; }

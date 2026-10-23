@@ -16,6 +16,19 @@ abstract class PlaybackUpscaleBackend {
   Future<Object?> read(String property);
   Future<void> shaders(List<String> paths);
 
+  /// Prepares the selected engine independently of the installed filter
+  /// chain. Mode changes keep this work alive; explicit cancellation and
+  /// close stop it.
+  Future<void> prepareJanai(
+    int slot,
+    PlaybackVideoSource source,
+    String renderer,
+  );
+
+  /// Increments whenever the shared engine cache may no longer hold what an
+  /// earlier [prepareJanai] checked. Prepared targets are discarded on change.
+  int get engineCacheEpoch => 0;
+
   /// Installs or clears the AnimeJaNai filter chain. `slot` selects the model
   /// (1 smooth, 2 high quality); null clears the chain. All modes share the
   /// decoder configured at Player creation.
@@ -82,6 +95,10 @@ class PlaybackUpscaler {
   bool _mediaReady = false;
   bool _dirty = false;
   bool _janaiDirty = false;
+  final _preparedJanai = <({int slot, int width, int height})>{};
+  Future<void>? _preparation;
+  int _preparationEpoch = 0;
+  int _engineEpoch = 0;
   PlaybackUpscaleMode? _loadedMode;
   PlaybackUpscaleMode? get configuredMode => _loadedMode;
   bool _restorationFailed = false;
@@ -181,6 +198,7 @@ class PlaybackUpscaler {
   void preferences(PlaybackUpscaleMode value) {
     if (_closed || (mode == value && !_failed)) return;
     _trace('preferences old_mode=${mode.name} new_mode=${value.name}');
+    _invalidatePreparedEngines();
     // A deliberate quality change may retry after a recovered shader failure.
     // Layout changes never retry, and failed restoration still blocks work.
     if (!_restorationFailed) {
@@ -196,6 +214,8 @@ class PlaybackUpscaler {
 
   void inferencePreferenceChanged() {
     if (_closed) return;
+    _preparedJanai.clear();
+    _engineEpoch = backend.engineCacheEpoch;
     _stopDropMonitor();
     _loadedMode = null;
     _applied = null;
@@ -209,7 +229,17 @@ class PlaybackUpscaler {
     _schedule(immediate: true, invalidate: true);
   }
 
+  /// A cache rebuild elsewhere (Settings cleanup, another window, or a build
+  /// this Player ran) means earlier checks no longer describe the disk.
+  void _invalidatePreparedEngines() {
+    var epoch = backend.engineCacheEpoch;
+    if (epoch == _engineEpoch) return;
+    _preparedJanai.clear();
+    _engineEpoch = epoch;
+  }
+
   void cancelInferenceBuild() {
+    _preparationEpoch++;
     backend.cancelJanaiBuild();
     // Invalidate pending installs now, before the Store can persist the new
     // preference through its media-operation queue.
@@ -399,6 +429,7 @@ class PlaybackUpscaler {
   void mediaReady(PlaybackVideoSource? value) {
     if (_closed) return;
     _mediaReady = true;
+    _invalidatePreparedEngines();
     _resizeInvalidated = _validateRetainedOutput(value) ?? false;
     _source = value;
     _schedule(immediate: true);
@@ -561,10 +592,64 @@ class PlaybackUpscaler {
         params['graph'] == frameRate.graph;
   }
 
+  bool _prepareJanai(PlaybackUpscalePlan next) {
+    var source = _source!;
+    var renderer = this.renderer;
+    // Without the renderer string there is no adapter to target; the log
+    // reschedules once mpv reports it.
+    if (renderer == null) return false;
+    // The engine is keyed by the decoder's frame dimensions, not by the
+    // aspect-corrected display size used for the output texture.
+    var target = (
+      slot: next.mode.janaiSlot!,
+      width: source.pixelWidth,
+      height: source.pixelHeight,
+    );
+    if (_preparedJanai.contains(target)) return true;
+    if (_preparation != null) return false;
+    var epoch = _preparationEpoch;
+    _preparation = () async {
+      try {
+        await backend.prepareJanai(target.slot, source, renderer);
+        if (!_closed && epoch == _preparationEpoch) {
+          _preparedJanai.add(target);
+        }
+      } catch (error) {
+        if (!_closed && epoch == _preparationEpoch) {
+          onError(error);
+          // A completed background job must not undo a newer mode or episode.
+          if (mode.janaiSlot == target.slot &&
+              _source?.pixelWidth == target.width &&
+              _source?.pixelHeight == target.height) {
+            _failed = true;
+            _lastFailure = error;
+          }
+        }
+      } finally {
+        _preparation = null;
+        if (!_closed && mode.isJanai) {
+          _schedule(immediate: true, invalidate: true);
+        }
+      }
+    }();
+    return false;
+  }
+
   Future<void> _drain() async {
     while (!_closed && _mediaReady && _pendingReady && _pending != null) {
       var next = _pending!;
       _pending = null;
+      if (next.enabled && next.mode.isJanai && !_prepareJanai(next)) {
+        // Keep rendering with the confirmed mode until its replacement is
+        // ready. Recalculate its output for viewport/source changes as usual.
+        next = playbackUpscalePlan(
+          mode: _loadedMode ?? PlaybackUpscaleMode.off,
+          source: _source,
+          viewport: _viewport,
+          renderer: renderer,
+          previouslyEnabled: _applied?.enabled ?? false,
+        );
+      }
       _applying = next;
       var generation = _generation;
       if (next == _applied) {
@@ -1145,5 +1230,6 @@ class PlaybackUpscaler {
     await _flight;
     await _resetWork;
     await backend.close();
+    await _preparation;
   }();
 }

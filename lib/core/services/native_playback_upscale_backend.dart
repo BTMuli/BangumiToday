@@ -15,6 +15,7 @@ import '../../models/playback/playback_upscale.dart';
 import '../utils/playback_build_log.dart';
 import 'native_upscale_adapter.dart';
 import 'playback_build_cancellation.dart';
+import 'playback_tensorrt_precompile.dart';
 import 'playback_tensorrt_resources.dart';
 import 'playback_upscaler.dart';
 
@@ -54,6 +55,57 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
   final List<File> _files = [];
   final List<PlaybackBuildCancellation> _buildCancellations = [];
   bool _cancelBuildRequested = false;
+  final _precompiler = PlaybackTensorRtPrecompile();
+  bool _preparing = false;
+
+  @override
+  int get engineCacheEpoch => tensorRtResources.engineEpoch;
+
+  @override
+  Future<void> prepareJanai(
+    int slot,
+    PlaybackVideoSource source,
+    String renderer,
+  ) async {
+    if (!tensorRtEnabled() || !tensorRtResources.canEnable) {
+      throw StateError('AI 实时超分需要 NVIDIA 显卡，并先配置 TensorRT');
+    }
+    _preparing = true;
+    tensorRtResources.beginBuild();
+    try {
+      await _precompiler.run(
+        bundle: tensorRtResources.bundleDirectory,
+        runtime: tensorRtResources.runtimeDirectory,
+        cache: tensorRtResources.engineDirectory,
+        sm: tensorRtResources.gpu!.sm,
+        target: (
+          slot: slot,
+          width: source.pixelWidth,
+          height: source.pixelHeight,
+          renderer: renderer,
+        ),
+        onProgress: (progress) {
+          if (progress.phase == 'cancelled') {
+            tensorRtResources.observe(null);
+            return;
+          }
+          tensorRtResources.observe(
+            PlaybackJanaiStatus(
+              phase: progress.phase == 'ready' ? 'configured' : progress.phase,
+              backend: 'tensorrt',
+              reason: progress.reason,
+              backendReason: '',
+              frames: 0,
+              gpuMilliseconds: 0,
+              buildLines: progress.lines,
+            ),
+          );
+        },
+      );
+    } finally {
+      _preparing = false;
+    }
+  }
 
   Future<String> _janaiConfiguration() async {
     if (!tensorRtEnabled() || !tensorRtResources.canEnable) {
@@ -133,7 +185,7 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
   Future<void> janai(int? slot, {PlaybackJanaiFrameRate? frameRate}) async {
     var preserveFailure = false;
     if (slot == null) {
-      cancelJanaiBuild();
+      _cancelFilterBuild();
       // Capture the terminal build log before mpv releases the old filter.
       try {
         var previous = await janaiStatus();
@@ -146,7 +198,6 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
       }
     } else {
       _cancelBuildRequested = false;
-      tensorRtResources.beginBuild();
     }
     // The config path is what makes the pinned filter load the shim at all, so
     // it is part of the chain string rather than a separate option. This is the
@@ -171,7 +222,9 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
       cancellation.dispose();
       _buildCancellations.remove(cancellation);
     }
-    if (slot == null && !preserveFailure) tensorRtResources.observe(null);
+    if (slot == null && !preserveFailure && !_preparing) {
+      tensorRtResources.observe(null);
+    }
     for (var file in _files.toList()) {
       if (slot != null && (file == _config || file == _status)) continue;
       if (await file.exists()) await file.delete();
@@ -182,6 +235,11 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
 
   @override
   void cancelJanaiBuild() {
+    _precompiler.cancel();
+    _cancelFilterBuild();
+  }
+
+  void _cancelFilterBuild() {
     _cancelBuildRequested = true;
     for (var cancellation in _buildCancellations) {
       cancellation.cancel();
@@ -236,7 +294,7 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
       }
     }
     if (file != _status) return null;
-    tensorRtResources.observe(status);
+    if (!_preparing) tensorRtResources.observe(status);
     return status;
   }
 

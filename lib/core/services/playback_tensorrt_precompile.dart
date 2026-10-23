@@ -12,10 +12,18 @@ import 'package:path/path.dart' as path;
 // Project imports:
 import '../utils/playback_build_log.dart';
 
+typedef PlaybackTensorRtTarget = ({
+  int slot,
+  int width,
+  int height,
+  String renderer,
+});
+
 class PlaybackTensorRtPreparation {
   PlaybackTensorRtPreparation(Map<String, dynamic> event)
     : phase = event['phase'] as String,
       completed = event['completed'] as int,
+      total = event['total'] as int,
       task = event['task'] as String,
       reason = event['reason'] as String,
       lines = List<String>.unmodifiable(
@@ -24,12 +32,13 @@ class PlaybackTensorRtPreparation {
 
   final String phase;
   final int completed;
+  final int total;
   final String task;
   final String reason;
   final List<String> lines;
   String get label => task.isEmpty
       ? reason
-      : '${math.min(completed + 1, 4)} / 4 · $task · $reason';
+      : '${math.min(completed + 1, total)} / $total · $task · $reason';
 }
 
 /// The native shim shares playback's cache and builder. Polling, log reads and
@@ -48,6 +57,7 @@ class PlaybackTensorRtPrecompile {
     required String runtime,
     required String cache,
     required int sm,
+    PlaybackTensorRtTarget? target,
     required void Function(PlaybackTensorRtPreparation) onProgress,
   }) async {
     _cancelled = false;
@@ -55,7 +65,7 @@ class PlaybackTensorRtPrecompile {
     try {
       await Isolate.spawn(
         _prepare,
-        [events.sendPort, bundle, runtime, cache, sm],
+        [events.sendPort, bundle, runtime, cache, sm, ?target],
         onError: events.sendPort,
         onExit: events.sendPort,
       );
@@ -91,6 +101,9 @@ class PlaybackTensorRtPrecompile {
     var runtime = request[2] as String;
     var cache = request[3] as String;
     var sm = request[4] as int;
+    var target = request.length > 5
+        ? request[5] as PlaybackTensorRtTarget
+        : null;
     var commands = ReceivePort();
     var cancelled = false;
     var subscription = commands.listen((_) => cancelled = true);
@@ -100,6 +113,7 @@ class PlaybackTensorRtPrecompile {
     var status = <String, dynamic>{
       'phase': 'preparing',
       'completed': 0,
+      'total': target == null ? 4 : 1,
       'task': '',
       'reason': '正在启动引擎准备任务',
     };
@@ -135,14 +149,47 @@ class PlaybackTensorRtPrecompile {
             Void Function(Pointer<Void>),
             void Function(Pointer<Void>)
           >('bt_trt_precompile_close');
-      job = using(
-        (arena) => start(
-          bundle.toNativeUtf16(allocator: arena),
-          runtime.toNativeUtf16(allocator: arena),
-          cache.toNativeUtf16(allocator: arena),
+      job = using((arena) {
+        var bundlePath = bundle.toNativeUtf16(allocator: arena);
+        var runtimePath = runtime.toNativeUtf16(allocator: arena);
+        var cachePath = cache.toNativeUtf16(allocator: arena);
+        if (target == null) {
+          return start(bundlePath, runtimePath, cachePath, sm);
+        }
+        var startTarget = library
+            .lookupFunction<
+              Pointer<Void> Function(
+                Pointer<Utf16>,
+                Pointer<Utf16>,
+                Pointer<Utf16>,
+                Int32,
+                Int32,
+                Int32,
+                Int32,
+                Pointer<Utf16>,
+              ),
+              Pointer<Void> Function(
+                Pointer<Utf16>,
+                Pointer<Utf16>,
+                Pointer<Utf16>,
+                int,
+                int,
+                int,
+                int,
+                Pointer<Utf16>,
+              )
+            >('bt_trt_precompile_target_start');
+        return startTarget(
+          bundlePath,
+          runtimePath,
+          cachePath,
           sm,
-        ),
-      );
+          target.slot,
+          target.width,
+          target.height,
+          target.renderer.toNativeUtf16(allocator: arena),
+        );
+      });
       if (job == nullptr) throw StateError('无法启动 TensorRT 引擎准备');
       var previousLog = '';
       List<String> lines = const [];

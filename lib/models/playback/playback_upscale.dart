@@ -35,11 +35,22 @@ enum PlaybackUpscaleMode {
 
 typedef PlaybackPixels = ({int width, int height});
 typedef PlaybackViewport = ({double width, double height, double dpr});
-typedef PlaybackVideoSource = ({int width, int height, String? gamma});
+typedef PlaybackVideoSource = ({
+  int width,
+  int height,
+  int pixelWidth,
+  int pixelHeight,
+  String? gamma,
+});
 
+/// `width`/`height` are display dimensions: aspect corrected and rotated.
+/// `pixelWidth`/`pixelHeight` are the decoder's frame dimensions before
+/// rotation, which is what video filters receive.
 PlaybackVideoSource? playbackVideoSource({
   int? width,
   int? height,
+  int? pixelWidth,
+  int? pixelHeight,
   int? rotation,
   String? gamma,
 }) {
@@ -48,6 +59,16 @@ PlaybackVideoSource? playbackVideoSource({
   return (
     width: rotated ? height : width,
     height: rotated ? width : height,
+    pixelWidth: pixelWidth != null && pixelWidth > 0
+        ? pixelWidth
+        : rotated
+        ? height
+        : width,
+    pixelHeight: pixelHeight != null && pixelHeight > 0
+        ? pixelHeight
+        : rotated
+        ? width
+        : height,
     gamma: gamma,
   );
 }

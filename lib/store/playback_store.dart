@@ -291,6 +291,8 @@ class PlaybackStore extends ChangeNotifier {
       playbackVideoSource(
         width: value.dw ?? value.w,
         height: value.dh ?? value.h,
+        pixelWidth: value.w,
+        pixelHeight: value.h,
         rotation: value.rotate,
         gamma: value.gamma,
       );
