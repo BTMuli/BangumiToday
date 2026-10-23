@@ -53,8 +53,11 @@ jobs:
           }
           $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
           cmake --preset windows-x64-release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build --preset windows-x64-release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --install out/build/windows-x64-release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           $runtimePath = (Resolve-Path 'out/install/windows-x64-release').Path
           "BT_DOWNLOAD_RUNTIME_DIR=$runtimePath" >> $env:GITHUB_ENV
@@ -80,6 +83,7 @@ jobs:
         shell: pwsh
         run: |
           flutter build windows --release --dart-define-from-file=build_config.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./scripts/verify_windows_bundle.ps1 `
             -BundlePath build/windows/x64/runner/Release `
             -EngineRuntimePath $env:BT_DOWNLOAD_RUNTIME_DIR
