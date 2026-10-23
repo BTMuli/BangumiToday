@@ -26,6 +26,7 @@ class PlaybackTensorRtPreparation {
       total = event['total'] as int,
       task = event['task'] as String,
       reason = event['reason'] as String,
+      buildRequired = event['buildRequired'] as bool,
       lines = List<String>.unmodifiable(
         (event['lines'] as List? ?? const []).cast<String>(),
       );
@@ -35,6 +36,7 @@ class PlaybackTensorRtPreparation {
   final int total;
   final String task;
   final String reason;
+  final bool buildRequired;
   final List<String> lines;
   String get label => task.isEmpty
       ? reason
@@ -116,6 +118,7 @@ class PlaybackTensorRtPrecompile {
       'total': target == null ? 4 : 1,
       'task': '',
       'reason': '正在启动引擎准备任务',
+      'buildRequired': false,
     };
     try {
       var library = DynamicLibrary.open(path.join(bundle, 'aji.dll'));

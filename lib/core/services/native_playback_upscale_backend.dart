@@ -98,10 +98,14 @@ class NativePlaybackUpscaleBackend implements PlaybackUpscaleBackend {
               frames: 0,
               gpuMilliseconds: 0,
               buildLines: progress.lines,
+              buildRequired: progress.buildRequired,
             ),
           );
         },
       );
+      // Include this job's published engine before recording its prepared
+      // target, rather than invalidating it at the next episode's first poll.
+      await tensorRtResources.refreshEngineCache();
     } finally {
       _preparing = false;
     }

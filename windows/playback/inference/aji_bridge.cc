@@ -346,8 +346,10 @@ void PublishStats(aji_ctx& state, const char* phase, bool force) noexcept try {
     stream << "gpuVendor=" << state.gpu.vendor << "\n";
     stream << "gpuSm=" << state.gpu.compute_major * 10 + state.gpu.compute_minor << "\n";
     stream << "gpuDriver=" << state.gpu.cuda_driver_version << "\n";
-    stream << "buildLog=" << (state.build
-        ? FromWide(state.build->snapshot().log.wstring()) : std::string()) << "\n";
+    const auto build = state.build ? state.build->snapshot()
+                                  : TrtEngineBuild::Result{};
+    stream << "buildLog=" << FromWide(build.log.wstring()) << "\n";
+    stream << "buildRequired=" << build.build_required << "\n";
     stream << "engine=" << FromWide(state.trt_engine.filename().wstring()) << "\n";
     stream << "slot=" << state.slot << "\n";
     stream << "model="

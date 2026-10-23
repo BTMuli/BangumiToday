@@ -14,6 +14,7 @@ class PlaybackJanaiStatus {
     this.gpuDriver = 0,
     this.buildLog = '',
     this.buildLines = const [],
+    this.buildRequired = false,
   });
 
   final String phase;
@@ -29,7 +30,9 @@ class PlaybackJanaiStatus {
   final int gpuDriver;
   final String buildLog;
   final List<String> buildLines;
+  final bool buildRequired;
   bool get preparing => phase == 'preparing';
+  bool get compiling => preparing && buildRequired;
   bool get active => phase == 'active' && frames > 0;
 
   /// Counters and GPU timings are sampled by the OSD's own timer. Only changes
@@ -46,6 +49,7 @@ class PlaybackJanaiStatus {
         gpuSm != other.gpuSm ||
         gpuDriver != other.gpuDriver ||
         buildLog != other.buildLog ||
+        buildRequired != other.buildRequired ||
         buildLines.length != other.buildLines.length) {
       return false;
     }
@@ -73,6 +77,7 @@ class PlaybackJanaiStatus {
       }
     }
     if (fields['schemaVersion'] != '1' ||
+        !['0', '1'].contains(fields['buildRequired']) ||
         ![
           'preparing',
           'resources_missing',
@@ -108,6 +113,7 @@ class PlaybackJanaiStatus {
       gpuSm: int.parse(fields['gpuSm'] ?? '0'),
       gpuDriver: int.parse(fields['gpuDriver'] ?? '0'),
       buildLog: fields['buildLog'] ?? '',
+      buildRequired: fields['buildRequired'] == '1',
     );
   }
 
@@ -125,5 +131,6 @@ class PlaybackJanaiStatus {
     gpuDriver: gpuDriver,
     buildLog: buildLog,
     buildLines: List.unmodifiable(lines),
+    buildRequired: buildRequired,
   );
 }

@@ -12,6 +12,7 @@ PlaybackJanaiStatus _status({
   String reason = '',
   int driver = 13040,
   List<String> lines = const [],
+  bool buildRequired = false,
 }) => PlaybackJanaiStatus(
   phase: phase,
   backend: 'tensorrt',
@@ -24,6 +25,7 @@ PlaybackJanaiStatus _status({
   gpuSm: 89,
   gpuDriver: driver,
   buildLines: lines,
+  buildRequired: buildRequired,
 );
 
 void main() {
@@ -64,5 +66,68 @@ void main() {
     resources.observe(_status(phase: 'preparing', lines: ['second']));
     expect(notifications, 2);
     expect(resources.lines, ['second']);
+  });
+
+  test('缓存校验和预热不显示编译提示或完成提示', () {
+    var resources = PlaybackTensorRtResources(onChanged: () {});
+    addTearDown(resources.dispose);
+    resources.beginBuild();
+    resources.observe(_status(phase: 'preparing'));
+    expect(resources.native!.preparing, isTrue);
+    expect(resources.native!.compiling, isFalse);
+    expect(resources.visible, isFalse);
+    resources.observe(_status(phase: 'configured', frames: 0));
+    resources.observe(_status());
+    expect(resources.buildCompleted, isFalse);
+    expect(resources.visible, isFalse);
+  });
+
+  test('实际编译阶段及完成后显示提示，后续缓存加载不重新弹出', () {
+    var resources = PlaybackTensorRtResources(onChanged: () {});
+    addTearDown(resources.dispose);
+    resources.observe(_status(phase: 'preparing'));
+    resources.observe(_status(phase: 'preparing', buildRequired: true));
+    expect(resources.visible, isTrue);
+    expect(resources.native!.compiling, isTrue);
+    resources.observe(_status(phase: 'configured', buildRequired: true));
+    expect(resources.buildCompleted, isTrue);
+    resources.observe(_status(phase: 'preparing'));
+    expect(resources.buildCompleted, isTrue);
+    resources.dismissBuildNotice();
+    resources.observe(_status(phase: 'configured'));
+    resources.observe(_status());
+    expect(resources.visible, isFalse);
+  });
+
+  test('缓存校验失败仍显示错误和重试提示', () {
+    var resources = PlaybackTensorRtResources(onChanged: () {});
+    addTearDown(resources.dispose);
+    resources.observe(_status(phase: 'preparing'));
+    resources.observe(_status(phase: 'failed', reason: 'cache unavailable'));
+    expect(resources.visible, isTrue);
+    expect(resources.label, 'cache unavailable');
+  });
+
+  test('原生状态的编译标记参与解析、更新通知和日志复制', () {
+    String snapshot(int required) =>
+        '''
+schemaVersion=1
+phase=preparing
+backend=tensorrt
+reason=prepare
+backendReason=
+framesInferred=0
+lastGpuMs=0
+sourceFps=24
+buildRequired=$required
+''';
+    var cached = PlaybackJanaiStatus.parse(snapshot(0));
+    var compiling = PlaybackJanaiStatus.parse(snapshot(1));
+    expect(cached.preparing, isTrue);
+    expect(cached.compiling, isFalse);
+    expect(compiling.compiling, isTrue);
+    expect(compiling.hasSamePresentation(cached), isFalse);
+    expect(compiling.withBuildLines(['build']).compiling, isTrue);
+    expect(() => PlaybackJanaiStatus.parse(snapshot(2)), throwsFormatException);
   });
 }

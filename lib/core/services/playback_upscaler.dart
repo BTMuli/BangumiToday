@@ -617,6 +617,7 @@ class PlaybackUpscaler {
       try {
         await backend.prepareJanai(target.slot, source, renderer);
         if (!_closed && epoch == _preparationEpoch) {
+          _invalidatePreparedEngines();
           _preparedJanai.add(target);
         }
       } catch (error) {

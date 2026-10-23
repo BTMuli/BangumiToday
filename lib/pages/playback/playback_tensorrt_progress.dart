@@ -27,13 +27,13 @@ class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
   @override
   void initState() {
     super.initState();
-    _preparing = widget.store.tensorRtResources.native?.preparing == true;
+    _preparing = widget.store.tensorRtResources.native?.compiling == true;
   }
 
   @override
   void didUpdateWidget(covariant _PlaybackTensorRtProgress oldWidget) {
     super.didUpdateWidget(oldWidget);
-    var preparing = widget.store.tensorRtResources.native?.preparing == true;
+    var preparing = widget.store.tensorRtResources.native?.compiling == true;
     if (preparing && !_preparing) _details = true;
     _preparing = preparing;
   }
@@ -52,7 +52,7 @@ class _PlaybackTensorRtProgressState extends State<_PlaybackTensorRtProgress> {
   Widget build(BuildContext context) {
     var resources = widget.store.tensorRtResources;
     var preparing =
-        resources.native?.preparing == true || resources.cancellingBuild;
+        resources.native?.compiling == true || resources.cancellingBuild;
     var missing = resources.native?.phase == 'resources_missing';
     var failed =
         !resources.cancellingBuild && resources.native?.phase == 'failed';

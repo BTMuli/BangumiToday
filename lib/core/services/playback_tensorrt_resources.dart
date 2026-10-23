@@ -68,6 +68,7 @@ class PlaybackTensorRtResources {
   /// checked earlier, so prepared targets can be discarded.
   int engineEpoch = 0;
   String? _engineSnapshot;
+  Future<void> _engineRefresh = Future.value();
   List<String> get precompileLines => _precompileLines;
   bool get ready => installed && canDownload && !busy && !checking;
   bool get canEnable =>
@@ -104,7 +105,7 @@ class PlaybackTensorRtResources {
   bool get visible =>
       !_noticeDismissed &&
       (cancellingBuild ||
-          native?.preparing == true ||
+          native?.compiling == true ||
           native?.phase == 'resources_missing' ||
           native?.phase == 'failed' ||
           _buildCompleted);
@@ -191,7 +192,7 @@ class PlaybackTensorRtResources {
     try {
       if (detectGpu || gpu == null) gpu = await PlaybackTensorRtGpu.detect();
       if (_disposed) return;
-      await _refreshEngineEpoch();
+      await refreshEngineCache();
       if (!canDownload) {
         _installed = false;
         _checkedSnapshot = null;
@@ -249,18 +250,40 @@ class PlaybackTensorRtResources {
 
   /// Polls the shared cache directory so a Player drops prepared targets after
   /// this window, another window or the Settings page rebuilds or clears it.
+  Future<void> refreshEngineCache() {
+    var refresh = _engineRefresh.then((_) => _refreshEngineEpoch());
+    _engineRefresh = refresh.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return refresh;
+  }
+
   Future<void> _refreshEngineEpoch() async {
-    if (_dataDirectory == null) return;
-    var names = <String>[];
+    if (_disposed || _dataDirectory == null) return;
+    var entries = <String>[];
+    var engineFile = RegExp(r'^[a-f0-9]{64}\.engine(?:\.meta)?$');
     try {
-      await for (var entry in Directory(engineDirectory).list()) {
-        if (entry is File) names.add(path.basename(entry.path));
+      await for (var entry in Directory(
+        engineDirectory,
+      ).list(followLinks: false)) {
+        var name = path.basename(entry.path);
+        if (entry is! File || !engineFile.hasMatch(name)) {
+          continue;
+        }
+        var stat = await entry.stat();
+        entries.add(
+          '$name:${stat.type}:${stat.size}:'
+          '${stat.modified.microsecondsSinceEpoch}:'
+          '${stat.changed.microsecondsSinceEpoch}',
+        );
       }
     } on FileSystemException {
       // An unreadable cache cannot be trusted to hold prepared engines.
+      entries = ['unreadable'];
     }
-    names.sort();
-    var snapshot = names.join('\n');
+    entries.sort();
+    var snapshot = entries.join('\n');
     if (_engineSnapshot != null && _engineSnapshot != snapshot) engineEpoch++;
     _engineSnapshot = snapshot;
   }
@@ -279,7 +302,7 @@ class PlaybackTensorRtResources {
         : !status.hasSamePresentation(native);
     if (status == null) _cancellingBuild = false;
     var previous = native;
-    if (status == null || status.preparing) {
+    if (status == null || status.compiling) {
       _buildNoticeTimer?.cancel();
       _buildCompleted = false;
       _noticeDismissed = false;
@@ -289,7 +312,8 @@ class PlaybackTensorRtResources {
         _buildCompleted = false;
         _holdBuildNotice(const Duration(seconds: 12));
       }
-    } else if (previous?.preparing == true &&
+    } else if (status.buildRequired &&
+        previous?.preparing == true &&
         (status.phase == 'configured' || status.active)) {
       _buildCompleted = true;
       _holdBuildNotice(const Duration(seconds: 8));

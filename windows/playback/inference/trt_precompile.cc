@@ -99,6 +99,7 @@ struct bt_trt_precompile {
     std::string task;
     std::string reason = "正在检测编译显卡";
     std::string log;
+    bool build_required = false;
   };
   std::atomic<bool> cancelled{false};
   std::mutex mutex;
@@ -161,6 +162,7 @@ struct bt_trt_precompile {
             std::lock_guard<std::mutex> lock(mutex);
             status.reason = progress.reason;
             status.log = Utf8(progress.log);
+            status.build_required |= progress.build_required;
           }
           if (progress.phase == TrtEngineBuild::Phase::kFailed)
             throw std::runtime_error(progress.reason);
@@ -227,7 +229,8 @@ const char* bt_trt_precompile_poll(bt_trt_precompile* job) {
     job->json = "{\"phase\":" + Quote(s.phase) +
         ",\"completed\":" + std::to_string(s.completed) +
         ",\"total\":" + std::to_string(s.total) + ",\"task\":" + Quote(s.task) +
-        ",\"reason\":" + Quote(s.reason) + ",\"log\":" + Quote(s.log) + "}";
+        ",\"reason\":" + Quote(s.reason) + ",\"log\":" + Quote(s.log) +
+        ",\"buildRequired\":" + (s.build_required ? "true" : "false") + "}";
     return job->json.c_str();
   } catch (...) { return nullptr; }
 }

@@ -484,6 +484,10 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
       valid = false;
     }
     if (!valid) {
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        result_.build_required = true;
+      }
       const std::filesystem::path temporary(engine.wstring() + L".part");
       const std::filesystem::path temporary_meta(metadata.wstring() + L".part");
       struct Cleanup {
@@ -533,14 +537,16 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
         std::chrono::duration_cast<std::chrono::milliseconds>(
             Clock::now() - started_).count()) + " 毫秒");
     std::lock_guard<std::mutex> lock(mutex_);
-    result_ = {Phase::kReady, engine, {}, resources, engine_lease, result_.log};
+    result_ = {Phase::kReady, engine, {}, resources, engine_lease, result_.log,
+               result_.build_required};
   } catch (const std::exception& error) {
     AppendBuildLog(build_log, std::string(error.what()) + " · 累计 " +
         std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
             Clock::now() - started_).count()) + " 毫秒");
     {
       std::lock_guard<std::mutex> lock(mutex_);
-      result_ = {Phase::kFailed, {}, error.what(), {}, {}, result_.log};
+      result_ = {Phase::kFailed, {}, error.what(), {}, {}, result_.log,
+                 result_.build_required};
     }
     // Cancellation must not spend time pruning a directory before it joins.
     // Other failures still enforce the diagnostic cache budget, outside the
@@ -556,7 +562,7 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
     std::lock_guard<std::mutex> lock(mutex_);
     result_ = {
         Phase::kFailed, {}, "Unexpected TensorRT preparation failure", {}, {},
-        result_.log};
+        result_.log, result_.build_required};
   }
 }
 }  // namespace bangumi::inference

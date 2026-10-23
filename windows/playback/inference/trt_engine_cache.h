@@ -35,6 +35,8 @@ class TrtEngineBuild final {
     std::shared_ptr<TrtResources> resources;
     std::shared_ptr<LockedAsset> engine_lease;
     std::filesystem::path log;
+    // Remains true through validation/publication after a cache miss.
+    bool build_required = false;
   };
   TrtEngineBuild(std::filesystem::path runtime, std::filesystem::path cache,
                  std::filesystem::path model, GpuCapabilities gpu,

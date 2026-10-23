@@ -13,6 +13,37 @@ import 'package:bangumi_today/models/playback/playback_upscale.dart';
 const _budgetFailure = 'AnimeJaNai exceeded the frame budget for three windows';
 
 void main() {
+  test('本次准备写入引擎后，同尺寸切集复用已准备记录', () async {
+    var backend = _Backend()..publishEngineOnPrepare = true;
+    var upscaler = _createUpscaler(backend);
+    await _enableQuality(upscaler, backend);
+    expect(backend.cacheEpoch, 1);
+    await upscaler.resetMedia();
+    upscaler.mediaReady(
+      playbackVideoSource(width: 1280, height: 720, gamma: 'bt.1886'),
+    );
+    await _until(
+      () => upscaler.configuredMode == PlaybackUpscaleMode.janaiQuality,
+    );
+    expect(backend.preparations, hasLength(1));
+  });
+
+  test('其他窗口清理引擎缓存后，同尺寸切集仍重新准备', () async {
+    var backend = _Backend();
+    var upscaler = _createUpscaler(backend);
+    await _enableQuality(upscaler, backend);
+    await upscaler.resetMedia();
+    backend.cacheEpoch++;
+    upscaler.mediaReady(
+      playbackVideoSource(width: 1280, height: 720, gamma: 'bt.1886'),
+    );
+    await _until(() => backend.preparations.length == 2);
+    backend.preparations.last.complete();
+    await _until(
+      () => upscaler.configuredMode == PlaybackUpscaleMode.janaiQuality,
+    );
+  });
+
   test('旧 AI 档位性能回退后继续等待并启用已请求的新档位', () async {
     var backend = _Backend();
     var upscaler = _createUpscaler(backend);
@@ -205,6 +236,11 @@ class _Backend extends PlaybackUpscaleBackend {
   Completer<void>? recovery;
   bool restoring = false;
   int recoveryFailures = 0;
+  int cacheEpoch = 0;
+  bool publishEngineOnPrepare = false;
+
+  @override
+  int get engineCacheEpoch => cacheEpoch;
 
   @override
   Future<void> prepareJanai(
@@ -214,7 +250,9 @@ class _Backend extends PlaybackUpscaleBackend {
   ) {
     var preparation = Completer<void>();
     preparations.add(preparation);
-    return preparation.future;
+    return preparation.future.then((_) {
+      if (publishEngineOnPrepare) cacheEpoch++;
+    });
   }
 
   @override
