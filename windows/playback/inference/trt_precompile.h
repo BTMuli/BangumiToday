@@ -17,4 +17,6 @@ __declspec(dllexport) bt_trt_precompile* bt_trt_precompile_target_start(
 __declspec(dllexport) const char* bt_trt_precompile_poll(bt_trt_precompile* job);
 __declspec(dllexport) void bt_trt_precompile_cancel(bt_trt_precompile* job);
 __declspec(dllexport) void bt_trt_precompile_close(bt_trt_precompile* job);
+// Release idle sessions/file leases before Settings removes cached engines.
+__declspec(dllexport) void bt_trt_precompile_clear_cache();
 }

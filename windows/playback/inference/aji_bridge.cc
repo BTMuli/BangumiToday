@@ -133,6 +133,7 @@ struct aji_ctx {
   std::unique_ptr<TrtEngineBuild> build;
   std::filesystem::path trt_engine;
   std::shared_ptr<TrtResources> trt_resources;
+  std::shared_ptr<TrtPreparedEngine> trt_prepared;
   GpuCapabilities gpu;
   std::string backend_reason;
   // Low-frequency diagnostics snapshot (config key `stats`). The hot path only
@@ -594,6 +595,7 @@ AJI_EXPORT int aji_configure(aji_ctx* c, int w, int h, double fps, int* out_w,
   if (c->trt_enabled && !c->trt_failed) {
     if (!c->build || c->build_slot != c->slot || c->build_width != w ||
         c->build_height != h) {
+      c->trt_prepared.reset();
       c->build.reset();  // Cancels/reaps the previous generation's child.
       c->trt_engine.clear();
       c->trt_resources.reset();
@@ -645,6 +647,7 @@ AJI_EXPORT int aji_configure(aji_ctx* c, int w, int h, double fps, int* out_w,
       if (result.phase == TrtEngineBuild::Phase::kReady) {
         c->trt_engine = result.engine;
         c->trt_resources = result.resources;
+        c->trt_prepared = result.prepared;
         c->backend_reason.clear();
       } else {
         c->trt_failed = true;
@@ -717,6 +720,7 @@ AJI_EXPORT int aji_infer(aji_ctx* c, const aji_frame* in, const aji_frame* out,
     config.model = c->slot_models[c->slot];
     config.trt_engine = c->trt_engine;
     config.trt_resources = c->trt_resources;
+    config.trt_prepared = c->trt_prepared;
     config.require_tensorrt = c->trt_enabled;
     if (config.model.is_relative())
       config.model = c->model_dir / config.model.filename();

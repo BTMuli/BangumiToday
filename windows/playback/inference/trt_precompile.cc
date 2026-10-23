@@ -240,4 +240,7 @@ void bt_trt_precompile_cancel(bt_trt_precompile* job) {
 }
 
 void bt_trt_precompile_close(bt_trt_precompile* job) { delete job; }
+void bt_trt_precompile_clear_cache() {
+  try { TrtPreparedEngine::ClearCache(); } catch (...) {}
+}
 }

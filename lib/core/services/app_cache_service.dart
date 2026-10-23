@@ -14,6 +14,7 @@ import '../cache/directory_cache.dart';
 import 'download_service.dart';
 import 'file_service.dart';
 import 'playback_shader_cache_service.dart';
+import 'playback_tensorrt_precompile.dart';
 
 enum AppCacheKind {
   data('应用数据缓存', '放送日历、条目详情和放送日期，下次使用时重新获取'),
@@ -71,6 +72,9 @@ class AppCacheService {
         PaintingBinding.instance.imageCache.clearLiveImages();
       case AppCacheKind.shaders:
         return (await PlaybackShaderCacheService.instance.clear()).failedFiles;
+      case AppCacheKind.engines:
+        await PlaybackTensorRtPrecompile.clearPreparedCache();
+        return (await _directory(kind)).clear();
       default:
         return (await _directory(kind)).clear();
     }

@@ -29,6 +29,9 @@ class TrtSession final {
   // the CUDA-mapped buffer; the converter reads it without an unpack copy.
   // The converter's graphics accesses are ordered by CUDA map/unmap in Run.
   void Attach(ID3D11Texture2D* input, ID3D11Buffer* output);
+  // Retire this attachment while keeping the validated engine, execution
+  // context and input allocation. A faulted session is never returned to cache.
+  bool Detach() noexcept;
   void Run(ID3D11DeviceContext* context, bool measure);
   struct GpuTiming {
     double input_copy_ms = 0;

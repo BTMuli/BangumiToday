@@ -27,6 +27,7 @@
 
 namespace bangumi::inference {
 struct TrtResources;
+struct TrtPreparedEngine;
 
 class FramePipeline final {
  public:
@@ -36,6 +37,7 @@ class FramePipeline final {
     // An already-built and warmed engine. Empty keeps the DirectML route.
     std::filesystem::path trt_engine;
     std::shared_ptr<TrtResources> trt_resources;
+    std::shared_ptr<TrtPreparedEngine> trt_prepared;
     // Production AI must never silently select the diagnostic DirectML route.
     bool require_tensorrt = false;
     FrameDescription frame;

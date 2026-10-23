@@ -15,6 +15,14 @@ target_include_directories(playback_gpu_regression PRIVATE
   "${REPO_ROOT}/windows/playback")
 target_link_libraries(playback_gpu_regression PRIVATE d3d11 d3d12 dxgi)
 enable_testing()
+add_executable(warm_cache_regression warm_cache_regression.cc)
+target_compile_features(warm_cache_regression PRIVATE cxx_std_17)
+target_compile_options(warm_cache_regression PRIVATE /W4 /WX /EHsc /utf-8)
+target_include_directories(warm_cache_regression PRIVATE
+  "${REPO_ROOT}/windows/playback")
+add_test(NAME warm_cache_regression COMMAND warm_cache_regression)
+set_tests_properties(warm_cache_regression PROPERTIES TIMEOUT 15)
+
 add_executable(stats_writer_regression stats_writer_regression.cc)
 target_compile_features(stats_writer_regression PRIVATE cxx_std_17)
 target_compile_definitions(stats_writer_regression PRIVATE

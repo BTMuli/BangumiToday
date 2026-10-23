@@ -140,6 +140,7 @@ struct TrtSession::State {
   bool pending = false;
   bool mapped = false;
   bool completion_failed = false;
+  bool reusable = true;
   bool timing_pending = false;
   GpuTiming gpu_timing;
   SubmissionTiming submission_timing;
@@ -379,7 +380,7 @@ TrtSession::~TrtSession() {
   }
 }
 
-void TrtSession::Attach(ID3D11Texture2D* input, ID3D11Buffer* output) {
+void TrtSession::Attach(ID3D11Texture2D* input, ID3D11Buffer* output) try {
   auto& state = *state_;
   Check(input && output && !state.source, "Invalid TensorRT frame attachment");
   ValidateCudaTexture(input, state.width, state.height * 3);
@@ -462,9 +463,48 @@ void TrtSession::Attach(ID3D11Texture2D* input, ID3D11Buffer* output) {
     state.cuda.cuMemFree(state.warmup_output);
     state.warmup_output = 0;
   }
+} catch (...) {
+  if (state_) state_->reusable = false;
+  throw;
 }
 
-void TrtSession::Run(ID3D11DeviceContext* context, bool measure) {
+bool TrtSession::Detach() noexcept {
+  if (!state_ || !state_->context || !state_->reusable) return false;
+  try {
+    auto& state = *state_;
+    CudaScope scope(state.cuda, state.context);
+    state.Wait();
+    Check(!state.mapped && !state.completion_failed,
+          "Cannot retain a faulted TensorRT attachment");
+    if (state.graph) {
+      CudaApi::Check(state.cuda.cuGraphExecDestroy(state.graph),
+                     "Retire the TensorRT graph");
+      state.graph = nullptr;
+    }
+    Check(state.execution->setTensorAddress("output", nullptr),
+          "Clear the TensorRT output binding");
+    for (auto& resource : state.graphics) {
+      if (!resource) continue;
+      CudaApi::Check(state.cuda.cuGraphicsUnregisterResource(resource),
+                     "Release the TensorRT frame registration");
+      resource = nullptr;
+    }
+    state.source.Reset();
+    state.destination.Reset();
+    state.output_pointer = 0;
+    state.timing_pending = false;
+    state.gpu_timing = {};
+    state.submission_timing = {};
+    return true;
+  } catch (...) {
+    // Unknown completion/registration state must keep its textures and CUDA
+    // allocations alive, matching the existing hung-device retirement policy.
+    (void)state_.release();
+    return false;
+  }
+}
+
+void TrtSession::Run(ID3D11DeviceContext* context, bool measure) try {
   auto& state = *state_;
   Check(context && state.source && state.destination,
         "Missing TensorRT frame resources or playback context");
@@ -550,6 +590,9 @@ void TrtSession::Run(ID3D11DeviceContext* context, bool measure) {
     throw;
   }
   // CUDA unmap orders the converter's following D3D11 reads after CUDA writes.
+} catch (...) {
+  if (state_) state_->reusable = false;
+  throw;
 }
 bool TrtSession::ReadGpuTiming(GpuTiming* timing) {
   if (!timing) throw std::invalid_argument("Missing CUDA timing destination");

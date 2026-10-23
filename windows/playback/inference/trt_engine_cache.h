@@ -13,6 +13,7 @@
 #include "trusted_assets.h"
 
 namespace bangumi::inference {
+class TrtSession;
 struct TrtResources {
   std::filesystem::path directory;
   std::vector<std::unique_ptr<LockedAsset>> leases;
@@ -23,6 +24,22 @@ struct TrtResources {
       const GpuCapabilities& gpu,
       const std::function<void(const std::filesystem::path&, uint64_t, uint64_t)>&
           progress = {});
+};
+
+// A checked-out preparation belongs to one job/Player. Its verified file leases
+// and warmed CUDA state survive precompilation and same-shape episode changes.
+struct TrtPreparedEngine {
+  ~TrtPreparedEngine();
+  std::filesystem::path engine;
+  std::shared_ptr<TrtResources> resources;
+  std::shared_ptr<LockedAsset> engine_lease;
+  std::unique_ptr<LockedAsset> model_lease;
+  std::unique_ptr<TrtSession> session;
+  std::string metadata_identity;
+  bool reusable = true;
+  bool Valid() const;
+  void ReturnSession(std::unique_ptr<TrtSession> value) noexcept;
+  static void ClearCache();
 };
 
 class TrtEngineBuild final {
@@ -37,6 +54,7 @@ class TrtEngineBuild final {
     std::filesystem::path log;
     // Remains true through validation/publication after a cache miss.
     bool build_required = false;
+    std::shared_ptr<TrtPreparedEngine> prepared;
   };
   TrtEngineBuild(std::filesystem::path runtime, std::filesystem::path cache,
                  std::filesystem::path model, GpuCapabilities gpu,

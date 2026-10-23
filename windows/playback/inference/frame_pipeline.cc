@@ -16,6 +16,7 @@
 #include "interop.h"
 #include "gpu_capabilities.h"
 #include "trt_session.h"
+#include "trt_engine_cache.h"
 
 namespace bangumi::inference {
 namespace {
@@ -119,6 +120,7 @@ struct FramePipeline::State {
   std::unique_ptr<InteropContext> interop;
   std::unique_ptr<DmlSession> session;
   std::unique_ptr<TrtSession> trt_session;
+  std::shared_ptr<TrtPreparedEngine> trt_prepared;
   std::unique_ptr<FrameConverter> converter;
   ComPtr<ID3D11Device> device;
   ComPtr<ID3D11DeviceContext4> context4;
@@ -156,6 +158,10 @@ struct FramePipeline::State {
     uint64_t frame = 0;
     bool pending = false;
   } measurement;
+
+  ~State() {
+    if (trt_prepared) trt_prepared->ReturnSession(std::move(trt_session));
+  }
 
   void Transition(ID3D12GraphicsCommandList* list, ID3D12Resource* resource,
                   D3D12_RESOURCE_STATES target) {
@@ -230,9 +236,16 @@ std::unique_ptr<FramePipeline> FramePipeline::Create(
 
   try {
     if (use_tensorrt) {
-      state.trt_session = std::make_unique<TrtSession>(config.trt_resources,
-          config.trt_engine, QueryGpuCapabilities(playback_device),
-          plan.model_width, plan.model_height);
+      state.trt_prepared = config.trt_prepared;
+      if (state.trt_prepared) {
+        state.trt_session = std::move(state.trt_prepared->session);
+        if (!state.trt_session)
+          throw std::runtime_error("Prepared TensorRT session is already in use");
+      } else {
+        state.trt_session = std::make_unique<TrtSession>(config.trt_resources,
+            config.trt_engine, QueryGpuCapabilities(playback_device),
+            plan.model_width, plan.model_height);
+      }
       // Attachment maps the fresh converter resources through CUDA once and
       // captures the graph. CUDA map/unmap flushes the shared immediate
       // context, so hold the same multithread critical section as Submit.

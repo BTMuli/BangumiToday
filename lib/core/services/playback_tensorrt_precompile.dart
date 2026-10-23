@@ -46,6 +46,19 @@ class PlaybackTensorRtPreparation {
 /// The native shim shares playback's cache and builder. Polling, log reads and
 /// cancellation/join live in an isolate, without a Player or a video frame.
 class PlaybackTensorRtPrecompile {
+  /// CUDA retirement and file-lease release must stay off the UI isolate.
+  static Future<void> clearPreparedCache() async {
+    if (!Platform.isWindows) return;
+    var bundle = path.dirname(Platform.resolvedExecutable);
+    await Isolate.run(() {
+      DynamicLibrary.open(
+        path.join(bundle, 'aji.dll'),
+      ).lookupFunction<Void Function(), void Function()>(
+        'bt_trt_precompile_clear_cache',
+      )();
+    });
+  }
+
   SendPort? _control;
   bool _cancelled = false;
 

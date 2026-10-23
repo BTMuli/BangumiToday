@@ -13,10 +13,33 @@
 #include "cuda_api.h"
 #include "trt_assets_data.h"
 #include "trt_session.h"
+#include "warm_lease_cache.h"
 
 namespace bangumi::inference {
 namespace {
 using Clock = std::chrono::steady_clock;
+WarmLeaseCache<TrtPreparedEngine>& PreparedCache() {
+  static WarmLeaseCache<TrtPreparedEngine> cache(
+      [](const TrtPreparedEngine& value) { return value.Valid(); });
+  return cache;
+}
+
+std::wstring PreparedKey(const std::filesystem::path& runtime,
+                          const std::filesystem::path& cache,
+                          const std::filesystem::path& model,
+                          const GpuCapabilities& gpu,
+                          uint32_t width, uint32_t height) {
+  std::wostringstream key;
+  for (const auto& path : {runtime, cache, model}) {
+    auto normalized = std::filesystem::absolute(path).lexically_normal();
+    key << normalized.make_preferred().wstring() << L'\n';
+  }
+  key << gpu.luid.HighPart << L':' << gpu.luid.LowPart << L':'
+      << gpu.cuda_device << L':' << gpu.compute_major << L':'
+      << gpu.compute_minor << L':' << gpu.cuda_driver_version << L':'
+      << width << L'x' << height;
+  return key.str();
+}
 struct Handle final {
   HANDLE value = nullptr;
   explicit Handle(HANDLE handle = nullptr) : value(handle) {}
@@ -305,6 +328,20 @@ void Prune(const std::filesystem::path& directory,
 }
 }  // namespace
 
+TrtPreparedEngine::~TrtPreparedEngine() = default;
+bool TrtPreparedEngine::Valid() const {
+  if (!reusable || !session || !engine_lease || !model_lease || !resources)
+    return false;
+  const auto metadata = std::filesystem::path(engine.wstring() + L".meta");
+  return std::filesystem::is_regular_file(engine) &&
+         ReadText(metadata) == metadata_identity;
+}
+void TrtPreparedEngine::ReturnSession(std::unique_ptr<TrtSession> value) noexcept {
+  if (value && value->Detach()) session = std::move(value);
+  else reusable = false;
+}
+void TrtPreparedEngine::ClearCache() { PreparedCache().Clear(); }
+
 std::shared_ptr<TrtResources> TrtResources::Open(
     const std::filesystem::path& root, const GpuCapabilities& gpu,
     const std::function<void(const std::filesystem::path&, uint64_t, uint64_t)>&
@@ -316,9 +353,16 @@ std::shared_ptr<TrtResources> TrtResources::Open(
         "TensorRT architecture is not in the pinned lock");
   Check(gpu.cuda_driver_version >= detail::kMinimumDriver,
         "NVIDIA driver is too old for the pinned TensorRT/CUDA combination");
+  static std::mutex mutex;
+  static std::weak_ptr<TrtResources> retained;
+  const std::lock_guard<std::mutex> lock(mutex);
+  const auto directory = std::filesystem::absolute(root).lexically_normal();
+  if (auto cached = retained.lock();
+      cached && cached->sm == sm && cached->directory == directory)
+    return cached;
   auto result = std::make_shared<TrtResources>();
   result->sm = sm;
-  result->directory = std::filesystem::absolute(root).lexically_normal();
+  result->directory = directory;
   for (const auto& file : detail::kTrtAssets) {
     if (file.sm != 0 && file.sm != sm) continue;
     const auto path = result->directory / file.name;
@@ -332,6 +376,7 @@ std::shared_ptr<TrtResources> TrtResources::Open(
           if (progress) progress(path, read, file.bytes);
         }));
   }
+  retained = result;
   return result;
 }
 
@@ -388,6 +433,24 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
   std::filesystem::path build_log;
   try {
     CheckCancelled();
+    const auto prepared_key = PreparedKey(runtime, cache, model, gpu,
+                                           width, height);
+    auto prepared = PreparedCache().Acquire(prepared_key,
+        [] { return std::make_unique<TrtPreparedEngine>(); });
+    if (prepared->session) {
+      CheckCancelled();
+      try {
+        WriteText(std::filesystem::path(prepared->engine.wstring() + L".used"),
+                  prepared->engine.stem().u8string());
+      } catch (...) {
+        // Cache usage bookkeeping must not discard a ready, leased session.
+      }
+      std::lock_guard<std::mutex> lock(mutex_);
+      result_ = {Phase::kReady, prepared->engine,
+                 "复用已校验并预热的 TensorRT 会话", prepared->resources,
+                 prepared->engine_lease, {}, false, prepared};
+      return;
+    }
     std::filesystem::create_directories(cache);
     // Diagnostics start before the large runtime files are hashed. The name
     // follows the same bounded cache-log contract as the compiler's output.
@@ -468,6 +531,7 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
     const auto metadata = std::filesystem::path(engine.wstring() + L".meta");
     const auto used = std::filesystem::path(engine.wstring() + L".used");
     bool valid = false;
+    std::unique_ptr<TrtSession> warmed;
     progress("正在检查引擎缓存");
     try {
       valid =
@@ -475,8 +539,8 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
               identity + LockedAsset::Sha256(engine, checkpoint) + '\n';
       if (valid) {
         progress("命中缓存，正在加载并预热已有引擎");
-        TrtSession warm(resources, engine, gpu, width, height,
-                       [this] { CheckCancelled(); }, progress);
+        warmed = std::make_unique<TrtSession>(resources, engine, gpu,
+            width, height, [this] { CheckCancelled(); }, progress);
       }
     } catch (...) {
       CheckCancelled();
@@ -521,9 +585,19 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
             "Cannot publish TensorRT engine metadata");
     }
     progress("正在锁定引擎缓存");
+    const auto engine_hash = LockedAsset::Sha256(engine, checkpoint);
     auto engine_lease = std::shared_ptr<LockedAsset>(
         LockedAsset::File(engine, std::filesystem::file_size(engine),
-                          LockedAsset::Sha256(engine, checkpoint), checkpoint));
+                          engine_hash, checkpoint));
+    if (!warmed)
+      warmed = std::make_unique<TrtSession>(resources, engine, gpu,
+          width, height, [this] { CheckCancelled(); }, progress);
+    prepared->engine = engine;
+    prepared->resources = resources;
+    prepared->engine_lease = engine_lease;
+    prepared->model_lease = std::move(model_lease);
+    prepared->metadata_identity = identity + engine_hash + '\n';
+    prepared->session = std::move(warmed);
     // A separate usage stamp can be refreshed while another Player holds a
     // read-only engine lease. In-flight results also keep a lease until taken.
     WriteText(used, key);
@@ -538,7 +612,7 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
             Clock::now() - started_).count()) + " 毫秒");
     std::lock_guard<std::mutex> lock(mutex_);
     result_ = {Phase::kReady, engine, {}, resources, engine_lease, result_.log,
-               result_.build_required};
+               result_.build_required, prepared};
   } catch (const std::exception& error) {
     AppendBuildLog(build_log, std::string(error.what()) + " · 累计 " +
         std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -546,7 +620,7 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
     {
       std::lock_guard<std::mutex> lock(mutex_);
       result_ = {Phase::kFailed, {}, error.what(), {}, {}, result_.log,
-                 result_.build_required};
+                 result_.build_required, {}};
     }
     // Cancellation must not spend time pruning a directory before it joins.
     // Other failures still enforce the diagnostic cache budget, outside the
@@ -562,7 +636,7 @@ void TrtEngineBuild::Work(const std::filesystem::path& runtime,
     std::lock_guard<std::mutex> lock(mutex_);
     result_ = {
         Phase::kFailed, {}, "Unexpected TensorRT preparation failure", {}, {},
-        result_.log, result_.build_required};
+        result_.log, result_.build_required, {}};
   }
 }
 }  // namespace bangumi::inference
