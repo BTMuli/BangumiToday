@@ -2,6 +2,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+// Flutter imports:
+import 'package:flutter/services.dart' show TextInputAction;
+
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -427,7 +430,7 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
       lastUpdated: _lastUpdated,
       lastAttempt: _lastAttempt,
       onRefresh: () => refresh(notify: false, reportErrors: false),
-      child: ScaffoldPage.withPadding(
+      child: ScaffoldPage(
         padding: EdgeInsets.zero,
         header: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),

@@ -36,7 +36,7 @@ BangumiPersonRevision _$BangumiPersonRevisionFromJson(
   creator: BangumiCreator.fromJson(json['creator'] as Map<String, dynamic>),
   summary: json['summary'] as String,
   createdAt: json['created_at'] as String,
-  data: (json['data'] as Map<String, dynamic>).map(
+  data: (json['data'] as Map).map(
     (k, e) => MapEntry(
       k,
       BangumiPersonRevisionDataItem.fromJson(e as Map<String, dynamic>),
@@ -171,7 +171,7 @@ BangumiCharacterRevision _$BangumiCharacterRevisionFromJson(
   creator: BangumiCreator.fromJson(json['creator'] as Map<String, dynamic>),
   summary: json['summary'] as String,
   createdAt: json['created_at'] as String,
-  data: (json['data'] as Map<String, dynamic>).map(
+  data: (json['data'] as Map).map(
     (k, e) => MapEntry(
       k,
       BangumiCharacterRevisionDataItem.fromJson(e as Map<String, dynamic>),

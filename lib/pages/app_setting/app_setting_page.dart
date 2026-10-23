@@ -313,7 +313,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
   Widget build(BuildContext context) {
     super.build(context);
     var configList = buildConfigList();
-    return ScaffoldPage.withPadding(
+    return ScaffoldPage(
       padding: EdgeInsets.all(16),
       content: BTContentFrame(
         child: Column(

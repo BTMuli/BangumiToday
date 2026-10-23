@@ -172,10 +172,7 @@ class _SubjectReviewDetailPageState
   Widget _buildHeader(BuildContext context) {
     var refreshing = _loading || _commentsLoading;
     return Padding(
-      padding: EdgeInsetsDirectional.only(
-        bottom: 4,
-        end: PageHeader.horizontalPadding(context),
-      ),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -230,12 +227,7 @@ class _SubjectReviewDetailPageState
             ],
           ),
           const SizedBox(height: 4),
-          Padding(
-            padding: EdgeInsetsDirectional.only(
-              start: PageHeader.horizontalPadding(context),
-            ),
-            child: _buildTabs(context),
-          ),
+          _buildTabs(context),
         ],
       ),
     );

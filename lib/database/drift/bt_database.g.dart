@@ -5533,10 +5533,11 @@ class $$AppBmfTableTableManager
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (appSubscriptionRefs)
-                    await $_getPrefetchedData<
+                    await $_getPrefetchedDataByColumns<
                       BmfRow,
                       $AppBmfTable,
-                      SubscriptionRow
+                      SubscriptionRow,
+                      $AppSubscriptionTable
                     >(
                       currentTable: table,
                       referencedTable: $$AppBmfTableReferences
@@ -5546,8 +5547,8 @@ class $$AppBmfTableTableManager
                         table,
                         p0,
                       ).appSubscriptionRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.bmfId == item.id),
+                      currentColumn: 'id',
+                      referencedColumn: 'bmfId',
                       typedResults: items,
                     ),
                 ];
@@ -8151,10 +8152,11 @@ class $$BangumiDataItemTableTableManager
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (bangumiDataSubjectRefs)
-                    await $_getPrefetchedData<
+                    await $_getPrefetchedDataByColumns<
                       DataItemRow,
                       $BangumiDataItemTable,
-                      DataSubjectRow
+                      DataSubjectRow,
+                      $BangumiDataSubjectTable
                     >(
                       currentTable: table,
                       referencedTable: $$BangumiDataItemTableReferences
@@ -8165,8 +8167,8 @@ class $$BangumiDataItemTableTableManager
                             table,
                             p0,
                           ).bangumiDataSubjectRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.itemId == item.id),
+                      currentColumn: 'id',
+                      referencedColumn: 'itemId',
                       typedResults: items,
                     ),
                 ];

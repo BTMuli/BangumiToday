@@ -260,10 +260,9 @@ class _EpisodeDetailPageState extends ConsumerState<EpisodeDetailPage> {
 
   /// 构建页头：返回、标题与剧集信息
   Widget buildHeader() {
-    var padding = PageHeader.horizontalPadding(context);
     var episode = data;
     return Padding(
-      padding: EdgeInsetsDirectional.only(bottom: 8, end: padding),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -271,17 +270,14 @@ class _EpisodeDetailPageState extends ConsumerState<EpisodeDetailPage> {
           buildTopBar(),
           if (episode != null) ...[
             const SizedBox(height: 4),
-            Padding(
-              padding: EdgeInsetsDirectional.only(start: padding),
-              // 简介与信息在封面右侧同一处滚动，卡片整体不超过页头高度
-              child: EpisodeDetailOverview(
-                data: episode,
-                maxHeight: MediaQuery.sizeOf(context).height * 0.4,
-                onOpenSubject: widget.onOpenSubject,
-                onOpenEpisode: widget.onOpenEpisode,
-                previous: _previous,
-                next: _next,
-              ),
+            // 简介与信息在封面右侧同一处滚动，卡片整体不超过页头高度
+            EpisodeDetailOverview(
+              data: episode,
+              maxHeight: MediaQuery.sizeOf(context).height * 0.4,
+              onOpenSubject: widget.onOpenSubject,
+              onOpenEpisode: widget.onOpenEpisode,
+              previous: _previous,
+              next: _next,
             ),
           ],
         ],
@@ -304,7 +300,7 @@ class _EpisodeDetailPageState extends ConsumerState<EpisodeDetailPage> {
             child: const Text('剧集详情', overflow: TextOverflow.ellipsis),
           ),
         ),
-        SizedBox(width: PageHeader.horizontalPadding(context)),
+        const SizedBox(width: 12),
         Tooltip(
           message: '在浏览器中打开章节页面',
           child: IconButton(

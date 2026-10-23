@@ -5,10 +5,7 @@ extension _SubjectDetailHeader on _SubjectDetailPageState {
   Widget buildHeader() {
     var theme = FluentTheme.of(context);
     return Padding(
-      padding: EdgeInsetsDirectional.only(
-        bottom: 8,
-        end: PageHeader.horizontalPadding(context),
-      ),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
           IconButton(
@@ -36,7 +33,7 @@ extension _SubjectDetailHeader on _SubjectDetailPageState {
               ),
             ),
           ),
-          SizedBox(width: PageHeader.horizontalPadding(context)),
+          const SizedBox(width: 12),
           Tooltip(
             message: '搜索 RSS（AniBT / Mikan）',
             child: IconButton(
