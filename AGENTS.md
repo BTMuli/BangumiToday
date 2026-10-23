@@ -9,6 +9,7 @@
 - Use the project [gitmoji-commit skill](.agents/skills/gitmoji-commit/SKILL.md) and its [selection reference](.agents/skills/gitmoji-commit/references/emoji-selection.md). Choose the emoji from the commit's primary intent and actual staged diff, using the [official Gitmoji semantics](https://gitmoji.dev/); consider specific-purpose icons before generic ones.
 - Do not limit selection to familiar icons or force variety. Prefer a specific icon when it describes the primary intent; an incidental implementation detail does not override that intent.
 - Do not add Conventional Commit prefixes such as `fix:` or `feat:` after the emoji.
+- If the pre-commit hook formats tracked Dart files after the commit is created and leaves only formatting changes in the working tree, stage them and amend that local commit instead of creating a separate formatting commit. Never amend a commit that has already been pushed.
 
 ## Dependencies
 
