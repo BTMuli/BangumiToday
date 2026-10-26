@@ -5,7 +5,6 @@ import 'dart:math' as math;
 import 'package:fluent_ui/fluent_ui.dart';
 
 // Project imports:
-import '../../core/layout/responsive.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../widgets/common/empty_state.dart';
 import 'bangumi_calendar_card.dart';
@@ -42,6 +41,10 @@ class BangumiCalendarDay extends StatelessWidget {
 
   /// 空状态最小高度，保证滚动距离稳定
   static const double _emptyHeight = 180;
+
+  /// 按横向卡片所需宽度排布，避免通用屏幕断点让卡片过宽。
+  static const double _minimumCardWidth = 280;
+  static const double _cardSpacing = 8;
 
   /// 构造函数
   const BangumiCalendarDay({
@@ -133,9 +136,14 @@ class BangumiCalendarDay extends StatelessWidget {
   Widget buildList(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        var columns = BTBreakpoints.getGridColumns(constraints.maxWidth);
-        var cardWidth =
-            (constraints.maxWidth - 16 - (columns - 1) * 8) / columns;
+        const padding = EdgeInsets.all(8);
+        var contentWidth = constraints.maxWidth - padding.horizontal;
+        var columns = math.max(
+          1,
+          ((contentWidth + _cardSpacing) / (_minimumCardWidth + _cardSpacing))
+              .floor(),
+        );
+        var cardWidth = (contentWidth - (columns - 1) * _cardSpacing) / columns;
         var minimumHeight = BangumiCalendarCard.minimumHeight(
           context,
           hasAirInfo: data.any(
@@ -143,14 +151,14 @@ class BangumiCalendarDay extends StatelessWidget {
           ),
         );
         return GridView.builder(
-          padding: EdgeInsets.all(8),
+          padding: padding,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
             mainAxisExtent: math.max(cardWidth * 7 / 10, minimumHeight),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
+            mainAxisSpacing: _cardSpacing,
+            crossAxisSpacing: _cardSpacing,
           ),
           itemCount: data.length,
           itemBuilder: (context, index) {
