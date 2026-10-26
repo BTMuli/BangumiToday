@@ -72,7 +72,9 @@ Logs are in `Documents/BangumiToday/log`, accessible from settings:
   day's directory. PID reuse cannot append a new run to the previous log.
 - Dart logs record player state, mpv metrics and supersampling changes. Use
   `native_handle`, media revision and configuration generation to correlate them
-  with native records.
+  with native records. Playback flyouts log open/close times, panel kind,
+  configured upscale mode and open duration to correlate visible overlays with
+  rendering stalls and fallback.
 - Native logs record ANGLE/D3D errors and render timing. Stage times are
   CPU wall times; deadline skips and render failures are separate counters.
   The periodic summary also reports `prefetch_count`, `prefetch_avg_ms` and

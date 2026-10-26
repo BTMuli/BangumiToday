@@ -140,18 +140,36 @@ extension _PlaybackControlMenus on _PlaybackVideoControlsState {
   /// 播放窗口浮出层统一入口。超分实际生效时省去过场动画：动画帧会与
   /// 超分渲染争用 GPU 预算，而菜单与选集面板本就需要稳定尺寸才可阅读。
   Future<T?> _showPlaybackFlyout<T>({
+    required String kind,
     required Offset position,
     required FlyoutPlacementMode placement,
     required WidgetBuilder builder,
-  }) => _contextMenu.showFlyout<T>(
-    position: position,
-    placementMode: placement,
-    // Set the transitions on the route: the root menu and every submenu
-    // inherit them through `Flyout.of`.
-    transitionDuration: _upscalingActive ? Duration.zero : null,
-    transitionBuilder: _upscalingActive ? (_, _, _, child) => child : null,
-    builder: builder,
-  );
+  }) async {
+    var clock = Stopwatch()..start();
+    // Record overlay intervals to correlate stalls and fallback with an open
+    // panel instead of inferring them from nearby logs.
+    BTLogTool.info(
+      '播放浮出层 open kind=$kind '
+      'configured=${widget.store.upscaler?.configuredMode?.name} '
+      'rate=${widget.player.state.rate}',
+    );
+    try {
+      return await _contextMenu.showFlyout<T>(
+        position: position,
+        placementMode: placement,
+        // Set the transitions on the route: the root menu and every submenu
+        // inherit them through `Flyout.of`.
+        transitionDuration: _upscalingActive ? Duration.zero : null,
+        transitionBuilder: _upscalingActive ? (_, _, _, child) => child : null,
+        builder: builder,
+      );
+    } finally {
+      BTLogTool.info(
+        '播放浮出层 close kind=$kind duration_ms=${clock.elapsedMilliseconds} '
+        'configured=${widget.store.upscaler?.configuredMode?.name}',
+      );
+    }
+  }
 
   /// 着色器链或 AI 滤镜已实际安装。只按“已选择”判断会把回退到普通播放的
   /// 场景也算作超分，所以这里依据配置成功的状态。
@@ -181,6 +199,7 @@ extension _PlaybackControlMenus on _PlaybackVideoControlsState {
       widget.run(() async {
         try {
           await _showPlaybackFlyout<void>(
+            kind: section.name,
             placement: FlyoutPlacementMode.bottomLeft,
             position: layout.position,
             builder: (_) => _playbackLibraryDynamicFlyout(
@@ -224,6 +243,7 @@ extension _PlaybackControlMenus on _PlaybackVideoControlsState {
       widget.run(() async {
         try {
           await _showPlaybackFlyout<void>(
+            kind: 'menu',
             position: position,
             placement: placement,
             // FlyoutContent.useAcrylic only changes tint opacity in fluent_ui
