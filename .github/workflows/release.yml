@@ -15,6 +15,7 @@ jobs:
       BANGUMI_APP_ID: ${{ secrets.BANGUMI_APP_ID }}
       BANGUMI_APP_SECRET: ${{ secrets.BANGUMI_APP_SECRET }}
       MSIX_CERTIFICATE_BASE64: ${{ secrets.MSIX_CERTIFICATE_BASE64 }}
+      PUB_HOSTED_URL: https://pub.dev
       RELEASE_VERSION: ${{ github.ref_name }}
     steps:
       - name: 签出仓库
@@ -37,8 +38,22 @@ jobs:
       - name: 检查环境
         run: flutter doctor
 
-      - name: 拉取依赖
-        run: flutter pub get
+      - name: 按锁文件从官方源拉取依赖
+        shell: pwsh
+        run: |
+          # 仅在 CI 中映射包源地址，保留锁定版本和内容哈希。
+          $lockPath = Join-Path $env:GITHUB_WORKSPACE 'pubspec.lock'
+          $lockContent = [IO.File]::ReadAllText($lockPath, [Text.Encoding]::UTF8)
+          $lockContent = $lockContent.Replace(
+            'https://pub.flutter-io.cn',
+            $env:PUB_HOSTED_URL
+          )
+          [IO.File]::WriteAllText(
+            $lockPath,
+            $lockContent,
+            [Text.UTF8Encoding]::new($false)
+          )
+          flutter pub get --enforce-lockfile
 
       - name: 准备推理资源
         shell: pwsh
@@ -82,7 +97,7 @@ jobs:
       - name: 打包并压缩
         shell: pwsh
         run: |
-          flutter build windows --release --dart-define-from-file=build_config.json
+          flutter build windows --release --no-pub --dart-define-from-file=build_config.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./scripts/verify_windows_bundle.ps1 `
             -BundlePath build/windows/x64/runner/Release `
