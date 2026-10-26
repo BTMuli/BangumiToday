@@ -11,6 +11,13 @@
 - Do not add Conventional Commit prefixes such as `fix:` or `feat:` after the emoji.
 - If the pre-commit hook formats tracked Dart files after the commit is created and leaves only formatting changes in the working tree, stage them and amend that local commit instead of creating a separate formatting commit. Never amend a commit that has already been pushed.
 
+## Windows filesystem integrity
+
+- Never lower the integrity level of the project root, its parent directories, any project subdirectories, or generated files (including build outputs and executables) to Low or Untrusted. Keep project and build paths at the normal Medium level.
+- This prohibition covers direct commands such as `icacls /setintegritylevel L` (including inheritable forms), Windows security APIs, helper scripts, and tool or sandbox setup under the agent's control. Do not lower integrity levels to work around sandbox, file access, build, launch, or debugging errors.
+- Diagnose access errors by inspecting integrity labels, access rules, and processes holding files open. When an existing Low label causes a confirmed issue, restore only the affected paths to Medium and preserve unrelated access rules and ownership. Do not lower the integrity of system or user temporary directories to accommodate a Low process.
+- If an external tool applies Low labels again, report the affected paths and available evidence about the source. Do not compensate by lowering additional directories or files.
+
 ## Dependencies
 
 - Keep package entries in `pubspec.yaml` alphabetically ordered by package name within `dependencies`, `dev_dependencies`, and `dependency_overrides` when present. Preserve each package's version, source configuration, and associated comments when reordering.
