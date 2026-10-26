@@ -5,8 +5,10 @@
 
 #include <chrono>
 #include <cstdint>
+#include <future>
 #include <iostream>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 #include "gpu_copy_wait.h"
@@ -139,6 +141,36 @@ void CheckPendingCopy(ID3D11Device* device, ID3D11DeviceContext* context) {
   AwaitCopy(context, query.Get(), wait);
   Require(elapsed < std::chrono::seconds(1), "Event wait exceeded its deadline");
   Require(incomplete == S_FALSE, "A wakeup incorrectly completed pending work");
+
+  // The copy query can finish before Flush1's wider batch. Keep that batch
+  // blocked after the query, then let the query itself complete after 5 ms.
+  Check(context4->Wait(fence.Get(), 2));
+  context->End(query.Get());
+  Check(context4->Wait(fence.Get(), 3));
+  wait.Flush(context);
+  auto release_query = std::async(std::launch::async, [cpu_fence] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    return cpu_fence->Signal(2);
+  });
+  const auto query_started = Clock::now();
+  auto result = S_FALSE;
+  while (result == S_FALSE &&
+         Clock::now() - query_started < std::chrono::seconds(1)) {
+    result = context->GetData(query.Get(), nullptr, 0,
+                              D3D11_ASYNC_GETDATA_DONOTFLUSH);
+    if (result == S_FALSE) wait.Wait(100);
+  }
+  const auto query_elapsed = Clock::now() - query_started;
+  // Always release the tail before checking results or joining the signaler.
+  Check(cpu_fence->Signal(3));
+  Check(release_query.get());
+  AwaitCopy(context, query.Get(), wait);
+  Require(result == S_OK, "The completed prefix query was not observed");
+  std::cout << "Completed copy observed with the flush tail blocked: "
+            << std::chrono::duration<double, std::milli>(query_elapsed).count()
+            << " ms\n";
+  Require(query_elapsed < std::chrono::milliseconds(50),
+          "A delayed flush event stalled an already completed copy query");
 }
 }  // namespace
 

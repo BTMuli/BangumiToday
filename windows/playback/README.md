@@ -39,9 +39,13 @@ GPL build; sources and licensing are listed in the
   snapshots without GPU work or waits. Resizes retain the old frame until
   Flutter samples the replacement.
 - `gpu_copy_wait.h` uses a private high-resolution timer, falling back to
-  `Sleep(1)`. A 100 ms copy timeout preserves the last published frame and waits
-  for the copy before reusing its source. `_HAS_EXCEPTIONS=1` lets queued tasks
-  capture recoverable failures.
+  a bounded sleep. It waits for either the completion event or a query recheck
+  within 2 ms, so a delayed `Flush1` batch event cannot hide an already completed
+  copy for a whole frame budget. Publication still requires `GetData` success.
+  Whole-frame timeouts remain 1000 ms on the shared ANGLE context and 100 ms on
+  the legacy path; failures retain the last published frame and wait for the
+  copy before reusing its source. `_HAS_EXCEPTIONS=1` lets queued tasks capture
+  recoverable failures.
 - Device removal or `EGL_CONTEXT_LOST` replaces the failed render context on the
   worker, removes the AI filter asynchronously, and switches to CPU decoding
   and software output capped at 1080p. Ordinary copy timeouts do not trigger this

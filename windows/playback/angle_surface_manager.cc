@@ -297,7 +297,8 @@ void ANGLESurfaceManager::WaitForCopy(PlaybackRenderSample* sample,
     }
     const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
         timeout - elapsed).count();
-    // Recheck device removal at least every 100 ms, even on a long render.
+    // The wait helper caps query rechecks at 2 ms even if Flush1's broader
+    // completion event is delayed. Keep the whole-frame timeout unchanged.
     copy_wait_.Wait(static_cast<DWORD>(remaining > 100 ? 100
                                       : remaining > 0 ? remaining : 1));
   }

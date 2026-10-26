@@ -5,9 +5,9 @@
 #include <d3d11_3.h>
 #include <wrl/client.h>
 
-// Modern D3D contexts wake the worker on GPU completion. Older contexts use a
-// private high-resolution timer rather than rounding Sleep(1) up to a system
-// timer tick, without changing process-wide timer resolution or spinning.
+// D3D completion events wake the worker early. A private high-resolution timer
+// also bounds query rechecks: Flush1's batch event can arrive after the copy's
+// own query is ready. Neither path changes timer resolution or busy-waits.
 class PlaybackGpuCopyWait {
  public:
   PlaybackGpuCopyWait()
@@ -43,17 +43,21 @@ class PlaybackGpuCopyWait {
   }
 
   void Wait(DWORD timeout_ms = 1) {
-    if (event_pending_) {
-      const auto result = ::WaitForSingleObject(completion_, timeout_ms);
-      if (result == WAIT_OBJECT_0 || result == WAIT_TIMEOUT) return;
-      event_pending_ = false;
-    }
+    // Waiting for the whole flush batch for 100 ms can miss a ready video
+    // frame's deadline. The caller still verifies GetData after every wakeup.
+    const DWORD interval_ms = timeout_ms < 2 ? timeout_ms : 2;
+    HANDLE handles[2]{};
+    DWORD count = 0;
+    if (event_pending_) handles[count++] = completion_;
     LARGE_INTEGER due{};
-    due.QuadPart = -10'000;  // Relative 1 ms, in 100 ns units.
-    if (timer_ && ::SetWaitableTimer(timer_, &due, 0, nullptr, nullptr, FALSE) &&
-        ::WaitForSingleObject(timer_, INFINITE) == WAIT_OBJECT_0)
+    due.QuadPart = -10'000 * static_cast<LONGLONG>(interval_ms);
+    if (timer_ && ::SetWaitableTimer(timer_, &due, 0, nullptr, nullptr, FALSE))
+      handles[count++] = timer_;
+    if (count && ::WaitForMultipleObjects(count, handles, FALSE, interval_ms) !=
+                     WAIT_FAILED)
       return;
-    ::Sleep(1);
+    event_pending_ = false;
+    ::Sleep(interval_ms);
   }
 
  private:
