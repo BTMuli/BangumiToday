@@ -119,11 +119,14 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
 
   /// 选集浮出层的自然高度（含面板边框）：标题、分隔线和当前排版下的完整
   /// 列表。记录页的条目高度随展开状态变化，由最大高度与内部滚动处理。
-  static double playlistFlyoutHeight(PlaybackStore store, double width) {
+  static double playlistFlyoutHeight({
+    required int count,
+    required PlaybackEpisodeLayout layout,
+    required double width,
+  }) {
     // 边框会缩进面板内容，列表实际宽度与列数按内宽计算。
     var innerWidth = width - 2 * _borderWidth;
-    var count = store.playlist.length;
-    var content = switch (store.episodeLayout) {
+    var content = switch (layout) {
       PlaybackEpisodeLayout.grid => () {
         var columns = _columnsFor(innerWidth);
         var rows = (count + columns - 1) ~/ columns;
@@ -1005,7 +1008,6 @@ const _playbackFlyoutBorder = 2.0;
 /// 控制栏浮出层：外层盒保持最大可用高度用于定位，面板按当前排版的实际
 /// 高度贴边显示；切换排版后随内容重新计算，不需要重新打开浮出层。
 Widget _playbackLibraryDynamicFlyout({
-  required PlaybackStore store,
   required _PlaybackLibrarySection section,
   required Widget panel,
   required Size box,
@@ -1016,27 +1018,37 @@ Widget _playbackLibraryDynamicFlyout({
   child: Align(
     alignment: above ? Alignment.bottomCenter : Alignment.topCenter,
     child: DisableAcrylic(
-      child: FlyoutContent(
-        padding: EdgeInsets.zero,
-        useAcrylic: false,
-        child: RepaintBoundary(
-          child: ListenableBuilder(
-            listenable: store,
-            builder: (context, _) {
+      child: RepaintBoundary(
+        child: FlyoutContent(
+          padding: EdgeInsets.zero,
+          useAcrylic: false,
+          child: Consumer(
+            child: panel,
+            builder: (context, ref, child) {
+              // Height depends only on item count and layout. Playback state,
+              // upscale progress and metadata updates need no size rebuild.
+              var (count, layout) = section == _PlaybackLibrarySection.playlist
+                  ? ref.watch(
+                      playbackStoreProvider.select(
+                        (store) => (store.playlist.length, store.episodeLayout),
+                      ),
+                    )
+                  : (0, PlaybackEpisodeLayout.grid);
               var panelWidth = box.width - _playbackFlyoutBorder;
               var maximumPanelHeight = (box.height - _playbackFlyoutBorder)
                   .clamp(0.0, double.infinity)
                   .toDouble();
               var panelHeight = section == _PlaybackLibrarySection.playlist
                   ? _PlaybackLibraryPanelState.playlistFlyoutHeight(
-                      store,
-                      panelWidth,
+                      count: count,
+                      layout: layout,
+                      width: panelWidth,
                     ).clamp(0.0, maximumPanelHeight).toDouble()
                   : maximumPanelHeight;
               return SizedBox(
                 width: panelWidth,
                 height: panelHeight,
-                child: panel,
+                child: child,
               );
             },
           ),
@@ -1048,10 +1060,10 @@ Widget _playbackLibraryDynamicFlyout({
 
 Widget _playbackLibraryFlyout(Widget panel, Size size) => DisableAcrylic(
   // useAcrylic alone does not remove fluent_ui's BackdropFilter.
-  child: FlyoutContent(
-    padding: EdgeInsets.zero,
-    useAcrylic: false,
-    child: RepaintBoundary(
+  child: RepaintBoundary(
+    child: FlyoutContent(
+      padding: EdgeInsets.zero,
+      useAcrylic: false,
       child: SizedBox(width: size.width, height: size.height, child: panel),
     ),
   ),

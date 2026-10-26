@@ -281,87 +281,98 @@ extension _PlaybackControlBar on _PlaybackVideoControlsState {
   Widget _buildChrome(MaterialDesktopVideoControlsThemeData theme) => Stack(
     fit: StackFit.expand,
     children: [
-      IgnorePointer(
-        ignoring: !_chromeVisible,
-        child: AnimatedOpacity(
-          opacity: _chromeVisible ? 1 : 0,
-          duration: const Duration(milliseconds: 150),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              for (var top in [true, false])
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: top ? 0 : null,
-                  bottom: top ? null : 0,
-                  height: top ? 90 : 100,
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: top
-                              ? Alignment.topCenter
-                              : Alignment.bottomCenter,
-                          end: top
-                              ? Alignment.bottomCenter
-                              : Alignment.topCenter,
-                          colors: const [Color(0x99000000), Color(0x00000000)],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              SafeArea(
-                child: Column(
+      // Keep opacity and repaint bounds on the two bars. A full-stage group
+      // can require a video-sized intermediate surface during every fade.
+      for (var top in [true, false])
+        Positioned(
+          left: 0,
+          right: 0,
+          top: top ? 0 : null,
+          bottom: top ? null : 0,
+          child: IgnorePointer(
+            ignoring: !_chromeVisible,
+            child: AnimatedOpacity(
+              opacity: _chromeVisible ? 1 : 0,
+              duration: const Duration(milliseconds: 150),
+              child: RepaintBoundary(
+                child: Stack(
+                  alignment: top ? Alignment.topCenter : Alignment.bottomCenter,
                   children: [
-                    MouseRegion(
-                      onEnter: (_) => _hoverBar(true),
-                      onExit: (_) => _hoverBar(false),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: SizedBox(
-                          height: 48,
-                          child: Row(children: theme.topButtonBar),
+                    SizedBox(
+                      width: double.infinity,
+                      height: top ? 90 : 100,
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: top
+                                  ? Alignment.topCenter
+                                  : Alignment.bottomCenter,
+                              end: top
+                                  ? Alignment.bottomCenter
+                                  : Alignment.topCenter,
+                              colors: const [
+                                Color(0x99000000),
+                                Color(0x00000000),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                    const Spacer(),
-                    MouseRegion(
-                      onEnter: (_) => _hoverBar(true),
-                      onExit: (_) => _hoverBar(false),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          RepaintBoundary(
-                            child: _PlaybackSeekBar(
-                              key: ValueKey(widget.store.current!.key),
-                              player: widget.player,
-                              chapters: _availableChapters,
-                              onChapter: (chapter) => unawaited(
-                                widget.run(() => _seekChapter(chapter)),
+                    SafeArea(
+                      top: top,
+                      bottom: !top,
+                      child: MouseRegion(
+                        onEnter: (_) => _hoverBar(true),
+                        onExit: (_) => _hoverBar(false),
+                        child: top
+                            ? Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: SizedBox(
+                                  height: 48,
+                                  child: Row(children: theme.topButtonBar),
+                                ),
+                              )
+                            : Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  RepaintBoundary(
+                                    child: _PlaybackSeekBar(
+                                      key: ValueKey(widget.store.current!.key),
+                                      player: widget.player,
+                                      visible: _chromeVisible,
+                                      chapters: _availableChapters,
+                                      onChapter: (chapter) => unawaited(
+                                        widget.run(() => _seekChapter(chapter)),
+                                      ),
+                                      run: widget.run,
+                                      onInteraction: _seekInteraction,
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    child: SizedBox(
+                                      height: 48,
+                                      child: Row(
+                                        children: theme.bottomButtonBar,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              run: widget.run,
-                              onInteraction: _seekInteraction,
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: SizedBox(
-                              height: 48,
-                              child: Row(children: theme.bottomButtonBar),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
-      ),
       IgnorePointer(
         child: StreamBuilder<bool>(
           stream: widget.player.stream.buffering,

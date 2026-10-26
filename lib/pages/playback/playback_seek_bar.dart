@@ -9,6 +9,7 @@ class _PlaybackSeekBar extends StatefulWidget {
   const _PlaybackSeekBar({
     super.key,
     required this.player,
+    required this.visible,
     required this.chapters,
     required this.onChapter,
     required this.run,
@@ -16,6 +17,7 @@ class _PlaybackSeekBar extends StatefulWidget {
   });
 
   final Player player;
+  final bool visible;
   final List<PlaybackChapter> chapters;
   final ValueChanged<PlaybackChapter> onChapter;
   final Future<void> Function(Future<void> Function()) run;
@@ -33,6 +35,7 @@ class _PlaybackSeekBarState extends State<_PlaybackSeekBar> {
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
   StreamSubscription<Duration>? _bufferSub;
+  bool _tickersEnabled = true;
   bool _dragging = false;
   bool _hovering = false;
   double _hoverFraction = 0;
@@ -50,15 +53,43 @@ class _PlaybackSeekBarState extends State<_PlaybackSeekBar> {
     _bufferMs = widget.player.state.buffer.inMilliseconds.toDouble();
     _positionSub = widget.player.stream.position.listen((value) {
       if (_dragging || !mounted) return;
-      setState(() => _positionMs = value.inMilliseconds.toDouble());
+      _updatePlayback(position: value.inMilliseconds.toDouble());
     });
     _durationSub = widget.player.stream.duration.listen((value) {
       if (!mounted) return;
-      setState(() => _durationMs = value.inMilliseconds.toDouble());
+      _updatePlayback(duration: value.inMilliseconds.toDouble());
     });
     _bufferSub = widget.player.stream.buffer.listen((value) {
-      if (mounted) setState(() => _bufferMs = value.inMilliseconds.toDouble());
+      if (mounted) _updatePlayback(buffer: value.inMilliseconds.toDouble());
     });
+  }
+
+  void _updatePlayback({double? position, double? duration, double? buffer}) {
+    var next = (
+      position ?? _positionMs,
+      duration ?? _durationMs,
+      buffer ?? _bufferMs,
+    );
+    if (next == (_positionMs, _durationMs, _bufferMs)) return;
+    void update() {
+      _positionMs = next.$1;
+      _durationMs = next.$2;
+      _bufferMs = next.$3;
+    }
+
+    // Keep the latest values while hidden, without building an invisible bar.
+    // Showing the chrome rebuilds it with these values immediately.
+    if (widget.visible && _tickersEnabled) {
+      setState(update);
+    } else {
+      update();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tickersEnabled = TickerMode.valuesOf(context).enabled;
   }
 
   @override

@@ -184,7 +184,6 @@ extension _PlaybackControlMenus on _PlaybackVideoControlsState {
             placement: FlyoutPlacementMode.bottomLeft,
             position: layout.position,
             builder: (_) => _playbackLibraryDynamicFlyout(
-              store: widget.store,
               section: section,
               panel: widget.buildLibraryPanel(section),
               box: box,

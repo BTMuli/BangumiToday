@@ -67,11 +67,16 @@ class _PlaybackEpisodeMarkButtonState
   @override
   Widget build(BuildContext context) {
     var associated = (widget.item.subject ?? 0) > 0;
-    var progress = ref.watch(episodeMarkProvider);
     var key = EpisodeMarkState.itemKey(widget.item);
-    var marked = progress.marked.contains(key);
-    var checked = progress.checked.contains(key);
-    var loading = progress.loading.contains(key);
+    var (marked, checked, loading) = ref.watch(
+      episodeMarkProvider.select(
+        (progress) => (
+          progress.marked.contains(key),
+          progress.checked.contains(key),
+          progress.loading.contains(key),
+        ),
+      ),
+    );
     var visible = !widget.compact || widget.reveal || _busy || marked;
     return IgnorePointer(
       ignoring: !visible,
