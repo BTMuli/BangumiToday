@@ -1019,9 +1019,7 @@ Widget _playbackLibraryDynamicFlyout({
     alignment: above ? Alignment.bottomCenter : Alignment.topCenter,
     child: DisableAcrylic(
       child: RepaintBoundary(
-        child: FlyoutContent(
-          padding: EdgeInsets.zero,
-          useAcrylic: false,
+        child: _PlaybackLibraryFlyoutSurface(
           child: Consumer(
             child: panel,
             builder: (context, ref, child) {
@@ -1061,13 +1059,41 @@ Widget _playbackLibraryDynamicFlyout({
 Widget _playbackLibraryFlyout(Widget panel, Size size) => DisableAcrylic(
   // useAcrylic alone does not remove fluent_ui's BackdropFilter.
   child: RepaintBoundary(
-    child: FlyoutContent(
-      padding: EdgeInsets.zero,
-      useAcrylic: false,
+    child: _PlaybackLibraryFlyoutSurface(
       child: SizedBox(width: size.width, height: size.height, child: panel),
     ),
   ),
 );
+
+/// Share one restrained shadow across the fixed and content-sized flyouts.
+class _PlaybackLibraryFlyoutSurface extends StatelessWidget {
+  const _PlaybackLibraryFlyoutSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    const radius = BorderRadius.all(Radius.circular(8));
+    var stroke = FluentTheme.of(context).resources.surfaceStrokeColorFlyout;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: BTTheme.shadow(context),
+      ),
+      child: FlyoutContent(
+        padding: EdgeInsets.zero,
+        useAcrylic: false,
+        // Avoid the transparent PhysicalModel's broad elevation shadow.
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: BorderSide(color: stroke),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
 
 /// 列表行的行内操作：纯图标，与标记按钮一起在悬停或选中时出现。
 class _PlaybackRowAction extends StatelessWidget {
