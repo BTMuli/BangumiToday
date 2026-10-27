@@ -567,6 +567,10 @@ class _SubjectUserCollectionState extends ConsumerState<SubjectUserCollection>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    ref.listen(bangumiLocalCollectionProvider(subject.id), (_, value) {
+      var collection = value.asData?.value;
+      if (collection != null) _applyCollection(collection);
+    });
     if (!_loaded) {
       // 占位盒与加载完成后的操作行等高，并让圆环保持正方形：
       // 直接放 SizedBox 时会被外层 Expanded 拉宽，圆环会被压成椭圆。

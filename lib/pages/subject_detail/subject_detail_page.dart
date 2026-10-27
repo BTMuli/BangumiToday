@@ -12,7 +12,6 @@ import '../../models/database/app_bmf_model.dart';
 import '../../models/hive/nav_model.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/episode_mark_providers.dart';
-import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_content_frame.dart';
@@ -320,15 +319,6 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    var subject = int.tryParse(widget.id);
-    if (subject != null) {
-      ref.listen(episodeMarkRefreshProvider(subject), (_, value) {
-        var event = value.asData?.value;
-        var account = ref.read(bgmUserStoreProvider).user?.id.toString();
-        if (event == null || event.account.split(':').first != account) return;
-        unawaited(_refreshAfterEpisodeMark());
-      });
-    }
     var episodeId = _episodeId;
     var reviewEntryId = _reviewEntryId;
     // 剧集和评论详情是条目详情的下一级页面，条目内容树保持挂载，
@@ -379,19 +369,5 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
         ],
       ),
     );
-  }
-
-  Future<void> _refreshAfterEpisodeMark() async {
-    try {
-      for (var key in [_collectionKey, _episodesKey]) {
-        if (!mounted) return;
-        var child = key.currentState;
-        if (child is SubjectDetailRefreshable) {
-          await (child as SubjectDetailRefreshable).refresh();
-        }
-      }
-    } catch (error) {
-      BTLogTool.warn('标记看过后刷新详情失败：$error');
-    }
   }
 }

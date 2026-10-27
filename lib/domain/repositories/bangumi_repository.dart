@@ -100,6 +100,13 @@ abstract class BTBangumiRepository {
     bool Function()? authScope,
   });
 
+  /// Persist known chapter progress without requesting the remote collection.
+  Future<BTResponse<void>> saveLocalCollectionProgress(
+    int subjectId,
+    int collectedEpisodes, {
+    required bool Function() authScope,
+  });
+
   Future<BTResponse<BangumiUserSubjectCollection>> getCollectionSubject(
     String username,
     int subjectId,
@@ -145,6 +152,8 @@ abstract class BTBangumiRepository {
   Stream<List<BangumiUserSubjectCollection>> watchLocalCollections({
     BangumiCollectionType? type,
   });
+
+  Stream<BangumiUserSubjectCollection?> watchLocalCollection(int subjectId);
 
   /// 本地收藏列表，供收藏 Tab 首屏。
   Future<List<BangumiUserSubjectCollection>> getLocalCollections({

@@ -19,6 +19,8 @@ abstract class BTBangumiLocalDataSource {
     BangumiCollectionType? type,
   });
 
+  Stream<BangumiUserSubjectCollection?> watchCollection(int subjectId);
+
   Future<bool> writeScoped(
     Future<void> Function() write, {
     required bool Function() isCurrent,

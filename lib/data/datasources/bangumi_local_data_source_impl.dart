@@ -46,6 +46,10 @@ class BTBangumiLocalDataSourceImpl implements BTBangumiLocalDataSource {
   }) => _db.watchAll(type: type);
 
   @override
+  Stream<BangumiUserSubjectCollection?> watchCollection(int subjectId) =>
+      _db.watch(subjectId);
+
+  @override
   Future<bool> writeScoped(
     Future<void> Function() write, {
     required bool Function() isCurrent,

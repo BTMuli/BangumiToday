@@ -30,7 +30,6 @@ import 'package:bangumi_today/providers/subject_playback_providers.dart';
 import 'package:bangumi_today/store/bgm_user_hive.dart';
 import 'package:bangumi_today/store/bt_download_store.dart';
 import 'package:bangumi_today/store/playback_store.dart';
-import '../collections/collection_fixture.dart';
 
 const _item = PlaybackItem(
   filePath: 'D:/Anime/536270/Show - 02.mkv',
@@ -64,8 +63,10 @@ class _Repository extends Fake implements BTBangumiRepository {
   final reads = <int>[];
   final writes = <int>[];
   final done = <int>{};
-  Completer<void>? readGate;
+  List<int> chapterIds = [10002, 10003];
   Completer<void>? progressGate;
+  final progressFailures = <int>[];
+  final localProgress = <int>[];
   int episodePageReads = 0;
   int progressPageReads = 0;
   bool commitOnFailure = false;
@@ -80,10 +81,10 @@ class _Repository extends Fake implements BTBangumiRepository {
     episodePageReads++;
     return BTResponse.success(
       data: BangumiPageT(
-        total: 2,
+        total: chapterIds.length,
         limit: 100,
         offset: 0,
-        data: [_episode(10002), _episode(10003)],
+        data: chapterIds.map(_episode).toList(),
       ),
     );
   }
@@ -93,7 +94,6 @@ class _Repository extends Fake implements BTBangumiRepository {
     int episodeId,
   ) async {
     reads.add(episodeId);
-    await readGate?.future;
     if (readFailures.isNotEmpty) {
       return BTResponse.error(
         code: readFailures.removeAt(0),
@@ -121,13 +121,20 @@ class _Repository extends Fake implements BTBangumiRepository {
   }) async {
     progressPageReads++;
     await progressGate?.future;
+    if (progressFailures.isNotEmpty) {
+      return BTResponse.error(
+        code: progressFailures.removeAt(0),
+        message: '读取失败',
+        data: null,
+      );
+    }
     return BTResponse.success(
       data: BangumiPageT(
-        total: 2,
+        total: chapterIds.length,
         limit: 100,
         offset: 0,
         data: [
-          for (var id in [10002, 10003])
+          for (var id in chapterIds)
             BangumiUserEpisodeCollection(
               episode: _episode(id),
               type: done.contains(id)
@@ -154,12 +161,14 @@ class _Repository extends Fake implements BTBangumiRepository {
   }
 
   @override
-  Future<BTResponse<BangumiUserSubjectCollection>> refreshCollectionSubject(
-    int subjectId, {
-    bool Function()? authScope,
+  Future<BTResponse<void>> saveLocalCollectionProgress(
+    int subjectId,
+    int watchedEpisodes, {
+    required bool Function() authScope,
   }) async {
-    expect(authScope?.call(), isTrue);
-    return BTResponse.success(data: collectionFixture(epStatus: done.length));
+    expect(authScope(), isTrue);
+    localProgress.add(watchedEpisodes);
+    return BTResponse(code: 0, message: 'saved locally', data: null);
   }
 }
 
@@ -271,14 +280,55 @@ void main() {
     expect(repository.progressPageReads, 1);
     expect(repository.episodePageReads, 0);
     expect(repository.writes, [10002, 10003]);
+    expect(repository.reads, isEmpty);
+    expect(repository.localProgress, [1, 2]);
   });
 
-  test('收藏读取期间切集和续期 Token，仍完成原章节标记', () async {
-    var gate = repository.readGate = Completer<void>();
+  for (var concurrent in [false, true]) {
+    test('${concurrent ? '并发' : '连续'}标记12集仅发送12次写入，重复标记不请求', () async {
+      repository.chapterIds = List.generate(12, (index) => 10001 + index);
+      var items = [
+        for (var number = 1; number <= 12; number++)
+          PlaybackItem(
+            filePath: 'D:/Anime/536270/Show - $number.mkv',
+            title: 'episode $number',
+            subject: 536270,
+          ),
+      ];
+      await controller.syncItems(items);
+      expect(repository.progressPageReads, 1);
+      var results = <EpisodeMarkWriteResult>[];
+      if (concurrent) {
+        results = await Future.wait(items.map(controller.markItem));
+      } else {
+        for (var item in items) {
+          results.add(await controller.markItem(item));
+        }
+      }
+      expect(
+        results.map((result) => result.status),
+        everyElement(EpisodeMarkWriteStatus.marked),
+      );
+      expect(repository.writes, repository.chapterIds);
+      expect(repository.reads, isEmpty);
+      expect(repository.progressPageReads, 1);
+      expect(repository.episodePageReads, 0);
+      expect(container.read(episodeMarkProvider).marked, hasLength(12));
+      expect(
+        (await controller.markItem(items.first)).status,
+        EpisodeMarkWriteStatus.alreadyDone,
+      );
+      expect(repository.writes, hasLength(12));
+      expect(repository.reads, isEmpty);
+    });
+  }
+
+  test('选集进度读取期间切集和续期 Token，仍完成原章节标记', () async {
+    var gate = repository.progressGate = Completer<void>();
     var account = controller.currentAccount();
     var pending = controller.markItem(_item);
     await pumpEventQueue();
-    expect(repository.reads, [10002]);
+    expect(repository.progressPageReads, 1);
     playback.select(_next);
     user.authorize('token-2');
     expect(controller.currentAccount(), account);
@@ -296,7 +346,7 @@ void main() {
     (name: '同一账号重新登录', id: 1, generation: 1),
   ]) {
     test('${scenario.name}使进行中的标记失效', () async {
-      var gate = repository.readGate = Completer<void>();
+      var gate = repository.progressGate = Completer<void>();
       var pending = controller.markItem(_item);
       await pumpEventQueue();
       user.authorize(
@@ -310,13 +360,14 @@ void main() {
     });
   }
 
-  test('收藏读取发生短暂网络失败，切集后重试仍指向原章节', () async {
-    repository.readFailures.add(666);
+  test('选集进度读取发生短暂网络失败，切集后重试仍指向原章节', () async {
+    repository.progressFailures.add(666);
     var pending = controller.markItem(_item);
     await pumpEventQueue();
     playback.select(_next);
     expect((await pending).status, EpisodeMarkWriteStatus.marked);
-    expect(repository.reads, everyElement(10002));
+    expect(repository.progressPageReads, 2);
+    expect(repository.reads, isEmpty);
     expect(repository.writes, [10002]);
   });
 
@@ -328,7 +379,7 @@ void main() {
       EpisodeMarkWriteStatus.marked,
     );
     expect(repository.writes, [10002]);
-    expect(repository.reads, [10002, 10002, 10002]);
+    expect(repository.reads, [10002]);
   });
 
   test('确认写入未生效后重试原章节', () async {
@@ -349,7 +400,7 @@ void main() {
     user.authorize('token-2', id: 2, generation: 1);
     expect((await pending).status, EpisodeMarkWriteStatus.expired);
     expect(repository.writes, [10002]);
-    expect(repository.reads, [10002, 10002]);
+    expect(repository.reads, isEmpty);
   });
 
   for (var code in [401, 404, 666]) {
@@ -469,7 +520,7 @@ void main() {
     test('关闭实际播放会话仍使进行中的章节标记失效', () async {
       var actualPlayback = actualContainer.read(playbackStoreProvider);
       var actualController = actualContainer.read(episodeMarkProvider.notifier);
-      var gate = repository.readGate = Completer<void>();
+      var gate = repository.progressGate = Completer<void>();
       var pending = actualController.markItem(_item);
       await pumpEventQueue();
 

@@ -7,6 +7,7 @@ class EpisodeMarkEpisode {
     required this.name,
     this.withinSubject,
     this.done,
+    this.collected,
   });
 
   final int id;
@@ -20,6 +21,9 @@ class EpisodeMarkEpisode {
   final double? withinSubject;
   final bool? done;
 
+  /// Any non-none collection state, including wish and dropped chapters.
+  final bool? collected;
+
   EpisodeMarkEpisode withDone(bool value) => EpisodeMarkEpisode(
     id: id,
     type: type,
@@ -27,6 +31,7 @@ class EpisodeMarkEpisode {
     name: name,
     withinSubject: withinSubject,
     done: value,
+    collected: value ? true : collected,
   );
 }
 
@@ -57,8 +62,9 @@ abstract interface class EpisodeMarkGateway {
   Future<EpisodeMarkPage> progress(int subject, int offset);
   Future<bool> isDone(int episode);
   Future<void> markDone(int episode, {required bool Function() authScope});
-  Future<void> refreshSubject(
-    int subject, {
+  Future<void> saveProgress(
+    int subject,
+    int collectedEpisodes, {
     required bool Function() authScope,
   });
 }

@@ -56,6 +56,15 @@ class BtsBangumiCollection {
     return query.watch().map((rows) => rows.map(_fromRow).toList());
   }
 
+  /// 监听单条收藏，章节进度更新不需要重新读取整个收藏列表。
+  Stream<BangumiUserSubjectCollection?> watch(int subjectId) {
+    var query = _db.select(_db.bangumiCollection)
+      ..where((table) => table.subjectId.equals(subjectId));
+    return query.watchSingleOrNull().map(
+      (row) => row == null ? null : _fromRow(row),
+    );
+  }
+
   /// 获取全部收藏
   Future<List<BangumiUserSubjectCollection>> getAll() async {
     var rows = await _db.select(_db.bangumiCollection).get();

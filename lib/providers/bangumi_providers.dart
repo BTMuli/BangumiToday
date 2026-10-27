@@ -80,3 +80,15 @@ final bangumiCollectionsProvider = StreamProvider.autoDispose
           .watch(bangumiRepositoryProvider)
           .watchLocalCollections(type: type);
     });
+
+/// A chapter edit updates details from storage without a remote refresh.
+final bangumiLocalCollectionProvider = StreamProvider.autoDispose
+    .family<BangumiUserSubjectCollection?, int>((ref, subject) {
+      var user = ref.watch(
+        bgmUserStoreProvider.select(
+          (state) => (state.user?.id, state.sessionGeneration),
+        ),
+      );
+      if (user.$1 == null) return Stream.value(null);
+      return ref.watch(bangumiRepositoryProvider).watchLocalCollection(subject);
+    });

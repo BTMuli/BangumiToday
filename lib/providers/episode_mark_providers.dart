@@ -22,15 +22,6 @@ final episodeMarkProvider =
       EpisodeMarkController.new,
     );
 
-final episodeMarkRefreshProvider =
-    StreamProvider.family<EpisodeMarkRefresh, int>((ref, subject) {
-      return ref
-          .watch(episodeMarkProvider.notifier)
-          .service
-          .refreshes
-          .where((event) => event.subject == subject);
-    });
-
 /// Account-scoped chapter progress and explicit playlist actions. Playback and
 /// auto-advance never wait for queries or writes.
 class EpisodeMarkController extends Notifier<EpisodeMarkState> {

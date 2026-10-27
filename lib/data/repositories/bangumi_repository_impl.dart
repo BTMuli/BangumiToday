@@ -32,7 +32,7 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   final int Function() _requestSource;
   final _subjectRevisions = <int, int>{};
   final _pendingWrites = <(BangumiAccountSession, int)>{};
-  final _collectionRefreshes =
+  final _collectionReads =
       <
         (BangumiAccountSession, int),
         Future<BTResponse<BangumiUserSubjectCollection>>
@@ -399,17 +399,46 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
   ) async {
     var session = _accountSession();
     if (username != '-' && username != session.username) return _changed();
-    return _readCollectionSubject(session, subjectId, removeMissing: true);
+    return _queueCollectionSubjectRead(session, subjectId, removeMissing: true);
   }
 
   @override
   Future<BTResponse<BangumiUserSubjectCollection>> refreshCollectionSubject(
     int subjectId, {
     bool Function()? authScope,
-  }) {
-    var session = _accountSession();
+  }) => _queueCollectionSubjectRead(
+    _accountSession(),
+    subjectId,
+    fresh: true,
+    authScope: authScope,
+  );
+
+  Future<BTResponse<BangumiUserSubjectCollection>> _queueCollectionSubjectRead(
+    BangumiAccountSession session,
+    int subjectId, {
+    bool removeMissing = false,
+    bool fresh = false,
+    bool Function()? authScope,
+  }) => _queueCollectionSubjectOperation(
+    session,
+    subjectId,
+    () => _readCollectionSubject(
+      session,
+      subjectId,
+      removeMissing: removeMissing,
+      fresh: fresh,
+      authScope: authScope,
+    ),
+  );
+
+  Future<BTResponse<BangumiUserSubjectCollection>>
+  _queueCollectionSubjectOperation(
+    BangumiAccountSession session,
+    int subjectId,
+    Future<BTResponse<BangumiUserSubjectCollection>> Function() operation,
+  ) {
     var key = (session, subjectId);
-    var previous = _collectionRefreshes[key];
+    var previous = _collectionReads[key];
     late Future<BTResponse<BangumiUserSubjectCollection>> future;
     future =
         () async {
@@ -420,22 +449,58 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
               // A failed refresh must not prevent later chapter edits syncing.
             }
           }
-          // Read each edit after the preceding refresh commits locally.
-          // Parallel reads share a version and invalidate one another;
-          // reusing a read can instead omit later chapter edits.
-          return _readCollectionSubject(
-            session,
-            subjectId,
-            fresh: true,
-            authScope: authScope,
-          );
+          // Reads and local chapter updates share a revision and must commit
+          // in order without invalidating one another.
+          return operation();
         }().whenComplete(() {
-          if (identical(_collectionRefreshes[key], future)) {
-            unawaited(_collectionRefreshes.remove(key));
+          if (identical(_collectionReads[key], future)) {
+            unawaited(_collectionReads.remove(key));
           }
         });
-    _collectionRefreshes[key] = future;
+    _collectionReads[key] = future;
     return future;
+  }
+
+  @override
+  Future<BTResponse<void>> saveLocalCollectionProgress(
+    int subjectId,
+    int collectedEpisodes, {
+    required bool Function() authScope,
+  }) async {
+    var session = _accountSession();
+    var response = await _queueCollectionSubjectOperation(
+      session,
+      subjectId,
+      () async {
+        var version = _version(subjectId);
+        bool current() =>
+            _current(session) &&
+            version == _version(subjectId) &&
+            !_pendingWrites.contains((session, subjectId)) &&
+            authScope();
+        if (!current()) return _changed();
+        var saved = await _localDataSource.writeScoped(() async {
+          var collection = await _localDataSource.getCollection(subjectId);
+          if (collection == null || collection.epStatus == collectedEpisodes) {
+            return;
+          }
+          collection.epStatus = collectedEpisodes;
+          await _localDataSource.updateCollection(collection);
+        }, isCurrent: current);
+        if (!saved) return _changed();
+        _touch(subjectId);
+        return BTResponse<BangumiUserSubjectCollection>(
+          code: 0,
+          message: '本地收藏进度已保存',
+          data: null,
+        );
+      },
+    );
+    return BTResponse(
+      code: response.code,
+      message: response.message,
+      data: null,
+    );
   }
 
   Future<BTResponse<BangumiUserSubjectCollection>> _readCollectionSubject(
@@ -683,6 +748,15 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     return _localDataSource
         .watchCollections(type: type)
         .map((items) => _current(session) ? items : const []);
+  }
+
+  @override
+  Stream<BangumiUserSubjectCollection?> watchLocalCollection(int subjectId) {
+    var session = _accountSession();
+    if (!_current(session)) return Stream.value(null);
+    return _localDataSource
+        .watchCollection(subjectId)
+        .map((item) => _current(session) ? item : null);
   }
 
   @override

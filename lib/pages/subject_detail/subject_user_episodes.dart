@@ -402,7 +402,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
   }
 
   /// 每种章节类型独立渲染标题与按钮格，正片优先。
-  List<Widget> _buildGroups(BuildContext context) {
+  List<Widget> _buildGroups(BuildContext context, Map<int, bool> progress) {
     var res = <Widget>[];
     var groups = <BangumiEpType, List<BangumiEpisode>>{};
     for (var episode in episodes) {
@@ -419,7 +419,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSummary(context, type, group),
+              _buildSummary(context, type, group, progress),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
@@ -429,7 +429,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
                     SubjectEpisode(
                       episode,
                       subject: subjectId,
-                      user: _userEpById[episode.id],
+                      user: _userEpisode(episode, progress),
                       onShowDetail: () => widget.onOpenEpisode(episode.id),
                       key: ValueKey(episode.id),
                     ),
@@ -456,6 +456,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    var progress = ref.watch(subjectEpisodeProgressProvider(subjectId));
     if (episodes.isEmpty) {
       if (_loading) {
         return const Align(
@@ -479,7 +480,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (!showGridNow && widget.showSummary && mains.isNotEmpty) ...[
-          _buildSummary(context, BangumiEpType.main, mains),
+          _buildSummary(context, BangumiEpType.main, mains, progress),
           const SizedBox(height: 8),
         ],
         if (!showGridNow)
@@ -489,8 +490,26 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
             child: const Text('展开全部'),
           )
         else
-          ..._buildGroups(context),
+          ..._buildGroups(context, progress),
       ],
+    );
+  }
+
+  BangumiUserEpisodeCollection? _userEpisode(
+    BangumiEpisode episode,
+    Map<int, bool> progress,
+  ) {
+    var collection = _userEpById[episode.id];
+    var done = progress[episode.id];
+    if (done == null ||
+        (collection?.type == BangumiEpisodeCollectionType.done) == done) {
+      return collection;
+    }
+    return BangumiUserEpisodeCollection(
+      episode: episode,
+      type: done
+          ? BangumiEpisodeCollectionType.done
+          : BangumiEpisodeCollectionType.none,
     );
   }
 
@@ -498,6 +517,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
     BuildContext context,
     BangumiEpType type,
     List<BangumiEpisode> group,
+    Map<int, bool> progress,
   ) {
     var label = type == BangumiEpType.main ? '正片' : type.label;
     if (!widget.showSummary) {
@@ -509,7 +529,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
     var done = 0;
     BangumiEpisode? next;
     for (var ep in group) {
-      var userEp = _userEpById[ep.id];
+      var userEp = _userEpisode(ep, progress);
       var marked = userEp?.type == BangumiEpisodeCollectionType.done;
       if (marked) {
         done++;

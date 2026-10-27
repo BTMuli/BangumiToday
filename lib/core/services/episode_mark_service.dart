@@ -54,14 +54,6 @@ class EpisodeMarkWriteResult {
   final String? message;
 }
 
-class EpisodeMarkRefresh {
-  const EpisodeMarkRefresh(this.account, this.subject, this.episode);
-
-  final String account;
-  final int subject;
-  final int episode;
-}
-
 /// Network work never joins the playback operation queue. Each explicit row
 /// action resolves its own file and writes done without a confirmation dialog.
 class EpisodeMarkService {
@@ -95,7 +87,6 @@ class EpisodeMarkService {
   List<PlaybackEpisodeRule> _rules = [];
   final _pages = <String, Future<List<EpisodeMarkEpisode>>>{};
   final _writes = <String, Future<EpisodeMarkWriteResult>>{};
-  final _refreshes = StreamController<EpisodeMarkRefresh>.broadcast();
   final _progressChanges = StreamController<EpisodeMarkState>.broadcast();
   final _items = <String, PlaybackItem>{};
   final _progress = <int, Map<int, EpisodeMarkEpisode>>{};
@@ -107,7 +98,6 @@ class EpisodeMarkService {
   String? _progressAccount;
   bool _closed = false;
 
-  Stream<EpisodeMarkRefresh> get refreshes => _refreshes.stream;
   Stream<EpisodeMarkState> get progressChanges => _progressChanges.stream;
   int get progressVersion => _progressVersion;
 
@@ -504,7 +494,10 @@ class EpisodeMarkService {
               : '没有唯一匹配的章节，请手动选择',
         );
       }
-      var done = await gateway.isDone(episode.id);
+      var done =
+          _progress[subject]?[episode.id]?.done ??
+          episode.done ??
+          await gateway.isDone(episode.id);
       if (!_current(account)) return const EpisodeMarkResolution();
       observeProgress(subject, [episode.withDone(done)], account: account);
       if (done) return const EpisodeMarkResolution(alreadyDone: true);
@@ -581,9 +574,12 @@ class EpisodeMarkService {
       return const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.expired);
     }
     try {
-      // Always read back before every write/retry, including an unknown outcome
-      // after timeout. Never toggle done back to none.
-      var done = await gateway.isDone(candidate.episode.id);
+      // Reuse loaded progress. Setting done is idempotent; only the gateway's
+      // recovery from an uncertain write needs a remote read-back.
+      var done =
+          knownProgress(candidate.subject)[candidate.episode.id] ??
+          candidate.episode.done ??
+          await gateway.isDone(candidate.episode.id);
       if (!_current(candidate.account)) {
         return const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.expired);
       }
@@ -615,30 +611,28 @@ class EpisodeMarkService {
       observeProgress(candidate.subject, [
         candidate.episode.withDone(true),
       ], account: candidate.account);
-      // Synchronize authoritative subject progress even with no details page.
-      // A failed read preserves the collection and cannot undo a remote mark.
+      // Bangumi counts every non-none chapter collection in ep_status.
+      // A complete progress snapshot supplies that count locally.
+      // Partial observations must not overwrite the subject's total progress.
       String? warning;
+      var chapters = knownChapters(candidate.subject);
       try {
-        await gateway.refreshSubject(
-          candidate.subject,
-          authScope: () => _current(candidate.account),
-        );
+        if (chapters != null &&
+            chapters.every((chapter) => chapter.collected != null)) {
+          await gateway.saveProgress(
+            candidate.subject,
+            chapters.where((chapter) => chapter.collected!).length,
+            authScope: () => _current(candidate.account),
+          );
+        }
       } catch (error) {
         BTLogTool.warn(
           '章节 ${candidate.episode.id} 已标记看过，'
-          '同步条目 ${candidate.subject} 收藏进度失败：$error',
+          '保存条目 ${candidate.subject} 本地收藏进度失败：$error',
         );
         warning = '已标记看过，本地进度同步失败，请刷新收藏';
       }
-      if (_current(candidate.account)) {
-        _refreshes.add(
-          EpisodeMarkRefresh(
-            candidate.account,
-            candidate.subject,
-            candidate.episode.id,
-          ),
-        );
-      } else {
+      if (!_current(candidate.account)) {
         return const EpisodeMarkWriteResult(EpisodeMarkWriteStatus.expired);
       }
       return EpisodeMarkWriteResult(
@@ -665,6 +659,5 @@ class EpisodeMarkService {
     _pages.clear();
     _progressLoads.clear();
     unawaited(_progressChanges.close());
-    unawaited(_refreshes.close());
   }
 }

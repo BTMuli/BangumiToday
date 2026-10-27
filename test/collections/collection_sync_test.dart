@@ -236,6 +236,36 @@ void main() {
     expect(await local.getCollections(), hasLength(2));
   });
 
+  for (var detailCompletesFirst in [false, true]) {
+    test('连续标记后的详情读取${detailCompletesFirst ? '先' : '后'}返回不使进度刷新失效', () async {
+      var gates = List.generate(3, (_) => Completer<_Subject>());
+      remote.subject = (_) => gates[remote.reads - 1].future;
+      var first = repository.refreshCollectionSubject(536270);
+      var second = repository.refreshCollectionSubject(536270);
+      gates[0].complete(
+        BTResponse.success(data: collectionFixture(epStatus: 1)),
+      );
+      expect((await first).code, 0);
+      await pumpEventQueue();
+      expect(remote.reads, 2);
+
+      // The first mark notifies the details page while the next mark is
+      // already refreshing. Both paths must use the same per-subject queue.
+      var detail = repository.getCollectionSubject('1', 536270);
+      var completionOrder = detailCompletesFirst ? [2, 1] : [1, 2];
+      for (var index in completionOrder) {
+        gates[index].complete(
+          BTResponse.success(data: collectionFixture(epStatus: 2)),
+        );
+        await pumpEventQueue();
+      }
+      var results = await Future.wait([second, detail]);
+      expect(results.map((result) => result.code), everyElement(0));
+      expect(remote.reads, 3);
+      expect((await local.getCollection(536270))!.epStatus, 2);
+    });
+  }
+
   test('收藏进度刷新异常不阻塞后续刷新，结束后仍可继续刷新', () async {
     var gate = Completer<_Subject>();
     remote.subject = (_) => remote.reads == 1
@@ -254,6 +284,56 @@ void main() {
     expect((await repository.refreshCollectionSubject(536270)).code, 0);
     expect(remote.reads, 3);
     expect((await local.getCollection(536270))!.epStatus, 3);
+  });
+
+  for (var changeAccount in [false, true]) {
+    test('本地进度保存排队期间${changeAccount ? '换号' : '会话失效'}不再写入', () async {
+      await local.insertCollection(collectionFixture());
+      var gate = Completer<_Subject>();
+      remote.subject = (_) => gate.future;
+      var active = true;
+      var reading = repository.getCollectionSubject('1', 536270);
+      var saving = repository.saveLocalCollectionProgress(
+        536270,
+        12,
+        authScope: () => active,
+      );
+      await pumpEventQueue();
+      if (changeAccount) {
+        account = (username: '2', generation: 1);
+      } else {
+        active = false;
+      }
+      gate.complete(BTResponse.success(data: collectionFixture(epStatus: 2)));
+      expect((await reading).code, changeAccount ? 409 : 0);
+      expect((await saving).code, 409);
+      expect(
+        (await local.getCollection(536270))!.epStatus,
+        changeAccount ? 1 : 2,
+      );
+      expect(remote.reads, 1);
+    });
+  }
+
+  test('详情监听单条本地收藏进度，保存后发布更新且不请求远程', () async {
+    await local.insertCollection(collectionFixture());
+    var events = <int?>[];
+    var subscription = repository
+        .watchLocalCollection(536270)
+        .listen((item) => events.add(item?.epStatus));
+    addTearDown(subscription.cancel);
+    await pumpEventQueue();
+    expect(events, [1]);
+    var result = await repository.saveLocalCollectionProgress(
+      536270,
+      12,
+      authScope: () => true,
+    );
+    expect(result.code, 0);
+    await pumpEventQueue();
+    expect(events, [1, 12]);
+    expect(remote.reads, 0);
+    expect(remote.offsets, isEmpty);
   });
 
   test('升级绑定旧收藏，同账号保留，切换账号和退出清空', () async {

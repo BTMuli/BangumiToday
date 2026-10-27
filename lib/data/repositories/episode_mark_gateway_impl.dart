@@ -24,6 +24,7 @@ EpisodeMarkEpisode episodeMarkProgress(BangumiUserEpisodeCollection value) =>
           ? value.episode.name
           : value.episode.nameCn,
       done: value.type == BangumiEpisodeCollectionType.done,
+      collected: value.type != BangumiEpisodeCollectionType.none,
     );
 
 class BangumiEpisodeMarkGateway implements EpisodeMarkGateway {
@@ -127,16 +128,18 @@ class BangumiEpisodeMarkGateway implements EpisodeMarkGateway {
   }
 
   @override
-  Future<void> refreshSubject(
-    int subject, {
+  Future<void> saveProgress(
+    int subject,
+    int collectedEpisodes, {
     required bool Function() authScope,
   }) async {
-    var response = await _read(
-      () => repository.refreshCollectionSubject(subject, authScope: authScope),
+    var response = await repository.saveLocalCollectionProgress(
+      subject,
+      collectedEpisodes,
       authScope: authScope,
     );
-    if (response.code != 0 || response.data == null) {
-      throw EpisodeMarkFailure('同步收藏进度失败：${response.message}');
+    if (response.code != 0) {
+      throw EpisodeMarkFailure('保存本地收藏进度失败：${response.message}');
     }
   }
 }
