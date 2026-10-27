@@ -598,7 +598,9 @@ class PlaybackStore extends ChangeNotifier {
         if (!_closed && !loading && current != null) position = value;
       }),
       player.stream.duration.listen((value) {
-        if (!_closed && !loading && current != null && value > Duration.zero) {
+        // Duration may arrive only once, while open or subtitle loading is
+        // still pending. _openIndex resets it before opening the new media.
+        if (!_closed && current != null && value > Duration.zero) {
           duration = value;
         }
       }),
