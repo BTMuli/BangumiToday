@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import '../../controller/page_controller.dart';
 import '../../controller/progress_controller.dart';
-import '../../core/layout/responsive.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
@@ -43,6 +42,10 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
 
   /// 每页展示数量
   final int limit = 12;
+
+  /// 按卡片所需宽度排布，避免页面留白改变通用断点的列数。
+  static const double _minimumCardWidth = 280;
+  static const double _cardSpacing = 12;
 
   /// 用户Hive
 
@@ -262,7 +265,12 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        var columns = BTBreakpoints.getGridColumns(constraints.maxWidth);
+        var columns = max(
+          1,
+          ((constraints.maxWidth + _cardSpacing) /
+                  (_minimumCardWidth + _cardSpacing))
+              .floor(),
+        );
         return Container(
           margin: EdgeInsets.symmetric(vertical: 8),
           child: GridView.builder(
@@ -270,8 +278,8 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
               childAspectRatio: 10 / 7,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
+              mainAxisSpacing: _cardSpacing,
+              crossAxisSpacing: _cardSpacing,
             ),
             itemCount: showData.length,
             scrollCacheExtent: const ScrollCacheExtent.pixels(500),
