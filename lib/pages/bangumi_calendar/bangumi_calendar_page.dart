@@ -889,7 +889,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: BTColors.divider(context))),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
           Expanded(
@@ -902,7 +902,6 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
           ),
           const SizedBox(width: 8),
           ...buildHeaderActions(context),
-          const SizedBox(width: 4),
         ],
       ),
     );

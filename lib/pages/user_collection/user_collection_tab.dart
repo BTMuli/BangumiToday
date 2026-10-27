@@ -264,9 +264,9 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
       builder: (context, constraints) {
         var columns = BTBreakpoints.getGridColumns(constraints.maxWidth);
         return Container(
-          margin: EdgeInsets.all(8),
+          margin: EdgeInsets.symmetric(vertical: 8),
           child: GridView.builder(
-            padding: EdgeInsets.all(8),
+            padding: EdgeInsets.symmetric(vertical: 8),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
               childAspectRatio: 10 / 7,
@@ -291,13 +291,11 @@ class _UserCollectionTabState extends ConsumerState<UserCollectionTab>
     super.build(context);
     return Container(
       color: FluentTheme.of(context).scaffoldBackgroundColor,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
           SizedBox(height: 12),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
-            child: buildTop(context),
-          ),
+          buildTop(context),
           SizedBox(height: 12),
           Expanded(child: buildList(context)),
         ],

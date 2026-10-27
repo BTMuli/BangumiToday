@@ -14,7 +14,6 @@ import '../../providers/app_providers.dart';
 import '../../providers/episode_mark_providers.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
-import '../../widgets/common/bt_content_frame.dart';
 import '../../widgets/subject_detail/subject_rss_search_dialog.dart';
 import '../subject_search/subject_search_page.dart';
 import 'episode_detail_page.dart';
@@ -351,12 +350,12 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   /// 构建条目详情页
   Widget buildSubjectPage() {
     return ScaffoldPage(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       header: buildHeader(),
       content: Stack(
         fit: StackFit.expand,
         children: [
-          BTContentFrame(maxWidth: 1440, child: buildContent()),
+          buildContent(),
           // 手动刷新不会卸载内容树，接口数据没变化时页面看不出动静，
           // 用顶部进度条显示刷新过程。
           if (_refreshing)

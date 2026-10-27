@@ -199,7 +199,7 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
                 ? _buildEmptyState(context)
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
+                      horizontal: 16,
                       vertical: 12,
                     ),
                     itemCount: filtered.length,
@@ -215,7 +215,7 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
 
   Widget _buildToolbar(BuildContext context, int count) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
           var search =

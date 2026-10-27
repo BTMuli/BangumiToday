@@ -14,7 +14,6 @@ import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
-import '../../widgets/common/bt_content_frame.dart';
 import 'episode_detail_comments.dart';
 import 'episode_detail_info.dart';
 import 'subject_detail_colors.dart';
@@ -240,11 +239,12 @@ class _EpisodeDetailPageState extends ConsumerState<EpisodeDetailPage> {
   @override
   Widget build(BuildContext context) {
     return ScaffoldPage(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       header: buildHeader(),
       content: Stack(
         fit: StackFit.expand,
         children: [
-          BTContentFrame(maxWidth: 1440, child: buildContent()),
+          buildContent(),
           // 手动刷新不会卸载内容树，用顶部进度条显示刷新过程。
           if (_refreshing)
             const Positioned(
@@ -363,7 +363,7 @@ class _EpisodeDetailPageState extends ConsumerState<EpisodeDetailPage> {
     var episode = data;
     if (episode == null) return buildLoading();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      padding: const EdgeInsets.only(top: 4, bottom: 16),
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(

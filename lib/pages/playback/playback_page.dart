@@ -415,7 +415,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     return ScaffoldPage(
       padding: EdgeInsets.zero,
       content: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
         child: Column(
           children: [
             _buildHeader(store),

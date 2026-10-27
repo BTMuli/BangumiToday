@@ -11,7 +11,7 @@ class _DownloadHeader extends StatelessWidget {
     return ColoredBox(
       color: BTColors.surfaceTertiary(context),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
         child: Row(
           children: [
             Expanded(
@@ -119,7 +119,7 @@ class _DownloadToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       decoration: BoxDecoration(
         color: BTColors.surfaceTertiary(context),
         border: Border(bottom: BorderSide(color: BTColors.divider(context))),

@@ -15,7 +15,6 @@ import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../widgets/bangumi/bt_comment_content.dart';
 import '../../widgets/bangumi/comment_image_viewer.dart';
-import '../../widgets/common/bt_content_frame.dart';
 import 'detail_comment_author.dart';
 import 'detail_discussion_comment.dart';
 import 'subject_detail_colors.dart';
@@ -153,11 +152,12 @@ class _SubjectReviewDetailPageState
 
   @override
   Widget build(BuildContext context) => ScaffoldPage(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
     header: _buildHeader(context),
     content: Stack(
       fit: StackFit.expand,
       children: [
-        BTContentFrame(maxWidth: 1440, child: _buildContent(context)),
+        _buildContent(context),
         if (_loading)
           const Positioned(
             top: 0,
@@ -365,7 +365,7 @@ class _SubjectReviewDetailPageState
       );
     }
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      padding: const EdgeInsets.only(top: 4, bottom: 16),
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(

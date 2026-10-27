@@ -3,7 +3,7 @@ part of '../rss_bmf_workspace.dart';
 mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
   Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
           var identity = Row(
@@ -179,7 +179,7 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
         (_filterModel.updateFilter != BmfUpdateFilter.all ? 1 : 0) +
         (_filterModel.broadcastFilter != BmfBroadcastFilter.all ? 1 : 0);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Wrap(
         spacing: 8,
         runSpacing: 10,

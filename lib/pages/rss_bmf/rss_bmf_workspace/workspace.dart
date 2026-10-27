@@ -64,7 +64,7 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
       color: BTColors.surfaceSecondary(context),
       child: ListView.separated(
         controller: _bmfListController,
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         itemCount: _filterModel.filteredList.length,
         separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
@@ -170,7 +170,7 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+            padding: const EdgeInsets.all(16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -279,7 +279,7 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
   }) {
     if (!hasRss && !hasDirectory) {
       return SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: _buildUnconfiguredCard(context, bmf),
       );
     }
@@ -314,7 +314,7 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
         return Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(
                 children: [
                   if (hasRss && hasDirectory && !split) ...[

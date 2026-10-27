@@ -101,7 +101,7 @@ class BangumiCalendarDay extends StatelessWidget {
   Widget buildHeader(BuildContext context) {
     var accent = FluentTheme.of(context).accentColor;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 14, 12, 6),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -136,7 +136,7 @@ class BangumiCalendarDay extends StatelessWidget {
   Widget buildList(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        const padding = EdgeInsets.all(8);
+        const padding = EdgeInsets.symmetric(horizontal: 16, vertical: 8);
         var contentWidth = constraints.maxWidth - padding.horizontal;
         var columns = math.max(
           1,

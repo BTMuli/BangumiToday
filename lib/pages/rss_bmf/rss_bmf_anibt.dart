@@ -385,7 +385,7 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
         if (_refreshing) const ProgressBar(),
         if (_loadFailed)
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: InfoBar(
               title: const Text('刷新失败，当前显示上次加载的资源'),
               severity: InfoBarSeverity.warning,
@@ -401,7 +401,7 @@ class _RssBmfAnibtState extends State<RssBmfAnibt>
             controller: _scrollController,
             // Build and repaint only viewport rows and the nearby scroll cache.
             addRepaintBoundaries: true,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             itemCount: items.length,
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) => RssAnibtCardFluent(

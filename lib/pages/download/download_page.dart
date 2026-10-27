@@ -516,7 +516,7 @@ class _DownloadTaskPane extends ConsumerWidget {
         groups[index].key: index,
     };
     return ListView.separated(
-      padding: EdgeInsets.fromLTRB(20, 14, 20, 24),
+      padding: EdgeInsets.fromLTRB(16, 14, 16, 24),
       itemCount: groups.length,
       separatorBuilder: (_, _) => SizedBox(height: 14),
       findItemIndexCallback: (key) =>
