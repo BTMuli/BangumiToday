@@ -101,6 +101,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
   PlaybackStore store,
   Future<void> Function(Future<void> Function()) run,
   Future<void> Function() pickSubtitle,
+  Future<void> Function() pickSubtitleDirectory,
   ValueChanged<_PlaybackCommand> execute,
   PlaybackWindowMode? windowMode, {
   required bool includeUpscale,
@@ -201,6 +202,11 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
     text: const Text('加载外部字幕…'),
     leading: const Icon(material.Icons.subtitles_outlined, size: 16),
     onPressed: () => unawaited(run(pickSubtitle)),
+  ),
+  MenuFlyoutItem(
+    text: const Text('导入字幕目录…'),
+    leading: const Icon(material.Icons.folder_open_outlined, size: 16),
+    onPressed: () => unawaited(run(pickSubtitleDirectory)),
   ),
 ];
 

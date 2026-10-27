@@ -152,13 +152,20 @@ typedef PlaybackSubtitleMetadata = ({
   bool? isDefault,
 });
 
-/// Ignore pseudo tracks; prefer default tracks only within a language tier.
-String preferredPlaybackSubtitle(Iterable<PlaybackSubtitleMetadata> tracks) {
+/// Ignore pseudo tracks. Imported/default tracks win within a language tier.
+String preferredPlaybackSubtitle(
+  Iterable<PlaybackSubtitleMetadata> tracks, {
+  Set<String> imported = const {},
+}) {
   var selected = 'no';
   int? priority;
   var selectedDefault = false;
+  var selectedImported = false;
+  String? importedFallback;
   for (var track in tracks) {
     if (track.id == 'auto' || track.id == 'no') continue;
+    var isImported = imported.contains(track.id);
+    if (isImported) importedFallback ??= track.id;
     var candidate = playbackSubtitlePriority(
       language: track.language,
       title: track.title,
@@ -167,13 +174,18 @@ String preferredPlaybackSubtitle(Iterable<PlaybackSubtitleMetadata> tracks) {
     if (candidate != null &&
         (priority == null ||
             candidate < priority ||
-            (candidate == priority && isDefault && !selectedDefault))) {
+            (candidate == priority &&
+                ((isImported && !selectedImported) ||
+                    (isImported == selectedImported &&
+                        isDefault &&
+                        !selectedDefault))))) {
       selected = track.id;
       priority = candidate;
       selectedDefault = isDefault;
+      selectedImported = isImported;
     }
   }
-  return selected;
+  return priority == null ? importedFallback ?? selected : selected;
 }
 
 /// Put the language first, with filenames/descriptions on a separate line.

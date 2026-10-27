@@ -10,6 +10,7 @@ class _PlaybackVideoControls extends StatefulWidget {
     required this.pickFile,
     required this.stopPlayback,
     required this.pickSubtitle,
+    required this.pickSubtitleDirectory,
     required this.windowMode,
     required this.sidebarVisible,
     required this.buildLibraryPanel,
@@ -23,6 +24,7 @@ class _PlaybackVideoControls extends StatefulWidget {
   final Future<void> Function() pickFile;
   final Future<void> Function() stopPlayback;
   final Future<void> Function() pickSubtitle;
+  final Future<void> Function() pickSubtitleDirectory;
   final PlaybackWindowMode? windowMode;
 
   /// 内嵌播放页已显示侧栏时，底栏不再重复提供选集入口。

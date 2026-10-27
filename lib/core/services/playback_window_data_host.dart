@@ -9,6 +9,7 @@ import '../../domain/repositories/playback_library.dart';
 import '../../domain/repositories/playback_settings.dart';
 import '../../domain/repositories/playback_subjects.dart';
 import '../../models/playback/playback_item.dart';
+import 'playback_subtitle_files.dart';
 import 'playback_window_protocol.dart';
 
 /// A generation owns its requests until all writes settle. A timeout on the
@@ -172,7 +173,12 @@ class PlaybackWindowDataHost {
 
   String _settingKey(Map<String, Object?> body) {
     var key = playbackString(body, 'key');
-    if (!allowedSettings.contains(key)) throw StateError('不可访问的配置：$key');
+    var isSubtitleKey =
+        key.startsWith(PlaybackSubtitleFiles.settingsKeyPrefix) &&
+        key.length > PlaybackSubtitleFiles.settingsKeyPrefix.length;
+    if (!allowedSettings.contains(key) && !isSubtitleKey) {
+      throw StateError('不可访问的配置：$key');
+    }
     return key;
   }
 

@@ -19,6 +19,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 // Project imports:
 import '../../core/errors/playback_unavailable.dart';
+import '../../core/services/playback_subtitle_files.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/tool_func.dart';
 import '../../core/utils/window_effect.dart';
@@ -319,12 +320,36 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
       acceptedTypeGroups: [
         const XTypeGroup(
           label: '字幕',
-          extensions: ['ass', 'ssa', 'srt', 'vtt', 'sub'],
+          extensions: PlaybackSubtitleFiles.extensions,
         ),
       ],
     );
     if (file != null) {
       await _store.setSubtitleTrack(SubtitleTrack.uri(file.path));
+    }
+  }
+
+  Future<void> _pickSubtitleDirectory() async {
+    var directory = await getDirectoryPath(
+      initialDirectory: _store.current == null
+          ? null
+          : path.dirname(_store.current!.filePath),
+      confirmButtonText: '导入字幕目录',
+    );
+    if (directory == null || !mounted) return;
+    var result = await _store.importSubtitleDirectory(directory);
+    if (result == null || !mounted) return;
+    if (result.files.isEmpty) {
+      await BtInfobar.warn(context, '所选目录及子目录中没有支持的字幕文件');
+    } else if (result.matches.isEmpty) {
+      await BtInfobar.warn(context, '未找到匹配的字幕，请检查字幕文件名与视频文件名或集数');
+    } else {
+      var skipped = result.unmatchedFiles;
+      await BtInfobar.success(
+        context,
+        '已导入 ${result.matchedFiles} 个字幕，匹配 ${result.matches.length} 个视频'
+        '${skipped == 0 ? '' : '，跳过 $skipped 个未匹配字幕'}',
+      );
     }
   }
 
@@ -585,6 +610,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
                                 pickFile: _pickFile,
                                 stopPlayback: _stopPlayback,
                                 pickSubtitle: _pickSubtitle,
+                                pickSubtitleDirectory: _pickSubtitleDirectory,
                                 windowMode: widget.windowMode,
                                 // 只有内嵌播放页会显示侧栏；独立窗口始终用浮出层。
                                 sidebarVisible:

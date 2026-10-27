@@ -26,6 +26,7 @@ import '../core/services/playback_janai_video_source.dart';
 import '../core/services/playback_loudness.dart';
 import '../core/services/playback_screenshot.dart';
 import '../core/services/playback_session_lifecycle.dart';
+import '../core/services/playback_subtitle_files.dart';
 import '../core/services/playback_subtitles.dart';
 import '../core/services/playback_tensorrt_resources.dart';
 import '../core/services/playback_upscale_controller.dart';
@@ -149,6 +150,9 @@ class PlaybackStore extends ChangeNotifier {
   PlaybackJanaiVideoSource? _janaiVideoSource;
   PlaybackChapters? _chapters;
   bool _manualSubtitles = true;
+  late final _subtitleFiles = PlaybackSubtitleFiles(settingsStore);
+  final _loadedSubtitleFiles = <String>{};
+  final _importedSubtitlePaths = <String, String>{};
   VideoController? _video;
   PlaybackUpscaler? _upscaler;
   Object? _viewportOwner;
@@ -834,6 +838,8 @@ class PlaybackStore extends ChangeNotifier {
     _notify();
     try {
       _manualSubtitles = true;
+      _loadedSubtitleFiles.clear();
+      _importedSubtitlePaths.clear();
       _chapters?.reset();
       _janaiVideoSource?.reset();
       await timing.measure(
@@ -869,6 +875,7 @@ class PlaybackStore extends ChangeNotifier {
       if (_closed) return;
       _setOpeningStatus('正在恢复播放状态…');
       _audio.scheduleRefresh();
+      await timing.measure('加载外部字幕', _loadImportedSubtitles);
       await timing.measure('选择字幕', _autoSelectSubtitle);
       await timing.measure(
         '读取章节',
@@ -938,11 +945,14 @@ class PlaybackStore extends ChangeNotifier {
       player.state.tracks.subtitle.map(
         (track) => (
           id: track.id,
-          title: track.title,
+          title: _importedSubtitlePaths.containsKey(track.id)
+              ? path.basename(_importedSubtitlePaths[track.id]!)
+              : track.title,
           language: track.language,
           isDefault: track.isDefault,
         ),
       ),
+      imported: _importedSubtitlePaths.keys.toSet(),
     );
     if (player.state.track.subtitle.id == id) return;
     var track = player.state.tracks.subtitle.firstWhere(
@@ -950,6 +960,51 @@ class PlaybackStore extends ChangeNotifier {
       orElse: SubtitleTrack.no,
     );
     await player.setSubtitleTrack(track);
+  }
+
+  Future<PlaybackSubtitleImport?> importSubtitleDirectory(
+    String directory,
+  ) async {
+    PlaybackSubtitleImport? result;
+    await _serial(() async {
+      result = await _subtitleFiles.importDirectory(directory, playlist);
+      if (_closed || current == null) return;
+      if (!result!.matches.containsKey(current!.key)) return;
+      _manualSubtitles = false;
+      await _loadImportedSubtitles();
+      await _autoSelectSubtitle();
+      _notify();
+    });
+    return result;
+  }
+
+  Future<void> _loadImportedSubtitles() async {
+    var item = current;
+    var player = _player;
+    if (_closed || item == null || player == null) return;
+    try {
+      for (var file in await _subtitleFiles.read(item)) {
+        if (_closed) return;
+        var key = PlaybackItem.pathKey(file);
+        if (_loadedSubtitleFiles.contains(key) || !await File(file).exists()) {
+          continue;
+        }
+        try {
+          var title = path.basename(file);
+          var native = player.platform as NativePlayer;
+          await native.command(['sub-add', file, 'cached', title]);
+          var id = await native.getProperty('sid');
+          _loadedSubtitleFiles.add(key);
+          _importedSubtitlePaths[id] = file;
+        } catch (e) {
+          error = '加载外部字幕失败：${path.basename(file)}';
+          BTLogTool.warn('$error：$e');
+        }
+      }
+    } catch (e) {
+      error = '读取外部字幕关联失败';
+      BTLogTool.warn('$error：$e');
+    }
   }
 
   Future<void> setSubtitleTrack(SubtitleTrack track) {
