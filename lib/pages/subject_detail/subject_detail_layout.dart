@@ -32,12 +32,10 @@ class SubjectDetailLayout extends StatefulWidget {
     super.key,
     required this.view,
     required this.resources,
-    required this.onRefreshRelations,
   });
 
   final SubjectDetailViewData view;
   final Widget resources;
-  final Future<void> Function() onRefreshRelations;
 
   @override
   State<SubjectDetailLayout> createState() => _SubjectDetailLayoutState();
@@ -48,8 +46,6 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
   final Set<_DetailTab> _visited = {_DetailTab.episodes};
   _DetailTab _selected = _DetailTab.episodes;
   SubjectDetailStaffGrouping _staffGrouping = SubjectDetailStaffGrouping.person;
-  int? _relationCount;
-  bool _refreshingRelations = false;
 
   void _select(_DetailTab tab) {
     setState(() {
@@ -58,25 +54,11 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
     });
   }
 
-  void _onRelationCountChanged(int count) {
-    if (!mounted || _relationCount == count) return;
-    setState(() => _relationCount = count);
-  }
-
-  Future<void> _refreshRelations() async {
-    if (_refreshingRelations) return;
-    setState(() => _refreshingRelations = true);
-    try {
-      await widget.onRefreshRelations();
-    } finally {
-      if (mounted) setState(() => _refreshingRelations = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    // 页面外边距由 ScaffoldPage 统一提供，避免主体重复叠加。
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      padding: const EdgeInsets.only(top: 4),
       child: LayoutBuilder(
         builder: (context, constraints) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -151,9 +133,7 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
                 key: ValueKey('subject-tab-${tab.name}'),
                 onPressed: () => _select(tab),
                 child: Text(
-                  tab == _DetailTab.relations && _relationCount != null
-                      ? '${tab.label} · $_relationCount'
-                      : tab.label,
+                  tab.label,
                   style: BTTypography.body(context).copyWith(
                     color: _selected == tab
                         ? BTColors.textPrimary(context)
@@ -167,19 +147,6 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
             ),
           ),
         if (_selected == _DetailTab.persons) _buildStaffGrouping(),
-        if (_selected == _DetailTab.relations)
-          Tooltip(
-            message: '刷新关联条目',
-            child: IconButton(
-              icon: _refreshingRelations
-                  ? const SizedBox.square(
-                      dimension: 14,
-                      child: ProgressRing(strokeWidth: 2),
-                    )
-                  : const Icon(FluentIcons.refresh, size: 14),
-              onPressed: _refreshingRelations ? null : _refreshRelations,
-            ),
-          ),
       ],
     );
   }
@@ -207,6 +174,7 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
     if (!_visited.contains(tab)) return const SizedBox.shrink();
     if (tab == _DetailTab.resources) return widget.resources;
     var view = widget.view;
+    if (tab == _DetailTab.relations) return view.buildRelations();
     if (tab == _DetailTab.characters) return view.buildCharacters();
     if (tab == _DetailTab.persons) {
       return view.buildPersons(grouping: _staffGrouping);
@@ -223,10 +191,8 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
           _DetailTab.episodes => view.buildEpisodes(showSummary: true),
           _DetailTab.summary => SubjectDetailSummaryBody(view: view),
           _DetailTab.infobox => SubjectDetailInfoboxBody(view: view),
-          _DetailTab.relations => view.buildRelations(
-            onCountChanged: _onRelationCountChanged,
-          ),
           _DetailTab.resources ||
+          _DetailTab.relations ||
           _DetailTab.characters ||
           _DetailTab.persons ||
           _DetailTab.comments ||

@@ -28,7 +28,6 @@ extension _SubjectDetailContent on _SubjectDetailPageState {
     return SubjectDetailLayout(
       key: ValueKey('subject-layout-${subject.id}'),
       view: view,
-      onRefreshRelations: () => _refreshSubModules(keys: [_relationsKey]),
       resources: SubjectDetailResources(
         key: _resourcesKey,
         subjectId: subject.id,

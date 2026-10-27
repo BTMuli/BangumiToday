@@ -361,6 +361,7 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
   /// 构建条目详情页
   Widget buildSubjectPage() {
     return ScaffoldPage(
+      padding: const EdgeInsets.all(8),
       header: buildHeader(),
       content: Stack(
         fit: StackFit.expand,

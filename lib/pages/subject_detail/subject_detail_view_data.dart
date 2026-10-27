@@ -79,13 +79,8 @@ class SubjectDetailViewData {
     );
   }
 
-  Widget buildRelations({ValueChanged<int>? onCountChanged}) {
-    return SubjectDetailRelation(
-      subject.id,
-      key: relationsKey,
-      onCountChanged: onCountChanged,
-    );
-  }
+  Widget buildRelations() =>
+      SubjectDetailRelation(subject.id, key: relationsKey);
 
   Widget buildCharacters() => SubjectDetailPeople(
     key: charactersKey,
