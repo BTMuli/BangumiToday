@@ -172,6 +172,9 @@ class BangumiSubjectSearchData {
   @JsonKey(name: 'summary')
   String summary;
 
+  /// P1 搜索返回的日期、原作与制作人员等摘要。
+  String info;
+
   /// series
   @JsonKey(name: 'series')
   bool series;
@@ -249,6 +252,7 @@ class BangumiSubjectSearchData {
     required this.collection,
     required this.metaTags,
     required this.tags,
+    this.info = '',
   });
 
   /// from json

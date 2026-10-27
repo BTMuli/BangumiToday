@@ -7,22 +7,9 @@ mixin _SubjectSearchResults on _SubjectSearchPageStateBase {
     }
     if (controller.total == 0) {
       return BTEmptyState.noSearchResult(
-        keyword:
-            (_activeQuery ??
-                    SubjectSearchQuery(
-                      keyword: textController.text,
-                      tags: selectedTags,
-                    ))
-                .description,
+        keyword: (_activeQuery ?? _draftQuery).description,
         actionText: '清除搜索',
-        onAction: () {
-          textController.clear();
-          selectedTags.clear();
-          tagController.clear();
-          addingTag = false;
-          _resetResults();
-          setState(() {});
-        },
+        onAction: () async => await _resetFilters(clearKeyword: true),
       );
     }
     return Column(
@@ -35,7 +22,7 @@ mixin _SubjectSearchResults on _SubjectSearchPageStateBase {
 
   Widget _buildResultSummary() {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           Expanded(
@@ -47,12 +34,19 @@ mixin _SubjectSearchResults on _SubjectSearchPageStateBase {
                   color: BTColors.textSecondary(context),
                 ),
                 SizedBox(width: 6),
-                Text(
-                  '找到 $totalResults 个结果',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: BTColors.textSecondary(context),
-                    fontWeight: FontWeight.w500,
+                Flexible(
+                  child: Tooltip(
+                    message: _activeQuery?.description ?? '',
+                    child: Text(
+                      '找到 $totalResults 个结果 · '
+                      '${sortMap[_activeQuery?.sort] ?? '匹配度'}',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: BTColors.textSecondary(context),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -68,27 +62,31 @@ mixin _SubjectSearchResults on _SubjectSearchPageStateBase {
   }
 
   Widget _buildTwoColumnListView() {
-    return GridView.builder(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        mainAxisExtent: 168,
+    return LayoutBuilder(
+      builder: (context, constraints) => GridView.builder(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: constraints.maxWidth >= 1000 ? 2 : 1,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          mainAxisExtent: SubjectCardSearch.height,
+        ),
+        itemCount: result.length,
+        itemBuilder: (context, index) {
+          return BTFadeSlideIn(
+            duration: const Duration(milliseconds: 300),
+            delay: Duration(milliseconds: index * 50),
+            offset: const Offset(0, 0.05),
+            child: SubjectCardSearch(
+              result[index],
+              onTagTap: _searchByTag,
+              onTagLongPress: _addSearchTag,
+              onMetaTagTap: (tag) => _searchByTag(tag, isMeta: true),
+              onMetaTagLongPress: (tag) => _addSearchTag(tag, isMeta: true),
+            ),
+          );
+        },
       ),
-      itemCount: result.length,
-      itemBuilder: (context, index) {
-        return BTFadeSlideIn(
-          duration: const Duration(milliseconds: 300),
-          delay: Duration(milliseconds: index * 50),
-          offset: const Offset(0, 0.05),
-          child: SubjectCardSearch(
-            result[index],
-            onTagTap: _searchByTag,
-            onTagLongPress: _addSearchTag,
-          ),
-        );
-      },
     );
   }
 }

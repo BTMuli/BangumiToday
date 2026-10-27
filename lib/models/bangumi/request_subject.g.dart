@@ -109,6 +109,7 @@ BangumiSubjectSearchData _$BangumiSubjectSearchDataFromJson(
   tags: (json['tags'] as List<dynamic>)
       .map((e) => BangumiTag.fromJson(e as Map<String, dynamic>))
       .toList(),
+  info: json['info'] as String? ?? '',
 );
 
 Map<String, dynamic> _$BangumiSubjectSearchDataToJson(
@@ -119,6 +120,7 @@ Map<String, dynamic> _$BangumiSubjectSearchDataToJson(
   'name': instance.name,
   'name_cn': instance.nameCn,
   'summary': instance.summary,
+  'info': instance.info,
   'series': instance.series,
   'nsfw': instance.nsfw,
   'locked': instance.locked,

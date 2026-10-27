@@ -269,6 +269,22 @@ class BtrBangumiApi {
     );
   }
 
+  /// 按条目类型获取热门标签；与榜单相同，始终使用 P1。
+  Future<BTResponse<BangumiPageT<BangumiTag>>> getSubjectTags(
+    BangumiSubjectType type, {
+    int limit = 50,
+    int offset = 0,
+  }) => _getModule(
+    '$privateApiBaseUrl/p1/channels/${type.value}/tags',
+    (data) => BangumiPageT<BangumiTag>.fromJson({
+      ...data as Map<String, dynamic>,
+      'limit': limit,
+      'offset': offset,
+    }, (item) => BangumiTag.fromJson(item as Map<String, dynamic>)),
+    queryParameters: {'limit': limit, 'offset': offset},
+    fallbackMessage: '加载热门标签失败',
+  );
+
   /// 条目搜索
   /// [sort] 为排序规则，有 match(默认)-匹配度, heat-收藏人数，rank-排名，score-评分
   /// 其余属性都是 filter
@@ -286,6 +302,7 @@ class BtrBangumiApi {
     int limit = 10,
     List<BangumiSubjectType> type = const [BangumiSubjectType.anime],
     List<String>? tag,
+    List<String>? metaTag,
     List<String>? airdate,
     List<String>? rating,
     List<String>? rank,
@@ -297,13 +314,18 @@ class BtrBangumiApi {
     var filter = <String, dynamic>{};
     if (type.isNotEmpty) filter['type'] = type.map((e) => e.value).toList();
     if (tag != null) filter['tag'] = tag;
-    if (airdate != null) filter['airdate'] = airdate;
+    if (metaTag != null) filter['meta_tags'] = metaTag;
+    if (airdate != null) filter['air_date'] = airdate;
     if (rating != null) filter['rating'] = rating;
     if (rank != null) filter['rank'] = rank;
     filter['nsfw'] = nsfw;
     data['filter'] = filter;
     var params = <String, dynamic>{'limit': limit, 'offset': offset};
-    if (usePrivateApi) {
+    // P1 的日期条件返回异常空集，小数评分会被拒绝，V0 支持这两项。
+    // https://github.com/bangumi/server-private/issues/1326
+    var needsPublicSearch =
+        (airdate?.isNotEmpty ?? false) || (rating?.isNotEmpty ?? false);
+    if (usePrivateApi && !needsPublicSearch) {
       return _private.search(
         data,
         params,

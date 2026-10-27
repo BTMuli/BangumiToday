@@ -14,6 +14,9 @@ import '../../widgets/common/bt_card.dart';
 
 /// Bangumi 条目卡片-搜索结果
 class SubjectCardSearch extends ConsumerStatefulWidget {
+  static const double height = 216;
+  static const double coverWidth = 144;
+
   /// 结果
   final BangumiSubjectSearchData data;
 
@@ -22,6 +25,8 @@ class SubjectCardSearch extends ConsumerStatefulWidget {
 
   /// 标签长按回调。
   final ValueChanged<String>? onTagLongPress;
+  final ValueChanged<String>? onMetaTagTap;
+  final ValueChanged<String>? onMetaTagLongPress;
 
   /// 构造
   const SubjectCardSearch(
@@ -29,6 +34,8 @@ class SubjectCardSearch extends ConsumerStatefulWidget {
     super.key,
     this.onTagTap,
     this.onTagLongPress,
+    this.onMetaTagTap,
+    this.onMetaTagLongPress,
   });
 
   @override
@@ -69,28 +76,34 @@ class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
   Widget buildCover(String img) {
     return BtBangumiCover(
       imageUrl: img,
-      width: 112,
-      height: 168,
+      width: SubjectCardSearch.coverWidth,
+      height: SubjectCardSearch.height,
       errorBuilder: (context, {err}) => buildCoverEmpty(err: err),
     );
   }
 
-  Widget buildTag(String name, int count) {
+  Widget buildTag(String name, {int? count, bool isMeta = false}) {
+    var onTap = isMeta ? widget.onMetaTagTap : widget.onTagTap;
+    var onLongPress = isMeta
+        ? widget.onMetaTagLongPress
+        : widget.onTagLongPress;
     var actions = [
-      if (widget.onTagTap != null) '点击搜索该标签',
-      if (widget.onTagLongPress != null) '长按添加到当前搜索',
+      if (onTap != null) '点击搜索该标签',
+      if (onLongPress != null) '长按添加到当前搜索',
     ];
     return Tooltip(
-      message: ['$name ($count)', ...actions].join('\n'),
+      message: [
+        '${isMeta ? '公共标签' : '普通标签'}：$name'
+            '${count == null ? '' : ' ($count)'}',
+        ...actions,
+      ].join('\n'),
       child: MouseRegion(
-        cursor: widget.onTagTap == null && widget.onTagLongPress == null
+        cursor: onTap == null && onLongPress == null
             ? SystemMouseCursors.basic
             : SystemMouseCursors.click,
         child: GestureDetector(
-          onTap: widget.onTagTap == null ? null : () => widget.onTagTap!(name),
-          onLongPress: widget.onTagLongPress == null
-              ? null
-              : () => widget.onTagLongPress!(name),
+          onTap: onTap == null ? null : () => onTap(name),
+          onLongPress: onLongPress == null ? null : () => onLongPress(name),
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
@@ -105,13 +118,24 @@ class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
                 width: 1,
               ),
             ),
-            child: Text(
-              name,
-              style: TextStyle(
-                fontSize: 11,
-                color: FluentTheme.of(context).accentColor,
-                fontWeight: FontWeight.w500,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isMeta ? FluentIcons.tag_group : FluentIcons.tag,
+                  size: 10,
+                  color: FluentTheme.of(context).accentColor,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: FluentTheme.of(context).accentColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -150,12 +174,15 @@ class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
   }
 
   Widget buildTags() {
-    var maxNum = 5;
     var tags = [...subject.tags];
     tags.sort((a, b) => b.count.compareTo(a.count));
-    if (tags.length > maxNum) {
-      tags = tags.sublist(0, maxNum);
-    }
+    var metaTags = subject.metaTags.toSet();
+    var counts = {for (var tag in tags) tag.name: tag.count};
+    var chips = [
+      for (var tag in metaTags) buildTag(tag, count: counts[tag], isMeta: true),
+      for (var tag in tags.where((tag) => !metaTags.contains(tag.name)))
+        buildTag(tag.name, count: tag.count),
+    ];
     return SizedBox(
       height: 24,
       child: SingleChildScrollView(
@@ -163,9 +190,9 @@ class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (var index = 0; index < tags.length; index++) ...[
+            for (var index = 0; index < chips.length; index++) ...[
               if (index > 0) SizedBox(width: 4),
-              buildTag(tags[index].name, tags[index].count),
+              chips[index],
             ],
           ],
         ),
@@ -187,25 +214,42 @@ class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
           );
     }
 
+    var rank = subject.rating.rank;
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        Flexible(child: _buildScoreWidget()),
+        Expanded(
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _buildScoreWidget(),
+              if (subject.rating.total > 0)
+                Text(
+                  '${subject.rating.total} 人评分',
+                  style: BTTypography.caption(context),
+                ),
+              _buildMetaItem(
+                FluentIcons.bar_chart4,
+                rank != null && rank > 0 ? '排名 #$rank' : '未上榜',
+              ),
+            ],
+          ),
+        ),
         SizedBox(width: 8),
         Tooltip(
           message: '点击查看$label详情，长按后台添加',
-          child: BTCard(
-            key: ValueKey('subject-detail-action-${subject.id}'),
-            useShadow: false,
-            useAcrylic: false,
-            padding: EdgeInsets.all(8),
-            borderRadius: BTRadius.medium,
-            onTap: openDetail,
+          child: GestureDetector(
             onLongPress: () => openDetail(jump: false),
-            child: Icon(
-              FluentIcons.open_in_new_tab,
-              size: 16,
-              color: FluentTheme.of(context).accentColor,
+            child: IconButton(
+              key: ValueKey('subject-detail-action-${subject.id}'),
+              onPressed: openDetail,
+              icon: Icon(
+                FluentIcons.open_in_new_tab,
+                size: 16,
+                color: FluentTheme.of(context).accentColor,
+                semanticLabel: '查看$label详情',
+              ),
             ),
           ),
         ),
@@ -215,8 +259,11 @@ class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
 
   Widget _buildScoreWidget() {
     var score = subject.rating.score;
+    var rated = subject.rating.total > 0;
     var scoreLabel = getBangumiRateLabel(score);
-    var scoreColor = _getScoreColor(score);
+    var scoreColor = rated
+        ? _getScoreColor(score)
+        : BTColors.textSecondary(context);
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -231,21 +278,23 @@ class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
           Icon(FluentIcons.favorite_star_fill, size: 14, color: scoreColor),
           SizedBox(width: 4),
           Text(
-            score.toStringAsFixed(1),
+            rated ? score.toStringAsFixed(1) : '暂无评分',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: scoreColor,
             ),
           ),
-          SizedBox(width: 6),
-          Text(
-            scoreLabel,
-            style: TextStyle(
-              fontSize: 12,
-              color: BTColors.textSecondary(context),
+          if (rated) ...[
+            SizedBox(width: 6),
+            Text(
+              scoreLabel,
+              style: TextStyle(
+                fontSize: 12,
+                color: BTColors.textSecondary(context),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -262,28 +311,29 @@ class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
   /// 构建卡片信息
   Widget buildInfo(BuildContext context) {
     var name = subject.nameCn == '' ? subject.name : subject.nameCn;
-    var subTitle = subject.nameCn == '' ? '' : subject.name;
+    var subTitle = subject.name == name ? '' : subject.name;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Tooltip(
           message: name,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (subject.type != null) ...[
-                _buildTypeBadge(),
-                const SizedBox(width: 8),
+          child: Text.rich(
+            TextSpan(
+              children: [
+                if (subject.type != null)
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _buildTypeBadge(),
+                    ),
+                  ),
+                TextSpan(text: name),
               ],
-              Expanded(
-                child: Text(
-                  name,
-                  style: FluentTheme.of(context).typography.subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+            ),
+            style: FluentTheme.of(context).typography.subtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         if (subTitle.isNotEmpty) ...[
@@ -298,27 +348,64 @@ class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
             ),
           ),
         ],
-        const SizedBox(height: 4),
-        _buildMetaInfo(),
-        const SizedBox(height: 4),
-        Expanded(child: buildTags()),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            Flexible(child: _buildCollectionInfo()),
-            const SizedBox(width: 8),
-            buildAction(context),
-          ],
+        const SizedBox(height: 6),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (subject.info.trim().isNotEmpty)
+                Flexible(child: _buildExcerpt(subject.info))
+              else if (subject.date?.isNotEmpty == true ||
+                  subject.eps > 0 ||
+                  subject.platform?.isNotEmpty == true ||
+                  subject.volumes > 0)
+                _buildMetaInfo(),
+              if (subject.summary.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Flexible(child: _buildExcerpt(subject.summary)),
+              ],
+              if (subject.metaTags.isNotEmpty || subject.tags.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                buildTags(),
+              ],
+              if ((subject.collection.collect ?? 0) > 0 ||
+                  (subject.collection.wish ?? 0) > 0 ||
+                  (subject.collection.doing ?? 0) > 0) ...[
+                const SizedBox(height: 6),
+                _buildCollectionInfo(),
+              ],
+            ],
+          ),
         ),
+        const SizedBox(height: 8),
+        buildAction(context),
       ],
     );
   }
 
+  Widget _buildExcerpt(String value) => Tooltip(
+    message: value,
+    child: Text(
+      value.replaceAll(RegExp(r'\s+'), ' ').trim(),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: BTTypography.caption(context).copyWith(height: 1.35),
+    ),
+  );
+
   Widget _buildMetaInfo() {
+    var episodeUnit = switch (subject.type) {
+      BangumiSubjectType.book => '话',
+      BangumiSubjectType.music => '曲',
+      _ => '集',
+    };
     var items = <Widget>[
       if (subject.date != null && subject.date!.isNotEmpty)
         _buildMetaItem(FluentIcons.calendar, subject.date!),
-      if (subject.eps > 0) _buildMetaItem(FluentIcons.play, '${subject.eps}集'),
+      if (subject.eps > 0)
+        _buildMetaItem(FluentIcons.play, '${subject.eps}$episodeUnit'),
+      if (subject.volumes > 0)
+        _buildMetaItem(FluentIcons.bookmarks, '${subject.volumes}卷'),
       if (subject.platform != null && subject.platform!.isNotEmpty)
         _buildMetaItem(FluentIcons.devices2, subject.platform!),
     ];
@@ -363,44 +450,14 @@ class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
 
     if (collect == 0 && wish == 0 && doing == 0) return const SizedBox.shrink();
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      spacing: 10,
+      runSpacing: 4,
       children: [
-        if (collect > 0) ...[
-          Icon(FluentIcons.heart_fill, size: 12, color: Colors.red),
-          SizedBox(width: 3),
-          Text(
-            '$collect',
-            style: TextStyle(
-              fontSize: 11,
-              color: BTColors.textSecondary(context),
-            ),
-          ),
-          SizedBox(width: 10),
-        ],
-        if (wish > 0) ...[
-          Icon(FluentIcons.favorite_star_fill, size: 12, color: Colors.orange),
-          SizedBox(width: 3),
-          Text(
-            '$wish',
-            style: TextStyle(
-              fontSize: 11,
-              color: BTColors.textSecondary(context),
-            ),
-          ),
-          SizedBox(width: 10),
-        ],
-        if (doing > 0) ...[
-          Icon(FluentIcons.play, size: 12, color: Colors.green),
-          SizedBox(width: 3),
-          Text(
-            '$doing',
-            style: TextStyle(
-              fontSize: 11,
-              color: BTColors.textSecondary(context),
-            ),
-          ),
-        ],
+        if (collect > 0) _buildMetaItem(FluentIcons.heart_fill, '完成 $collect'),
+        if (wish > 0)
+          _buildMetaItem(FluentIcons.favorite_star_fill, '计划 $wish'),
+        if (doing > 0) _buildMetaItem(FluentIcons.play, '进行中 $doing'),
       ],
     );
   }
@@ -422,12 +479,12 @@ class _SubjectCardSearchState extends ConsumerState<SubjectCardSearch> {
           : Colors.black.withValues(alpha: 0.06),
       borderWidth: 1.5,
       child: SizedBox(
-        height: 168,
+        height: SubjectCardSearch.height,
         child: Row(
           children: [
             SizedBox(
-              width: 112,
-              height: 168,
+              width: SubjectCardSearch.coverWidth,
+              height: SubjectCardSearch.height,
               child: buildCover(subject.images.common),
             ),
             Expanded(

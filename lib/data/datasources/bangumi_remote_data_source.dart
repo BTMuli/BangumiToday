@@ -22,10 +22,17 @@ abstract class BTBangumiRemoteDataSource {
     int limit,
     List<BangumiSubjectType> type,
     List<String>? tag,
+    List<String>? metaTag,
     List<String>? airdate,
     List<String>? rating,
     List<String>? rank,
     bool? nsfw,
+  });
+
+  Future<BTResponse<BangumiPageT<BangumiTag>>> getSubjectTags(
+    BangumiSubjectType type, {
+    int limit = 50,
+    int offset = 0,
   });
 
   Future<BTResponse<BangumiSubject>> getSubjectDetail(String id);

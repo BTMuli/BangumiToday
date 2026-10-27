@@ -98,6 +98,7 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
     int limit = 10,
     List<BangumiSubjectType> type = const [BangumiSubjectType.anime],
     List<String>? tag,
+    List<String>? metaTag,
     List<String>? airdate,
     List<String>? rating,
     List<String>? rank,
@@ -110,12 +111,20 @@ class BTBangumiRepositoryImpl implements BTBangumiRepository {
       limit: limit,
       type: type,
       tag: tag,
+      metaTag: metaTag,
       airdate: airdate,
       rating: rating,
       rank: rank,
       nsfw: nsfw,
     );
   }
+
+  @override
+  Future<BTResponse<BangumiPageT<BangumiTag>>> getSubjectTags(
+    BangumiSubjectType type, {
+    int limit = 50,
+    int offset = 0,
+  }) => _remoteDataSource.getSubjectTags(type, limit: limit, offset: offset);
 
   @override
   Future<BTResponse<BangumiSubject>> getSubjectDetail(String id) async {

@@ -1,6 +1,7 @@
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 // Project imports:
 import '../../controller/page_controller.dart';
@@ -11,13 +12,18 @@ import '../../models/bangumi/request_subject.dart';
 import '../../providers/app_providers.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import '../../ui/bt_select.dart';
 import '../../widgets/common/bt_animations.dart';
+import '../../widgets/common/bt_drawer.dart';
 import '../../widgets/common/empty_state.dart';
 import 'subject_card_search.dart';
+import 'subject_search_date_range.dart';
 import 'subject_search_query.dart';
 
+part 'subject_search_page/filter_drawer.dart';
 part 'subject_search_page/filters.dart';
 part 'subject_search_page/results.dart';
+part 'subject_search_page/tags.dart';
 part 'subject_search_page/widgets.dart';
 
 /// 搜索页面
@@ -63,6 +69,36 @@ abstract class _SubjectSearchPageStateBase
     with AutomaticKeepAliveClientMixin {
   /// 当前标签筛选条件
   final List<String> selectedTags = [];
+  final List<String> selectedMetaTags = [];
+  bool tagIsMeta = false;
+  bool tagDrawerOpen = false;
+  bool filterDrawerOpen = false;
+  final rangeControllers = {
+    for (var key in [
+      'dateFrom',
+      'dateTo',
+      'ratingFrom',
+      'ratingTo',
+      'rankFrom',
+      'rankTo',
+    ])
+      key: TextEditingController(),
+  };
+
+  SubjectSearchQuery get _draftQuery => SubjectSearchQuery(
+    keyword: textController.text,
+    tags: selectedTags,
+    metaTags: selectedMetaTags,
+    types: types,
+    sort: sort,
+    nsfw: nsfw,
+    dateFrom: rangeControllers['dateFrom']!.text,
+    dateTo: rangeControllers['dateTo']!.text,
+    ratingFrom: rangeControllers['ratingFrom']!.text,
+    ratingTo: rangeControllers['ratingTo']!.text,
+    rankFrom: rangeControllers['rankFrom']!.text,
+    rankTo: rangeControllers['rankTo']!.text,
+  );
 
   /// 是否正在输入新标签。
   bool addingTag = false;
@@ -98,9 +134,6 @@ abstract class _SubjectSearchPageStateBase
 
   /// 是否显示NSFW
   bool? nsfw = false;
-
-  /// nsfwList
-  List nsfwList = [true, false, null];
 
   /// 搜索结果
   Map<String, List<BangumiSubjectSearchData>> resultMap = {};
@@ -140,7 +173,7 @@ abstract class _SubjectSearchPageStateBase
       BTToast.show(context, message: '请输入标签内容', icon: FluentIcons.info);
       return;
     }
-    _addSearchTag(tag);
+    _addSearchTag(tag, isMeta: tagIsMeta);
     setState(() {
       addingTag = false;
       tagController.clear();
@@ -156,28 +189,139 @@ abstract class _SubjectSearchPageStateBase
     searchFocusNode.requestFocus();
   }
 
-  void _addSearchTag(String value) {
+  void _addSearchTag(String value, {bool isMeta = false}) {
     var tag = value.trim();
     if (tag.isEmpty) return;
-    if (selectedTags.contains(tag)) {
+    var selected = isMeta ? selectedMetaTags : selectedTags;
+    if (selected.contains(tag)) {
       BTToast.show(context, message: '标签「$tag」已在搜索条件中', icon: FluentIcons.info);
       return;
     }
-    setState(() => selectedTags.add(tag));
+    setState(() => selected.add(tag));
     BTToast.show(context, message: '已添加标签「$tag」', icon: FluentIcons.check_mark);
   }
 
-  Future<void> _searchByTag(String value) async {
+  Future<void> _searchByTag(String value, {bool isMeta = false}) async {
     var tag = value.trim();
     if (tag.isEmpty) return;
     setState(() {
       textController.clear();
-      selectedTags
-        ..clear()
-        ..add(tag);
+      selectedTags.clear();
+      selectedMetaTags.clear();
+      (isMeta ? selectedMetaTags : selectedTags).add(tag);
       addingTag = false;
       tagController.clear();
       _resetResults();
+    });
+    await search();
+  }
+
+  Future<void> _openTagDrawer() async {
+    if (tagDrawerOpen) return;
+    setState(() => tagDrawerOpen = true);
+    bool? apply;
+    try {
+      apply = await showBTDrawer<bool>(
+        context: context,
+        width: (MediaQuery.sizeOf(context).width - 24).clamp(0.0, 480.0),
+        child: StatefulBuilder(
+          builder: (drawerContext, updateDrawer) => BTDrawer(
+            title: '热门标签',
+            child: Column(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: Consumer(
+                      builder: (context, ref, child) => _SubjectTagPicker(
+                        key: ValueKey(
+                          ref.watch(
+                            appStoreProvider.select(
+                              (settings) => (
+                                settings.bangumiUrl,
+                                settings.bangumiUsePrivateApi,
+                              ),
+                            ),
+                          ),
+                        ),
+                        types: List.of(types),
+                        selectedTags: List.of(selectedTags),
+                        onToggle: (tag) {
+                          if (!mounted) return;
+                          setState(() {
+                            if (!selectedTags.remove(tag)) {
+                              selectedTags.add(tag);
+                            }
+                          });
+                          updateDrawer(() {});
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: BTColors.divider(drawerContext)),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '已选 ${selectedTags.length} 个普通标签',
+                          style: BTTypography.caption(drawerContext),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      FilledButton(
+                        onPressed: () => Navigator.of(drawerContext).pop(true),
+                        child: const Text('应用并搜索'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => tagDrawerOpen = false);
+    }
+    if (!mounted) return;
+    if (apply ?? false) await search();
+    if (!mounted) return;
+    (addingTag ? tagFocusNode : searchFocusNode).requestFocus();
+  }
+
+  Future<void> _openFilterDrawer() async {
+    if (filterDrawerOpen) return;
+    setState(() => filterDrawerOpen = true);
+    SubjectSearchQuery? ranges;
+    try {
+      ranges = await showBTDrawer<SubjectSearchQuery>(
+        context: context,
+        width: (MediaQuery.sizeOf(context).width - 24).clamp(0.0, 480.0),
+        child: _SubjectFilterDrawer(initialQuery: _draftQuery),
+      );
+    } finally {
+      if (mounted) setState(() => filterDrawerOpen = false);
+    }
+    if (!mounted || ranges == null) return;
+    var values = {
+      'dateFrom': ranges.dateFrom,
+      'dateTo': ranges.dateTo,
+      'ratingFrom': ranges.ratingFrom,
+      'ratingTo': ranges.ratingTo,
+      'rankFrom': ranges.rankFrom,
+      'rankTo': ranges.rankTo,
+    };
+    setState(() {
+      for (var entry in values.entries) {
+        rangeControllers[entry.key]!.text = entry.value;
+      }
     });
     await search();
   }
@@ -193,6 +337,25 @@ abstract class _SubjectSearchPageStateBase
     controller.reset(total: 0, cur: 0);
   }
 
+  Future<void> _resetFilters({bool clearKeyword = false}) async {
+    setState(() {
+      if (clearKeyword) textController.clear();
+      selectedTags.clear();
+      selectedMetaTags.clear();
+      tagController.clear();
+      addingTag = false;
+      tagIsMeta = false;
+      sort = 'match';
+      types = [BangumiSubjectType.anime];
+      nsfw = false;
+      for (var controller in rangeControllers.values) {
+        controller.clear();
+      }
+      _resetResults();
+    });
+    if (textController.text.trim().isNotEmpty) await search();
+  }
+
   /// dispose
   @override
   void dispose() {
@@ -201,6 +364,9 @@ abstract class _SubjectSearchPageStateBase
     tagController.dispose();
     tagFocusNode.dispose();
     searchFocusNode.dispose();
+    for (var controller in rangeControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -223,6 +389,10 @@ abstract class _SubjectSearchPageStateBase
       offset: (page - 1) * limit,
       limit: limit,
       tag: query.tagFilter,
+      metaTag: query.metaTagFilter,
+      airdate: query.airdateFilter,
+      rating: query.ratingFilter,
+      rank: query.rankFilter,
     );
     if (!mounted || searchVersion != _searchVersion) return;
     if (resp.code != 0 || resp.data == null) {
@@ -239,7 +409,6 @@ abstract class _SubjectSearchPageStateBase
 
   /// 搜索
   Future<void> search() async {
-    if (loading) return;
     if (addingTag) {
       if (tagController.text.trim().isEmpty) {
         _cancelTagInput();
@@ -247,21 +416,10 @@ abstract class _SubjectSearchPageStateBase
         _completeTagInput(tagController.text);
       }
     }
-    var query = SubjectSearchQuery(
-      keyword: textController.text,
-      tags: selectedTags,
-      types: types,
-      sort: sort,
-      nsfw: nsfw,
-    );
-    if (query.isEmpty) {
-      _resetResults();
-      setState(() {});
-      await BtInfobar.warn(context, '请输入条目名称或添加标签');
-      return;
-    }
-    if (types.isEmpty) {
-      await BtInfobar.warn(context, '请至少选择一个搜索类型');
+    var query = _draftQuery;
+    var error = query.validationError;
+    if (error != null) {
+      await BtInfobar.warn(context, error);
       return;
     }
     _resetResults();
@@ -278,6 +436,10 @@ abstract class _SubjectSearchPageStateBase
       offset: offset,
       limit: limit,
       tag: query.tagFilter,
+      metaTag: query.metaTagFilter,
+      airdate: query.airdateFilter,
+      rating: query.ratingFilter,
+      rank: query.rankFilter,
     );
     if (!mounted || searchVersion != _searchVersion) return;
     if (resp.code != 0 || resp.data == null) {
@@ -326,20 +488,20 @@ abstract class _SubjectSearchPageStateBase
       selected: sort == key,
       trailing: sort == key ? const Icon(FluentIcons.check_mark) : null,
       leading: Icon(icon, color: FluentTheme.of(context).accentColor),
-      onPressed: () {
-        sort = key;
-        setState(() {});
+      onPressed: () async {
+        if (sort == key) return;
+        setState(() => sort = key);
+        if (_activeQuery != null) await search();
       },
     );
   }
 
   /// 构建排序方式选择
-  /// bug: 该属性的变化无法影响搜索结果
-  /// 详见：https://github.com/bangumi/server/issues/532
   Widget buildSortSelect() {
     var label = sortMap[sort] ?? '未知';
     return DropDownButton(
-      title: Text('排序方式: $label'),
+      title: Text(label),
+      placement: FlyoutPlacementMode.bottomLeft,
       items: sortMap.keys.map(buildSortItem).toList(),
     );
   }
@@ -351,12 +513,20 @@ class _SubjectSearchPageState extends _SubjectSearchPageStateBase
   Widget build(BuildContext context) {
     super.build(context);
     return ScaffoldPage(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       header: buildHeader(context),
-      content: Column(
-        children: [
-          buildSearch(),
-          Expanded(child: buildResult()),
-        ],
+      content: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: constraints.maxHeight * 0.55,
+              ),
+              child: SingleChildScrollView(child: buildSearch()),
+            ),
+            Expanded(child: buildResult()),
+          ],
+        ),
       ),
     );
   }

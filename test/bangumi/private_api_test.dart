@@ -408,8 +408,10 @@ void main() {
     };
     var response = await api.searchSubjects(
       '鲁路修',
+      sort: 'score',
       tag: ['原创'],
-      airdate: ['>=2008-01-01'],
+      metaTag: ['TV'],
+      rank: ['<=100'],
       limit: 5,
       offset: 10,
     );
@@ -417,11 +419,118 @@ void main() {
     expect(response.data.offset, 10);
     expect(response.data.limit, 5);
     expect(response.data.total, 15);
+    var subject = response.data.data.single as BangumiSubjectSearchData;
+    expect(subject.info, slim['info']);
+    expect(subject.metaTags, slim['metaTags']);
+    expect(subject.rating.total, slim['rating']['total']);
+    expect(subject.rating.rank, slim['rating']['rank']);
+    expect(subject.date, isNull);
+    expect(subject.eps, 0);
+    var roundTrip = BangumiSubjectSearchData.fromJson(subject.toJson());
+    expect(roundTrip.info, slim['info']);
+    expect(roundTrip.metaTags, slim['metaTags']);
+    var publicJson = subject.toJson()..remove('info');
+    expect(BangumiSubjectSearchData.fromJson(publicJson).info, isEmpty);
     expect(requests.single.uri.path, '/p1/search/subjects');
+    expect(requests.single.data['sort'], 'score');
     expect(requests.single.data['filter']['tags'], ['原创']);
-    expect(requests.single.data['filter']['date'], ['>=2008-01-01']);
+    expect(requests.single.data['filter']['metaTags'], ['TV']);
+    expect(requests.single.data['filter']['rank'], ['<=100']);
     expect(requests.single.data['filter'].containsKey('tag'), isFalse);
+    expect(requests.single.data['filter'].containsKey('air_date'), isFalse);
   });
+
+  test('legacy search sends documented date and public tag filters', () async {
+    BtrBangumiApi.setBaseUrl(BTAppConstants.bangumiVipApiBaseUrl);
+    BtrBangumiApi.setUsePrivateApi(false);
+    respond = (_) => {'data': [], 'total': 0, 'limit': 10, 'offset': 0};
+    var response = await api.searchSubjects(
+      '',
+      sort: 'rank',
+      tag: ['治愈'],
+      metaTag: ['TV'],
+      airdate: ['>=2024-01-01', '<=2024-12-31'],
+      rating: ['>=7.5'],
+      rank: ['<=500'],
+    );
+    expect(response.code, 0);
+    expect(requests.single.uri.path, '/v0/search/subjects');
+    expect(requests.single.data['sort'], 'rank');
+    expect(requests.single.data['filter'], {
+      'type': [2],
+      'tag': ['治愈'],
+      'meta_tags': ['TV'],
+      'air_date': ['>=2024-01-01', '<=2024-12-31'],
+      'rating': ['>=7.5'],
+      'rank': ['<=500'],
+      'nsfw': false,
+    });
+  });
+
+  test(
+    'private mode routes date and score ranges to working V0 search',
+    () async {
+      respond = (request) => {
+        'data': [],
+        'total': 0,
+        'limit': request.queryParameters['limit'],
+        'offset': request.queryParameters['offset'],
+      };
+      for (var filters in [
+        (date: ['>=2024-01-01'], score: null),
+        (date: null, score: ['>=7.5']),
+        (date: ['<=2024-12-31'], score: ['<=10']),
+      ]) {
+        var response = await api.searchSubjects(
+          '',
+          sort: 'score',
+          airdate: filters.date,
+          rating: filters.score,
+          metaTag: ['TV'],
+          limit: 12,
+          offset: 24,
+        );
+        expect(response.code, 0);
+        expect(response.data.offset, 24);
+        expect(requests.last.uri.host, 'api.bgm.tv');
+        expect(requests.last.uri.path, '/v0/search/subjects');
+        expect(requests.last.data['filter']['meta_tags'], ['TV']);
+        expect(requests.last.data['filter']['air_date'], filters.date);
+        expect(requests.last.data['filter']['rating'], filters.score);
+      }
+    },
+  );
+
+  test(
+    'channel tags decode counts and preserve pagination for each type',
+    () async {
+      respond = (_) => {
+        'data': [
+          {'name': '漫画改', 'count': 893016},
+        ],
+        'total': 214242,
+      };
+      var page = await api.getSubjectTags(
+        BangumiSubjectType.anime,
+        limit: 20,
+        offset: 40,
+      );
+      expect(page.code, 0);
+      expect(page.data!.data.single.name, '漫画改');
+      expect(page.data!.data.single.count, 893016);
+      expect(page.data!.total, 214242);
+      expect(page.data!.offset, 40);
+      expect(page.data!.limit, 20);
+      expect(requests.single.uri.path, '/p1/channels/2/tags');
+      expect(requests.single.queryParameters, {'limit': 20, 'offset': 40});
+
+      BtrBangumiApi.setBaseUrl(BTAppConstants.bangumiVipApiBaseUrl);
+      BtrBangumiApi.setUsePrivateApi(false);
+      await api.getSubjectTags(BangumiSubjectType.book);
+      expect(requests.last.uri.host, 'next.bangumi.vip');
+      expect(requests.last.uri.path, '/p1/channels/1/tags');
+    },
+  );
 
   test('an unspecified NSFW filter is omitted from private search', () async {
     respond = (_) => {'data': [], 'total': 0};

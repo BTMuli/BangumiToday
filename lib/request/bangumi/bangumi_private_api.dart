@@ -197,8 +197,11 @@ class _BangumiPrivateApi {
     // /p1's optional Boolean rejects an explicit JSON null.
     if (filter['nsfw'] == null) filter.remove('nsfw');
     if (filter.containsKey('tag')) filter['tags'] = filter.remove('tag');
-    if (filter.containsKey('airdate')) {
-      filter['date'] = filter.remove('airdate');
+    if (filter.containsKey('meta_tags')) {
+      filter['metaTags'] = filter.remove('meta_tags');
+    }
+    if (filter.containsKey('air_date')) {
+      filter['date'] = filter.remove('air_date');
     }
     var response = await request(
       '/search/subjects',

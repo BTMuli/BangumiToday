@@ -88,16 +88,18 @@ class _AnimatedSearchButtonState extends State<_AnimatedSearchButton>
                     ]
                   : null,
             ),
-            child: widget.isLoading
-                ? SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: ProgressRing(
-                      strokeWidth: 2,
-                      activeColor: foregroundColor,
+            child: SizedBox(
+              width: 16,
+              height: 16,
+              child: widget.isLoading
+                  ? ProgressRing(strokeWidth: 2, activeColor: foregroundColor)
+                  : Icon(
+                      FluentIcons.search,
+                      size: 14,
+                      color: foregroundColor,
+                      semanticLabel: '搜索',
                     ),
-                  )
-                : Icon(FluentIcons.search, size: 14, color: foregroundColor),
+            ),
           ),
         ),
       ),
@@ -154,7 +156,7 @@ class _AnimatedSearchBoxState extends State<_AnimatedSearchBox> {
     return TextBox(
       controller: widget.controller,
       focusNode: widget.focusNode,
-      placeholder: '搜索条目名称...',
+      placeholder: '搜索条目名称，或直接按筛选搜索...',
       placeholderStyle: TextStyle(
         color: BTColors.textTertiary(context),
         fontSize: 14,
@@ -179,7 +181,7 @@ class _AnimatedSearchBoxState extends State<_AnimatedSearchBox> {
                 ),
               ),
             Tooltip(
-              message: '添加标签，回车确认',
+              message: '手动添加普通标签或公共标签，回车确认',
               child: Semantics(
                 label: '添加搜索标签',
                 button: true,
@@ -205,6 +207,8 @@ class _AnimatedSearchBoxState extends State<_AnimatedSearchBox> {
 
 class _FilterChip extends StatefulWidget {
   final String label;
+  final IconData? icon;
+  final String? tooltip;
   final bool isSelected;
   final VoidCallback? onDeleted;
   final VoidCallback? onTap;
@@ -212,6 +216,8 @@ class _FilterChip extends StatefulWidget {
   const _FilterChip({
     super.key,
     required this.label,
+    this.icon,
+    this.tooltip,
     this.isSelected = false,
     this.onDeleted,
     this.onTap,
@@ -251,7 +257,7 @@ class _FilterChipState extends State<_FilterChip>
     var accentColor = FluentTheme.of(context).accentColor;
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
 
-    return MouseRegion(
+    var chip = MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
@@ -302,6 +308,16 @@ class _FilterChipState extends State<_FilterChip>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (widget.icon != null) ...[
+                  Icon(
+                    widget.icon,
+                    size: 12,
+                    color: widget.isSelected
+                        ? Colors.white
+                        : BTColors.textSecondary(context),
+                  ),
+                  const SizedBox(width: 5),
+                ],
                 Text(
                   widget.label,
                   style: TextStyle(
@@ -317,7 +333,7 @@ class _FilterChipState extends State<_FilterChip>
                 if (widget.isSelected && widget.onDeleted != null) ...[
                   SizedBox(width: 4),
                   Tooltip(
-                    message: '移除${widget.label}',
+                    message: '移除${widget.tooltip ?? widget.label}',
                     child: IconButton(
                       onPressed: widget.onDeleted,
                       style: const ButtonStyle(
@@ -327,7 +343,7 @@ class _FilterChipState extends State<_FilterChip>
                         FluentIcons.chrome_close,
                         size: 9,
                         color: Colors.white.withValues(alpha: 0.9),
-                        semanticLabel: '移除${widget.label}',
+                        semanticLabel: '移除${widget.tooltip ?? widget.label}',
                       ),
                     ),
                   ),
@@ -338,5 +354,8 @@ class _FilterChipState extends State<_FilterChip>
         ),
       ),
     );
+    return widget.tooltip == null
+        ? chip
+        : Tooltip(message: widget.tooltip!, child: chip);
   }
 }
