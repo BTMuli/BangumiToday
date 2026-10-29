@@ -541,6 +541,7 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
         displayName: displayName,
         manual: manual,
       );
+      await _recordSubject(task, null);
       await _client.refreshTasks();
       return task;
     } catch (error) {
@@ -926,15 +927,13 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
   static Future<({int id, String? title})?> _completionSubject(
     BtTaskSnapshot task,
   ) async {
-    if (!task.manual) {
-      try {
-        var subjectId = await downloadSubjectsStorage.read(task.id);
-        if (subjectId != null && subjectId > 0) {
-          return (id: subjectId, title: null);
-        }
-      } catch (error) {
-        BTLogTool.warn('读取下载任务条目关联失败：$error');
+    try {
+      var subjectId = await downloadSubjectsStorage.read(task.id);
+      if (subjectId != null && subjectId > 0) {
+        return (id: subjectId, title: null);
       }
+    } catch (error) {
+      BTLogTool.warn('读取下载任务条目关联失败：$error');
     }
     var bmf = await _findMatchingBmf(task.savePath);
     return bmf == null ? null : (id: bmf.subject, title: bmf.title);
@@ -945,7 +944,6 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
     try {
       var bmfList = await globalContainer.read(bmfRepositoryProvider).readAll();
       var subjectId = findDownloadSubject(
-        manual: false,
         savePath: savePath,
         directories: bmfList.map(
           (bmf) => (subject: bmf.subject, directory: bmf.download),
@@ -959,7 +957,6 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
   }
 
   Future<void> _recordSubject(BtTaskSnapshot task, int? subjectId) async {
-    if (task.manual) return;
     try {
       // 重复添加时保留已有的明确关联。
       subjectId ??= await downloadSubjectsStorage.read(task.id);

@@ -38,11 +38,7 @@ class _DownloadTaskPlayButtonState
     try {
       var task = widget.task;
       var subject = ref.read(
-        downloadTaskSubjectProvider((
-          taskId: task.id,
-          savePath: task.savePath,
-          manual: task.manual,
-        )),
+        downloadTaskSubjectProvider((taskId: task.id, savePath: task.savePath)),
       );
       var downloads = ref.read(btDownloadStoreProvider.notifier);
       var items = await loadDownloadPlaybackFiles(

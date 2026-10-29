@@ -506,7 +506,6 @@ class _DownloadTaskPane extends ConsumerWidget {
           downloadTaskSubjectProvider((
             taskId: task.id,
             savePath: task.savePath,
-            manual: task.manual,
           )),
         ),
     };

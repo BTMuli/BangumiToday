@@ -9,7 +9,7 @@ import '../models/bangumi/bangumi_model.dart';
 import '../store/bmf_store.dart';
 import 'bangumi_providers.dart';
 
-typedef DownloadSubjectKey = ({String taskId, String savePath, bool manual});
+typedef DownloadSubjectKey = ({String taskId, String savePath});
 
 // 保留已读取的关联，切换标签、搜索过滤后可同步恢复分组和折叠状态。
 // 自动释放会重新进入 loading，让任务先显示为独立卡片再合并回分组。
@@ -23,7 +23,6 @@ final _downloadSubjectLinkProvider = StreamProvider.family<int?, String>((
 /// 参数只包含关联所需字段，进度、速率刷新不会重新加载条目。
 final downloadTaskSubjectProvider = Provider.autoDispose
     .family<int?, DownloadSubjectKey>((ref, key) {
-      if (key.manual) return null;
       var linkedSubject = ref.watch(_downloadSubjectLinkProvider(key.taskId));
       // 等持久化关联读取完成，避免先用目录关联加载另一个条目的封面。
       if (linkedSubject.isLoading) return null;
@@ -31,7 +30,6 @@ final downloadTaskSubjectProvider = Provider.autoDispose
       if (id != null && id > 0) return id;
       var bmfs = ref.watch(bmfListProvider).value ?? const [];
       return findDownloadSubject(
-        manual: key.manual,
         savePath: key.savePath,
         directories: bmfs.map(
           (bmf) => (subject: bmf.subject, directory: bmf.download),
