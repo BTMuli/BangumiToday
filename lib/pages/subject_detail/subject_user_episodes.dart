@@ -18,6 +18,7 @@ import 'subject_detail_prefetch.dart';
 import 'subject_detail_refreshable.dart';
 import 'subject_episode.dart';
 import 'subject_episode_load_queue.dart';
+import 'subject_episode_progress.dart';
 import 'subject_stat_providers.dart';
 
 /// SubjectDetail页面的章节模块，负责显示/操作章节信息
@@ -82,6 +83,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
 
   /// offset
   int offset = 0;
+  int? _episodeTotal;
 
   /// 章节列表加载失败的原因，null 表示没有失败
   String? _loadError;
@@ -165,7 +167,10 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
       fetched += page.length;
       if (page.length < limit) break;
     }
-    if (mounted) setState(() {});
+    if (mounted) {
+      _syncEpisodeProgress();
+      setState(() {});
+    }
   }
 
   /// 重新拉取章节列表与用户章节状态（由详情页刷新按钮触发）
@@ -190,6 +195,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
       _userEpById,
     );
     var offsetBackup = offset;
+    var totalBackup = _episodeTotal;
     episodes.clear();
     userEpisodes.clear();
     _userEpById.clear();
@@ -206,6 +212,8 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
           ..clear()
           ..addAll(userEpMapBackup);
         offset = offsetBackup;
+        _episodeTotal = totalBackup;
+        _syncEpisodeProgress();
         setState(() {});
       }
     }
@@ -342,6 +350,7 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
         for (var episode in ep1Resp.data!.data) episode.id: episode,
       }.values.toList();
       pageLen = ep1Resp.data!.data.length;
+      _episodeTotal = ep1Resp.data!.total;
       _loadError = null;
     } else {
       _loadError = ep1Resp.message;
@@ -369,7 +378,34 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
     _userEpisodesInFlight = null;
     offset = pageOffset + pageLen;
     if (isFirst) _loading = false;
-    if (mounted) setState(() {});
+    if (mounted) {
+      _syncEpisodeProgress();
+      setState(() {});
+    }
+  }
+
+  void _syncEpisodeProgress([Map<int, bool>? progress]) {
+    var total = _episodeTotal;
+    if (total == null || (episodes.isEmpty && total > 0)) return;
+    var currentProgress =
+        progress ??
+        ref.read<Map<int, bool>>(subjectEpisodeProgressProvider(subjectId));
+    var states = {
+      for (var item in userEpisodes)
+        item.episode.id: item.type == BangumiEpisodeCollectionType.done,
+      ...currentProgress,
+    };
+    if (!widget.provider.collected) {
+      states = {for (var episode in episodes) episode.id: false};
+    }
+    widget.provider.updateEpisodeProgress(
+      summarizeSubjectEpisodes(
+        episodes.where((episode) => episode.type == BangumiEpType.main),
+        states,
+        complete: episodes.length >= total,
+        declaredTotal: widget.subject.eps,
+      ),
+    );
   }
 
   /// 加载失败：左侧刷新按钮 + 异常描述
@@ -456,6 +492,9 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    ref.listen(subjectEpisodeProgressProvider(subjectId), (_, progress) {
+      _syncEpisodeProgress(progress);
+    });
     var progress = ref.watch(subjectEpisodeProgressProvider(subjectId));
     if (episodes.isEmpty) {
       if (_loading) {
@@ -526,18 +565,19 @@ class _SubjectUserEpisodesState extends ConsumerState<SubjectUserEpisodes>
         style: BTTypography.bodyStrong(context),
       );
     }
-    var done = 0;
     BangumiEpisode? next;
+    var states = <int, bool>{};
     for (var ep in group) {
       var userEp = _userEpisode(ep, progress);
       var marked = userEp?.type == BangumiEpisodeCollectionType.done;
-      if (marked) {
-        done++;
-      } else {
+      states[ep.id] = marked;
+      if (!marked) {
         next ??= ep;
       }
     }
-    var total = group.length;
+    var summary = summarizeSubjectEpisodes(group, states);
+    var done = summary.done;
+    var total = summary.total!;
     var ratio = total <= 0 ? 0.0 : (done / total).clamp(0.0, 1.0);
     var nextLabel = '';
     if (next != null && type == BangumiEpType.main) {

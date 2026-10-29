@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 // Project imports:
 import '../../models/bangumi/bangumi_enum.dart';
+import 'subject_episode_progress.dart';
 
 /// 条目收藏状态：是否已收藏、收藏类型与看到第几话。
 ///
@@ -55,6 +56,16 @@ class SubjectCollectStat {
 /// 监听收藏状态变更
 class SubjectCollectStatProvider extends ChangeNotifier {
   SubjectCollectStat _state = const SubjectCollectStat();
+  SubjectEpisodeProgress? _episodeProgress;
+
+  /// 剧集模块按正片章节统计的进度，与收藏接口的汇总字段分开保留。
+  SubjectEpisodeProgress? get episodeProgress => _episodeProgress;
+
+  void updateEpisodeProgress(SubjectEpisodeProgress progress) {
+    if (_episodeProgress == progress) return;
+    _episodeProgress = progress;
+    notifyListeners();
+  }
 
   /// 当前收藏状态
   SubjectCollectStat get state => _state;
@@ -75,7 +86,8 @@ class SubjectCollectStatProvider extends ChangeNotifier {
       type: value ? type : BangumiCollectionType.unknown,
       epStatus: value ? epStatus : 0,
     );
-    if (next == _state) return;
+    if (next == _state && (value || _episodeProgress == null)) return;
+    if (!value) _episodeProgress = null;
     _state = next;
     notifyListeners();
   }

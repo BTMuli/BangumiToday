@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/bangumi_utils.dart';
 import '../../models/app/response.dart';
+import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../ui/bt_dialog.dart';
@@ -211,6 +212,14 @@ class SubjectDetailOverview extends StatelessWidget {
             : subject.eps;
         var done = view.collectProvider.epStatus;
         var progress = total > 0 ? '$done / $total' : '$done';
+        if (subject.type == BangumiSubjectType.anime) {
+          var summary = view.collectProvider.episodeProgress;
+          var watched = summary == null
+              ? '—'
+              : '${summary.complete ? '' : '≥'}${summary.done}';
+          var mainTotal = summary?.total ?? (subject.eps > 0 ? subject.eps : 0);
+          progress = mainTotal > 0 ? '$watched / $mainTotal' : watched;
+        }
         return Wrap(
           spacing: 12,
           runSpacing: 8,
