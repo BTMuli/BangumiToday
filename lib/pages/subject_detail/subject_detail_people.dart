@@ -157,18 +157,24 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
                             (index) => _buildStaffMember(_staff.members[index]),
                           )
                         else
-                          for (var group in _staff.positions) ...[
-                            _buildPositionHeading(group),
-                            _buildGrid(
-                              group.members.length,
-                              columns,
-                              gap,
-                              (index) => _buildStaffMember(
-                                group.members[index],
-                                showPositions: false,
-                              ),
+                          for (var group in _staff.positions)
+                            SliverMainAxisGroup(
+                              slivers: [
+                                _buildPositionHeading(group),
+                                SliverPadding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  sliver: _buildGrid(
+                                    group.members.length,
+                                    columns,
+                                    gap,
+                                    (index) => _buildStaffMember(
+                                      group.members[index],
+                                      showPositions: false,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
                       ],
                     ),
                   ),
@@ -183,14 +189,33 @@ class _SubjectDetailPeopleState extends ConsumerState<SubjectDetailPeople>
 
   Widget _buildPositionHeading(SubjectStaffPositionGroup group) {
     var label = group.position.isEmpty ? '未标注职位' : group.position;
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Text(
-          '$label · ${group.members.length}',
-          style: BTTypography.bodyStrong(context),
-        ),
-      ),
+    return SliverLayoutBuilder(
+      builder: (context, constraints) {
+        var isPinned = constraints.scrollOffset > 0;
+        return PinnedHeaderSliver(
+          child: Semantics(
+            header: true,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 36),
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              decoration: BoxDecoration(
+                color: SubjectDetailColors.content(context),
+                border: isPinned
+                    ? Border(
+                        bottom: BorderSide(color: BTColors.divider(context)),
+                      )
+                    : null,
+                boxShadow: isPinned ? BTTheme.shadow(context) : null,
+              ),
+              child: Text(
+                '$label · ${group.members.length}',
+                style: BTTypography.bodyStrong(context),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
