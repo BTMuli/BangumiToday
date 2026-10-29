@@ -47,15 +47,16 @@ class PlaybackSubtitleFiles {
 
   Future<PlaybackSubtitleImport> importDirectory(
     String directory,
-    List<PlaybackItem> items,
-  ) async {
+    List<PlaybackItem> items, {
+    bool matchByEpisode = false,
+  }) async {
     var files = await Directory(directory)
         .list(recursive: true, followLinks: false)
         .where((entity) => entity is File && isSubtitle(entity.path))
         .map((entity) => entity.path)
         .toList();
     files.sort();
-    var result = match(files, items);
+    var result = match(files, items, matchByEpisode: matchByEpisode);
     for (var item in items) {
       var matched = result.matches[item.key];
       if (matched == null) continue;
@@ -69,10 +70,12 @@ class PlaybackSubtitleFiles {
   }
 
   /// Prefer complete basenames. Numbers must identify exactly one video.
+  /// Ignoring different titles requires explicit confirmation by the caller.
   static PlaybackSubtitleImport match(
     Iterable<String> files,
-    List<PlaybackItem> items,
-  ) {
+    List<PlaybackItem> items, {
+    bool matchByEpisode = false,
+  }) {
     var subtitles = <String, String>{
       for (var file in files.where(isSubtitle))
         PlaybackItem.pathKey(file): file,
@@ -100,8 +103,7 @@ class PlaybackSubtitleFiles {
         var episode = PlaybackEpisodeNumber.parse(stem);
         if (episode == null) continue;
         var title = _title(stem, episode);
-        candidates = videos.where((item) {
-          var video = path.basenameWithoutExtension(item.filePath);
+        var numbered = videos.where((item) {
           var number = PlaybackEpisodeNumber.fromPath(item.filePath);
           if (number == null || number.number != episode.number) return false;
           if (number.season != null &&
@@ -109,9 +111,17 @@ class PlaybackSubtitleFiles {
               number.season != episode.season) {
             return false;
           }
-          var videoTitle = _title(video, number);
+          return true;
+        }).toList();
+        candidates = numbered.where((item) {
+          var video = path.basenameWithoutExtension(item.filePath);
+          var videoTitle = _title(
+            video,
+            PlaybackEpisodeNumber.fromPath(item.filePath)!,
+          );
           return title.isEmpty || videoTitle.isEmpty || title == videoTitle;
         }).toList();
+        if (candidates.isEmpty && matchByEpisode) candidates = numbered;
       }
       if (candidates.length != 1) continue;
       matches.putIfAbsent(candidates.single.key, () => []).add(file);

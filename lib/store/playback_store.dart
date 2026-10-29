@@ -965,11 +965,16 @@ class PlaybackStore extends ChangeNotifier {
   }
 
   Future<PlaybackSubtitleImport?> importSubtitleDirectory(
-    String directory,
-  ) async {
+    String directory, {
+    bool matchByEpisode = false,
+  }) async {
     PlaybackSubtitleImport? result;
     await _serial(() async {
-      result = await _subtitleFiles.importDirectory(directory, playlist);
+      result = await _subtitleFiles.importDirectory(
+        directory,
+        playlist,
+        matchByEpisode: matchByEpisode,
+      );
       if (_closed || current == null) return;
       if (!result!.matches.containsKey(current!.key)) return;
       _manualSubtitles = false;

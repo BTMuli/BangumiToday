@@ -106,6 +106,82 @@ void main() {
     expect(result.matches[second.key], [files.last]);
   });
 
+  test('ANK 罗马字字幕经确认后可按集数匹配 Snow 日文视频的全部 12 集', () {
+    var videos = <PlaybackItem>[];
+    var files = <String>[];
+    for (var episode = 1; episode <= 12; episode++) {
+      var number = episode.toString().padLeft(2, '0');
+      videos.add(
+        _video(
+          '[Snow-Raws] ましろ色シンフォニー -The color of lovers- '
+          '第$number話 (BD 1920x1080 HEVC-YUV420P10 FLAC).mkv',
+        ),
+      );
+      files.add(
+        'subs/[ANK-Raws] Mashiroiro Symphony - $number '
+        '(BDrip 1920x1080 x264 FLAC Hi10P).SC-OL.ass',
+      );
+    }
+    expect(PlaybackSubtitleFiles.match(files, videos).matches, isEmpty);
+    var result = PlaybackSubtitleFiles.match(
+      files,
+      videos.reversed.toList(),
+      matchByEpisode: true,
+    );
+    for (var index = 0; index < videos.length; index++) {
+      expect(result.matches[videos[index].key], [files[index]]);
+    }
+    expect(result.matchedFiles, 12);
+    expect(result.unmatchedFiles, 0);
+  });
+
+  test('按集数导入仍跳过重复集号、季数冲突、范围和特典', () {
+    var videos = [
+      _video('作品 第01話.mkv'),
+      _video('其他作品 第01話.mkv'),
+      _video('作品 S02E02.mkv'),
+      _video('作品 NCOP01.mkv'),
+    ];
+    var files = [
+      'subs/Show - 01.chs.ass',
+      'subs/Show S01E02.chs.ass',
+      'subs/Show - 01-02.chs.ass',
+      'subs/Show NCOP01.chs.ass',
+      'subs/Show - 03.chs.ass',
+    ];
+    var result = PlaybackSubtitleFiles.match(
+      files,
+      videos,
+      matchByEpisode: true,
+    );
+    expect(result.matches, isEmpty);
+    expect(result.unmatchedFiles, files.length);
+  });
+
+  test('按集数导入保留同名及同片名的优先级，未标季数时不猜跨季集号', () {
+    var first = _video('[Group A] Show - 01.mkv');
+    var second = _video('[Group B] Show - 01.mkv');
+    var other = _video('其他作品 第01話.mkv');
+    var files = ['subs/[Group B] Show - 01.chs.ass'];
+    var exact = PlaybackSubtitleFiles.match(files, [
+      first,
+      second,
+      other,
+    ], matchByEpisode: true);
+    expect(exact.matches, {second.key: files});
+    var named = PlaybackSubtitleFiles.match(files, [
+      first,
+      other,
+    ], matchByEpisode: true);
+    expect(named.matches, {first.key: files});
+    var seasonal = PlaybackSubtitleFiles.match(
+      ['subs/Show - 01.chs.ass'],
+      [_video('作品 S01E01.mkv'), _video('作品 S02E01.mkv')],
+      matchByEpisode: true,
+    );
+    expect(seasonal.matches, isEmpty);
+  });
+
   test('同季不同集和不同季同集均不混配', () {
     var first = _video('Show S01E01.mkv');
     var second = _video('Show S02E01.mkv');
@@ -316,6 +392,32 @@ void main() {
         ]);
         expect(unmatched.unmatchedFiles, 1);
         expect(settings.values, isEmpty);
+      });
+
+      test('不同片名字幕在确认按集数导入后保存关联，重复导入去重', () async {
+        var video = _video('作品 第01話.mkv');
+        var settings = _Settings();
+        var subtitles = PlaybackSubtitleFiles(
+          remote ? _remoteSettings(settings) : settings,
+        );
+        var file = await File(
+          path.join(
+            directory.path,
+            'Show - 01 (BDrip 1920x1080 x264 FLAC Hi10P).SC-OL.ass',
+          ),
+        ).writeAsString('');
+        var unmatched = await subtitles.importDirectory(directory.path, [
+          video,
+        ]);
+        expect(unmatched.matches, isEmpty);
+        expect(settings.values, isEmpty);
+        for (var attempt = 0; attempt < 2; attempt++) {
+          var result = await subtitles.importDirectory(directory.path, [
+            video,
+          ], matchByEpisode: true);
+          expect(result.matchedFiles, 1);
+          expect(await subtitles.read(video), [file.path]);
+        }
       });
     });
   }
