@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import '../../providers/app_providers.dart';
 import 'rss_bmf_anibt.dart';
+import 'rss_bmf_animegarden.dart';
 import 'rss_bmf_comicat.dart';
 import 'rss_bmf_mikan.dart';
 import 'rss_bmf_workspace.dart';
@@ -112,6 +113,21 @@ class _RssBmfPageState extends ConsumerState<RssBmfPage>
         text: const Text('Comicat'),
         body: _tabBody(3, const RssBmfComicat()),
         semanticLabel: 'Comicat',
+        selectedBackgroundColor: WidgetStateColor.resolveWith(
+          (_) => FluentTheme.of(context).accentColor.withAlpha(80),
+        ),
+      ),
+      Tab(
+        icon: Image.asset(
+          'assets/images/platforms/animegarden-favicon.png',
+          height: 16,
+          width: 16,
+          fit: BoxFit.contain,
+          semanticLabel: 'Anime Garden',
+        ),
+        text: const Text('Anime Garden'),
+        body: _tabBody(4, const RssBmfAnimeGarden()),
+        semanticLabel: 'Anime Garden',
         selectedBackgroundColor: WidgetStateColor.resolveWith(
           (_) => FluentTheme.of(context).accentColor.withAlpha(80),
         ),

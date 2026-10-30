@@ -78,6 +78,15 @@ class RssItem {
   /// Structured release metadata from the AniBT RSS namespace.
   final RssAnibtMetadata? anibt;
 
+  /// Explicit association supplied by a non-RSS resource API.
+  final int? _subjectId;
+
+  /// Only explicit, positive upstream IDs can associate a download.
+  int? get subjectId {
+    var id = _subjectId ?? anibt?.bgmId;
+    return id != null && id > 0 ? id : null;
+  }
+
   const RssItem({
     this.title,
     this.description,
@@ -90,7 +99,8 @@ class RssItem {
     this.dc,
     this.torrent,
     this.anibt,
-  });
+    int? subjectId,
+  }) : _subjectId = subjectId;
 
   factory RssItem.parse(XmlElement element) {
     var torrent = RssItemTorrent.parse(element);

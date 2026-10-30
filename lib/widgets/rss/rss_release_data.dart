@@ -4,10 +4,12 @@ import 'package:html/parser.dart' as html;
 // Project imports:
 import '../../core/utils/tool_func.dart';
 import '../../models/rss/anibt_filters.dart';
+import '../../models/rss/animegarden_resource.dart';
 import '../../models/rss/rss.dart';
 
 enum RssReleaseSource {
   anibt('AniBT'),
+  animegarden('Anime Garden'),
   mikan('Mikan'),
   comicat('Comicat'),
   generic('通用 RSS');
@@ -17,7 +19,10 @@ enum RssReleaseSource {
   final String label;
 
   static RssReleaseSource fromProvider(String? provider) =>
-      values.where((source) => source.name == provider).firstOrNull ?? generic;
+      values
+          .where((source) => source != animegarden && source.name == provider)
+          .firstOrNull ??
+      generic;
 }
 
 /// 展示层投影：保留完整标题，仅从明确的返回字段和标题标记提取辅助信息。
@@ -33,6 +38,8 @@ class RssReleaseData {
   final DateTime? publishedAt;
   final String? downloadUrl;
   final String? detailUrl;
+  final String? originUrl;
+  final AnimeGardenResource? animeGardenResource;
 
   const RssReleaseData({
     required this.item,
@@ -46,6 +53,8 @@ class RssReleaseData {
     this.publishedAt,
     this.downloadUrl,
     this.detailUrl,
+    this.originUrl,
+    this.animeGardenResource,
   });
 
   String get key => item.guid ?? detailUrl ?? downloadUrl ?? title;
@@ -59,6 +68,35 @@ class RssReleaseData {
     if (author != null) '${item.anibt == null ? '发布者' : '字幕组'} $author',
     ...tags,
   }.toList();
+
+  /// API previews never enter the RSS cache or unread baseline.
+  factory RssReleaseData.fromAnimeGarden(AnimeGardenResource resource) {
+    var item = RssItem(
+      title: resource.title,
+      guid: 'animegarden:${resource.id}',
+      link: resource.detailUrl,
+      pubDate: resource.createdAt.toIso8601String(),
+      enclosure: RssEnclosure(url: resource.downloadUrl, length: resource.size),
+      subjectId: resource.subjectId,
+    );
+    return RssReleaseData(
+      item: item,
+      title: resource.title,
+      categories: ['Anime Garden', '上游 ${resource.provider}', resource.type],
+      tags: [
+        if (resource.fansub != null) '字幕组 ${resource.fansub!.name}',
+        ..._titleTags(resource.title),
+        if (item.subjectId != null) 'Bangumi ${item.subjectId}' else '未绑定条目',
+      ],
+      author: resource.publisher.name,
+      sizeLabel: filesize(resource.size),
+      publishedAt: resource.createdAt,
+      downloadUrl: resource.downloadUrl,
+      detailUrl: resource.detailUrl,
+      originUrl: resource.href,
+      animeGardenResource: resource,
+    );
+  }
 
   factory RssReleaseData.fromItem(
     RssItem item,
@@ -110,9 +148,7 @@ class RssReleaseData {
       r'\[\s*(\d+(?:\.\d+)?\s*(?:[KMGT]i?B|B))\s*\]\s*$',
       caseSensitive: false,
     ).firstMatch(descriptionText);
-    var sizeLabel = bytes != null && bytes > 0
-        ? filesize(bytes)
-        : sizeMatch?.group(1);
+    var sizeLabel = bytes != null ? filesize(bytes) : sizeMatch?.group(1);
     var summary = descriptionText.replaceAll(RegExp(r'\s+'), ' ');
     if (summary.startsWith(title)) summary = summary.substring(title.length);
     if (sizeMatch != null) {

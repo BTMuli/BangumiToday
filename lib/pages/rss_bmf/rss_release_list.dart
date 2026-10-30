@@ -15,6 +15,7 @@ import '../../request/mikan/mikan_api.dart';
 import '../../store/bt_download_store.dart';
 import '../../ui/bt_infobar.dart';
 import '../../ui/bt_select.dart';
+import '../../widgets/rss/animegarden_detail_dialog.dart';
 import '../../widgets/rss/rss_refresh_status.dart';
 import '../../widgets/rss/rss_release_data.dart';
 import '../../widgets/rss/rss_release_detail_dialog.dart';
@@ -23,6 +24,9 @@ import '../../widgets/rss/rss_release_surface.dart';
 /// Mikan / Comicat 共用资源列表，按可用字段调整每行内容。
 class RssReleaseList extends ConsumerStatefulWidget {
   final Widget title;
+
+  /// A source can supply its own query and pagination layout.
+  final Widget? toolbar;
   final List<Widget> leadingControls;
   final List<Widget> sourceControls;
 
@@ -37,16 +41,21 @@ class RssReleaseList extends ConsumerStatefulWidget {
   final Future<void> Function()? onClearSearch;
   final bool refreshEnabled;
   final List<RssItem> items;
+  final List<RssReleaseData>? releases;
   final RssReleaseSource source;
   final bool refreshing;
   final bool loaded;
   final bool loadFailed;
   final DateTime? lastUpdated;
   final Future<void> Function() onRefresh;
+  final Future<void> Function()? onRetry;
+  final String? failureMessage;
+  final ScrollController? scrollController;
 
   const RssReleaseList({
     super.key,
     required this.title,
+    this.toolbar,
     this.leadingControls = const [],
     this.sourceControls = const [],
     this.searchControl,
@@ -55,12 +64,16 @@ class RssReleaseList extends ConsumerStatefulWidget {
     this.onClearSearch,
     this.refreshEnabled = true,
     required this.items,
+    this.releases,
     required this.source,
     required this.refreshing,
     required this.loaded,
     required this.loadFailed,
     this.lastUpdated,
     required this.onRefresh,
+    this.onRetry,
+    this.failureMessage,
+    this.scrollController,
   });
 
   @override
@@ -84,15 +97,18 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
   void didUpdateWidget(RssReleaseList oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.items, widget.items) ||
+        !identical(oldWidget.releases, widget.releases) ||
         oldWidget.source != widget.source) {
       _parseItems();
     }
   }
 
   void _parseItems() {
-    _releases = widget.items
-        .map((item) => RssReleaseData.fromItem(item, widget.source))
-        .toList();
+    _releases =
+        widget.releases ??
+        widget.items
+            .map((item) => RssReleaseData.fromItem(item, widget.source))
+            .toList();
     _categories = _releases.expand((item) => item.categories).toSet().toList()
       ..sort();
     if (!_categories.contains(_category)) _category = null;
@@ -126,7 +142,7 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
           uri: downloadUrl,
           savePath: directory,
           displayName: release.title,
-          subjectId: release.item.anibt?.bgmId,
+          subjectId: release.item.subjectId,
         );
       } else {
         var torrent = await BTDownloadTool().downloadRssTorrent(
@@ -139,7 +155,7 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
           torrentPath: torrent,
           savePath: directory,
           displayName: release.title,
-          subjectId: release.item.anibt?.bgmId,
+          subjectId: release.item.subjectId,
         );
       }
       if (mounted) await BtInfobar.success(context, '下载任务已添加');
@@ -152,10 +168,11 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
     }
   }
 
-  Future<void> _open(RssReleaseData release) async {
-    if (release.detailUrl == null) return;
+  Future<void> _open(RssReleaseData release, {String? url}) async {
+    var target = url ?? release.detailUrl;
+    if (target == null) return;
     try {
-      var opened = await launchUrlString(_sourceUrl(release.detailUrl!));
+      var opened = await launchUrlString(_sourceUrl(target));
       if (!opened && mounted) await BtInfobar.error(context, '无法打开资源详情');
     } catch (error) {
       if (mounted) await BtInfobar.error(context, error.toString());
@@ -178,16 +195,18 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
         : _releases;
     return Column(
       children: [
-        _buildToolbar(context, filtered.length),
+        widget.toolbar ?? _buildToolbar(context, filtered.length),
         if (widget.refreshing && _releases.isNotEmpty) const ProgressBar(),
         if (widget.loadFailed && _releases.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: InfoBar(
-              title: const Text('刷新失败，当前显示上次加载的资源'),
+              title: Text(widget.failureMessage ?? '刷新失败，当前显示上次加载的资源'),
               severity: InfoBarSeverity.warning,
               action: Button(
-                onPressed: widget.refreshing ? null : widget.onRefresh,
+                onPressed: widget.refreshing
+                    ? null
+                    : widget.onRetry ?? widget.onRefresh,
                 child: const Text('重试'),
               ),
             ),
@@ -198,6 +217,7 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
             child: filtered.isEmpty
                 ? _buildEmptyState(context)
                 : ListView.separated(
+                    controller: widget.scrollController,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 12,
@@ -299,9 +319,7 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
             ],
           );
           var refresh = Tooltip(
-            message: widget.source == RssReleaseSource.mikan
-                ? '刷新 Mikan'
-                : '刷新 Comicat',
+            message: '刷新 ${widget.source.label}',
             child: IconButton(
               icon: widget.refreshing
                   ? const SizedBox(
@@ -512,8 +530,21 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (release.originUrl != null)
+              Tooltip(
+                message: '打开上游原始资源页',
+                child: IconButton(
+                  icon: const Icon(
+                    FluentIcons.globe,
+                    size: 16,
+                    semanticLabel: '打开上游原始资源页',
+                  ),
+                  onPressed: () => _open(release, url: release.originUrl),
+                ),
+              ),
             if (includeDetails &&
-                widget.source == RssReleaseSource.comicat) ...[
+                (widget.source == RssReleaseSource.comicat ||
+                    release.animeGardenResource != null)) ...[
               Tooltip(
                 message: '查看资源详情',
                 child: IconButton(
@@ -575,10 +606,8 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
       context: context,
       barrierDismissible: true,
       dismissWithEsc: true,
-      builder: (dialogContext) => RssReleaseDetailDialog(
-        release: release,
-        onTapUrl: _openDescriptionLink,
-        actions: Row(
+      builder: (dialogContext) {
+        var actions = Row(
           children: [
             const Spacer(),
             _buildActions(dialogContext, release, includeDetails: false),
@@ -588,8 +617,22 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
               child: const Text('关闭'),
             ),
           ],
-        ),
-      ),
+        );
+        var resource = release.animeGardenResource;
+        if (resource != null) {
+          return AnimeGardenDetailDialog(
+            resource: resource,
+            release: release,
+            onTapUrl: _openDescriptionLink,
+            actions: actions,
+          );
+        }
+        return RssReleaseDetailDialog(
+          release: release,
+          onTapUrl: _openDescriptionLink,
+          actions: actions,
+        );
+      },
     );
   }
 
@@ -641,7 +684,11 @@ class _RssReleaseListState extends ConsumerState<RssReleaseList> {
           if (!loading) ...[
             const SizedBox(height: 8),
             Button(
-              onPressed: filtered ? _clearFilters : widget.onRefresh,
+              onPressed: filtered
+                  ? _clearFilters
+                  : widget.loadFailed
+                  ? widget.onRetry ?? widget.onRefresh
+                  : widget.onRefresh,
               child: Text(filtered ? '清除筛选' : '重新加载'),
             ),
             if (widget.isSearch && widget.onClearSearch != null) ...[

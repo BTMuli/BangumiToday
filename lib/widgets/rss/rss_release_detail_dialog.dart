@@ -16,6 +16,9 @@ class RssReleaseDetailDialog extends StatelessWidget {
   final Widget actions;
   final Uri? baseUrl;
   final bool markdownDescription;
+  final String? descriptionOverride;
+  final Widget? status;
+  final Widget? extraContent;
 
   const RssReleaseDetailDialog({
     super.key,
@@ -24,12 +27,15 @@ class RssReleaseDetailDialog extends StatelessWidget {
     required this.actions,
     this.baseUrl,
     this.markdownDescription = false,
+    this.descriptionOverride,
+    this.status,
+    this.extraContent,
   });
 
   @override
   Widget build(BuildContext context) {
     var description = rssDescriptionHtml(
-      release.item.description,
+      descriptionOverride ?? release.item.description,
       isMarkdown: markdownDescription,
     );
     var timestamp = release.publishedAt == null
@@ -84,9 +90,11 @@ class RssReleaseDetailDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (description == null || description.isEmpty)
+              if (status != null) ...[status!, const SizedBox(height: 12)],
+              if ((description == null || description.isEmpty) &&
+                  status == null)
                 Text('该资源未提供详细介绍', style: BTTypography.body(context))
-              else
+              else if (description != null && description.isNotEmpty)
                 HtmlWidget(
                   description,
                   baseUrl:
@@ -122,6 +130,7 @@ class RssReleaseDetailDialog extends StatelessWidget {
                   onErrorBuilder: (context, element, error) =>
                       Text('无法加载这部分内容', style: BTTypography.caption(context)),
                 ),
+              ?extraContent,
             ],
           ),
         ),
