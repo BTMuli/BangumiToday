@@ -168,15 +168,43 @@ class BtEngineClient implements BtEngineGateway {
   }
 
   @override
-  Future<BtTaskPeersResult> taskPeers(String id, {int offset = 0, int? limit}) {
-    return _singleFlight('task.peers:$id:$offset:${limit ?? ''}', () async {
-      var result = await request('task.peers', {
-        'id': id,
-        if (offset > 0) 'offset': offset,
-        'limit': ?limit,
-      });
-      return BtTaskPeersResult.fromJson(result);
+  Future<BtTaskPeersResult> taskPeers(
+    String id, {
+    int offset = 0,
+    int? limit,
+    String? trackerUrl,
+  }) {
+    return _singleFlight(
+      'task.peers:$id:$offset:${limit ?? ''}:$trackerUrl',
+      () async {
+        var result = await request('task.peers', {
+          'id': id,
+          if (offset > 0) 'offset': offset,
+          'limit': ?limit,
+          'trackerUrl': ?trackerUrl,
+        });
+        return BtTaskPeersResult.fromJson(result);
+      },
+    );
+  }
+
+  @override
+  Future<BtTaskTrackersResult> taskTrackers(
+    String id, {
+    int offset = 0,
+    String? peerEndpoint,
+  }) => _singleFlight('task.trackers:$id:$offset:$peerEndpoint', () async {
+    var result = await request('task.trackers', {
+      'id': id,
+      'offset': offset,
+      'peerEndpoint': ?peerEndpoint,
     });
+    return BtTaskTrackersResult.fromJson(result);
+  });
+
+  @override
+  Future<void> reannounce(String id) async {
+    await request('task.reannounce', {'id': id});
   }
 
   Future<Map<String, dynamic>> request(

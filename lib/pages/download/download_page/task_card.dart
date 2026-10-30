@@ -484,8 +484,9 @@ class _TaskActions extends StatelessWidget {
           _button(
             context,
             FluentIcons.refresh,
-            '重试',
+            task.lastError?.recoveryHint ?? '重试',
             () => onAction((store) => store.retry(task.id)),
+            enabled: task.lastError?.retryable == true,
           ),
         if (task.sourceKind != 'http' &&
             !(task.manual && task.state == 'completed'))
@@ -561,6 +562,7 @@ class _TaskActions extends StatelessWidget {
     Future<void> Function() action, {
     Color? color,
     bool emphasized = false,
+    bool enabled = true,
     Future<void> Function()? onLongPress,
   }) {
     var foreground = color ?? BTColors.textSecondary(context);
@@ -579,7 +581,7 @@ class _TaskActions extends StatelessWidget {
           ),
           child: IconButton(
             icon: Icon(icon, size: 15, color: foreground),
-            onPressed: action,
+            onPressed: enabled ? action : null,
             onLongPress: onLongPress,
           ),
         ),

@@ -1,5 +1,10 @@
-const btEngineProtocolVersion = '1.6';
+const btEngineProtocolVersion = '1.9';
 const btEngineMaxProtocolFrameBytes = 1024 * 1024;
+
+T? _requiredNullable<T>(Map<String, dynamic> json, String key) {
+  if (!json.containsKey(key)) throw FormatException('缺少协议字段：$key');
+  return json[key] as T?;
+}
 
 enum BtEngineClientState { stopped, starting, ready, stopping, failed }
 
@@ -14,13 +19,30 @@ class BtTaskError {
     return BtTaskError(
       code: json['code'] as String,
       message: json['message'] as String,
-      retryable: json['retryable'] as bool? ?? false,
+      retryable: json['retryable'] as bool,
     );
   }
 
   final String code;
   final String message;
   final bool retryable;
+
+  String get recoveryHint => switch (code) {
+    'DISK_FULL' => '释放保存磁盘空间后重试',
+    'SAVE_PATH_NOT_WRITABLE' => '恢复保存目录的写入权限后重试',
+    'SAVE_PATH_UNAVAILABLE' => '确认保存目录或磁盘已连接后重试',
+    'STORAGE_ERROR' => '检查磁盘、目录权限和文件占用后重试',
+    'NETWORK_UNAVAILABLE' || 'HTTP_TRANSFER_ERROR' => '检查网络和代理连接后重试',
+    'HTTP_STATUS_ERROR' =>
+      retryable ? '等待服务器恢复或解除限流后重试' : '检查下载链接与访问权限；链接失效时重新添加任务',
+    'TLS_ERROR' => '检查系统时间、证书和代理配置；修正后重新添加任务',
+    'SOURCE_INVALID' ||
+    'SOURCE_UNSUPPORTED' ||
+    'HTTP_REDIRECT_ERROR' => '检查资源链接或种子文件后重新添加任务',
+    'SAVE_PATH_INVALID' => '使用有效的保存路径重新添加任务',
+    'DATA_VERIFICATION_FAILED' => '检查磁盘或资源完整性，可尝试重新校验',
+    _ => retryable ? '修正错误原因后重试' : '修正资源或配置后重新添加任务',
+  };
 
   @override
   bool operator ==(Object other) {
@@ -49,6 +71,7 @@ class BtTaskSnapshot {
     required this.uploadedBytes,
     required this.shareRatio,
     required this.seedingSeconds,
+    required this.downloadMilliseconds,
     required this.seedRatioLimit,
     required this.seedTimeLimitMinutes,
     required this.seedStopReason,
@@ -63,6 +86,10 @@ class BtTaskSnapshot {
   });
 
   factory BtTaskSnapshot.fromJson(Map<String, dynamic> json) {
+    var downloadMilliseconds = json['downloadMilliseconds'] as int;
+    if (downloadMilliseconds < 0) {
+      throw const FormatException('downloadMilliseconds 必须是非负整数');
+    }
     return BtTaskSnapshot(
       id: json['id'] as String,
       state: json['state'] as String,
@@ -77,6 +104,7 @@ class BtTaskSnapshot {
       uploadedBytes: (json['uploadedBytes'] as num?)?.toInt() ?? 0,
       shareRatio: (json['shareRatio'] as num?)?.toDouble() ?? 0,
       seedingSeconds: (json['seedingSeconds'] as num?)?.toInt() ?? 0,
+      downloadMilliseconds: downloadMilliseconds,
       seedRatioLimit: (json['seedRatioLimit'] as num?)?.toDouble() ?? 2,
       seedTimeLimitMinutes:
           (json['seedTimeLimitMinutes'] as num?)?.toInt() ?? 60,
@@ -109,6 +137,9 @@ class BtTaskSnapshot {
   final int uploadedBytes;
   final double shareRatio;
   final int seedingSeconds;
+
+  /// 单任务累计下载耗时；仅在下载状态且下载速度大于 0 时计时。
+  final int downloadMilliseconds;
   final double seedRatioLimit;
   final int seedTimeLimitMinutes;
   final String? seedStopReason;
@@ -154,6 +185,7 @@ class BtTaskSnapshot {
         uploadedBytes == other.uploadedBytes &&
         shareRatio == other.shareRatio &&
         seedingSeconds == other.seedingSeconds &&
+        downloadMilliseconds == other.downloadMilliseconds &&
         seedRatioLimit == other.seedRatioLimit &&
         seedTimeLimitMinutes == other.seedTimeLimitMinutes &&
         seedStopReason == other.seedStopReason &&
@@ -183,6 +215,7 @@ class BtTaskSnapshot {
     Object.hash(
       shareRatio,
       seedingSeconds,
+      downloadMilliseconds,
       seedRatioLimit,
       seedTimeLimitMinutes,
       seedStopReason,
@@ -240,9 +273,22 @@ class BtTaskPeerDetail {
     required this.progress,
     required this.downloadRate,
     required this.uploadRate,
+    required this.choked,
+    required this.interested,
+    required this.remoteChoked,
+    required this.remoteInterested,
+    required this.connectionState,
+    required this.seed,
+    required this.transport,
+    required this.encryption,
+    required this.sources,
+    required this.trackerUrls,
   });
 
-  factory BtTaskPeerDetail.fromJson(Map<String, dynamic> json) {
+  factory BtTaskPeerDetail.fromJson(
+    Map<String, dynamic> json, {
+    required List<String> trackerUrls,
+  }) {
     var peerId = json['peerId'] as String;
     if (!RegExp(r'^(?:[0-9a-f]{40})?$').hasMatch(peerId)) {
       throw const FormatException('peerId 必须为空或 20 字节的十六进制编码');
@@ -255,6 +301,18 @@ class BtTaskPeerDetail {
       progress: (json['progress'] as num).toDouble().clamp(0, 1),
       downloadRate: (json['downloadRate'] as num).toInt(),
       uploadRate: (json['uploadRate'] as num).toInt(),
+      choked: json['choked'] as bool,
+      interested: json['interested'] as bool,
+      remoteChoked: json['remoteChoked'] as bool,
+      remoteInterested: json['remoteInterested'] as bool,
+      connectionState: json['connectionState'] as String,
+      seed: json['seed'] as bool,
+      transport: json['transport'] as String,
+      encryption: json['encryption'] as String,
+      sources: (json['sources'] as List).cast<String>(),
+      trackerUrls: (json['trackerIndices'] as List)
+          .map((index) => trackerUrls[index as int])
+          .toList(growable: false),
     );
   }
 
@@ -268,6 +326,18 @@ class BtTaskPeerDetail {
 
   /// 引擎仅根据 Peer ID 指纹识别的客户端，与握手声明独立。
   final String peerIdClient;
+  final bool choked;
+  final bool interested;
+  final bool remoteChoked;
+  final bool remoteInterested;
+  final String connectionState;
+  final bool seed;
+  final String transport;
+  final String encryption;
+  final List<String> sources;
+
+  /// 最近 30 分钟实际返回过此地址的 Tracker，可包含多个；运行期记录不持久化。
+  final List<String> trackerUrls;
   final double progress;
   final int downloadRate;
   final int uploadRate;
@@ -292,19 +362,20 @@ class BtTaskPeerDetail {
     return result.toString();
   }
 
-  /// Peer ID 识别结果中的客户端名称，用于该列筛选。
-  String get clientName => _splitClient(peerIdClient).$1;
+  /// 从实际 UA 握手声明拆分的客户端名称，用于 UA 列展示与筛选。
+  String get clientName => _splitClient(userAgent).$1;
 
   /// 客户端版本；客户端字符串不含版本时为空字符串。
-  String get clientVersion => _splitClient(peerIdClient).$2;
+  String get clientVersion => _splitClient(userAgent).$2;
 
-  /// 拆分引擎的 Peer ID 识别结果，保留预发布标记和指纹中的构建标记。
-  /// 握手声明不经过这里，完整保留原文。
+  /// 拆分 UA 中以斜杠或空格分隔的名称和版本，原始声明仍完整保留。
+  /// 无法拆分时原样展示，不以 Peer ID 指纹补齐。
   static (String, String) _splitClient(String raw) {
     var value = raw.trim();
     if (value.isEmpty) return ('unknown', '');
     var match = RegExp(
-      r'^(.+?) ([0-9]+(?:\.[0-9]+)*(?:(?:dev|[abr])[0-9]*)?'
+      r'^([^/]+?)(?:/|\s+)([0-9]+(?:\.[0-9]+)*'
+      r'(?:(?:dev|[abr])[0-9]*|[-+][0-9A-Za-z.+-]+)?'
       r'(?: \(tag [ -~]\))?)$',
     ).firstMatch(value);
     return match == null ? (value, '') : (match[1]!, match[2]!);
@@ -325,6 +396,9 @@ class BtTaskDetails {
     required this.peersTruncated,
     required this.totalPeers,
     this.httpConnections = 0,
+    required this.httpRangeSupported,
+    required this.httpTransferMode,
+    required this.httpResponseStatus,
   });
 
   factory BtTaskDetails.fromJson(Map<String, dynamic> json) {
@@ -338,7 +412,13 @@ class BtTaskDetails {
     }
 
     var files = parseList('files', BtTaskFileDetail.fromJson);
-    var peers = parseList('peers', BtTaskPeerDetail.fromJson);
+    var peers = parseList(
+      'peers',
+      (peer) => BtTaskPeerDetail.fromJson(
+        peer,
+        trackerUrls: List<String>.from(json['trackerUrls'] as List),
+      ),
+    );
     return BtTaskDetails(
       task: BtTaskSnapshot.fromJson(
         Map<String, dynamic>.from(json['task'] as Map),
@@ -354,6 +434,12 @@ class BtTaskDetails {
       peersTruncated: json['peersTruncated'] as bool? ?? false,
       totalPeers: (json['totalPeers'] as num?)?.toInt() ?? peers.length,
       httpConnections: (json['httpConnections'] as num?)?.toInt() ?? 0,
+      httpRangeSupported: _requiredNullable<bool>(json, 'httpRangeSupported'),
+      httpTransferMode: json['httpTransferMode'] as String,
+      httpResponseStatus: _requiredNullable<num>(
+        json,
+        'httpResponseStatus',
+      )?.toInt(),
     );
   }
 
@@ -371,6 +457,137 @@ class BtTaskDetails {
   final bool peersTruncated;
   final int totalPeers;
   final int httpConnections;
+  final bool? httpRangeSupported;
+  final String httpTransferMode;
+  final int? httpResponseStatus;
+}
+
+class BtTaskTrackerDetail {
+  const BtTaskTrackerDetail({
+    required this.url,
+    required this.tier,
+    required this.endpoint,
+    required this.protocol,
+    required this.state,
+    required this.lastError,
+    required this.message,
+    required this.nextAnnounceSeconds,
+    required this.peers,
+  });
+
+  factory BtTaskTrackerDetail.fromJson(Map<String, dynamic> json) =>
+      BtTaskTrackerDetail(
+        url: json['url'] as String,
+        tier: (json['tier'] as num).toInt(),
+        endpoint: json['endpoint'] as String,
+        protocol: json['protocol'] as String,
+        state: json['state'] as String,
+        lastError: json['lastError'] as String,
+        message: json['message'] as String,
+        nextAnnounceSeconds: _requiredNullable<num>(
+          json,
+          'nextAnnounceSeconds',
+        )?.toInt(),
+        peers: _requiredNullable<num>(json, 'peers')?.toInt(),
+      );
+
+  final String url;
+  final int tier;
+  final String endpoint;
+  final String protocol;
+  final String state;
+  final String lastError;
+  final String message;
+  final int? nextAnnounceSeconds;
+  final int? peers;
+}
+
+class BtTaskTrackersResult {
+  BtTaskTrackersResult.fromJson(Map<String, dynamic> json)
+    : trackers = (json['trackers'] as List)
+          .map(
+            (value) => BtTaskTrackerDetail.fromJson(
+              Map<String, dynamic>.from(value as Map),
+            ),
+          )
+          .toList(growable: false),
+      totalTrackers = (json['totalTrackers'] as num).toInt(),
+      offset = (json['offset'] as num).toInt(),
+      nextOffset = _requiredNullable<num>(json, 'nextOffset')?.toInt();
+
+  final List<BtTaskTrackerDetail> trackers;
+  final int totalTrackers;
+  final int offset;
+  final int? nextOffset;
+}
+
+class BtEngineNetworkStatus {
+  BtEngineNetworkStatus.fromJson(Map<String, dynamic> json)
+    : listening = json['listening'] as bool,
+      listenPort = (json['listenPort'] as num).toInt(),
+      dhtEnabled = json['dhtEnabled'] as bool,
+      dhtRunning = json['dhtRunning'] as bool,
+      dhtNodes = _requiredNullable<num>(json, 'dhtNodes')?.toInt(),
+      dhtSampled = json['dhtSampled'] as bool,
+      lsdEnabled = json['lsdEnabled'] as bool,
+      upnpEnabled = json['upnpEnabled'] as bool,
+      natPmpEnabled = json['natPmpEnabled'] as bool,
+      listeners = (json['listeners'] as List)
+          .map(
+            (value) => BtEngineListenerStatus.fromJson(
+              Map<String, dynamic>.from(value as Map),
+            ),
+          )
+          .toList(growable: false),
+      portMappings = (json['portMappings'] as List)
+          .map(
+            (value) => BtEnginePortMappingStatus.fromJson(
+              Map<String, dynamic>.from(value as Map),
+            ),
+          )
+          .toList(growable: false);
+
+  final bool listening;
+  final int listenPort;
+  final bool dhtEnabled;
+  final bool dhtRunning;
+  final int? dhtNodes;
+  final bool dhtSampled;
+  final bool lsdEnabled;
+  final bool upnpEnabled;
+  final bool natPmpEnabled;
+  final List<BtEngineListenerStatus> listeners;
+  final List<BtEnginePortMappingStatus> portMappings;
+}
+
+class BtEngineListenerStatus {
+  BtEngineListenerStatus.fromJson(Map<String, dynamic> json)
+    : address = json['address'] as String,
+      port = (json['port'] as num).toInt(),
+      socketType = json['socketType'] as String,
+      state = json['state'] as String,
+      error = json['error'] as String;
+
+  final String address;
+  final int port;
+  final String socketType;
+  final String state;
+  final String error;
+}
+
+class BtEnginePortMappingStatus {
+  BtEnginePortMappingStatus.fromJson(Map<String, dynamic> json)
+    : address = json['address'] as String,
+      transport = json['transport'] as String,
+      state = json['state'] as String,
+      externalPort = _requiredNullable<num>(json, 'externalPort')?.toInt(),
+      error = json['error'] as String;
+
+  final String address;
+  final String transport;
+  final String state;
+  final int? externalPort;
+  final String error;
 }
 
 /// `task.files` 的响应：按 `offset`/`limit` 窗口返回的文件列表。
@@ -431,13 +648,16 @@ class BtTaskPeersResult {
   });
 
   factory BtTaskPeersResult.fromJson(Map<String, dynamic> json) {
+    var trackerUrls = List<String>.from(json['trackerUrls'] as List);
     var values = json['peers'];
     var peers = values is List
         ? values
               .whereType<Map>()
               .map(
-                (value) =>
-                    BtTaskPeerDetail.fromJson(Map<String, dynamic>.from(value)),
+                (value) => BtTaskPeerDetail.fromJson(
+                  Map<String, dynamic>.from(value),
+                  trackerUrls: trackerUrls,
+                ),
               )
               .toList(growable: false)
         : const <BtTaskPeerDetail>[];

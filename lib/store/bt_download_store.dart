@@ -447,9 +447,27 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
     String id, {
     int offset = 0,
     int? limit,
-  }) => _client.taskPeers(id, offset: offset, limit: limit);
+    String? trackerUrl,
+  }) => _client.taskPeers(
+    id,
+    offset: offset,
+    limit: limit,
+    trackerUrl: trackerUrl,
+  );
   Future<List<int>> setFilePriorities(String id, Map<int, int> priorities) =>
       _client.setFilePriorities(id, priorities);
+  Future<BtTaskTrackersResult> taskTrackers(
+    String id, {
+    int offset = 0,
+    String? peerEndpoint,
+  }) => _client.taskTrackers(id, offset: offset, peerEndpoint: peerEndpoint);
+  Future<void> reannounce(String id) => _client.reannounce(id);
+  Future<BtEngineNetworkStatus> engineNetworkStatus() async {
+    var status = await _client.status();
+    return BtEngineNetworkStatus.fromJson(
+      Map<String, dynamic>.from(status['network'] as Map),
+    );
+  }
 
   Future<void> refresh() async {
     if (_refreshing) return;
