@@ -31,8 +31,10 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   final _gridScroll = ScrollController();
   final _listScroll = ScrollController();
   final _historyScroll = ScrollController();
+  final _historySearch = TextEditingController();
   final _menu = FlyoutController();
   final _expandedHistory = <String>{};
+  String _historyQuery = '';
   late bool _showHistory;
   String? _lastPlayingKey;
   int _lastIndex = -1;
@@ -52,6 +54,9 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
 
   /// 标题行高 32、上下内边距各 6、分隔线 1。
   static const _headerHeight = 45.0;
+
+  /// 第二行高 32，与标题行相隔 4。
+  static const _secondaryHeaderHeight = 36.0;
   bool _revealed = false;
 
   @override
@@ -70,6 +75,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
     _gridScroll.dispose();
     _listScroll.dispose();
     _historyScroll.dispose();
+    _historySearch.dispose();
     _menu.dispose();
     super.dispose();
   }
@@ -117,12 +123,13 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
     });
   }
 
-  /// 选集浮出层的自然高度（含面板边框）：标题、分隔线和当前排版下的完整
-  /// 列表。记录页的条目高度随展开状态变化，由最大高度与内部滚动处理。
+  /// 选集浮出层的自然高度（含面板边框）：标题、加载状态、分隔线和当前排版
+  /// 下的完整列表。记录页由最大高度与内部滚动处理。
   static double playlistFlyoutHeight({
     required int count,
     required PlaybackEpisodeLayout layout,
     required double width,
+    required bool isOpening,
   }) {
     // 边框会缩进面板内容，列表实际宽度与列数按内宽计算。
     var innerWidth = width - 2 * _borderWidth;
@@ -136,7 +143,10 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
       PlaybackEpisodeLayout.list =>
         2 * _listPadding + count * (_rowHeight + _gap),
     };
-    return _headerHeight + content + 2 * _borderWidth;
+    return _headerHeight +
+        (isOpening ? _secondaryHeaderHeight : 0) +
+        content +
+        2 * _borderWidth;
   }
 
   /// 栏宽与 `_playlist` 共用同一列规则，浮出层高度才能与列表布局一致。
@@ -222,68 +232,141 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
             !_showHistory &&
             store.playlist.isNotEmpty &&
             constraints.maxWidth >= 220;
-        return Row(
+        return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (widget.section == null) ...[
-              _tab('选集', false, store.playlist.length),
-              const SizedBox(width: 4),
-              _tab('记录', true, store.historyGroups.length),
-            ] else
-              Expanded(child: _sectionTitle(store)),
-            if (store.openingStatus case var status?)
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: constraints.maxWidth / 2),
+            Row(
+              children: [
+                if (widget.section == null) ...[
+                  _tab('选集', false, store.playlist.length),
+                  const SizedBox(width: 4),
+                  _tab('记录', true, store.historyGroups.length),
+                ] else
+                  Expanded(child: _sectionTitle(store)),
+                if (showLayout) ...[
+                  const SizedBox(width: 4),
+                  _layoutSwitch(store),
+                ],
+                Tooltip(
+                  message: '刷新',
+                  child: IconButton(
+                    icon: const Icon(FluentIcons.refresh, size: 14),
+                    onPressed: !_showHistory && !store.canRefresh
+                        ? null
+                        : () => widget.run(() async {
+                            if (_showHistory) {
+                              _resolvedHistorySubjects.clear();
+                              await store.refreshHistory();
+                            } else {
+                              await store.refresh();
+                              if (!mounted) return;
+                              await ref
+                                  .read(episodeMarkProvider.notifier)
+                                  .syncItems(store.playlist, refresh: true);
+                            }
+                          }),
+                  ),
+                ),
+              ],
+            ),
+            if (_showHistory || store.isOpening)
+              SizedBox(
+                height: _secondaryHeaderHeight,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Tooltip(
-                    message: status,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox.square(
-                          dimension: 16,
-                          child: ProgressRing(strokeWidth: 2),
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            status,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: BTTypography.caption(context),
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Row(
+                    children: [
+                      if (_showHistory)
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 200),
+                              child: _historySearchBox(),
+                            ),
+                          ),
+                        )
+                      else
+                        const Spacer(),
+                      if (store.openingStatus case var status?)
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth / 2,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Tooltip(
+                              message: status,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox.square(
+                                    dimension: 16,
+                                    child: ProgressRing(strokeWidth: 2),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      status,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: BTTypography.caption(context),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
               ),
-            if (showLayout) ...[const SizedBox(width: 4), _layoutSwitch(store)],
-            Tooltip(
-              message: '刷新',
-              child: IconButton(
-                icon: const Icon(FluentIcons.refresh, size: 14),
-                onPressed: !_showHistory && !store.canRefresh
-                    ? null
-                    : () => widget.run(() async {
-                        if (_showHistory) {
-                          _resolvedHistorySubjects.clear();
-                          await store.refreshHistory();
-                        } else {
-                          await store.refresh();
-                          if (!mounted) return;
-                          await ref
-                              .read(episodeMarkProvider.notifier)
-                              .syncItems(store.playlist, refresh: true);
-                        }
-                      }),
-              ),
-            ),
           ],
         );
       },
     ),
   );
+
+  Widget _historySearchBox() => TextBox(
+    controller: _historySearch,
+    placeholder: '搜索记录',
+    style: BTTypography.caption(context),
+    prefix: const Padding(
+      padding: EdgeInsets.only(left: 8),
+      child: Icon(FluentIcons.search, size: 14),
+    ),
+    suffix: _historySearch.text.isEmpty
+        ? null
+        : Tooltip(
+            message: '清空搜索',
+            child: IconButton(
+              icon: const Icon(FluentIcons.clear, size: 12),
+              onPressed: () {
+                _historySearch.clear();
+                _searchHistory('');
+              },
+            ),
+          ),
+    onChanged: _searchHistory,
+  );
+
+  void _searchHistory(String value) {
+    var query = value.trim().toLowerCase();
+    var hydrateNames = _historyQuery.isEmpty && query.isNotEmpty;
+    setState(() => _historyQuery = query);
+    if (_historyScroll.hasClients) _historyScroll.jumpTo(0);
+    if (hydrateNames) {
+      var store = ref.read(playbackStoreProvider);
+      unawaited(
+        widget.run(
+          () => store.hydrateCovers(
+            store.historyGroups.map((group) => group.subject).whereType<int>(),
+          ),
+        ),
+      );
+    }
+  }
 
   /// 单一内容的浮出层标题，替代侧栏里的两个标签页。
   Widget _sectionTitle(PlaybackStore store) => Container(
@@ -658,22 +741,34 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
 
   Widget _history(PlaybackStore store) {
     if (store.historyGroups.isEmpty) return _empty('暂无播放记录');
+    var groups = _historyQuery.isEmpty
+        ? store.historyGroups
+        : store.historyGroups.where((group) {
+            var name = store.nameFor(group.subject);
+            return (name?.toLowerCase().contains(_historyQuery) ?? false) ||
+                group.items.any(
+                  (item) =>
+                      item.title.toLowerCase().contains(_historyQuery) ||
+                      item.filePath.toLowerCase().contains(_historyQuery),
+                );
+          }).toList();
+    if (groups.isEmpty) return _empty('没有匹配的播放记录');
     var slivers = <Widget>[];
     var collapsedStart = 0;
     // 折叠条目连续放在懒加载列表里，避免为吸顶表头预先解析整份历史。
     void addCollapsedRows(int end) {
       if (collapsedStart == end) return;
-      var groups = store.historyGroups.sublist(collapsedStart, end);
+      var collapsedGroups = groups.sublist(collapsedStart, end);
       slivers.add(
         SliverList.builder(
-          itemCount: groups.length,
-          itemBuilder: (_, index) => _historyRow(store, groups[index]),
+          itemCount: collapsedGroups.length,
+          itemBuilder: (_, index) => _historyRow(store, collapsedGroups[index]),
         ),
       );
     }
 
-    for (var index = 0; index < store.historyGroups.length; index++) {
-      var group = store.historyGroups[index];
+    for (var index = 0; index < groups.length; index++) {
+      var group = groups[index];
       if (group.items.length <= 1 || !_expandedHistory.contains(group.key)) {
         continue;
       }
@@ -681,7 +776,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
       slivers.add(_expandedHistorySliver(store, group));
       collapsedStart = index + 1;
     }
-    addCollapsedRows(store.historyGroups.length);
+    addCollapsedRows(groups.length);
     return Scrollbar(
       controller: _historyScroll,
       child: CustomScrollView(
@@ -1023,15 +1118,23 @@ Widget _playbackLibraryDynamicFlyout({
           child: Consumer(
             child: panel,
             builder: (context, ref, child) {
-              // Height depends only on item count and layout. Playback state,
-              // upscale progress and metadata updates need no size rebuild.
-              var (count, layout) = section == _PlaybackLibrarySection.playlist
+              // Only count, layout and loading-row visibility affect height;
+              // individual loading stages and metadata need no size rebuild.
+              var (
+                count,
+                layout,
+                isOpening,
+              ) = section == _PlaybackLibrarySection.playlist
                   ? ref.watch(
                       playbackStoreProvider.select(
-                        (store) => (store.playlist.length, store.episodeLayout),
+                        (store) => (
+                          store.playlist.length,
+                          store.episodeLayout,
+                          store.isOpening,
+                        ),
                       ),
                     )
-                  : (0, PlaybackEpisodeLayout.grid);
+                  : (0, PlaybackEpisodeLayout.grid, false);
               var panelWidth = box.width - _playbackFlyoutBorder;
               var maximumPanelHeight = (box.height - _playbackFlyoutBorder)
                   .clamp(0.0, double.infinity)
@@ -1041,6 +1144,7 @@ Widget _playbackLibraryDynamicFlyout({
                       count: count,
                       layout: layout,
                       width: panelWidth,
+                      isOpening: isOpening,
                     ).clamp(0.0, maximumPanelHeight).toDouble()
                   : maximumPanelHeight;
               return SizedBox(
