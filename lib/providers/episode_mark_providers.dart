@@ -12,6 +12,7 @@ import '../models/playback/episode_mark_state.dart';
 import '../models/playback/playback_item.dart';
 import '../store/bgm_user_hive.dart';
 import '../store/playback_store.dart';
+import '../tools/log_tool.dart';
 import 'bangumi_providers.dart';
 import 'playback_episode_link_providers.dart';
 
@@ -22,7 +23,7 @@ final episodeMarkProvider =
       EpisodeMarkController.new,
     );
 
-/// Account-scoped chapter progress and explicit playlist actions. Playback and
+/// Account-scoped chapter progress and playlist actions. Playback and
 /// auto-advance never wait for queries or writes.
 class EpisodeMarkController extends Notifier<EpisodeMarkState> {
   late final EpisodeMarkService service;
@@ -71,6 +72,7 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
     }
 
     _playback.addListener(onPlaybackChanged);
+    listenForPlaybackCompletions(_playback);
     ref.onDispose(() {
       _closed = true;
       _playback.removeListener(onPlaybackChanged);
@@ -78,6 +80,38 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
       service.close();
     });
     return EpisodeMarkState(account: currentAccount());
+  }
+
+  /// Subscribe once per engine, independently of sidebars and fullscreen UI.
+  /// The immutable EOF item remains the target even after automatic advance.
+  void listenForPlaybackCompletions(PlaybackStore playback) {
+    var subscription = playback.completions.listen((completion) {
+      var account = currentAccount();
+      var item = completion.item;
+      if (account == null ||
+          account != state.account ||
+          !playback.autoMarkWatched ||
+          (item.subject ?? 0) <= 0 ||
+          state.marked.contains(EpisodeMarkState.itemKey(item))) {
+        return;
+      }
+      // Resolve again in markItem: the playlist may be hidden, its progress
+      // may still be loading, or a file association may have just changed.
+      unawaited(_markCompletedItem(item));
+    });
+    ref.onDispose(() => unawaited(subscription.cancel()));
+  }
+
+  Future<void> _markCompletedItem(PlaybackItem item) async {
+    try {
+      var result = await markItem(item);
+      if (result.status == EpisodeMarkWriteStatus.failed ||
+          result.message != null) {
+        BTLogTool.warn('自动标记章节看过失败：${item.title}：${result.message}');
+      }
+    } catch (error) {
+      BTLogTool.warn('自动标记章节看过失败：${item.title}：$error');
+    }
   }
 
   String? currentAccount() {

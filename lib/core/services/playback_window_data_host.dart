@@ -35,6 +35,7 @@ class PlaybackWindowDataHost {
   final void Function() onCoverResolved;
   final void Function() onHistoryChanged;
   static const allowedSettings = {
+    'playbackAutoMarkWatched',
     'playbackHiResEnabled',
     'playbackAudioExclusiveEnabled',
     'playbackUpscaleMode',

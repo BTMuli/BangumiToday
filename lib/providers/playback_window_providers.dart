@@ -34,6 +34,7 @@ class RemoteEpisodeMarkController extends EpisodeMarkController {
   @override
   EpisodeMarkState build() {
     ref.onDispose(() => _remoteClosed = true);
+    listenForPlaybackCompletions(ref.read(playbackStoreProvider));
     return const EpisodeMarkState();
   }
 

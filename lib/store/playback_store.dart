@@ -143,6 +143,7 @@ class PlaybackStore extends ChangeNotifier {
     onChanged: _notify,
   );
   PlaybackEpisodeLayout _episodeLayout = PlaybackEpisodeLayout.grid;
+  bool _autoMarkWatched = false;
   double? _aspectRatio;
   Size? _videoSize;
   Player? _player;
@@ -192,6 +193,7 @@ class PlaybackStore extends ChangeNotifier {
   final _completions = StreamController<PlaybackCompletion>.broadcast();
 
   Stream<PlaybackCompletion> get completions => _completions.stream;
+  bool get autoMarkWatched => _autoMarkWatched;
   bool get isClosed => _closed;
   bool get isOpening => _openingStatus != null;
   String? get openingStatus => _openingStatus;
@@ -1057,6 +1059,8 @@ class PlaybackStore extends ChangeNotifier {
             () => settingsStore.read('playbackEpisodeLayout'),
           ),
         );
+        _autoMarkWatched =
+            await settingsStore.read('playbackAutoMarkWatched') == 'true';
         if (Platform.isWindows) {
           // Resolves the component root before the benchmark cache reads it.
           await timing.measure('初始化 TensorRT 资源', _upscale.initializeResources);
@@ -1131,6 +1135,14 @@ class PlaybackStore extends ChangeNotifier {
         _episodeLayout = layout;
         _notify();
       });
+
+  Future<void> setAutoMarkWatched(bool enabled) => _serial(() async {
+    if (_closed || _autoMarkWatched == enabled) return;
+    await settingsStore.write('playbackAutoMarkWatched', enabled.toString());
+    if (_closed) return;
+    _autoMarkWatched = enabled;
+    _notify();
+  });
 
   Future<void> setUpscaleMode(PlaybackUpscaleMode mode) => _serial(() async {
     await _loadPreferences();

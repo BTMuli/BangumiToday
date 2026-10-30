@@ -11,6 +11,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 // Project imports:
 import 'package:bangumi_today/core/services/episode_mark_service.dart';
+import 'package:bangumi_today/core/services/playback_episode_protocol.dart';
 import 'package:bangumi_today/data/repositories/episode_mark_gateway_impl.dart';
 import 'package:bangumi_today/domain/repositories/bangumi_repository.dart';
 import 'package:bangumi_today/domain/repositories/bmf_repository.dart';
@@ -19,6 +20,7 @@ import 'package:bangumi_today/domain/repositories/playback_episode_links.dart';
 import 'package:bangumi_today/models/app/response.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_enum.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_model.dart';
+import 'package:bangumi_today/models/playback/playback_completion.dart';
 import 'package:bangumi_today/models/playback/playback_episode_link.dart';
 import 'package:bangumi_today/models/playback/playback_episode_rule.dart';
 import 'package:bangumi_today/models/playback/playback_item.dart';
@@ -26,6 +28,7 @@ import 'package:bangumi_today/providers/bangumi_providers.dart';
 import 'package:bangumi_today/providers/bmf_providers.dart';
 import 'package:bangumi_today/providers/episode_mark_providers.dart';
 import 'package:bangumi_today/providers/playback_episode_link_providers.dart';
+import 'package:bangumi_today/providers/playback_window_providers.dart';
 import 'package:bangumi_today/providers/subject_playback_providers.dart';
 import 'package:bangumi_today/store/bgm_user_hive.dart';
 import 'package:bangumi_today/store/bt_download_store.dart';
@@ -173,8 +176,14 @@ class _Repository extends Fake implements BTBangumiRepository {
 }
 
 class _Links extends Fake implements PlaybackEpisodeLinks {
+  final values = <String, PlaybackEpisodeLink>{};
+  Completer<void>? readGate;
+
   @override
-  Future<Map<String, PlaybackEpisodeLink>> readAll() async => {};
+  Future<Map<String, PlaybackEpisodeLink>> readAll() async {
+    await readGate?.future;
+    return Map.of(values);
+  }
 
   @override
   Stream<Map<String, PlaybackEpisodeLink>> watchAll() => const Stream.empty();
@@ -215,8 +224,16 @@ class _User extends BgmUserStore {
 
 /// Playback notifications without starting mpv or interacting with any UI.
 class _Playback extends ChangeNotifier implements PlaybackStore {
+  final _finished = StreamController<PlaybackCompletion>.broadcast(sync: true);
+
   @override
   bool get isClosed => false;
+
+  @override
+  bool autoMarkWatched = false;
+
+  @override
+  Stream<PlaybackCompletion> get completions => _finished.stream;
 
   @override
   PlaybackItem? current = _item;
@@ -224,6 +241,23 @@ class _Playback extends ChangeNotifier implements PlaybackStore {
   void select(PlaybackItem item) {
     current = item;
     notifyListeners();
+  }
+
+  void finish(PlaybackItem item) {
+    _finished.add(
+      PlaybackCompletion(
+        sessionId: item.key,
+        item: item,
+        positionMs: 1000,
+        durationMs: 1000,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    unawaited(_finished.close());
+    super.dispose();
   }
 
   @override
@@ -244,18 +278,20 @@ void main() {
   late _Repository repository;
   late _User user;
   late _Playback playback;
+  late _Links links;
   late ProviderContainer container;
   late EpisodeMarkController controller;
 
   setUp(() {
     repository = _Repository();
     playback = _Playback();
+    links = _Links();
     container = ProviderContainer(
       overrides: [
         bgmUserStoreProvider.overrideWith(_User.new),
         bangumiRepositoryProvider.overrideWithValue(repository),
         playbackStoreProvider.overrideWith((ref) => playback),
-        playbackEpisodeLinksProvider.overrideWithValue(_Links()),
+        playbackEpisodeLinksProvider.overrideWithValue(links),
       ],
     );
     user = container.read(bgmUserStoreProvider.notifier) as _User;
@@ -264,6 +300,176 @@ void main() {
   });
 
   tearDown(() => container.dispose());
+
+  group('播放结束自动标记', () {
+    test('默认关闭，播放完成不写观看进度', () async {
+      await controller.syncItems([_item, _next]);
+      playback.finish(_item);
+      await pumpEventQueue();
+      expect(repository.writes, isEmpty);
+    });
+
+    test('切集后仍标记刚播完的章节，重复结束事件只写一次', () async {
+      await controller.syncItems([_item, _next]);
+      playback.autoMarkWatched = true;
+      playback.finish(_item);
+      playback.finish(_item);
+      playback.select(_next);
+      await pumpEventQueue();
+      expect(repository.writes, [10002]);
+      expect(repository.progressPageReads, 1);
+      expect(repository.episodePageReads, 0);
+      expect(repository.reads, isEmpty);
+    });
+
+    test('手动切集不标记，最后一集自然结束仍标记', () async {
+      await controller.syncItems([_item, _next]);
+      playback.autoMarkWatched = true;
+      playback.select(_next);
+      await pumpEventQueue();
+      expect(repository.writes, isEmpty);
+      playback.finish(_next);
+      await pumpEventQueue();
+      expect(repository.writes, [10003]);
+    });
+
+    test('已看过的章节不重复请求', () async {
+      repository.done.add(10002);
+      await controller.syncItems([_item, _next]);
+      playback.autoMarkWatched = true;
+      playback.finish(_item);
+      await pumpEventQueue();
+      expect(repository.writes, isEmpty);
+      expect(repository.progressPageReads, 1);
+      expect(repository.reads, isEmpty);
+    });
+
+    test('未打开选集面板也能复用预加载章节自动标记', () async {
+      await controller.service.chaptersForPlayback(_item.subject!);
+      expect(container.read(episodeMarkProvider).checked, isEmpty);
+      playback.autoMarkWatched = true;
+      playback.finish(_item);
+      playback.select(_next);
+      await pumpEventQueue();
+      expect(repository.writes, [10002]);
+      expect(repository.progressPageReads, 1);
+      expect(repository.episodePageReads, 0);
+      expect(repository.reads, isEmpty);
+    });
+
+    test('未关联、匹配不唯一、排除的文件和未登录状态不启用', () async {
+      const unassociated = PlaybackItem(filePath: 'movie.mkv', title: 'movie');
+      const ambiguous = PlaybackItem(
+        filePath: 'D:/Anime/Show 02-03.mkv',
+        title: 'merged',
+        subject: 536270,
+      );
+      links.values[_next.key] = PlaybackEpisodeLink(
+        filePath: _next.filePath,
+        subject: _next.subject!,
+        episode: null,
+      );
+      await controller.syncItems([_item, _next, ambiguous]);
+      var progress = container.read(episodeMarkProvider);
+      expect(progress.autoMarkDisabledReason(_item), isNull);
+      expect(progress.autoMarkDisabledReason(null), isNotNull);
+      expect(progress.autoMarkDisabledReason(unassociated), isNotNull);
+      expect(progress.autoMarkDisabledReason(ambiguous), isNotNull);
+      expect(progress.autoMarkDisabledReason(_next), isNotNull);
+      expect(const EpisodeMarkState().autoMarkDisabledReason(_item), isNotNull);
+      playback.autoMarkWatched = true;
+      playback.finish(unassociated);
+      playback.finish(ambiguous);
+      playback.finish(_next);
+      await pumpEventQueue();
+      expect(repository.writes, isEmpty);
+    });
+
+    test('结束时进度仍在加载则共享请求，读取完成前不写入', () async {
+      var gate = repository.progressGate = Completer<void>();
+      var syncing = controller.syncItems([_item]);
+      await pumpEventQueue();
+      playback.autoMarkWatched = true;
+      expect(
+        container.read(episodeMarkProvider).autoMarkDisabledReason(_item),
+        '正在读取条目观看进度…',
+      );
+      playback.finish(_item);
+      playback.select(_next);
+      await pumpEventQueue();
+      expect(repository.writes, isEmpty);
+      gate.complete();
+      await syncing;
+      await pumpEventQueue();
+      expect(repository.writes, [10002]);
+      expect(repository.progressPageReads, 1);
+    });
+
+    test('结束后换号使原账户的待处理标记失效', () async {
+      await controller.syncItems([_item, _next]);
+      playback.autoMarkWatched = true;
+      var gate = links.readGate = Completer<void>();
+      playback.finish(_item);
+      await pumpEventQueue();
+      user.authorize('another', id: 2, generation: 1);
+      await container.pump();
+      gate.complete();
+      await pumpEventQueue();
+      expect(repository.writes, isEmpty);
+    });
+
+    test('结束后排除当前文件不会误标原匹配章节', () async {
+      await controller.syncItems([_item, _next]);
+      playback.autoMarkWatched = true;
+      var gate = links.readGate = Completer<void>();
+      playback.finish(_item);
+      links.values[_item.key] = PlaybackEpisodeLink(
+        filePath: _item.filePath,
+        subject: _item.subject!,
+        episode: null,
+      );
+      gate.complete();
+      await pumpEventQueue();
+      expect(repository.writes, isEmpty);
+    });
+
+    test('独立播放器将结束文件交给主窗口标记，浮出层关闭不影响处理', () async {
+      var calls = <(String, Map<String, Object?>)>[];
+      var childPlayback = _Playback();
+      const state = EpisodeMarkState(account: 'account');
+      var remote = RemoteEpisodeMarkController((method, body) async {
+        calls.add((method, body));
+        return {
+          'state': encodeEpisodeMarkState(
+            state,
+            account: 'account',
+            revision: 2,
+          ),
+          'result': {'status': 'marked', 'message': null},
+        };
+      });
+      var child = ProviderContainer(
+        overrides: [
+          playbackStoreProvider.overrideWith((ref) => childPlayback),
+          episodeMarkProvider.overrideWith(() => remote),
+        ],
+      );
+      addTearDown(child.dispose);
+      child.read(episodeMarkProvider);
+      remote.receive(
+        encodeEpisodeMarkState(state, account: 'account', revision: 1),
+      );
+      childPlayback.autoMarkWatched = true;
+      childPlayback.finish(_item);
+      childPlayback.select(_next);
+      await pumpEventQueue();
+      expect(calls, hasLength(1));
+      expect(calls.single.$1, 'episodes.markItem');
+      expect(calls.single.$2['account'], 'account');
+      expect((calls.single.$2['item'] as Map)['filePath'], _item.filePath);
+      expect(repository.writes, isEmpty);
+    });
+  });
 
   test('选集进度加载后连续标记复用章节列表', () async {
     await controller.syncItems([_item, _next]);

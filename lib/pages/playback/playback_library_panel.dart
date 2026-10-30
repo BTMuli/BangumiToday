@@ -42,6 +42,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   PlaybackEpisodeLayout? _lastLayout;
   (String?, String)? _progressSignature;
   final _resolvedHistorySubjects = <int>{};
+  bool _savingAutoMark = false;
   static const _cellHeight = 48.0;
   static const _rowHeight = 46.0;
   static const _gap = 6.0;
@@ -237,6 +238,10 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
           children: [
             Row(
               children: [
+                if (!_showHistory) ...[
+                  _autoMarkToggle(store),
+                  const SizedBox(width: 6),
+                ],
                 if (widget.section == null) ...[
                   _tab('选集', false, store.playlist.length),
                   const SizedBox(width: 4),
@@ -327,6 +332,51 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
       },
     ),
   );
+
+  Widget _autoMarkToggle(PlaybackStore store) {
+    var progress = ref.watch(episodeMarkProvider);
+    var reason = _savingAutoMark
+        ? '正在保存设置…'
+        : store.isOpening
+        ? '正在切换视频…'
+        : progress.autoMarkDisabledReason(store.current);
+    return Tooltip(
+      message:
+          '播放完自动标记完成\n'
+          '${reason ?? '自然播放结束后标记当前章节看过，不影响自动切集'}',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            FluentIcons.completed,
+            size: 14,
+            color: reason != null ? BTColors.textTertiary(context) : null,
+          ),
+          const SizedBox(width: 6),
+          Semantics(
+            label: '播放完自动标记完成',
+            child: ToggleSwitch(
+              checked: store.autoMarkWatched,
+              onChanged: reason != null
+                  ? null
+                  : (enabled) async {
+                      setState(() => _savingAutoMark = true);
+                      try {
+                        await widget.run(
+                          () => store.setAutoMarkWatched(enabled),
+                        );
+                      } finally {
+                        if (mounted) {
+                          setState(() => _savingAutoMark = false);
+                        }
+                      }
+                    },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _historySearchBox() => TextBox(
     controller: _historySearch,
