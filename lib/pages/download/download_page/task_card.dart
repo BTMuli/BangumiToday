@@ -213,6 +213,20 @@ class _DownloadTaskCard extends StatelessWidget {
                         value: _etaLabel(task),
                         color: BTColors.warningLight(context),
                       ),
+                    if (task.downloadMilliseconds > 0 ||
+                        task.state == 'downloading' ||
+                        task.state == 'completed')
+                      Tooltip(
+                        message: '此任务的累计下载耗时，下载速度为 0 时暂停计时',
+                        child: _TaskMetric(
+                          icon: FluentIcons.timer,
+                          label: '下载耗时',
+                          value: formatDownloadDuration(
+                            task.downloadMilliseconds ~/ 1000,
+                          ),
+                          color: BTColors.textSecondary(context),
+                        ),
+                      ),
                     if (task.state == 'seeding' || task.uploadedBytes > 0)
                       _TaskMetric(
                         icon: FluentIcons.share,

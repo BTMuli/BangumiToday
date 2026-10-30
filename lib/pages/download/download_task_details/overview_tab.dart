@@ -24,6 +24,10 @@ class _OverviewTab extends StatelessWidget {
             child: Column(
               children: [
                 _DetailRow(label: '任务状态', value: _stateLabel(task.state)),
+                _DetailRow(
+                  label: '下载耗时',
+                  value: _durationLabel(task.downloadMilliseconds ~/ 1000),
+                ),
                 _DetailRow(label: '存储路径', value: task.savePath),
                 if (task.sourceKind != 'http')
                   _DetailRow(
