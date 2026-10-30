@@ -70,13 +70,20 @@ Logs are in `Documents/BangumiToday/log`, accessible from settings:
   `-playback-<window-id>.log`, and native logs in `-native.log`. Dart logs rotate
   at midnight while retaining that identity; native logs stay in the startup
   day's directory. PID reuse cannot append a new run to the previous log.
-- Dart logs record player state, mpv metrics and supersampling changes. Use
+- Dart file logs use compact timestamped records without console borders or
+  routine call stacks; explicitly supplied error stacks are retained. They
+  record player state, mpv metrics and supersampling changes. Periodic state
+  snapshots are written once per minute while playing or buffering, and stop
+  while paused or completed. Use
   `native_handle`, media revision and configuration generation to correlate them
   with native records. Playback flyouts log open/close times, panel kind,
   configured upscale mode and open duration to correlate visible overlays with
   rendering stalls and fallback.
 - Native logs record ANGLE/D3D errors and render timing. Stage times are
   CPU wall times; deadline skips and render failures are separate counters.
+  Normal render summaries are written once per minute; slow or failed attempts
+  retain the five-second reporting interval. Detailed worst-frame records are
+  limited to slow or failed intervals.
   The periodic summary also reports `prefetch_count`, `prefetch_avg_ms` and
   `prefetch_max_ms`, so snapshot allocation cost can be checked independently
   from on-frame render time. `first frame ready` confirms snapshot publication,

@@ -371,7 +371,7 @@ void VideoOutput::RecordSkip(PlaybackRenderSample& sample) {
   render_statistics_.RecordSkip(sample);
   // Skipping still calls the renderer and can block. Record the complete
   // attempt after its scoped stage timing ends, including skip-only intervals.
-  if (sample.finished - statistics_since_ >= std::chrono::seconds(10) ||
+  if (sample.finished - statistics_since_ >= std::chrono::seconds(60) ||
       ((sample.elapsed_ms >= 50 || sample.queue_ms >= 50) &&
        sample.finished - last_slow_report_ >= std::chrono::seconds(5))) {
     FlushRenderStatistics(sample.finished);
@@ -452,7 +452,7 @@ void VideoOutput::RecordRender(PlaybackRenderSample& sample, bool success,
   // Failed attempts contribute to every timing/count, not just errors_total.
   // Fixed thresholds let Dart's FPS/rate budget explain sub-50ms slowdowns
   // without synchronous mpv property reads on the render worker.
-  if (sample.finished - statistics_since_ >= std::chrono::seconds(10) ||
+  if (sample.finished - statistics_since_ >= std::chrono::seconds(60) ||
       ((sample.elapsed_ms >= 50 || sample.queue_ms >= 50 || !success) &&
        sample.finished - last_slow_report_ >= std::chrono::seconds(5))) {
     FlushRenderStatistics(sample.finished);
@@ -508,7 +508,9 @@ void VideoOutput::FlushRenderStatistics(
               stats.skip_lateness_max_ms, stats.lateness_max_ms,
               stats.output_lateness_max_ms, stages);
   BangumiNativeLog(message);
-  if (stats.attempts) LogRenderSample(stats.worst, "worst");
+  if (stats.attempts && (stats.over_20 > 0 || stats.failures > 0 ||
+                        stats.queue_max_ms >= 50))
+    LogRenderSample(stats.worst, "worst");
   if (stats.queue_max_ms >= 50 &&
       stats.longest_queue.sequence != stats.worst.sequence)
     LogRenderSample(stats.longest_queue, "queue_worst");

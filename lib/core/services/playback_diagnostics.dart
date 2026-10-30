@@ -212,7 +212,9 @@ class PlaybackDiagnostics {
       _lastProperties = now;
       unawaited(_readProperties());
     }
-    if (now - _lastSnapshot >= const Duration(seconds: 15)) {
+    if ((state.playing || state.buffering) &&
+        !state.completed &&
+        now - _lastSnapshot >= const Duration(minutes: 1)) {
       _lastSnapshot = now;
       BTLogTool.info('播放状态 ${_snapshot()}');
       _flushSuppressed();

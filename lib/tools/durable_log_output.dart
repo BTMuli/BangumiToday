@@ -11,6 +11,7 @@ import 'log_retention.dart';
 
 /// 每条记录同步追加，避免原生崩溃时丢失 IOSink 中尚未提交的日志。
 /// 不同 Flutter 引擎写不同文件，跨午夜时自动切换日期。
+/// 文件使用紧凑格式，不重复保存控制台的装饰边框和普通调用栈。
 class BTDurableLogOutput extends LogOutput {
   BTDurableLogOutput(
     this.directory,
@@ -23,6 +24,7 @@ class BTDurableLogOutput extends LogOutput {
   final String scope;
   final BTLogIdentity identity;
   final void Function(FileSystemException) onError;
+  final _printer = SimplePrinter(printTime: true, colors: false);
 
   Timer? _cleanupTimer;
   Future<void>? _cleanupTask;
@@ -76,7 +78,10 @@ class BTDurableLogOutput extends LogOutput {
         _outputPath = file.path;
       }
       // Keep crash diagnostics synchronous without opening a handle per entry.
-      _output!.writeStringSync('${event.lines.join('\n')}\n');
+      var lines = _printer.log(event.origin);
+      var stackTrace = event.origin.stackTrace;
+      if (stackTrace != null) lines.add(stackTrace.toString());
+      _output!.writeStringSync('${lines.join('\n')}\n');
       if (event.level.index >= Level.warning.index) _output!.flushSync();
     } on FileSystemException catch (error) {
       // 文件输出自身失败时不能再次调用 logger，避免递归。
