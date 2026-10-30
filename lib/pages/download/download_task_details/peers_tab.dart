@@ -5,13 +5,18 @@ class _PeersTab extends StatefulWidget {
     required this.peers,
     required this.truncated,
     required this.loading,
+    required this.onShowTrackers,
+    this.trackerUrl,
     this.error,
     this.onRetry,
+    super.key,
   });
 
   final List<BtTaskPeerDetail> peers;
   final bool truncated;
   final bool loading;
+  final ValueChanged<String> onShowTrackers;
+  final String? trackerUrl;
   final String? error;
   final VoidCallback? onRetry;
 
@@ -20,6 +25,8 @@ class _PeersTab extends StatefulWidget {
 }
 
 class _PeersTabState extends State<_PeersTab> {
+  static const _columnFlexes = [3, 2, 4, 4, 2, 2];
+
   final FlyoutController _filterController = FlyoutController();
   var _sortIndex = -1;
   var _ascending = true;
@@ -53,7 +60,7 @@ class _PeersTabState extends State<_PeersTab> {
         items: [
           MenuFlyoutItem(
             leading: _filterLeading(_clientFilter == null),
-            text: const Text('全部 Peer ID 客户端'),
+            text: const Text('全部 UA 客户端'),
             onPressed: () {
               if (!mounted) return;
               setState(() => _clientFilter = null);
@@ -98,8 +105,8 @@ class _PeersTabState extends State<_PeersTab> {
     sorted.sort((a, b) {
       var result = switch (_sortIndex) {
         0 => a.endpoint.toLowerCase().compareTo(b.endpoint.toLowerCase()),
-        1 => a.userAgent.toLowerCase().compareTo(b.userAgent.toLowerCase()),
-        2 => _compareClient(a, b),
+        1 => _compareClient(a, b),
+        2 => a.peerId.compareTo(b.peerId),
         3 => a.progress.compareTo(b.progress),
         4 => a.downloadRate.compareTo(b.downloadRate),
         _ => a.uploadRate.compareTo(b.uploadRate),
@@ -129,6 +136,13 @@ class _PeersTabState extends State<_PeersTab> {
       return const Center(child: ProgressRing());
     }
     if (widget.peers.isEmpty) {
+      if (widget.trackerUrl != null) {
+        return const _DetailEmptyState(
+          icon: FluentIcons.people,
+          title: '此 Tracker 暂无关联的 Peer',
+          description: '最近返回过的节点出现在 Peer 列表时，会在这里显示',
+        );
+      }
       return const _DetailEmptyState(
         icon: FluentIcons.people,
         title: '暂无已连接 Peer',
@@ -137,21 +151,21 @@ class _PeersTabState extends State<_PeersTab> {
     }
     var peers = _sortedPeers();
     var footerParts = <String>[
-      if (widget.truncated) 'Peer 较多，仅显示前 ${widget.peers.length} 个',
+      if (widget.truncated) '可翻页查看更多 Peer',
       if (_clientFilter != null)
-        '已按 Peer ID 客户端「$_clientFilter」筛选 · '
+        '已按 UA 客户端「$_clientFilter」筛选 · '
             '显示 ${peers.length} / ${widget.peers.length} 个',
       if (error != null) '刷新失败，正在显示上次结果',
     ];
     return _TableShell(
       footer: footerParts.isEmpty ? null : footerParts.join(' · '),
       header: _TableHeader(
-        columns: const ['地址', '握手声明（UA）', 'Peer ID 识别', '进度', '下载', '上传'],
-        flexes: const [3, 4, 4, 2, 2, 2],
+        columns: const ['地址', 'UA', 'Peer ID', '进度', '下载', '上传'],
+        flexes: _columnFlexes,
         sortIndex: _sortIndex,
         ascending: _ascending,
         onSort: _toggleSort,
-        filterIndex: 2,
+        filterIndex: 1,
         filterActive: _clientFilter != null,
         onFilter: (_) => _openClientFilter(),
         filterController: _filterController,
@@ -161,58 +175,54 @@ class _PeersTabState extends State<_PeersTab> {
         var peer = peers[index];
         var progress = (peer.progress * 100).clamp(0, 100).toDouble();
         return _TableRow(
-          flexes: const [3, 4, 4, 2, 2, 2],
+          flexes: _columnFlexes,
           columns: [
-            Text(
-              peer.endpointLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            Tooltip(
+              message: _diagnostics(peer),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    peer.endpointLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    _connectionLabel(peer),
+                    style: BTTypography.caption(context),
+                  ),
+                ],
+              ),
             ),
             Padding(
               padding: const EdgeInsets.only(right: 10),
-              child: Tooltip(
-                message: peer.userAgent.isEmpty
-                    ? '尚未收到对端扩展握手中的客户端名称声明'
-                    : peer.userAgent,
-                child: SelectableText(
-                  peer.userAgent.isEmpty ? '未提供' : peer.userAgent,
-                  maxLines: 2,
-                  style: BTTypography.body(context),
-                ),
+              child: _PeerIdentityCell(
+                label: 'UA',
+                value: peer.userAgent,
+                text: peer.userAgent.isEmpty ? '未提供' : peer.clientName,
+                subtitle: peer.clientVersion,
               ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
               children: [
-                Text(
-                  peer.peerId.isEmpty ? '等待握手' : peer.clientName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Expanded(
+                  child: _PeerIdentityCell(
+                    label: 'Peer ID',
+                    value: peer.peerIdLabel,
+                    text: peer.peerId.isEmpty ? '等待握手' : peer.peerIdLabel,
+                  ),
                 ),
-                if (peer.clientVersion.isNotEmpty) ...[
-                  SizedBox(height: 2),
-                  Text(
-                    peer.clientVersion,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: BTTypography.caption(
-                      context,
-                    ).copyWith(color: BTColors.textSecondary(context)),
+                Tooltip(
+                  message: peer.trackerUrls.isEmpty
+                      ? '暂无具体 Tracker 返回记录'
+                      : '查看关联 Tracker\n${peer.trackerUrls.join('\n')}',
+                  child: IconButton(
+                    icon: const Icon(FluentIcons.link, size: 13),
+                    onPressed: peer.trackerUrls.isEmpty
+                        ? null
+                        : () => widget.onShowTrackers(peer.endpoint),
                   ),
-                ],
-                if (peer.peerId.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Tooltip(
-                    message: 'Peer ID：${peer.peerIdLabel}\nHEX：${peer.peerId}',
-                    child: SelectableText(
-                      peer.peerIdLabel,
-                      maxLines: 1,
-                      style: BTTypography.caption(
-                        context,
-                      ).copyWith(color: BTColors.textSecondary(context)),
-                    ),
-                  ),
-                ],
+                ),
               ],
             ),
             Padding(
@@ -242,6 +252,105 @@ class _PeersTabState extends State<_PeersTab> {
       },
     );
   }
+}
+
+class _PeerIdentityCell extends StatelessWidget {
+  const _PeerIdentityCell({
+    required this.label,
+    required this.value,
+    required this.text,
+    this.subtitle = '',
+  });
+
+  final String label;
+  final String value;
+  final String text;
+  final String subtitle;
+
+  Future<void> _copy(BuildContext context) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: value));
+      if (context.mounted) await BtInfobar.success(context, '$label 已复制');
+    } catch (error) {
+      if (context.mounted) await BtInfobar.error(context, '复制失败：$error');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: value.isEmpty ? '$label 暂不可用' : '$value\n单击复制 $label',
+    child: HoverButton(
+      hitTestBehavior: HitTestBehavior.opaque,
+      cursor: value.isEmpty
+          ? SystemMouseCursors.basic
+          : SystemMouseCursors.click,
+      semanticLabel: value.isEmpty ? '$label 暂不可用' : '复制 $label：$value',
+      onPressed: value.isEmpty ? null : () => unawaited(_copy(context)),
+      builder: (context, states) => AnimatedContainer(
+        duration: BTTheme.animationDurationFast,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        decoration: BoxDecoration(
+          color: states.isHovered || states.isFocused
+              ? FluentTheme.of(context).accentColor.withValues(alpha: .06)
+              : Colors.transparent,
+          borderRadius: BTRadius.smallBR,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: BTTypography.body(context).copyWith(fontSize: 13),
+            ),
+            if (subtitle.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: BTTypography.caption(
+                  context,
+                ).copyWith(color: BTColors.textSecondary(context)),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+String _connectionLabel(BtTaskPeerDetail peer) =>
+    switch (peer.connectionState) {
+      'connecting' => '正在连接',
+      'handshake' => '正在握手',
+      _ when peer.remoteChoked => '对端暂未允许下载',
+      _ when !peer.interested => '当前未请求对端数据',
+      _ => peer.seed ? '种子节点' : '已连接',
+    };
+
+String _diagnostics(BtTaskPeerDetail peer) {
+  var transport = switch (peer.transport) {
+    'utp' => 'uTP',
+    'webSeed' => 'Web Seed',
+    _ => 'TCP',
+  };
+  var encryption = switch (peer.encryption) {
+    'tls' => 'TLS',
+    'rc4' => 'RC4',
+    'handshake' => '仅握手混淆',
+    _ => '未加密',
+  };
+  return '${_connectionLabel(peer)} · $transport · $encryption\n'
+      '本端：${peer.interested ? '感兴趣' : '不感兴趣'} / '
+      '${peer.choked ? '阻止对端下载' : '允许对端下载'}\n'
+      '对端：${peer.remoteInterested ? '感兴趣' : '不感兴趣'} / '
+      '${peer.remoteChoked ? '阻止本端下载' : '允许本端下载'}\n'
+      '种子：${peer.seed ? '是' : '否'}\n'
+      '发现来源：${peer.sources.isEmpty ? '未报告' : peer.sources.join('、')}\n'
+      '近期关联 Tracker：${peer.trackerUrls.length} 个';
 }
 
 class _RateText extends StatelessWidget {

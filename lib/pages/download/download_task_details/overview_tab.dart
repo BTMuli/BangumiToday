@@ -66,13 +66,32 @@ class _OverviewTab extends StatelessWidget {
                   label: '文件数量',
                   value: '${fileCount ?? details.contentFileCount}',
                 ),
-                if (task.sourceKind == 'http')
-                  const _DetailRow(
-                    label: '恢复方式',
-                    value: 'HTTP Range 断点续传',
+                if (task.sourceKind == 'http') ...[
+                  _DetailRow(
+                    label: 'Range 支持',
+                    value: switch (details.httpRangeSupported) {
+                      true => '服务器已接受字节区间请求',
+                      false => '服务器未接受字节区间请求',
+                      null => '尚未确认',
+                    },
+                  ),
+                  _DetailRow(
+                    label: '传输方式',
+                    value: switch (details.httpTransferMode) {
+                      'probing' => '正在探测 Range 支持',
+                      'range' => '按字节区间下载',
+                      'resuming' => '从已有位置续传',
+                      'sequential' => '单连接顺序下载',
+                      'restart' => '已降级为从头重新下载',
+                      _ => '暂无传输记录',
+                    },
+                  ),
+                  _DetailRow(
+                    label: 'HTTP 状态',
+                    value: details.httpResponseStatus?.toString() ?? '尚未收到响应',
                     isLast: true,
-                  )
-                else
+                  ),
+                ] else
                   _DetailRow(
                     label: '做种策略',
                     value:
@@ -87,7 +106,9 @@ class _OverviewTab extends StatelessWidget {
             SizedBox(height: 12),
             InfoBar(
               title: Text(task.lastError!.code),
-              content: Text(task.lastError!.message),
+              content: Text(
+                '${task.lastError!.message}\n${task.lastError!.recoveryHint}',
+              ),
               severity: InfoBarSeverity.error,
             ),
           ],

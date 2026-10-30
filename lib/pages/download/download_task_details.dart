@@ -1,8 +1,10 @@
 // Dart imports:
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui' show PathMetric;
 
 // Flutter imports:
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 
 // Package imports:
@@ -19,6 +21,7 @@ import '../../store/bt_download_store.dart';
 import '../../store/nav_store.dart';
 import '../../ui/bt_infobar.dart';
 import '../playback/playback_actions.dart';
+import 'download_file_pager.dart';
 
 part 'download_task_details/empty_state.dart';
 part 'download_task_details/files_tab.dart';
@@ -27,6 +30,8 @@ part 'download_task_details/peers_tab.dart';
 part 'download_task_details/progress_tab.dart';
 part 'download_task_details/tab_bar.dart';
 part 'download_task_details/table_widgets.dart';
+part 'download_task_details/tracker_graph.dart';
+part 'download_task_details/trackers_tab.dart';
 
 class DownloadTaskDetails extends ConsumerStatefulWidget {
   const DownloadTaskDetails({
@@ -45,24 +50,38 @@ class DownloadTaskDetails extends ConsumerStatefulWidget {
 
 class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
   BtTaskDetails? _details;
-  BtTaskFilesResult? _files;
+  DownloadFilePage? _files;
+  final DownloadFilePager _filePager = DownloadFilePager();
   BtTaskPeersResult? _peers;
+  BtTaskTrackersResult? _trackers;
   Object? _error;
-  String? _tabError;
+  final Map<int, String> _tabErrors = {};
   Timer? _refreshTimer;
   var _loading = true;
   var _tabIndex = 0;
   var _detailsLoading = false;
   var _filesLoading = false;
+  var _fileSelectionBusy = false;
+  bool? _fileBulkInclude;
   var _peersLoading = false;
+  var _trackersLoading = false;
+  var _peerRequest = 0;
+  var _trackerRequest = 0;
+  String? _peerTrackerUrl;
+  String? _trackerPeerEndpoint;
+  var _reannouncing = false;
   var _routeActive = false;
 
   static const _peerTabIndex = 2;
   static const _filesTabIndex = 3;
+  static const _trackersTabIndex = 4;
+  static const _filePageSize = 50;
+  static const _peerPageSize = 100;
 
   bool get _tabLoading => switch (_tabIndex) {
     _peerTabIndex => _peersLoading,
     _filesTabIndex => _filesLoading,
+    _trackersTabIndex => _trackersLoading,
     _ => _detailsLoading,
   };
 
@@ -113,6 +132,8 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
         await _loadPeers(store);
       case _filesTabIndex:
         await _loadFiles(store);
+      case _trackersTabIndex:
+        await _loadTrackers(store);
       default:
         await _loadDetails(store, silent: silent);
     }
@@ -144,39 +165,212 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
     }
   }
 
-  Future<void> _loadFiles(BtDownloadStore store) async {
-    if (!_routeActive || !_engineReady || _filesLoading) return;
-    _filesLoading = true;
+  Future<void> _loadFiles(BtDownloadStore store, {int? offset}) async {
+    if (!_routeActive ||
+        !_engineReady ||
+        _filesLoading ||
+        _fileSelectionBusy ||
+        _fileBulkInclude != null) {
+      return;
+    }
+    setState(() => _filesLoading = true);
     try {
-      var files = await store.taskFiles(widget.taskId);
+      var files = await _filePager.load(
+        readWindow: (offset, limit) =>
+            store.taskFiles(widget.taskId, offset: offset, limit: limit),
+        offset: offset ?? _files?.offset ?? 0,
+        pageSize: _filePageSize,
+      );
       if (!mounted) return;
       setState(() {
         _files = files;
-        _tabError = null;
+        _tabErrors.remove(_filesTabIndex);
       });
     } catch (error) {
       if (!mounted) return;
-      setState(() => _tabError = error.toString());
+      setState(() => _tabErrors[_filesTabIndex] = error.toString());
     } finally {
-      _filesLoading = false;
+      if (mounted) setState(() => _filesLoading = false);
     }
   }
 
-  Future<void> _loadPeers(BtDownloadStore store) async {
-    if (!_routeActive || !_engineReady || _peersLoading) return;
-    _peersLoading = true;
+  void _onFileSelectionBusyChanged(bool busy) {
+    if (!mounted || _fileSelectionBusy == busy) return;
+    setState(() => _fileSelectionBusy = busy);
+  }
+
+  Future<void> _setFilePageIncluded(bool include) async {
+    var page = _files;
+    if (page == null ||
+        page.files.isEmpty ||
+        _filesLoading ||
+        _fileSelectionBusy ||
+        _fileBulkInclude != null) {
+      return;
+    }
+    setState(() => _fileBulkInclude = include);
     try {
-      var peers = await store.taskPeers(widget.taskId);
+      var applied = await ref
+          .read(btDownloadStoreProvider.notifier)
+          .setFilePriorities(widget.taskId, {
+            for (var index in page.indices) index: include ? 4 : 0,
+          });
       if (!mounted) return;
+      setState(() => _files = page.withPriorities(applied));
+    } catch (error) {
+      if (mounted) unawaited(BtInfobar.error(context, '文件选择更新失败：$error'));
+    } finally {
+      if (mounted) setState(() => _fileBulkInclude = null);
+    }
+  }
+
+  Widget? _fileActions(BtTaskSnapshot task) {
+    if (task.sourceKind == 'http' ||
+        {'completed', 'seeding'}.contains(task.state) ||
+        _files?.files.isNotEmpty != true) {
+      return null;
+    }
+    var busy = _filesLoading || _fileSelectionBusy || _fileBulkInclude != null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var include in [true, false])
+          Tooltip(
+            message: _fileBulkInclude == include
+                ? '正在更新文件选择'
+                : include
+                ? '下载本页全部文件'
+                : '跳过本页全部文件',
+            child: IconButton(
+              icon: _fileBulkInclude == include
+                  ? const SizedBox.square(
+                      dimension: 14,
+                      child: ProgressRing(strokeWidth: 2),
+                    )
+                  : Icon(
+                      include ? FluentIcons.accept : FluentIcons.clear,
+                      size: 14,
+                    ),
+              onPressed: busy
+                  ? null
+                  : () => unawaited(_setFilePageIncluded(include)),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _loadPeers(BtDownloadStore store, {int? offset}) async {
+    if (!_routeActive || !_engineReady || _peersLoading) return;
+    var request = ++_peerRequest;
+    var trackerUrl = _peerTrackerUrl;
+    setState(() => _peersLoading = true);
+    try {
+      var peers = await store.taskPeers(
+        widget.taskId,
+        offset: offset ?? _peers?.offset ?? 0,
+        limit: _peerPageSize,
+        trackerUrl: trackerUrl,
+      );
+      // 连接数变化使当前窗口失效时回到首页，不展示无法返回的空页。
+      if (peers.offset > 0 && peers.peers.isEmpty) {
+        peers = await store.taskPeers(
+          widget.taskId,
+          limit: _peerPageSize,
+          trackerUrl: trackerUrl,
+        );
+      }
+      if (!mounted || request != _peerRequest) return;
       setState(() {
         _peers = peers;
-        _tabError = null;
+        _tabErrors.remove(_peerTabIndex);
       });
     } catch (error) {
-      if (!mounted) return;
-      setState(() => _tabError = error.toString());
+      if (!mounted || request != _peerRequest) return;
+      setState(() => _tabErrors[_peerTabIndex] = error.toString());
     } finally {
+      if (mounted && request == _peerRequest) {
+        setState(() => _peersLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadTrackers(BtDownloadStore store, {int? offset}) async {
+    if (!_routeActive || !_engineReady || _trackersLoading) return;
+    var request = ++_trackerRequest;
+    var peerEndpoint = _trackerPeerEndpoint;
+    setState(() => _trackersLoading = true);
+    try {
+      var trackers = await store.taskTrackers(
+        widget.taskId,
+        offset: offset ?? _trackers?.offset ?? 0,
+        peerEndpoint: peerEndpoint,
+      );
+      if (trackers.offset > 0 && trackers.trackers.isEmpty) {
+        trackers = await store.taskTrackers(
+          widget.taskId,
+          peerEndpoint: peerEndpoint,
+        );
+      }
+      if (!mounted || request != _trackerRequest) return;
+      setState(() {
+        _trackers = trackers;
+        _tabErrors.remove(_trackersTabIndex);
+      });
+    } catch (error) {
+      if (mounted && request == _trackerRequest) {
+        setState(() => _tabErrors[_trackersTabIndex] = error.toString());
+      }
+    } finally {
+      if (mounted && request == _trackerRequest) {
+        setState(() => _trackersLoading = false);
+      }
+    }
+  }
+
+  void _showPeersForTracker(String? url) {
+    setState(() {
+      _peerTrackerUrl = url;
+      _peers = null;
       _peersLoading = false;
+      ++_peerRequest;
+      _tabErrors.remove(_peerTabIndex);
+      _tabIndex = _peerTabIndex;
+    });
+    unawaited(
+      _loadPeers(ref.read(btDownloadStoreProvider.notifier), offset: 0),
+    );
+  }
+
+  void _showTrackersForPeer(String? endpoint) {
+    setState(() {
+      _trackerPeerEndpoint = endpoint;
+      _trackers = null;
+      _trackersLoading = false;
+      ++_trackerRequest;
+      _tabErrors.remove(_trackersTabIndex);
+      _tabIndex = _trackersTabIndex;
+    });
+    unawaited(
+      _loadTrackers(ref.read(btDownloadStoreProvider.notifier), offset: 0),
+    );
+  }
+
+  Future<void> _reannounce() async {
+    if (_reannouncing || !_engineReady) return;
+    setState(() => _reannouncing = true);
+    var store = ref.read(btDownloadStoreProvider.notifier);
+    try {
+      await store.reannounce(widget.taskId);
+      if (!mounted) return;
+      await _loadTrackers(store);
+      if (mounted) {
+        await BtInfobar.success(context, '已请求重新汇报，将遵守 Tracker 的最小间隔');
+      }
+    } catch (error) {
+      if (mounted) await BtInfobar.error(context, '重新汇报失败：$error');
+    } finally {
+      if (mounted) setState(() => _reannouncing = false);
     }
   }
 
@@ -216,9 +410,10 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
               const _DetailTab(icon: FluentIcons.processing, label: '进度'),
               _DetailTab(
                 icon: FluentIcons.people,
-                label: 'Peer ${_peers?.totalPeers ?? _details!.totalPeers}',
+                label: 'Peer ${_details!.totalPeers}',
               ),
               _DetailTab(icon: FluentIcons.folder, label: _filesTabLabel),
+              const _DetailTab(icon: FluentIcons.link, label: 'Tracker'),
             ],
             index: _tabIndex,
             onChanged: _onTabChanged,
@@ -232,6 +427,77 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
               ),
             ),
           ),
+          if (_tabIndex == _filesTabIndex && _files != null)
+            _DetailPager(
+              key: const ValueKey('files-pager'),
+              offset: _files!.offset,
+              count: _files!.files.length,
+              total: _files!.totalFiles,
+              nextOffset: _files!.nextOffset,
+              pageSize: _filePageSize,
+              loading:
+                  _filesLoading ||
+                  _fileSelectionBusy ||
+                  _fileBulkInclude != null,
+              description: '',
+              actions: _fileActions(task),
+              onPage: (offset) => unawaited(
+                _loadFiles(
+                  ref.read(btDownloadStoreProvider.notifier),
+                  offset: offset,
+                ),
+              ),
+            ),
+          if (_tabIndex == _peerTabIndex && _peers != null)
+            _DetailPager(
+              key: const ValueKey('peers-pager'),
+              offset: _peers!.offset,
+              count: _peers!.peers.length,
+              total: _peers!.totalPeers,
+              nextOffset: _peers!.nextOffset,
+              pageSize: _peerPageSize,
+              loading: _peersLoading,
+              description: '动态连接窗口；排序和客户端筛选仅作用于本页',
+              onPage: (offset) => unawaited(
+                _loadPeers(
+                  ref.read(btDownloadStoreProvider.notifier),
+                  offset: offset,
+                ),
+              ),
+            ),
+          if (_tabIndex == _trackersTabIndex && _trackers != null)
+            _DetailPager(
+              key: const ValueKey('trackers-pager'),
+              offset: _trackers!.offset,
+              count: _trackers!.trackers.length,
+              total: _trackers!.totalTrackers,
+              nextOffset: _trackers!.nextOffset,
+              pageSize: 100,
+              loading: _trackersLoading,
+              description: 'Tracker 按接口与协议计数',
+              onPage: (offset) => unawaited(
+                _loadTrackers(
+                  ref.read(btDownloadStoreProvider.notifier),
+                  offset: offset,
+                ),
+              ),
+            ),
+          if (_tabIndex == _peerTabIndex && _peerTrackerUrl != null)
+            _AssociationFilterBar(
+              label: '关联 Tracker',
+              value: _peerTrackerUrl!,
+              onClear: () => _showPeersForTracker(null),
+              onBack: () => _onTabChanged(_trackersTabIndex),
+              backLabel: '返回 Tracker',
+            ),
+          if (_tabIndex == _trackersTabIndex && _trackerPeerEndpoint != null)
+            _AssociationFilterBar(
+              label: '关联 Peer',
+              value: _trackerPeerEndpoint!,
+              onClear: () => _showTrackersForPeer(null),
+              onBack: () => _onTabChanged(_peerTabIndex),
+              backLabel: '返回 Peer',
+            ),
           Expanded(
             child: Stack(
               children: [
@@ -248,10 +514,13 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
                       ),
                       _ProgressTab(task: task, details: _details!),
                       _PeersTab(
+                        key: ValueKey(_peerTrackerUrl),
                         peers: _peers?.peers ?? const [],
                         truncated: _peers?.truncated ?? false,
-                        loading: _peers == null,
-                        error: _tabIndex == _peerTabIndex ? _tabError : null,
+                        loading: _peers == null && _peersLoading,
+                        error: _tabErrors[_peerTabIndex],
+                        trackerUrl: _peerTrackerUrl,
+                        onShowTrackers: _showTrackersForPeer,
                         onRetry: () => unawaited(
                           _loadPeers(
                             ref.read(btDownloadStoreProvider.notifier),
@@ -259,18 +528,48 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
                         ),
                       ),
                       _FilesTab(
+                        key: ValueKey(_files?.offset ?? 0),
                         files: _files?.files ?? const [],
+                        indices: _files?.indices ?? const [],
+                        offset: _files?.offset ?? 0,
+                        selecting: _fileBulkInclude != null,
+                        onSelectionBusyChanged: _onFileSelectionBusyChanged,
                         truncated: _files?.truncated ?? false,
                         totalFiles:
-                            _files?.totalContentFiles ??
-                            _details!.contentFileCount,
+                            _files?.totalFiles ?? _details!.contentFileCount,
                         task: task,
                         taskId: widget.taskId,
-                        loading: _files == null,
-                        error: _tabIndex == _filesTabIndex ? _tabError : null,
+                        loading: _files == null && _filesLoading,
+                        error: _tabErrors[_filesTabIndex],
                         onRetry: () => unawaited(
                           _loadFiles(
                             ref.read(btDownloadStoreProvider.notifier),
+                          ),
+                        ),
+                      ),
+                      TickerMode(
+                        enabled: _tabIndex == _trackersTabIndex && _routeActive,
+                        child: _TrackersTab(
+                          trackers: _trackers?.trackers ?? const [],
+                          loading: _trackers == null && _trackersLoading,
+                          error: _tabErrors[_trackersTabIndex],
+                          peerEndpoint: _trackerPeerEndpoint,
+                          onShowPeers: _showPeersForTracker,
+                          isHttp: task.sourceKind == 'http',
+                          reannouncing: _reannouncing,
+                          canReannounce:
+                              _engineReady &&
+                              !{
+                                'paused',
+                                'stopped',
+                                'error',
+                                'completed',
+                              }.contains(task.state),
+                          onReannounce: () => unawaited(_reannounce()),
+                          onRetry: () => unawaited(
+                            _loadTrackers(
+                              ref.read(btDownloadStoreProvider.notifier),
+                            ),
                           ),
                         ),
                       ),
@@ -315,6 +614,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
     var files = _files;
     if (files == null) return '文件 ${_details!.contentFileCount}';
     var total = files.contentFileCount;
+    if (files.offset > 0 || files.truncated) return '文件 $total';
     var selectedCount = files.files
         .where((file) => !file.isPadding && !file.isSkipped)
         .length;

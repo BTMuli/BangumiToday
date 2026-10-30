@@ -3,6 +3,10 @@ part of '../download_task_details.dart';
 class _FilesTab extends ConsumerStatefulWidget {
   const _FilesTab({
     required this.files,
+    required this.indices,
+    required this.offset,
+    required this.selecting,
+    required this.onSelectionBusyChanged,
     required this.truncated,
     required this.totalFiles,
     required this.task,
@@ -10,9 +14,14 @@ class _FilesTab extends ConsumerStatefulWidget {
     required this.loading,
     this.error,
     this.onRetry,
+    super.key,
   });
 
   final List<BtTaskFileDetail> files;
+  final List<int> indices;
+  final int offset;
+  final bool selecting;
+  final ValueChanged<bool> onSelectionBusyChanged;
   final bool truncated;
   final int totalFiles;
   final BtTaskSnapshot task;
@@ -110,7 +119,7 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
   }
 
   Future<void> _applyPriorities(Map<int, int> changes) async {
-    if (changes.isEmpty || !mounted) return;
+    if (changes.isEmpty || !mounted || widget.selecting) return;
     var taskId = widget.taskId;
     var previous = <int, int>{
       for (var index in changes.keys) index: _files[index].priority,
@@ -119,20 +128,24 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
       _busyIndices.addAll(changes.keys);
       _replacePriorities(changes);
     });
+    widget.onSelectionBusyChanged(true);
     try {
       var applied = await ref
           .read(btDownloadStoreProvider.notifier)
-          .setFilePriorities(taskId, changes);
+          .setFilePriorities(taskId, {
+            for (var entry in changes.entries)
+              widget.indices[entry.key]: entry.value,
+          });
       if (!mounted) return;
       setState(() {
-        if (applied.length == _files.length) {
+        if (widget.indices.every((index) => index < applied.length)) {
           _files = [
             for (var i = 0; i < _files.length; i++)
               BtTaskFileDetail(
                 path: _files[i].path,
                 size: _files[i].size,
                 completedBytes: _files[i].completedBytes,
-                priority: applied[i],
+                priority: applied[widget.indices[i]],
                 paddingFile: _files[i].paddingFile,
               ),
           ];
@@ -146,21 +159,13 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
         _busyIndices.removeAll(changes.keys);
       });
       unawaited(BtInfobar.error(context, '文件选择更新失败：$error'));
+    } finally {
+      if (mounted) widget.onSelectionBusyChanged(_busyIndices.isNotEmpty);
     }
   }
 
   void _toggleFile(int index, bool include) {
     unawaited(_applyPriorities({index: include ? 4 : 0}));
-  }
-
-  void _applyAll(bool include) {
-    if (widget.truncated || _files.isEmpty) return;
-    unawaited(
-      _applyPriorities({
-        for (var i = 0; i < _files.length; i++)
-          if (!_files[i].isPadding) i: include ? 4 : 0,
-      }),
-    );
   }
 
   @override
@@ -191,36 +196,14 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
         .where((file) => !file.isPadding && !file.isSkipped)
         .length;
     var footerParts = <String>[
-      if (widget.truncated) '文件较多，已加载 ${files.length} / ${widget.totalFiles} 个',
-      '已选下载 $selectedCount 个',
+      if (widget.truncated || widget.offset > 0)
+        '本页 ${files.length} / 共 ${widget.totalFiles} 个文件',
+      '本页已选下载 $selectedCount 个',
       if (!_canEdit) '下载完成后不可修改文件选择',
       if (error != null) '刷新失败，正在显示上次结果',
     ];
     return Column(
       children: [
-        if (_canEdit)
-          Padding(
-            padding: EdgeInsets.fromLTRB(18, 14, 18, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '勾选可跳过或下载单个文件',
-                    style: BTTypography.caption(context),
-                  ),
-                ),
-                Button(
-                  onPressed: widget.truncated ? null : () => _applyAll(true),
-                  child: const Text('全部下载'),
-                ),
-                SizedBox(width: 8),
-                Button(
-                  onPressed: widget.truncated ? null : () => _applyAll(false),
-                  child: const Text('全部跳过'),
-                ),
-              ],
-            ),
-          ),
         Expanded(
           child: _TableShell(
             footer: footerParts.isEmpty ? null : footerParts.join(' · '),
@@ -248,7 +231,9 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                           padding: EdgeInsets.only(right: 4),
                           child: Checkbox(
                             checked: !file.isSkipped,
-                            onChanged: _busyIndices.contains(fileIndex)
+                            onChanged:
+                                widget.selecting ||
+                                    _busyIndices.contains(fileIndex)
                                 ? null
                                 : (value) =>
                                       _toggleFile(fileIndex, value ?? true),
