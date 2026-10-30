@@ -18,6 +18,7 @@ import '../../ui/bt_dialog.dart';
 import '../../ui/bt_engine_switch.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_setting_section.dart';
+import '../../widgets/download/engine_network_diagnostics.dart';
 
 class AppConfigDownloadWidget extends ConsumerStatefulWidget {
   const AppConfigDownloadWidget({super.key});
@@ -538,6 +539,8 @@ class _AppConfigDownloadWidgetState
               onChanged: _saving ? null : _toggleEngine,
             ),
           ),
+          const BTSettingDivider(),
+          const EngineNetworkDiagnostics(),
           const BTSettingDivider(),
           const BTSettingGroupTitle('Windows 防火墙规则'),
           const BTSettingHint(
