@@ -53,7 +53,7 @@ class _PeersTabState extends State<_PeersTab> {
         items: [
           MenuFlyoutItem(
             leading: _filterLeading(_clientFilter == null),
-            text: const Text('全部客户端'),
+            text: const Text('全部 Peer ID 客户端'),
             onPressed: () {
               if (!mounted) return;
               setState(() => _clientFilter = null);
@@ -98,9 +98,10 @@ class _PeersTabState extends State<_PeersTab> {
     sorted.sort((a, b) {
       var result = switch (_sortIndex) {
         0 => a.endpoint.toLowerCase().compareTo(b.endpoint.toLowerCase()),
-        1 => _compareClient(a, b),
-        2 => a.progress.compareTo(b.progress),
-        3 => a.downloadRate.compareTo(b.downloadRate),
+        1 => a.userAgent.toLowerCase().compareTo(b.userAgent.toLowerCase()),
+        2 => _compareClient(a, b),
+        3 => a.progress.compareTo(b.progress),
+        4 => a.downloadRate.compareTo(b.downloadRate),
         _ => a.uploadRate.compareTo(b.uploadRate),
       };
       return _ascending ? result : -result;
@@ -138,18 +139,19 @@ class _PeersTabState extends State<_PeersTab> {
     var footerParts = <String>[
       if (widget.truncated) 'Peer 较多，仅显示前 ${widget.peers.length} 个',
       if (_clientFilter != null)
-        '已按客户端「$_clientFilter」筛选 · 显示 ${peers.length} / ${widget.peers.length} 个',
+        '已按 Peer ID 客户端「$_clientFilter」筛选 · '
+            '显示 ${peers.length} / ${widget.peers.length} 个',
       if (error != null) '刷新失败，正在显示上次结果',
     ];
     return _TableShell(
       footer: footerParts.isEmpty ? null : footerParts.join(' · '),
       header: _TableHeader(
-        columns: const ['地址', '客户端', '进度', '下载', '上传'],
-        flexes: const [3, 3, 2, 2, 2],
+        columns: const ['地址', '握手声明（UA）', 'Peer ID 识别', '进度', '下载', '上传'],
+        flexes: const [3, 4, 4, 2, 2, 2],
         sortIndex: _sortIndex,
         ascending: _ascending,
         onSort: _toggleSort,
-        filterIndex: 1,
+        filterIndex: 2,
         filterActive: _clientFilter != null,
         onFilter: (_) => _openClientFilter(),
         filterController: _filterController,
@@ -159,18 +161,31 @@ class _PeersTabState extends State<_PeersTab> {
         var peer = peers[index];
         var progress = (peer.progress * 100).clamp(0, 100).toDouble();
         return _TableRow(
-          flexes: const [3, 3, 2, 2, 2],
+          flexes: const [3, 4, 4, 2, 2, 2],
           columns: [
             Text(
               peer.endpointLabel,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Tooltip(
+                message: peer.userAgent.isEmpty
+                    ? '尚未收到对端扩展握手中的客户端名称声明'
+                    : peer.userAgent,
+                child: SelectableText(
+                  peer.userAgent.isEmpty ? '未提供' : peer.userAgent,
+                  maxLines: 2,
+                  style: BTTypography.body(context),
+                ),
+              ),
+            ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  peer.clientName,
+                  peer.peerId.isEmpty ? '等待握手' : peer.clientName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -183,6 +198,19 @@ class _PeersTabState extends State<_PeersTab> {
                     style: BTTypography.caption(
                       context,
                     ).copyWith(color: BTColors.textSecondary(context)),
+                  ),
+                ],
+                if (peer.peerId.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Tooltip(
+                    message: 'Peer ID：${peer.peerIdLabel}\nHEX：${peer.peerId}',
+                    child: SelectableText(
+                      peer.peerIdLabel,
+                      maxLines: 1,
+                      style: BTTypography.caption(
+                        context,
+                      ).copyWith(color: BTColors.textSecondary(context)),
+                    ),
                   ),
                 ],
               ],

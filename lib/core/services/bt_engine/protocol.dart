@@ -1,4 +1,4 @@
-const btEngineProtocolVersion = '1.5';
+const btEngineProtocolVersion = '1.6';
 const btEngineMaxProtocolFrameBytes = 1024 * 1024;
 
 enum BtEngineClientState { stopped, starting, ready, stopping, failed }
@@ -234,24 +234,40 @@ class BtTaskFileDetail {
 class BtTaskPeerDetail {
   const BtTaskPeerDetail({
     required this.endpoint,
-    required this.client,
+    required this.userAgent,
+    required this.peerId,
+    required this.peerIdClient,
     required this.progress,
     required this.downloadRate,
     required this.uploadRate,
   });
 
   factory BtTaskPeerDetail.fromJson(Map<String, dynamic> json) {
+    var peerId = json['peerId'] as String;
+    if (!RegExp(r'^(?:[0-9a-f]{40})?$').hasMatch(peerId)) {
+      throw const FormatException('peerId 必须为空或 20 字节的十六进制编码');
+    }
     return BtTaskPeerDetail(
-      endpoint: json['endpoint'] as String? ?? '',
-      client: json['client'] as String? ?? 'unknown',
-      progress: ((json['progress'] as num?)?.toDouble() ?? 0).clamp(0, 1),
-      downloadRate: (json['downloadRate'] as num?)?.toInt() ?? 0,
-      uploadRate: (json['uploadRate'] as num?)?.toInt() ?? 0,
+      endpoint: json['endpoint'] as String,
+      userAgent: json['userAgent'] as String,
+      peerId: peerId,
+      peerIdClient: json['peerIdClient'] as String,
+      progress: (json['progress'] as num).toDouble().clamp(0, 1),
+      downloadRate: (json['downloadRate'] as num).toInt(),
+      uploadRate: (json['uploadRate'] as num).toInt(),
     );
   }
 
   final String endpoint;
-  final String client;
+
+  /// 对端扩展握手的 v 字段；未收到声明时为空，不使用 Peer ID 推断填充。
+  final String userAgent;
+
+  /// 20 字节 Peer ID 的 40 位十六进制编码；基础握手未完成时为空。
+  final String peerId;
+
+  /// 引擎仅根据 Peer ID 指纹识别的客户端，与握手声明独立。
+  final String peerIdClient;
   final double progress;
   final int downloadRate;
   final int uploadRate;
@@ -259,38 +275,39 @@ class BtTaskPeerDetail {
   /// 展示用地址：IPv6 的 `[地址]:端口` 会去掉两侧方括号。
   String get endpointLabel => endpoint.replaceAll('[', '').replaceAll(']', '');
 
-  /// 客户端名称，例如 `qBittorrent 4.4.5` 解析为 `qBittorrent`。
-  String get clientName => _splitClient(client).$1;
+  /// 原始 Peer ID 的可复制表示，非打印字节和反斜杠使用转义保留。
+  String get peerIdLabel {
+    var result = StringBuffer();
+    for (var i = 0; i < peerId.length; i += 2) {
+      var hex = peerId.substring(i, i + 2);
+      var byte = int.parse(hex, radix: 16);
+      if (byte == 0x5c) {
+        result.write(r'\\');
+      } else if (byte >= 0x20 && byte <= 0x7e) {
+        result.writeCharCode(byte);
+      } else {
+        result.write('\\x$hex');
+      }
+    }
+    return result.toString();
+  }
+
+  /// Peer ID 识别结果中的客户端名称，用于该列筛选。
+  String get clientName => _splitClient(peerIdClient).$1;
 
   /// 客户端版本；客户端字符串不含版本时为空字符串。
-  String get clientVersion => _splitClient(client).$2;
+  String get clientVersion => _splitClient(peerIdClient).$2;
 
-  /// 按常见 Peer 客户端字符串格式拆分名称与版本：
-  /// `名称 版本`、`名称/版本`、`名称 名称/版本`，无法识别时整体作为名称。
+  /// 拆分引擎的 Peer ID 识别结果，保留预发布标记和指纹中的构建标记。
+  /// 握手声明不经过这里，完整保留原文。
   static (String, String) _splitClient(String raw) {
     var value = raw.trim();
     if (value.isEmpty) return ('unknown', '');
-    var slash = value.lastIndexOf('/');
-    if (slash > 0) {
-      var name = value.substring(0, slash).trim();
-      var version = value.substring(slash + 1).trim();
-      return (name.isEmpty ? 'unknown' : name, version);
-    }
-    var space = value.lastIndexOf(' ');
-    if (space > 0) {
-      var version = value.substring(space + 1).trim();
-      if (_isVersionToken(version)) {
-        return (value.substring(0, space).trim(), version);
-      }
-    }
-    return (value, '');
-  }
-
-  static bool _isVersionToken(String token) {
-    var value = token;
-    if (value.isEmpty) return false;
-    if (value[0] == 'v' || value[0] == 'V') value = value.substring(1);
-    return value.isNotEmpty && RegExp(r'^[0-9][0-9.]*$').hasMatch(value);
+    var match = RegExp(
+      r'^(.+?) ([0-9]+(?:\.[0-9]+)*(?:(?:dev|[abr])[0-9]*)?'
+      r'(?: \(tag [ -~]\))?)$',
+    ).firstMatch(value);
+    return match == null ? (value, '') : (match[1]!, match[2]!);
   }
 }
 
