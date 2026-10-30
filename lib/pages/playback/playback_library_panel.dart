@@ -793,13 +793,13 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
 
   void _resolveHistorySubject(PlaybackStore store, PlaybackHistoryGroup group) {
     var subject = group.subject;
-    // 按实际构建的历史项加载名称，优先命中本地数据，不遍历请求整份历史。
+    // 按实际构建的历史项加载名称和封面，优先命中本地数据。
     if (subject != null && _resolvedHistorySubjects.add(subject)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         unawaited(
           store.resolveCover(subject).catchError((Object failure) {
-            BTLogTool.warn('加载播放记录条目名称失败：$failure');
+            BTLogTool.warn('加载播放记录条目信息失败：$failure');
           }),
         );
       });
@@ -968,6 +968,29 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
           ),
           child: Row(
             children: [
+              SizedBox(
+                width: 36,
+                height: 50,
+                child: ClipRRect(
+                  borderRadius: BTRadius.smallBR,
+                  child: BtBangumiCover(
+                    imageUrl: store.coverFor(group.subject),
+                    maxRequestEdge: BangumiCoverUrl.thumbMaxEdge,
+                    progressSize: 16,
+                    errorBuilder: (context, {err}) => ColoredBox(
+                      color: BTColors.surfaceTertiary(context),
+                      child: Center(
+                        child: Icon(
+                          FluentIcons.media,
+                          size: 18,
+                          color: BTColors.textTertiary(context),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
