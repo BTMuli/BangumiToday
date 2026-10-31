@@ -458,6 +458,12 @@ class _TaskActions extends StatelessWidget {
         DownloadTaskPlayButton(task: task, busy: busy),
         _button(
           context,
+          FluentIcons.link,
+          '修改关联条目',
+          () => showDownloadTaskSubjectDialog(context, task: task),
+        ),
+        _button(
+          context,
           FluentIcons.info,
           '任务详情',
           () async {
@@ -594,7 +600,12 @@ class _TaskActions extends StatelessWidget {
             borderRadius: BTRadius.smallBR,
           ),
           child: IconButton(
-            icon: Icon(icon, size: 15, color: foreground),
+            icon: Icon(
+              icon,
+              size: 15,
+              color: foreground,
+              semanticLabel: message,
+            ),
             onPressed: enabled ? action : null,
             onLongPress: onLongPress,
           ),
