@@ -165,97 +165,103 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
       ],
     );
 
+    var detailHeader = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showBackButton) ...[
+                Tooltip(
+                  message: '返回番剧列表',
+                  child: IconButton(
+                    icon: const BtIcon(FluentIcons.back, size: 15),
+                    onPressed: () => setState(() => _showCompactDetail = false),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              SizedBox(
+                width: 64,
+                height: 92,
+                child: BtBangumiCover(
+                  imageUrl: _filterModel.subjectData[bmf.subject]?.imageUrl,
+                  maxRequestEdge: BangumiCoverUrl.thumbMaxEdge,
+                  borderRadius: BTRadius.smallBR,
+                  errorBuilder: (context, {err}) => Container(
+                    color: BTColors.surfaceSecondary(context),
+                    child: const Icon(FluentIcons.media, size: 24),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Tooltip(
+                      message: '$title\nBangumi #${bmf.subject}',
+                      child: Text(title, style: BTTypography.subtitle(context)),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          _filterModel.quarterFor(bmf).label,
+                          style: BTTypography.caption(context),
+                        ),
+                        if (airDate != null)
+                          Text(
+                            '首播 $airDate',
+                            style: BTTypography.caption(context),
+                          ),
+                        Text(
+                          hasRss
+                              ? (bmf.autoUpdate ? 'RSS 自动更新' : 'RSS 手动更新')
+                              : '缺少 RSS',
+                          style: BTTypography.caption(context).copyWith(
+                            color: hasRss
+                                ? null
+                                : BTColors.warningLight(context),
+                          ),
+                        ),
+                        if (!hasDirectory)
+                          Text(
+                            '缺少目录',
+                            style: BTTypography.caption(
+                              context,
+                            ).copyWith(color: BTColors.warningLight(context)),
+                          ),
+                        if (pendingCount > 0)
+                          Text(
+                            '$pendingCount 条待处理',
+                            style: BTTypography.caption(context).copyWith(
+                              color: FluentTheme.of(context).accentColor,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Align(alignment: Alignment.centerRight, child: actions),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(height: 1, color: BTColors.divider(context)),
+      ],
+    );
     return ColoredBox(
       color: BTColors.surfacePrimary(context),
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (showBackButton) ...[
-                  IconButton(
-                    icon: const BtIcon(FluentIcons.back, size: 15),
-                    onPressed: () => setState(() => _showCompactDetail = false),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                SizedBox(
-                  width: 64,
-                  height: 92,
-                  child: BtBangumiCover(
-                    imageUrl: _filterModel.subjectData[bmf.subject]?.imageUrl,
-                    maxRequestEdge: BangumiCoverUrl.thumbMaxEdge,
-                    borderRadius: BTRadius.smallBR,
-                    errorBuilder: (context, {err}) => Container(
-                      color: BTColors.surfaceSecondary(context),
-                      child: const Icon(FluentIcons.media, size: 24),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Tooltip(
-                        message: '$title\nBangumi #${bmf.subject}',
-                        child: Text(
-                          title,
-                          style: BTTypography.subtitle(context),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 4,
-                        children: [
-                          Text(
-                            _filterModel.quarterFor(bmf).label,
-                            style: BTTypography.caption(context),
-                          ),
-                          if (airDate != null)
-                            Text(
-                              '首播 $airDate',
-                              style: BTTypography.caption(context),
-                            ),
-                          Text(
-                            hasRss
-                                ? (bmf.autoUpdate ? 'RSS 自动更新' : 'RSS 手动更新')
-                                : '缺少 RSS',
-                            style: BTTypography.caption(context).copyWith(
-                              color: hasRss
-                                  ? null
-                                  : BTColors.warningLight(context),
-                            ),
-                          ),
-                          if (!hasDirectory)
-                            Text(
-                              '缺少目录',
-                              style: BTTypography.caption(
-                                context,
-                              ).copyWith(color: BTColors.warningLight(context)),
-                            ),
-                          if (pendingCount > 0)
-                            Text(
-                              '$pendingCount 条待处理',
-                              style: BTTypography.caption(context).copyWith(
-                                color: FluentTheme.of(context).accentColor,
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Align(alignment: Alignment.centerRight, child: actions),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(height: 1, color: BTColors.divider(context)),
+          detailHeader,
           Expanded(
             child: _buildResourcePanes(
               context,
@@ -284,7 +290,7 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
       );
     }
 
-    Widget rssPane() => BmfRssExpander(
+    Widget rssPane({Widget? toolbar}) => BmfRssExpander(
       key: ValueKey(_rssViewKey(bmf, pendingCount)),
       bmf: bmf,
       isConfig: true,
@@ -293,9 +299,10 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
       expandable: false,
       embedded: true,
       contentScrollController: _rssPaneController,
+      toolbar: toolbar,
       onDelete: (id) => _removeRss(bmf, id),
     );
-    Widget filePane() => BmfFileExpander(
+    Widget filePane({Widget? toolbar}) => BmfFileExpander(
       key: ValueKey('file-${bmf.subject}-${bmf.download}'),
       downloadDir: bmf.download!,
       subject: bmf.subject,
@@ -304,6 +311,7 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
       expandable: false,
       embedded: true,
       contentScrollController: _filePaneController,
+      toolbar: toolbar,
       onDelete: () => _removeDirectory(bmf),
     );
 
@@ -311,62 +319,72 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
       builder: (context, constraints) {
         var canSplit = hasRss && hasDirectory && constraints.maxWidth >= 1100;
         var split = canSplit && _splitResources;
+        var toolbar = Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (hasRss && hasDirectory && !split) ...[
+                      ToggleButton(
+                        checked: !_showLocalFiles,
+                        onChanged: (_) =>
+                            setState(() => _showLocalFiles = false),
+                        child: const Text('RSS 资源'),
+                      ),
+                      ToggleButton(
+                        checked: _showLocalFiles,
+                        onChanged: (_) =>
+                            setState(() => _showLocalFiles = true),
+                        child: const Text('本地文件'),
+                      ),
+                    ] else
+                      Text(
+                        split
+                            ? 'RSS 资源与本地文件'
+                            : hasRss
+                            ? 'RSS 资源'
+                            : '本地文件',
+                        style: BTTypography.bodyStrong(context),
+                      ),
+                  ],
+                ),
+              ),
+              if (canSplit)
+                ToggleButton(
+                  checked: split,
+                  onChanged: (value) => setState(() => _splitResources = value),
+                  child: const Text('并排查看'),
+                ),
+              if (!hasRss || !hasDirectory)
+                HyperlinkButton(
+                  onPressed: () => _editConfiguration(bmf),
+                  child: Text(hasRss ? '关联本地目录' : '关联 RSS'),
+                ),
+            ],
+          ),
+        );
+        if (!split) {
+          return hasDirectory && (!hasRss || _showLocalFiles)
+              ? filePane(toolbar: toolbar)
+              : rssPane(toolbar: toolbar);
+        }
         return Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            toolbar,
+            Expanded(
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (hasRss && hasDirectory && !split) ...[
-                    ToggleButton(
-                      checked: !_showLocalFiles,
-                      onChanged: (_) => setState(() => _showLocalFiles = false),
-                      child: const Text('RSS 资源'),
-                    ),
-                    const SizedBox(width: 8),
-                    ToggleButton(
-                      checked: _showLocalFiles,
-                      onChanged: (_) => setState(() => _showLocalFiles = true),
-                      child: const Text('本地文件'),
-                    ),
-                  ] else
-                    Text(
-                      split
-                          ? 'RSS 资源与本地文件'
-                          : hasRss
-                          ? 'RSS 资源'
-                          : '本地文件',
-                      style: BTTypography.bodyStrong(context),
-                    ),
-                  const Spacer(),
-                  if (canSplit)
-                    ToggleButton(
-                      checked: split,
-                      onChanged: (value) =>
-                          setState(() => _splitResources = value),
-                      child: const Text('并排查看'),
-                    ),
-                  if (!hasRss || !hasDirectory)
-                    HyperlinkButton(
-                      onPressed: () => _editConfiguration(bmf),
-                      child: Text(hasRss ? '关联本地目录' : '关联 RSS'),
-                    ),
+                  Expanded(child: rssPane()),
+                  Container(width: 1, color: BTColors.divider(context)),
+                  Expanded(child: filePane()),
                 ],
               ),
-            ),
-            Expanded(
-              child: split
-                  ? Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(child: rssPane()),
-                        Container(width: 1, color: BTColors.divider(context)),
-                        Expanded(child: filePane()),
-                      ],
-                    )
-                  : (hasDirectory && (!hasRss || _showLocalFiles)
-                        ? filePane()
-                        : rssPane()),
             ),
           ],
         );

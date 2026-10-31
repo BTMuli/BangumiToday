@@ -9,6 +9,7 @@ class BmfFileExpander extends ConsumerStatefulWidget {
   final bool expandable;
   final bool embedded;
   final ScrollController? contentScrollController;
+  final Widget? toolbar;
 
   const BmfFileExpander({
     super.key,
@@ -20,6 +21,7 @@ class BmfFileExpander extends ConsumerStatefulWidget {
     this.expandable = true,
     this.embedded = false,
     this.contentScrollController,
+    this.toolbar,
   });
 
   @override
@@ -368,13 +370,27 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     );
 
     if (!widget.expandable) {
+      if (widget.embedded) {
+        return _buildEmbeddedResourcePanel(
+          context,
+          header: header,
+          sliver: files.isEmpty
+              ? SliverToBoxAdapter(child: buildContent())
+              : SliverList.builder(
+                  itemCount: files.length,
+                  itemBuilder: (context, index) =>
+                      buildFileItem(context, files[index]),
+                ),
+          controller: widget.contentScrollController,
+          toolbar: widget.toolbar,
+        );
+      }
       return _buildFixedResourcePanel(
         context,
         leading: Icon(FluentIcons.folder_open, size: 18, color: accentColor),
         header: header,
         content: buildContent(),
         controller: widget.contentScrollController,
-        embedded: widget.embedded,
       );
     }
 

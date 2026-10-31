@@ -10,6 +10,7 @@ class BmfRssExpander extends ConsumerStatefulWidget {
   final bool expandable;
   final bool embedded;
   final ScrollController? contentScrollController;
+  final Widget? toolbar;
 
   const BmfRssExpander({
     super.key,
@@ -22,6 +23,7 @@ class BmfRssExpander extends ConsumerStatefulWidget {
     this.expandable = true,
     this.embedded = false,
     this.contentScrollController,
+    this.toolbar,
   });
 
   @override
@@ -79,7 +81,11 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     super.dispose();
   }
 
-  Widget buildRssItem(BuildContext context, RssReleaseData release) {
+  Widget buildRssItem(
+    BuildContext context,
+    RssReleaseData release, {
+    Color? backgroundColor,
+  }) {
     var itemKey = _data.itemKey(release.item);
     var key = ValueKey((_data.selectedSubscriptionId, itemKey));
     var pending = _data.pendingItemKeys.contains(itemKey);
@@ -88,6 +94,7 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
       padding: EdgeInsets.only(bottom: widget.embedded ? 8 : 6),
       child: BmfRssItem(
         release: release,
+        backgroundColor: backgroundColor,
         isPending: pending,
         spacious: widget.embedded,
         actions: Row(
@@ -161,6 +168,41 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
         itemCount: count,
         itemBuilder: (_, index) => buildEntry(index),
       ),
+    );
+  }
+
+  Widget _buildContentSliver() {
+    if (_data.rssItems.isEmpty) {
+      return SliverToBoxAdapter(child: buildContent());
+    }
+    var groups = _data.rssGroups;
+    if (groups.isEmpty) {
+      return SliverList.builder(
+        itemCount: _data.rssReleases.length,
+        itemBuilder: (context, index) =>
+            buildRssItem(context, _data.rssReleases[index]),
+      );
+    }
+    return SliverMainAxisGroup(
+      slivers: [
+        for (var group in groups)
+          _RssSubtitleGroup(
+            key: ValueKey((_data.selectedSubscriptionId, group.key)),
+            group: group,
+            pendingCount: group.releases.where((release) {
+              return _data.pendingItemKeys.contains(
+                _data.itemKey(release.item),
+              );
+            }).length,
+            maxHeight: widget.maxHeight,
+            sliver: true,
+            itemBuilder: (release) => buildRssItem(
+              context,
+              release,
+              backgroundColor: BTColors.surfacePrimary(context),
+            ),
+          ),
+      ],
     );
   }
 
@@ -369,13 +411,21 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
     );
 
     if (!widget.expandable) {
+      if (widget.embedded) {
+        return _buildEmbeddedResourcePanel(
+          context,
+          header: header,
+          sliver: _buildContentSliver(),
+          controller: widget.contentScrollController,
+          toolbar: widget.toolbar,
+        );
+      }
       return _buildFixedResourcePanel(
         context,
         leading: Icon(MdiIcons.rss, size: 18, color: accentColor),
         header: header,
         content: buildContent(),
         controller: widget.contentScrollController,
-        embedded: widget.embedded,
       );
     }
 
@@ -392,6 +442,7 @@ class _RssSubtitleGroup extends StatefulWidget {
   final RssReleaseGroup group;
   final int pendingCount;
   final double maxHeight;
+  final bool sliver;
   final Widget Function(RssReleaseData release) itemBuilder;
 
   const _RssSubtitleGroup({
@@ -399,6 +450,7 @@ class _RssSubtitleGroup extends StatefulWidget {
     required this.group,
     required this.pendingCount,
     required this.maxHeight,
+    this.sliver = false,
     required this.itemBuilder,
   });
 
@@ -417,16 +469,63 @@ class _RssSubtitleGroupState extends State<_RssSubtitleGroup>
   Widget build(BuildContext context) {
     super.build(context);
     var group = widget.group;
+    var header = RssGroupHeader(
+      name: group.name,
+      count: group.releases.length,
+      pendingCount: widget.pendingCount,
+    );
+    void onStateChanged(bool expanded) {
+      setState(() => _expanded = expanded);
+      updateKeepAlive();
+    }
+
+    if (widget.sliver) {
+      return SliverPadding(
+        padding: const EdgeInsets.only(bottom: 8),
+        sliver: DecoratedSliver(
+          decoration: BoxDecoration(
+            color: BTColors.surfaceSecondary(context),
+            borderRadius: BTRadius.mediumBR,
+            border: Border.all(color: BTColors.divider(context)),
+          ),
+          // 分组边界负责将表头顶出，避免多个字幕组标题叠在工具栏下方。
+          sliver: SliverMainAxisGroup(
+            slivers: [
+              PinnedHeaderSliver(
+                child: ColoredBox(
+                  // 遮住圆角外侧，表头吸顶时不透出滚过的资源。
+                  color: BTColors.surfacePrimary(context),
+                  child: Expander(
+                    initiallyExpanded: _expanded,
+                    onStateChanged: onStateChanged,
+                    header: header,
+                    headerBackgroundColor: WidgetStateColor.resolveWith(
+                      (_) => BTColors.surfaceTertiary(context),
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    // 资源由下方的 SliverList 绘制，保留原生展开交互。
+                    contentShape: (_) => const RoundedRectangleBorder(),
+                    content: const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+              if (_expanded)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  sliver: SliverList.builder(
+                    itemCount: group.releases.length,
+                    itemBuilder: (_, index) =>
+                        widget.itemBuilder(group.releases[index]),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
     return Expander(
-      onStateChanged: (expanded) {
-        setState(() => _expanded = expanded);
-        updateKeepAlive();
-      },
-      header: RssGroupHeader(
-        name: group.name,
-        count: group.releases.length,
-        pendingCount: widget.pendingCount,
-      ),
+      onStateChanged: onStateChanged,
+      header: header,
       content: !_expanded
           ? const SizedBox.shrink()
           : ConstrainedBox(

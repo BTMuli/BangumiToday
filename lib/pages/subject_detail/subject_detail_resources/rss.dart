@@ -51,105 +51,149 @@ extension _ResourceRss on _SubjectDetailResourcesState {
     var source = _rss.source;
     var subscription = _rss.subscription;
     var sourceIndex = _bmf.subscriptions.indexWhere((s) => s.id == id) + 1;
-    // 将字幕组与资源行展开为同一个惰性列表，不再嵌套多个滚动面板。
-    var entries = <Object>[];
-    if (_rss.rssGroups.isEmpty) {
-      entries.addAll(_rss.rssReleases);
-    } else {
-      for (var group in _rss.rssGroups) {
-        entries.add(group);
-        if (!_collapsedGroups.contains((id, group.key))) {
-          entries.addAll(group.releases);
-        }
-      }
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              FlyoutTarget(
-                controller: _sourceFlyout,
-                child: Button(
-                  onPressed: _bmf.subscriptions.length > 1
-                      ? _selectSource
-                      : null,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+    return CustomScrollView(
+      key: PageStorageKey('subject-${widget.subjectId}-rss-$id'),
+      primary: false,
+      slivers: [
+        PinnedHeaderSliver(
+          child: Container(
+            decoration: BoxDecoration(
+              color: SubjectDetailColors.content(context),
+              border: Border(
+                bottom: BorderSide(color: BTColors.divider(context)),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text('${source.label} · 订阅 $sourceIndex'),
-                      if (_bmf.subscriptions.length > 1) ...[
-                        const SizedBox(width: 8),
-                        const Icon(FluentIcons.chevron_down, size: 10),
-                      ],
+                      FlyoutTarget(
+                        controller: _sourceFlyout,
+                        child: Button(
+                          onPressed: _bmf.subscriptions.length > 1
+                              ? _selectSource
+                              : null,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('${source.label} · 订阅 $sourceIndex'),
+                              if (_bmf.subscriptions.length > 1) ...[
+                                const SizedBox(width: 8),
+                                const Icon(FluentIcons.chevron_down, size: 10),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (_rss.pendingItemKeys.isNotEmpty)
+                        _badge('${_rss.pendingItemKeys.length} 条更新'),
+                      RssRefreshStatus(lastUpdated: _rss.lastUpdated),
+                      _iconAction(
+                        '刷新订阅',
+                        FluentIcons.refresh,
+                        _refreshingRss || subscription?.canRefresh != true
+                            ? null
+                            : _refreshRss,
+                      ),
+                      _iconAction(
+                        '打开 RSS',
+                        FluentIcons.open_in_new_window,
+                        () => _openLink(_rss.rssUrl, source),
+                      ),
+                      if (_rss.pendingItemKeys.isNotEmpty)
+                        _iconAction(
+                          '全部标记为已处理',
+                          FluentIcons.check_mark,
+                          () => _run(_rss.markAllHandled),
+                        ),
+                      _iconAction(
+                        '删除当前订阅',
+                        FluentIcons.delete,
+                        _busy || id == null
+                            ? null
+                            : () => _run(() => _removeSubscription(id)),
+                      ),
+                      if (_refreshingRss)
+                        const SizedBox.square(
+                          dimension: 16,
+                          child: ProgressRing(strokeWidth: 2),
+                        ),
                     ],
                   ),
                 ),
-              ),
-              if (_rss.pendingItemKeys.isNotEmpty)
-                _badge('${_rss.pendingItemKeys.length} 条更新'),
-              RssRefreshStatus(lastUpdated: _rss.lastUpdated),
-              _iconAction(
-                '刷新订阅',
-                FluentIcons.refresh,
-                _refreshingRss || subscription?.canRefresh != true
-                    ? null
-                    : _refreshRss,
-              ),
-              _iconAction(
-                '打开 RSS',
-                FluentIcons.open_in_new_window,
-                () => _openLink(_rss.rssUrl, source),
-              ),
-              if (_rss.pendingItemKeys.isNotEmpty)
-                _iconAction(
-                  '全部标记为已处理',
-                  FluentIcons.check_mark,
-                  () => _run(_rss.markAllHandled),
-                ),
-              _iconAction(
-                '删除当前订阅',
-                FluentIcons.delete,
-                _busy || id == null
-                    ? null
-                    : () => _run(() => _removeSubscription(id)),
-              ),
-              if (_refreshingRss)
-                const SizedBox.square(
-                  dimension: 16,
-                  child: ProgressRing(strokeWidth: 2),
-                ),
-            ],
+                if (subscription?.status == 'needsReview')
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Text('订阅待核对，请在 BMF 工作台确认旧状态归属或修正地址'),
+                  ),
+              ],
+            ),
           ),
         ),
-        if (subscription?.status == 'needsReview')
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Text('订阅待核对，请在 BMF 工作台确认旧状态归属或修正地址'),
+        if (_rss.rssReleases.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _emptyState('暂无缓存资源，可刷新订阅获取最新内容'),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            sliver: _rss.rssGroups.isEmpty
+                ? SliverList.separated(
+                    itemCount: _rss.rssReleases.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (_, index) =>
+                        _buildRelease(_rss.rssReleases[index], source, id),
+                  )
+                : SliverMainAxisGroup(
+                    slivers: [
+                      for (var group in _rss.rssGroups)
+                        _buildGroupSliver(group, source, id),
+                    ],
+                  ),
           ),
-        Expanded(
-          child: entries.isEmpty
-              ? _emptyState('暂无缓存资源，可刷新订阅获取最新内容')
-              : ListView.separated(
-                  key: PageStorageKey('subject-${widget.subjectId}-rss-$id'),
-                  primary: false,
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  itemCount: entries.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (_, index) {
-                    var entry = entries[index];
-                    return entry is RssReleaseGroup
-                        ? _buildGroup(entry, id)
-                        : _buildRelease(entry as RssReleaseData, source, id);
-                  },
-                ),
-        ),
       ],
+    );
+  }
+
+  Widget _buildGroupSliver(
+    RssReleaseGroup group,
+    RssReleaseSource source,
+    int? id,
+  ) {
+    var collapsed = _collapsedGroups.contains((id, group.key));
+    return SliverPadding(
+      key: ValueKey((id, group.key)),
+      padding: const EdgeInsets.only(bottom: 8),
+      // 标题仅在自己的资源范围内吸顶，下一组进入时将它顶出。
+      sliver: SliverMainAxisGroup(
+        slivers: [
+          PinnedHeaderSliver(
+            child: ColoredBox(
+              // 同时遮住圆角外侧与列表间距，避免吸顶时透出资源行。
+              color: SubjectDetailColors.content(context),
+              child: Padding(
+                padding: EdgeInsets.only(bottom: collapsed ? 0 : 8),
+                child: _buildGroup(group, id),
+              ),
+            ),
+          ),
+          if (!collapsed)
+            SliverList.separated(
+              itemCount: group.releases.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (_, index) =>
+                  _buildRelease(group.releases[index], source, id),
+            ),
+        ],
+      ),
     );
   }
 
@@ -162,6 +206,7 @@ extension _ResourceRss on _SubjectDetailResourcesState {
         )
         .length;
     return Semantics(
+      header: true,
       expanded: !collapsed,
       child: Button(
         style: ButtonStyle(
