@@ -63,6 +63,16 @@ final _specialPattern = RegExp(
   r'(?:\d+)?(?![A-Za-z0-9])|特别篇|特別篇|特典|预告|預告|予告|菜单|菜單',
   caseSensitive: false,
 );
+final _titleWordBeforeAbbreviation = RegExp(
+  r'[\p{L}\p{N}][ \t]+$',
+  unicode: true,
+);
+final _abbreviationContinuation = RegExp(r'^\.[A-Za-z]+(?![A-Za-z0-9])');
+final _releaseMetadataPattern = RegExp(
+  r'^(?:WEB(?:-?DL|RIP)?|BD(?:RIP|REMUX)?|BLU-?RAY|DVD(?:RIP)?|HDTV|'
+  r'AVC|HEVC|[HX][ ._-]?26[45]|AV1|AAC|FLAC|E?AC3|DDP|DTS)(?![A-Za-z0-9])',
+  caseSensitive: false,
+);
 final _extraDirectoryPattern = RegExp(
   r'^(?:MENU|MENUS|EXTRAS?|BONUS|CREDITLESS|TRAILERS?|TEASERS?|'
   r'PREVIEWS?|SAMPLES?|(?:NC)?OP(?:[ &+_-]*(?:NC)?ED)?|(?:NC)?ED|PV|CM|'
@@ -99,7 +109,7 @@ final _seasonPattern = RegExp(
   r'第\s*[0-9〇零一二三四五六七八九十百两兩]+\s*[季期]',
   caseSensitive: false,
 );
-final _episodePatterns = [
+final _explicitEpisodePatterns = [
   RegExp(
     r'(?<![A-Za-z0-9])(?:Episode|EP?)[ ._-]*'
     r'(\d{1,4}(?:\.\d+)?)(?:v\d+)?(?![\dA-Za-z]|\.\d)',
@@ -119,6 +129,9 @@ final _episodePatterns = [
     r'【\s*(\d{1,4}(?:\.\d+)?)(?:v\d+)?\s*】',
     caseSensitive: false,
   ),
+];
+final _episodePatterns = [
+  ..._explicitEpisodePatterns,
   _fractionalSpecialPattern,
   RegExp(
     r'(?:^|[\s_-])(\d{1,4}\.\d+)(?:v\d+)?'
@@ -127,17 +140,59 @@ final _episodePatterns = [
   ),
 ];
 
+bool _isEpisodeCandidate(double number) =>
+    number > 0 &&
+    !(number >= 1900 && number <= 2099) &&
+    !{360, 480, 576, 720, 1080, 1440, 2160, 4320}.contains(number);
+
+int _firstExplicitEpisodeStart(String name) {
+  var start = name.length;
+  for (var (pattern, group) in [
+    for (var pattern in _seasonEpisodePatterns) (pattern, 2),
+    for (var pattern in _explicitEpisodePatterns) (pattern, 1),
+  ]) {
+    for (var match in pattern.allMatches(name)) {
+      var number = double.parse(match[group] ?? match[2]!);
+      if (_isEpisodeCandidate(number) && match.start < start) {
+        start = match.start;
+      }
+    }
+  }
+  return start;
+}
+
+// A bare OP/ED joined to a word by a dot can be a title abbreviation.
+// Require preceding title text and a later explicit episode. Bracketed tags,
+// numbered/NC markers, separate release fields and metadata remain extras.
+bool _isTitleAbbreviation(String name, RegExpMatch match) {
+  var marker = match[0]!.toUpperCase();
+  if (marker != 'OP' && marker != 'ED') return false;
+  var prefix = name.substring(0, match.start);
+  var suffix = name.substring(match.end);
+  if (!_titleWordBeforeAbbreviation.hasMatch(prefix) ||
+      !_abbreviationContinuation.hasMatch(suffix) ||
+      _releaseMetadataPattern.hasMatch(suffix.substring(1))) {
+    return false;
+  }
+  for (var (open, close) in [('[', ']'), ('【', '】'), ('(', ')')]) {
+    if (prefix.lastIndexOf(open) > prefix.lastIndexOf(close)) return false;
+  }
+  var episodeStart = _firstExplicitEpisodeStart(name);
+  return episodeStart < name.length && match.end < episodeStart;
+}
+
 /// Extra filenames and dedicated extra directories never imply a chapter.
 /// Collection/season names in parent directories are not episode evidence.
 bool isPlaybackExtra(String filePath) {
   var parts = filePath.split(RegExp(r'[/\\]'));
   var name = parts.last
       .replaceFirst(RegExp(r'\.[A-Za-z0-9]+$'), '')
-      .replaceAll(_resolutionPattern, ' ');
+      .replaceAll(_resolutionPattern, ' ')
+      .replaceAll(_fractionalSpecialPattern, ' ');
   // SP13.5 can identify a numbered recap; other extras need a manual link.
-  return _specialPattern.hasMatch(
-        name.replaceAll(_fractionalSpecialPattern, ' '),
-      ) ||
+  return _specialPattern
+          .allMatches(name)
+          .any((match) => !_isTitleAbbreviation(name, match)) ||
       parts
           .take(parts.length - 1)
           .any((part) => _extraDirectoryPattern.hasMatch(part.trim()));
@@ -178,9 +233,7 @@ EpisodeNumberResult extractEpisodeNumber(String filePath) {
   for (var pattern in _episodePatterns) {
     name = name.replaceAllMapped(pattern, (match) {
       var number = double.parse(match[1] ?? match[2]!);
-      if (number <= 0 ||
-          (number >= 1900 && number <= 2099) ||
-          {360, 480, 576, 720, 1080, 1440, 2160, 4320}.contains(number)) {
+      if (!_isEpisodeCandidate(number)) {
         return match[0]!;
       }
       candidates[number] = match.group(0)!;

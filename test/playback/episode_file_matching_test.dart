@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 // Project imports:
 import 'package:bangumi_today/core/services/episode_mark_service.dart';
+import 'package:bangumi_today/core/utils/episode_num_extractor.dart';
 import 'package:bangumi_today/core/utils/playback_episode_files.dart';
+import 'package:bangumi_today/core/utils/playback_episode_number.dart';
 import 'package:bangumi_today/domain/repositories/episode_mark_gateway.dart';
 import 'package:bangumi_today/models/playback/playback_episode_link.dart';
 import 'package:bangumi_today/models/playback/playback_item.dart';
@@ -11,6 +13,9 @@ import 'package:bangumi_today/models/playback/playback_item.dart';
 const _demiFile =
     '[Lilith-Raws] Demi-chan wa Kataritai - '
     '13 [Baha][WEB-DL][1080p][AVC AAC][CHT][MKV].mkv';
+const _taktTitle =
+    '[Nekomoe kissaten&LoliHouse] takt op.Destiny - '
+    '03 [WebRip 1080p HEVC-10bit AAC]';
 const _special = EpisodeMarkEpisode(
   id: 1013,
   type: 1,
@@ -36,6 +41,61 @@ void main() {
   setUp(() {
     chapters = [for (var number = 1; number <= 12; number++) _main(number)];
     chapters.add(_special);
+  });
+
+  test('takt op.Destiny 标题中的 op 不会阻止第03集匹配', () {
+    for (var file in [
+      _taktTitle,
+      '$_taktTitle.mkv',
+      'D:/Anime/$_taktTitle.mp4',
+      'D:\\Anime\\$_taktTitle.mkv',
+      '${_taktTitle.toUpperCase()}.mkv',
+    ]) {
+      var evidence = extractEpisodeNumber(file);
+
+      expect(isPlaybackExtra(file), isFalse, reason: file);
+      expect(evidence.kind, EpisodeNumberKind.single, reason: file);
+      expect(evidence.number, 3, reason: file);
+      expect(PlaybackEpisodeNumber.fromPath(file)?.number, 3, reason: file);
+      expect(
+        EpisodeMarkService.matchingEpisode(_item(file), chapters)?.id,
+        103,
+        reason: file,
+      );
+    }
+  });
+
+  test('takt op.Destiny 的真实特典标记和特典目录仍被排除', () {
+    for (var file in [
+      for (var marker in [
+        'OP',
+        'OP01',
+        'NCOP',
+        'ED',
+        'NCED02',
+        'SP',
+        'OVA',
+      ]) ...[
+        '$_taktTitle [$marker].mkv',
+        '${_taktTitle.replaceFirst(' - 03 ', '.$marker.03.1080p ')}.mkv',
+      ],
+      for (var directory in ['OP', 'NCOP', 'ED', 'NCED', 'Extras', '特典'])
+        '$directory/$_taktTitle.mkv',
+      'Extras\\$_taktTitle.mkv',
+    ]) {
+      expect(isPlaybackExtra(file), isTrue, reason: file);
+      expect(
+        extractEpisodeNumber(file).kind,
+        EpisodeNumberKind.special,
+        reason: file,
+      );
+      expect(PlaybackEpisodeNumber.fromPath(file), isNull, reason: file);
+      expect(
+        EpisodeMarkService.matchingEpisode(_item(file), chapters),
+        isNull,
+        reason: file,
+      );
+    }
   });
 
   test('亚人酱第13集按播出编号自动匹配特别篇', () {

@@ -11,6 +11,19 @@ const _yozakuraFile =
 
 void main() {
   group('剧集匹配规则的数字候选', () {
+    test('takt op.Destiny 从03和10bit中优先推断集数03', () {
+      const file =
+          '[Nekomoe kissaten&LoliHouse] takt op.Destiny - '
+          '03 [WebRip 1080p HEVC-10bit AAC].mkv';
+
+      expect(episodeRuleNumbers(file).map((number) => number.text), [
+        '03',
+        '10',
+      ]);
+      expect(suggestEpisodeRuleNumber(file, 1)?.text, '03');
+      expect(suggestEpisodeRuleNumber(file, 3)?.text, '03');
+    });
+
     test('点号分隔的分辨率不会并入 S02E13 的集数', () {
       var numbers = episodeRuleNumbers(_yozakuraFile);
 
