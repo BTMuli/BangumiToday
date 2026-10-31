@@ -4,6 +4,7 @@ class _FilesTab extends ConsumerStatefulWidget {
   const _FilesTab({
     required this.files,
     required this.indices,
+    required this.downloadRates,
     required this.offset,
     required this.selecting,
     required this.onSelectionBusyChanged,
@@ -19,6 +20,7 @@ class _FilesTab extends ConsumerStatefulWidget {
 
   final List<BtTaskFileDetail> files;
   final List<int> indices;
+  final Map<int, int?> downloadRates;
   final int offset;
   final bool selecting;
   final ValueChanged<bool> onSelectionBusyChanged;
@@ -36,7 +38,7 @@ class _FilesTab extends ConsumerStatefulWidget {
 
 class _FilesTabState extends ConsumerState<_FilesTab> {
   // 类型列需容纳表头文字、排序图标和按钮内边距。
-  static const _columnFlexes = [6, 2, 2, 2, 2];
+  static const _columnFlexes = [6, 2, 2, 3, 2];
 
   late List<BtTaskFileDetail> _files;
   final Set<int> _busyIndices = {};
@@ -88,13 +90,22 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
         0 => _compareText(_fileName(a.file.path), _fileName(b.file.path)),
         1 => _compareText(_extension(a.file), _extension(b.file)),
         2 => a.file.progress.compareTo(b.file.progress),
-        3 => a.file.completedBytes.compareTo(b.file.completedBytes),
+        4 => (_downloadRate(a) ?? -1).compareTo(_downloadRate(b) ?? -1),
         _ => a.file.size.compareTo(b.file.size),
       };
       if (result == 0) result = a.index.compareTo(b.index);
       return _ascending ? result : -result;
     });
     return files;
+  }
+
+  int? _downloadRate(_IndexedFile entry) {
+    if (widget.task.state != 'downloading' ||
+        entry.file.isSkipped ||
+        (entry.file.size > 0 && entry.file.completedBytes >= entry.file.size)) {
+      return 0;
+    }
+    return widget.downloadRates[widget.indices[entry.index]];
   }
 
   static int _compareText(String a, String b) =>
@@ -206,9 +217,11 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
       children: [
         Expanded(
           child: _TableShell(
+            // 翻页只重置表格的滚动与焦点，排序状态继续由当前 Tab 保留。
+            key: ValueKey(widget.offset),
             footer: footerParts.isEmpty ? null : footerParts.join(' · '),
             header: _TableHeader(
-              columns: ['文件名', '类型', '进度', '已完成', '大小'],
+              columns: ['文件名', '类型', '进度', '已完成 / 大小', '下载速度'],
               flexes: _columnFlexes,
               sortIndex: _sortIndex,
               ascending: _ascending,
@@ -219,6 +232,7 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
               var entry = files[index];
               var file = entry.file;
               var fileIndex = entry.index;
+              var downloadRate = _downloadRate(entry);
               var extension = path.extension(file.path);
               var progress = (file.progress * 100).clamp(0, 100).toDouble();
               return _TableRow(
@@ -249,7 +263,12 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                       Expanded(
                         child: Tooltip(
                           message: file.path,
-                          child: Text(_fileName(file.path), softWrap: true),
+                          child: Text(
+                            _fileName(file.path),
+                            softWrap: true,
+                            maxLines: 2,
+                            overflow: TextOverflow.clip,
+                          ),
                         ),
                       ),
                       if (PlaybackPaths.isVideo(file.path))
@@ -313,8 +332,20 @@ class _FilesTabState extends ConsumerState<_FilesTab> {
                       ],
                     ),
                   ),
-                  Text(BTFileTool.formatSize(file.completedBytes)),
-                  Text(BTFileTool.formatSize(file.size)),
+                  Text(
+                    '${BTFileTool.formatSize(file.completedBytes)} / '
+                    '${BTFileTool.formatSize(file.size)}',
+                  ),
+                  Tooltip(
+                    message:
+                        '按相邻两次刷新的已完成字节数估算；'
+                        'BT 分片完成时更新，速度可能波动',
+                    child: Text(
+                      downloadRate == null
+                          ? '—'
+                          : '${BTFileTool.formatSize(downloadRate)}/s',
+                    ),
+                  ),
                 ],
               );
             },

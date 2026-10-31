@@ -22,6 +22,7 @@ import '../../store/nav_store.dart';
 import '../../ui/bt_infobar.dart';
 import '../playback/playback_actions.dart';
 import 'download_file_pager.dart';
+import 'download_file_rates.dart';
 
 part 'download_task_details/empty_state.dart';
 part 'download_task_details/files_tab.dart';
@@ -52,6 +53,9 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
   BtTaskDetails? _details;
   DownloadFilePage? _files;
   final DownloadFilePager _filePager = DownloadFilePager();
+  final DownloadFileRates _fileRates = DownloadFileRates();
+  final Stopwatch _fileRateClock = Stopwatch()..start();
+  Map<int, int?> _fileDownloadRates = {};
   BtTaskPeersResult? _peers;
   BtTaskTrackersResult? _trackers;
   Object? _error;
@@ -93,6 +97,7 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
     if (_routeActive == routeActive) return;
     _routeActive = routeActive;
     if (!_routeActive) {
+      _resetFileRates();
       _stopRefreshTimer();
       return;
     }
@@ -182,16 +187,36 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
         pageSize: _filePageSize,
       );
       if (!mounted) return;
+      var task =
+          ref.read(btDownloadStoreProvider).tasksById[widget.taskId] ??
+          _details?.task ??
+          widget.initialTask;
       setState(() {
+        _fileDownloadRates = _fileRates.sample(
+          files,
+          sampledAt: _fileRateClock.elapsed,
+          downloading:
+              _routeActive &&
+              _tabIndex == _filesTabIndex &&
+              task.state == 'downloading',
+        );
         _files = files;
         _tabErrors.remove(_filesTabIndex);
       });
     } catch (error) {
       if (!mounted) return;
-      setState(() => _tabErrors[_filesTabIndex] = error.toString());
+      setState(() {
+        _resetFileRates();
+        _tabErrors[_filesTabIndex] = error.toString();
+      });
     } finally {
       if (mounted) setState(() => _filesLoading = false);
     }
+  }
+
+  void _resetFileRates() {
+    _fileRates.reset();
+    _fileDownloadRates = {};
   }
 
   void _onFileSelectionBusyChanged(bool busy) {
@@ -376,13 +401,22 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
 
   void _onTabChanged(int index) {
     if (index == _tabIndex) return;
-    setState(() => _tabIndex = index);
+    setState(() {
+      _resetFileRates();
+      _tabIndex = index;
+    });
     // 立即按目标 Tab 拉数，不复用可能正在跑的其它 Tab 请求。
     unawaited(_refresh(silent: true));
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(
+      btDownloadStoreProvider.select(
+        (store) => (store.tasksById[widget.taskId]?.state, store.engineState),
+      ),
+      (_, _) => setState(_resetFileRates),
+    );
     var snapshot = ref.watch(
       btDownloadStoreProvider.select((store) {
         for (var item in store.tasks) {
@@ -528,9 +562,10 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
                         ),
                       ),
                       _FilesTab(
-                        key: ValueKey(_files?.offset ?? 0),
+                        key: ValueKey(widget.taskId),
                         files: _files?.files ?? const [],
                         indices: _files?.indices ?? const [],
+                        downloadRates: _fileDownloadRates,
                         offset: _files?.offset ?? 0,
                         selecting: _fileBulkInclude != null,
                         onSelectionBusyChanged: _onFileSelectionBusyChanged,

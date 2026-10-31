@@ -74,6 +74,7 @@ class _TableShell extends StatefulWidget {
     required this.itemCount,
     required this.itemBuilder,
     this.footer,
+    super.key,
   });
 
   final Widget header;
