@@ -308,6 +308,7 @@ class _BmfCardState extends ConsumerState<BmfCard>
     var hasDirectory = bmf.download?.trim().isNotEmpty ?? false;
     var pending = widget.pendingCount ?? 0;
     var title = widget.displayTitle ?? bmf.title ?? '未命名番剧';
+    var captionStyle = BTTypography.caption(context).copyWith(height: 4 / 3);
     return HoverButton(
       semanticLabel: '$title，${widget.seasonLabel ?? ''}',
       onPressed: _openDetails,
@@ -354,105 +355,123 @@ class _BmfCardState extends ConsumerState<BmfCard>
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Tooltip(
-                    message: '$title\nBangumi #${bmf.subject}',
-                    child: Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: BTTypography.bodyStrong(context),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    widget.seasonLabel ?? 'Bangumi #${bmf.subject}',
-                    style: BTTypography.caption(context),
-                  ),
-                  if (widget.broadcastLabel != null) ...[
-                    const SizedBox(height: 5),
+              child: SizedBox(
+                height: 84,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Tooltip(
-                      message:
-                          widget.broadcastTooltip ?? widget.broadcastLabel!,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 3),
-                            child: Icon(
-                              FluentIcons.clock,
-                              size: 11,
-                              color: widget.broadcastTooltip == null
-                                  ? BTColors.textTertiary(context)
-                                  : accentColor,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              widget.broadcastLabel!,
-                              style: BTTypography.caption(context).copyWith(
+                      message: '$title\nBangumi #${bmf.subject}',
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: BTTypography.bodyStrong(
+                          context,
+                        ).copyWith(height: 20 / 14),
+                      ),
+                    ),
+                    Text(
+                      widget.seasonLabel ?? 'Bangumi #${bmf.subject}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: captionStyle,
+                    ),
+                    if (widget.broadcastLabel != null) ...[
+                      Tooltip(
+                        message:
+                            widget.broadcastTooltip ?? widget.broadcastLabel!,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 3),
+                              child: Icon(
+                                FluentIcons.clock,
+                                size: 11,
                                 color: widget.broadcastTooltip == null
                                     ? BTColors.textTertiary(context)
                                     : accentColor,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: Wrap(
-                          spacing: 10,
-                          runSpacing: 4,
-                          children: [
-                            _buildListStatus(
-                              context,
-                              icon: MdiIcons.rss,
-                              label: hasRss
-                                  ? (bmf.autoUpdate ? '自动更新' : '手动更新')
-                                  : '缺少 RSS',
-                              active: hasRss,
-                            ),
-                            _buildListStatus(
-                              context,
-                              icon: FluentIcons.folder,
-                              label: hasDirectory ? '本地目录' : '缺少目录',
-                              active: hasDirectory,
-                            ),
-                            if (hasRss && pending > 0)
-                              Text(
-                                '$pending 条待处理',
-                                style: BTTypography.caption(context).copyWith(
-                                  color: accentColor,
-                                  fontWeight: FontWeight.w600,
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                widget.broadcastLabel!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: captionStyle.copyWith(
+                                  color: widget.broadcastTooltip == null
+                                      ? BTColors.textTertiary(context)
+                                      : accentColor,
                                 ),
                               ),
+                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Tooltip(
-                        message: '打开番剧详情（长按添加到导航栏）',
-                        child: IconButton(
-                          icon: const BtIcon(
-                            FluentIcons.open_in_new_tab,
-                            size: 14,
-                          ),
-                          onPressed: _navigateToDetail,
-                          onLongPress: _addToNavOnly,
-                        ),
-                      ),
                     ],
-                  ),
-                ],
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            spacing: 10,
+                            children: [
+                              Flexible(
+                                child: _buildListStatus(
+                                  context,
+                                  icon: MdiIcons.rss,
+                                  label: hasRss
+                                      ? (bmf.autoUpdate ? '自动更新' : '手动更新')
+                                      : '缺少 RSS',
+                                  active: hasRss,
+                                ),
+                              ),
+                              Flexible(
+                                child: _buildListStatus(
+                                  context,
+                                  icon: FluentIcons.folder,
+                                  label: hasDirectory ? '本地目录' : '缺少目录',
+                                  active: hasDirectory,
+                                ),
+                              ),
+                              if (hasRss && pending > 0)
+                                Flexible(
+                                  child: Tooltip(
+                                    message: '$pending 条待处理',
+                                    child: Text(
+                                      '$pending 条待处理',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: captionStyle.copyWith(
+                                        color: accentColor,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Tooltip(
+                          message: '打开番剧详情（长按添加到导航栏）',
+                          child: IconButton(
+                            icon: const BtIcon(
+                              FluentIcons.open_in_new_tab,
+                              size: 14,
+                            ),
+                            onPressed: _navigateToDetail,
+                            onLongPress: _addToNavOnly,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -475,9 +494,18 @@ class _BmfCardState extends ConsumerState<BmfCard>
       children: [
         Icon(icon, size: 11, color: color),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: BTTypography.caption(context).copyWith(color: color),
+        Flexible(
+          child: Tooltip(
+            message: label,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: BTTypography.caption(
+                context,
+              ).copyWith(color: color, height: 4 / 3),
+            ),
+          ),
         ),
       ],
     );
