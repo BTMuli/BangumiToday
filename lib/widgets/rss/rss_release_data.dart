@@ -77,7 +77,8 @@ class RssReleaseData {
       link: resource.detailUrl,
       pubDate: resource.createdAt.toIso8601String(),
       enclosure: RssEnclosure(url: resource.downloadUrl, length: resource.size),
-      subjectId: resource.subjectId,
+      // Anime Garden's title-based bindings can point at unrelated subjects.
+      // Keep the unverified ID on the resource, outside download associations.
     );
     return RssReleaseData(
       item: item,
@@ -86,7 +87,10 @@ class RssReleaseData {
       tags: [
         if (resource.fansub != null) '字幕组 ${resource.fansub!.name}',
         ..._titleTags(resource.title),
-        if (item.subjectId != null) 'Bangumi ${item.subjectId}' else '未绑定条目',
+        if (resource.subjectId != null)
+          '上游关联 Bangumi ${resource.subjectId}（未核验）'
+        else
+          '未绑定条目',
       ],
       author: resource.publisher.name,
       sizeLabel: filesize(resource.size),

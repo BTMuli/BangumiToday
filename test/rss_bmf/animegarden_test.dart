@@ -104,10 +104,35 @@ void main() {
     expect(release.downloadUrl, '${resource.magnet}${resource.tracker ?? ''}');
     expect(release.detailUrl, contains('/detail/${resource.provider}/'));
     expect(release.originUrl, resource.href);
-    expect(release.item.subjectId, resource.subjectId);
+    expect(resource.subjectId, 543360);
+    expect(release.item.subjectId, isNull);
+    expect(release.tags, contains('上游关联 Bangumi 543360（未核验）'));
     expect(release.tags, contains('字幕组 ${resource.fansub!.name}'));
     expect(release.author, resource.publisher.name);
     expect(AnimeGardenPage.fromJson(page.toJson()).resources.length, 2);
+  });
+
+  test('魔王大人被上游 MAO 规则误关联时，不向下载任务传递摩绪 ID', () {
+    // Public resources: /detail/dmhy/727611 and /detail/dmhy/616958.
+    const titles = [
+      '[7³ACG] 打工吧！魔王大人/Hataraku Maousama! S01 | '
+          '01-13 [简繁字幕] BDrip 1080p AV1 OPUS 2.0',
+      '[动漫国字幕组&LoliHouse] 打工吧!! 魔王大人 / '
+          'Hataraku Maou-sama S2 [01-12 修正合集]'
+          '[WebRip 1080p HEVC-10bit AAC][简繁外挂字幕][Fin]',
+    ];
+    for (var title in titles) {
+      var raw = (fixture()['resources'] as List).first as Map<String, dynamic>;
+      raw['title'] = title;
+      raw['subjectId'] = 570448;
+      var resource = AnimeGardenResource.fromJson(raw);
+      var release = RssReleaseData.fromAnimeGarden(resource);
+      expect(resource.toJson()['subjectId'], 570448);
+      expect(release.item.subjectId, isNull);
+      expect(release.tags, contains('上游关联 Bangumi 570448（未核验）'));
+      expect(release.tags, isNot(contains('Bangumi 570448')));
+      expect(release.canDownload, isTrue);
+    }
   });
 
   test('缺少关联和字幕组、空 metadata、大小为零均合法', () {
