@@ -83,101 +83,112 @@ class _DownloadSubjectGroup extends ConsumerWidget {
                   : () => ref
                         .read(downloadCollapsedSubjectsProvider.notifier)
                         .toggle(subjectId),
-              builder: (context, states) => AnimatedContainer(
-                duration: BTTheme.animationDurationFast,
-                color: states.isHovered || states.isFocused
-                    ? accentColor.withValues(alpha: 0.05)
-                    : Colors.transparent,
-                padding: const EdgeInsets.fromLTRB(20, 14, 14, 14),
-                child: Row(
-                  children: [
-                    if (selectionMode) ...[
-                      Checkbox(
-                        checked: selectedCount == 0
-                            ? false
-                            : selectedCount == tasks.length
-                            ? true
-                            : null,
-                        onChanged: (_) => toggleSelection(),
+              builder: (context, states) => DownloadRateBackground(
+                taskIds: [for (var task in tasks) task.id],
+                child: AnimatedContainer(
+                  duration: BTTheme.animationDurationFast,
+                  color: states.isHovered || states.isFocused
+                      ? accentColor.withValues(alpha: 0.05)
+                      : Colors.transparent,
+                  padding: const EdgeInsets.fromLTRB(20, 14, 14, 14),
+                  child: Row(
+                    children: [
+                      if (selectionMode) ...[
+                        Checkbox(
+                          checked: selectedCount == 0
+                              ? false
+                              : selectedCount == tasks.length
+                              ? true
+                              : null,
+                          onChanged: (_) => toggleSelection(),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      _TaskCover(
+                        url: subject?.images.common,
+                        state: tasks.first.state,
+                        color: accentColor,
+                        linked: true,
+                        onPressed: selectionMode
+                            ? toggleSelection
+                            : openSubject,
                       ),
-                      const SizedBox(width: 4),
-                    ],
-                    _TaskCover(
-                      url: subject?.images.common,
-                      state: tasks.first.state,
-                      color: accentColor,
-                      linked: true,
-                      onPressed: selectionMode ? toggleSelection : openSubject,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Tooltip(
-                            message: '打开条目：$title',
-                            child: HyperlinkButton(
-                              onPressed: selectionMode
-                                  ? toggleSelection
-                                  : openSubject,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: BTTypography.bodyStrong(context),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Tooltip(
+                              message: '打开条目：$title',
+                              child: HyperlinkButton(
+                                onPressed: selectionMode
+                                    ? toggleSelection
+                                    : openSubject,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: BTTypography.bodyStrong(context),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  const Icon(
-                                    FluentIcons.open_in_new_window,
-                                    size: 11,
-                                  ),
-                                ],
+                                    const SizedBox(width: 6),
+                                    const Icon(
+                                      FluentIcons.open_in_new_window,
+                                      size: 11,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 14,
-                            runSpacing: 4,
-                            children: [
-                              Text(
-                                '${tasks.length} 个任务',
-                                style: BTTypography.caption(context),
-                              ),
-                              Text(
-                                '下载 ${BTFileTool.formatSize(rates.$1)}/s',
-                                style: BTTypography.caption(context),
-                              ),
-                              Text(
-                                '上传 ${BTFileTool.formatSize(rates.$2)}/s',
-                                style: BTTypography.caption(context),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!selectionMode) ...[
-                      const SizedBox(width: 8),
-                      Tooltip(
-                        message: expanded ? '收起任务' : '展开任务',
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(
-                            expanded
-                                ? FluentIcons.chevron_up
-                                : FluentIcons.chevron_down,
-                            size: 14,
-                          ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 14,
+                              runSpacing: 4,
+                              children: [
+                                Text(
+                                  '${tasks.length} 个任务',
+                                  style: BTTypography.caption(context),
+                                ),
+                                Text(
+                                  '下载 ${BTFileTool.formatSize(rates.$1)}/s',
+                                  style: BTTypography.caption(context).copyWith(
+                                    color: DownloadRateBackground.downloadColor(
+                                      context,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  '上传 ${BTFileTool.formatSize(rates.$2)}/s',
+                                  style: BTTypography.caption(context).copyWith(
+                                    color: BTColors.successLight(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
+                      if (!selectionMode) ...[
+                        const SizedBox(width: 8),
+                        Tooltip(
+                          message: expanded ? '收起任务' : '展开任务',
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Icon(
+                              expanded
+                                  ? FluentIcons.chevron_up
+                                  : FluentIcons.chevron_down,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),

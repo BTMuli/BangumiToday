@@ -18,6 +18,7 @@ import '../../widgets/common/bt_buttons.dart';
 import '../../widgets/common/bt_card.dart';
 import '../../widgets/common/bt_drawer.dart';
 import '../../widgets/download/manual_download_dialog.dart';
+import 'download_rate_background.dart';
 import 'download_task_details.dart';
 import 'download_task_helpers.dart';
 import 'download_task_play_button.dart';
@@ -168,59 +169,55 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
             _DownloadEngineStatus(onEnable: () => _enableEngine(context)),
           ],
         ),
-      ),
-      content: Container(
-        color: BTColors.surfaceSecondary(context),
-        child: Column(
-          children: [
-            _DownloadToolbar(
-              leading: Wrap(
-                spacing: 16,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  _DownloadSortControl(
-                    field: _sortField,
-                    descending: _sortDescending,
-                    enabled: _tabIndex == 0,
-                    onSort: _changeSort,
-                  ),
-                  _DownloadSearchBox(
-                    controller: _searchController,
-                    query: _searchQuery,
-                    onChanged: (value) => setState(() => _searchQuery = value),
-                    onClear: () {
-                      _searchController.clear();
-                      setState(() => _searchQuery = '');
-                    },
-                  ),
-                ],
+        toolbar: _DownloadToolbar(
+          leading: Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _DownloadSortControl(
+                field: _sortField,
+                descending: _sortDescending,
+                enabled: _tabIndex == 0,
+                onSort: _changeSort,
               ),
-              controls: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _DownloadTabControl(
-                    tabIndex: _tabIndex,
-                    onChanged: (index) => setState(() => _tabIndex = index),
-                  ),
-                  const SizedBox(width: 8),
-                  _DownloadRefreshButton(onRefresh: () => _refresh(context)),
-                ],
+              _DownloadSearchBox(
+                controller: _searchController,
+                query: _searchQuery,
+                onChanged: (value) => setState(() => _searchQuery = value),
+                onClear: () {
+                  _searchController.clear();
+                  setState(() => _searchQuery = '');
+                },
               ),
-            ),
-            Expanded(
-              child: _DownloadTaskPane(
+            ],
+          ),
+          controls: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _DownloadGraphToggle(),
+              const SizedBox(width: 4),
+              _DownloadTabControl(
                 tabIndex: _tabIndex,
-                searchQuery: _searchQuery,
-                sortField: _sortField,
-                sortDescending: _sortDescending,
-                selecting: _selecting,
-                selectedIds: _selectedIds,
-                onToggleSelect: _toggleSelect,
-                onToggleGroupSelect: _toggleGroupSelect,
+                onChanged: (index) => setState(() => _tabIndex = index),
               ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              _DownloadRefreshButton(onRefresh: () => _refresh(context)),
+            ],
+          ),
+        ),
+      ),
+      content: ColoredBox(
+        color: BTColors.surfaceSecondary(context),
+        child: _DownloadTaskPane(
+          tabIndex: _tabIndex,
+          searchQuery: _searchQuery,
+          sortField: _sortField,
+          sortDescending: _sortDescending,
+          selecting: _selecting,
+          selectedIds: _selectedIds,
+          onToggleSelect: _toggleSelect,
+          onToggleGroupSelect: _toggleGroupSelect,
         ),
       ),
     );

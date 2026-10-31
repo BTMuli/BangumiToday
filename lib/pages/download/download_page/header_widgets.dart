@@ -1,29 +1,46 @@
 part of '../download_page.dart';
 
 class _DownloadHeader extends StatelessWidget {
-  const _DownloadHeader({required this.title, required this.commandBar});
+  const _DownloadHeader({
+    required this.title,
+    required this.commandBar,
+    required this.toolbar,
+  });
 
   final Widget title;
   final Widget commandBar;
+  final Widget toolbar;
 
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
       color: BTColors.surfaceTertiary(context),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-        child: Row(
+      child: DownloadRateBackground(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: DefaultTextStyle.merge(
-                style: FluentTheme.of(context).typography.title,
-                child: title,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: DefaultTextStyle.merge(
+                      style: FluentTheme.of(context).typography.title,
+                      child: title,
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: commandBar,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 24),
-            Flexible(
-              child: Align(alignment: Alignment.centerRight, child: commandBar),
-            ),
+            toolbar,
           ],
         ),
       ),
@@ -110,6 +127,34 @@ class _DownloadSearchBox extends StatelessWidget {
   }
 }
 
+class _DownloadGraphToggle extends ConsumerWidget {
+  const _DownloadGraphToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    var visible = ref.watch(downloadRateGraphsVisibleProvider);
+    var label = visible ? '隐藏速度曲线' : '显示速度曲线';
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        toggled: visible,
+        child: IconButton(
+          icon: Icon(
+            FluentIcons.line_chart,
+            size: 16,
+            color: visible
+                ? DownloadRateBackground.downloadColor(context)
+                : BTColors.textSecondary(context),
+            semanticLabel: label,
+          ),
+          onPressed: () =>
+              ref.read(downloadRateGraphsVisibleProvider.notifier).toggle(),
+        ),
+      ),
+    );
+  }
+}
+
 class _DownloadToolbar extends StatelessWidget {
   const _DownloadToolbar({required this.leading, required this.controls});
 
@@ -121,7 +166,6 @@ class _DownloadToolbar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       decoration: BoxDecoration(
-        color: BTColors.surfaceTertiary(context),
         border: Border(bottom: BorderSide(color: BTColors.divider(context))),
       ),
       child: LayoutBuilder(
@@ -298,7 +342,7 @@ class _TotalRates extends StatelessWidget {
         children: [
           _RateItem(
             icon: FluentIcons.download,
-            color: FluentTheme.of(context).accentColor,
+            color: DownloadRateBackground.downloadColor(context),
             value: '${BTFileTool.formatSize(downloadRate)}/s',
           ),
           Container(width: 1, height: 20, color: BTColors.divider(context)),
