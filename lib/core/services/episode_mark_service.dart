@@ -222,6 +222,15 @@ class EpisodeMarkService {
               episode.withinSubject == evidence.number,
         )
         .toList();
+    // A special can continue the broadcast sequence (for example, episode 13
+    // after 12 main chapters). Only its sort is evidence, never its local ep.
+    // Require the complete list and reject collisions with main chapters.
+    var specials = episodes.where(
+      (episode) =>
+          episode.id > 0 && episode.type == 1 && episode.sort == number,
+    );
+    if (!complete && specials.isNotEmpty) return null;
+    matches.addAll(specials);
     return matches.length == 1 ? matches.single : null;
   }
 

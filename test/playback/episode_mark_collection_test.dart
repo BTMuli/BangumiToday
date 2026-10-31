@@ -17,6 +17,7 @@ import 'package:bangumi_today/domain/repositories/playback_episode_links.dart';
 import 'package:bangumi_today/models/app/response.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_enum.dart';
 import 'package:bangumi_today/models/bangumi/bangumi_model.dart';
+import 'package:bangumi_today/models/playback/episode_mark_state.dart';
 import 'package:bangumi_today/models/playback/playback_episode_link.dart';
 import 'package:bangumi_today/models/playback/playback_episode_rule.dart';
 import 'package:bangumi_today/models/playback/playback_item.dart';
@@ -276,6 +277,29 @@ void main() {
     expect(await local.getCollection(536270), isNull);
     expect(remote.writes, 1);
     expect(remote.collectionReads, 0);
+    expect(remote.reads, 0);
+  });
+
+  test('按整数播出编号自动匹配特别篇并标记看过', () async {
+    await local.insertCollection(collectionFixture(epStatus: 0));
+    remote.episodeCount = 13;
+    remote.episodeTypes[13] = BangumiEpType.sp;
+    var item = _item(13);
+
+    await service.syncItems([item]);
+    expect(
+      service.progressState.checked,
+      contains(EpisodeMarkState.itemKey(item)),
+    );
+    expect((await service.mark(item)).status, EpisodeMarkWriteStatus.marked);
+    expect(
+      service.progressState.marked,
+      contains(EpisodeMarkState.itemKey(item)),
+    );
+    expect((await local.getCollection(536270))!.epStatus, 1);
+    expect(remote.done, {10013});
+    expect(remote.writes, 1);
+    expect(remote.progressReads, 1);
     expect(remote.reads, 0);
   });
 
