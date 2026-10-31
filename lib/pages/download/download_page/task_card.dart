@@ -458,12 +458,6 @@ class _TaskActions extends StatelessWidget {
         DownloadTaskPlayButton(task: task, busy: busy),
         _button(
           context,
-          FluentIcons.link,
-          '修改关联条目',
-          () => showDownloadTaskSubjectDialog(context, task: task),
-        ),
-        _button(
-          context,
           FluentIcons.info,
           '任务详情',
           () async {
@@ -508,20 +502,13 @@ class _TaskActions extends StatelessWidget {
             () => onAction((store) => store.retry(task.id)),
             enabled: task.lastError?.retryable == true,
           ),
-        if (task.sourceKind != 'http' &&
-            !(task.manual && task.state == 'completed'))
-          _button(
-            context,
-            FluentIcons.processing,
-            '重新校验',
-            () => onAction((store) => store.recheck(task.id)),
-          ),
         _button(
           context,
           FluentIcons.folder_open,
           '打开目录',
           () async => BTFileTool().openDir(task.savePath),
         ),
+        _moreButton(context),
         _button(
           context,
           FluentIcons.delete,
@@ -530,6 +517,33 @@ class _TaskActions extends StatelessWidget {
           onLongPress: () => _quickRemove(context),
           color: BTColors.errorLight(context),
         ),
+      ],
+    );
+  }
+
+  Widget _moreButton(BuildContext context) {
+    return DropDownButton(
+      verticalOffset: 6,
+      buttonBuilder: (context, onOpen) => _button(
+        context,
+        FluentIcons.more,
+        '更多',
+        () async => onOpen?.call(),
+        enabled: onOpen != null,
+      ),
+      items: [
+        MenuFlyoutItem(
+          leading: const Icon(FluentIcons.link, size: 15),
+          text: const Text('修改关联条目'),
+          onPressed: () => showDownloadTaskSubjectDialog(context, task: task),
+        ),
+        if (task.sourceKind != 'http' &&
+            !(task.manual && task.state == 'completed'))
+          MenuFlyoutItem(
+            leading: const Icon(FluentIcons.processing, size: 15),
+            text: const Text('重新校验'),
+            onPressed: () => onAction((store) => store.recheck(task.id)),
+          ),
       ],
     );
   }
