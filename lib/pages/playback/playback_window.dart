@@ -19,8 +19,10 @@ import '../../core/services/playback_window_protocol.dart';
 import '../../core/utils/window_effect.dart';
 import '../../data/repositories/playback_window_remote.dart';
 import '../../models/app/bangumi_mirror.dart';
+import '../../models/playback/playback_episode_rule.dart';
 import '../../models/playback/playback_on_top.dart';
 import '../../providers/episode_mark_providers.dart';
+import '../../providers/playback_episode_link_providers.dart';
 import '../../providers/playback_window_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/playback_store.dart';
@@ -111,6 +113,22 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
       overrides: [
         playbackStoreProvider.overrideWith((ref) => store),
         episodeMarkProvider.overrideWith(() => marking),
+        playbackEpisodeRuleSnapshotProvider.overrideWith((ref) {
+          // The child receives rules from the host and never opens Hive.
+          return Stream<List<PlaybackEpisodeRule>>.multi((controller) {
+            void publishRules() {
+              controller.add([
+                for (var rule in presentation.value['episodeRules'] as List)
+                  PlaybackEpisodeRule.fromJson(playbackMap(rule)),
+              ]);
+            }
+
+            presentation.addListener(publishRules);
+            controller.onCancel = () =>
+                presentation.removeListener(publishRules);
+            publishRules();
+          });
+        }),
         isPlaybackWindowProvider.overrideWithValue(true),
         playbackSubjectNavigationProvider.overrideWithValue((subject) async {
           await call('subject.open', {'subject': subject});

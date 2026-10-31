@@ -1,6 +1,6 @@
 part of 'playback_page.dart';
 
-class _PlaybackVideoControls extends StatefulWidget {
+class _PlaybackVideoControls extends ConsumerStatefulWidget {
   const _PlaybackVideoControls({
     required this.video,
     required this.store,
@@ -32,10 +32,12 @@ class _PlaybackVideoControls extends StatefulWidget {
   final Widget Function(_PlaybackLibrarySection section) buildLibraryPanel;
 
   @override
-  State<_PlaybackVideoControls> createState() => _PlaybackVideoControlsState();
+  ConsumerState<_PlaybackVideoControls> createState() =>
+      _PlaybackVideoControlsState();
 }
 
-class _PlaybackVideoControlsState extends State<_PlaybackVideoControls> {
+class _PlaybackVideoControlsState
+    extends ConsumerState<_PlaybackVideoControls> {
   final _contextMenu = FlyoutController();
 
   /// Shared width policy for playback menus. Wide enough that short menus look

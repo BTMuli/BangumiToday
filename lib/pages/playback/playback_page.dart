@@ -492,7 +492,7 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
     var current = store.current;
     var label = current == null
         ? null
-        : PlaybackLabel.fromName(current.title, filePath: current.filePath);
+        : ref.watch(playbackLabelProvider(current));
     return SizedBox(
       height: 48,
       child: Row(

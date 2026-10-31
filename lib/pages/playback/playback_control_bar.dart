@@ -6,7 +6,7 @@ extension _PlaybackControlBar on _PlaybackVideoControlsState {
     var store = widget.store;
     var player = widget.player;
     var item = store.current!;
-    var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
+    var label = ref.watch(playbackLabelProvider(item));
     var accent = FluentTheme.of(context).accentColor;
     // Reserve audio output and upscale buttons before adding optional controls.
     var bottomWidth = width - 52 - (Platform.isWindows ? 34 : 0);

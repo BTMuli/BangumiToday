@@ -572,7 +572,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   Widget _episodeRow(PlaybackStore store, int index) {
     var item = store.playlist[index];
     var selected = store.index == index;
-    var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
+    var label = ref.watch(playbackLabelProvider(item));
     var number = label.episodeNumber ?? '—';
     var accent = FluentTheme.of(context).accentColor;
     var meta = [
@@ -697,7 +697,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   Widget _episodeCell(PlaybackStore store, int index) {
     var item = store.playlist[index];
     var selected = store.index == index;
-    var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
+    var label = ref.watch(playbackLabelProvider(item));
     var number = label.episodeNumber;
     var accent = FluentTheme.of(context).accentColor;
     return Tooltip(
@@ -921,7 +921,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
   }
 
   Widget _historyEpisode(PlaybackStore store, PlaybackItem item) {
-    var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
+    var label = ref.watch(playbackLabelProvider(item));
     var progress = item.completed
         ? '已播完'
         : '${_PlaybackPageState._time(item.positionMs)} / '
@@ -997,7 +997,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
     bool expanded,
   ) {
     var item = group.latest;
-    var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
+    var label = ref.watch(playbackLabelProvider(item));
     return Tooltip(
       message: '${item.filePath}\n${group.items.length} 条播放记录',
       child: HoverButton(

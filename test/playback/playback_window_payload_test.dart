@@ -10,6 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 // Project imports:
 import 'package:bangumi_today/core/services/playback_window_protocol.dart';
 import 'package:bangumi_today/models/app/bangumi_mirror.dart';
+import 'package:bangumi_today/models/playback/playback_episode_rule.dart';
+import 'package:bangumi_today/models/playback/playback_item.dart';
+import 'package:bangumi_today/pages/playback/playback_label.dart';
 
 BangumiMirrorCatalog _sampleCatalog() => const BangumiMirrorCatalog()
     .save(
@@ -35,6 +38,16 @@ Map<String, Object?> _presentationPayload() => {
   'bangumiSiteUrl': 'https://bgm.tv',
   'bangumiImageUrl': 'https://lain.bgm.tv',
   'bangumiMirrorCatalog': _sampleCatalog().toJson(),
+  'episodeRules': [
+    PlaybackEpisodeRule(
+      id: 'takt',
+      subject: 1,
+      pattern: r'^\[LoliHouse\] takt op\.Destiny - (\d+) .*$',
+      offset: -11,
+      type: 0,
+      exampleFile: '[LoliHouse] takt op.Destiny - 12 [1080p].mkv',
+    ).toJson(),
+  ],
   'episodes': {'revision': 1, 'items': const <Object?>[]},
 };
 
@@ -46,6 +59,26 @@ Object? _codecRoundTrip(Object? value) {
 
 void main() {
   group('playback window payload', () {
+    test('episode rules survive the codec and label child-window items', () {
+      var body = playbackMap(_codecRoundTrip(_presentationPayload()));
+      var rules = [
+        for (var value in body['episodeRules'] as List)
+          PlaybackEpisodeRule.fromJson(playbackMap(value)),
+      ];
+      var label = PlaybackLabel.fromItem(
+        const PlaybackItem(
+          filePath: 'D:/Anime/[LoliHouse] takt op.Destiny - 12 [1080p].mkv',
+          title: '[LoliHouse] takt op.Destiny - 12 [1080p].mkv',
+          subject: 1,
+        ),
+        rules: rules,
+      );
+
+      expect(label.episodeNumber, '1');
+      expect(rules.single.type, 0);
+      expect(rules.single.id, 'takt');
+    });
+
     test('mirror catalog survives the cross-engine payload', () {
       var body = playbackMap(_codecRoundTrip(_presentationPayload()));
       var catalog = BangumiMirrorCatalog.fromJson(

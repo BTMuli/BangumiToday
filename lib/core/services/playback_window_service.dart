@@ -13,6 +13,7 @@ import 'package:window_manager/window_manager.dart';
 
 // Project imports:
 import '../../providers/episode_mark_providers.dart';
+import '../../providers/playback_episode_link_providers.dart';
 import '../../store/app_store.dart';
 import '../../store/nav_store.dart';
 import '../../store/playback_store.dart';
@@ -26,6 +27,10 @@ final playbackWindowServiceProvider =
     ChangeNotifierProvider<PlaybackWindowService>((ref) {
       var service = PlaybackWindowService(ref, ref.read(playbackStoreProvider));
       ref.listen(episodeMarkProvider, (_, _) => service.publishPresentation());
+      ref.listen(
+        playbackEpisodeRuleSnapshotProvider,
+        (_, _) => service.publishPresentation(),
+      );
       ref.listen(appStoreProvider, (_, _) => service.publishPresentation());
       return service;
     });
@@ -194,6 +199,11 @@ class PlaybackWindowService extends ChangeNotifier {
       'bangumiSiteUrl': settings.bangumiSiteUrl,
       'bangumiImageUrl': settings.bangumiImageUrl,
       'bangumiMirrorCatalog': settings.bangumiMirrorCatalog.toJson(),
+      'episodeRules': [
+        for (var rule
+            in ref.read(playbackEpisodeRuleSnapshotProvider).value ?? [])
+          rule.toJson(),
+      ],
       'episodes': encodeEpisodeMarkState(
         ref.read(episodeMarkProvider),
         account: marking.currentAccount(),

@@ -61,7 +61,7 @@ class _SubjectContinuePlaybackButtonState
       return const SizedBox.shrink();
     }
     var canResume = previousAvailable && previous.key == item.key;
-    var label = PlaybackLabel.fromName(item.title, filePath: item.filePath);
+    var label = ref.watch(playbackLabelProvider(item));
     var action = previous != null || widget.watchedEpisodes > 0
         ? '继续播放'
         : '开始播放';
