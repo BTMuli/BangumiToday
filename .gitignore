@@ -51,3 +51,6 @@ genSign.ps1
 # Local generated output and temporary verification files
 /output/
 /temp/
+
+# Local Remotion video templates
+/remotion/

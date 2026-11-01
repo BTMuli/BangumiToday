@@ -96,7 +96,7 @@ For macOS development, use a macOS host with the Flutter desktop toolchain:
 flutter run -d macos --dart-define-from-file=.dart-define.json
 ```
 
-The bundled download engine, Windows system-proxy integration and native
+The bundled download engine, network-proxy settings and native
 Anime4K/AnimeJaNai playback enhancements are Windows-specific. A macOS source
 checkout does not imply feature parity or a verified packaged release.
 
@@ -144,11 +144,15 @@ dart format --output=none --set-exit-if-changed lib
 dart analyze --fatal-infos --fatal-warnings lib
 ```
 
-Run relevant functional tests when behavior changes. For example, the maintained
-comment-parser regression test is:
+Run relevant functional tests when behavior changes. Examples of maintained
+regression tests cover comments, search filters, resource parsing, episode
+matching, subtitle discovery and download diagnostics. Choose the affected suites:
 
 ```shell
-flutter test test/bangumi/comment_parser_test.dart
+flutter test test/bangumi
+flutter test test/rss_bmf
+flutter test test/playback
+flutter test test/download
 ```
 
 Keep lasting functional regression tests and fixtures under `test/`. Put
@@ -211,18 +215,24 @@ ctest --preset windows-x64-debug-tests
 
 ## Commits and pull requests
 
-Commit messages may use any language and should clearly describe the change.
-The [Gitmoji](https://gitmoji.dev/) style `<emoji> <description>` is recommended,
-for example `📝 Update contribution guidelines`, but is not required. Choose an
-emoji that matches the change intent; the
-[selection reference](./.agents/skills/gitmoji-commit/references/emoji-selection.md)
-can help.
+Commit subjects and bodies must use Chinese. Subjects must follow the
+[Gitmoji](https://gitmoji.dev/) format `<emoji> <description>`, for example
+`📝 同步功能说明文档`, with a concise imperative description and no Conventional
+Commit prefix such as `fix:` or `feat:`. Use the
+[Gitmoji commit skill](./.agents/skills/gitmoji-commit/SKILL.md) and its
+[selection reference](./.agents/skills/gitmoji-commit/references/emoji-selection.md).
+Choose the emoji from the primary intent of the actual staged diff, considering
+specific-purpose icons before generic ones.
 
 Keep commits focused. The installed pre-commit hook sorts imports, formats
 tracked Dart files in batches and runs `lint_staged`; it may change files beyond
 the ones you edited. Review the working tree afterward. Large staged Dart
 changes can make `lint_staged` resource-intensive. Split by independent purpose
 where appropriate; a file-count threshold is not a reason to rewrite history.
+
+If the hook leaves only formatting changes in tracked Dart files after creating
+a local commit, stage those changes and amend that commit instead of creating a
+separate formatting commit. Never amend a commit that has already been pushed.
 
 Agents must stop at the working tree after completing an authorized change and
 only commit, amend, rebase, cherry-pick, revert or push when explicitly requested
