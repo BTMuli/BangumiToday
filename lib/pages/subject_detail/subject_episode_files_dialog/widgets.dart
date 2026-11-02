@@ -412,16 +412,28 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
             : episode.sort.toString(),
     };
     var textScaler = MediaQuery.textScalerOf(context);
-    var numberStyle = BTTypography.body(context).copyWith(fontSize: 16);
+    // Measure with the same inherited font used by the episode buttons.
+    var numberStyle = DefaultTextStyle.of(context).style
+        .merge(FluentTheme.of(context).typography.body)
+        .merge(BTTypography.body(context))
+        .copyWith(fontSize: 16, inherit: false);
+    var horizontalPadding =
+        (8 + FluentTheme.of(context).visualDensity.horizontal).clamp(
+          0.0,
+          double.infinity,
+        );
     var tileWidth = textScaler.scale(40);
     var painter = TextPainter(
       textDirection: Directionality.of(context),
       textScaler: textScaler,
+      locale: Localizations.maybeLocaleOf(context),
     );
     for (var number in numbers.values) {
       painter.text = TextSpan(text: number, style: numberStyle);
       painter.layout();
-      if (painter.width + 16 > tileWidth) tileWidth = painter.width + 16;
+      // ShapeDecoration also reserves one logical pixel per border side.
+      var width = (painter.width + horizontalPadding * 2 + 2).ceilToDouble();
+      if (width > tileWidth) tileWidth = width;
     }
     painter.dispose();
     return LayoutBuilder(
@@ -516,6 +528,7 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
                                             selected,
                                             currentEpisode,
                                             linked,
+                                            numberStyle,
                                             enabled: enabled,
                                           ),
                                         ),
@@ -542,7 +555,8 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
     String number,
     int? selected,
     int? currentEpisode,
-    PlaybackEpisodeLink? linked, {
+    PlaybackEpisodeLink? linked,
+    TextStyle numberStyle, {
     required bool enabled,
   }) {
     var checked = episode.id == selected;
@@ -568,8 +582,7 @@ extension _EpisodeFilesLayout on _SubjectEpisodeFilesDialogState {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: BTTypography.body(context).copyWith(
-              fontSize: 16,
+            style: numberStyle.copyWith(
               color: enabled
                   ? BTColors.textPrimary(context)
                   : FluentTheme.of(context).resources.textFillColorDisabled,
