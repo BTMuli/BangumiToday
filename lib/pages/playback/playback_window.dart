@@ -19,11 +19,14 @@ import '../../core/services/playback_window_protocol.dart';
 import '../../core/utils/window_effect.dart';
 import '../../data/repositories/playback_window_remote.dart';
 import '../../models/app/bangumi_mirror.dart';
+import '../../models/bangumi/bangumi_model_episode.dart';
+import '../../models/playback/playback_episode_link.dart';
 import '../../models/playback/playback_episode_rule.dart';
 import '../../models/playback/playback_on_top.dart';
 import '../../providers/episode_mark_providers.dart';
 import '../../providers/playback_episode_link_providers.dart';
 import '../../providers/playback_window_providers.dart';
+import '../../providers/subject_playback_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/playback_store.dart';
 import '../../tools/log_tool.dart';
@@ -113,6 +116,29 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
       overrides: [
         playbackStoreProvider.overrideWith((ref) => store),
         episodeMarkProvider.overrideWith(() => marking),
+        subjectFileEpisodesProvider.overrideWith((ref, subject) async {
+          var chapters = await call('episodes.chapters', {'subject': subject});
+          return [
+            for (var chapter in chapters as List)
+              BangumiEpisode.fromJson(playbackMap(chapter)),
+          ];
+        }),
+        playbackEpisodeLinkSnapshotProvider.overrideWith((ref) {
+          return Stream<Map<String, PlaybackEpisodeLink>>.multi((controller) {
+            void publishLinks() {
+              var links = [
+                for (var link in presentation.value['episodeLinks'] as List)
+                  PlaybackEpisodeLink.fromJson(playbackMap(link)),
+              ];
+              controller.add({for (var link in links) link.key: link});
+            }
+
+            presentation.addListener(publishLinks);
+            controller.onCancel = () =>
+                presentation.removeListener(publishLinks);
+            publishLinks();
+          });
+        }),
         playbackEpisodeRuleSnapshotProvider.overrideWith((ref) {
           // The child receives rules from the host and never opens Hive.
           return Stream<List<PlaybackEpisodeRule>>.multi((controller) {

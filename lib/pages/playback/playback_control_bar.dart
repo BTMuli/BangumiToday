@@ -7,6 +7,9 @@ extension _PlaybackControlBar on _PlaybackVideoControlsState {
     var player = widget.player;
     var item = store.current!;
     var label = ref.watch(playbackLabelProvider(item));
+    var displayIndex = ref
+        .watch(playbackPlaylistProvider)
+        .positionOf(store.index);
     var accent = FluentTheme.of(context).accentColor;
     // Reserve audio output and upscale buttons before adding optional controls.
     var bottomWidth = width - 52 - (Platform.isWindows ? 34 : 0);
@@ -55,7 +58,7 @@ extension _PlaybackControlBar on _PlaybackVideoControlsState {
                     [
                       if (label.episode != null) label.episode!,
                       if (label.details.isNotEmpty) label.details,
-                      '${store.index + 1} / ${store.playlist.length}',
+                      '${displayIndex + 1} / ${store.playlist.length}',
                     ].join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -141,7 +144,7 @@ extension _PlaybackControlBar on _PlaybackVideoControlsState {
           _videoButton(
             material.Icons.skip_previous_rounded,
             '上一个视频',
-            store.index > 0 && !store.loading && !store.isOpening
+            displayIndex > 0 && !store.loading && !store.isOpening
                 ? () => _execute(_PlaybackCommand.previous)
                 : null,
           ),
@@ -161,7 +164,7 @@ extension _PlaybackControlBar on _PlaybackVideoControlsState {
           _videoButton(
             material.Icons.skip_next_rounded,
             '下一个视频',
-            store.index + 1 < store.playlist.length &&
+            displayIndex + 1 < store.playlist.length &&
                     !store.loading &&
                     !store.isOpening
                 ? () => _execute(_PlaybackCommand.next)

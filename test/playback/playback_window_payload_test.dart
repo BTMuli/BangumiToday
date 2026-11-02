@@ -10,6 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 // Project imports:
 import 'package:bangumi_today/core/services/playback_window_protocol.dart';
 import 'package:bangumi_today/models/app/bangumi_mirror.dart';
+import 'package:bangumi_today/models/bangumi/bangumi_model_episode.dart';
+import 'package:bangumi_today/models/playback/playback_episode_link.dart';
 import 'package:bangumi_today/models/playback/playback_episode_rule.dart';
 import 'package:bangumi_today/models/playback/playback_item.dart';
 import 'package:bangumi_today/pages/playback/playback_label.dart';
@@ -48,6 +50,13 @@ Map<String, Object?> _presentationPayload() => {
       exampleFile: '[LoliHouse] takt op.Destiny - 12 [1080p].mkv',
     ).toJson(),
   ],
+  'episodeLinks': [
+    const PlaybackEpisodeLink(
+      filePath: 'D:/Anime/Show - 02.mkv',
+      subject: 1,
+      episode: 1013,
+    ).toJson(),
+  ],
   'episodes': {'revision': 1, 'items': const <Object?>[]},
 };
 
@@ -59,6 +68,49 @@ Object? _codecRoundTrip(Object? value) {
 
 void main() {
   group('playback window payload', () {
+    test(
+      'manual links and chapter metadata label child-window specials as 13',
+      () {
+        var body = playbackMap(_codecRoundTrip(_presentationPayload()));
+        var links = [
+          for (var value in body['episodeLinks'] as List)
+            PlaybackEpisodeLink.fromJson(playbackMap(value)),
+        ];
+        // The host's episodes.chapters reply also crosses StandardMessageCodec.
+        var chapters =
+            _codecRoundTrip([
+                  {
+                    'id': 1013,
+                    'type': 1,
+                    'name': 'Special',
+                    'name_cn': '特别篇',
+                    'sort': 13.0,
+                    'ep': 1.0,
+                    'airdate': '',
+                    'comment': 0,
+                    'duration': '',
+                    'desc': '',
+                    'disc': 0,
+                    'duration_seconds': 0,
+                  },
+                ])
+                as List;
+        var label = PlaybackLabel.fromItem(
+          const PlaybackItem(
+            filePath: 'D:/Anime/Show - 02.mkv',
+            title: 'Show - 02.mkv',
+            subject: 1,
+          ),
+          manualLink: links.single,
+          chapters: [
+            for (var chapter in chapters)
+              BangumiEpisode.fromJson(playbackMap(chapter)),
+          ],
+        );
+        expect(label.episodeNumber, '13');
+      },
+    );
+
     test('episode rules survive the codec and label child-window items', () {
       var body = playbackMap(_codecRoundTrip(_presentationPayload()));
       var rules = [

@@ -280,8 +280,11 @@ extension _PlaybackControlMenus on _PlaybackVideoControlsState {
     var box = navigator.context.findRenderObject() as RenderBox;
     var player = widget.player;
     var overlay = widget.overlay;
-    var canPrevious = widget.store.index > 0;
-    var canNext = widget.store.index + 1 < widget.store.playlist.length;
+    var displayIndex = ref
+        .read(playbackPlaylistProvider)
+        .positionOf(widget.store.index);
+    var canPrevious = displayIndex > 0;
+    var canNext = displayIndex + 1 < widget.store.playlist.length;
     _showMenu(
       box.globalToLocal(details.globalPosition),
       () => [

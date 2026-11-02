@@ -12,6 +12,9 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Project imports:
+import '../../data/repositories/playback_episodes.dart';
+import '../../models/playback/playback_episode_link.dart';
+import '../../providers/bangumi_providers.dart';
 import '../../providers/episode_mark_providers.dart';
 import '../../providers/playback_episode_link_providers.dart';
 import '../../store/app_store.dart';
@@ -29,6 +32,10 @@ final playbackWindowServiceProvider =
       ref.listen(episodeMarkProvider, (_, _) => service.publishPresentation());
       ref.listen(
         playbackEpisodeRuleSnapshotProvider,
+        (_, _) => service.publishPresentation(),
+      );
+      ref.listen(
+        playbackEpisodeLinkSnapshotProvider,
         (_, _) => service.publishPresentation(),
       );
       ref.listen(appStoreProvider, (_, _) => service.publishPresentation());
@@ -204,6 +211,12 @@ class PlaybackWindowService extends ChangeNotifier {
             in ref.read(playbackEpisodeRuleSnapshotProvider).value ?? [])
           rule.toJson(),
       ],
+      'episodeLinks': [
+        for (var link
+            in ref.read(playbackEpisodeLinkSnapshotProvider).value?.values ??
+                const <PlaybackEpisodeLink>[])
+          link.toJson(),
+      ],
       'episodes': encodeEpisodeMarkState(
         ref.read(episodeMarkProvider),
         account: marking.currentAccount(),
@@ -342,6 +355,13 @@ class PlaybackWindowService extends ChangeNotifier {
     String method,
     Map<String, Object?> body,
   ) async {
+    if (method == 'episodes.chapters') {
+      var chapters = await loadPlaybackEpisodes(
+        ref.read(bangumiRepositoryProvider),
+        playbackInt(body, 'subject', minimum: 1),
+      );
+      return [for (var chapter in chapters) chapter.toJson()];
+    }
     var controller = ref.read(episodeMarkProvider.notifier);
     Object? result;
     switch (method) {

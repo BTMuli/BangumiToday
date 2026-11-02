@@ -161,16 +161,18 @@ extension _PlaybackControlCommands on _PlaybackVideoControlsState {
         );
       case _PlaybackCommand.previous:
       case _PlaybackCommand.next:
+        var playlist = ref.read(playbackPlaylistProvider);
         var nextIndex =
-            store.index + (command == _PlaybackCommand.next ? 1 : -1);
-        if (nextIndex < 0 || nextIndex >= store.playlist.length) {
+            playlist.positionOf(store.index) +
+            (command == _PlaybackCommand.next ? 1 : -1);
+        if (nextIndex < 0 || nextIndex >= playlist.indices.length) {
           overlay.show(
             nextIndex < 0 ? '已经是第一个视频' : '已经是最后一个视频',
             material.Icons.playlist_play_rounded,
           );
           return;
         }
-        await store.jump(nextIndex);
+        await store.jump(playlist.indices[nextIndex]);
         if (store.player != player || store.current == null) return;
         overlay.show(
           command == _PlaybackCommand.next ? '下一个视频' : '上一个视频',

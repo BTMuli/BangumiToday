@@ -90,7 +90,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
           ? _listScroll
           : _gridScroll;
       if (!scroll.hasClients) return;
-      var index = store.index;
+      var index = ref.read(playbackPlaylistProvider).positionOf(store.index);
       if (index < 0) return;
       var first = !_revealed;
       _revealed = true;
@@ -185,14 +185,17 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
       }
     }
     var key = store.current?.key;
-    if (key != _lastPlayingKey || store.index != _lastIndex) {
+    var displayIndex = ref
+        .watch(playbackPlaylistProvider)
+        .positionOf(store.index);
+    if (key != _lastPlayingKey || displayIndex != _lastIndex) {
       // 只有内嵌侧栏的两个标签页跟随播放状态自动切换。
       if (widget.section == null) {
         if (key != null && _lastPlayingKey == null) _showHistory = false;
         if (key == null && _lastPlayingKey != null) _showHistory = true;
       }
       _lastPlayingKey = key;
-      _lastIndex = store.index;
+      _lastIndex = displayIndex;
       revealCurrent();
     }
     // 切换排版后滚动位置属于另一份控制器，重新定位到当前集。
@@ -529,6 +532,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
 
   Widget _playlist(PlaybackStore store) {
     if (store.playlist.isEmpty) return _empty('暂无播放列表');
+    var indices = ref.watch(playbackPlaylistProvider).indices;
     return LayoutBuilder(
       builder: (context, constraints) {
         var columns = _columnsFor(constraints.maxWidth);
@@ -545,7 +549,8 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
                     controller: _listScroll,
                     padding: const EdgeInsets.all(_listPadding),
                     itemCount: store.playlist.length,
-                    itemBuilder: (_, index) => _episodeRow(store, index),
+                    itemBuilder: (_, index) =>
+                        _episodeRow(store, indices[index]),
                   ),
                 )
               : Scrollbar(
@@ -560,7 +565,8 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
                       crossAxisSpacing: _gap,
                     ),
                     itemCount: store.playlist.length,
-                    itemBuilder: (_, index) => _episodeCell(store, index),
+                    itemBuilder: (_, index) =>
+                        _episodeCell(store, indices[index]),
                   ),
                 ),
         );
