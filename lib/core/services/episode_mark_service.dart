@@ -261,14 +261,18 @@ class EpisodeMarkService {
     );
   }
 
-  void resetProgress() {
+  void resetProgress({bool preserveProgress = false}) {
     _progressAccount = accountSession();
     _items.clear();
-    _progress.clear();
     _progressLoads.clear();
-    _loadedSubjects.clear();
     _loadingSubjects.clear();
-    _episodeVersions.clear();
+    // A retired window invalidates in-flight work, but chapter knowledge still
+    // belongs to the logged-in account and remains visible in the main window.
+    if (!preserveProgress) {
+      _progress.clear();
+      _loadedSubjects.clear();
+      _episodeVersions.clear();
+    }
   }
 
   void _ensureProgressAccount() {

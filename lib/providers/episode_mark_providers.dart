@@ -61,7 +61,7 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
       ),
       (_, authorization) {
         _observedAuthorization = authorization;
-        discardWindowWork();
+        discardWindowWork(preserveProgress: false);
       },
     );
     // Playback reads this controller to reuse chapter metadata. Listening to
@@ -133,11 +133,14 @@ class EpisodeMarkController extends Notifier<EpisodeMarkState> {
     return '${user.user!.id}:$_accountGeneration';
   }
 
-  void discardWindowWork() {
+  /// Retire pending window operations while retaining settled account progress.
+  /// Authorization changes must also discard that account's chapter knowledge.
+  void discardWindowWork({bool preserveProgress = true}) {
     if (_closed) return;
+    var retainProgress = preserveProgress && state.account == currentAccount();
     _accountGeneration++;
-    service.resetProgress();
-    state = EpisodeMarkState(account: currentAccount());
+    service.resetProgress(preserveProgress: retainProgress);
+    state = service.progressState;
   }
 
   Future<void> syncItems(

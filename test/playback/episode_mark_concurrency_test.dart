@@ -322,6 +322,69 @@ void main() {
       expect(repository.reads, isEmpty);
     });
 
+    for (var paused in [false, true]) {
+      test('自动标记后关闭播放器，主窗口${paused ? '恢复订阅后' : ''}保留最新进度', () async {
+        var provider = subjectEpisodeProgressProvider(_item.subject!);
+        var changes = <Map<int, bool>>[];
+        var subscription = container.listen(provider, (_, next) {
+          changes.add(next);
+        });
+        addTearDown(subscription.close);
+        await controller.syncItems([_item, _next]);
+        await container.pump();
+        expect(container.read(provider), {10002: false, 10003: false});
+        if (paused) subscription.pause();
+
+        playback.autoMarkWatched = true;
+        playback.finish(_item);
+        await pumpEventQueue();
+        if (!paused) {
+          await container.pump();
+          expect(container.read(provider), {10002: true, 10003: false});
+        }
+
+        controller.discardWindowWork();
+        if (paused) subscription.resume();
+        await container.pump();
+        expect(container.read(provider), {10002: true, 10003: false});
+        expect(changes.last, {10002: true, 10003: false});
+        expect(repository.writes, [10002]);
+        expect(repository.progressPageReads, 1);
+      });
+    }
+
+    test('关闭播放器使待处理标记失效但保留已完成的章节', () async {
+      await controller.syncItems([_item, _next]);
+      await controller.markItem(_item);
+      var gate = links.readGate = Completer<void>();
+      var pending = controller.markItem(_next);
+      await pumpEventQueue();
+
+      controller.discardWindowWork();
+      gate.complete();
+      expect((await pending).status, EpisodeMarkWriteStatus.expired);
+      expect(controller.service.knownProgress(_item.subject!), {
+        10002: true,
+        10003: false,
+      });
+      expect(repository.writes, [10002]);
+      expect(
+        (await controller.markItem(_item)).status,
+        EpisodeMarkWriteStatus.alreadyDone,
+      );
+      expect(repository.progressPageReads, 1);
+    });
+
+    test('同一账号重新登录仍清空旧窗口的已知进度', () async {
+      await controller.syncItems([_item, _next]);
+      await controller.markItem(_item);
+      user.authorize('token-2', generation: 1);
+      await container.pump();
+
+      expect(controller.service.knownProgress(_item.subject!), isEmpty);
+      expect(container.read(episodeMarkProvider).marked, isEmpty);
+    });
+
     test('手动切集不标记，最后一集自然结束仍标记', () async {
       await controller.syncItems([_item, _next]);
       playback.autoMarkWatched = true;
