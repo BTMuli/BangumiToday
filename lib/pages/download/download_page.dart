@@ -19,6 +19,7 @@ import '../../widgets/common/bt_card.dart';
 import '../../widgets/common/bt_drawer.dart';
 import '../../widgets/download/manual_download_dialog.dart';
 import 'download_rate_background.dart';
+import 'download_settings_drawer.dart';
 import 'download_task_details.dart';
 import 'download_task_helpers.dart';
 import 'download_task_play_button.dart';
@@ -155,6 +156,13 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
               child: IconButton(
                 icon: const Icon(FluentIcons.add, size: 16),
                 onPressed: () => showManualDownloadDialog(context, ref),
+              ),
+            ),
+            Tooltip(
+              message: '下载设置',
+              child: IconButton(
+                icon: const Icon(FluentIcons.settings, size: 16),
+                onPressed: () => showDownloadSettingsDrawer(context),
               ),
             ),
           ],

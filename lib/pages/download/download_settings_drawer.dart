@@ -17,20 +17,30 @@ import '../../store/tracker_hive.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_engine_switch.dart';
 import '../../ui/bt_infobar.dart';
+import '../../widgets/common/bt_drawer.dart';
 import '../../widgets/common/bt_setting_section.dart';
 import '../../widgets/download/engine_network_diagnostics.dart';
 
-class AppConfigDownloadWidget extends ConsumerStatefulWidget {
-  const AppConfigDownloadWidget({super.key});
-
-  @override
-  ConsumerState<AppConfigDownloadWidget> createState() =>
-      _AppConfigDownloadWidgetState();
+Future<void> showDownloadSettingsDrawer(BuildContext context) {
+  var width = (MediaQuery.sizeOf(context).width - 24).clamp(0.0, 720.0);
+  return showBTDrawer<void>(
+    context: context,
+    width: width,
+    child: const BTDrawer(title: '下载设置', child: DownloadSettingsPanel()),
+  );
 }
 
-class _AppConfigDownloadWidgetState
-    extends ConsumerState<AppConfigDownloadWidget> {
+class DownloadSettingsPanel extends ConsumerStatefulWidget {
+  const DownloadSettingsPanel({super.key});
+
+  @override
+  ConsumerState<DownloadSettingsPanel> createState() =>
+      _DownloadSettingsPanelState();
+}
+
+class _DownloadSettingsPanelState extends ConsumerState<DownloadSettingsPanel> {
   static const _maxRateLimitKiB = 0x7fffffff ~/ 1024;
+  static const _singleColumnBreakpoint = 520.0;
 
   BtDownloadConfig _config = const BtDownloadConfig();
   BtTrackerConfig _trackerConfig = const BtTrackerConfig();
@@ -251,63 +261,128 @@ class _AppConfigDownloadWidgetState
     super.dispose();
   }
 
-  /// 构建一行网格设置
-  Widget _gridRow(List<Widget> cells) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _gridRow(List<Widget> cells, {required bool singleColumn}) {
+    if (singleColumn || cells.length == 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < cells.length; i++) ...[
+            if (i > 0) SizedBox(height: 12),
+            cells[i],
+          ],
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var i = 0; i < cells.length; i++) ...[
-          if (i > 0) SizedBox(width: 12),
-          Expanded(child: cells[i]),
+        for (var i = 0; i < cells.length; i += 2) ...[
+          if (i > 0) SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: cells[i]),
+              if (i + 1 < cells.length) ...[
+                SizedBox(width: 12),
+                Expanded(child: cells[i + 1]),
+              ],
+            ],
+          ),
         ],
       ],
     );
   }
 
-  /// 构建下载限制（两行三列）
-  Widget buildDownloadLimits() {
-    Widget cell({
-      required String title,
-      required String description,
-      required Widget control,
-    }) {
-      return _SettingGridCell(
-        title: title,
-        description: description,
-        control: control,
-      );
-    }
+  Widget _numberCell({
+    required String title,
+    required String description,
+    required int value,
+    required int min,
+    required int max,
+    required ValueChanged<int> onChanged,
+    bool enabled = true,
+  }) {
+    return _SettingGridCell(
+      title: title,
+      description: description,
+      control: NumberBox<int>(
+        value: value,
+        min: min,
+        max: max,
+        mode: SpinButtonPlacementMode.none,
+        onChanged: !enabled || _saving
+            ? null
+            : (next) {
+                if (next != null) onChanged(next);
+              },
+      ),
+    );
+  }
 
-    Widget numberCell({
-      required String title,
-      required String description,
-      required int value,
-      required int min,
-      required int max,
-      required ValueChanged<int> onChanged,
-    }) {
-      return cell(
-        title: title,
-        description: description,
-        control: NumberBox<int>(
-          value: value,
-          min: min,
-          max: max,
-          mode: SpinButtonPlacementMode.none,
-          onChanged: _saving
-              ? null
-              : (next) {
-                  if (next != null) onChanged(next);
-                },
-        ),
-      );
-    }
-
+  Widget _buildEngineSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const BTSettingGroupTitle('引擎与连接'),
+        ListTile(
+          title: const Text('启用下载引擎'),
+          subtitle: const Text('默认关闭，需手动开启；开启后应用启动时会自动运行'),
+          trailing: ToggleSwitch(
+            checked: _config.engineEnabled,
+            onChanged: _saving ? null : _toggleEngine,
+          ),
+        ),
+        SizedBox(height: 4),
+        const EngineNetworkDiagnostics(),
+        SizedBox(height: 8),
+        const BTSettingHint(
+          icon: FluentIcons.shield,
+          message:
+              '需入站放行才能接收 Peer；开启引擎时会自动注册，'
+              '路径变更后可手动重注册（需管理员授权）。',
+        ),
+        SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _firewallStatusText(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SizedBox(width: 8),
+            if (_firewallStatus == EngineFirewallRuleStatus.registered ||
+                _firewallStatus == EngineFirewallRuleStatus.pathMismatch)
+              Padding(
+                padding: EdgeInsets.only(right: 8),
+                child: Button(
+                  onPressed: _firewallBusy ? null : _unregisterFirewallRule,
+                  child: const Text('移除规则'),
+                ),
+              ),
+            FilledButton(
+              onPressed: _firewallBusy ? null : _registerFirewallRule,
+              child: _firewallBusy
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: ProgressRing(strokeWidth: 2),
+                    )
+                  : const Text('注册规则'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLimitsSection({required bool singleColumn}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const BTSettingGroupTitle('下载限制'),
         _gridRow([
-          numberCell(
+          _numberCell(
             title: '同时下载任务数',
             description: '并行下载任务数上限',
             value: _config.activeDownloads,
@@ -317,7 +392,17 @@ class _AppConfigDownloadWidgetState
               () => _config = _config.copyWith(activeDownloads: value),
             ),
           ),
-          numberCell(
+          _numberCell(
+            title: '磁力元数据超时（秒）',
+            description: '超时未获取元数据则标记失败',
+            value: _config.metadataTimeoutSeconds,
+            min: 1,
+            max: 86400,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(metadataTimeoutSeconds: value),
+            ),
+          ),
+          _numberCell(
             title: '下载限速（KiB/s）',
             description: '0 表示不限速',
             value: _config.downloadRateLimitKiB,
@@ -327,7 +412,7 @@ class _AppConfigDownloadWidgetState
               () => _config = _config.copyWith(downloadRateLimit: value * 1024),
             ),
           ),
-          numberCell(
+          _numberCell(
             title: '上传限速（KiB/s）',
             description: '0 表示不限速',
             value: _config.uploadRateLimitKiB,
@@ -337,10 +422,7 @@ class _AppConfigDownloadWidgetState
               () => _config = _config.copyWith(uploadRateLimit: value * 1024),
             ),
           ),
-        ]),
-        SizedBox(height: 12),
-        _gridRow([
-          numberCell(
+          _numberCell(
             title: '全局连接数',
             description: '引擎最大连接数',
             value: _config.connectionsLimit,
@@ -353,7 +435,7 @@ class _AppConfigDownloadWidgetState
               );
             }),
           ),
-          numberCell(
+          _numberCell(
             title: '单任务连接数',
             description: '单任务最大连接数',
             value: _config.connectionsPerTask,
@@ -363,31 +445,22 @@ class _AppConfigDownloadWidgetState
               () => _config = _config.copyWith(connectionsPerTask: value),
             ),
           ),
-          numberCell(
-            title: '磁力元数据超时（秒）',
-            description: '超时未获取元数据则标记失败',
-            value: _config.metadataTimeoutSeconds,
-            min: 1,
-            max: 86400,
-            onChanged: (value) => setState(
-              () => _config = _config.copyWith(metadataTimeoutSeconds: value),
-            ),
-          ),
-        ]),
+        ], singleColumn: singleColumn),
       ],
     );
   }
 
-  /// 构建做种设置（三列）
-  Widget buildSeedingSettings() {
+  Widget _buildSeedingSection({required bool singleColumn}) {
+    var conserve = _config.conserveOnMeteredOrLowPower;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const BTSettingGroupTitle('做种'),
         const InfoBar(
-          title: Text('Tracker 与做种隐私提示'),
+          title: Text('隐私提示'),
           content: Text(
-            '补充 Tracker 和 BT Peer 会获知任务 info-hash 与你的 IP。'
-            '公共补充 Tracker 不会应用到私有种子。',
+            'Tracker 与 Peer 会获知任务 info-hash 与你的 IP；'
+            '公共补充 Tracker 不应用于私有种子。',
           ),
           severity: InfoBarSeverity.warning,
         ),
@@ -447,14 +520,11 @@ class _AppConfigDownloadWidgetState
                     },
             ),
           ),
-        ]),
-        SizedBox(height: 12),
-        _gridRow([
           _SettingGridCell(
             title: '按流量计费或节能时节省上传',
             description: '下载完成即停止做种，并限制下载期间上传',
             control: ToggleSwitch(
-              checked: _config.conserveOnMeteredOrLowPower,
+              checked: conserve,
               onChanged: _saving
                   ? null
                   : (value) => setState(
@@ -464,197 +534,163 @@ class _AppConfigDownloadWidgetState
                     ),
             ),
           ),
-          _SettingGridCell(
+          _numberCell(
             title: '受限时上传限速（MiB/s）',
             description: '全局限速；0 表示不限速',
-            control: NumberBox<int>(
-              value: _config.constrainedUploadRateLimitMiB,
-              min: 0,
-              max: 2047,
-              mode: SpinButtonPlacementMode.none,
-              onChanged: _saving
-                  ? null
-                  : (value) {
-                      if (value != null) {
-                        setState(
-                          () => _config = _config.copyWith(
-                            constrainedUploadRateLimit: value * 1024 * 1024,
-                          ),
-                        );
-                      }
-                    },
+            value: _config.constrainedUploadRateLimitMiB,
+            min: 0,
+            max: 2047,
+            enabled: conserve,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(
+                constrainedUploadRateLimit: value * 1024 * 1024,
+              ),
             ),
           ),
-          _SettingGridCell(
+          _numberCell(
             title: '受限时单任务累计上传（MiB）',
             description: '达到上限暂停下载；0 表示不限量',
-            control: NumberBox<int>(
-              value: _config.constrainedUploadTotalLimitMiB,
-              min: 0,
-              max: 1048576,
-              mode: SpinButtonPlacementMode.none,
-              onChanged: _saving
-                  ? null
-                  : (value) {
-                      if (value != null) {
-                        setState(
-                          () => _config = _config.copyWith(
-                            constrainedUploadTotalLimit: value * 1024 * 1024,
-                          ),
-                        );
-                      }
-                    },
+            value: _config.constrainedUploadTotalLimitMiB,
+            min: 0,
+            max: 1048576,
+            enabled: conserve,
+            onChanged: (value) => setState(
+              () => _config = _config.copyWith(
+                constrainedUploadTotalLimit: value * 1024 * 1024,
+              ),
             ),
           ),
-        ]),
+        ], singleColumn: singleColumn),
       ],
+    );
+  }
+
+  Widget _buildTrackerSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const BTSettingGroupTitle('Tracker'),
+        Text(
+          '列表来源（每行一个 HTTP/HTTPS URL，最多 8 个）',
+          style: BTTypography.caption(context),
+        ),
+        SizedBox(height: 6),
+        TextBox(
+          controller: _sourceController,
+          minLines: 2,
+          maxLines: 4,
+          enabled: !_saving && !_refreshingTrackers,
+          placeholder: 'https://example.com/trackers.txt',
+        ),
+        SizedBox(height: 12),
+        Text('手工 Tracker（换行或逗号分隔）', style: BTTypography.caption(context)),
+        SizedBox(height: 6),
+        TextBox(
+          controller: _manualTrackerController,
+          minLines: 3,
+          maxLines: 6,
+          enabled: !_saving && !_refreshingTrackers,
+          placeholder: 'udp://tracker.example:6969/announce',
+        ),
+        SizedBox(height: 8),
+        Checkbox(
+          checked: _trackerConfig.autoUpdate,
+          onChanged: _saving || _refreshingTrackers
+              ? null
+              : (value) => setState(
+                  () => _trackerConfig = _trackerConfig.copyWith(
+                    autoUpdate: value ?? false,
+                  ),
+                ),
+          content: const Text('距上次成功更新满 24 小时后自动刷新'),
+        ),
+        SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _trackerStatusText(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Button(
+              onPressed: _saving || _refreshingTrackers
+                  ? null
+                  : _refreshTrackerList,
+              child: _refreshingTrackers
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: ProgressRing(strokeWidth: 2),
+                    )
+                  : const Text('立即刷新'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSaveBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: BTColors.divider(context))),
+      ),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: ProgressRing(strokeWidth: 2),
+                )
+              : const Text('保存设置'),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return BTSettingSection(
-      icon: FluentIcons.download,
-      title: '下载引擎',
-      subtitle: '引擎开关、限速与 Tracker 设置',
-      initiallyExpanded: false,
+    if (_loading) {
+      return const Center(child: ProgressRing());
+    }
+    if (_loadError != null) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: InfoBar(
+          title: const Text('无法读取下载设置'),
+          content: Text(_loadError!),
+          severity: InfoBarSeverity.error,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: ProgressRing()),
-          )
-        else if (_loadError != null)
-          InfoBar(
-            title: const Text('无法读取下载设置'),
-            content: Text(_loadError!),
-            severity: InfoBarSeverity.error,
-          )
-        else ...[
-          ListTile(
-            title: const Text('启用下载引擎'),
-            subtitle: const Text('默认关闭，需手动开启；开启后应用启动时会自动运行下载引擎'),
-            trailing: ToggleSwitch(
-              checked: _config.engineEnabled,
-              onChanged: _saving ? null : _toggleEngine,
-            ),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              var singleColumn = constraints.maxWidth < _singleColumnBreakpoint;
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                children: [
+                  _buildEngineSection(),
+                  const BTSettingDivider(),
+                  _buildLimitsSection(singleColumn: singleColumn),
+                  const BTSettingDivider(),
+                  _buildSeedingSection(singleColumn: singleColumn),
+                  const BTSettingDivider(),
+                  _buildTrackerSection(),
+                ],
+              );
+            },
           ),
-          const BTSettingDivider(),
-          const EngineNetworkDiagnostics(),
-          const BTSettingDivider(),
-          const BTSettingGroupTitle('Windows 防火墙规则'),
-          const BTSettingHint(
-            icon: FluentIcons.shield,
-            message:
-                '下载引擎监听网络端口，需入站放行才能接收 Peer 连接。'
-                '开启下载引擎时会自动注册入站允许规则；规则未注册或指向旧路径'
-                '（如引擎更新后）时可手动重新注册，也可以直接在新弹窗中点击“允许访问”。'
-                '注册与移除都需要管理员授权。',
-          ),
-          SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _firewallStatusText(),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              SizedBox(width: 8),
-              if (_firewallStatus == EngineFirewallRuleStatus.registered ||
-                  _firewallStatus == EngineFirewallRuleStatus.pathMismatch)
-                Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: Button(
-                    onPressed: _firewallBusy ? null : _unregisterFirewallRule,
-                    child: const Text('移除规则'),
-                  ),
-                ),
-              FilledButton(
-                onPressed: _firewallBusy ? null : _registerFirewallRule,
-                child: _firewallBusy
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: ProgressRing(strokeWidth: 2),
-                      )
-                    : const Text('注册规则'),
-              ),
-            ],
-          ),
-          const BTSettingDivider(),
-          const BTSettingGroupTitle('下载限制'),
-          buildDownloadLimits(),
-          const BTSettingDivider(),
-          const BTSettingGroupTitle('做种设置'),
-          buildSeedingSettings(),
-          const BTSettingDivider(),
-          const BTSettingGroupTitle('Tracker 列表来源（每行一个 HTTP/HTTPS URL，最多 8 个）'),
-          TextBox(
-            controller: _sourceController,
-            minLines: 2,
-            maxLines: 4,
-            enabled: !_saving && !_refreshingTrackers,
-            placeholder: 'https://example.com/trackers.txt',
-          ),
-          SizedBox(height: 12),
-          const BTSettingGroupTitle('手工 Tracker（换行或逗号分隔）'),
-          TextBox(
-            controller: _manualTrackerController,
-            minLines: 3,
-            maxLines: 6,
-            enabled: !_saving && !_refreshingTrackers,
-            placeholder: 'udp://tracker.example:6969/announce',
-          ),
-          SizedBox(height: 8),
-          Checkbox(
-            checked: _trackerConfig.autoUpdate,
-            onChanged: _saving || _refreshingTrackers
-                ? null
-                : (value) => setState(
-                    () => _trackerConfig = _trackerConfig.copyWith(
-                      autoUpdate: value ?? false,
-                    ),
-                  ),
-            content: const Text('距上次成功更新满 24 小时后自动刷新'),
-          ),
-          SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _trackerStatusText(),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Button(
-                onPressed: _saving || _refreshingTrackers
-                    ? null
-                    : _refreshTrackerList,
-                child: _refreshingTrackers
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: ProgressRing(strokeWidth: 2),
-                      )
-                    : const Text('立即刷新'),
-              ),
-            ],
-          ),
-          SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: ProgressRing(strokeWidth: 2),
-                    )
-                  : const Text('保存设置'),
-            ),
-          ),
-        ],
+        ),
+        _buildSaveBar(),
       ],
     );
   }
@@ -670,18 +706,11 @@ class _AppConfigDownloadWidgetState
   }
 }
 
-/// 设置网格单元（标题 + 控件，说明文字悬停显示）
 class _SettingGridCell extends StatefulWidget {
-  /// 标题
   final String title;
-
-  /// 说明文字
   final String description;
-
-  /// 控件
   final Widget control;
 
-  /// 构造函数
   const _SettingGridCell({
     required this.title,
     required this.description,

@@ -17,7 +17,6 @@ import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import 'app_setting_bangumi.dart';
 import 'app_setting_device.dart';
-import 'app_setting_download.dart';
 import 'app_setting_info.dart';
 import 'app_setting_network.dart';
 import 'app_setting_playback.dart';
@@ -138,7 +137,7 @@ class _SettingPageState extends ConsumerState<SettingPage>
               style: BTTypography.title(context).copyWith(fontSize: 20),
             ),
             SizedBox(height: 2),
-            Text('配置应用、下载引擎与 Bangumi 账号', style: BTTypography.caption(context)),
+            Text('配置应用外观、网络与 Bangumi 账号', style: BTTypography.caption(context)),
           ],
         ),
       ],
@@ -300,7 +299,6 @@ class _SettingPageState extends ConsumerState<SettingPage>
     return [
       AppConfigInfoWidget(),
       if (Platform.isWindows) AppConfigNetworkWidget(),
-      if (Platform.isWindows) AppConfigDownloadWidget(),
       if (Platform.isWindows) AppConfigPlaybackWidget(),
       AppConfigDeviceWidget(),
       AppConfigBgmWidget(),
