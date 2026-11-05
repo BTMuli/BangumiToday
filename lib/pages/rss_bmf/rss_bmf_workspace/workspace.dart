@@ -121,9 +121,12 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         if (hasDirectory) BmfSubjectPlaybackActions(subject: bmf.subject),
-        Button(
-          onPressed: () => _editConfiguration(bmf),
-          child: const Text('编辑关联'),
+        Tooltip(
+          message: '编辑关联',
+          child: IconButton(
+            icon: const BtIcon(FluentIcons.edit, size: 15),
+            onPressed: () => _editConfiguration(bmf),
+          ),
         ),
         if (hasRss)
           BmfAutoUpdateButton(
