@@ -25,8 +25,11 @@ extension _DatasetSubjectMigration on BtDatabase {
     });
   }
 
-  Future<void> _validateV4() async {
-    await _validateV3(includeDatasetSubjects: true);
+  Future<void> _validateV4({bool includePlaybackEpisodes = false}) async {
+    await _validateV3(
+      includeDatasetSubjects: true,
+      includePlaybackEpisodes: includePlaybackEpisodes,
+    );
     var columns = await _rows('PRAGMA table_info(BangumiDataSubject)');
     if (columns.length != 2 ||
         columns[0]['name'] != 'subjectId' ||

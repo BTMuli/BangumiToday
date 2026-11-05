@@ -1,54 +1,44 @@
 // Dart imports:
-import 'dart:async';
 import 'dart:convert';
 
 // Package imports:
-import 'package:hive_ce/hive_ce.dart';
+import 'package:drift/drift.dart';
 
 // Project imports:
 import '../../core/utils/playback_paths.dart';
 import '../../domain/repositories/playback_episode_links.dart';
 import '../../models/playback/playback_episode_link.dart';
 import '../../models/playback/playback_episode_rule.dart';
+import '../bt_sqlite.dart';
+import '../drift/bt_database.dart';
 
-/// Opened only by the main engine, like download subject associations.
+/// Drift-backed chapter associations and filename rules.
+///
+/// Schema owned by `BtDatabase` (v5+). Hive boxes are imported once during
+/// migration and are no longer opened here.
 class PlaybackEpisodeLinksStorage implements PlaybackEpisodeLinks {
-  Future<Box<String>>? _opening;
-  Future<Box<String>>? _openingRules;
+  PlaybackEpisodeLinksStorage({BtDatabase? database}) : _database = database;
 
-  Future<Box<String>> _openRules() async {
-    var opening = _openingRules ??= Hive.openBox<String>(
-      'playback_episode_rules',
-    );
-    try {
-      return await opening;
-    } catch (_) {
-      if (identical(_openingRules, opening)) _openingRules = null;
-      rethrow;
-    }
+  final BtDatabase? _database;
+
+  BtDatabase get db => _database ?? BTSqlite().db;
+
+  @override
+  Future<List<PlaybackEpisodeRule>> readRules() async {
+    var rows = await db.select(db.appPlaybackEpisodeRule).get();
+    return List.unmodifiable([for (var row in rows) _ruleFromRow(row)]);
   }
 
-  List<PlaybackEpisodeRule> _rules(Box<String> box) => List.unmodifiable([
-    for (var value in box.values)
-      PlaybackEpisodeRule.fromJson(jsonDecode(value) as Map<String, dynamic>),
-  ]);
-
   @override
-  Future<List<PlaybackEpisodeRule>> readRules() async =>
-      _rules(await _openRules());
-
-  @override
-  Stream<List<PlaybackEpisodeRule>> watchRules() async* {
-    var box = await _openRules();
-    yield* Stream<List<PlaybackEpisodeRule>>.multi((controller) {
-      var subscription = box.watch().listen(
-        (_) => controller.add(_rules(box)),
-        onError: controller.addError,
-        onDone: controller.close,
-      );
-      controller.onCancel = subscription.cancel;
-      controller.add(_rules(box));
-    });
+  Stream<List<PlaybackEpisodeRule>> watchRules() {
+    return db
+        .select(db.appPlaybackEpisodeRule)
+        .watch()
+        .distinct()
+        .map(
+          (rows) =>
+              List.unmodifiable([for (var row in rows) _ruleFromRow(row)]),
+        );
   }
 
   @override
@@ -62,51 +52,43 @@ class PlaybackEpisodeLinksStorage implements PlaybackEpisodeLinks {
         rule.numberFor(rule.exampleFile) == null) {
       throw ArgumentError('请提供有效的匹配规则和样例文件名');
     }
-    await (await _openRules()).put(rule.id, jsonEncode(rule.toJson()));
+    await db
+        .into(db.appPlaybackEpisodeRule)
+        .insertOnConflictUpdate(_ruleCompanion(rule));
   }
 
   @override
   Future<void> removeRule(PlaybackEpisodeRule rule) async {
-    var box = await _openRules();
-    if (box.get(rule.id) == jsonEncode(rule.toJson())) {
-      await box.delete(rule.id);
+    var query = db.select(db.appPlaybackEpisodeRule)
+      ..where((table) => table.id.equals(rule.id));
+    var row = await query.getSingleOrNull();
+    if (row == null) return;
+    if (jsonEncode(_ruleFromRow(row).toJson()) == jsonEncode(rule.toJson())) {
+      var delete = db.delete(db.appPlaybackEpisodeRule)
+        ..where((table) => table.id.equals(rule.id));
+      await delete.go();
     }
   }
 
-  Future<Box<String>> _open() async {
-    var opening = _opening ??= Hive.openBox<String>('playback_episode_links');
-    try {
-      return await opening;
-    } catch (_) {
-      if (identical(_opening, opening)) _opening = null;
-      rethrow;
-    }
-  }
-
-  Map<String, PlaybackEpisodeLink> _snapshot(Box<String> box) =>
-      Map.unmodifiable({
-        for (var key in box.keys)
-          key as String: PlaybackEpisodeLink.fromJson(
-            jsonDecode(box.get(key)!) as Map<String, dynamic>,
-          ),
-      });
-
   @override
-  Future<Map<String, PlaybackEpisodeLink>> readAll() async =>
-      _snapshot(await _open());
-
-  @override
-  Stream<Map<String, PlaybackEpisodeLink>> watchAll() async* {
-    var box = await _open();
-    yield* Stream<Map<String, PlaybackEpisodeLink>>.multi((controller) {
-      var subscription = box.watch().listen(
-        (_) => controller.add(_snapshot(box)),
-        onError: controller.addError,
-        onDone: controller.close,
-      );
-      controller.onCancel = subscription.cancel;
-      controller.add(_snapshot(box));
+  Future<Map<String, PlaybackEpisodeLink>> readAll() async {
+    var rows = await db.select(db.appPlaybackEpisodeLink).get();
+    return Map.unmodifiable({
+      for (var row in rows) row.pathKey: _linkFromRow(row),
     });
+  }
+
+  @override
+  Stream<Map<String, PlaybackEpisodeLink>> watchAll() {
+    return db
+        .select(db.appPlaybackEpisodeLink)
+        .watch()
+        .distinct()
+        .map(
+          (rows) => Map.unmodifiable({
+            for (var row in rows) row.pathKey: _linkFromRow(row),
+          }),
+        );
   }
 
   @override
@@ -116,19 +98,70 @@ class PlaybackEpisodeLinksStorage implements PlaybackEpisodeLinks {
         !PlaybackPaths.isVideo(link.filePath)) {
       throw ArgumentError('请选择视频文件和有效章节');
     }
-    await (await _open()).put(link.key, jsonEncode(link.toJson()));
+    await db
+        .into(db.appPlaybackEpisodeLink)
+        .insertOnConflictUpdate(_linkCompanion(link));
   }
 
   @override
   Future<void> remove(PlaybackEpisodeLink link) async {
-    var box = await _open();
-    var value = box.get(link.key);
-    if (value == null) return;
-    var current = PlaybackEpisodeLink.fromJson(
-      jsonDecode(value) as Map<String, dynamic>,
-    );
+    var query = db.select(db.appPlaybackEpisodeLink)
+      ..where((table) => table.pathKey.equals(link.key));
+    var row = await query.getSingleOrNull();
+    if (row == null) return;
+    var current = _linkFromRow(row);
     if (current.subject == link.subject && current.episode == link.episode) {
-      await box.delete(link.key);
+      var delete = db.delete(db.appPlaybackEpisodeLink)
+        ..where((table) => table.pathKey.equals(link.key));
+      await delete.go();
     }
   }
+
+  PlaybackEpisodeLink _linkFromRow(PlaybackEpisodeLinkRow row) =>
+      PlaybackEpisodeLink(
+        filePath: row.filePath,
+        subject: row.subject,
+        episode: row.episode,
+      );
+
+  AppPlaybackEpisodeLinkCompanion _linkCompanion(PlaybackEpisodeLink link) =>
+      AppPlaybackEpisodeLinkCompanion(
+        pathKey: Value(link.key),
+        filePath: Value(link.filePath),
+        subject: Value(link.subject),
+        episode: Value(link.episode),
+      );
+
+  PlaybackEpisodeRule _ruleFromRow(PlaybackEpisodeRuleRow row) =>
+      PlaybackEpisodeRule(
+        id: row.id,
+        subject: row.subject,
+        pattern: row.pattern,
+        offset: _decodeOffset(row.offset),
+        type: row.type,
+        exampleFile: row.exampleFile,
+      );
+
+  AppPlaybackEpisodeRuleCompanion _ruleCompanion(PlaybackEpisodeRule rule) =>
+      AppPlaybackEpisodeRuleCompanion(
+        id: Value(rule.id),
+        subject: Value(rule.subject),
+        pattern: Value(rule.pattern),
+        offset: Value(_encodeOffset(rule.offset)),
+        type: Value(rule.type),
+        exampleFile: Value(rule.exampleFile),
+      );
+}
+
+String _encodeOffset(double value) {
+  if (value == value.roundToDouble()) return value.toInt().toString();
+  return value.toString();
+}
+
+double _decodeOffset(String value) {
+  var parsed = double.tryParse(value);
+  if (parsed == null || !parsed.isFinite) {
+    throw FormatException('无效的剧集规则偏移', value);
+  }
+  return parsed;
 }

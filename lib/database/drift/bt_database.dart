@@ -6,10 +6,14 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:hive_ce/hive_ce.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 // Project imports:
+import '../../models/playback/playback_episode_link.dart';
+import '../../models/playback/playback_episode_rule.dart';
+import '../bt_hive.dart';
 import '../database_process_lock.dart';
 import 'catalog_projection.dart';
 import 'dataset_subject_projection.dart';
@@ -19,6 +23,8 @@ import 'tables/app_bmf.dart';
 import 'tables/app_config.dart';
 import 'tables/app_migration_recovery.dart';
 import 'tables/app_playback.dart';
+import 'tables/app_playback_episode_link.dart';
+import 'tables/app_playback_episode_rule.dart';
 import 'tables/app_rss_cache.dart';
 import 'tables/app_subscription.dart';
 import 'tables/bangumi_collection.dart';
@@ -30,6 +36,7 @@ import 'tables/bangumi_user.dart';
 part 'bt_database.g.dart';
 part 'migrations/catalog_migration.dart';
 part 'migrations/dataset_subject_migration.dart';
+part 'migrations/playback_episode_migration.dart';
 part 'migrations/subscription_migration.dart';
 
 /// Schema owner. Conversion completes before business queries run.
@@ -41,6 +48,8 @@ part 'migrations/subscription_migration.dart';
     AppMigrationRecovery,
     AppConfig,
     AppPlayback,
+    AppPlaybackEpisodeLink,
+    AppPlaybackEpisodeRule,
     BangumiUser,
     BangumiCollection,
     BangumiDataSite,
@@ -73,7 +82,7 @@ class BtDatabase extends _$BtDatabase {
   }
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -81,24 +90,26 @@ class BtDatabase extends _$BtDatabase {
       await _migrateSubscriptions();
       await _migrateCatalog(backup: false);
       await _migrateDatasetSubjects();
+      await _migratePlaybackEpisodes();
     },
     onUpgrade: (_, from, to) async {
-      if (from < 1 || from > 3 || to != 4) {
+      if (from < 1 || from > 4 || to != 5) {
         throw StateError('不支持的数据库版本，请使用匹配的客户端或迁移前快照');
       }
       if (from == 1) await _migrateSubscriptions();
       if (from < 3) await _migrateCatalog(backup: from == 2);
-      await _migrateDatasetSubjects(backup: from == 3);
+      if (from < 4) await _migrateDatasetSubjects(backup: from == 3);
+      if (from < 5) await _migratePlaybackEpisodes(backup: from == 4);
     },
     beforeOpen: (_) async {
-      await _validateV4();
+      await _validateV5();
       await customStatement('PRAGMA foreign_keys = ON');
       var enabled = await customSelect('PRAGMA foreign_keys').getSingle();
       if (enabled.read<int>('foreign_keys') != 1) {
         throw StateError('无法开启数据库外键约束');
       }
       await _resolveNoRssRecovery();
-      onMigration?.call('SQLite opened: schema v4');
+      onMigration?.call('SQLite opened: schema v5');
     },
   );
 

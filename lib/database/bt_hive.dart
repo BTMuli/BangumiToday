@@ -23,16 +23,30 @@ class BTHiveTool {
   static Future<void>? _satelliteReady;
   static bool _hiveRootReady = false;
 
+  /// 仅测试：覆盖 Hive 根目录，并允许重复 `ensureHiveRoot`。
+  static String? debugHiveRootOverride;
+
+  /// 仅测试：清除根目录就绪标记，便于下一次指向新的临时目录。
+  static void debugResetHiveRoot() {
+    _hiveRootReady = false;
+    debugHiveRootOverride = null;
+  }
+
   /// 获取应用数据目录
   static Future<String> getDataDir() async {
+    var override = debugHiveRootOverride;
+    if (override != null) return override;
     return await instance.fileTool.getAppDataPath('hive');
   }
 
   /// Flush and close all boxes before native application teardown begins.
   static Future<void> close() => Hive.close();
 
+  /// 仅初始化 Hive 根目录与 adapter；供 SQLite 迁移在卫星盒打开前读取旧盒。
+  static Future<void> ensureHiveRoot() => _ensureHiveRoot();
+
   static Future<void> _ensureHiveRoot() async {
-    if (_hiveRootReady) return;
+    if (_hiveRootReady && debugHiveRootOverride == null) return;
     var dir = await getDataDir();
     await instance.fileTool.createDir(dir);
     Hive.init(dir);

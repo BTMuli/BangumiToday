@@ -66,10 +66,14 @@ extension _CatalogMigration on BtDatabase {
     onMigration?.call('SQLite v3 migration phase: committed');
   }
 
-  Future<void> _validateV3({bool includeDatasetSubjects = false}) async {
+  Future<void> _validateV3({
+    bool includeDatasetSubjects = false,
+    bool includePlaybackEpisodes = false,
+  }) async {
     await _validateV2(
       includeProjections: true,
       includeDatasetSubjects: includeDatasetSubjects,
+      includePlaybackEpisodes: includePlaybackEpisodes,
     );
     for (var entry in const {
       'BangumiCollection': ['name', 'nameCn'],

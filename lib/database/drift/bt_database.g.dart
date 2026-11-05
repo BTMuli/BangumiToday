@@ -2876,6 +2876,759 @@ class AppPlaybackCompanion extends UpdateCompanion<PlaybackRow> {
   }
 }
 
+class $AppPlaybackEpisodeLinkTable extends AppPlaybackEpisodeLink
+    with TableInfo<$AppPlaybackEpisodeLinkTable, PlaybackEpisodeLinkRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppPlaybackEpisodeLinkTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _pathKeyMeta = const VerificationMeta(
+    'pathKey',
+  );
+  @override
+  late final GeneratedColumn<String> pathKey = GeneratedColumn<String>(
+    'pathKey',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _filePathMeta = const VerificationMeta(
+    'filePath',
+  );
+  @override
+  late final GeneratedColumn<String> filePath = GeneratedColumn<String>(
+    'filePath',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subjectMeta = const VerificationMeta(
+    'subject',
+  );
+  @override
+  late final GeneratedColumn<int> subject = GeneratedColumn<int>(
+    'subject',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _episodeMeta = const VerificationMeta(
+    'episode',
+  );
+  @override
+  late final GeneratedColumn<int> episode = GeneratedColumn<int>(
+    'episode',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [pathKey, filePath, subject, episode];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'AppPlaybackEpisodeLink';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlaybackEpisodeLinkRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('pathKey')) {
+      context.handle(
+        _pathKeyMeta,
+        pathKey.isAcceptableOrUnknown(data['pathKey']!, _pathKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pathKeyMeta);
+    }
+    if (data.containsKey('filePath')) {
+      context.handle(
+        _filePathMeta,
+        filePath.isAcceptableOrUnknown(data['filePath']!, _filePathMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_filePathMeta);
+    }
+    if (data.containsKey('subject')) {
+      context.handle(
+        _subjectMeta,
+        subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_subjectMeta);
+    }
+    if (data.containsKey('episode')) {
+      context.handle(
+        _episodeMeta,
+        episode.isAcceptableOrUnknown(data['episode']!, _episodeMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {pathKey};
+  @override
+  PlaybackEpisodeLinkRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlaybackEpisodeLinkRow(
+      pathKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pathKey'],
+      )!,
+      filePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}filePath'],
+      )!,
+      subject: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}subject'],
+      )!,
+      episode: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}episode'],
+      ),
+    );
+  }
+
+  @override
+  $AppPlaybackEpisodeLinkTable createAlias(String alias) {
+    return $AppPlaybackEpisodeLinkTable(attachedDatabase, alias);
+  }
+}
+
+class PlaybackEpisodeLinkRow extends DataClass
+    implements Insertable<PlaybackEpisodeLinkRow> {
+  /// 规范化路径（主键），与 `PlaybackItem.pathKey` 相同。
+  final String pathKey;
+
+  /// 原始文件路径
+  final String filePath;
+
+  /// 关联的 Bangumi 条目 ID
+  final int subject;
+
+  /// 章节 sort/ep；null 表示排除匹配
+  final int? episode;
+  const PlaybackEpisodeLinkRow({
+    required this.pathKey,
+    required this.filePath,
+    required this.subject,
+    this.episode,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['pathKey'] = Variable<String>(pathKey);
+    map['filePath'] = Variable<String>(filePath);
+    map['subject'] = Variable<int>(subject);
+    if (!nullToAbsent || episode != null) {
+      map['episode'] = Variable<int>(episode);
+    }
+    return map;
+  }
+
+  AppPlaybackEpisodeLinkCompanion toCompanion(bool nullToAbsent) {
+    return AppPlaybackEpisodeLinkCompanion(
+      pathKey: Value(pathKey),
+      filePath: Value(filePath),
+      subject: Value(subject),
+      episode: episode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(episode),
+    );
+  }
+
+  factory PlaybackEpisodeLinkRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlaybackEpisodeLinkRow(
+      pathKey: serializer.fromJson<String>(json['pathKey']),
+      filePath: serializer.fromJson<String>(json['filePath']),
+      subject: serializer.fromJson<int>(json['subject']),
+      episode: serializer.fromJson<int?>(json['episode']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'pathKey': serializer.toJson<String>(pathKey),
+      'filePath': serializer.toJson<String>(filePath),
+      'subject': serializer.toJson<int>(subject),
+      'episode': serializer.toJson<int?>(episode),
+    };
+  }
+
+  PlaybackEpisodeLinkRow copyWith({
+    String? pathKey,
+    String? filePath,
+    int? subject,
+    Value<int?> episode = const Value.absent(),
+  }) => PlaybackEpisodeLinkRow(
+    pathKey: pathKey ?? this.pathKey,
+    filePath: filePath ?? this.filePath,
+    subject: subject ?? this.subject,
+    episode: episode.present ? episode.value : this.episode,
+  );
+  PlaybackEpisodeLinkRow copyWithCompanion(
+    AppPlaybackEpisodeLinkCompanion data,
+  ) {
+    return PlaybackEpisodeLinkRow(
+      pathKey: data.pathKey.present ? data.pathKey.value : this.pathKey,
+      filePath: data.filePath.present ? data.filePath.value : this.filePath,
+      subject: data.subject.present ? data.subject.value : this.subject,
+      episode: data.episode.present ? data.episode.value : this.episode,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaybackEpisodeLinkRow(')
+          ..write('pathKey: $pathKey, ')
+          ..write('filePath: $filePath, ')
+          ..write('subject: $subject, ')
+          ..write('episode: $episode')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(pathKey, filePath, subject, episode);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlaybackEpisodeLinkRow &&
+          other.pathKey == this.pathKey &&
+          other.filePath == this.filePath &&
+          other.subject == this.subject &&
+          other.episode == this.episode);
+}
+
+class AppPlaybackEpisodeLinkCompanion
+    extends UpdateCompanion<PlaybackEpisodeLinkRow> {
+  final Value<String> pathKey;
+  final Value<String> filePath;
+  final Value<int> subject;
+  final Value<int?> episode;
+  final Value<int> rowid;
+  const AppPlaybackEpisodeLinkCompanion({
+    this.pathKey = const Value.absent(),
+    this.filePath = const Value.absent(),
+    this.subject = const Value.absent(),
+    this.episode = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppPlaybackEpisodeLinkCompanion.insert({
+    required String pathKey,
+    required String filePath,
+    required int subject,
+    this.episode = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : pathKey = Value(pathKey),
+       filePath = Value(filePath),
+       subject = Value(subject);
+  static Insertable<PlaybackEpisodeLinkRow> custom({
+    Expression<String>? pathKey,
+    Expression<String>? filePath,
+    Expression<int>? subject,
+    Expression<int>? episode,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (pathKey != null) 'pathKey': pathKey,
+      if (filePath != null) 'filePath': filePath,
+      if (subject != null) 'subject': subject,
+      if (episode != null) 'episode': episode,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppPlaybackEpisodeLinkCompanion copyWith({
+    Value<String>? pathKey,
+    Value<String>? filePath,
+    Value<int>? subject,
+    Value<int?>? episode,
+    Value<int>? rowid,
+  }) {
+    return AppPlaybackEpisodeLinkCompanion(
+      pathKey: pathKey ?? this.pathKey,
+      filePath: filePath ?? this.filePath,
+      subject: subject ?? this.subject,
+      episode: episode ?? this.episode,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (pathKey.present) {
+      map['pathKey'] = Variable<String>(pathKey.value);
+    }
+    if (filePath.present) {
+      map['filePath'] = Variable<String>(filePath.value);
+    }
+    if (subject.present) {
+      map['subject'] = Variable<int>(subject.value);
+    }
+    if (episode.present) {
+      map['episode'] = Variable<int>(episode.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppPlaybackEpisodeLinkCompanion(')
+          ..write('pathKey: $pathKey, ')
+          ..write('filePath: $filePath, ')
+          ..write('subject: $subject, ')
+          ..write('episode: $episode, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AppPlaybackEpisodeRuleTable extends AppPlaybackEpisodeRule
+    with TableInfo<$AppPlaybackEpisodeRuleTable, PlaybackEpisodeRuleRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppPlaybackEpisodeRuleTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subjectMeta = const VerificationMeta(
+    'subject',
+  );
+  @override
+  late final GeneratedColumn<int> subject = GeneratedColumn<int>(
+    'subject',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _patternMeta = const VerificationMeta(
+    'pattern',
+  );
+  @override
+  late final GeneratedColumn<String> pattern = GeneratedColumn<String>(
+    'pattern',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _offsetMeta = const VerificationMeta('offset');
+  @override
+  late final GeneratedColumn<String> offset = GeneratedColumn<String>(
+    'offset',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<int> type = GeneratedColumn<int>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _exampleFileMeta = const VerificationMeta(
+    'exampleFile',
+  );
+  @override
+  late final GeneratedColumn<String> exampleFile = GeneratedColumn<String>(
+    'exampleFile',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    subject,
+    pattern,
+    offset,
+    type,
+    exampleFile,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'AppPlaybackEpisodeRule';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlaybackEpisodeRuleRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('subject')) {
+      context.handle(
+        _subjectMeta,
+        subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_subjectMeta);
+    }
+    if (data.containsKey('pattern')) {
+      context.handle(
+        _patternMeta,
+        pattern.isAcceptableOrUnknown(data['pattern']!, _patternMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_patternMeta);
+    }
+    if (data.containsKey('offset')) {
+      context.handle(
+        _offsetMeta,
+        offset.isAcceptableOrUnknown(data['offset']!, _offsetMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_offsetMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('exampleFile')) {
+      context.handle(
+        _exampleFileMeta,
+        exampleFile.isAcceptableOrUnknown(
+          data['exampleFile']!,
+          _exampleFileMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_exampleFileMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PlaybackEpisodeRuleRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlaybackEpisodeRuleRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      subject: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}subject'],
+      )!,
+      pattern: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pattern'],
+      )!,
+      offset: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}offset'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}type'],
+      )!,
+      exampleFile: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}exampleFile'],
+      )!,
+    );
+  }
+
+  @override
+  $AppPlaybackEpisodeRuleTable createAlias(String alias) {
+    return $AppPlaybackEpisodeRuleTable(attachedDatabase, alias);
+  }
+}
+
+class PlaybackEpisodeRuleRow extends DataClass
+    implements Insertable<PlaybackEpisodeRuleRow> {
+  /// 规则 ID（主键）
+  final String id;
+
+  /// 关联的 Bangumi 条目 ID
+  final int subject;
+
+  /// 捕获放送序号的正则
+  final String pattern;
+
+  /// 序号偏移（十进制文本）
+  final String offset;
+
+  /// 章节类型（BangumiEpType 取值 0–6）
+  final int type;
+
+  /// 用于校验捕获组的样例文件名
+  final String exampleFile;
+  const PlaybackEpisodeRuleRow({
+    required this.id,
+    required this.subject,
+    required this.pattern,
+    required this.offset,
+    required this.type,
+    required this.exampleFile,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['subject'] = Variable<int>(subject);
+    map['pattern'] = Variable<String>(pattern);
+    map['offset'] = Variable<String>(offset);
+    map['type'] = Variable<int>(type);
+    map['exampleFile'] = Variable<String>(exampleFile);
+    return map;
+  }
+
+  AppPlaybackEpisodeRuleCompanion toCompanion(bool nullToAbsent) {
+    return AppPlaybackEpisodeRuleCompanion(
+      id: Value(id),
+      subject: Value(subject),
+      pattern: Value(pattern),
+      offset: Value(offset),
+      type: Value(type),
+      exampleFile: Value(exampleFile),
+    );
+  }
+
+  factory PlaybackEpisodeRuleRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlaybackEpisodeRuleRow(
+      id: serializer.fromJson<String>(json['id']),
+      subject: serializer.fromJson<int>(json['subject']),
+      pattern: serializer.fromJson<String>(json['pattern']),
+      offset: serializer.fromJson<String>(json['offset']),
+      type: serializer.fromJson<int>(json['type']),
+      exampleFile: serializer.fromJson<String>(json['exampleFile']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'subject': serializer.toJson<int>(subject),
+      'pattern': serializer.toJson<String>(pattern),
+      'offset': serializer.toJson<String>(offset),
+      'type': serializer.toJson<int>(type),
+      'exampleFile': serializer.toJson<String>(exampleFile),
+    };
+  }
+
+  PlaybackEpisodeRuleRow copyWith({
+    String? id,
+    int? subject,
+    String? pattern,
+    String? offset,
+    int? type,
+    String? exampleFile,
+  }) => PlaybackEpisodeRuleRow(
+    id: id ?? this.id,
+    subject: subject ?? this.subject,
+    pattern: pattern ?? this.pattern,
+    offset: offset ?? this.offset,
+    type: type ?? this.type,
+    exampleFile: exampleFile ?? this.exampleFile,
+  );
+  PlaybackEpisodeRuleRow copyWithCompanion(
+    AppPlaybackEpisodeRuleCompanion data,
+  ) {
+    return PlaybackEpisodeRuleRow(
+      id: data.id.present ? data.id.value : this.id,
+      subject: data.subject.present ? data.subject.value : this.subject,
+      pattern: data.pattern.present ? data.pattern.value : this.pattern,
+      offset: data.offset.present ? data.offset.value : this.offset,
+      type: data.type.present ? data.type.value : this.type,
+      exampleFile: data.exampleFile.present
+          ? data.exampleFile.value
+          : this.exampleFile,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaybackEpisodeRuleRow(')
+          ..write('id: $id, ')
+          ..write('subject: $subject, ')
+          ..write('pattern: $pattern, ')
+          ..write('offset: $offset, ')
+          ..write('type: $type, ')
+          ..write('exampleFile: $exampleFile')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, subject, pattern, offset, type, exampleFile);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlaybackEpisodeRuleRow &&
+          other.id == this.id &&
+          other.subject == this.subject &&
+          other.pattern == this.pattern &&
+          other.offset == this.offset &&
+          other.type == this.type &&
+          other.exampleFile == this.exampleFile);
+}
+
+class AppPlaybackEpisodeRuleCompanion
+    extends UpdateCompanion<PlaybackEpisodeRuleRow> {
+  final Value<String> id;
+  final Value<int> subject;
+  final Value<String> pattern;
+  final Value<String> offset;
+  final Value<int> type;
+  final Value<String> exampleFile;
+  final Value<int> rowid;
+  const AppPlaybackEpisodeRuleCompanion({
+    this.id = const Value.absent(),
+    this.subject = const Value.absent(),
+    this.pattern = const Value.absent(),
+    this.offset = const Value.absent(),
+    this.type = const Value.absent(),
+    this.exampleFile = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppPlaybackEpisodeRuleCompanion.insert({
+    required String id,
+    required int subject,
+    required String pattern,
+    required String offset,
+    required int type,
+    required String exampleFile,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       subject = Value(subject),
+       pattern = Value(pattern),
+       offset = Value(offset),
+       type = Value(type),
+       exampleFile = Value(exampleFile);
+  static Insertable<PlaybackEpisodeRuleRow> custom({
+    Expression<String>? id,
+    Expression<int>? subject,
+    Expression<String>? pattern,
+    Expression<String>? offset,
+    Expression<int>? type,
+    Expression<String>? exampleFile,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (subject != null) 'subject': subject,
+      if (pattern != null) 'pattern': pattern,
+      if (offset != null) 'offset': offset,
+      if (type != null) 'type': type,
+      if (exampleFile != null) 'exampleFile': exampleFile,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppPlaybackEpisodeRuleCompanion copyWith({
+    Value<String>? id,
+    Value<int>? subject,
+    Value<String>? pattern,
+    Value<String>? offset,
+    Value<int>? type,
+    Value<String>? exampleFile,
+    Value<int>? rowid,
+  }) {
+    return AppPlaybackEpisodeRuleCompanion(
+      id: id ?? this.id,
+      subject: subject ?? this.subject,
+      pattern: pattern ?? this.pattern,
+      offset: offset ?? this.offset,
+      type: type ?? this.type,
+      exampleFile: exampleFile ?? this.exampleFile,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (subject.present) {
+      map['subject'] = Variable<int>(subject.value);
+    }
+    if (pattern.present) {
+      map['pattern'] = Variable<String>(pattern.value);
+    }
+    if (offset.present) {
+      map['offset'] = Variable<String>(offset.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<int>(type.value);
+    }
+    if (exampleFile.present) {
+      map['exampleFile'] = Variable<String>(exampleFile.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppPlaybackEpisodeRuleCompanion(')
+          ..write('id: $id, ')
+          ..write('subject: $subject, ')
+          ..write('pattern: $pattern, ')
+          ..write('offset: $offset, ')
+          ..write('type: $type, ')
+          ..write('exampleFile: $exampleFile, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $BangumiUserTable extends BangumiUser
     with TableInfo<$BangumiUserTable, UserRow> {
   @override
@@ -5203,6 +5956,10 @@ abstract class _$BtDatabase extends GeneratedDatabase {
       $AppMigrationRecoveryTable(this);
   late final $AppConfigTable appConfig = $AppConfigTable(this);
   late final $AppPlaybackTable appPlayback = $AppPlaybackTable(this);
+  late final $AppPlaybackEpisodeLinkTable appPlaybackEpisodeLink =
+      $AppPlaybackEpisodeLinkTable(this);
+  late final $AppPlaybackEpisodeRuleTable appPlaybackEpisodeRule =
+      $AppPlaybackEpisodeRuleTable(this);
   late final $BangumiUserTable bangumiUser = $BangumiUserTable(this);
   late final $BangumiCollectionTable bangumiCollection =
       $BangumiCollectionTable(this);
@@ -5245,6 +6002,8 @@ abstract class _$BtDatabase extends GeneratedDatabase {
     appMigrationRecovery,
     appConfig,
     appPlayback,
+    appPlaybackEpisodeLink,
+    appPlaybackEpisodeRule,
     bangumiUser,
     bangumiCollection,
     bangumiDataSite,
@@ -7012,6 +7771,470 @@ typedef $$AppPlaybackTableProcessedTableManager =
       PlaybackRow,
       PrefetchHooks Function()
     >;
+typedef $$AppPlaybackEpisodeLinkTableCreateCompanionBuilder =
+    AppPlaybackEpisodeLinkCompanion Function({
+      required String pathKey,
+      required String filePath,
+      required int subject,
+      Value<int?> episode,
+      Value<int> rowid,
+    });
+typedef $$AppPlaybackEpisodeLinkTableUpdateCompanionBuilder =
+    AppPlaybackEpisodeLinkCompanion Function({
+      Value<String> pathKey,
+      Value<String> filePath,
+      Value<int> subject,
+      Value<int?> episode,
+      Value<int> rowid,
+    });
+
+class $$AppPlaybackEpisodeLinkTableFilterComposer
+    extends Composer<_$BtDatabase, $AppPlaybackEpisodeLinkTable> {
+  $$AppPlaybackEpisodeLinkTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get pathKey => $composableBuilder(
+    column: $table.pathKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get filePath => $composableBuilder(
+    column: $table.filePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get episode => $composableBuilder(
+    column: $table.episode,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppPlaybackEpisodeLinkTableOrderingComposer
+    extends Composer<_$BtDatabase, $AppPlaybackEpisodeLinkTable> {
+  $$AppPlaybackEpisodeLinkTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get pathKey => $composableBuilder(
+    column: $table.pathKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get filePath => $composableBuilder(
+    column: $table.filePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get episode => $composableBuilder(
+    column: $table.episode,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppPlaybackEpisodeLinkTableAnnotationComposer
+    extends Composer<_$BtDatabase, $AppPlaybackEpisodeLinkTable> {
+  $$AppPlaybackEpisodeLinkTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get pathKey =>
+      $composableBuilder(column: $table.pathKey, builder: (column) => column);
+
+  GeneratedColumn<String> get filePath =>
+      $composableBuilder(column: $table.filePath, builder: (column) => column);
+
+  GeneratedColumn<int> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
+
+  GeneratedColumn<int> get episode =>
+      $composableBuilder(column: $table.episode, builder: (column) => column);
+}
+
+class $$AppPlaybackEpisodeLinkTableTableManager
+    extends
+        RootTableManager<
+          _$BtDatabase,
+          $AppPlaybackEpisodeLinkTable,
+          PlaybackEpisodeLinkRow,
+          $$AppPlaybackEpisodeLinkTableFilterComposer,
+          $$AppPlaybackEpisodeLinkTableOrderingComposer,
+          $$AppPlaybackEpisodeLinkTableAnnotationComposer,
+          $$AppPlaybackEpisodeLinkTableCreateCompanionBuilder,
+          $$AppPlaybackEpisodeLinkTableUpdateCompanionBuilder,
+          (
+            PlaybackEpisodeLinkRow,
+            BaseReferences<
+              _$BtDatabase,
+              $AppPlaybackEpisodeLinkTable,
+              PlaybackEpisodeLinkRow
+            >,
+          ),
+          PlaybackEpisodeLinkRow,
+          PrefetchHooks Function()
+        > {
+  $$AppPlaybackEpisodeLinkTableTableManager(
+    _$BtDatabase db,
+    $AppPlaybackEpisodeLinkTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppPlaybackEpisodeLinkTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$AppPlaybackEpisodeLinkTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$AppPlaybackEpisodeLinkTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> pathKey = const Value.absent(),
+                Value<String> filePath = const Value.absent(),
+                Value<int> subject = const Value.absent(),
+                Value<int?> episode = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppPlaybackEpisodeLinkCompanion(
+                pathKey: pathKey,
+                filePath: filePath,
+                subject: subject,
+                episode: episode,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String pathKey,
+                required String filePath,
+                required int subject,
+                Value<int?> episode = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppPlaybackEpisodeLinkCompanion.insert(
+                pathKey: pathKey,
+                filePath: filePath,
+                subject: subject,
+                episode: episode,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $AppPlaybackEpisodeLinkTable,
+                    PlaybackEpisodeLinkRow
+                  >(table),
+                  BaseReferences<
+                    _$BtDatabase,
+                    $AppPlaybackEpisodeLinkTable,
+                    PlaybackEpisodeLinkRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppPlaybackEpisodeLinkTableProcessedTableManager =
+    ProcessedTableManager<
+      _$BtDatabase,
+      $AppPlaybackEpisodeLinkTable,
+      PlaybackEpisodeLinkRow,
+      $$AppPlaybackEpisodeLinkTableFilterComposer,
+      $$AppPlaybackEpisodeLinkTableOrderingComposer,
+      $$AppPlaybackEpisodeLinkTableAnnotationComposer,
+      $$AppPlaybackEpisodeLinkTableCreateCompanionBuilder,
+      $$AppPlaybackEpisodeLinkTableUpdateCompanionBuilder,
+      (
+        PlaybackEpisodeLinkRow,
+        BaseReferences<
+          _$BtDatabase,
+          $AppPlaybackEpisodeLinkTable,
+          PlaybackEpisodeLinkRow
+        >,
+      ),
+      PlaybackEpisodeLinkRow,
+      PrefetchHooks Function()
+    >;
+typedef $$AppPlaybackEpisodeRuleTableCreateCompanionBuilder =
+    AppPlaybackEpisodeRuleCompanion Function({
+      required String id,
+      required int subject,
+      required String pattern,
+      required String offset,
+      required int type,
+      required String exampleFile,
+      Value<int> rowid,
+    });
+typedef $$AppPlaybackEpisodeRuleTableUpdateCompanionBuilder =
+    AppPlaybackEpisodeRuleCompanion Function({
+      Value<String> id,
+      Value<int> subject,
+      Value<String> pattern,
+      Value<String> offset,
+      Value<int> type,
+      Value<String> exampleFile,
+      Value<int> rowid,
+    });
+
+class $$AppPlaybackEpisodeRuleTableFilterComposer
+    extends Composer<_$BtDatabase, $AppPlaybackEpisodeRuleTable> {
+  $$AppPlaybackEpisodeRuleTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pattern => $composableBuilder(
+    column: $table.pattern,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get offset => $composableBuilder(
+    column: $table.offset,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get exampleFile => $composableBuilder(
+    column: $table.exampleFile,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppPlaybackEpisodeRuleTableOrderingComposer
+    extends Composer<_$BtDatabase, $AppPlaybackEpisodeRuleTable> {
+  $$AppPlaybackEpisodeRuleTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pattern => $composableBuilder(
+    column: $table.pattern,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get offset => $composableBuilder(
+    column: $table.offset,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get exampleFile => $composableBuilder(
+    column: $table.exampleFile,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppPlaybackEpisodeRuleTableAnnotationComposer
+    extends Composer<_$BtDatabase, $AppPlaybackEpisodeRuleTable> {
+  $$AppPlaybackEpisodeRuleTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
+
+  GeneratedColumn<String> get pattern =>
+      $composableBuilder(column: $table.pattern, builder: (column) => column);
+
+  GeneratedColumn<String> get offset =>
+      $composableBuilder(column: $table.offset, builder: (column) => column);
+
+  GeneratedColumn<int> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get exampleFile => $composableBuilder(
+    column: $table.exampleFile,
+    builder: (column) => column,
+  );
+}
+
+class $$AppPlaybackEpisodeRuleTableTableManager
+    extends
+        RootTableManager<
+          _$BtDatabase,
+          $AppPlaybackEpisodeRuleTable,
+          PlaybackEpisodeRuleRow,
+          $$AppPlaybackEpisodeRuleTableFilterComposer,
+          $$AppPlaybackEpisodeRuleTableOrderingComposer,
+          $$AppPlaybackEpisodeRuleTableAnnotationComposer,
+          $$AppPlaybackEpisodeRuleTableCreateCompanionBuilder,
+          $$AppPlaybackEpisodeRuleTableUpdateCompanionBuilder,
+          (
+            PlaybackEpisodeRuleRow,
+            BaseReferences<
+              _$BtDatabase,
+              $AppPlaybackEpisodeRuleTable,
+              PlaybackEpisodeRuleRow
+            >,
+          ),
+          PlaybackEpisodeRuleRow,
+          PrefetchHooks Function()
+        > {
+  $$AppPlaybackEpisodeRuleTableTableManager(
+    _$BtDatabase db,
+    $AppPlaybackEpisodeRuleTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppPlaybackEpisodeRuleTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$AppPlaybackEpisodeRuleTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$AppPlaybackEpisodeRuleTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<int> subject = const Value.absent(),
+                Value<String> pattern = const Value.absent(),
+                Value<String> offset = const Value.absent(),
+                Value<int> type = const Value.absent(),
+                Value<String> exampleFile = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppPlaybackEpisodeRuleCompanion(
+                id: id,
+                subject: subject,
+                pattern: pattern,
+                offset: offset,
+                type: type,
+                exampleFile: exampleFile,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required int subject,
+                required String pattern,
+                required String offset,
+                required int type,
+                required String exampleFile,
+                Value<int> rowid = const Value.absent(),
+              }) => AppPlaybackEpisodeRuleCompanion.insert(
+                id: id,
+                subject: subject,
+                pattern: pattern,
+                offset: offset,
+                type: type,
+                exampleFile: exampleFile,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $AppPlaybackEpisodeRuleTable,
+                    PlaybackEpisodeRuleRow
+                  >(table),
+                  BaseReferences<
+                    _$BtDatabase,
+                    $AppPlaybackEpisodeRuleTable,
+                    PlaybackEpisodeRuleRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppPlaybackEpisodeRuleTableProcessedTableManager =
+    ProcessedTableManager<
+      _$BtDatabase,
+      $AppPlaybackEpisodeRuleTable,
+      PlaybackEpisodeRuleRow,
+      $$AppPlaybackEpisodeRuleTableFilterComposer,
+      $$AppPlaybackEpisodeRuleTableOrderingComposer,
+      $$AppPlaybackEpisodeRuleTableAnnotationComposer,
+      $$AppPlaybackEpisodeRuleTableCreateCompanionBuilder,
+      $$AppPlaybackEpisodeRuleTableUpdateCompanionBuilder,
+      (
+        PlaybackEpisodeRuleRow,
+        BaseReferences<
+          _$BtDatabase,
+          $AppPlaybackEpisodeRuleTable,
+          PlaybackEpisodeRuleRow
+        >,
+      ),
+      PlaybackEpisodeRuleRow,
+      PrefetchHooks Function()
+    >;
 typedef $$BangumiUserTableCreateCompanionBuilder =
     BangumiUserCompanion Function({
       required String key,
@@ -8482,6 +9705,16 @@ class $BtDatabaseManager {
       $$AppConfigTableTableManager(_db, _db.appConfig);
   $$AppPlaybackTableTableManager get appPlayback =>
       $$AppPlaybackTableTableManager(_db, _db.appPlayback);
+  $$AppPlaybackEpisodeLinkTableTableManager get appPlaybackEpisodeLink =>
+      $$AppPlaybackEpisodeLinkTableTableManager(
+        _db,
+        _db.appPlaybackEpisodeLink,
+      );
+  $$AppPlaybackEpisodeRuleTableTableManager get appPlaybackEpisodeRule =>
+      $$AppPlaybackEpisodeRuleTableTableManager(
+        _db,
+        _db.appPlaybackEpisodeRule,
+      );
   $$BangumiUserTableTableManager get bangumiUser =>
       $$BangumiUserTableTableManager(_db, _db.bangumiUser);
   $$BangumiCollectionTableTableManager get bangumiCollection =>

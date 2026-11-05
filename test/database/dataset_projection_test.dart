@@ -121,7 +121,7 @@ void main() {
     expect(await db.select(db.appConfig).get(), isEmpty);
   });
 
-  test('v3 迁移回填投影，保留无法解析的历史 sites 原文', () async {
+  test('v3 迁移可升至 v5 并回填投影，保留无法解析的历史 sites 原文', () async {
     await db.close();
     var raw = sqlite.sqlite3.openInMemory();
     var old = BtDatabase(
@@ -134,6 +134,8 @@ void main() {
     );
     await old.close();
     raw.execute('DROP TABLE BangumiDataSubject');
+    raw.execute('DROP TABLE AppPlaybackEpisodeLink');
+    raw.execute('DROP TABLE AppPlaybackEpisodeRule');
     raw.execute('PRAGMA user_version = 3');
     db = BtDatabase(NativeDatabase.opened(raw));
     var store = DatasetStorage(db);
@@ -142,13 +144,13 @@ void main() {
       (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
         'user_version',
       ),
-      4,
+      5,
     );
     var historical = await store.readItem('历史作品');
     expect(historical!.sites, '{invalid');
   });
 
-  test('v2 可连续迁移至 v4，并为已有作品回填索引', () async {
+  test('v2 可连续迁移至 v5，并为已有作品回填索引', () async {
     await db.close();
     var raw = sqlite.sqlite3.openInMemory();
     var old = BtDatabase(
@@ -157,6 +159,8 @@ void main() {
     await DatasetStorage(old).saveItems(await prepareDatasetItems([_item(42)]));
     await old.close();
     raw.execute('DROP TABLE BangumiDataSubject');
+    raw.execute('DROP TABLE AppPlaybackEpisodeLink');
+    raw.execute('DROP TABLE AppPlaybackEpisodeRule');
     for (var index in [
       'BangumiCollection_search',
       'BangumiDataItem_title',
@@ -174,7 +178,7 @@ void main() {
       (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
         'user_version',
       ),
-      4,
+      5,
     );
   });
 
