@@ -420,7 +420,19 @@ class _PlaybackPageState extends ConsumerState<PlaybackPage> {
 
   @override
   Widget build(BuildContext context) {
-    var store = ref.watch(playbackStoreProvider);
+    // 进度由控制栏 ListenableBuilder 订阅；页面壳只跟会话结构变化重建。
+    ref.watch(
+      playbackStoreProvider.select(
+        (store) => (
+          store.current?.key,
+          store.index,
+          store.error,
+          store.video != null,
+          store.playlist.length,
+        ),
+      ),
+    );
+    var store = ref.read(playbackStoreProvider);
     // 离开播放页时暂停播放，替代原先对导航 store 的 addListener。
     if (!widget.independent) {
       ref.listen<int>(

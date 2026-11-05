@@ -158,7 +158,19 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
 
   @override
   Widget build(BuildContext context) {
-    var store = ref.watch(playbackStoreProvider);
+    // 避免进度 tick 拖着整个选集/记录面板重建。
+    ref.watch(
+      playbackStoreProvider.select(
+        (store) => (
+          Object.hashAll(store.playlist.map((item) => item.key)),
+          store.current?.key,
+          store.index,
+          store.episodeLayout,
+          store.historyGroups.length,
+        ),
+      ),
+    );
+    var store = ref.read(playbackStoreProvider);
     var account = ref.watch(
       episodeMarkProvider.select((value) => value.account),
     );
