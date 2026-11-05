@@ -218,6 +218,11 @@ class BTNavNotifier extends Notifier<BTNavState> {
     return true;
   }
 
+  /// 切换到应用设置页。
+  void goToSettings() {
+    goIndex(state.topNavCount + state.navItems.length);
+  }
+
   /// 切换到内嵌播放页面；Windows 播放由独立窗口承载。
   void goToPlayback() {
     if (Platform.isWindows) return;

@@ -189,10 +189,18 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     if (mounted) setState(() {});
   }
 
-  /// 构建用户信息与授权信息（合并展示）
-  Widget buildUserAuth() {
+  /// 令牌诊断：只读状态 + 高级操作；日常登录走侧栏。
+  Widget buildTokenDiagnostics() {
     var state = _user;
     var user = state.user;
+    if (user == null) {
+      return const BTSettingHint(
+        icon: FluentIcons.info,
+        message:
+            '日常登录请使用侧栏「未登录」一键授权；'
+            '此处仅保留镜像、Private API 与令牌诊断。',
+      );
+    }
     var theme = FluentTheme.of(context);
     var expireTime = state.expireTime;
     var formattedExpiry = expireTime == null
@@ -201,38 +209,33 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
     var authInfo = formattedExpiry == null
         ? '未找到授权信息'
         : '授权过期时间：$formattedExpiry';
-    Widget leading;
-    if (user == null) {
-      leading = const BtIcon(FluentIcons.user_sync);
-    } else {
-      leading = Container(
+    var leading = Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(4)),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: theme.accentColor.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: CachedNetworkImage(
+        imageUrl: BtrBangumiApi.rewriteUrl(user.avatar.small),
         width: 32,
         height: 32,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(4)),
-        foregroundDecoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: theme.accentColor.withValues(alpha: 0.4),
-            width: 1.5,
+        fit: BoxFit.cover,
+        placeholder: (_, _) => const Center(
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: ProgressRing(strokeWidth: 2),
           ),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: CachedNetworkImage(
-          imageUrl: BtrBangumiApi.rewriteUrl(user.avatar.small),
-          width: 32,
-          height: 32,
-          fit: BoxFit.cover,
-          placeholder: (_, _) => const Center(
-            child: SizedBox(
-              width: 16,
-              height: 16,
-              child: ProgressRing(strokeWidth: 2),
-            ),
-          ),
-          errorWidget: (_, _, _) => const Icon(FluentIcons.error, size: 16),
-        ),
-      );
-    }
+        errorWidget: (_, _, _) => const Icon(FluentIcons.error, size: 16),
+      ),
+    );
     var userInfo = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,29 +245,25 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
           children: [
             Flexible(
               child: Text(
-                user?.nickname ?? '未找到用户信息',
+                user.nickname,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (user != null)
-              for (var label in ['ID: ${user.id}', user.userGroup.label]) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
+            for (var label in ['ID: ${user.id}', user.userGroup.label]) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: theme.accentColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: theme.accentColor.withValues(alpha: 0.25),
                   ),
-                  decoration: BoxDecoration(
-                    color: theme.accentColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: theme.accentColor.withValues(alpha: 0.25),
-                    ),
-                  ),
-                  child: Text(label, style: theme.typography.caption),
                 ),
-              ],
+                child: Text(label, style: theme.typography.caption),
+              ),
+            ],
           ],
         ),
         Tooltip(
@@ -320,17 +319,16 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
           const SizedBox(width: 4),
           _userActionButton(
             icon: FluentIcons.user_sync,
-            label: user == null ? '前往授权' : '重新授权',
+            label: '重新授权',
+            tooltip: '重新走 OAuth（高级）',
             onPressed: oauthUser,
           ),
-          if (user != null) ...[
-            const SizedBox(width: 4),
-            _userActionButton(
-              icon: FluentIcons.delete,
-              label: '删除用户',
-              onPressed: tryDeleteUserInfo,
-            ),
-          ],
+          const SizedBox(width: 4),
+          _userActionButton(
+            icon: FluentIcons.delete,
+            label: '删除用户',
+            onPressed: tryDeleteUserInfo,
+          ),
         ],
       ),
     );
@@ -606,10 +604,16 @@ class _AppConfigBgmWidgetState extends ConsumerState<AppConfigBgmWidget> {
   Widget build(BuildContext context) {
     return BTSettingSection(
       icon: FluentIcons.user_window,
-      title: 'Bangumi 配置',
-      subtitle: '账号授权与镜像站设置',
+      title: 'Bangumi 高级',
+      subtitle: '镜像站、Private API 与令牌诊断',
       initiallyExpanded: false,
-      children: [buildMirror(), const BTSettingDivider(), buildUserAuth()],
+      children: [
+        const BTSettingGroupTitle('镜像与接口'),
+        buildMirror(),
+        const BTSettingDivider(),
+        const BTSettingGroupTitle('令牌诊断'),
+        buildTokenDiagnostics(),
+      ],
     );
   }
 }

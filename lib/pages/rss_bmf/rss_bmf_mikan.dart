@@ -17,6 +17,7 @@ import '../../models/app/response.dart';
 import '../../models/rss/rss.dart';
 import '../../request/mikan/mikan_api.dart';
 import '../../store/app_store.dart';
+import '../../store/nav_store.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/rss/rss_release_data.dart';
@@ -219,64 +220,55 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
 
   /// 初始化
   Future<void> init() async {
-    var mikan = await BtsMikanCredential().readToken();
+    await _syncToken();
     if (!mounted) return;
     _initialized = true;
-    if (mikan == null || mikan.isEmpty) {
+    if (token.isEmpty) {
       useUserRSS = false;
       await _refreshRSS(personal: false, notify: false);
       return;
     }
-    token = mikan;
     useUserRSS = true;
     await _refreshRSS(personal: true, notify: false);
   }
 
-  /// 解析 token
-  Future<String> getToken(String token) async {
-    if (await canLaunchUrlString(token)) {
-      var link = Uri.parse(token);
-      return link.queryParameters['token'] ?? token;
-    }
-    return token;
-  }
-
-  Future<void> tryEditToken() async {
-    var input = await showInput(
-      context,
-      title: '输入 Token',
-      content: '请输入你的 Token\n（在蜜柑计划的个人中心可以找到）',
-    );
-    if (input == null || input == "") {
-      if (mounted) await BtInfobar.warn(context, '未输入 Token');
-      return;
-    }
-    var parsed = await getToken(input);
-    if (parsed == token) {
-      if (mounted) await BtInfobar.warn(context, 'Token 未变更');
-      return;
-    }
-    await BtsMikanCredential().writeToken(parsed);
+  /// 从安全存储同步 Token 只读状态（编辑入口在应用设置）。
+  Future<void> _syncToken() async {
+    var mikan = await BtsMikanCredential().readToken();
     if (!mounted) return;
-    _searchController.clear();
+    var next = mikan ?? '';
+    if (next == token) return;
+    var wasPersonal = useUserRSS;
     setState(() {
-      token = parsed;
-      _query = '';
+      token = next;
       userItems = [];
       _userLoaded = false;
       _userUpdated = null;
       _userAttempt = null;
-      useUserRSS = true;
+      if (token.isEmpty && useUserRSS) useUserRSS = false;
     });
-    await BtInfobar.success(context, 'Token 已保存');
-    await refreshUserRSS();
+    if (!_initialized) return;
+    if (token.isNotEmpty && wasPersonal) {
+      await _refreshRSS(personal: true, notify: false);
+    } else if (token.isEmpty && wasPersonal) {
+      await _refreshRSS(personal: false, notify: false);
+    }
+  }
+
+  void _openCredentialSettings() {
+    ref.read(navStoreProvider.notifier).goToSettings();
   }
 
   Future<void> _switchFeed(bool personal) async {
     if (!_initialized || (!_isSearch && useUserRSS == personal)) return;
-    if (personal && token.isEmpty) {
-      await tryEditToken();
-      return;
+    if (personal) {
+      await _syncToken();
+      if (!mounted) return;
+      if (token.isEmpty) {
+        await BtInfobar.warn(context, '请先在应用设置中配置 Mikan Token');
+        if (mounted) _openCredentialSettings();
+        return;
+      }
     }
     _searchController.clear();
     setState(() {
@@ -401,10 +393,12 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
           child: MikanMirrorCombo(width: 176),
         ),
         Tooltip(
-          message: token.isEmpty ? '设置 Token 后可查看个人订阅' : '个人订阅 Token 已设置',
-          child: Button(
-            onPressed: _refreshing || !_initialized ? null : tryEditToken,
-            child: Text(token.isEmpty ? '设置 Token' : '编辑 Token'),
+          message: token.isEmpty
+              ? '未配置 Token，打开设置配置后可查看个人订阅'
+              : '个人订阅 Token 已配置，打开设置可管理',
+          child: HyperlinkButton(
+            onPressed: !_initialized ? null : _openCredentialSettings,
+            child: Text(token.isEmpty ? '打开设置配置 Token' : '打开设置管理 Token'),
           ),
         ),
       ],
@@ -430,6 +424,10 @@ class _RssBmfMikanState extends ConsumerState<RssBmfMikan>
     super.build(context);
     ref.listen(appStoreProvider.select((store) => store.mikanRss), (_, _) {
       unawaited(_reloadMirror());
+    });
+    // 从设置页返回后同步 Token 只读状态。
+    ref.listen(navStoreProvider.select((store) => store.curIndex), (_, _) {
+      if (_initialized) unawaited(_syncToken());
     });
     return RssAutoRefresh(
       enabled: _initialized,
