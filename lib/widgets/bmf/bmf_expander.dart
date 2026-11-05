@@ -28,6 +28,7 @@ import '../rss/rss_group_header.dart';
 import '../rss/rss_refresh_status.dart';
 import '../rss/rss_release_data.dart';
 import '../rss/rss_release_detail_dialog.dart';
+import 'bmf_playback_progress.dart';
 import 'bmf_resource_item.dart';
 import 'bmf_rss_data.dart';
 

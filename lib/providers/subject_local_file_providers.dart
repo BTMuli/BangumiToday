@@ -11,6 +11,7 @@ import '../core/services/subject_file_monitor.dart';
 import '../data/repositories/subject_local_files.dart';
 import '../database/app/app_playback.dart';
 import '../models/playback/playback_item.dart';
+import '../store/bmf_store.dart';
 import '../store/bt_dir_download_state.dart';
 import '../store/bt_download_store.dart';
 import '../store/nav_store.dart';
@@ -22,15 +23,25 @@ final subjectPlaybackHistoryProvider = StreamProvider.autoDispose
       return BtsAppPlayback().watchLatestForSubject(subject);
     });
 
+/// pathKey → 该条目下对应文件的本地播放记录。
+final subjectPlaybackByPathProvider = StreamProvider.autoDispose
+    .family<Map<String, PlaybackItem>, int>((ref, subject) {
+      return BtsAppPlayback()
+          .watchForSubject(subject)
+          .map((items) => {for (var item in items) item.key: item});
+    });
+
 final subjectFilesActiveProvider = Provider.autoDispose.family<bool, int>((
   ref,
   subject,
 ) {
-  return ref.watch(
+  var onDetail = ref.watch(
     navStoreProvider.select(
       (nav) => nav.pageKeyForIndex(nav.curIndex) == 'subjectDetail_$subject',
     ),
   );
+  if (onDetail) return true;
+  return ref.watch(rssBmfActiveSubjectsProvider).contains(subject);
 });
 
 final subjectLocalFilesProvider = AsyncNotifierProvider.autoDispose

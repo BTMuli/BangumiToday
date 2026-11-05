@@ -12,6 +12,13 @@ extension _BmfFileList on _BmfFileExpanderState {
         fileSize: _fileSizes[file],
         state: state,
         spacious: widget.embedded,
+        subtitle: video
+            ? BmfFilePlaybackSubtitle(
+                subject: widget.subject,
+                dir: widget.downloadDir,
+                file: file,
+              )
+            : null,
         actions: _FileItemActions(
           file: file,
           subject: widget.subject,

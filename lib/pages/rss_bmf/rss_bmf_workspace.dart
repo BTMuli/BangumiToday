@@ -35,6 +35,7 @@ import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/bmf/bmf_auto_update_button.dart';
 import '../../widgets/bmf/bmf_card.dart';
 import '../../widgets/bmf/bmf_expander.dart';
+import '../../widgets/bmf/bmf_playback_progress.dart';
 import '../../widgets/subject_detail/subject_rss_search_dialog.dart';
 import 'bmf_filter_model.dart';
 import 'bmf_subject_data.dart';
@@ -141,7 +142,12 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     _rssPaneController.dispose();
     _filePaneController.dispose();
     _filterFlyoutController.dispose();
+    ref.read(rssBmfActiveSubjectsProvider.notifier).clear();
     super.dispose();
+  }
+
+  void _syncActiveSubjects(Set<int> subjects) {
+    ref.read(rssBmfActiveSubjectsProvider.notifier).setSubjects(subjects);
   }
 
   void _applyNavigationIntent(BmfNavigationState navigation) {
@@ -538,11 +544,30 @@ class _RssBmfWorkspaceState extends _RssBmfWorkspaceStateBase
     var bmfListAsync = ref.watch(bmfListProvider);
     var navigation = ref.watch(bmfNavigationProvider);
     _applyNavigationIntent(navigation);
-
     return bmfListAsync.when(
       data: (bmfList) {
         _scheduleDataLoad(bmfList);
         _filterModel.applyFilter(bmfList);
+        var active = TickerMode.valuesOf(context).enabled
+            ? {
+                for (var item in _filterModel.filteredList)
+                  if (BmfFilterModel.hasDirectory(item)) item.subject,
+              }
+            : <int>{};
+        if (!ref.read(rssBmfActiveSubjectsProvider).containsAll(active) ||
+            ref.read(rssBmfActiveSubjectsProvider).length != active.length) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _syncActiveSubjects(
+              TickerMode.valuesOf(context).enabled
+                  ? {
+                      for (var item in _filterModel.filteredList)
+                        if (BmfFilterModel.hasDirectory(item)) item.subject,
+                    }
+                  : const {},
+            );
+          });
+        }
         return ScaffoldPage(
           padding: EdgeInsets.zero,
           content: Column(

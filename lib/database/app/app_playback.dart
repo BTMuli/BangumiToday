@@ -38,6 +38,19 @@ class BtsAppPlayback {
     );
   }
 
+  /// 当前条目的全部本地播放记录，供文件行展示各集进度。
+  Stream<List<PlaybackItem>> watchForSubject(int subject) {
+    var query = db.select(db.appPlayback)
+      ..where((table) => table.subject.equals(subject))
+      ..orderBy([
+        (table) => OrderingTerm.desc(table.updatedAt),
+        (table) => OrderingTerm.asc(table.pathKey),
+      ]);
+    return query.watch().distinct().map(
+      (rows) => [for (var row in rows) PlaybackItem.fromRow(row.toJson())],
+    );
+  }
+
   Future<PlaybackItem?> read(String filePath) async {
     var query = db.select(db.appPlayback)
       ..where((table) => table.pathKey.equals(PlaybackItem.pathKey(filePath)));

@@ -61,6 +61,9 @@ class _RssBmfPageState extends ConsumerState<RssBmfPage>
       onChanged: (index) {
         currentIndex = index;
         _selectedTab.value = index;
+        if (index != 0) {
+          ref.read(rssBmfActiveSubjectsProvider.notifier).clear();
+        }
         setState(() {});
       },
       tabs: _tabs,

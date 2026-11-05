@@ -17,7 +17,7 @@ import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/common/bt_card.dart';
-import 'subject_continue_playback_button.dart';
+import '../../widgets/playback/subject_continue_playback_button.dart';
 import 'subject_detail_rate_chart.dart';
 import 'subject_detail_view_data.dart';
 

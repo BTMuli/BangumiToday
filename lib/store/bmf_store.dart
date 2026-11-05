@@ -23,6 +23,27 @@ final bmfNavigationProvider =
       BmfNavigationNotifier.new,
     );
 
+/// BMF 工作台当前需要扫盘/读进度的条目（筛选列表中有本地目录的项）。
+/// 离开 BMF Tab 或销毁工作台时清空。
+final rssBmfActiveSubjectsProvider =
+    NotifierProvider<RssBmfActiveSubjectsNotifier, Set<int>>(
+      RssBmfActiveSubjectsNotifier.new,
+    );
+
+class RssBmfActiveSubjectsNotifier extends Notifier<Set<int>> {
+  @override
+  Set<int> build() => const {};
+
+  void setSubjects(Set<int> subjects) {
+    if (state.length == subjects.length && state.containsAll(subjects)) {
+      return;
+    }
+    state = Set<int>.unmodifiable(subjects);
+  }
+
+  void clear() => setSubjects(const {});
+}
+
 /// BMF 工作区的导航意图：打开工作区、待处理列表或定位到某个条目。
 ///
 /// 每次意图都递增 [requestId]，消费者据此判断是否为新请求，因此该状态必须

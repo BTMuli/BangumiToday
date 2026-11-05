@@ -22,6 +22,7 @@ import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import '../bangumi/bt_bangumi_cover.dart';
 import 'bmf_expander.dart';
+import 'bmf_playback_progress.dart';
 
 enum BmfFilterType { all, hasRss, hasDownload, hasNew }
 
@@ -373,13 +374,24 @@ class _BmfCardState extends ConsumerState<BmfCard>
                         ).copyWith(height: 20 / 14),
                       ),
                     ),
-                    Text(
-                      widget.seasonLabel ?? 'Bangumi #${bmf.subject}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: captionStyle,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.seasonLabel ?? 'Bangumi #${bmf.subject}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: captionStyle,
+                          ),
+                        ),
+                        if (hasDirectory) ...[
+                          const SizedBox(width: 8),
+                          BmfListPlaybackStrip(subject: bmf.subject),
+                        ],
+                      ],
                     ),
-                    if (widget.broadcastLabel != null) ...[
+                    if (widget.broadcastLabel != null)
                       Tooltip(
                         message:
                             widget.broadcastTooltip ?? widget.broadcastLabel!,
@@ -412,7 +424,6 @@ class _BmfCardState extends ConsumerState<BmfCard>
                           ],
                         ),
                       ),
-                    ],
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
@@ -459,13 +470,19 @@ class _BmfCardState extends ConsumerState<BmfCard>
                         const SizedBox(width: 6),
                         Tooltip(
                           message: '打开番剧详情（长按添加到导航栏）',
-                          child: IconButton(
-                            icon: const BtIcon(
-                              FluentIcons.open_in_new_tab,
-                              size: 14,
-                            ),
+                          child: HoverButton(
                             onPressed: _navigateToDetail,
                             onLongPress: _addToNavOnly,
+                            builder: (context, states) => const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: Center(
+                                child: BtIcon(
+                                  FluentIcons.open_in_new_tab,
+                                  size: 12,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ],

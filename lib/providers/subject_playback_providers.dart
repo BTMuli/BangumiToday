@@ -1,12 +1,10 @@
-// Dart imports:
-import 'dart:async';
-
 // Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../core/utils/playback_episode_files.dart';
 import '../core/utils/subject_playback_selection.dart';
+import '../core/utils/subject_unwatched_local.dart';
 import '../data/repositories/episode_mark_gateway_impl.dart';
 import '../data/repositories/playback_episodes.dart';
 import '../models/bangumi/bangumi_model.dart';
@@ -18,7 +16,10 @@ import 'playback_episode_link_providers.dart';
 import 'subject_local_file_providers.dart';
 
 export 'subject_local_file_providers.dart'
-    show subjectLocalFilesProvider, subjectPlaybackHistoryProvider;
+    show
+        subjectLocalFilesProvider,
+        subjectPlaybackByPathProvider,
+        subjectPlaybackHistoryProvider;
 
 final subjectFileEpisodesProvider = FutureProvider.autoDispose
     .family<List<BangumiEpisode>, int>((ref, subject) async {
@@ -109,5 +110,45 @@ final subjectContinuePlaybackItemProvider = FutureProvider.autoDispose
               episodeMarkChapter(episode),
         ],
         watchedEpisodes: request.watchedEpisodes,
+      );
+    });
+
+/// Local videos matched to chapters that are still unwatched.
+final subjectUnwatchedLocalEpisodesProvider = FutureProvider.autoDispose
+    .family<List<UnwatchedLocalEpisode>, ({int subject, int watchedEpisodes})>((
+      ref,
+      request,
+    ) async {
+      var subject = request.subject;
+      var files = await ref.watch(subjectPlaybackFilesProvider(subject).future);
+      if (!ref.mounted || files.isEmpty) return const [];
+      ref.watch(episodeMarkProvider);
+      var progress = ref.watch(subjectEpisodeProgressProvider(subject));
+      var linksFuture = ref.watch(subjectEpisodeFilesProvider(subject).future);
+      var chaptersFuture = ref.watch(
+        subjectFileEpisodesProvider(subject).future,
+      );
+      var localFuture = ref.watch(
+        subjectPlaybackByPathProvider(subject).future,
+      );
+      var (links, chapters, localByPath) = await (
+        linksFuture,
+        chaptersFuture,
+        localFuture,
+      ).wait;
+      if (!ref.mounted) return const [];
+      return selectUnwatchedLocalEpisodes(
+        subject: subject,
+        files: files,
+        links: links,
+        chapters: [
+          for (var episode in chapters)
+            if (progress[episode.id] case var done?)
+              episodeMarkChapter(episode).withDone(done)
+            else
+              episodeMarkChapter(episode),
+        ],
+        watchedEpisodes: request.watchedEpisodes,
+        localByPath: localByPath,
       );
     });

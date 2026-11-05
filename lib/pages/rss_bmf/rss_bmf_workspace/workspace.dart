@@ -120,6 +120,7 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
       runSpacing: 6,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
+        if (hasDirectory) BmfSubjectPlaybackActions(subject: bmf.subject),
         Button(
           onPressed: () => _editConfiguration(bmf),
           child: const Text('编辑关联'),

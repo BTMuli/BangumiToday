@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
 import '../../models/playback/playback_item.dart';
+import '../../pages/playback/playback_actions.dart';
+import '../../pages/playback/playback_label.dart';
 import '../../providers/subject_playback_providers.dart';
-import '../playback/playback_actions.dart';
-import '../playback/playback_label.dart';
 
 /// 续播未看完的历史章节，已看完时选择后续匹配章节。
 class SubjectContinuePlaybackButton extends ConsumerStatefulWidget {
@@ -14,10 +14,12 @@ class SubjectContinuePlaybackButton extends ConsumerStatefulWidget {
     super.key,
     required this.subject,
     required this.watchedEpisodes,
+    this.compact = false,
   });
 
   final int subject;
   final int watchedEpisodes;
+  final bool compact;
 
   @override
   ConsumerState<SubjectContinuePlaybackButton> createState() =>
@@ -92,15 +94,39 @@ class _SubjectContinuePlaybackButtonState
       ].join('\n'),
       child: Semantics(
         label: _opening ? '正在打开视频' : action,
-        child: IconButton(
-          icon: _opening
-              ? const SizedBox.square(
-                  dimension: 16,
-                  child: ProgressRing(strokeWidth: 2),
-                )
-              : const Icon(FluentIcons.play, size: 16),
-          onPressed: _opening ? null : () => _resume(item),
-        ),
+        child: widget.compact
+            ? HoverButton(
+                onPressed: _opening ? null : () => _resume(item),
+                builder: (context, states) => SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: Center(
+                    child: _opening
+                        ? const SizedBox.square(
+                            dimension: 12,
+                            child: ProgressRing(strokeWidth: 2),
+                          )
+                        : Icon(
+                            FluentIcons.play,
+                            size: 12,
+                            color: states.isDisabled
+                                ? FluentTheme.of(
+                                    context,
+                                  ).resources.textFillColorDisabled
+                                : null,
+                          ),
+                  ),
+                ),
+              )
+            : IconButton(
+                icon: _opening
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: ProgressRing(strokeWidth: 2),
+                      )
+                    : const Icon(FluentIcons.play, size: 16),
+                onPressed: _opening ? null : () => _resume(item),
+              ),
       ),
     );
   }
