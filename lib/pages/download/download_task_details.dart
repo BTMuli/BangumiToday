@@ -1,7 +1,7 @@
 // Dart imports:
 import 'dart:async';
 import 'dart:math';
-import 'dart:ui' show PathMetric;
+import 'dart:ui' show PathMetric, Vertices;
 
 // Flutter imports:
 import 'package:flutter/gestures.dart';
