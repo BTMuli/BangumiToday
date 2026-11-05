@@ -20,6 +20,7 @@ import '../../ui/bt_infobar.dart';
 import '../../widgets/common/bt_buttons.dart';
 import '../../widgets/common/bt_card.dart';
 import '../../widgets/common/bt_drawer.dart';
+import '../../widgets/download/download_drop_target.dart';
 import '../../widgets/download/manual_download_dialog.dart';
 import 'download_rate_background.dart';
 import 'download_settings_drawer.dart';
@@ -258,17 +259,19 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
           ),
         ),
       ),
-      content: ColoredBox(
-        color: BTColors.surfaceSecondary(context),
-        child: _DownloadTaskPane(
-          tabIndex: _tabIndex,
-          searchQuery: _searchQuery,
-          sortField: _sortField,
-          sortDescending: _sortDescending,
-          selecting: _selecting,
-          selectedIds: _selectedIds,
-          onToggleSelect: _toggleSelect,
-          onToggleGroupSelect: _toggleGroupSelect,
+      content: DownloadDropTarget(
+        child: ColoredBox(
+          color: BTColors.surfaceSecondary(context),
+          child: _DownloadTaskPane(
+            tabIndex: _tabIndex,
+            searchQuery: _searchQuery,
+            sortField: _sortField,
+            sortDescending: _sortDescending,
+            selecting: _selecting,
+            selectedIds: _selectedIds,
+            onToggleSelect: _toggleSelect,
+            onToggleGroupSelect: _toggleGroupSelect,
+          ),
         ),
       ),
     );
