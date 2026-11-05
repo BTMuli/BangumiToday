@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 
 // Project imports:
-import '../core/services/file_service.dart';
+import '../services/file_service.dart';
 import 'durable_log_output.dart';
 import 'log_identity.dart';
 

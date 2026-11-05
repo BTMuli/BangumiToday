@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 // Project imports:
-import '../core/cache/directory_cache.dart';
+import '../cache/directory_cache.dart';
 
 class LogStorageGroup {
   const LogStorageGroup({
