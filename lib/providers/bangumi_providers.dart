@@ -6,7 +6,9 @@ import '../data/datasources/bangumi_local_data_source.dart';
 import '../data/datasources/bangumi_local_data_source_impl.dart';
 import '../data/datasources/bangumi_remote_data_source.dart';
 import '../data/datasources/bangumi_remote_data_source_impl.dart';
+import '../data/repositories/bangumi_dataset_repository_impl.dart';
 import '../data/repositories/bangumi_repository_impl.dart';
+import '../domain/repositories/bangumi_dataset_repository.dart';
 import '../domain/repositories/bangumi_repository.dart';
 import '../models/bangumi/bangumi_enum.dart';
 import '../models/bangumi/bangumi_model.dart';
@@ -51,6 +53,13 @@ final bangumiRepositoryProvider = Provider<BTBangumiRepository>((ref) {
       );
     },
   );
+});
+
+/// 本地 bangumi-data 数据集仓储，供日历与 BMF 工作台读取排期。
+final bangumiDatasetRepositoryProvider = Provider<BangumiDatasetRepository>((
+  ref,
+) {
+  return BangumiDatasetRepositoryImpl();
 });
 
 /// 首页共用一份数据库快照，收藏筛选与封面状态随持久化写入同步。

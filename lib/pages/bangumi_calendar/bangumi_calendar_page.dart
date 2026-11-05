@@ -15,8 +15,6 @@ import '../../core/services/notification_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/async_pool.dart';
 import '../../core/utils/bangumi_utils.dart';
-import '../../database/app/app_config.dart';
-import '../../database/bangumi/bangumi_data.dart';
 import '../../domain/repositories/bangumi_repository.dart';
 import '../../models/bangumi/bangumi_data_model.dart';
 import '../../models/bangumi/bangumi_enum.dart';
@@ -61,12 +59,6 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
   /// 正在切换并保存修仙模式。
   bool _isChangingNightMode = false;
-
-  /// 数据库-AppConfig
-  final BtsAppConfig sqliteAc = BtsAppConfig();
-
-  /// bangumiData数据库
-  final BtsBangumiData sqliteBd = BtsBangumiData();
 
   /// bangumiData版本号
   late String version = 'unknown';
@@ -189,12 +181,13 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     _scrollController.addListener(syncActiveSlot);
     scheduleDayChange();
     Future.microtask(() async {
-      var nightMode = await sqliteAc.readCalendarNightMode();
+      var appStore = ref.read(appStoreProvider.notifier);
+      var nightMode = await appStore.readCalendarNightMode();
       if (!mounted) return;
       setState(() => isNightMode = nightMode);
       scheduleDayChange();
       await getData(freshTab: true);
-      version = await sqliteAc.readBangumiDataVersion() ?? 'unknown';
+      version = await appStore.readBangumiDataVersion() ?? 'unknown';
       await checkDataUpdate();
     });
   }
@@ -262,9 +255,10 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     setState(() {});
     try {
       var repository = ref.read(bangumiRepositoryProvider);
+      var dataset = ref.read(bangumiDatasetRepositoryProvider);
       await loadCollectionTypes();
       _bmfIds = await loadBmfIds();
-      var items = await sqliteBd.readItemsForCalendar(
+      var items = await dataset.readItemsForCalendar(
         at: calendarAt,
         nightMode: calendarNightMode,
       );
@@ -277,7 +271,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
       }
       _items = items;
       _remote = [];
-      _siteMeta = await sqliteBd.readSiteMap();
+      _siteMeta = await dataset.readSiteMap();
       if (!mounted) return;
       // 新一轮数据：先置空全部分组，再按分组填充。已经拿到的补全结果
       // （[_enrich]）与完结判定（[_finishedIds]）按 subject id 保留，重来一遍
@@ -547,7 +541,9 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     setState(() => _isChangingNightMode = true);
     try {
       await getData(freshTab: true, nightMode: value);
-      await sqliteAc.writeCalendarNightMode(isNightMode);
+      await ref
+          .read(appStoreProvider.notifier)
+          .writeCalendarNightMode(isNightMode);
     } catch (error) {
       if (mounted) await BtInfobar.error(context, '修仙模式设置保存失败：$error');
     } finally {
@@ -784,18 +780,20 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     progress.update(title: '成功获取数据', text: '正在写入数据');
     try {
       var timeNow = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      await sqliteBd.replaceDataset(
-        rawData,
-        version: remote,
-        checkedAt: timeNow.toString(),
-        onProgress: (completed, total) {
-          progress.update(
-            title: '写入条目数据',
-            text: '$completed/$total',
-            progress: total == 0 ? 0 : completed * 100 / total,
+      await ref
+          .read(bangumiDatasetRepositoryProvider)
+          .replaceDataset(
+            rawData,
+            version: remote,
+            checkedAt: timeNow.toString(),
+            onProgress: (completed, total) {
+              progress.update(
+                title: '写入条目数据',
+                text: '$completed/$total',
+                progress: total == 0 ? 0 : completed * 100 / total,
+              );
+            },
           );
-        },
-      );
     } catch (error) {
       progress.update(text: '写入数据失败');
       await Future.delayed(const Duration(seconds: 1));
@@ -815,7 +813,8 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
   /// 尝试更新元数据
   Future<void> checkDataUpdate() async {
-    var lastCheckTime = await sqliteAc.readBangumiDataCheckTime();
+    var appStore = ref.read(appStoreProvider.notifier);
+    var lastCheckTime = await appStore.readBangumiDataCheckTime();
     // 为秒级时间戳
     var now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     if (lastCheckTime != null) {
@@ -843,7 +842,7 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     if (version == remote) {
       progress.update(title: '获取远程版本成功', text: '与数据库版本一致，无需更新');
       await Future.delayed(const Duration(seconds: 1));
-      await sqliteAc.writeBangumiDataCheckTime(now.toString());
+      await appStore.writeBangumiDataCheckTime(now.toString());
       progress.end();
       return;
     }

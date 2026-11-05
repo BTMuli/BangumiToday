@@ -378,4 +378,26 @@ class BTAppStore extends Notifier<BTAppSettings> {
         BtrBangumiApi.setImageBaseUrl(url);
     }
   }
+
+  /// 首页修仙模式（本地凌晨 6 点换日）。
+  Future<bool> readCalendarNightMode() => sqlite.readCalendarNightMode();
+
+  /// 保存首页修仙模式。
+  Future<void> writeCalendarNightMode(bool value) =>
+      sqlite.writeCalendarNightMode(value);
+
+  /// 本地 bangumi-data 数据集版本。
+  Future<String?> readBangumiDataVersion() => sqlite.readBangumiDataVersion();
+
+  /// 上次检查远程 bangumi-data 版本的时间（秒级时间戳字符串）。
+  Future<String?> readBangumiDataCheckTime() =>
+      sqlite.readBangumiDataCheckTime();
+
+  /// 写入上次检查远程 bangumi-data 版本的时间。
+  Future<void> writeBangumiDataCheckTime(String time) =>
+      sqlite.writeBangumiDataCheckTime(time);
+
+  /// 首页调整换日方式或更新数据集后，同步工作台的排期展示。
+  Stream<({String? dataVersion, bool nightMode})> watchCalendarSettings() =>
+      sqlite.watchCalendarSettings();
 }

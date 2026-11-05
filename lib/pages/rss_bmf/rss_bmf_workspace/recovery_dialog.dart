@@ -1,12 +1,12 @@
 part of '../rss_bmf_workspace.dart';
 
-class _RecoveryDialog extends StatefulWidget {
+class _RecoveryDialog extends ConsumerStatefulWidget {
   const _RecoveryDialog();
   @override
-  State<_RecoveryDialog> createState() => _RecoveryDialogState();
+  ConsumerState<_RecoveryDialog> createState() => _RecoveryDialogState();
 }
 
-class _RecoveryDialogState extends State<_RecoveryDialog> {
+class _RecoveryDialogState extends ConsumerState<_RecoveryDialog> {
   final Map<int, int> _targets = {};
   late Future<(List<MigrationRecoveryRow>, List<AppBmfModel>)> _load;
   int _currentIndex = 0;
@@ -26,7 +26,7 @@ class _RecoveryDialogState extends State<_RecoveryDialog> {
         }
         return (records, <AppBmfModel>[]);
       }
-      return (records, await BtsAppBmf().readAll());
+      return (records, await ref.read(bmfRepositoryProvider).readAll());
     });
   }
 

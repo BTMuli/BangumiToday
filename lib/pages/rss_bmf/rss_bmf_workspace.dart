@@ -17,10 +17,7 @@ import '../../core/services/download_directory.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/rss_date.dart';
-import '../../database/app/app_bmf.dart';
-import '../../database/app/app_config.dart';
 import '../../database/app/app_subscription.dart';
-import '../../database/bangumi/bangumi_data.dart';
 import '../../database/drift/bt_database.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../models/database/app_rss_cache_model.dart';
@@ -99,7 +96,8 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     _broadcastTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       _refreshBroadcastClock();
     });
-    _calendarSettingsSubscription = BtsAppConfig()
+    _calendarSettingsSubscription = ref
+        .read(appStoreProvider.notifier)
         .watchCalendarSettings()
         .listen((_) {
           if (mounted) setState(() => _loadedSubjectSignature = '');
@@ -248,10 +246,12 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
           .read(bangumiRepositoryProvider)
           .getLocalCollections();
       var byId = {for (var item in collections) item.subjectId: item.subject};
-      var schedules = await BtsBangumiData().readItemsForSubjects(
-        bmfList.map((item) => item.subject).toSet(),
-      );
-      var nightMode = await BtsAppConfig().readCalendarNightMode();
+      var schedules = await ref
+          .read(bangumiDatasetRepositoryProvider)
+          .readItemsForSubjects(bmfList.map((item) => item.subject).toSet());
+      var nightMode = await ref
+          .read(appStoreProvider.notifier)
+          .readCalendarNightMode();
       var entries = await Future.wait(
         bmfList.map((item) async {
           var cached = await BgmSubjectCache().read(
