@@ -8,17 +8,46 @@ import 'package:fluent_ui/fluent_ui.dart';
 import '../core/theme/bt_theme.dart';
 
 class BtInfobarType {
-  InfoBar infoBar;
+  InfoBarSeverity severity;
+  String text;
   BuildContext context;
+  int count;
 
-  BtInfobarType(this.infoBar, this.context);
+  BtInfobarType({
+    required this.severity,
+    required this.text,
+    required this.context,
+    this.count = 1,
+  });
+
+  bool get isSuccessLike =>
+      severity == InfoBarSeverity.success || severity == InfoBarSeverity.info;
+
+  bool get isErrorLike =>
+      severity == InfoBarSeverity.error || severity == InfoBarSeverity.warning;
+
+  Duration get displayDuration => isErrorLike
+      ? const Duration(seconds: 3)
+      : const Duration(milliseconds: 1600);
+
+  InfoBar buildInfoBar() {
+    var label = count > 1 ? '$text（×$count）' : text;
+    return InfoBar(
+      title: Text(
+        label,
+        style: BTTypography.body(context).copyWith(fontWeight: FontWeight.w500),
+      ),
+      severity: severity,
+    );
+  }
 
   Future<void> show() async {
     if (!context.mounted) return;
     return await displayInfoBar(
       context,
       alignment: Alignment.bottomCenter,
-      builder: (_, _) => infoBar,
+      duration: displayDuration,
+      builder: (_, _) => buildInfoBar(),
     );
   }
 }
@@ -30,32 +59,55 @@ class BtInfobarQueue extends ChangeNotifier {
 
   factory BtInfobarQueue() => _instance;
 
-  List<BtInfobarType> queue = [];
-  Timer? timer;
+  final List<BtInfobarType> queue = [];
+  var _draining = false;
 
-  Future<void> fresh() async {
-    if (queue.length == 1) {
-      await queue.first.show();
-      queue.removeAt(0);
-      notifyListeners();
+  /// 成功类相邻间隔；错误类等当前条完全结束后再出下一条。
+  static const Duration _successGap = Duration(milliseconds: 120);
+
+  bool _tryMerge(BtInfobarType infoBar) {
+    if (!infoBar.isSuccessLike || queue.isEmpty) return false;
+    var last = queue.last;
+    if (!last.isSuccessLike ||
+        last.severity != infoBar.severity ||
+        last.text != infoBar.text ||
+        last.context != infoBar.context) {
+      return false;
     }
-    timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (queue.isEmpty) {
-        timer.cancel();
-        return;
+    last.count += infoBar.count;
+    return true;
+  }
+
+  Future<void> _drain() async {
+    if (_draining) return;
+    _draining = true;
+    try {
+      while (queue.isNotEmpty) {
+        var item = queue.removeAt(0);
+        notifyListeners();
+        await item.show();
+        if (queue.isEmpty) break;
+        // 成功类缩短排队间隔；错误/警告仍串行，等本条结束后再播下一条。
+        if (item.isSuccessLike && queue.first.isSuccessLike) {
+          await Future<void>.delayed(_successGap);
+        }
       }
-      await queue.first.show();
-      queue.removeAt(0);
-      notifyListeners();
-    });
+    } finally {
+      _draining = false;
+      if (queue.isNotEmpty) {
+        unawaited(_drain());
+      }
+    }
   }
 
   Future<void> add(BtInfobarType infoBar) async {
-    queue.add(infoBar);
-    if (timer == null || !timer!.isActive) {
-      await fresh();
+    if (_tryMerge(infoBar)) {
+      notifyListeners();
+      return;
     }
+    queue.add(infoBar);
     notifyListeners();
+    await _drain();
   }
 }
 
@@ -74,24 +126,11 @@ class BtInfobar {
     InfoBarSeverity severity,
   ) async {
     var btInfobar = BtInfobarType(
-      _buildInfoBar(context, text, severity),
-      context,
+      severity: severity,
+      text: text,
+      context: context,
     );
     return await queue.add(btInfobar);
-  }
-
-  static InfoBar _buildInfoBar(
-    BuildContext context,
-    String text,
-    InfoBarSeverity severity,
-  ) {
-    return InfoBar(
-      title: Text(
-        text,
-        style: BTTypography.body(context).copyWith(fontWeight: FontWeight.w500),
-      ),
-      severity: severity,
-    );
   }
 
   static Future<void> success(BuildContext context, String text) async {
