@@ -1,5 +1,6 @@
 // Dart imports:
 import 'dart:async';
+import 'dart:io';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
@@ -212,6 +213,10 @@ class _SubjectDetailResourcesState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: _buildPathHint(context),
+        ),
+        Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
@@ -263,6 +268,47 @@ class _SubjectDetailResourcesState
         Container(height: 1, color: BTColors.divider(context)),
         Expanded(child: _showFiles ? _buildFiles() : _buildRss()),
       ],
+    );
+  }
+
+  Widget _buildPathHint(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: FluentTheme.of(context).accentColor.withValues(alpha: 0.08),
+        borderRadius: BTRadius.smallBR,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              FluentIcons.info,
+              size: 14,
+              color: BTColors.textSecondary(context),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '在此关联 RSS 订阅与本地下载目录；种子任务在下载管理中查看进度，'
+              '关联后的条目也会出现在「RSS & BMF」工作台。',
+              style: BTTypography.caption(
+                context,
+              ).copyWith(color: BTColors.textSecondary(context)),
+            ),
+          ),
+          if (Platform.isWindows) ...[
+            const SizedBox(width: 8),
+            HyperlinkButton(
+              onPressed: () =>
+                  ref.read(navStoreProvider.notifier).goToDownload(),
+              child: const Text('打开下载管理'),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
