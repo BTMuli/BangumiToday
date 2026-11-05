@@ -14,19 +14,18 @@ import '../../models/bangumi/bangumi_data_model.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../models/database/app_subscription_model.dart';
 import '../../models/rss/rss.dart';
-import '../../providers/bangumi_providers.dart';
 import '../../request/mikan/mikan_api.dart';
-import '../../store/bmf_store.dart';
-import '../../store/nav_store.dart';
 import '../../tools/log_tool.dart';
 import '../cache/subject_cache.dart';
-import '../container.dart';
 import '../utils/async_pool.dart';
 import '../utils/keyed_request_pool.dart';
 import '../utils/rss_date.dart';
 import 'notification_service.dart';
 import 'rss_fetch_scheduler.dart';
 import 'rss_freshness.dart';
+
+typedef BmfRssCollectionEpsReader = Future<int?> Function(int subject);
+typedef BmfRssNotifyOpen = void Function(Set<int> subjects);
 
 class BmfRssUpdateEvent {
   const BmfRssUpdateEvent({
@@ -130,6 +129,8 @@ class BmfRssService {
   int _refreshEpoch = 0;
   Duration _freshnessWindow = defaultFreshnessWindow;
   Duration _checkInterval = defaultCheckInterval;
+  BmfRssCollectionEpsReader? _readCollectionEps;
+  BmfRssNotifyOpen? _onNotifyOpen;
   RssRefreshMetrics? lastRefreshMetrics;
 
   SubscriptionStorage get _storage =>
@@ -152,8 +153,12 @@ class BmfRssService {
   Future<void> start({
     Duration refreshInterval = defaultFreshnessWindow,
     Duration checkInterval = defaultCheckInterval,
+    BmfRssCollectionEpsReader? readCollectionEps,
+    BmfRssNotifyOpen? onNotifyOpen,
   }) async {
     if (_isInitialized || _stopped) return;
+    _readCollectionEps = readCollectionEps;
+    _onNotifyOpen = onNotifyOpen;
     await _track(
       () => _startGuard.run(() async {
         var epoch = _refreshEpoch;
@@ -378,10 +383,7 @@ class BmfRssService {
         cached?.eps,
       ].whereType<int>().where((total) => total > 0).firstOrNull;
       if (totalEpisodes == null) {
-        var collection = await globalContainer
-            .read(bangumiRepositoryProvider)
-            .getLocalCollection(entry.key);
-        var total = collection?.subject.eps;
+        var total = await _readCollectionEps?.call(entry.key);
         if (total != null && total > 0) totalEpisodes = total;
       }
       result[entry.key] = [
@@ -495,15 +497,7 @@ class BmfRssService {
           body: '${notifications.values.join('、')} 有 $itemCount 条更新',
           onClick: () {
             if (_stopped) return;
-            var navigation = globalContainer.read(
-              bmfNavigationProvider.notifier,
-            );
-            if (notifications.length == 1) {
-              navigation.selectSubject(notifications.keys.single);
-            } else {
-              navigation.openPendingUpdates();
-            }
-            globalContainer.read(navStoreProvider.notifier).setCurIndex(1);
+            _onNotifyOpen?.call(notifications.keys.toSet());
           },
         );
       } catch (error) {

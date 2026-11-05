@@ -35,10 +35,12 @@ import 'database/app/app_config.dart';
 import 'database/bt_hive.dart';
 import 'database/bt_sqlite.dart';
 import 'pages/playback/playback_window.dart';
+import 'providers/bangumi_providers.dart';
 import 'request/bangumi/bangumi_api.dart';
 import 'request/core/client.dart';
 import 'request/mikan/mikan_api.dart';
 import 'store/bgm_user_hive.dart';
+import 'store/bmf_store.dart';
 import 'store/bt_download_store.dart';
 import 'store/nav_store.dart';
 import 'store/playback_store.dart';
@@ -365,7 +367,29 @@ Future<void> _initBackgroundServices() async {
   _rssStartupTimer = Timer(
     const Duration(seconds: 3),
     () => unawaited(
-      _runOptionalService('BMF RSS 服务', BmfRssService.instance.start),
+      _runOptionalService(
+        'BMF RSS 服务',
+        () => BmfRssService.instance.start(
+          readCollectionEps: (subject) async {
+            var collection = await globalContainer
+                .read(bangumiRepositoryProvider)
+                .getLocalCollection(subject);
+            var total = collection?.subject.eps;
+            return (total != null && total > 0) ? total : null;
+          },
+          onNotifyOpen: (subjects) {
+            var navigation = globalContainer.read(
+              bmfNavigationProvider.notifier,
+            );
+            if (subjects.length == 1) {
+              navigation.selectSubject(subjects.single);
+            } else {
+              navigation.openPendingUpdates();
+            }
+            globalContainer.read(navStoreProvider.notifier).setCurIndex(1);
+          },
+        ),
+      ),
     ),
   );
 }

@@ -10,7 +10,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Project imports:
-import '../core/container.dart';
 import '../core/errors/playback_unavailable.dart';
 import '../core/network/system_proxy.dart';
 import '../core/services/bt_engine_client.dart';
@@ -29,6 +28,22 @@ import '../tools/log_tool.dart';
 import 'nav_store.dart';
 import 'playback_store.dart';
 import 'tracker_hive.dart';
+
+class _BtDownloadStoreBindings {
+  const _BtDownloadStoreBindings({
+    required this.openPlayback,
+    required this.openSubject,
+    required this.readBmfs,
+    required this.effectiveTrackers,
+  });
+
+  final Future<void> Function({required String filePath, int? subject})
+  openPlayback;
+  final Future<void> Function({required int subjectId, String? title})
+  openSubject;
+  final Future<List<AppBmfModel>> Function() readBmfs;
+  final List<String> Function() effectiveTrackers;
+}
 
 typedef BtTaskCompletionNotifier = Future<void> Function(BtTaskSnapshot task);
 typedef BtEngineStartConfigProvider = Future<Map<String, dynamic>> Function();
@@ -228,9 +243,40 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
   String? _lastStoreError;
   bool _refreshing = false;
   Future<void>? _proxyInit;
+  static _BtDownloadStoreBindings? _bindings;
 
   @override
   BtDownloadState build() {
+    if (!_injected) {
+      var bindings = _BtDownloadStoreBindings(
+        openPlayback: ({required filePath, subject}) async {
+          if (Platform.isWindows) {
+            await ref
+                .read(playbackWindowServiceProvider)
+                .open(filePath: filePath, subject: subject);
+          } else {
+            await ref
+                .read(playbackStoreProvider)
+                .openLocalFile(filePath, subject: subject);
+            ref.read(navStoreProvider.notifier).goToPlayback();
+            await _showMainWindow();
+          }
+        },
+        openSubject: ({required subjectId, title}) async {
+          ref
+              .read(navStoreProvider.notifier)
+              .addNavItemB(subject: subjectId, paneTitle: title, type: '动画');
+          await _showMainWindow();
+        },
+        readBmfs: () => ref.read(bmfRepositoryProvider).readAll(),
+        effectiveTrackers: () =>
+            ref.read(trackerStoreProvider.notifier).effectiveTrackers,
+      );
+      _bindings = bindings;
+      ref.onDispose(() {
+        if (identical(_bindings, bindings)) _bindings = null;
+      });
+    }
     var initialTasks = List<BtTaskSnapshot>.of(_client.tasks);
     _engineState = _client.state;
     // 关闭引擎或 provider 销毁时取消订阅，避免流继续向已释放的对象推送。
@@ -907,17 +953,11 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
       readFiles: (offset) => client.taskFiles(taskId, offset: offset),
     );
     var subject = await _completionSubject(task);
-    if (Platform.isWindows) {
-      await globalContainer
-          .read(playbackWindowServiceProvider)
-          .open(filePath: filePath, subject: subject?.id);
-    } else {
-      await globalContainer
-          .read(playbackStoreProvider)
-          .openLocalFile(filePath, subject: subject?.id);
-      globalContainer.read(navStoreProvider.notifier).goToPlayback();
-      await _showMainWindow();
+    var bindings = _bindings;
+    if (bindings == null) {
+      throw const PlaybackUnavailable('下载完成回调尚未就绪');
     }
+    await bindings.openPlayback(filePath: filePath, subject: subject?.id);
   }
 
   static Future<void> _showMainWindow() async {
@@ -929,14 +969,11 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
   static Future<void> _handleCompletionClick(BtTaskSnapshot task) async {
     var subject = await _completionSubject(task);
     if (subject != null) {
-      globalContainer
-          .read(navStoreProvider.notifier)
-          .addNavItemB(
-            subject: subject.id,
-            paneTitle: subject.title,
-            type: '动画',
-          );
-      await _showMainWindow();
+      var bindings = _bindings;
+      if (bindings == null) {
+        throw StateError('下载完成回调尚未就绪');
+      }
+      await bindings.openSubject(subjectId: subject.id, title: subject.title);
       return;
     }
     await BTFileTool().openDir(task.savePath);
@@ -960,7 +997,9 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
   static Future<AppBmfModel?> _findMatchingBmf(String savePath) async {
     if (savePath.isEmpty) return null;
     try {
-      var bmfList = await globalContainer.read(bmfRepositoryProvider).readAll();
+      var bindings = _bindings;
+      if (bindings == null) return null;
+      var bmfList = await bindings.readBmfs();
       var subjectId = findDownloadSubject(
         savePath: savePath,
         directories: bmfList.map(
@@ -1065,9 +1104,7 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
   static Future<Map<String, dynamic>> _loadStartConfig() async {
     var config = await BtsAppConfig().readBtDownloadConfig();
     return config.toEngineJson(
-      additionalTrackers: globalContainer
-          .read(trackerStoreProvider.notifier)
-          .effectiveTrackers,
+      additionalTrackers: _bindings?.effectiveTrackers() ?? const [],
     );
   }
 
