@@ -82,19 +82,31 @@ class BangumiCalendarData {
       ).weekday;
       var day = dayStarts[weekday]!;
       var firstAir = DateTime.tryParse(item.begin) ?? anchor;
-      if (!bangumiAirsOnDay(
-            firstAir: firstAir,
-            scheduleStart: anchor,
-            day: day,
-            lastAir: DateTime.tryParse(item.end),
-          ) ||
-          !seen.add(id)) {
-        continue;
-      }
       var bgm = detail?.subject;
       var period =
           parseBangumiBroadcastPeriod(item.broadcast) ??
           const Duration(days: 7);
+      var total = _totalEpisodes(bgm);
+      // bangumi-data 的 end 常滞后；有总话数时按当季排期推末播，避免已完结
+      // 仍按空 end 每周回流。长期番用 broadcast 锚点，不会被 begin 误伤。
+      var lastAir =
+          DateTime.tryParse(item.end) ??
+          _projectedLastAir(
+            firstAir: firstAir,
+            anchor: anchor,
+            period: period,
+            total: total,
+            nightMode: nightMode,
+          );
+      if (!bangumiAirsOnDay(
+            firstAir: firstAir,
+            scheduleStart: anchor,
+            day: day,
+            lastAir: lastAir,
+          ) ||
+          !seen.add(id)) {
+        continue;
+      }
       // 星期与时刻按当季排期，话数从首播日期（放送日期）算起
       days[weekday - 1].add(
         BangumiCalendarItem(
@@ -110,7 +122,7 @@ class BangumiCalendarData {
             firstAir: firstAir,
             period: period,
             day: day,
-            total: _totalEpisodes(bgm),
+            total: total,
           ),
           watched: watchedIds.contains(id),
           inBmf: bmfIds.contains(id),
@@ -147,6 +159,27 @@ class BangumiCalendarData {
     return total > 0 ? total : null;
   }
 
+  /// 按当季排期推算末播时刻；总话数未知时返回 null。
+  ///
+  /// 与 [bangumiAirSlot] 一致：以 broadcast 锚点所在话数为起点，避免长期番
+  /// 的 `begin` 把末播推到多年前。
+  static DateTime? _projectedLastAir({
+    required DateTime firstAir,
+    required DateTime anchor,
+    required Duration period,
+    required int? total,
+    required bool nightMode,
+  }) {
+    if (total == null || total <= 0) return null;
+    var firstEpisode = bangumiEpisodeOnAir(
+      firstAir: firstAir,
+      period: period,
+      day: bangumiCalendarStart(at: anchor, nightMode: nightMode),
+    );
+    if (firstEpisode == null || firstEpisode > total) return null;
+    return anchor.add(period * (total - firstEpisode));
+  }
+
   /// 待确认是否已放完的条目：id -> 放送周期。
   ///
   /// bangumi-data 的 `end` 更新滞后，季度刚完结的作品常常还是空值，于是会一直
@@ -175,8 +208,8 @@ class BangumiCalendarData {
       if (total == null) continue;
       var firstAir = DateTime.tryParse(item.begin);
       if (firstAir == null) continue;
+      var anchor = parseBangumiBroadcastStart(item.broadcast) ?? firstAir;
       if (weekday != null) {
-        var anchor = parseBangumiBroadcastStart(item.broadcast) ?? firstAir;
         if (bangumiCalendarDate(at: anchor, nightMode: nightMode).weekday !=
             weekday) {
           continue;
@@ -185,8 +218,14 @@ class BangumiCalendarData {
       var period =
           parseBangumiBroadcastPeriod(item.broadcast) ??
           const Duration(days: 7);
-      var finalAir = firstAir.add(period * (total - 1));
-      if (!finalAir.isBefore(today)) continue;
+      var finalAir = _projectedLastAir(
+        firstAir: firstAir,
+        anchor: anchor,
+        period: period,
+        total: total,
+        nightMode: nightMode,
+      );
+      if (finalAir == null || !finalAir.isBefore(today)) continue;
       var lag = today.difference(finalAir).inSeconds / period.inSeconds;
       if (lag > maxLag) continue;
       pending[id] = period;
