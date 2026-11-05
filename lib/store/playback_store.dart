@@ -14,20 +14,14 @@ import 'package:path/path.dart' as path;
 
 // Project imports:
 import '../core/errors/playback_unavailable.dart';
-import '../core/services/native_playback_upscale_backend.dart';
-import '../core/services/playback_audio.dart';
+import '../core/logging/log_tool.dart';
 import '../core/services/playback_audio_controller.dart';
-import '../core/services/playback_cache.dart';
-import '../core/services/playback_chapters.dart';
 import '../core/services/playback_close_progress.dart';
-import '../core/services/playback_diagnostics.dart';
 import '../core/services/playback_janai_benchmarks.dart';
-import '../core/services/playback_janai_video_source.dart';
-import '../core/services/playback_loudness.dart';
+import '../core/services/playback_mpv_coordinator.dart';
 import '../core/services/playback_screenshot.dart';
 import '../core/services/playback_session_lifecycle.dart';
 import '../core/services/playback_subtitle_files.dart';
-import '../core/services/playback_subtitles.dart';
 import '../core/services/playback_tensorrt_resources.dart';
 import '../core/services/playback_upscale_controller.dart';
 import '../core/services/playback_upscaler.dart';
@@ -46,7 +40,6 @@ import '../domain/repositories/playback_subjects.dart';
 import '../models/playback/playback_chapter.dart';
 import '../models/playback/playback_completion.dart';
 import '../models/playback/playback_episode_layout.dart';
-import '../models/playback/playback_geometry.dart';
 import '../models/playback/playback_hires.dart';
 import '../models/playback/playback_history_group.dart';
 import '../models/playback/playback_item.dart';
@@ -58,7 +51,6 @@ import '../providers/bangumi_providers.dart';
 import '../providers/bmf_providers.dart';
 import '../providers/episode_mark_providers.dart';
 import '../providers/playback_episode_link_providers.dart';
-import '../tools/log_tool.dart';
 import 'bt_download_store.dart';
 
 final playbackStoreProvider = ChangeNotifierProvider<PlaybackStore>((ref) {
@@ -127,42 +119,82 @@ class PlaybackStore extends ChangeNotifier {
     write: (value) => settingsStore.write('playbackRememberedRate', value),
   );
   Future<void>? _preferencesFuture;
-  late final _audio = PlaybackAudioController(
+  late final PlaybackAudioController _audio = PlaybackAudioController(
     settingsStore: settingsStore,
-    readPlayer: () => _player,
+    readPlayer: () => _mpv.player,
     readSession: () => (id: _session.id, item: current, completed: completed),
     isClosed: () => _closed,
-    serial: _serial,
-    onDiagnostic: (message) => _diagnostics?.event(message),
+    serial: _runSerial,
+    onDiagnostic: (message) => _mpv.diagnostics?.event(message),
     onChanged: _notify,
   );
-  late final _upscale = PlaybackUpscaleController(
+  late final PlaybackUpscaleController _upscale = PlaybackUpscaleController(
     settingsStore: settingsStore,
-    readUpscaler: () => _upscaler,
+    readUpscaler: () => _mpv.upscaler,
     isClosed: () => _closed,
     onChanged: _notify,
+  );
+  late final PlaybackMpvCoordinator _mpv = PlaybackMpvCoordinator(
+    playerAllowed: playerAllowed,
+    waitForNativeDestroy: waitForNativeDestroy,
+    readSession: () => (
+      id: _session.id,
+      current: current,
+      completed: completed,
+      loading: loading,
+      clearingPlayback: _clearingPlayback,
+      manualSubtitles: _manualSubtitles,
+      position: position,
+      duration: duration,
+      playlist: playlist,
+      index: index,
+    ),
+    isClosed: () => _closed,
+    isOpening: () => isOpening,
+    serial: _runSerial,
+    trackNativeDisposal: _trackNativeDisposal,
+    onChanged: _notify,
+    audio: _audio,
+    upscale: _upscale,
+    saveProgress: _save,
+    refreshHistory: refreshHistory,
+    openIndex: _openIndexByNumber,
+    autoSelectSubtitle: _autoSelectSubtitle,
+    finishSession: _session.finish,
+    writeHistory: historyStore.write,
+    emitCompletion: _emitCompletion,
+    nextEpisodeIndex: library.nextEpisodeIndex,
+    writePosition: (value) => position = value,
+    writeDuration: (value) => duration = value,
+    writeCompleted: (value) => completed = value,
+    writeError: (value) => error = value,
+    readLoudnessActive: () => loudnessActive,
+    readHiRes: () => hiRes,
+    readAspectRatio: () => _aspectRatio,
+    readVideoSize: () => _videoSize,
+    writeGeometry: (ratio, size) {
+      _aspectRatio = ratio;
+      _videoSize = size;
+    },
+    onPlayerReleased: () {
+      _viewports.clear();
+      _viewportOwner = null;
+      _viewportFullscreen = false;
+      _aspectRatio = null;
+      _videoSize = null;
+    },
   );
   PlaybackEpisodeLayout _episodeLayout = PlaybackEpisodeLayout.grid;
   bool _autoMarkWatched = false;
   double? _aspectRatio;
   Size? _videoSize;
-  Player? _player;
-  PlaybackDiagnostics? _diagnostics;
-  PlaybackJanaiVideoSource? _janaiVideoSource;
-  PlaybackChapters? _chapters;
   bool _manualSubtitles = true;
   late final _subtitleFiles = PlaybackSubtitleFiles(settingsStore);
   final _loadedSubtitleFiles = <String>{};
   final _importedSubtitlePaths = <String, String>{};
-  VideoController? _video;
-  PlaybackUpscaler? _upscaler;
   Object? _viewportOwner;
   bool _viewportFullscreen = false;
   final _viewports = <Object, ({PlaybackViewport value, bool fullscreen})>{};
-  VoidCallback? _textureListener;
-  final List<StreamSubscription<dynamic>> _subscriptions = [];
-  Timer? _saveTimer;
-  Timer? _idlePlayerTimer;
   late final _lifecycle = PlaybackSessionLifecycle(
     onOperationError: (errorValue, stackTrace) {
       error = errorValue.toString();
@@ -199,24 +231,24 @@ class PlaybackStore extends ChangeNotifier {
   String? get openingStatus => _openingStatus;
   String? get openingFile => isOpening ? _operationFile : null;
 
-  Player? get player => _player;
+  Player? get player => _mpv.player;
 
   Future<String> readVideoProperty(String name) =>
-      _diagnostics?.readProperty(name) ?? Future.value('');
-  List<PlaybackChapter> get chapters => _chapters?.chapters ?? const [];
+      _mpv.diagnostics?.readProperty(name) ?? Future.value('');
+  List<PlaybackChapter> get chapters => _mpv.chapters?.chapters ?? const [];
   bool get automaticSubtitles => !_manualSubtitles;
-  VideoController? get video => _video;
-  PlaybackUpscaler? get upscaler => _upscaler;
+  VideoController? get video => _mpv.video;
+  PlaybackUpscaler? get upscaler => _mpv.upscaler;
   PlaybackUpscaleMode get upscaleMode => _upscale.selectedMode;
   bool get tensorRtEnabled => _upscale.tensorRtEnabled;
   PlaybackTensorRtResources get tensorRtResources => _upscale.tensorRtResources;
   PlaybackJanaiBenchmarks get janaiBenchmarks => _upscale.janaiBenchmarks;
 
   PlaybackJanaiRecommendation get janaiRecommendation {
-    var state = !loading && current != null ? _player?.state : null;
+    var state = !loading && current != null ? _mpv.player?.state : null;
     return _upscale.recommendation(
       state: state,
-      source: state == null ? null : _janaiVideoSource?.parameters,
+      source: state == null ? null : _mpv.janaiVideoSource?.parameters,
     );
   }
 
@@ -257,9 +289,9 @@ class PlaybackStore extends ChangeNotifier {
     _notify();
   }
 
-  void beginViewportTransition() => _upscaler?.beginViewportTransition();
+  void beginViewportTransition() => _mpv.upscaler?.beginViewportTransition();
 
-  void endViewportTransition() => _upscaler?.endViewportTransition();
+  void endViewportTransition() => _mpv.upscaler?.endViewportTransition();
 
   /// Fullscreen owns the texture while the windowed controls remain mounted.
   void reportViewport(
@@ -272,7 +304,7 @@ class PlaybackStore extends ChangeNotifier {
     if (_viewportFullscreen && !fullscreen) return;
     _viewportOwner = owner;
     _viewportFullscreen = fullscreen;
-    _upscaler?.viewport(value);
+    _mpv.upscaler?.viewport(value);
   }
 
   void releaseViewport(Object owner) {
@@ -282,7 +314,7 @@ class PlaybackStore extends ChangeNotifier {
     _viewportOwner = null;
     _viewportFullscreen = false;
     if (_viewports.isEmpty) {
-      _upscaler?.viewport(null);
+      _mpv.upscaler?.viewport(null);
     } else {
       var remaining = _viewports.entries.last;
       reportViewport(
@@ -291,25 +323,6 @@ class PlaybackStore extends ChangeNotifier {
         fullscreen: remaining.value.fullscreen,
       );
     }
-  }
-
-  static PlaybackVideoSource? _videoSource(VideoParams value) =>
-      playbackVideoSource(
-        width: value.dw ?? value.w,
-        height: value.dh ?? value.h,
-        pixelWidth: value.w,
-        pixelHeight: value.h,
-        rotation: value.rotate,
-        gamma: value.gamma,
-      );
-
-  void _updateTexture() {
-    var rect = _video?.rect.value;
-    _upscaler?.texture(
-      rect == null
-          ? null
-          : (width: rect.width.round(), height: rect.height.round()),
-    );
   }
 
   Future<void> resolveCover(int subject) async {
@@ -352,13 +365,25 @@ class PlaybackStore extends ChangeNotifier {
   void _setOpeningStatus(String? value) {
     if (_openingStatus == value || (_closed && value != null)) return;
     if (_openingStatus == null && value != null) error = null;
-    if (value != null) {
-      _idlePlayerTimer?.cancel();
-      _idlePlayerTimer = null;
-    }
+    if (value != null) _mpv.cancelIdleTimer();
     _openingStatus = value;
     _notify();
   }
+
+  Future<void> _runSerial(Future<void> Function() action) => _serial(action);
+
+  Future<void> _openIndexByNumber(int nextIndex) => _openIndex(nextIndex);
+
+  void _emitCompletion(PlaybackCompletion completion) =>
+      _completions.add(completion);
+
+  void _trackNativeDisposal(
+    Future<void> disposal, {
+    required bool waitForNativeDestroy,
+  }) => _lifecycle.trackNativeDisposal(
+    disposal,
+    waitForNativeDestroy: waitForNativeDestroy,
+  );
 
   Future<void> _serial(Future<void> Function() action, {String? file}) =>
       _lifecycle.run(() async {
@@ -367,343 +392,9 @@ class PlaybackStore extends ChangeNotifier {
           await action();
         } finally {
           _setOpeningStatus(null);
-          _syncIdlePlayerTimer();
+          _mpv.syncIdleTimer();
         }
       });
-
-  // A paused or completed file still owns its Player. Only unloaded media can
-  // release the native render context without interrupting a viewing session.
-  bool get _canReleaseIdlePlayer =>
-      !_closed &&
-      _player != null &&
-      current == null &&
-      _player!.state.playlist.medias.isEmpty &&
-      !loading &&
-      !isOpening &&
-      !_clearingPlayback;
-
-  void _syncIdlePlayerTimer() {
-    if (!_canReleaseIdlePlayer) {
-      _idlePlayerTimer?.cancel();
-      _idlePlayerTimer = null;
-      return;
-    }
-    // Settings and history operations must not extend the idle deadline.
-    if (_idlePlayerTimer != null) return;
-    late Timer timer;
-    timer = _idlePlayerTimer = Timer(const Duration(hours: 2), () {
-      unawaited(
-        _serial(() async {
-          // An open may have cancelled this timeout while it was queued.
-          if (!identical(_idlePlayerTimer, timer) || !_canReleaseIdlePlayer) {
-            return;
-          }
-          _idlePlayerTimer = null;
-          await _releaseIdlePlayer();
-        }).catchError((Object _) {}),
-      );
-    });
-  }
-
-  Future<void> _releaseIdlePlayer() async {
-    var player = _player!;
-    var upscale = _upscaler;
-    var textureListener = _textureListener;
-    if (textureListener != null) _video?.rect.removeListener(textureListener);
-    _textureListener = null;
-    // Detach synchronously so shutdown cannot take ownership of this Player
-    // while listener cancellation or native disposal is still pending.
-    _player = null;
-    _video = null;
-    _upscaler = null;
-    _diagnostics?.close();
-    _diagnostics = null;
-    _janaiVideoSource?.close();
-    _janaiVideoSource = null;
-    _chapters?.close();
-    _chapters = null;
-    _saveTimer?.cancel();
-    _saveTimer = null;
-    _audio.releasePlayer();
-    _viewports.clear();
-    _viewportOwner = null;
-    _viewportFullscreen = false;
-    _aspectRatio = null;
-    _videoSize = null;
-    var subscriptions = List<StreamSubscription<dynamic>>.of(_subscriptions);
-    _subscriptions.clear();
-    BTLogTool.info('未加载文件已满 2 小时，释放原生播放器');
-    _notify();
-    await Future.wait(
-      subscriptions.map((subscription) => subscription.cancel()),
-    );
-    await _disposePlayer(player, upscale: upscale);
-  }
-
-  Future<void> _initializePlayer() async {
-    if (_player != null) return;
-    if (!playerAllowed) throw StateError('主窗口不能创建原生播放器');
-    BTLogTool.info('开始初始化原生播放器');
-    MediaKit.ensureInitialized();
-    // Render subtitles with mpv/libass so ASS styling and embedded fonts are
-    // preserved instead of reducing every subtitle track to Flutter text.
-    var player = Player(
-      configuration: PlayerConfiguration(
-        libass: true,
-        logLevel: Platform.isWindows ? MPVLogLevel.v : MPVLogLevel.info,
-      ),
-    );
-    var diagnostics = _diagnostics = PlaybackDiagnostics(
-      player,
-      context: () {
-        var rect = _video?.rect.value;
-        return {
-          'file': current?.filePath,
-          'loading': loading,
-          'upscale': _upscale.preferredMode.name,
-          'loudness': loudnessActive,
-          'hires_requested': _audio.hiResEnabled,
-          'audio_exclusive_requested': _audio.audioExclusiveEnabled,
-          'audio_exclusive_configured': _audio.exclusiveConfigured,
-          'hires_status': hiRes.status,
-          'texture': rect == null ? null : '${rect.width}x${rect.height}',
-          'upscale_configured': _upscaler?.configuredMode?.name,
-        };
-      },
-    );
-    // Subscribe before the rendering context is created. Keep only capability
-    // evidence until the per-Player coordinator exists, never the full log.
-    var earlyLogs = <PlayerLog>[];
-    var logs = player.stream.log.listen((value) {
-      diagnostics.log(value);
-      _audio.log(value);
-      var upscale = _upscaler;
-      if (upscale != null) {
-        upscale.log(value.prefix, value.level, value.text);
-      } else if (earlyLogs.length < 16 &&
-          (value.text.contains('GL_RENDERER=') ||
-              value.text.contains('High bit depth FBOs unsupported'))) {
-        earlyLogs.add(value);
-      }
-    });
-    var chapters = PlaybackChapters(
-      player.platform as NativePlayer,
-      onChanged: _notify,
-    );
-    var janaiSource = PlaybackJanaiVideoSource(
-      read: diagnostics.readProperty,
-      onChanged: _notify,
-    );
-    try {
-      await PlaybackCache.configure(player);
-      await PlaybackSubtitles.configure(player);
-      await PlaybackAudio.apply(player, false);
-      await chapters.initialize();
-      var native = player.platform as NativePlayer;
-      if (Platform.isWindows) {
-        // Use the shader-capable pipeline from the first frame. mpv's simple
-        // path samples the padded D3D11 decoder texture differently (e.g.
-        // 1088 vs 1080 lines), shifting the picture when shaders are toggled.
-        // Set this before VideoController creates the rendering context so
-        // ordinary playback and upscale recovery share the same cropping.
-        await native.setProperty('gpu-dumb-mode', 'no');
-        for (var property in ['current-tracks/video', 'video-dec-params']) {
-          await native.observeProperty(property, (_) async {
-            unawaited(janaiSource.refresh());
-          });
-        }
-      }
-      for (var property in ['audio-out-params', 'current-tracks/audio']) {
-        await native.observeProperty(property, (_) async {
-          _audio.scheduleRefresh();
-        });
-      }
-      if (Platform.isWindows) {
-        await PlaybackLoudness.apply(player, loudnessActive);
-      }
-    } catch (error, stackTrace) {
-      BTLogTool.error(['初始化播放器失败：$error', stackTrace.toString()]);
-      diagnostics.close();
-      chapters.close();
-      janaiSource.close();
-      await logs.cancel();
-      await _disposePlayer(player);
-      rethrow;
-    }
-    if (_closed) {
-      diagnostics.close();
-      chapters.close();
-      janaiSource.close();
-      await logs.cancel();
-      await _disposePlayer(player);
-      return;
-    }
-    _player = player;
-    _chapters = chapters;
-    _janaiVideoSource = janaiSource;
-    // Keep the same GPU decoder for plain playback, Anime4K and AnimeJaNai.
-    // The coordinator only changes filters after checking the media's range.
-    _video = VideoController(
-      player,
-      configuration: VideoControllerConfiguration(
-        hwdec: Platform.isWindows
-            ? NativePlaybackUpscaleBackend.hardwareDecoder
-            : null,
-      ),
-    );
-    if (Platform.isWindows) {
-      var video = _video!;
-      _upscaler = _upscale.createUpscaler(player, video, diagnostics);
-      for (var value in earlyLogs) {
-        _upscaler!.log(value.prefix, value.level, value.text);
-      }
-      _textureListener = _updateTexture;
-      video.rect.addListener(_updateTexture);
-      _updateTexture();
-    }
-    _subscriptions.addAll([
-      logs,
-      player.stream.playing.listen((value) {
-        diagnostics.event('播放状态改变：playing=$value');
-        _upscaler?.playbackState(
-          playing: value,
-          buffering: player.state.buffering,
-        );
-      }),
-      player.stream.buffering.listen((value) {
-        diagnostics.event('缓冲状态改变：buffering=$value');
-        _upscaler?.playbackState(
-          playing: player.state.playing,
-          buffering: value,
-        );
-      }),
-      player.stream.rate.listen((value) {
-        diagnostics.event('播放速率改变：rate=$value');
-        _upscaler?.playbackRate(value);
-        _audio.scheduleRefresh();
-        _notify();
-      }),
-      player.stream.audioParams.listen((_) => _audio.scheduleRefresh()),
-      player.stream.audioDevice.listen((_) => _audio.deviceChanged()),
-      player.stream.tracks.listen((_) {
-        if (Platform.isWindows) unawaited(janaiSource.refresh());
-        if (_closed || completed || _manualSubtitles || current == null) return;
-        var sessionId = _session.id;
-        unawaited(
-          _serial(() async {
-            if (_session.id != sessionId || current == null) return;
-            await _autoSelectSubtitle();
-          }).catchError((Object _) {}),
-        );
-      }),
-      player.stream.position.listen((value) {
-        if (!_closed && !loading && current != null) position = value;
-      }),
-      player.stream.duration.listen((value) {
-        // Duration may arrive only once, while open or subtitle loading is
-        // still pending. _openIndex resets it before opening the new media.
-        if (!_closed && current != null && value > Duration.zero) {
-          duration = value;
-        }
-      }),
-      player.stream.videoParams.listen((value) {
-        if (_closed || current == null) return;
-        if (Platform.isWindows) unawaited(janaiSource.refresh());
-        var source = _videoSource(value);
-        _upscaler?.source(source);
-        var ratio = playbackAspectRatio(
-          aspect: value.aspect,
-          width: value.dw ?? value.w,
-          height: value.dh ?? value.h,
-          rotation: value.rotate,
-        );
-        // 像素尺寸参与窗口缩放，等比例的分辨率切换也必须通知界面。
-        var size = source == null
-            ? null
-            : Size(source.width.toDouble(), source.height.toDouble());
-        if (ratio == _aspectRatio && size == _videoSize) return;
-        _aspectRatio = ratio;
-        _videoSize = size;
-        _notify();
-      }),
-      player.stream.error.listen((value) {
-        diagnostics.failure(value);
-        if (_closed || current == null) return;
-        if (_upscaler?.consumesError(value) ?? false) return;
-        error = value;
-        _notify();
-      }),
-      player.stream.completed.listen((value) {
-        if (_closed || _clearingPlayback || loading || current == null) return;
-        completed = value;
-        if (!value) return;
-        diagnostics.event('视频播放完成');
-        var snapshot = _session.finish(position: position, duration: duration);
-        if (snapshot == null) return;
-        var items = playlist;
-        var finishedIndex = index;
-        unawaited(
-          // Matching runs alongside the durable write, outside the operation
-          // queue. Refreshing the full history waits until after the switch.
-          Future.wait<int?>([
-                _serial(() async {
-                  if (_session.id != snapshot.sessionId) return;
-                  await historyStore.write(snapshot.historyItem);
-                  if (_closed) return;
-                  _completions.add(snapshot);
-                  _notify();
-                }).then((_) => null),
-                library.nextEpisodeIndex(items, finishedIndex),
-              ])
-              .then((results) async {
-                if (_closed ||
-                    _clearingPlayback ||
-                    _session.id != snapshot.sessionId) {
-                  return;
-                }
-                var nextIndex = results[1];
-                if (nextIndex == null) {
-                  await refreshHistory();
-                  return;
-                }
-                await _serial(() async {
-                  if (_closed ||
-                      _clearingPlayback ||
-                      _session.id != snapshot.sessionId) {
-                    return;
-                  }
-                  var nextKey = items[nextIndex].key;
-                  var liveIndex = playlist.indexWhere(
-                    (item) => item.key == nextKey,
-                  );
-                  if (liveIndex >= 0) await _openIndex(liveIndex);
-                });
-              })
-              .catchError((Object failure) {
-                if (_closed || _session.id != snapshot.sessionId) return;
-                error = '自动切换下一集失败：$failure';
-                _notify();
-              }),
-        );
-      }),
-    ]);
-    _saveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (_closed ||
-          _clearingPlayback ||
-          loading ||
-          !player.state.playing ||
-          completed) {
-        return;
-      }
-      // Persist progress without fetching/grouping the entire library or
-      // rebuilding the video surface every five seconds during playback.
-      unawaited(
-        _serial(() async {
-          if (!_clearingPlayback) await _save(refreshHistory: false);
-        }).catchError((Object _) {}),
-      );
-    });
-  }
 
   /// Browsing history must not probe CUDA or verify TensorRT runtime files.
   /// Playback preferences are loaded when opening media or changing settings.
@@ -834,7 +525,7 @@ class PlaybackStore extends ChangeNotifier {
     await timing.measure('加载播放设置', _loadPreferences);
     if (_closed) return;
     _setOpeningStatus('正在初始化播放器…');
-    await timing.measure('初始化原生播放器', _initializePlayer);
+    await timing.measure('初始化原生播放器', _mpv.initialize);
     if (_closed) return;
     _setOpeningStatus('正在打开视频…');
     loading = true;
@@ -844,37 +535,38 @@ class PlaybackStore extends ChangeNotifier {
       _manualSubtitles = true;
       _loadedSubtitleFiles.clear();
       _importedSubtitlePaths.clear();
-      _chapters?.reset();
-      _janaiVideoSource?.reset();
+      _mpv.chapters?.reset();
+      _mpv.janaiVideoSource?.reset();
       await timing.measure(
         '重置超分',
-        () => _upscaler?.resetMedia(keepOutput: true) ?? Future<void>.value(),
+        () =>
+            _mpv.upscaler?.resetMedia(keepOutput: true) ?? Future<void>.value(),
       );
       if (_closed) return;
-      await timing.measure('停止旧媒体', () => _player!.stop());
+      await timing.measure('停止旧媒体', () => _mpv.player!.stop());
       await timing.measure('重置音频', _audio.reset);
       if (_closed) return;
       playlist = nextPlaylist;
       index = nextIndex;
       _session.begin(item);
       _prepareNextEpisode();
-      _janaiVideoSource?.reset(active: true);
+      _mpv.janaiVideoSource?.reset(active: true);
       _manualSubtitles = false;
       position = previous?.resumePosition ?? Duration.zero;
       duration = Duration(milliseconds: previous?.durationMs ?? 0);
       completed = false;
-      _diagnostics?.opening(item.filePath, position);
+      _mpv.diagnostics?.opening(item.filePath, position);
       // Keep the previous aspect ratio until the new stream reports its own, so
       // auto-advancing between episodes (usually the same ratio) does not make
       // the playback surface size jump.
       await timing.measure(
         '设置字幕轨道',
-        () => _player!.setSubtitleTrack(SubtitleTrack.no()),
+        () => _mpv.player!.setSubtitleTrack(SubtitleTrack.no()),
       );
-      _chapters?.reset(active: true);
+      _mpv.chapters?.reset(active: true);
       await timing.measure(
         '打开媒体',
-        () => _player!.open(Media(item.filePath, start: position)),
+        () => _mpv.player!.open(Media(item.filePath, start: position)),
       );
       if (_closed) return;
       _setOpeningStatus('正在恢复播放状态…');
@@ -883,19 +575,21 @@ class PlaybackStore extends ChangeNotifier {
       await timing.measure('选择字幕', _autoSelectSubtitle);
       await timing.measure(
         '读取章节',
-        () => _chapters?.refresh() ?? Future<void>.value(),
+        () => _mpv.chapters?.refresh() ?? Future<void>.value(),
       );
-      _upscaler?.mediaReady(_videoSource(_player!.state.videoParams));
-      if (Platform.isWindows) unawaited(_janaiVideoSource?.refresh());
-      _updateTexture();
+      _mpv.upscaler?.mediaReady(
+        PlaybackMpvCoordinator.videoSource(_mpv.player!.state.videoParams),
+      );
+      if (Platform.isWindows) unawaited(_mpv.janaiVideoSource?.refresh());
+      _mpv.updateTexture();
     } catch (e) {
       index = -1;
-      _janaiVideoSource?.reset();
+      _mpv.janaiVideoSource?.reset();
       _manualSubtitles = true;
-      _chapters?.reset();
+      _mpv.chapters?.reset();
       _session.clear();
       // A failed open must release any output retained for an episode switch.
-      await _upscaler?.resetMedia();
+      await _mpv.upscaler?.resetMedia();
       rethrow;
     } finally {
       loading = false;
@@ -912,25 +606,27 @@ class PlaybackStore extends ChangeNotifier {
   });
 
   Future<void> pause() => _serial(() async {
-    await _player?.pause();
+    await _mpv.player?.pause();
     await _save();
   });
 
   /// Capture before queued media changes reset the renderer. Once copied, the
   /// image belongs to this request even if another episode starts afterwards.
   Future<({Uint8List image, Duration position})?> captureScreenshot() async {
-    var player = _player;
+    var player = _mpv.player;
     if (_closed || loading || player == null || current == null) return null;
     var sessionId = _session.id;
     var capturedPosition = player.state.position;
     ({Uint8List image, Duration position})? screenshot;
     await _serial(() async {
-      if (_session.id != sessionId || _player != player || current == null) {
+      if (_session.id != sessionId ||
+          _mpv.player != player ||
+          current == null) {
         return;
       }
       var image = await PlaybackScreenshot.capture(
         player,
-        rendered: _upscaler?.configuredMode != null,
+        rendered: _mpv.upscaler?.configuredMode != null,
       );
       if (image == null || image.isEmpty) {
         throw const PlaybackUnavailable('当前没有可截取的视频画面');
@@ -941,7 +637,7 @@ class PlaybackStore extends ChangeNotifier {
   }
 
   Future<void> _autoSelectSubtitle() async {
-    var player = _player;
+    var player = _mpv.player;
     if (_closed || player == null || _manualSubtitles || current == null) {
       return;
     }
@@ -989,7 +685,7 @@ class PlaybackStore extends ChangeNotifier {
 
   Future<void> _loadImportedSubtitles() async {
     var item = current;
-    var player = _player;
+    var player = _mpv.player;
     if (_closed || item == null || player == null) return;
     try {
       for (var file in await _subtitleFiles.read(item)) {
@@ -1024,7 +720,7 @@ class PlaybackStore extends ChangeNotifier {
     return _serial(() async {
       if (_session.id != sessionId || current == null) return;
       if (!automatic) {
-        await _player?.setSubtitleTrack(track);
+        await _mpv.player?.setSubtitleTrack(track);
       } else {
         await _autoSelectSubtitle();
       }
@@ -1091,7 +787,7 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> setRate(double rate) => _serial(() => _setRate(rate));
 
   Future<void> _setRate(double rate) async {
-    var player = _player;
+    var player = _mpv.player;
     if (player == null) return;
     rate = PlaybackRateMemory.normalize(rate);
     await player.setRate(rate);
@@ -1100,13 +796,13 @@ class PlaybackStore extends ChangeNotifier {
   }
 
   Future<void> stepRate(double delta) => _serial(() async {
-    var player = _player;
+    var player = _mpv.player;
     if (player == null) return;
     await _setRate(PlaybackRateMemory.step(player.state.rate, delta));
   });
 
   Future<void> toggleRate() => _serial(() async {
-    var player = _player;
+    var player = _mpv.player;
     if (player == null) return;
     var rate = await _rateMemory.toggle(player.state.rate);
     if (_closed) return;
@@ -1152,7 +848,7 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> restoreUpscaleMode() => _serial(() async {
     // Recheck after queued media/settings changes to avoid restoring a stale
     // notice's mode in another episode or after the user selects a new mode.
-    var mode = _upscaler?.restorableMode;
+    var mode = _mpv.upscaler?.restorableMode;
     if (mode != null) await _upscale.setUpscaleMode(mode);
   });
 
@@ -1175,7 +871,7 @@ class PlaybackStore extends ChangeNotifier {
     var ready = progress.run('等待当前播放操作完成', () => pending);
     return _serial(() async {
       await ready;
-      await progress.run('暂停超分更新', () async => _upscaler?.suspendMedia());
+      await progress.run('暂停超分更新', () async => _mpv.upscaler?.suspendMedia());
       await progress.run('退出全屏', () async => beforeVideoDispose?.call());
       await _stop(refreshHistory: false, progress: progress);
       _sourceDir = null;
@@ -1183,11 +879,11 @@ class PlaybackStore extends ChangeNotifier {
       _aspectRatio = null;
       _videoSize = null;
       error = null;
-      _diagnostics?.stopped();
+      _mpv.diagnostics?.stopped();
       _notify();
     }).whenComplete(() {
       _clearingPlayback = false;
-      _syncIdlePlayerTimer();
+      _mpv.syncIdleTimer();
     });
   }
 
@@ -1198,16 +894,16 @@ class PlaybackStore extends ChangeNotifier {
     var stages = progress ?? const PlaybackCloseProgress();
     await stages.run('保存播放进度', () => _save(refreshHistory: refreshHistory));
     loading = true;
-    _janaiVideoSource?.reset();
+    _mpv.janaiVideoSource?.reset();
     try {
       _manualSubtitles = true;
-      _chapters?.reset();
-      await stages.run('等待超分操作完成', () async => _upscaler?.suspendMedia());
+      _mpv.chapters?.reset();
+      await stages.run('等待超分操作完成', () async => _mpv.upscaler?.suspendMedia());
       if (_closed) return;
       // Resetting vf/shaders while a video is loaded can rebuild its decoder
       // and inference chain. Stop first, then clear options on the idle player.
-      await stages.run('停止媒体播放', () async => _player?.stop());
-      await stages.run('清理超分配置', () async => _upscaler?.resetMedia());
+      await stages.run('停止媒体播放', () async => _mpv.player?.stop());
+      await stages.run('清理超分配置', () async => _mpv.upscaler?.resetMedia());
       await stages.run('恢复音频配置', _audio.reset);
       _session.clear();
       index = -1;
@@ -1274,12 +970,12 @@ class PlaybackStore extends ChangeNotifier {
       loading = true;
       try {
         _manualSubtitles = true;
-        _chapters?.reset();
+        _mpv.chapters?.reset();
         await beforeVideoDispose?.call();
-        await _upscaler?.suspendMedia();
+        await _mpv.upscaler?.suspendMedia();
         if (_closed) return;
-        await _player?.stop();
-        await _upscaler?.resetMedia();
+        await _mpv.player?.stop();
+        await _mpv.upscaler?.resetMedia();
         await _audio.reset();
         _session.clear();
         index = -1;
@@ -1302,35 +998,14 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> waitForShutdownSettlement() =>
       _lifecycle.waitForSettlement(shutdown);
 
-  Future<void> _disposePlayer(Player player, {PlaybackUpscaler? upscale}) {
-    var disposal = () async {
-      BTLogTool.info('开始释放原生播放器');
-      // This wait is not cancelled by the shutdown budget: native commands may
-      // still own the media_kit disposal lock after a timeout.
-      await upscale?.close();
-      await player.dispose();
-      BTLogTool.info('Player.dispose 已完成，等待原生销毁=$waitForNativeDestroy');
-    }();
-    // media_kit 1.2.6 schedules mpv_terminate_destroy 5 seconds after dispose.
-    // Do not destroy the child isolate before that timer runs, or call the
-    // native destructor ourselves (which would double-free the same handle).
-    _lifecycle.trackNativeDisposal(
-      disposal,
-      waitForNativeDestroy: waitForNativeDestroy,
-    );
-    return disposal;
-  }
-
   Future<void> _shutdown() async {
     // Refuse newly queued work before waiting for the current operation.
-    _idlePlayerTimer?.cancel();
-    _idlePlayerTimer = null;
+    _mpv.prepareShutdown();
     _upscale.dispose();
-    _diagnostics?.close();
-    _janaiVideoSource?.close();
-    _chapters?.close();
+    _mpv.diagnostics?.close();
+    _mpv.janaiVideoSource?.close();
+    _mpv.chapters?.close();
     _session.close();
-    _saveTimer?.cancel();
     _audio.releasePlayer();
     var pending = _lifecycle.pending;
     var drained = await _shutdownStep(
@@ -1370,11 +1045,7 @@ class PlaybackStore extends ChangeNotifier {
 
     // StreamController.close can wait on widget subscriptions. Unmount Video
     // and its controls while the window can still render, then dispose mpv.
-    var player = _player;
-    var textureListener = _textureListener;
-    if (textureListener != null) _video?.rect.removeListener(textureListener);
-    _textureListener = null;
-    var upscale = _upscaler;
+    var upscale = _mpv.upscaler;
     if (upscale != null) {
       await _shutdownStep(
         '停止视频超分操作',
@@ -1382,8 +1053,8 @@ class PlaybackStore extends ChangeNotifier {
         const Duration(seconds: 1),
       );
     }
-    _player = null;
-    _video = null;
+    var detached = _mpv.detachForShutdown();
+    var player = detached.player;
     index = -1;
     playlist = [];
     loading = false;
@@ -1398,8 +1069,7 @@ class PlaybackStore extends ChangeNotifier {
       );
     }
 
-    var subscriptions = List<StreamSubscription<dynamic>>.of(_subscriptions);
-    _subscriptions.clear();
+    var subscriptions = _mpv.takeSubscriptions();
     await _shutdownStep('取消播放监听', () async {
       await Future.wait(subscriptions.map((s) => s.cancel()));
     }, const Duration(seconds: 1));
@@ -1407,7 +1077,7 @@ class PlaybackStore extends ChangeNotifier {
     if (player != null && drained) {
       await _shutdownStep(
         '释放原生播放器',
-        () => _disposePlayer(player, upscale: upscale),
+        () => _mpv.disposePlayer(player, upscale: upscale),
         const Duration(seconds: 2),
       );
     } else if (player != null) {
@@ -1425,7 +1095,7 @@ class PlaybackStore extends ChangeNotifier {
             BTLogTool.warn('迟到播放位置保存失败：$error');
           }
         }
-        await _disposePlayer(player, upscale: upscale);
+        await _mpv.disposePlayer(player, upscale: upscale);
       }();
       _lifecycle.trackCleanup(
         cleanup.catchError((Object error) {
