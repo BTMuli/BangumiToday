@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive_ce.dart';
 
 // Project imports:
-import '../core/container.dart';
 import '../database/bangumi/bangumi_collection.dart';
 import '../database/bangumi/bangumi_user.dart';
 import '../models/app/response.dart';
@@ -323,8 +322,20 @@ class BgmUserStore extends Notifier<BgmUserState> {
 class BgmUserHive {
   BgmUserHive._();
 
-  static BgmUserStore get _store =>
-      globalContainer.read(bgmUserStoreProvider.notifier);
+  static BgmUserStore? _attached;
+
+  /// 在打开 Hive 与 Token 服务之前由 `main` 注入同一份 [BgmUserStore]。
+  static void attach(BgmUserStore store) {
+    _attached = store;
+  }
+
+  static BgmUserStore get _store {
+    var store = _attached;
+    if (store == null) {
+      throw StateError('BgmUserHive.attach 尚未调用');
+    }
+    return store;
+  }
 
   /// 当前登录用户
   static BangumiUser? get user => _store.user;

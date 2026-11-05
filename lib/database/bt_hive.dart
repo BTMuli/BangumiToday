@@ -2,13 +2,11 @@
 import 'package:hive_ce/hive_ce.dart';
 
 // Project imports:
-import '../core/container.dart';
 import '../core/services/file_service.dart';
 import '../models/hive/bgm_user_model.dart';
 import '../models/hive/nav_model.dart';
 import '../models/hive/tracker_model.dart';
 import '../store/bgm_user_hive.dart';
-import '../store/tracker_hive.dart';
 
 /// 采用Hive来存储本地数据
 class BTHiveTool {
@@ -30,7 +28,7 @@ class BTHiveTool {
   /// Flush and close all boxes before native application teardown begins.
   static Future<void> close() => Hive.close();
 
-  /// 初始化
+  /// 打开 box 并初始化用户；Tracker store 由 `main` 在开箱后显式 init。
   static Future<void> init() async {
     var dir = await getDataDir();
     await instance.fileTool.createDir(dir);
@@ -50,7 +48,6 @@ class BTHiveTool {
       Hive.openBox<TrackerHiveModel>('tracker'),
     ]);
     await BgmUserHive.initUser();
-    await globalContainer.read(trackerStoreProvider.notifier).init();
   }
 
   /// 初始化 navHiveBox
@@ -70,12 +67,11 @@ class BTHiveTool {
     await BgmUserHive.initUser();
   }
 
-  /// 初始化 trackerHiveBox
+  /// 初始化 trackerHiveBox；调用方自行 init Tracker store。
   static Future<void> initTrackerHiveBox() async {
     if (!Hive.isAdapterRegistered(3)) {
       Hive.registerAdapter(TrackerHiveAdapter());
     }
     await Hive.openBox<TrackerHiveModel>('tracker');
-    await globalContainer.read(trackerStoreProvider.notifier).init();
   }
 }

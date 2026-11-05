@@ -179,7 +179,7 @@ class TrackerStore extends Notifier<TrackerState> {
 
   /// 从数据库读取配置，并为新增来源准备空快照。
   ///
-  /// 由 `BTHiveTool.init()` 在 box 打开后调用；重复调用是幂等的。
+  /// 由 `main` 在 tracker box 打开后调用；重复调用是幂等的。
   Future<void> init() async {
     _config = await BtsAppConfig().readBtTrackerConfig();
     await _ensureSourceSnapshots();

@@ -283,7 +283,10 @@ Future<void> _initBackgroundServices() async {
     await appConfig.readUseSystemProxy(),
     settings: await appConfig.readProxySettings(),
   );
+  BgmUserHive.attach(globalContainer.read(bgmUserStoreProvider.notifier));
   await BTHiveTool.init();
+  var trackerStore = globalContainer.read(trackerStoreProvider.notifier);
+  await trackerStore.init();
   unawaited(
     _runOptionalService('Bangumi Token 预刷新', () async {
       await BangumiTokenService.instance.ensureFresh();
@@ -292,7 +295,6 @@ Future<void> _initBackgroundServices() async {
   var btDownloadConfig = await appConfig.readBtDownloadConfig();
   var useDownloadSystemProxy = await appConfig.readUseDownloadSystemProxy();
   var themeMode = await appConfig.readThemeMode();
-  var trackerStore = globalContainer.read(trackerStoreProvider.notifier);
 
   if (Platform.isWindows) {
     await _runOptionalService('系统代理监听', () async {
