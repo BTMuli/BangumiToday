@@ -7,9 +7,9 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../models/app/response.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
-import '../../tools/log_tool.dart';
 import '../constants/app_constants.dart';
 import 'app_link_service.dart';
 

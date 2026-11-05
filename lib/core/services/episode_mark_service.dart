@@ -2,13 +2,13 @@
 import 'dart:async';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../domain/repositories/episode_mark_gateway.dart';
 import '../../domain/repositories/playback_episode_links.dart';
 import '../../models/playback/episode_mark_state.dart';
 import '../../models/playback/playback_episode_link.dart';
 import '../../models/playback/playback_episode_rule.dart';
 import '../../models/playback/playback_item.dart';
-import '../../tools/log_tool.dart';
 import '../utils/episode_num_extractor.dart';
 
 class EpisodeMarkCandidate {

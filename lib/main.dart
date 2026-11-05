@@ -18,6 +18,7 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/container.dart';
+import 'core/logging/log_tool.dart';
 import 'core/services/app_link_service.dart';
 import 'core/services/bangumi_oauth_coordinator.dart';
 import 'core/services/bangumi_token_service.dart';
@@ -45,7 +46,6 @@ import 'store/bt_download_store.dart';
 import 'store/nav_store.dart';
 import 'store/playback_store.dart';
 import 'store/tracker_hive.dart';
-import 'tools/log_tool.dart';
 import 'widgets/shell/splash.dart';
 
 Future<bool>? _applicationExitFuture;

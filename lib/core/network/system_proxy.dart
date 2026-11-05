@@ -2,7 +2,7 @@
 import 'dart:io';
 
 // Project imports:
-import '../../tools/log_tool.dart';
+import '../../core/logging/log_tool.dart';
 
 /// Windows 当前用户的 Internet 代理配置。
 class SystemProxyConfig {

@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 
 // Project imports:
-import '../../tools/log_tool.dart';
+import '../../core/logging/log_tool.dart';
 
 /// 应用链接的唯一系统订阅入口。
 ///

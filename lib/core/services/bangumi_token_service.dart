@@ -1,9 +1,9 @@
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
 import '../../store/bgm_user_hive.dart';
-import '../../tools/log_tool.dart';
 
 /// 刷新授权所需的 Token 状态读取器。
 typedef BangumiTokenReader = String? Function();

@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../database/app/app_bmf.dart';
 import '../../database/app/app_subscription.dart';
 import '../../database/drift/dataset_storage.dart';
@@ -15,7 +16,6 @@ import '../../models/database/app_bmf_model.dart';
 import '../../models/database/app_subscription_model.dart';
 import '../../models/rss/rss.dart';
 import '../../request/mikan/mikan_api.dart';
-import '../../tools/log_tool.dart';
 import '../cache/subject_cache.dart';
 import '../utils/async_pool.dart';
 import '../utils/keyed_request_pool.dart';

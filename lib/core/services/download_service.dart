@@ -4,9 +4,9 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path/path.dart' as path;
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../models/app/response.dart';
 import '../../request/core/client.dart';
-import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import 'file_service.dart';

@@ -13,7 +13,7 @@ import 'package:win32/win32.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Project imports:
-import '../../tools/log_tool.dart';
+import '../../core/logging/log_tool.dart';
 import 'windows_tray_resources.dart';
 
 /// 在 Dart 所在线程上派发 Win32 消息。
