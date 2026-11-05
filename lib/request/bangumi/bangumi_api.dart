@@ -8,7 +8,6 @@ import 'package:dio/dio.dart';
 import '../../core/cache/cache_manager.dart';
 import '../../core/cache/subject_cache.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/container.dart';
 import '../../core/services/bangumi_token_service.dart';
 import '../../data/parsers/bangumi_private_parser.dart';
 import '../../models/app/bangumi_mirror.dart';
@@ -21,7 +20,6 @@ import '../../models/bangumi/request_episode.dart';
 import '../../models/bangumi/request_search.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../models/bangumi/request_user.dart';
-import '../../store/bgm_user_hive.dart';
 import '../../tools/log_tool.dart';
 import '../core/client.dart';
 import 'bangumi_error_handler.dart';
@@ -147,24 +145,19 @@ class BtrBangumiApi {
       username == _accountUsername();
 
   /// 构造函数
+  ///
+  /// 账号会话需由调用方注入（生产路径走 [bangumiApiProvider]）；未注入时按匿名会话。
   BtrBangumiApi({
     BangumiTokenService? tokenService,
     BangumiRequestAccount Function()? accountSession,
     String? Function()? accountUsername,
-  }) : _accountSession = accountSession ?? _defaultAccountSession,
-       _accountUsername = accountUsername ?? _defaultAccountUsername {
+  }) : _accountSession =
+           accountSession ?? (() => (userId: null, generation: 0)),
+       _accountUsername = accountUsername ?? (() => null) {
     client = BtrClient.withAuth(tokenService: tokenService);
     client.dio.options.baseUrl = baseUrl;
     client.dio.interceptors.insert(0, _BangumiBaseUrlInterceptor());
   }
-
-  static BangumiRequestAccount _defaultAccountSession() {
-    var user = globalContainer.read(bgmUserStoreProvider);
-    return (userId: user.user?.id, generation: user.sessionGeneration);
-  }
-
-  static String? _defaultAccountUsername() =>
-      globalContainer.read(bgmUserStoreProvider).user?.username;
 
   String _requestKey(
     String method,

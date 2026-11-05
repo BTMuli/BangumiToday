@@ -10,8 +10,7 @@ import 'bangumi_remote_data_source.dart';
 class BTBangumiRemoteDataSourceImpl implements BTBangumiRemoteDataSource {
   final BtrBangumiApi _api;
 
-  BTBangumiRemoteDataSourceImpl({BtrBangumiApi? api})
-    : _api = api ?? BtrBangumiApi();
+  BTBangumiRemoteDataSourceImpl({required BtrBangumiApi api}) : _api = api;
 
   @override
   Future<BTResponse<List<BangumiCalendarRespData>>> getToday() async {
