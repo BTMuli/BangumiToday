@@ -2,6 +2,18 @@ part of '../subject_rss_search_dialog.dart';
 
 enum _RssSearchSource { mikan, anibt }
 
+/// AppConfig 键：记住上次 RSS 搜索来源（`anibt` / `mikan`）。
+const _rssSearchSourceConfigKey = 'rssSearchSource';
+
+/// 会话内回退：AppConfig 异步读出前，或读写失败时沿用本次进程内上次选择。
+_RssSearchSource? _sessionRssSearchSource;
+
+_RssSearchSource _parseRssSearchSource(String? value) {
+  if (value == 'mikan') return _RssSearchSource.mikan;
+  if (value == 'anibt') return _RssSearchSource.anibt;
+  return _sessionRssSearchSource ?? _RssSearchSource.anibt;
+}
+
 class _RssSearchSelection {
   final _RssSearchSource source;
   final String animeId;

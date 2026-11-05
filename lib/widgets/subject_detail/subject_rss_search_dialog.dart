@@ -11,6 +11,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/services/download_directory.dart';
 import '../../core/services/download_service.dart';
 import '../../core/utils/tool_func.dart';
+import '../../database/app/app_config.dart';
 import '../../models/app/rss_selection_behavior.dart';
 import '../../models/mikan/mikan_model.dart';
 import '../../models/rss/anibt_filters.dart';
@@ -62,7 +63,10 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
   String? _error;
   int _generation = 0;
 
-  /// 已展开的条目与字幕组；跨搜索保留，避免重新加载已取回的字幕组。
+  /// 已展开的条目与字幕组。
+  ///
+  /// 默认只展一层：条目可展开，字幕组/第二层默认折叠；每次搜索重置展开集合，
+  /// 避免上次深层展开在新结果里一次性铺开。字幕组数据仍由下方 state 缓存。
   final _expandedItems = <String>{};
   final _expandedGroups = <String>{};
   final _anibtStates = <String, _AnibtGroupsState>{};
@@ -72,7 +76,36 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
   void initState() {
     super.initState();
     _query = TextEditingController(text: widget.title);
-    unawaited(_search());
+    var session = _sessionRssSearchSource;
+    if (session != null) _source = session;
+    unawaited(_bootstrap());
+  }
+
+  /// 恢复上次搜索来源后再发起首次搜索。
+  Future<void> _bootstrap() async {
+    var source = _source;
+    try {
+      var saved = await BtsAppConfig().read(_rssSearchSourceConfigKey);
+      if (!mounted) return;
+      source = _parseRssSearchSource(saved);
+    } catch (_) {
+      // AppConfig 过重失败时退回会话/默认来源，行为语义不变。
+      source = _parseRssSearchSource(null);
+    }
+    _sessionRssSearchSource = source;
+    if (_source != source) {
+      setState(() => _source = source);
+    }
+    await _search();
+  }
+
+  Future<void> _persistSource(_RssSearchSource source) async {
+    _sessionRssSearchSource = source;
+    try {
+      await BtsAppConfig().write(_rssSearchSourceConfigKey, source.name);
+    } catch (_) {
+      // 持久化失败仍保留会话记忆，下次打开同一进程可复用。
+    }
   }
 
   @override
@@ -95,6 +128,9 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
       _selection = null;
       _error = null;
       _loading = false;
+      // 新搜索默认折叠，仅允许用户再展一层条目。
+      _expandedItems.clear();
+      _expandedGroups.clear();
     });
     if (query.isEmpty ||
         (source == _RssSearchSource.anibt && query.length > 100)) {
@@ -176,6 +212,7 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
   void _changeSource(_RssSearchSource source) {
     if (_source == source || _saving) return;
     setState(() => _source = source);
+    unawaited(_persistSource(source));
     unawaited(_search());
   }
 
@@ -784,61 +821,79 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
 
   @override
   Widget build(BuildContext context) {
+    var screenHeight = MediaQuery.sizeOf(context).height;
+    // 内容区随窗口伸缩，去掉固定 480 / 过死的 760。
+    var dialogMaxHeight = screenHeight * 0.85;
+    var contentUpper = dialogMaxHeight - 160;
+    if (contentUpper < 280) contentUpper = 280;
+    var contentHeight = (screenHeight * 0.55).clamp(280.0, contentUpper);
     return PopScope(
       canPop: !_saving,
       child: ContentDialog(
-        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 760),
+        constraints: BoxConstraints(
+          maxWidth: 620,
+          maxHeight: dialogMaxHeight,
+        ),
         title: const Text('搜索番剧 RSS'),
-        content: SizedBox(
-          height: 480,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Text('搜索来源'),
-                  const SizedBox(width: 12),
-                  ToggleButton(
-                    checked: _source == _RssSearchSource.mikan,
-                    onChanged: _saving
-                        ? null
-                        : (_) => _changeSource(_RssSearchSource.mikan),
-                    child: const Text('Mikan'),
-                  ),
-                  const SizedBox(width: 8),
-                  ToggleButton(
-                    checked: _source == _RssSearchSource.anibt,
-                    onChanged: _saving
-                        ? null
-                        : (_) => _changeSource(_RssSearchSource.anibt),
-                    child: const Text('AniBT'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextBox(
-                      controller: _query,
-                      placeholder: '输入番剧名称',
-                      autofocus: true,
-                      enabled: !_saving,
-                      onSubmitted: (_) => unawaited(_search()),
+        content: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: 280,
+            maxHeight: contentHeight,
+          ),
+          child: SizedBox(
+            height: contentHeight,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Text('搜索来源'),
+                    const SizedBox(width: 12),
+                    ToggleButton(
+                      checked: _source == _RssSearchSource.mikan,
+                      onChanged: _saving
+                          ? null
+                          : (_) => _changeSource(_RssSearchSource.mikan),
+                      child: const Text('Mikan'),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _saving ? null : _search,
-                    child: const Text('搜索'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Text('选择整个番剧或字幕组后，在底部确认；展开字幕组查看资源详情。'),
-              const SizedBox(height: 12),
-              Expanded(child: _results()),
-            ],
+                    const SizedBox(width: 8),
+                    ToggleButton(
+                      checked: _source == _RssSearchSource.anibt,
+                      onChanged: _saving
+                          ? null
+                          : (_) => _changeSource(_RssSearchSource.anibt),
+                      child: const Text('AniBT'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextBox(
+                        controller: _query,
+                        placeholder: '输入番剧名称',
+                        autofocus: true,
+                        enabled: !_saving,
+                        onSubmitted: (_) => unawaited(_search()),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: _saving ? null : _search,
+                      child: const Text('搜索'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  '先展开条目选择番剧或字幕组，再在底部确认；'
+                  '展开字幕组可查看资源详情。',
+                ),
+                const SizedBox(height: 12),
+                Expanded(child: _results()),
+              ],
+            ),
           ),
         ),
         actions: [_actionBar()],
