@@ -23,6 +23,7 @@ import '../../database/app/app_subscription.dart';
 import '../../database/bangumi/bangumi_data.dart';
 import '../../database/drift/bt_database.dart';
 import '../../models/database/app_bmf_model.dart';
+import '../../models/database/app_rss_cache_model.dart';
 import '../../models/database/app_subscription_model.dart';
 import '../../models/rss/rss.dart';
 import '../../providers/app_providers.dart';
@@ -96,7 +97,7 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
   void initState() {
     super.initState();
     _broadcastTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) setState(() {});
+      _refreshBroadcastClock();
     });
     _calendarSettingsSubscription = BtsAppConfig()
         .watchCalendarSettings()
@@ -124,10 +125,41 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
           ifAbsent: () => 1,
         );
       });
-      unawaited(
-        _loadUpdateStates(_filterModel.filteredList, _statusLoadGeneration),
-      );
+      unawaited(_loadUpdateStateForSubject(subject, _statusLoadGeneration));
     });
+  }
+
+  /// 仅在放送分类实际变化时重建，避免每分钟无意义整页 setState。
+  void _refreshBroadcastClock() {
+    if (!mounted) return;
+    var bmfList = ref.read(bmfListProvider).value;
+    if (bmfList == null) return;
+    var beforeNext = Map<int, BmfBroadcast>.of(_filterModel.nextBroadcasts);
+    var beforeRecent = Map<int, BmfBroadcast>.of(_filterModel.recentBroadcasts);
+    _filterModel.applyFilter(bmfList);
+    if (_sameBroadcastMaps(beforeNext, _filterModel.nextBroadcasts) &&
+        _sameBroadcastMaps(beforeRecent, _filterModel.recentBroadcasts)) {
+      return;
+    }
+    setState(() {});
+  }
+
+  static bool _sameBroadcastMaps(
+    Map<int, BmfBroadcast> left,
+    Map<int, BmfBroadcast> right,
+  ) {
+    if (left.length != right.length) return false;
+    for (var entry in left.entries) {
+      var other = right[entry.key];
+      if (other == null ||
+          other.time != entry.value.time ||
+          other.episode != entry.value.episode ||
+          other.upcoming != entry.value.upcoming ||
+          other.nightMode != entry.value.nightMode) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @override
@@ -285,29 +317,10 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
       var subscriptions = await appSubscriptionStorage.readAll();
       var caches = await appSubscriptionStorage.readCaches();
       var parsed = <String, List<RssItem>>{};
-      var values = bmfList.map((item) {
-        var owned = subscriptions.where((s) => s.bmfId == item.id);
-        var items = <RssItem>[];
-        var pending = 0;
-        for (var subscription in owned) {
-          pending += subscription.pendingItemKeys.length;
-          var feedItems = parsed.putIfAbsent(subscription.feedKey, () {
-            try {
-              var xml = caches[subscription.feedKey]?.data;
-              return xml == null ? <RssItem>[] : RssFeed.parse(xml).items;
-            } catch (_) {
-              return <RssItem>[];
-            }
-          });
-          items.addAll(feedItems);
-        }
-        return (
-          item.subject,
-          pending,
-          latestRssPublishedAt(items),
-          items.length,
-        );
-      }).toList();
+      var values = [
+        for (var item in bmfList)
+          _rssStatusFor(item, subscriptions, caches, parsed),
+      ];
       if (!mounted || generation != _statusLoadGeneration) return;
       var subjects = {for (var value in values) value.$1};
       setState(() {
@@ -320,22 +333,87 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
         _filterModel.latestUpdateTimes.removeWhere(
           (subject, _) => !subjects.contains(subject),
         );
-        for (var value in values) {
-          if (_statusRevisions[value.$1] == statusRevisions[value.$1]) {
-            _filterModel.pendingCounts[value.$1] = value.$2;
-          }
-          if (_updateRevisions[value.$1] == updateRevisions[value.$1]) {
-            _filterModel.rssItemCounts[value.$1] = value.$4;
-            if (value.$3 == null) {
-              _filterModel.latestUpdateTimes.remove(value.$1);
-            } else {
-              _filterModel.latestUpdateTimes[value.$1] = value.$3!;
-            }
-          }
-        }
+        _applyRssStatusValues(
+          values,
+          statusRevisions: statusRevisions,
+          updateRevisions: updateRevisions,
+        );
       });
     } catch (error) {
       BTLogTool.warn('Failed to load BMF RSS status: $error');
+    }
+  }
+
+  Future<void> _loadUpdateStateForSubject(int subject, int generation) async {
+    var item = _filterModel.filteredList
+        .where((bmf) => bmf.subject == subject)
+        .firstOrNull;
+    item ??= ref
+        .read(bmfListProvider)
+        .value
+        ?.where((bmf) => bmf.subject == subject)
+        .firstOrNull;
+    if (item == null) return;
+    var statusRevisions = Map<int, int>.of(_statusRevisions);
+    var updateRevisions = Map<int, int>.of(_updateRevisions);
+    try {
+      var subscriptions = await appSubscriptionStorage.readAll();
+      var caches = await appSubscriptionStorage.readCaches();
+      var value = _rssStatusFor(item, subscriptions, caches, {});
+      if (!mounted || generation != _statusLoadGeneration) return;
+      setState(() {
+        _applyRssStatusValues(
+          [value],
+          statusRevisions: statusRevisions,
+          updateRevisions: updateRevisions,
+        );
+      });
+    } catch (error) {
+      BTLogTool.warn('Failed to load BMF RSS status for $subject: $error');
+    }
+  }
+
+  static (int, int, DateTime?, int) _rssStatusFor(
+    AppBmfModel item,
+    List<AppSubscriptionModel> subscriptions,
+    Map<String, AppRssCacheModel> caches,
+    Map<String, List<RssItem>> parsed,
+  ) {
+    var owned = subscriptions.where((s) => s.bmfId == item.id);
+    var items = <RssItem>[];
+    var pending = 0;
+    for (var subscription in owned) {
+      pending += subscription.pendingItemKeys.length;
+      var feedItems = parsed.putIfAbsent(subscription.feedKey, () {
+        try {
+          var xml = caches[subscription.feedKey]?.data;
+          return xml == null ? <RssItem>[] : RssFeed.parse(xml).items;
+        } catch (_) {
+          return <RssItem>[];
+        }
+      });
+      items.addAll(feedItems);
+    }
+    return (item.subject, pending, latestRssPublishedAt(items), items.length);
+  }
+
+  void _applyRssStatusValues(
+    List<(int, int, DateTime?, int)> values, {
+    required Map<int, int> statusRevisions,
+    required Map<int, int> updateRevisions,
+  }) {
+    for (var value in values) {
+      if (_statusRevisions[value.$1] == statusRevisions[value.$1]) {
+        _filterModel.pendingCounts[value.$1] = value.$2;
+      }
+      if (_updateRevisions[value.$1] == updateRevisions[value.$1]) {
+        _filterModel.rssItemCounts[value.$1] = value.$4;
+        if (value.$3 == null) {
+          _filterModel.latestUpdateTimes.remove(value.$1);
+        } else {
+          _filterModel.latestUpdateTimes[value.$1] = value.$3!;
+        }
+      }
     }
   }
 
