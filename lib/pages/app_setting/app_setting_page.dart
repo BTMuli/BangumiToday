@@ -10,9 +10,9 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
 import '../../core/constants/app_constants.dart';
+import '../../core/logging/log_tool.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../request/app_update_api.dart';
-import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import 'app_setting_bangumi.dart';

@@ -14,6 +14,7 @@ import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../core/services/playback_close_progress.dart';
 import '../../core/services/playback_window_protocol.dart';
 import '../../core/utils/window_effect.dart';
@@ -29,7 +30,6 @@ import '../../providers/playback_window_providers.dart';
 import '../../providers/subject_playback_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../store/playback_store.dart';
-import '../../tools/log_tool.dart';
 import '../../widgets/playback/playback_drop_target.dart';
 import 'playback_page.dart';
 import 'playback_window_mode.dart';

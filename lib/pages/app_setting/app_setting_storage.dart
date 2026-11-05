@@ -6,12 +6,12 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
+import '../../core/logging/log_retention.dart';
+import '../../core/logging/log_tool.dart';
 import '../../core/services/app_cache_service.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../store/playback_store.dart';
-import '../../tools/log_retention.dart';
-import '../../tools/log_tool.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
 import 'storage_cleanup_dialog.dart';

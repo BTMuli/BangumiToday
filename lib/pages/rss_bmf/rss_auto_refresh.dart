@@ -5,8 +5,8 @@ import 'dart:async';
 import 'package:fluent_ui/fluent_ui.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../core/utils/rss_date.dart';
-import '../../tools/log_tool.dart';
 
 /// Refreshes the visible feed without letting kept-alive tabs keep polling.
 class RssAutoRefresh extends StatefulWidget {

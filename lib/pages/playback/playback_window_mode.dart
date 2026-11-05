@@ -11,9 +11,9 @@ import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../models/playback/playback_on_top.dart';
 import '../../models/playback/playback_window_size.dart';
-import '../../tools/log_tool.dart';
 
 /// Owns native presentation of the independent player window. That window is
 /// always a frameless video surface: [PlaybackPage] renders only the video and

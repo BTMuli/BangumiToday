@@ -1,8 +1,8 @@
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../domain/repositories/bangumi_repository.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_model.dart';
-import '../../tools/log_tool.dart';
 
 /// 保留请求的 Future 与结果，剧集及进度在页签消费时才发起请求。
 class SubjectDetailPrefetch {

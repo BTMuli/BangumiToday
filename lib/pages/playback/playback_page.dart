@@ -19,6 +19,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 // Project imports:
 import '../../core/errors/playback_unavailable.dart';
+import '../../core/logging/log_tool.dart';
 import '../../core/services/playback_subtitle_files.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/tool_func.dart';
@@ -36,7 +37,6 @@ import '../../providers/episode_mark_providers.dart';
 import '../../providers/playback_window_providers.dart';
 import '../../store/nav_store.dart';
 import '../../store/playback_store.dart';
-import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bangumi/bt_bangumi_cover.dart';

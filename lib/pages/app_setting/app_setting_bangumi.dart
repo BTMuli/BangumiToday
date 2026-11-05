@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 // Project imports:
 import '../../controller/progress_controller.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/logging/log_tool.dart';
 import '../../core/services/bangumi_oauth_coordinator.dart';
 import '../../core/services/bangumi_token_service.dart';
 import '../../models/app/bangumi_mirror.dart';
@@ -17,7 +18,6 @@ import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
 import '../../store/app_store.dart' as app_store;
-import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';

@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import '../../controller/progress_controller.dart';
 import '../../core/errors/error_handler.dart';
+import '../../core/logging/log_tool.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../core/utils/async_pool.dart';
@@ -21,7 +22,6 @@ import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/request_subject.dart';
 import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_data.dart';
-import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../subject_search/subject_search_page.dart';
