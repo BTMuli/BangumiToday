@@ -8,18 +8,15 @@ import 'package:hive_ce/hive_ce.dart';
 
 // Project imports:
 import '../models/hive/nav_model.dart';
-import '../pages/subject_detail/subject_detail_page.dart';
-import '../widgets/shell/nav_item_icon.dart';
 
 final navStoreProvider = NotifierProvider<BTNavNotifier, BTNavState>(
   BTNavNotifier.new,
 );
 
-/// 导航状态：当前选中项、动态条目与仍需保留的页面键。
+/// 导航状态：当前选中项、动态路由描述与仍需保留的页面键。
 ///
-/// [navItems] 内部持有 [BtmAppNavItem]，包含页面 Widget 与回调，属于不可
-/// 序列化的界面描述，因此状态只保证引用不可变，不做值相等比较；
-/// [aliveKeys] 作为 LRU 判定依据需要值比较。
+/// [navItems] 仅持有 [NavRouteDescriptor]（可值比较）；页面 Widget 由
+/// shell 侧 factory 与 Notifier 的 app body 缓存组装。
 class BTNavState {
   /// 构造函数
   BTNavState({
@@ -32,8 +29,8 @@ class BTNavState {
   /// 当前选中索引
   final int curIndex;
 
-  /// 动态条目
-  final List<BtmAppNavItem> navItems;
+  /// 动态路由描述
+  final List<NavRouteDescriptor> navItems;
 
   /// 已访问页面的 LRU 键，按最近访问顺序排列。
   final List<String> aliveKeys;
@@ -44,14 +41,11 @@ class BTNavState {
   /// 内嵌播放页索引；Windows 没有播放页，返回 -1。
   int get playbackIndex => Platform.isWindows ? -1 : 3;
 
-  /// 侧边动态项
-  List<PaneItem> get paneItems => navItems.map((e) => e.body).toList();
-
   /// 动态条目只读视图
-  List<BtmAppNavItem> get dynamicNavItems => List.unmodifiable(navItems);
+  List<NavRouteDescriptor> get dynamicNavItems => List.unmodifiable(navItems);
 
   /// 条目对应的页面键
-  String pageKeyForItem(BtmAppNavItem item) {
+  String pageKeyForItem(NavRouteDescriptor item) {
     if (item.param != null && item.param!.isNotEmpty) return item.param!;
     return 'app_${item.title}';
   }
@@ -70,7 +64,7 @@ class BTNavState {
   /// 拷贝
   BTNavState copyWith({
     int? curIndex,
-    List<BtmAppNavItem>? navItems,
+    List<NavRouteDescriptor>? navItems,
     List<String>? aliveKeys,
   }) {
     return BTNavState(
@@ -81,7 +75,7 @@ class BTNavState {
     );
   }
 
-  /// 与 Riverpod 的元素比对：只关心选中项、条目集合与 LRU 键。
+  /// 与 Riverpod 的元素比对：选中项、路由描述与 LRU 键。
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -96,15 +90,18 @@ class BTNavState {
   int get hashCode => Object.hash(
     curIndex,
     topNavCount,
-    Object.hashAll(navItems.map((e) => e.param ?? e.title)),
+    Object.hashAll(navItems),
     Object.hashAll(aliveKeys),
   );
 
-  static bool _sameItems(List<BtmAppNavItem> a, List<BtmAppNavItem> b) {
+  static bool _sameItems(
+    List<NavRouteDescriptor> a,
+    List<NavRouteDescriptor> b,
+  ) {
     if (identical(a, b)) return true;
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
-      if (!identical(a[i], b[i])) return false;
+      if (a[i] != b[i]) return false;
     }
     return true;
   }
@@ -132,11 +129,23 @@ class BTNavNotifier extends Notifier<BTNavState> {
   /// 最近使用的动态条目参数，用于淘汰最旧条目。
   final List<String> _recentParams = [];
 
+  /// App 类动态页 body 缓存（不进入 [BTNavState]）。
+  final Map<String, Widget> _appPageBodies = {};
+
+  /// App 类动态页 body 世代，用于标题不变时仍触发重建。
+  final Map<String, int> _appPageEpochs = {};
+
   /// 当前选中索引
   int get curIndex => state.curIndex;
 
   /// 播放页索引
   int get playbackIndex => state.playbackIndex;
+
+  /// 读取 app 类动态页缓存的 body。
+  Widget? appPageBodyFor(NavRouteDescriptor route) {
+    if (route.type != BtmAppNavItemType.app) return null;
+    return _appPageBodies[state.pageKeyForItem(route)];
+  }
 
   @override
   BTNavState build() {
@@ -145,7 +154,7 @@ class BTNavNotifier extends Notifier<BTNavState> {
     // 按旧实现的顺序恢复动态条目并回到首页，全程只产生一个最终状态。
     var draft = BTNavState(
       curIndex: 0,
-      navItems: <BtmAppNavItem>[],
+      navItems: <NavRouteDescriptor>[],
       aliveKeys: <String>[],
       topNavCount: 4,
     );
@@ -284,23 +293,14 @@ class BTNavNotifier extends Notifier<BTNavState> {
     if (findIndex != -1 && draft.navItems[findIndex].title == title) {
       return jump ? _goIndex(draft, findIndex + draft.topNavCount) : draft;
     }
-    var pane = PaneItem(
-      icon: NavItemIcon(
-        title: title,
-        onClose: () =>
-            removeNavItem(title, type: BtmAppNavItemType.subject, param: param),
-        onCloseOthers: () => removeNavItemOthers(param),
-        onCloseAll: removeAllNavItems,
-      ),
-      title: Text(title),
-      body: SubjectDetailPage(key: ValueKey(param), id: subject.toString()),
-    );
     return _addNavItem(
       draft,
-      pane,
-      title,
-      type: BtmAppNavItemType.subject,
-      param: param,
+      NavRouteDescriptor(
+        type: BtmAppNavItemType.subject,
+        title: title,
+        param: param,
+        subjectId: subject,
+      ),
       jump: jump,
     );
   }
@@ -313,7 +313,7 @@ class BTNavNotifier extends Notifier<BTNavState> {
     String? param,
     bool jump = true,
   }) {
-    state = _addNavItem(
+    state = _addNavItemFromPane(
       state,
       item,
       title,
@@ -323,7 +323,7 @@ class BTNavNotifier extends Notifier<BTNavState> {
     );
   }
 
-  BTNavState _addNavItem(
+  BTNavState _addNavItemFromPane(
     BTNavState draft,
     PaneItem item,
     String title, {
@@ -331,41 +331,52 @@ class BTNavNotifier extends Notifier<BTNavState> {
     String? param,
     bool jump = true,
   }) {
-    item = PaneItem(
-      title: item.title,
-      body: item.body,
-      icon: item.icon,
-      trailing: Tooltip(
-        message: '关闭「$title」',
-        child: IconButton(
-          icon: const Icon(FluentIcons.clear),
-          onPressed: () {
-            removeNavItem(title, type: type, param: param);
-          },
-        ),
-      ),
-    );
-    var navItem = BtmAppNavItem(
+    var route = NavRouteDescriptor(
       type: type,
       title: title,
       param: param,
-      body: item,
+      subjectId: type == BtmAppNavItemType.subject && param != null
+          ? int.tryParse(param.replaceAll('subjectDetail_', ''))
+          : null,
     );
-    var findIndex = _navIndexOf(draft, type, title, param);
-    var items = List<BtmAppNavItem>.of(draft.navItems);
+    if (type == BtmAppNavItemType.app && item.body != null) {
+      var key = draft.pageKeyForItem(route);
+      var epoch = (_appPageEpochs[key] ?? 0) + 1;
+      _appPageEpochs[key] = epoch;
+      _appPageBodies[key] = item.body!;
+      route = NavRouteDescriptor(
+        type: route.type,
+        title: route.title,
+        param: route.param,
+        subjectId: route.subjectId,
+        bodyEpoch: epoch,
+      );
+    }
+    return _addNavItem(draft, route, jump: jump);
+  }
+
+  BTNavState _addNavItem(
+    BTNavState draft,
+    NavRouteDescriptor route, {
+    bool jump = true,
+  }) {
+    var findIndex = _navIndexOf(draft, route.type, route.title, route.param);
+    var items = List<NavRouteDescriptor>.of(draft.navItems);
     if (findIndex != -1) {
-      items[findIndex] = navItem;
+      items[findIndex] = route;
     } else {
-      items.add(navItem);
+      items.add(route);
     }
 
     var next = draft.copyWith(navItems: items);
-    if (type == BtmAppNavItemType.subject) {
-      var subject = param!.replaceAll('subjectDetail_', '');
-      var hiveItem = BtmAppNavHive(title: title, subjectId: int.parse(subject));
-      Hive.box<BtmAppNavHive>('nav').put(subject, hiveItem);
-      _recentParams.remove(param);
-      _recentParams.add(param);
+    if (route.type == BtmAppNavItemType.subject) {
+      var subject =
+          route.subjectId ??
+          int.parse(route.param!.replaceAll('subjectDetail_', ''));
+      var hiveItem = BtmAppNavHive(title: route.title, subjectId: subject);
+      Hive.box<BtmAppNavHive>('nav').put(subject.toString(), hiveItem);
+      _recentParams.remove(route.param);
+      _recentParams.add(route.param!);
       next = _trimToCap(next);
     }
 
@@ -442,8 +453,10 @@ class BTNavNotifier extends Notifier<BTNavState> {
     if (findIndex == -1) return draft;
 
     var actualIndex = findIndex + draft.topNavCount;
-    var removedKey = draft.pageKeyForItem(draft.navItems[findIndex]);
-    var items = List<BtmAppNavItem>.of(draft.navItems)..removeAt(findIndex);
+    var removed = draft.navItems[findIndex];
+    var removedKey = draft.pageKeyForItem(removed);
+    var items = List<NavRouteDescriptor>.of(draft.navItems)
+      ..removeAt(findIndex);
     var curIndex = draft.curIndex;
     if (curIndex == actualIndex) {
       curIndex = 0;
@@ -451,6 +464,8 @@ class BTNavNotifier extends Notifier<BTNavState> {
       curIndex -= 1;
     }
     if (param != null) _recentParams.remove(param);
+    _appPageBodies.remove(removedKey);
+    _appPageEpochs.remove(removedKey);
     if (type == BtmAppNavItemType.subject) {
       var subject = param!.replaceAll('subjectDetail_', '');
       Hive.box<BtmAppNavHive>('nav').delete(subject);

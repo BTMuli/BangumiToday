@@ -17,6 +17,7 @@ import '../../core/services/bangumi_oauth_coordinator.dart';
 import '../../core/services/playback_window_service.dart';
 import '../../core/utils/get_theme_label.dart';
 import '../../models/bangumi/bangumi_oauth_model.dart';
+import '../../models/hive/nav_model.dart';
 import '../../pages/app_setting/app_setting_page.dart';
 import '../../pages/bangumi_home/bangumi_home_page.dart';
 import '../../pages/download/download_page.dart';
@@ -30,6 +31,7 @@ import '../../request/bangumi/bangumi_oauth.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../ui/bt_oauth_notice.dart';
+import 'nav_page_factory.dart';
 import 'nav_page_stack.dart';
 
 /// 应用导航
@@ -46,9 +48,6 @@ class _NavWidgetState extends ConsumerState<NavWidget>
     with AutomaticKeepAliveClientMixin {
   /// 当前主题模式
   ThemeMode get _curThemeMode => ref.watch(appStoreProvider).themeMode;
-
-  /// 侧边动态组件
-  List<PaneItem> get _navItems => ref.watch(navStoreProvider).paneItems;
 
   /// moreFlyoutController
   final FlyoutController flyoutMore = FlyoutController();
@@ -344,7 +343,9 @@ class _NavWidgetState extends ConsumerState<NavWidget>
   Widget build(BuildContext context) {
     super.build(context);
     var store = ref.watch(navStoreProvider);
+    var notifier = ref.read(navStoreProvider.notifier);
     var constItems = getConstItems();
+    var dynamicItems = _dynamicPaneItems(store, notifier);
     _schedulePlaybackWindowError();
     // Fluent 只给页面编号；store 的固定位置也包含登录动作。
     var paneIndices = <int>[
@@ -376,7 +377,7 @@ class _NavWidgetState extends ConsumerState<NavWidget>
           return NavPageStack(
             key: const ValueKey('nav-page-stack'),
             selectedKey: selectedKey,
-            pages: _stackPages(store, constItems, selectedKey),
+            pages: _stackPages(store, notifier, constItems, selectedKey),
           );
         },
         pane: NavigationPane(
@@ -385,7 +386,7 @@ class _NavWidgetState extends ConsumerState<NavWidget>
               .read(navStoreProvider.notifier)
               .setCurIndex(paneIndices[index]),
           displayMode: PaneDisplayMode.compact,
-          items: [...constItems, ..._navItems],
+          items: [...constItems, ...dynamicItems],
           footerItems: [
             _FlyoutPaneItemAction(
               controller: flyoutMore,
@@ -405,8 +406,35 @@ class _NavWidgetState extends ConsumerState<NavWidget>
     );
   }
 
+  List<PaneItem> _dynamicPaneItems(BTNavState store, BTNavNotifier notifier) {
+    return [
+      for (var route in store.dynamicNavItems)
+        buildNavPaneItem(
+          route,
+          actions: _closeActions(notifier, route),
+          appBody: notifier.appPageBodyFor(route),
+        ),
+    ];
+  }
+
+  NavPageCloseActions _closeActions(
+    BTNavNotifier notifier,
+    NavRouteDescriptor route,
+  ) {
+    return NavPageCloseActions(
+      onClose: () => notifier.removeNavItem(
+        route.title,
+        type: route.type,
+        param: route.param,
+      ),
+      onCloseOthers: () => notifier.removeNavItemOthers(route.param),
+      onCloseAll: notifier.removeAllNavItems,
+    );
+  }
+
   List<NavPageEntry> _stackPages(
     BTNavState store,
+    BTNavNotifier notifier,
     List<PaneItem> constItems,
     String selectedKey,
   ) {
@@ -420,10 +448,13 @@ class _NavWidgetState extends ConsumerState<NavWidget>
         entries.add(NavPageEntry(pageKey: key, body: item.body!));
       }
     }
-    for (var item in store.dynamicNavItems) {
-      var body = item.body.body;
+    for (var route in store.dynamicNavItems) {
+      var body = buildNavPageBody(
+        route,
+        appBody: notifier.appPageBodyFor(route),
+      );
       if (body == null) continue;
-      var key = store.pageKeyForItem(item);
+      var key = store.pageKeyForItem(route);
       if (alive.contains(key) || key == selectedKey) {
         entries.add(NavPageEntry(pageKey: key, body: body));
       }
