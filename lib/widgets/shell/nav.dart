@@ -342,6 +342,13 @@ class _NavWidgetState extends ConsumerState<NavWidget>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    ref.listen(navStoreProvider.select((store) => store.pageReleaseHint), (
+      previous,
+      next,
+    ) {
+      if (previous == null || next == previous) return;
+      unawaited(BtInfobar.info(context, '较早打开的页面已释放'));
+    });
     var store = ref.watch(navStoreProvider);
     var notifier = ref.read(navStoreProvider.notifier);
     var constItems = getConstItems();

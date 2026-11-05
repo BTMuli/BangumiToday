@@ -24,6 +24,7 @@ class BTNavState {
     required this.navItems,
     required this.aliveKeys,
     required this.topNavCount,
+    this.pageReleaseHint = 0,
   });
 
   /// 当前选中索引
@@ -37,6 +38,9 @@ class BTNavState {
 
   /// 常量条目数量
   final int topNavCount;
+
+  /// LRU 淘汰保活页时递增；由 shell 侧监听并提示，勿在 build 里直接弹 Toast。
+  final int pageReleaseHint;
 
   /// 内嵌播放页索引；Windows 没有播放页，返回 -1。
   int get playbackIndex => Platform.isWindows ? -1 : 3;
@@ -66,12 +70,14 @@ class BTNavState {
     int? curIndex,
     List<NavRouteDescriptor>? navItems,
     List<String>? aliveKeys,
+    int? pageReleaseHint,
   }) {
     return BTNavState(
       curIndex: curIndex ?? this.curIndex,
       navItems: navItems ?? this.navItems,
       aliveKeys: aliveKeys ?? this.aliveKeys,
       topNavCount: topNavCount,
+      pageReleaseHint: pageReleaseHint ?? this.pageReleaseHint,
     );
   }
 
@@ -82,6 +88,7 @@ class BTNavState {
     if (other is! BTNavState) return false;
     return curIndex == other.curIndex &&
         topNavCount == other.topNavCount &&
+        pageReleaseHint == other.pageReleaseHint &&
         _sameItems(navItems, other.navItems) &&
         _sameKeys(aliveKeys, other.aliveKeys);
   }
@@ -90,6 +97,7 @@ class BTNavState {
   int get hashCode => Object.hash(
     curIndex,
     topNavCount,
+    pageReleaseHint,
     Object.hashAll(navItems),
     Object.hashAll(aliveKeys),
   );
@@ -173,12 +181,19 @@ class BTNavNotifier extends Notifier<BTNavState> {
   BTNavState _visit(BTNavState draft, String key) {
     var alive = List<String>.of(draft.aliveKeys)..remove(key);
     alive.add(key);
+    var released = false;
     while (alive.length > maxCachedPages) {
       var oldest = alive.first;
       if (oldest == key) break;
       alive.remove(oldest);
+      released = true;
     }
-    return draft.copyWith(aliveKeys: alive);
+    return draft.copyWith(
+      aliveKeys: alive,
+      pageReleaseHint: released
+          ? draft.pageReleaseHint + 1
+          : draft.pageReleaseHint,
+    );
   }
 
   /// 将动态条目标记为最近使用（移到最后）。
