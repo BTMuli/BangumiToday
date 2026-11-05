@@ -26,18 +26,23 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
                 builder: (context, snapshot) {
                   if (snapshot.data != true) return const SizedBox.shrink();
                   return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Button(
-                      onPressed: _clearingRecovery
-                          ? null
-                          : () async {
-                              await showDialog<void>(
-                                context: context,
-                                builder: (_) => const _RecoveryDialog(),
-                              );
-                              if (mounted) await _refreshWorkspace();
-                            },
-                      child: const Text('待核对'),
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Tooltip(
+                      message: _clearingRecovery
+                          ? '正在清理旧记录，暂不可核对'
+                          : '打开待核对的旧订阅记录',
+                      child: IconButton(
+                        icon: const BtIcon(FluentIcons.warning, size: 15),
+                        onPressed: _clearingRecovery
+                            ? null
+                            : () async {
+                                await showDialog<void>(
+                                  context: context,
+                                  builder: (_) => const _RecoveryDialog(),
+                                );
+                                if (mounted) await _refreshWorkspace();
+                              },
+                      ),
                     ),
                   );
                 },
@@ -48,12 +53,36 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
                   var count = snapshot.data ?? 0;
                   if (count == 0) return const SizedBox.shrink();
                   return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Button(
-                      onPressed: _clearingRecovery
-                          ? null
-                          : _clearRecoveryRecords,
-                      child: Text('清理旧记录（$count）'),
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Tooltip(
+                      message: _clearingRecovery
+                          ? '正在清理旧记录…'
+                          : '清理全部旧记录（$count）',
+                      child: IconButton(
+                        icon: SizedBox(
+                          width: 22,
+                          height: 18,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              const Align(
+                                alignment: Alignment.centerLeft,
+                                child: BtIcon(FluentIcons.delete, size: 15),
+                              ),
+                              Positioned(
+                                right: -2,
+                                top: -4,
+                                child: InfoBadge(
+                                  source: Text(count > 99 ? '99+' : '$count'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        onPressed: _clearingRecovery
+                            ? null
+                            : _clearRecoveryRecords,
+                      ),
                     ),
                   );
                 },
@@ -173,11 +202,44 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
     );
   }
 
+  int get _advancedFilterCount =>
+      (_filterModel.associationFilter != BmfAssociationFilter.all ? 1 : 0) +
+      (_filterModel.updateFilter != BmfUpdateFilter.all ? 1 : 0) +
+      (_filterModel.broadcastFilter != BmfBroadcastFilter.all ? 1 : 0) +
+      (_filterModel.selectedYears != null ? 1 : 0) +
+      (_filterModel.selectedSeasons != null &&
+              _filterModel.selectedSeasons!.isNotEmpty
+          ? 1
+          : 0);
+
+  String get _advancedFilterSummary {
+    var parts = <String>[];
+    if (_filterModel.selectedYears != null) {
+      var years = _filterModel.selectedYears!;
+      if (years.length == 1 && years.contains(BmfQuarter.unknown.year)) {
+        parts.add('年份未知');
+      } else {
+        parts.add('年份 ${years.length}');
+      }
+    }
+    if (_filterModel.selectedSeasons != null &&
+        _filterModel.selectedSeasons!.isNotEmpty) {
+      parts.add('季度 ${_filterModel.selectedSeasons!.length}');
+    }
+    if (_filterModel.associationFilter != BmfAssociationFilter.all) {
+      parts.add(_filterModel.associationFilter.label);
+    }
+    if (_filterModel.updateFilter != BmfUpdateFilter.all) {
+      parts.add(_filterModel.updateFilter.label);
+    }
+    if (_filterModel.broadcastFilter != BmfBroadcastFilter.all) {
+      parts.add(_filterModel.broadcastFilter.label);
+    }
+    return parts.join(' · ');
+  }
+
   Widget _buildToolbar(BuildContext context) {
-    var additionalFilters =
-        (_filterModel.associationFilter != BmfAssociationFilter.all ? 1 : 0) +
-        (_filterModel.updateFilter != BmfUpdateFilter.all ? 1 : 0) +
-        (_filterModel.broadcastFilter != BmfBroadcastFilter.all ? 1 : 0);
+    var additionalFilters = _advancedFilterCount;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Wrap(
@@ -204,8 +266,6 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
             value: BmfConfigurationFilter.incomplete,
           ),
           const SizedBox(width: 8),
-          _buildYearFilter(),
-          _buildQuarterFilter(),
           Tooltip(
             message: _filterModel.sortOrder.description,
             child: SizedBox(
@@ -276,13 +336,35 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
                 updateFlyout(() {});
               }
 
+              var summary = _advancedFilterSummary;
               return SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('更多筛选', style: BTTypography.subtitle(context)),
+                    if (summary.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '已选：$summary',
+                        style: BTTypography.caption(context).copyWith(
+                          color: BTColors.textSecondary(context),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
+                    _buildAdditionalFilterRow(
+                      context,
+                      label: '年份',
+                      child: _buildYearFilter(wrap: change),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildAdditionalFilterRow(
+                      context,
+                      label: '季度',
+                      child: _buildQuarterFilter(wrap: change),
+                    ),
+                    const SizedBox(height: 12),
                     _buildAdditionalFilterRow(
                       context,
                       label: '资源关联',
@@ -431,7 +513,15 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
     );
   }
 
-  Widget _buildYearFilter() {
+  Widget _buildYearFilter({void Function(VoidCallback)? wrap}) {
+    void apply(VoidCallback update) {
+      if (wrap != null) {
+        wrap(update);
+      } else {
+        _changeListOptions(update);
+      }
+    }
+
     return Tooltip(
       message: '按首播年份筛选',
       child: _BmfPeriodFilter(
@@ -446,13 +536,20 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
         columns: 3,
         maxWidth: 280,
         maxHeight: 280,
-        onChanged: (values) =>
-            _changeListOptions(() => _filterModel.selectYears(values)),
+        onChanged: (values) => apply(() => _filterModel.selectYears(values)),
       ),
     );
   }
 
-  Widget _buildQuarterFilter() {
+  Widget _buildQuarterFilter({void Function(VoidCallback)? wrap}) {
+    void apply(VoidCallback update) {
+      if (wrap != null) {
+        wrap(update);
+      } else {
+        _changeListOptions(update);
+      }
+    }
+
     return Tooltip(
       message: '按首播季度筛选；3、6、9、12 月 25 日起首播归入下一季',
       child: _BmfPeriodFilter(
@@ -466,9 +563,7 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
         maxHeight: 200,
         onChanged: _filterModel.hasOnlyUnknownYear
             ? null
-            : (values) => _changeListOptions(
-                () => _filterModel.selectedSeasons = values,
-              ),
+            : (values) => apply(() => _filterModel.selectedSeasons = values),
       ),
     );
   }
