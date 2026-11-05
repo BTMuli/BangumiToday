@@ -3,9 +3,9 @@ import 'package:dio/dio.dart';
 
 // Project imports:
 import '../core/constants/app_constants.dart';
+import '../core/logging/log_tool.dart';
 import '../models/app/app_release.dart';
 import '../models/app/response.dart';
-import '../tools/log_tool.dart';
 import 'core/client.dart';
 
 /// 手动查询应用的最新正式版本，复用应用代理与请求超时配置。

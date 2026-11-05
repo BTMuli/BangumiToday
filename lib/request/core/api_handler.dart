@@ -5,8 +5,8 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../models/app/response.dart';
-import '../../tools/log_tool.dart';
 
 typedef ResponseParser<T> = T Function(dynamic data);
 

@@ -6,13 +6,13 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/episode_mark_providers.dart';
 import '../../providers/subject_playback_providers.dart';
-import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import 'subject_detail_prefetch.dart';
 import 'subject_detail_refreshable.dart';

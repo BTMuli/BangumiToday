@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../core/services/bmf_rss_service.dart';
 import '../../core/services/download_directory.dart';
 import '../../core/services/download_service.dart';
@@ -27,7 +28,6 @@ import '../../providers/subject_playback_providers.dart';
 import '../../request/mikan/mikan_api.dart';
 import '../../store/bt_dir_download_state.dart';
 import '../../store/bt_download_store.dart';
-import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../widgets/bmf/bmf_resource_item.dart';

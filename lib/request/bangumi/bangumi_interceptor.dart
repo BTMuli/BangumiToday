@@ -2,8 +2,8 @@
 import 'package:dio/dio.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../core/services/bangumi_token_service.dart';
-import '../../tools/log_tool.dart';
 
 /// Token 认证拦截器
 /// 自动处理：请求附加 token、401 时自动刷新并重试、防止并发重复刷新

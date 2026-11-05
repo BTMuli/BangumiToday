@@ -2,10 +2,10 @@
 import 'package:dio/dio.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../data/parsers/bangumi_data_parser.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_data_model.dart';
-import '../../tools/log_tool.dart';
 import '../core/client.dart';
 
 /// 负责BangumiData的请求

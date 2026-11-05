@@ -6,8 +6,8 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../models/app/response.dart';
-import '../../tools/log_tool.dart';
 
 BTResponse<T> handleBangumiDioException<T>(
   DioException exception, {
