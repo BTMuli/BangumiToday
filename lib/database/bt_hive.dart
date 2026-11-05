@@ -20,6 +20,9 @@ class BTHiveTool {
   /// 文件工具
   final BTFileTool fileTool = BTFileTool();
 
+  static Future<void>? _satelliteReady;
+  static bool _hiveRootReady = false;
+
   /// 获取应用数据目录
   static Future<String> getDataDir() async {
     return await instance.fileTool.getAppDataPath('hive');
@@ -28,8 +31,8 @@ class BTHiveTool {
   /// Flush and close all boxes before native application teardown begins.
   static Future<void> close() => Hive.close();
 
-  /// 打开 box 并初始化用户；Tracker store 由 `main` 在开箱后显式 init。
-  static Future<void> init() async {
+  static Future<void> _ensureHiveRoot() async {
+    if (_hiveRootReady) return;
     var dir = await getDataDir();
     await instance.fileTool.createDir(dir);
     Hive.init(dir);
@@ -42,36 +45,50 @@ class BTHiveTool {
     if (!Hive.isAdapterRegistered(3)) {
       Hive.registerAdapter(TrackerHiveAdapter());
     }
+    _hiveRootReady = true;
+  }
+
+  /// 首屏必需：只打开导航盒，供 `navStore` 恢复动态标签。
+  static Future<void> initNav() async {
+    await _ensureHiveRoot();
+    if (!Hive.isBoxOpen('nav')) {
+      await Hive.openBox<BtmAppNavHive>('nav');
+    }
+  }
+
+  /// 首帧后打开用户与 tracker 盒并恢复用户；幂等。
+  static Future<void> initSatelliteBoxes() {
+    return _satelliteReady ??= _openSatelliteBoxes();
+  }
+
+  static Future<void> _openSatelliteBoxes() async {
+    await _ensureHiveRoot();
     await Future.wait([
-      Hive.openBox<BtmAppNavHive>('nav'),
-      Hive.openBox<BgmUserHiveModel>('bgmUser'),
-      Hive.openBox<TrackerHiveModel>('tracker'),
+      if (!Hive.isBoxOpen('bgmUser')) Hive.openBox<BgmUserHiveModel>('bgmUser'),
+      if (!Hive.isBoxOpen('tracker')) Hive.openBox<TrackerHiveModel>('tracker'),
     ]);
     await BgmUserHive.initUser();
   }
 
-  /// 初始化 navHiveBox
-  static Future<void> initNavHiveBox() async {
-    if (!Hive.isAdapterRegistered(0)) {
-      Hive.registerAdapter(BtmAppNavItemAdapter());
-    }
-    await Hive.openBox<BtmAppNavHive>('nav');
+  /// 兼容旧调用：打开全部盒并初始化用户。
+  static Future<void> init() async {
+    await initNav();
+    await initSatelliteBoxes();
   }
+
+  /// 初始化 navHiveBox
+  static Future<void> initNavHiveBox() => initNav();
 
   /// 初始化 bgmUserHiveBox
   static Future<void> initBgmUserHiveBox() async {
-    if (!Hive.isAdapterRegistered(2)) {
-      Hive.registerAdapter(BgmUserHiveAdapter());
-    }
-    await Hive.openBox<BgmUserHiveModel>('bgmUser');
-    await BgmUserHive.initUser();
+    await initSatelliteBoxes();
   }
 
   /// 初始化 trackerHiveBox；调用方自行 init Tracker store。
   static Future<void> initTrackerHiveBox() async {
-    if (!Hive.isAdapterRegistered(3)) {
-      Hive.registerAdapter(TrackerHiveAdapter());
+    await _ensureHiveRoot();
+    if (!Hive.isBoxOpen('tracker')) {
+      await Hive.openBox<TrackerHiveModel>('tracker');
     }
-    await Hive.openBox<TrackerHiveModel>('tracker');
   }
 }

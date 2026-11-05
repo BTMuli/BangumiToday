@@ -267,12 +267,11 @@ bool _resolveDark(ThemeMode mode) {
 }
 
 Future<void> _initBackgroundServices() async {
-  await BTLogTool.init();
+  // Log / SQLite 已在首帧 Splash 前完成，这里不再重复 await。
   unawaited(_runOptionalService('Windows 协议注册', registerWindowsAppProtocol));
   AppLinkService.instance.start();
   BangumiOAuthCoordinator.instance.attach();
 
-  await BTSqlite.init();
   var appConfig = BtsAppConfig();
   var bangumiMirrors = await appConfig.readBangumiMirrors();
   BtrBangumiApi.setBaseUrl(bangumiMirrors.apiUrl);
@@ -286,33 +285,45 @@ Future<void> _initBackgroundServices() async {
     settings: await appConfig.readProxySettings(),
   );
   BgmUserHive.attach(globalContainer.read(bgmUserStoreProvider.notifier));
-  await BTHiveTool.init();
+  // 进壳前只打开 nav；用户 / tracker 盒延到首帧后。
+  await BTHiveTool.initNav();
   var trackerStore = globalContainer.read(trackerStoreProvider.notifier);
-  await trackerStore.init();
-  unawaited(
-    _runOptionalService('Bangumi Token 预刷新', () async {
-      await BangumiTokenService.instance.ensureFresh();
-    }),
-  );
   var btDownloadConfig = await appConfig.readBtDownloadConfig();
   var useDownloadSystemProxy = await appConfig.readUseDownloadSystemProxy();
   var themeMode = await appConfig.readThemeMode();
 
-  if (Platform.isWindows) {
-    await _runOptionalService('系统代理监听', () async {
-      await SystemProxyWatchService.instance.start(
-        onChanged: (proxy) async {
-          BtrClient.refreshSystemProxy(proxy);
-          if (!await appConfig.readUseDownloadSystemProxy()) return;
-          if (!(await appConfig.readProxySettings()).useSystemProxy) return;
+  Future<void> prepareSatelliteStores() async {
+    await BTHiveTool.initSatelliteBoxes();
+    await trackerStore.init();
+  }
 
-          var engine = BtEngineClient.instance;
-          if (engine.isReady) {
-            await engine.configureProxy(proxy.toEngineJson(enabled: true));
-          }
-        },
-      );
-    });
+  unawaited(_runOptionalService('Hive 卫星盒', prepareSatelliteStores));
+  unawaited(
+    _runOptionalService('Bangumi Token 预刷新', () async {
+      await prepareSatelliteStores();
+      await BangumiTokenService.instance.ensureFresh();
+    }),
+  );
+
+  if (Platform.isWindows) {
+    unawaited(
+      _runOptionalService('系统代理监听', () async {
+        await SystemProxyWatchService.instance.start(
+          onChanged: (proxy) async {
+            BtrClient.refreshSystemProxy(proxy);
+            if (!await appConfig.readUseDownloadSystemProxy()) return;
+            if (!(await appConfig.readProxySettings()).useSystemProxy) {
+              return;
+            }
+
+            var engine = BtEngineClient.instance;
+            if (engine.isReady) {
+              await engine.configureProxy(proxy.toEngineJson(enabled: true));
+            }
+          },
+        );
+      }),
+    );
   }
 
   unawaited(
@@ -321,6 +332,7 @@ Future<void> _initBackgroundServices() async {
       _runOptionalService('通知服务', BTNotifierTool.init),
       if (Platform.isWindows && btDownloadConfig.engineEnabled)
         _runOptionalService('BT 下载引擎', () async {
+          await prepareSatelliteStores();
           await BtEngineClient.instance.start(
             config: btDownloadConfig.toEngineJson(
               additionalTrackers: trackerStore.effectiveTrackers,
@@ -341,7 +353,12 @@ Future<void> _initBackgroundServices() async {
   );
 
   if (Platform.isWindows) {
-    unawaited(_runOptionalService('Tracker 自动更新', trackerStore.checkUpdate));
+    unawaited(
+      _runOptionalService('Tracker 自动更新', () async {
+        await prepareSatelliteStores();
+        await trackerStore.checkUpdate();
+      }),
+    );
   }
 
   unawaited(_runOptionalService('应用缓存', BTCacheManager.instance.init));
