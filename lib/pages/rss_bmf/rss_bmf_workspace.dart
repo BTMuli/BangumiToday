@@ -203,9 +203,7 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
     if (_loadedStatusSignature == rssSignature) return;
     _loadedStatusSignature = rssSignature;
     var generation = ++_statusLoadGeneration;
-    _filterModel.pendingCounts.clear();
-    _filterModel.rssItemCounts.clear();
-    _filterModel.latestUpdateTimes.clear();
+    // 保留上一份角标与更新时间直到新结果写入，避免刷新时列表闪空。
     unawaited(_loadUpdateStates(bmfList, generation));
   }
 
@@ -311,7 +309,17 @@ abstract class _RssBmfWorkspaceStateBase extends ConsumerState<RssBmfWorkspace>
         );
       }).toList();
       if (!mounted || generation != _statusLoadGeneration) return;
+      var subjects = {for (var value in values) value.$1};
       setState(() {
+        _filterModel.pendingCounts.removeWhere(
+          (subject, _) => !subjects.contains(subject),
+        );
+        _filterModel.rssItemCounts.removeWhere(
+          (subject, _) => !subjects.contains(subject),
+        );
+        _filterModel.latestUpdateTimes.removeWhere(
+          (subject, _) => !subjects.contains(subject),
+        );
         for (var value in values) {
           if (_statusRevisions[value.$1] == statusRevisions[value.$1]) {
             _filterModel.pendingCounts[value.$1] = value.$2;
