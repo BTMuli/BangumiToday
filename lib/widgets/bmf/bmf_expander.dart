@@ -9,6 +9,7 @@ import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher_string.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../core/services/bmf_rss_service.dart';
 import '../../core/services/bt_engine/protocol.dart';
 import '../../core/services/download_service.dart';
@@ -20,7 +21,6 @@ import '../../pages/playback/playback_actions.dart';
 import '../../request/mikan/mikan_api.dart';
 import '../../store/bt_dir_download_state.dart';
 import '../../store/bt_download_store.dart';
-import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';

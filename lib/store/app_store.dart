@@ -5,6 +5,7 @@ import 'package:system_theme/system_theme.dart';
 
 // Project imports:
 import '../core/constants/app_constants.dart';
+import '../core/logging/log_tool.dart';
 import '../database/app/app_config.dart';
 import '../models/app/bangumi_mirror.dart';
 import '../models/app/proxy_settings.dart';
@@ -12,7 +13,6 @@ import '../models/app/rss_selection_behavior.dart';
 import '../request/bangumi/bangumi_api.dart';
 import '../request/core/client.dart';
 import '../request/mikan/mikan_api.dart';
-import '../tools/log_tool.dart';
 import 'bt_download_store.dart';
 
 /// 应用状态提供者

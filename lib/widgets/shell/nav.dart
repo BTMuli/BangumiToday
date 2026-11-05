@@ -11,6 +11,7 @@ import 'package:window_manager/window_manager.dart';
 // Project imports:
 import '../../controller/progress_controller.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/logging/log_tool.dart';
 import '../../core/services/app_link_service.dart';
 import '../../core/services/bangumi_oauth_coordinator.dart';
 import '../../core/services/playback_window_service.dart';
@@ -26,7 +27,6 @@ import '../../pages/user_collection/user_collection_page.dart';
 import '../../providers/app_providers.dart';
 import '../../request/bangumi/bangumi_api.dart';
 import '../../request/bangumi/bangumi_oauth.dart';
-import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
 import '../../ui/bt_oauth_notice.dart';

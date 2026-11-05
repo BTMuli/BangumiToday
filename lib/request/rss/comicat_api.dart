@@ -2,10 +2,10 @@
 import 'package:dio/dio.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../domain/rss/comicat_feed.dart';
 import '../../models/app/response.dart';
 import '../../models/rss/rss.dart';
-import '../../tools/log_tool.dart';
 import '../core/client.dart';
 
 /// 漫猫动漫的API。主要是 rss 订阅

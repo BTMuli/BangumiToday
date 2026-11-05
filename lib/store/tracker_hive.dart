@@ -11,11 +11,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive_ce.dart';
 
 // Project imports:
+import '../core/logging/log_tool.dart';
 import '../core/services/bt_engine_client.dart';
 import '../database/app/app_config.dart';
 import '../models/app/bt_tracker_config.dart';
 import '../models/hive/tracker_model.dart';
-import '../tools/log_tool.dart';
 
 const _maxTrackerResponseBytes = 1024 * 1024;
 const _maxResolvedTrackers = 512;

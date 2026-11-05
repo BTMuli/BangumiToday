@@ -11,6 +11,7 @@ import 'package:window_manager/window_manager.dart';
 
 // Project imports:
 import '../core/errors/playback_unavailable.dart';
+import '../core/logging/log_tool.dart';
 import '../core/network/system_proxy.dart';
 import '../core/services/bt_engine_client.dart';
 import '../core/services/download_playback.dart';
@@ -24,7 +25,6 @@ import '../database/app/download_subjects.dart';
 import '../models/app/bt_download_config.dart';
 import '../models/database/app_bmf_model.dart';
 import '../providers/bmf_providers.dart';
-import '../tools/log_tool.dart';
 import 'nav_store.dart';
 import 'playback_store.dart';
 import 'tracker_hive.dart';

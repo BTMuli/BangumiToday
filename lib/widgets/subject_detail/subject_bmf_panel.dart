@@ -12,13 +12,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import '../../controller/progress_controller.dart';
 import '../../core/cache/subject_cache.dart';
+import '../../core/logging/log_tool.dart';
 import '../../core/services/download_directory.dart';
 import '../../core/services/file_service.dart';
 import '../../core/theme/bt_theme.dart';
 import '../../models/database/app_bmf_model.dart';
 import '../../pages/subject_detail/subject_stat_providers.dart';
 import '../../providers/app_providers.dart';
-import '../../tools/log_tool.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_icon.dart';
 import '../../ui/bt_infobar.dart';
