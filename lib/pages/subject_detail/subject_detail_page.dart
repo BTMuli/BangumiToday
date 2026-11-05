@@ -14,6 +14,7 @@ import '../../providers/app_providers.dart';
 import '../../providers/episode_mark_providers.dart';
 import '../../ui/bt_dialog.dart';
 import '../../ui/bt_infobar.dart';
+import '../../widgets/common/empty_state.dart';
 import '../../widgets/subject_detail/subject_rss_search_dialog.dart';
 import '../subject_search/subject_search_page.dart';
 import 'episode_detail_page.dart';
@@ -113,7 +114,6 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage>
     if (!mounted || generation != _loadGeneration) return;
     if (result.code != 0 || result.data == null) {
       setState(() => showError = true);
-      await showRespErr(result, context);
       return;
     }
     _applySubject(result.data!);

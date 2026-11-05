@@ -59,29 +59,16 @@ extension _SubjectDetailHeader on _SubjectDetailPageState {
     );
   }
 
-  /// 构建加载中
+  /// 构建加载中 / 首次加载失败
   Widget buildLoading() {
     if (showError) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(FluentIcons.error),
-            SizedBox(height: 12),
-            const Text('Error: 加载失败'),
-          ],
-        ),
+      return BTEmptyState.error(
+        title: '加载失败',
+        message: '无法获取条目详情，请检查网络后重试',
+        actionText: '重试',
+        onAction: () => unawaited(init()),
       );
     }
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const ProgressRing(),
-          SizedBox(height: 12),
-          const Text('Loading...'),
-        ],
-      ),
-    );
+    return BTEmptyState.loading(message: '正在加载条目详情...');
   }
 }
