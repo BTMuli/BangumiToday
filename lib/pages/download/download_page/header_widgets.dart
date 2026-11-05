@@ -420,85 +420,94 @@ class _SelectionBar extends StatelessWidget {
         borderRadius: BTRadius.mediumBR,
         border: Border.all(color: BTColors.divider(context)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              '$count',
-              style: BTTypography.caption(context).copyWith(
-                color: count == 0 ? BTColors.textSecondary(context) : accent,
-                fontWeight: FontWeight.w600,
+      child: Semantics(
+        container: true,
+        label: '已选 $count 项',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                '$count',
+                style: BTTypography.caption(context).copyWith(
+                  color: count == 0 ? BTColors.textSecondary(context) : accent,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-          Tooltip(
-            message: '全选',
-            child: IconButton(
-              icon: Icon(
-                FluentIcons.select_all,
-                size: 16,
-                color: onSelectAll == null
-                    ? BTColors.textTertiary(context)
-                    : null,
-              ),
+            _selectionAction(
+              message: '全选',
+              enabled: onSelectAll != null,
+              icon: FluentIcons.select_all,
+              color: onSelectAll == null
+                  ? BTColors.textTertiary(context)
+                  : null,
               onPressed: onSelectAll,
             ),
-          ),
-          Tooltip(
-            message: '清除选择',
-            child: IconButton(
-              icon: Icon(
-                FluentIcons.clear_selection,
-                size: 16,
-                color: onClear == null ? BTColors.textTertiary(context) : null,
-              ),
+            _selectionAction(
+              message: '清除选择',
+              enabled: onClear != null,
+              icon: FluentIcons.clear_selection,
+              color: onClear == null ? BTColors.textTertiary(context) : null,
               onPressed: onClear,
             ),
-          ),
-          Tooltip(
-            message: '删除所选',
-            child: IconButton(
-              icon: Icon(
-                FluentIcons.delete,
-                size: 16,
-                color: onDelete == null
-                    ? BTColors.textTertiary(context)
-                    : BTColors.errorLight(context),
-              ),
+            _selectionAction(
+              message: '删除所选',
+              enabled: onDelete != null,
+              icon: FluentIcons.delete,
+              color: onDelete == null
+                  ? BTColors.textTertiary(context)
+                  : BTColors.errorLight(context),
               onPressed: onDelete,
             ),
-          ),
-          Tooltip(
-            message: '批量暂停',
-            child: IconButton(
-              icon: const Icon(FluentIcons.pause, size: 16),
+            _selectionAction(
+              message: '批量暂停',
+              enabled: onPause != null,
+              icon: FluentIcons.pause,
               onPressed: onPause,
             ),
-          ),
-          Tooltip(
-            message: '批量恢复',
-            child: IconButton(
-              icon: const Icon(FluentIcons.play, size: 16),
+            _selectionAction(
+              message: '批量恢复',
+              enabled: onResume != null,
+              icon: FluentIcons.play,
               onPressed: onResume,
             ),
-          ),
-          Tooltip(
-            message: '批量停止（保留数据，可恢复）',
-            child: IconButton(
-              icon: const Icon(FluentIcons.stop, size: 16),
+            _selectionAction(
+              message: '批量停止（保留数据，可恢复）',
+              enabled: onStop != null,
+              icon: FluentIcons.stop,
               onPressed: onStop,
             ),
-          ),
-          Tooltip(
-            message: '退出选择',
-            child: IconButton(
-              icon: const Icon(FluentIcons.cancel, size: 16),
+            _selectionAction(
+              message: '退出选择',
+              enabled: onCancel != null,
+              icon: FluentIcons.cancel,
               onPressed: onCancel,
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _selectionAction({
+    required String message,
+    required bool enabled,
+    required IconData icon,
+    Color? color,
+    VoidCallback? onPressed,
+  }) {
+    return Tooltip(
+      message: message,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: message,
+        child: IconButton(
+          icon: Icon(icon, size: 16, color: color, semanticLabel: message),
+          onPressed: onPressed,
+        ),
       ),
     );
   }

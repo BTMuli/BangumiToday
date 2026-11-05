@@ -16,6 +16,7 @@ class _AnimatedSearchButton extends StatefulWidget {
 class _AnimatedSearchButtonState extends State<_AnimatedSearchButton>
     with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  bool _isFocused = false;
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -55,50 +56,72 @@ class _AnimatedSearchButtonState extends State<_AnimatedSearchButton>
     var theme = FluentTheme.of(context);
     var accentColor = theme.accentColor.defaultBrushFor(theme.brightness);
     var foregroundColor = theme.resources.textOnAccentFillColorPrimary;
+    var enabled = !widget.isLoading;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTapDown: _handleTapDown,
-        onTapUp: _handleTapUp,
-        onTapCancel: _handleTapCancel,
-        onTap: widget.isLoading ? null : widget.onPressed,
-        child: AnimatedBuilder(
-          animation: _scaleAnimation,
-          builder: (context, child) {
-            return Transform.scale(scale: _scaleAnimation.value, child: child);
+    return FocusableActionDetector(
+      enabled: enabled,
+      mouseCursor: SystemMouseCursors.click,
+      onShowHoverHighlight: (value) => setState(() => _isHovered = value),
+      onShowFocusHighlight: (value) => setState(() => _isFocused = value),
+      actions: <Type, Action<Intent>>{
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            if (enabled) widget.onPressed();
+            return null;
           },
-          child: AnimatedContainer(
-            duration: BTTheme.animationDurationFast,
-            padding: EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: _isHovered
-                  ? accentColor
-                  : accentColor.withValues(alpha: 0.9),
-              borderRadius: BTRadius.mediumBR,
-              boxShadow: _isHovered
-                  ? [
-                      BoxShadow(
-                        color: accentColor.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+        ),
+      },
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: '搜索',
+        onTap: enabled ? widget.onPressed : null,
+        child: GestureDetector(
+          onTapDown: enabled ? _handleTapDown : null,
+          onTapUp: enabled ? _handleTapUp : null,
+          onTapCancel: enabled ? _handleTapCancel : null,
+          onTap: enabled ? widget.onPressed : null,
+          child: AnimatedBuilder(
+            animation: _scaleAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _scaleAnimation.value,
+                child: child,
+              );
+            },
+            child: AnimatedContainer(
+              duration: BTTheme.animationDurationFast,
+              padding: EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: _isHovered || _isFocused
+                    ? accentColor
+                    : accentColor.withValues(alpha: 0.9),
+                borderRadius: BTRadius.mediumBR,
+                border: _isFocused
+                    ? Border.all(color: foregroundColor.withValues(alpha: 0.85))
+                    : null,
+                boxShadow: _isHovered
+                    ? [
+                        BoxShadow(
+                          color: accentColor.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: widget.isLoading
+                    ? ProgressRing(strokeWidth: 2, activeColor: foregroundColor)
+                    : Icon(
+                        FluentIcons.search,
+                        size: 14,
+                        color: foregroundColor,
+                        semanticLabel: '搜索',
                       ),
-                    ]
-                  : null,
-            ),
-            child: SizedBox(
-              width: 16,
-              height: 16,
-              child: widget.isLoading
-                  ? ProgressRing(strokeWidth: 2, activeColor: foregroundColor)
-                  : Icon(
-                      FluentIcons.search,
-                      size: 14,
-                      color: foregroundColor,
-                      semanticLabel: '搜索',
-                    ),
+              ),
             ),
           ),
         ),
@@ -354,8 +377,14 @@ class _FilterChipState extends State<_FilterChip>
         ),
       ),
     );
+    var semanticChip = Semantics(
+      button: true,
+      selected: widget.isSelected,
+      label: widget.tooltip ?? widget.label,
+      child: chip,
+    );
     return widget.tooltip == null
-        ? chip
-        : Tooltip(message: widget.tooltip!, child: chip);
+        ? semanticChip
+        : Tooltip(message: widget.tooltip!, child: semanticChip);
   }
 }

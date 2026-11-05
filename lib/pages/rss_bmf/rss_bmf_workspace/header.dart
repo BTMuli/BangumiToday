@@ -347,9 +347,9 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
                       const SizedBox(height: 6),
                       Text(
                         '已选：$summary',
-                        style: BTTypography.caption(context).copyWith(
-                          color: BTColors.textSecondary(context),
-                        ),
+                        style: BTTypography.caption(
+                          context,
+                        ).copyWith(color: BTColors.textSecondary(context)),
                       ),
                     ],
                     const SizedBox(height: 16),
@@ -484,31 +484,36 @@ mixin _RssBmfWorkspaceHeader on _RssBmfWorkspaceStateBase {
     required BmfConfigurationFilter value,
   }) {
     var selected = _filterModel.configurationFilter == value;
-    return ToggleButton(
-      checked: selected,
-      onChanged: (_) => _changeListOptions(() {
-        _filterModel.configurationFilter = selected
-            ? BmfConfigurationFilter.all
-            : value;
-      }),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label),
-          const SizedBox(width: 8),
-          Builder(
-            builder: (buttonContext) => Text(
-              '$count',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: selected
-                    ? DefaultTextStyle.of(buttonContext).style.color
-                    : BTColors.textSecondary(context),
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label，$count',
+      child: ToggleButton(
+        checked: selected,
+        onChanged: (_) => _changeListOptions(() {
+          _filterModel.configurationFilter = selected
+              ? BmfConfigurationFilter.all
+              : value;
+        }),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label),
+            const SizedBox(width: 8),
+            Builder(
+              builder: (buttonContext) => Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: selected
+                      ? DefaultTextStyle.of(buttonContext).style.color
+                      : BTColors.textSecondary(context),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

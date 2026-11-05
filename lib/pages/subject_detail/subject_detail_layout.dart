@@ -128,7 +128,9 @@ class _SubjectDetailLayoutState extends State<SubjectDetailLayout> {
               ),
             ),
             child: Semantics(
+              button: true,
               selected: _selected == tab,
+              label: tab.label,
               child: HyperlinkButton(
                 key: ValueKey('subject-tab-${tab.name}'),
                 onPressed: () => _select(tab),

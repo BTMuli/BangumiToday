@@ -175,14 +175,23 @@ class _DownloadPageState extends ConsumerState<DownloadPage> {
             else
               Tooltip(
                 message: '批量选择',
-                child: IconButton(
-                  icon: const Icon(FluentIcons.check_list, size: 16),
-                  onPressed: currentTasks.isEmpty
-                      ? null
-                      : () => setState(() {
-                          _selecting = true;
-                          _selectedIds.clear();
-                        }),
+                child: Semantics(
+                  button: true,
+                  enabled: currentTasks.isNotEmpty,
+                  label: '批量选择',
+                  child: IconButton(
+                    icon: const Icon(
+                      FluentIcons.check_list,
+                      size: 16,
+                      semanticLabel: '批量选择',
+                    ),
+                    onPressed: currentTasks.isEmpty
+                        ? null
+                        : () => setState(() {
+                            _selecting = true;
+                            _selectedIds.clear();
+                          }),
+                  ),
                 ),
               ),
             Tooltip(
