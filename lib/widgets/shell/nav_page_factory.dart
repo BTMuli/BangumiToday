@@ -29,14 +29,23 @@ PaneItem buildNavPaneItem(
   required NavPageCloseActions actions,
   Widget? appBody,
 }) {
+  var subjectId = route.subjectId;
+  var identity = subjectId != null && subjectId > 0
+      ? '${route.title} #$subjectId'
+      : route.title;
   return PaneItem(
     icon: _paneIcon(route, actions),
     title: Text(route.title),
+    tooltip: identity,
+    semanticLabel: identity,
     body: buildNavPageBody(route, appBody: appBody) ?? const SizedBox.shrink(),
     trailing: Tooltip(
-      message: '关闭「${route.title}」',
+      message: '关闭「$identity」',
       child: IconButton(
-        icon: const Icon(FluentIcons.clear),
+        icon: Icon(
+          FluentIcons.clear,
+          semanticLabel: '关闭「$identity」',
+        ),
         onPressed: actions.onClose,
       ),
     ),
@@ -62,6 +71,7 @@ Widget _paneIcon(NavRouteDescriptor route, NavPageCloseActions actions) {
   if (route.type == BtmAppNavItemType.subject) {
     return NavItemIcon(
       title: route.title,
+      subjectId: route.subjectId,
       onClose: actions.onClose,
       onCloseOthers: actions.onCloseOthers,
       onCloseAll: actions.onCloseAll,
