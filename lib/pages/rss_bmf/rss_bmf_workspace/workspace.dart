@@ -426,6 +426,7 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    var emptyLibrary = _filterModel.totalCount == 0;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -439,17 +440,36 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
           ),
           const SizedBox(height: 12),
           Text(
-            _filterModel.totalCount == 0 ? '暂无 BMF 关联' : '当前筛选下没有匹配的番剧',
+            emptyLibrary ? '暂无 BMF 关联' : '当前筛选下没有匹配的番剧',
             style: BTTypography.subtitle(context),
           ),
           const SizedBox(height: 5),
           Text(
-            _filterModel.totalCount == 0
-                ? '在番剧详情页关联 RSS 或本地目录后，会显示在这里'
+            emptyLibrary
+                ? '从今日放送或搜索打开条目，在详情页关联 RSS 或本地目录后会显示在这里'
                 : '尝试其他标题、季度或关联状态',
             style: BTTypography.caption(context),
+            textAlign: TextAlign.center,
           ),
-          if (_filterModel.hasActiveFilters) ...[
+          if (emptyLibrary) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                FilledButton(
+                  onPressed: () =>
+                      ref.read(navStoreProvider.notifier).goToCalendar(),
+                  child: const Text('从今日放送添加'),
+                ),
+                Button(
+                  onPressed: () => SubjectSearchPage.open(ref),
+                  child: const Text('搜索条目'),
+                ),
+              ],
+            ),
+          ] else if (_filterModel.hasActiveFilters) ...[
             const SizedBox(height: 12),
             Button(onPressed: _resetFilters, child: const Text('清除全部筛选')),
           ],

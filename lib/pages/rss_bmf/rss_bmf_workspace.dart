@@ -35,6 +35,7 @@ import '../../widgets/bmf/bmf_card.dart';
 import '../../widgets/bmf/bmf_expander.dart';
 import '../../widgets/bmf/bmf_playback_progress.dart';
 import '../../widgets/subject_detail/subject_rss_search_dialog.dart';
+import '../subject_search/subject_search_page.dart';
 import 'bmf_filter_model.dart';
 import 'bmf_subject_data.dart';
 
