@@ -830,16 +830,10 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
     return PopScope(
       canPop: !_saving,
       child: ContentDialog(
-        constraints: BoxConstraints(
-          maxWidth: 620,
-          maxHeight: dialogMaxHeight,
-        ),
+        constraints: BoxConstraints(maxWidth: 620, maxHeight: dialogMaxHeight),
         title: const Text('搜索番剧 RSS'),
         content: ConstrainedBox(
-          constraints: BoxConstraints(
-            minHeight: 280,
-            maxHeight: contentHeight,
-          ),
+          constraints: BoxConstraints(minHeight: 280, maxHeight: contentHeight),
           child: SizedBox(
             height: contentHeight,
             child: Column(

@@ -42,10 +42,7 @@ PaneItem buildNavPaneItem(
     trailing: Tooltip(
       message: '关闭「$identity」',
       child: IconButton(
-        icon: Icon(
-          FluentIcons.clear,
-          semanticLabel: '关闭「$identity」',
-        ),
+        icon: Icon(FluentIcons.clear, semanticLabel: '关闭「$identity」'),
         onPressed: actions.onClose,
       ),
     ),
