@@ -12,9 +12,9 @@ import 'bangumi_calendar_data.dart';
 
 /// 今日放送-单日分组
 ///
-/// 滚动列表里的一天：日期头 + 卡片网格。空状态用固定高度，
-/// 免得空分组把滚动距离拉得忽长忽短。
-class BangumiCalendarDay extends StatelessWidget {
+/// 提供日期头、空状态与网格参数，由页面拼成
+/// `SliverMainAxisGroup`（头 + `SliverGrid.builder`）。
+class BangumiCalendarDay {
   /// 星期标签，如 `周六`
   final String weekday;
 
@@ -40,15 +40,22 @@ class BangumiCalendarDay extends StatelessWidget {
   bool get collectionOnly => collectedIds != null;
 
   /// 空状态最小高度，保证滚动距离稳定
-  static const double _emptyHeight = 180;
+  static const double emptyMinHeight = 180;
 
   /// 按横向卡片所需宽度排布，避免通用屏幕断点让卡片过宽。
-  static const double _minimumCardWidth = 280;
-  static const double _cardSpacing = 8;
+  static const double minimumCardWidth = 280;
+
+  /// 卡片间距
+  static const double cardSpacing = 8;
+
+  /// 网格外边距
+  static const EdgeInsets gridPadding = EdgeInsets.symmetric(
+    horizontal: 16,
+    vertical: 8,
+  );
 
   /// 构造函数
   const BangumiCalendarDay({
-    super.key,
     required this.weekday,
     required this.date,
     required this.isToday,
@@ -65,6 +72,51 @@ class BangumiCalendarDay extends StatelessWidget {
     return '$month/$day';
   }
 
+  /// 是否有放送时刻或话数信息（影响卡片最小高度）。
+  bool get hasAirInfo => data.any(
+    (item) => (item.airClock ?? '').isNotEmpty || item.episode != null,
+  );
+
+  /// 按可用内容宽度计算列数。
+  static int gridColumns(double contentWidth) {
+    return math.max(
+      1,
+      ((contentWidth + cardSpacing) / (minimumCardWidth + cardSpacing)).floor(),
+    );
+  }
+
+  /// 计算网格行高。
+  static double gridMainAxisExtent({
+    required BuildContext context,
+    required double contentWidth,
+    required int columns,
+    required bool hasAirInfo,
+  }) {
+    var cardWidth = (contentWidth - (columns - 1) * cardSpacing) / columns;
+    var minimumHeight = BangumiCalendarCard.minimumHeight(
+      context,
+      hasAirInfo: hasAirInfo,
+    );
+    return math.max(cardWidth * 7 / 10, minimumHeight);
+  }
+
+  /// 根据视口宽度构建网格 delegate。
+  SliverGridDelegate buildGridDelegate(BuildContext context, double maxWidth) {
+    var contentWidth = maxWidth - gridPadding.horizontal;
+    var columns = gridColumns(contentWidth);
+    return SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: columns,
+      mainAxisExtent: gridMainAxisExtent(
+        context: context,
+        contentWidth: contentWidth,
+        columns: columns,
+        hasAirInfo: hasAirInfo,
+      ),
+      mainAxisSpacing: cardSpacing,
+      crossAxisSpacing: cardSpacing,
+    );
+  }
+
   /// 构建空状态
   Widget buildEmptyState(BuildContext context) {
     if (loading) {
@@ -73,6 +125,14 @@ class BangumiCalendarDay extends StatelessWidget {
     return BTEmptyState.noData(
       title: collectionOnly ? '暂无收藏或 BMF 番剧放送' : '暂无可显示的放送',
       message: collectionOnly ? '可关闭收藏筛选查看其他放送条目' : '该日期暂无符合显示条件的番剧',
+    );
+  }
+
+  /// 空状态主体：用最小高度稳住滚动距离。
+  Widget buildEmptyBody(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: emptyMinHeight),
+      child: buildEmptyState(context),
     );
   }
 
@@ -132,74 +192,22 @@ class BangumiCalendarDay extends StatelessWidget {
     );
   }
 
-  /// 构建列表
-  Widget buildList(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const padding = EdgeInsets.symmetric(horizontal: 16, vertical: 8);
-        var contentWidth = constraints.maxWidth - padding.horizontal;
-        var columns = math.max(
-          1,
-          ((contentWidth + _cardSpacing) / (_minimumCardWidth + _cardSpacing))
-              .floor(),
-        );
-        var cardWidth = (contentWidth - (columns - 1) * _cardSpacing) / columns;
-        var minimumHeight = BangumiCalendarCard.minimumHeight(
-          context,
-          hasAirInfo: data.any(
-            (item) => (item.airClock ?? '').isNotEmpty || item.episode != null,
-          ),
-        );
-        return GridView.builder(
-          padding: padding,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            mainAxisExtent: math.max(cardWidth * 7 / 10, minimumHeight),
-            mainAxisSpacing: _cardSpacing,
-            crossAxisSpacing: _cardSpacing,
-          ),
-          itemCount: data.length,
-          itemBuilder: (context, index) {
-            var item = data[index];
-            return RepaintBoundary(
-              key: ValueKey(item.subject.id),
-              child: BangumiCalendarCard(
-                data: item.subject,
-                airTime: item.airClock,
-                episode: item.episode,
-                watched: item.watched,
-                inBmf: item.inBmf,
-                nightMode: nightMode,
-                bmfOnly:
-                    collectionOnly &&
-                    item.inBmf &&
-                    !collectedIds!.contains(item.subject.id),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  /// 构建
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        buildHeader(context),
-        if (data.isEmpty)
-          // 用最小高度而不是固定高度：加载态比空态高，固定高度会溢出
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: _emptyHeight),
-            child: buildEmptyState(context),
-          )
-        else
-          buildList(context),
-      ],
+  /// 构建单张日历卡片。
+  Widget buildCard(BuildContext context, BangumiCalendarItem item) {
+    return RepaintBoundary(
+      key: ValueKey(item.subject.id),
+      child: BangumiCalendarCard(
+        data: item.subject,
+        airTime: item.airClock,
+        episode: item.episode,
+        watched: item.watched,
+        inBmf: item.inBmf,
+        nightMode: nightMode,
+        bmfOnly:
+            collectionOnly &&
+            item.inBmf &&
+            !collectedIds!.contains(item.subject.id),
+      ),
     );
   }
 }

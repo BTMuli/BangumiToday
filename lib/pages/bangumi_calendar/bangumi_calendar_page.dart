@@ -974,26 +974,45 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     );
   }
 
-  /// 构建按天分组的滚动列表
-  Widget buildDaysSliver() {
-    return SliverList.builder(
-      itemCount: 7,
-      itemBuilder: (context, slot) {
-        var index = weekdayIndexAt(slot);
-        return KeyedSubtree(
-          key: _dayKeys[slot],
-          child: BangumiCalendarDay(
-            weekday: '周${weekday[index]}',
-            date: dateAt(slot),
-            isToday: slot == 0,
-            data: getTabData(slot),
-            collectedIds: _collectedIds,
-            nightMode: isNightMode,
-            // 分组准备好之前是置空的，显示加载态；处理好之后才是空数据
-            loading: !_readySlots.contains(slot),
+  /// 构建按天分组的滚动 sliver 列表。
+  ///
+  /// 每天一组 `SliverMainAxisGroup`：日期头 + 虚拟化网格（或空状态），
+  /// 用 [_dayKeys] 锚定测量与滚动定位。
+  List<Widget> buildDaysSlivers(double maxWidth) {
+    return [
+      for (var slot = 0; slot < 7; slot++) buildDaySliver(slot, maxWidth),
+    ];
+  }
+
+  /// 构建第 [slot] 天的 sliver 组。
+  Widget buildDaySliver(int slot, double maxWidth) {
+    var index = weekdayIndexAt(slot);
+    var day = BangumiCalendarDay(
+      weekday: '周${weekday[index]}',
+      date: dateAt(slot),
+      isToday: slot == 0,
+      data: getTabData(slot),
+      collectedIds: _collectedIds,
+      nightMode: isNightMode,
+      // 分组准备好之前是置空的，显示加载态；处理好之后才是空数据
+      loading: !_readySlots.contains(slot),
+    );
+    return SliverMainAxisGroup(
+      key: _dayKeys[slot],
+      slivers: [
+        SliverToBoxAdapter(child: day.buildHeader(context)),
+        if (day.data.isEmpty)
+          SliverToBoxAdapter(child: day.buildEmptyBody(context))
+        else
+          SliverPadding(
+            padding: BangumiCalendarDay.gridPadding,
+            sliver: SliverGrid.builder(
+              gridDelegate: day.buildGridDelegate(context, maxWidth),
+              itemCount: day.data.length,
+              itemBuilder: (context, i) => day.buildCard(context, day.data[i]),
+            ),
           ),
-        );
-      },
+      ],
     );
   }
 
@@ -1078,10 +1097,14 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
         Expanded(
           child: SizedBox.expand(
             key: _viewportKey,
-            child: CustomScrollView(
-              controller: _scrollController,
-              scrollCacheExtent: const ScrollCacheExtent.pixels(160),
-              slivers: [buildDaysSliver()],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return CustomScrollView(
+                  controller: _scrollController,
+                  scrollCacheExtent: const ScrollCacheExtent.pixels(160),
+                  slivers: buildDaysSlivers(constraints.maxWidth),
+                );
+              },
             ),
           ),
         ),
