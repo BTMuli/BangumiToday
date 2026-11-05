@@ -3,6 +3,7 @@ import 'dart:async';
 
 // Flutter imports:
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
@@ -77,9 +78,6 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
 
   /// 日历滚动控制器
   final ScrollController _scrollController = ScrollController();
-
-  /// 滚动视口，用于测量分组位置
-  final GlobalKey _viewportKey = GlobalKey();
 
   /// 各分组的位置键，下标即展示顺序
   late final List<GlobalKey> _dayKeys = List.generate(7, (_) => GlobalKey());
@@ -692,15 +690,32 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
     _activeSlot.value = active;
   }
 
-  /// 测量分组相对滚动视口顶部的位置；分组未挂载时返回 null。
+  /// 测量分组相对滚动视口顶部的位置；分组未布局时返回 null。
+  ///
+  /// 日网格虚拟化后 [_dayKeys] 挂在 [SliverMainAxisGroup] 上，拿到的是
+  /// [RenderSliver] 而不是 [RenderBox]；用 viewport 的
+  /// [RenderAbstractViewport.getOffsetToReveal] 统一量 leading 边。
   ({double delta, double height})? measureSlot(int slot) {
-    var box = _dayKeys[slot].currentContext?.findRenderObject();
-    var viewport = _viewportKey.currentContext?.findRenderObject();
-    if (box is! RenderBox || viewport is! RenderBox) return null;
-    if (!box.attached || !box.hasSize || !viewport.hasSize) return null;
-    var delta = box.localToGlobal(Offset.zero, ancestor: viewport).dy;
-    _weekdayHeights[weekdayIndexAt(slot)] = box.size.height;
-    return (delta: delta, height: box.size.height);
+    if (!_scrollController.hasClients) return null;
+    var target = _dayKeys[slot].currentContext?.findRenderObject();
+    if (target == null || !target.attached) return null;
+    var viewport = RenderAbstractViewport.maybeOf(target);
+    if (viewport == null) return null;
+    double height;
+    if (target is RenderBox) {
+      if (!target.hasSize) return null;
+      height = target.size.height;
+    } else if (target is RenderSliver) {
+      var geometry = target.geometry;
+      if (geometry == null) return null;
+      height = geometry.scrollExtent;
+    } else {
+      return null;
+    }
+    var targetOffset = viewport.getOffsetToReveal(target, 0).offset;
+    var delta = targetOffset - _scrollController.offset;
+    _weekdayHeights[weekdayIndexAt(slot)] = height;
+    return (delta: delta, height: height);
   }
 
   /// 估算第 [slot] 个分组的滚动位置：已测高度优先，未知的按均值兜底。
@@ -1094,17 +1109,14 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
           builder: (context, value, child) => buildHeader(context),
         ),
         Expanded(
-          child: SizedBox.expand(
-            key: _viewportKey,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return CustomScrollView(
-                  controller: _scrollController,
-                  scrollCacheExtent: const ScrollCacheExtent.pixels(160),
-                  slivers: buildDaysSlivers(constraints.maxWidth),
-                );
-              },
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return CustomScrollView(
+                controller: _scrollController,
+                scrollCacheExtent: const ScrollCacheExtent.pixels(160),
+                slivers: buildDaysSlivers(constraints.maxWidth),
+              );
+            },
           ),
         ),
       ],
