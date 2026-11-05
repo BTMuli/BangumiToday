@@ -7,12 +7,12 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 // Project imports:
 import '../../core/constants/app_constants.dart';
+import '../../core/logging/log_tool.dart';
 import '../../models/app/bangumi_mirror.dart';
 import '../../models/app/bt_download_config.dart';
 import '../../models/app/bt_tracker_config.dart';
 import '../../models/app/proxy_settings.dart';
 import '../../models/app/rss_selection_behavior.dart';
-import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
 import '../drift/bt_database.dart';
 

@@ -6,8 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:logger/logger.dart';
 
 // Project imports:
-import 'package:bangumi_today/tools/durable_log_output.dart';
-import 'package:bangumi_today/tools/log_identity.dart';
+import 'package:bangumi_today/core/logging/durable_log_output.dart';
+import 'package:bangumi_today/core/logging/log_identity.dart';
 
 void main() {
   var root = Directory('temp/log-output-check');

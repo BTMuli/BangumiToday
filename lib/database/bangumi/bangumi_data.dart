@@ -2,9 +2,9 @@
 import 'package:drift/drift.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../core/utils/bangumi_utils.dart';
 import '../../models/bangumi/bangumi_data_model.dart';
-import '../../tools/log_tool.dart';
 import '../app/app_config.dart';
 import '../bt_sqlite.dart';
 import '../drift/bt_database.dart';

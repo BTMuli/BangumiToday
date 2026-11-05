@@ -5,8 +5,8 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../models/bangumi/bangumi_model.dart';
-import '../../tools/log_tool.dart';
 import '../bt_sqlite.dart';
 import '../drift/bt_database.dart';
 

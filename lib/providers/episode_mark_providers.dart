@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Project imports:
+import '../core/logging/log_tool.dart';
 import '../core/services/episode_mark_service.dart';
 import '../data/repositories/episode_mark_gateway_impl.dart';
 import '../models/bangumi/bangumi_model.dart';
@@ -12,7 +13,6 @@ import '../models/playback/episode_mark_state.dart';
 import '../models/playback/playback_item.dart';
 import '../store/bgm_user_hive.dart';
 import '../store/playback_store.dart';
-import '../tools/log_tool.dart';
 import 'bangumi_providers.dart';
 import 'playback_episode_link_providers.dart';
 
