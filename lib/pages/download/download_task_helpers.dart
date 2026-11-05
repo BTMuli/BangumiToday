@@ -67,6 +67,21 @@ List<BtTaskSnapshot> sortDownloadTasks(
   ).sortedIds(descending: descending).map((id) => byId[id]!).toList();
 }
 
+/// 列表成员与状态；速率变化不改变该签名，便于立即重排与节流采样解耦。
+class DownloadTaskMembership {
+  DownloadTaskMembership(List<BtTaskSnapshot> tasks)
+    : entries = [for (var task in tasks) (task.id, task.state)];
+
+  final List<(String, String)> entries;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DownloadTaskMembership && listEquals(entries, other.entries);
+
+  @override
+  int get hashCode => Object.hashAll(entries);
+}
+
 /// 相等性仅包含当前排序字段，上传等无关变化不会重新计算下载速率排序。
 class DownloadTaskSortValues {
   DownloadTaskSortValues(
@@ -112,6 +127,9 @@ class DownloadTaskSortValues {
   @override
   int get hashCode => Object.hashAll(values);
 }
+
+/// 速率类排序的采样间隔：成员/状态变化立即排，速率键按此周期刷新。
+const downloadRateSortSampleInterval = Duration(seconds: 1);
 
 class DownloadTaskOrder {
   DownloadTaskOrder(List<String> ids) : ids = List.unmodifiable(ids);

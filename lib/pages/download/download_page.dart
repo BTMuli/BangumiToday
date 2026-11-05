@@ -1,3 +1,6 @@
+// Dart imports:
+import 'dart:async';
+
 // Package imports:
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -31,15 +34,46 @@ part 'download_page/removal_dialog.dart';
 part 'download_page/subject_group.dart';
 part 'download_page/task_card.dart';
 
+/// 驱动速率/剩余时间排序的采样时钟；成员变化不依赖此时钟。
+final _downloadRateSortTickerProvider =
+    NotifierProvider.autoDispose<_DownloadRateSortTicker, int>(
+      _DownloadRateSortTicker.new,
+    );
+
+class _DownloadRateSortTicker extends Notifier<int> {
+  Timer? _timer;
+
+  @override
+  int build() {
+    _timer?.cancel();
+    _timer = Timer.periodic(downloadRateSortSampleInterval, (_) {
+      state++;
+    });
+    ref.onDispose(() {
+      _timer?.cancel();
+      _timer = null;
+    });
+    return 0;
+  }
+}
+
+/// 成员或状态变化立即重排；速率键最多按 [downloadRateSortSampleInterval] 采样。
 final _sortedDownloadIdsProvider = Provider.autoDispose
     .family<
       DownloadTaskOrder,
       ({DownloadTaskSortField field, bool descending})
     >((ref, key) {
-      var values = ref.watch(
+      ref.watch(
         btDownloadStoreProvider.select(
-          (state) => DownloadTaskSortValues(state.activeTasks, key.field),
+          (state) => DownloadTaskMembership(state.activeTasks),
         ),
+      );
+      if (key.field != DownloadTaskSortField.defaultOrder) {
+        ref.watch(_downloadRateSortTickerProvider);
+      }
+      var values = DownloadTaskSortValues(
+        ref.read(btDownloadStoreProvider).activeTasks,
+        key.field,
       );
       return DownloadTaskOrder(values.sortedIds(descending: key.descending));
     });
