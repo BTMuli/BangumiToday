@@ -12,6 +12,7 @@ class _EmptyDownloads extends ConsumerWidget {
       btDownloadStoreProvider.select((store) => store.lastError),
     );
     var failed = engineState == BtEngineClientState.failed;
+    var stopped = engineState == BtEngineClientState.stopped;
     var color = failed
         ? BTColors.errorLight(context)
         : FluentTheme.of(context).accentColor;
@@ -46,8 +47,8 @@ class _EmptyDownloads extends ConsumerWidget {
             Text(
               failed
                   ? '请检查引擎状态后重试'
-                  : engineState == BtEngineClientState.stopped
-                  ? '下载引擎未开启，点击右上角引擎状态开启'
+                  : stopped
+                  ? '下载引擎未开启，开启后即可添加任务'
                   : '拖入 .torrent 种子文件，或从 RSS 条目添加下载任务',
               style: BTTypography.body(
                 context,
@@ -62,6 +63,13 @@ class _EmptyDownloads extends ConsumerWidget {
                   textAlign: TextAlign.center,
                   style: BTTypography.caption(context).copyWith(color: color),
                 ),
+              ),
+            ],
+            if (stopped) ...[
+              SizedBox(height: 18),
+              FilledButton(
+                onPressed: () => enableDownloadEngine(ref, context),
+                child: const Text('开启下载引擎'),
               ),
             ],
           ],
