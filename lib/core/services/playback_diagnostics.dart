@@ -6,7 +6,7 @@ import 'dart:io';
 import 'package:media_kit/media_kit.dart';
 
 // Project imports:
-import '../../tools/log_tool.dart';
+import '../../core/logging/log_tool.dart';
 import '../utils/playback_health.dart';
 import 'native_playback_property_reader.dart';
 

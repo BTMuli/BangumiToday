@@ -9,7 +9,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 // Project imports:
-import '../../tools/log_tool.dart';
+import '../../core/logging/log_tool.dart';
 import '../../ui/bt_infobar.dart';
 
 /// Cached result of the one-time TensorRT component directory resolution.

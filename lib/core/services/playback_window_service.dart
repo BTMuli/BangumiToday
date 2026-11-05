@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../data/repositories/playback_episodes.dart';
 import '../../models/playback/playback_episode_link.dart';
 import '../../providers/bangumi_providers.dart';
@@ -20,7 +21,6 @@ import '../../providers/playback_episode_link_providers.dart';
 import '../../store/app_store.dart';
 import '../../store/nav_store.dart';
 import '../../store/playback_store.dart';
-import '../../tools/log_tool.dart';
 import 'episode_mark_service.dart';
 import 'playback_episode_protocol.dart';
 import 'playback_window_data_host.dart';

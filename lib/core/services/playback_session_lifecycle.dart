@@ -2,7 +2,7 @@
 import 'dart:async';
 
 // Project imports:
-import '../../tools/log_tool.dart';
+import '../../core/logging/log_tool.dart';
 
 /// Serializes accepted playback work and keeps timed-out cleanup alive.
 /// Native destruction settles separately from the work needed to hide a window.

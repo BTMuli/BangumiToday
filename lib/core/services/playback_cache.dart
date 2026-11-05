@@ -6,7 +6,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as path;
 
 // Project imports:
-import '../../tools/log_tool.dart';
+import '../../core/logging/log_tool.dart';
 import 'file_service.dart';
 import 'native_upscale_adapter.dart';
 import 'playback_shader_cache_service.dart';

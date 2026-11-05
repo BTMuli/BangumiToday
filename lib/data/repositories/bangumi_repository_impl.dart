@@ -2,13 +2,13 @@
 import 'dart:async';
 
 // Project imports:
+import '../../core/logging/log_tool.dart';
 import '../../domain/repositories/bangumi_repository.dart';
 import '../../models/app/response.dart';
 import '../../models/bangumi/bangumi_enum.dart';
 import '../../models/bangumi/bangumi_model.dart';
 import '../../models/bangumi/bangumi_subject_browse.dart';
 import '../../models/bangumi/request_subject.dart';
-import '../../tools/log_tool.dart';
 import '../datasources/bangumi_local_data_source.dart';
 import '../datasources/bangumi_remote_data_source.dart';
 

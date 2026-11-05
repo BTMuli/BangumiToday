@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:ffi/ffi.dart';
 
 // Project imports:
-import '../../tools/log_tool.dart';
+import '../../core/logging/log_tool.dart';
 import '../constants/app_constants.dart';
 
 typedef WindowsProcessRunner =

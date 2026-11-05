@@ -6,7 +6,7 @@ import 'dart:io';
 import 'package:win32_registry/win32_registry.dart';
 
 // Project imports:
-import '../../tools/log_tool.dart';
+import '../../core/logging/log_tool.dart';
 import '../network/system_proxy.dart';
 
 typedef SystemProxyChanged = Future<void> Function(SystemProxyConfig config);
