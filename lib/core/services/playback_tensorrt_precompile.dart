@@ -1,4 +1,5 @@
 // Dart imports:
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -46,6 +47,22 @@ class PlaybackTensorRtPreparation {
 /// The native shim shares playback's cache and builder. Polling, log reads and
 /// cancellation/join live in an isolate, without a Player or a video frame.
 class PlaybackTensorRtPrecompile {
+  // The main and playback engines each own the jobs started in their isolate.
+  static final _active = <PlaybackTensorRtPrecompile>{};
+  static bool _stoppingForExit = false;
+
+  static bool get isRunning => _active.isNotEmpty;
+
+  static Future<void> stopForExit() async {
+    _stoppingForExit = true;
+    for (var job in _active) {
+      job.cancel();
+    }
+    await Future.wait([for (var job in _active) job._settled!.future]);
+  }
+
+  static void resumeAfterCancelledExit() => _stoppingForExit = false;
+
   /// CUDA retirement and file-lease release must stay off the UI isolate.
   static Future<void> clearPreparedCache() async {
     if (!Platform.isWindows) return;
@@ -61,6 +78,7 @@ class PlaybackTensorRtPrecompile {
 
   SendPort? _control;
   bool _cancelled = false;
+  Completer<void>? _settled;
 
   void cancel() {
     _cancelled = true;
@@ -75,6 +93,11 @@ class PlaybackTensorRtPrecompile {
     PlaybackTensorRtTarget? target,
     required void Function(PlaybackTensorRtPreparation) onProgress,
   }) async {
+    if (_stoppingForExit) throw StateError('应用正在退出');
+    if (_settled != null) throw StateError('TensorRT 预编译已在运行');
+    var settled = Completer<void>();
+    _settled = settled;
+    _active.add(this);
     _cancelled = false;
     var events = ReceivePort();
     try {
@@ -85,28 +108,43 @@ class PlaybackTensorRtPrecompile {
         onExit: events.sendPort,
       );
       PlaybackTensorRtPreparation? result;
+      AsyncError? failure;
       await for (var event in events) {
         if (event is SendPort) {
           _control = event;
           if (_cancelled) event.send('cancel');
-        } else if (event is Map) {
-          result = PlaybackTensorRtPreparation(
-            Map<String, dynamic>.from(event),
-          );
-          onProgress(result);
-        } else if (event is List) {
-          throw StateError('引擎准备任务异常：${event.first}');
         } else if (event == null) {
-          if (result?.phase != 'ready') {
-            throw StateError(result?.reason ?? '引擎准备任务意外退出');
+          break;
+        } else if (failure == null) {
+          try {
+            if (event is Map) {
+              result = PlaybackTensorRtPreparation(
+                Map<String, dynamic>.from(event),
+              );
+              onProgress(result);
+            } else if (event is List) {
+              throw StateError('引擎准备任务异常：${event.first}');
+            }
+          } catch (error, stackTrace) {
+            // Keep waiting for native cleanup if progress reporting fails.
+            failure = AsyncError(error, stackTrace);
+            cancel();
           }
-          return;
         }
+      }
+      if (failure != null) {
+        Error.throwWithStackTrace(failure.error, failure.stackTrace);
+      }
+      if (result?.phase != 'ready') {
+        throw StateError(result?.reason ?? '引擎准备任务意外退出');
       }
     } finally {
       _control?.send('cancel');
       _control = null;
       events.close();
+      _active.remove(this);
+      _settled = null;
+      settled.complete();
     }
   }
 

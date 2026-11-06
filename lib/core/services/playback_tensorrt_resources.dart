@@ -421,6 +421,7 @@ class PlaybackTensorRtResources {
         cache: engineDirectory,
         sm: _sm,
         onProgress: (progress) {
+          if (progress.phase == 'cancelled') _cancelled = true;
           completedEngines = progress.completed;
           _precompileLines = progress.lines;
           _update('precompiling', progress.label);

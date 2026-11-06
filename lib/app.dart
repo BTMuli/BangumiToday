@@ -14,13 +14,13 @@ class BTApp extends ConsumerStatefulWidget {
   /// 构造函数
   const BTApp({super.key});
 
+  static final navigatorKey = GlobalKey<NavigatorState>();
+
   @override
   ConsumerState<BTApp> createState() => _BTAppState();
 }
 
 class _BTAppState extends ConsumerState<BTApp> {
-  final _navigatorKey = GlobalKey<NavigatorState>();
-
   /// 已应用的窗口材质深浅色，避免重复设置
   bool? _appliedWindowDark;
 
@@ -70,13 +70,13 @@ class _BTAppState extends ConsumerState<BTApp> {
     _syncWindowMaterial(context, appStore.themeMode);
     return FluentApp(
       title: 'BangumiToday',
-      navigatorKey: _navigatorKey,
+      navigatorKey: BTApp.navigatorKey,
       themeMode: appStore.themeMode,
       theme: getTheme(context, appStore),
       home: const NavWidget(),
       builder: (context, child) => PlaybackDropTarget(
         onTorrentDrop: (paths) async {
-          var dialogContext = _navigatorKey.currentState?.overlay?.context;
+          var dialogContext = BTApp.navigatorKey.currentState?.overlay?.context;
           if (dialogContext == null || !dialogContext.mounted) return;
           await showManualDownloadDialog(
             dialogContext,

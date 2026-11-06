@@ -16,6 +16,7 @@ import 'package:window_manager/window_manager.dart';
 // Project imports:
 import '../../core/logging/log_tool.dart';
 import '../../core/services/playback_close_progress.dart';
+import '../../core/services/playback_tensorrt_precompile.dart';
 import '../../core/services/playback_window_protocol.dart';
 import '../../core/utils/window_effect.dart';
 import '../../data/repositories/playback_window_remote.dart';
@@ -311,6 +312,9 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
       await _beginShutdown();
       return null;
     }
+    if (call.method == 'tensorRt.isPrecompiling') {
+      return PlaybackTensorRtPrecompile.isRunning;
+    }
     if (call.method == 'activate') {
       await _closeFuture;
       if (_exiting) throw StateError('应用正在退出');
@@ -427,6 +431,7 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
   Future<void> _shutdown() async {
     _exiting = true;
     _closing = true;
+    var precompileStopped = PlaybackTensorRtPrecompile.stopForExit();
     // A user close may already be saving and unloading media. Let it finish
     // before the app exit takes ownership of native destruction.
     try {
@@ -441,6 +446,7 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
     BTLogTool.info('应用退出，开始销毁播放器：${identity.generation}');
     try {
       var progress = _closeProgress();
+      await progress.run('停止 TensorRT 预编译', () => precompileStopped);
       await progress.run('通知主窗口', () => call('closing', {}));
       if (!_hidden) {
         if (await windowManager.isMinimized()) await windowManager.restore();

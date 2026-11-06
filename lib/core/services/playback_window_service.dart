@@ -89,6 +89,22 @@ class PlaybackWindowService extends ChangeNotifier {
   bool get hasWindow => _session != null;
   bool get isClosing => _session?.closing == true;
 
+  Future<bool> isTensorRtPrecompiling() async {
+    var session = _session;
+    if (session == null ||
+        session.window == null ||
+        session.reportedId == null ||
+        session.gone.isCompleted) {
+      return false;
+    }
+    var result = await _invoke(
+      session,
+      'tensorRt.isPrecompiling',
+      {},
+    ).timeout(const Duration(seconds: 5));
+    return result as bool;
+  }
+
   void clearError() {
     if (error == null) return;
     error = null;

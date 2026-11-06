@@ -28,6 +28,7 @@ import 'core/services/desktop_tray_service.dart';
 import 'core/services/download_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/playback_shader_cache_service.dart';
+import 'core/services/playback_tensorrt_precompile.dart';
 import 'core/services/playback_window_service.dart';
 import 'core/services/system_proxy_watch_service.dart';
 import 'core/services/windows_app_protocol.dart';
@@ -46,6 +47,7 @@ import 'store/bt_download_store.dart';
 import 'store/nav_store.dart';
 import 'store/playback_store.dart';
 import 'store/tracker_hive.dart';
+import 'ui/bt_dialog.dart';
 import 'widgets/shell/splash.dart';
 
 Future<bool>? _applicationExitFuture;
@@ -137,22 +139,37 @@ Future<void> _initDesktopTray() async {
 Future<bool> _exitApplication() =>
     _applicationExitFuture ??= _performApplicationExit().then(
       (exited) {
-        if (!exited) _applicationExitFuture = null;
+        if (!exited) {
+          PlaybackTensorRtPrecompile.resumeAfterCancelledExit();
+          _applicationExitFuture = null;
+        }
         return exited;
       },
       onError: (Object error, StackTrace stackTrace) {
+        PlaybackTensorRtPrecompile.resumeAfterCancelledExit();
         _applicationExitFuture = null;
         Error.throwWithStackTrace(error, stackTrace);
       },
     );
 
 Future<bool> _performApplicationExit() async {
+  var playbackWindow = Platform.isWindows
+      ? globalContainer.read(playbackWindowServiceProvider)
+      : null;
+  if (playbackWindow != null) {
+    var childPrecompiling = await playbackWindow.isTensorRtPrecompiling();
+    if ((childPrecompiling || PlaybackTensorRtPrecompile.isRunning) &&
+        !await _confirmExitDuringTensorRtPrecompile()) {
+      return false;
+    }
+    await PlaybackTensorRtPrecompile.stopForExit();
+  }
+
   // 先移除视频与控制条，使其取消流监听；隐藏窗口后可能不再绘制帧。
   var playbackReleased = await _runExitStep(
     '播放器',
-    Platform.isWindows
-        ? globalContainer.read(playbackWindowServiceProvider).shutdown
-        : globalContainer.read(playbackStoreProvider).shutdown,
+    playbackWindow?.shutdown ??
+        globalContainer.read(playbackStoreProvider).shutdown,
     // 播放器为队列、存储、界面与原生释放分别控制退出预算。
     timeout: null,
   );
@@ -233,6 +250,21 @@ Future<bool> _performApplicationExit() async {
   await _runExitStep('系统托盘', BTDesktopTrayService.instance.dispose);
   await _runExitStep('主窗口', windowManager.destroy);
   return true;
+}
+
+Future<bool> _confirmExitDuringTensorRtPrecompile() async {
+  if (await windowManager.isMinimized()) await windowManager.restore();
+  await windowManager.show();
+  await windowManager.focus();
+  var context = BTApp.navigatorKey.currentState?.overlay?.context;
+  if (context == null || !context.mounted) return false;
+  return showConfirmAction(
+    context,
+    title: 'TensorRT 正在预编译',
+    content: '退出前需要停止预编译。已完成的引擎会保留，下次可以继续编译。',
+    confirmText: '停止并退出',
+    cancelText: '继续编译',
+  );
 }
 
 Future<bool> _runExitStep(
