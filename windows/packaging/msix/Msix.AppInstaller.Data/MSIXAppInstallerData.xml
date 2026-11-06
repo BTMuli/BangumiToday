@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppInstallerUX xmlns="http://schemas.microsoft.com/msix/appinstallerux"
+                xmlns:ux="http://schemas.microsoft.com/msix/appinstallerux"
+                xmlns:ux2="http://schemas.microsoft.com/msix/appinstallerux/2"
+                IgnorableNamespaces="ux ux2" Version="1.0.0">
+  <UX AllowUserInteraction="true">
+    <Icon HorizontalAlignment="right" Logo="Images\Square150x150Logo.scale-200.png" />
+  </UX>
+</AppInstallerUX>

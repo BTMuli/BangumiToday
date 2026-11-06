@@ -139,12 +139,14 @@ jobs:
           }
 
       - name: 打包msix
+        shell: pwsh
+        env:
+          SIGN_SECRET: ${{ secrets.SIGN_SECRET }}
         run: >
-          dart run msix:create
-          -n "BangumiToday_${{ env.RELEASE_VERSION }}"
-          --build-windows false
-          --certificate-path build_certificate.pfx
-          -p ${{ secrets.SIGN_SECRET }}
+          ./scripts/package_windows_msix.ps1
+          -OutputName "BangumiToday_$env:RELEASE_VERSION"
+          -CertificatePath build_certificate.pfx
+          -CertificatePassword $env:SIGN_SECRET
 
       - name: 打包msix-Store
         run: >

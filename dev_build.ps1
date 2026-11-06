@@ -501,21 +501,10 @@ try {
     & $verifyScriptPath -BundlePath $bundlePath `
         -EngineRuntimePath $resolvedEngineRuntimePath
 
-    $dartPath = (Get-Command dart -ErrorAction Stop).Source
-    Invoke-NativeCommand -FilePath $dartPath `
-        -Arguments @(
-            'run',
-            'msix:create',
-            '--build-windows',
-            'false',
-            "--version=$version",
-            "--output-name=$msixOutputName",
-            '-p',
-            $signPassword,
-            '-c',
-            $certificatePath
-        ) `
-        -Description "Creating BangumiToday MSIX $version..."
+    Write-Host "Creating BangumiToday MSIX $version..."
+    & (Join-Path $projectRoot 'scripts/package_windows_msix.ps1') `
+        -OutputName $msixOutputName -Version $version `
+        -CertificatePath $certificatePath -CertificatePassword $signPassword
 
     if (-not (Test-Path -LiteralPath $msixPath -PathType Leaf)) {
         throw "MSIX output was not created: $msixPath"
