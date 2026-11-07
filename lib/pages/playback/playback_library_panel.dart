@@ -124,13 +124,12 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
     });
   }
 
-  /// 选集浮出层的自然高度（含面板边框）：标题、加载状态、分隔线和当前排版
+  /// 选集浮出层的自然高度（含面板边框）：单行页脚、分隔线和当前排版
   /// 下的完整列表。记录页由最大高度与内部滚动处理。
   static double playlistFlyoutHeight({
     required int count,
     required PlaybackEpisodeLayout layout,
     required double width,
-    required bool isOpening,
   }) {
     // 边框会缩进面板内容，列表实际宽度与列数按内宽计算。
     var innerWidth = width - 2 * _borderWidth;
@@ -144,10 +143,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
       PlaybackEpisodeLayout.list =>
         2 * _listPadding + count * (_rowHeight + _gap),
     };
-    return _headerHeight +
-        (isOpening ? _secondaryHeaderHeight : 0) +
-        content +
-        2 * _borderWidth;
+    return _headerHeight + content + 2 * _borderWidth;
   }
 
   /// 栏宽与 `_playlist` 共用同一列规则，浮出层高度才能与列表布局一致。
@@ -158,7 +154,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
 
   @override
   Widget build(BuildContext context) {
-    // 避免进度 tick 拖着整个选集/记录面板重建。
+    // 避免进度 tick 拖着整个面板重建；加载提示仍跟随阶段和结束刷新。
     ref.watch(
       playbackStoreProvider.select(
         (store) => (
@@ -167,6 +163,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
           store.index,
           store.episodeLayout,
           store.historyGroups.length,
+          store.openingStatus,
         ),
       ),
     );
@@ -289,7 +286,9 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
                 ),
               ],
             ),
-            if (_showHistory || store.isOpening)
+            if (_showHistory ||
+                (store.isOpening &&
+                    widget.section != _PlaybackLibrarySection.playlist))
               SizedBox(
                 height: _secondaryHeaderHeight,
                 child: Padding(
@@ -315,27 +314,7 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
                           ),
                           child: Padding(
                             padding: const EdgeInsets.only(left: 8),
-                            child: Tooltip(
-                              message: status,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox.square(
-                                    dimension: 16,
-                                    child: ProgressRing(strokeWidth: 2),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      status,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: BTTypography.caption(context),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            child: _openingIndicator(status),
                           ),
                         ),
                     ],
@@ -438,16 +417,40 @@ class _PlaybackLibraryPanelState extends ConsumerState<_PlaybackLibraryPanel> {
     height: 32,
     alignment: Alignment.centerLeft,
     padding: const EdgeInsets.symmetric(horizontal: 6),
-    child: Text(
-      _showHistory
-          ? '播放记录 ${store.historyGroups.length}'
-          : '选集 ${store.playlist.length}',
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: BTTypography.caption(context).copyWith(
-        color: BTColors.textSecondary(context),
-        fontWeight: FontWeight.w600,
-      ),
+    child: !_showHistory && store.isOpening
+        ? _openingIndicator(store.openingStatus!)
+        : Text(
+            _showHistory
+                ? '播放记录 ${store.historyGroups.length}'
+                : '选集 ${store.playlist.length}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: BTTypography.caption(context).copyWith(
+              color: BTColors.textSecondary(context),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+  );
+
+  Widget _openingIndicator(String status) => Tooltip(
+    message: status,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox.square(
+          dimension: 16,
+          child: ProgressRing(strokeWidth: 2),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            status,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: BTTypography.caption(context),
+          ),
+        ),
+      ],
     ),
   );
 
@@ -1209,23 +1212,15 @@ Widget _playbackLibraryDynamicFlyout({
           child: Consumer(
             child: panel,
             builder: (context, ref, child) {
-              // Only count, layout and loading-row visibility affect height;
-              // individual loading stages and metadata need no size rebuild.
-              var (
-                count,
-                layout,
-                isOpening,
-              ) = section == _PlaybackLibrarySection.playlist
+              // The playlist footer stays one row during loading, so only
+              // count and layout affect the flyout height.
+              var (count, layout) = section == _PlaybackLibrarySection.playlist
                   ? ref.watch(
                       playbackStoreProvider.select(
-                        (store) => (
-                          store.playlist.length,
-                          store.episodeLayout,
-                          store.isOpening,
-                        ),
+                        (store) => (store.playlist.length, store.episodeLayout),
                       ),
                     )
-                  : (0, PlaybackEpisodeLayout.grid, false);
+                  : (0, PlaybackEpisodeLayout.grid);
               var panelWidth = box.width - _playbackFlyoutBorder;
               var maximumPanelHeight = (box.height - _playbackFlyoutBorder)
                   .clamp(0.0, double.infinity)
@@ -1235,7 +1230,6 @@ Widget _playbackLibraryDynamicFlyout({
                       count: count,
                       layout: layout,
                       width: panelWidth,
-                      isOpening: isOpening,
                     ).clamp(0.0, maximumPanelHeight).toDouble()
                   : maximumPanelHeight;
               return SizedBox(
