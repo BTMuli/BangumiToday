@@ -500,7 +500,7 @@ class PlaybackTensorRtResources {
         path.join(dataDirectory, version),
       ).create(recursive: true);
       installLock = await File(
-        path.join(dataDirectory, '$version.install.lock'),
+        path.join(dataDirectory, 'install.lock'),
       ).open(mode: FileMode.append);
       var deadline = DateTime.now().add(const Duration(minutes: 15));
       while (!locked) {

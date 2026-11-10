@@ -19,6 +19,7 @@ import 'app.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/container.dart';
 import 'core/logging/log_tool.dart';
+import 'core/services/app_data_retention_service.dart';
 import 'core/services/app_link_service.dart';
 import 'core/services/bangumi_oauth_coordinator.dart';
 import 'core/services/bangumi_token_service.dart';
@@ -205,6 +206,11 @@ Future<bool> _performApplicationExit() async {
   await _runExitStep('隐藏主窗口', windowManager.hide);
   await _runExitStep('系统代理监听', SystemProxyWatchService.instance.stop);
   await _runExitStep('Shader 缓存维护', PlaybackShaderCacheService.instance.stop);
+  await _runExitStep(
+    '数据留存维护',
+    AppDataRetentionService.instance.stop,
+    timeout: null,
+  );
   if (kDebugMode) {
     await _runExitStep('Windows 协议还原', restoreWindowsAppProtocol);
   }
@@ -394,6 +400,9 @@ Future<void> _initBackgroundServices() async {
   }
 
   unawaited(_runOptionalService('应用缓存', BTCacheManager.instance.init));
+  unawaited(
+    _runOptionalService('数据留存维护', AppDataRetentionService.instance.start),
+  );
   unawaited(
     _runOptionalService('Shader 缓存', PlaybackShaderCacheService.instance.start),
   );

@@ -6,6 +6,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 // Project imports:
 import '../../domain/rss/feed_identity.dart';
+import '../../domain/rss/rss_known_items.dart';
 
 part 'app_subscription_model.g.dart';
 
@@ -60,6 +61,8 @@ class AppSubscriptionModel {
   final bool autoUpdate;
   final String status;
   final String pendingItems;
+
+  /// JSON array of {key, lastSeenAt}; legacy string arrays are aged on upkeep.
   final String knownItems;
   @JsonKey(fromJson: _boolFromSql)
   final bool hasBaseline;
@@ -78,7 +81,7 @@ class AppSubscriptionModel {
       feedKey.startsWith('rss:v1:');
 
   Set<String> get pendingItemKeys => decodeKeys(pendingItems);
-  Set<String> get knownItemKeys => decodeKeys(knownItems);
+  Set<String> get knownItemKeys => RssKnownItems.decode(knownItems).keys;
 
   static Set<String> decodeKeys(String value) {
     var decoded = jsonDecode(value);

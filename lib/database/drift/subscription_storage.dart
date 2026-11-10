@@ -8,6 +8,7 @@ import 'package:drift/drift.dart';
 import '../../data/parsers/rss_parser.dart';
 import '../../domain/rss/feed_identity.dart';
 import '../../domain/rss/rss_item_key.dart';
+import '../../domain/rss/rss_known_items.dart';
 import '../../models/database/app_rss_cache_model.dart';
 import '../../models/database/app_subscription_model.dart';
 import 'bt_database.dart';
@@ -136,6 +137,12 @@ class SubscriptionStorage {
       )..where((b) => b.subject.equals(subject))).getSingleOrNull();
       if (parent == null) return;
       await (db.delete(
+        db.appPlaybackEpisodeLink,
+      )..where((link) => link.subject.equals(subject))).go();
+      await (db.delete(
+        db.appPlaybackEpisodeRule,
+      )..where((rule) => rule.subject.equals(subject))).go();
+      await (db.delete(
         db.appSubscription,
       )..where((s) => s.bmfId.equals(parent.id))).go();
       await (db.delete(db.appBmf)..where((b) => b.id.equals(parent.id))).go();
@@ -186,6 +193,20 @@ class SubscriptionStorage {
         return false;
     }
   }
+
+  /// Reclaims associations left behind by earlier BMF removals.
+  Future<void> pruneOrphanedPlaybackData() => db.transaction(() async {
+    var query = db.selectOnly(db.appBmf)..addColumns([db.appBmf.subject]);
+    var subjects = [
+      for (var row in await query.get()) row.read(db.appBmf.subject)!,
+    ];
+    await (db.delete(
+      db.appPlaybackEpisodeLink,
+    )..where((link) => link.subject.isNotIn(subjects))).go();
+    await (db.delete(
+      db.appPlaybackEpisodeRule,
+    )..where((rule) => rule.subject.isNotIn(subjects))).go();
+  });
 
   Future<void> saveSubscriptions(
     int bmfId,
@@ -296,17 +317,17 @@ class SubscriptionStorage {
         }
         if (fromCache && current.hasBaseline) continue;
         var pending = current.pendingItemKeys;
-        var known = current.knownItemKeys;
+        var known = RssKnownItems.decode(current.knownItems)..prune(at);
         var newItems = current.hasBaseline
-            ? feed.items
-                  .where((item) => !known.contains(rssItemKey(item)))
-                  .toList()
+            ? feed.items.where((item) {
+                var key = rssItemKey(item);
+                return !known.contains(key) && !pending.contains(key);
+              }).toList()
             : <RssItem>[];
         pending.addAll(newItems.map(rssItemKey));
-        // Keep historical known keys even when the feed window rolls forward.
-        known.addAll(currentKeys);
+        known.observe(currentKeys, at);
         var pendingJson = jsonEncode(pending.toList()..sort());
-        var knownJson = jsonEncode(known.toList()..sort());
+        var knownJson = known.encode();
         await (db.update(
           db.appSubscription,
         )..where((s) => s.id.equals(current.id))).write(
@@ -408,6 +429,20 @@ class SubscriptionStorage {
     'SELECT 1 FROM AppSubscription s WHERE s.feedKey = AppRssCache.feedKey)',
   );
 
+  /// Also ages keys belonging to paused or failing subscriptions. Pending
+  /// decisions are independent and must not disappear with the dedup window.
+  Future<void> pruneKnownItems({DateTime? now}) => db.transaction(() async {
+    var at = (now ?? DateTime.now()).millisecondsSinceEpoch;
+    for (var subscription in await readAll()) {
+      var known = RssKnownItems.decode(subscription.knownItems)..prune(at);
+      var encoded = known.encode();
+      if (encoded == subscription.knownItems) continue;
+      await (db.update(db.appSubscription)
+            ..where((s) => s.id.equals(subscription.id)))
+          .write(AppSubscriptionCompanion(knownItems: Value(encoded)));
+    }
+  });
+
   Future<List<MigrationRecoveryRow>> unresolvedRecovery() async {
     var query = db.select(db.appMigrationRecovery)
       ..where((r) => r.resolvedAt.isNull())
@@ -501,13 +536,16 @@ class SubscriptionStorage {
           original['pendingItems'] as String? ?? '[]',
         );
         var pending = target.pendingItemKeys..addAll(keys);
-        var known = target.knownItemKeys..addAll(keys);
+        var at = DateTime.now().millisecondsSinceEpoch;
+        var known = RssKnownItems.decode(target.knownItems)
+          ..prune(at)
+          ..observe(keys, at);
         await (db.update(
           db.appSubscription,
         )..where((s) => s.id.equals(target.id))).write(
           AppSubscriptionCompanion(
             pendingItems: Value(jsonEncode(pending.toList()..sort())),
-            knownItems: Value(jsonEncode(known.toList()..sort())),
+            knownItems: Value(known.encode()),
           ),
         );
         candidates.add(target.bmfId);
