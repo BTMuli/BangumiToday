@@ -2,12 +2,27 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2026-11-01
+Update: 2026-11-12
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:15`
 >
-> 更新于 `2026-11-01 11:26:00`
+> 更新于 `2026-11-12 23:53:43`
+
+## [v1.3.1](https://github.com/BTMuli/BangumiToday/releases/tag/v1.3.0) (2026-11-12)
+
+- ✨ 支持在 BMF 页查看未看进度并快速播放
+- 🩹 修复文件关联剧集的小数集数显示
+- 🐛 修正手动关联章节的选集编号和排序
+- 🐛 修复自动标记看过后主窗口进度丢失
+- 🐛 修复切集渲染异常
+- 🚸 将下载设置迁至下载页浮窗
+- 👔 调整本地数据留存与自动清理规则
+- 💬 统一条目详情加载失败的中文空态
+- ⚡️ 节流下载列表的速率排序重排
+- ⚡️ 缩小 BMF 工作台的整页刷新范围
+- ⚡️ 将日历日网格改为可虚拟化的 Sliver
+- ⚡️ 播放页热路径改为细粒度 select 订阅
 
 ## [v1.3.0](https://github.com/BTMuli/BangumiToday/releases/tag/v1.3.0) (2026-11-01)
 
