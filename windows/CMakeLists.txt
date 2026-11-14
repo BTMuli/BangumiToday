@@ -55,7 +55,18 @@ add_subdirectory("runner")
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
+# media_kit_libs_windows_video 1.0.11 omits the build phase in its extraction
+# commands. Default to its existing POST_BUILD behavior while loading plugins;
+# their cmake_minimum_required() calls leave CMP0175 unset otherwise.
+if (POLICY CMP0175 AND NOT DEFINED CMAKE_POLICY_DEFAULT_CMP0175)
+    set(CMAKE_POLICY_DEFAULT_CMP0175 OLD)
+    set(_bangumi_restore_cmp0175_default TRUE)
+endif ()
 include(flutter/generated_plugins.cmake)
+if (_bangumi_restore_cmp0175_default)
+    unset(CMAKE_POLICY_DEFAULT_CMP0175)
+    unset(_bangumi_restore_cmp0175_default)
+endif ()
 include(cmake/playback_window.cmake)
 include(cmake/playback_renderer.cmake)
 include(cmake/playback_runtime.cmake)
