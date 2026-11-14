@@ -43,6 +43,7 @@ import '../../widgets/bangumi/bt_bangumi_cover.dart';
 import '../../widgets/playback/playback_build_log.dart';
 import 'playback_actions.dart';
 import 'playback_episode_mark.dart';
+import 'playback_export_dialog.dart';
 import 'playback_label.dart';
 import 'playback_window_mode.dart';
 

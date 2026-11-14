@@ -66,6 +66,11 @@ endif()
 # SDK lacks mpv_get_time_ns, needed for this runtime's nanosecond deadlines.
 target_include_directories(media_kit_video_plugin BEFORE PRIVATE
     "${BANGUMI_LIBMPV_DIR}/include/mpv")
+target_sources(media_kit_video_plugin PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../playback/video_export.cc")
+target_include_directories(media_kit_video_plugin PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../playback"
+    "${CMAKE_BINARY_DIR}/bangumi_playback_renderer")
 get_target_property(_bangumi_playback_link_libraries
     media_kit_video_plugin LINK_LIBRARIES)
 set(_bangumi_playback_runtime_links "")

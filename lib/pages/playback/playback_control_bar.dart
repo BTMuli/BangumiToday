@@ -191,7 +191,7 @@ extension _PlaybackControlBar on _PlaybackVideoControlsState {
               '超分配置 · ${store.upscaleMode.label}',
               () => _showButtonMenu(
                 buttonContext,
-                () => _playbackUpscaleItems(store, widget.run),
+                () => _playbackUpscaleItems(store, widget.run, _showExport),
               ),
               key: const ValueKey('playback-upscale'),
               selected: store.upscaleMode != PlaybackUpscaleMode.off,

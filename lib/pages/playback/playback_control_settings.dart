@@ -41,6 +41,7 @@ class _PlaybackMenuLabel extends StatelessWidget {
 List<MenuFlyoutItemBase> _playbackUpscaleItems(
   PlaybackStore store,
   Future<void> Function(Future<void> Function()) run,
+  VoidCallback export,
 ) => [
   _playbackUpscaleItem(PlaybackUpscaleMode.off, store, run),
   for (var (title, isJanai) in [('Anime4K', false), ('JaNai', true)]) ...[
@@ -62,6 +63,12 @@ List<MenuFlyoutItemBase> _playbackUpscaleItems(
       if (mode != PlaybackUpscaleMode.off && mode.isJanai == isJanai)
         _playbackUpscaleItem(mode, store, run),
   ],
+  const MenuFlyoutSeparator(),
+  MenuFlyoutItem(
+    text: const Text('导出…'),
+    leading: const Icon(material.Icons.file_upload_outlined, size: 16),
+    onPressed: store.current == null || store.loading ? null : export,
+  ),
 ];
 
 MenuFlyoutItemBase _playbackUpscaleItem(
@@ -103,6 +110,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
   Future<void> Function() pickSubtitle,
   Future<void> Function() pickSubtitleDirectory,
   ValueChanged<_PlaybackCommand> execute,
+  VoidCallback export,
   PlaybackWindowMode? windowMode, {
   required bool includeUpscale,
 }) => [
@@ -123,7 +131,7 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
         builder: (_, _) =>
             _PlaybackMenuLabel('视频超分', description: store.upscaleMode.label),
       ),
-      items: (_) => _playbackUpscaleItems(store, run),
+      items: (_) => _playbackUpscaleItems(store, run, export),
     ),
   if (Platform.isWindows || Platform.isMacOS)
     MenuFlyoutSubItem(

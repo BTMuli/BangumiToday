@@ -54,6 +54,7 @@ extension _PlaybackControlMenus on _PlaybackVideoControlsState {
       widget.pickSubtitle,
       widget.pickSubtitleDirectory,
       _execute,
+      _showExport,
       widget.windowMode,
       includeUpscale: includeUpscale,
     ),

@@ -2,6 +2,46 @@ part of 'playback_page.dart';
 
 /// Shared command handling for shortcuts, buttons and menus.
 extension _PlaybackControlCommands on _PlaybackVideoControlsState {
+  void _showExport() {
+    widget.overlay.closeMenus();
+    unawaited(
+      widget.run(() async {
+        var store = widget.store;
+        var item = store.current;
+        if (!mounted || item == null || store.loading) return;
+        var params = widget.player.state.videoParams;
+        var video = playbackVideoSource(
+          width: params.dw ?? params.w,
+          height: params.dh ?? params.h,
+          pixelWidth: params.w,
+          pixelHeight: params.h,
+          rotation: params.rotate,
+          gamma: params.gamma,
+        );
+        if (video == null) throw StateError('请等待视频参数加载完成');
+        var rawFps = await store.upscaler?.backend.read('container-fps');
+        var fps = rawFps is num ? rawFps.toDouble() : 0.0;
+        if (fps <= 0 || !fps.isFinite) throw StateError('无法确定源视频帧率');
+        if (!mounted || store.current?.key != item.key) return;
+        await store.pause();
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => PlaybackExportDialog(
+            source: item.filePath,
+            video: video,
+            fps: fps,
+            duration: store.duration,
+            initialMode: store.upscaleMode,
+            resources: store.tensorRtResources,
+          ),
+        );
+        _focusVideo();
+      }),
+    );
+  }
+
   void _execute(_PlaybackCommand command) {
     unawaited(widget.run(() => _perform(command)));
   }

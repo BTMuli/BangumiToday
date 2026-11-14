@@ -152,6 +152,7 @@ struct aji_ctx {
   int width = 0;
   int height = 0;
   double fps = 0;
+  bool offline = false;
 
   std::unique_ptr<FramePipeline> pipeline;
   PixelFormat pipeline_format = PixelFormat::kNone;
@@ -233,6 +234,8 @@ bool ParseConfig(aji_ctx& state, const std::filesystem::path& path) {
       state.engine_cache = resolve(value);
     } else if (key == "build_cancel_event") {
       state.build_cancel_event = std::filesystem::u8path(value).wstring();
+    } else if (key == "offline") {
+      state.offline = value == "yes";
     } else if (key == "default_slot") {
       state.slot = std::atoi(value.c_str());
     } else if (key.rfind("slot", 0) == 0 && key.size() > 4) {
@@ -584,10 +587,10 @@ AJI_EXPORT int aji_configure(aji_ctx* c, int w, int h, double fps, int* out_w,
   if (!validation.empty()) {
     // Outside the verified 2x budget: keep normal playback.
     c->status_reason = validation;
-    c->Log(kLogInfo, "Shim passes through: " + validation);
+    c->Log(c->offline ? kLogError : kLogInfo, "Shim passes through: " + validation);
     DescribePlan(*c);
     PublishStats(*c, "passthrough", true);
-    return 0;
+    return c->offline ? AJI_ERR_SHAPE : 0;
   }
   c->width = w;
   c->height = h;
@@ -623,6 +626,10 @@ AJI_EXPORT int aji_configure(aji_ctx* c, int w, int h, double fps, int* out_w,
           c->backend_reason = "尚未安装 TensorRT 组件，请在应用设置中安装";
           c->status_reason = c->backend_reason;
           PublishStats(*c, "resources_missing", true);
+          if (c->offline) {
+            c->Log(kLogError, c->status_reason);
+            return AJI_ERR_ENGINE;
+          }
           return 0;
         } else {
           const auto plan = MakeFramePlan(frame);
@@ -633,7 +640,14 @@ AJI_EXPORT int aji_configure(aji_ctx* c, int w, int h, double fps, int* out_w,
       }
     }
     if (c->build) {
-      const auto result = c->build->snapshot();
+      auto result = c->build->snapshot();
+      // Exports must never write the passthrough frames used while realtime
+      // playback prepares its model. The build observes the cancellation event.
+      while (c->offline &&
+             result.phase == TrtEngineBuild::Phase::kPreparing) {
+        Sleep(20);
+        result = c->build->snapshot();
+      }
       if (result.phase == TrtEngineBuild::Phase::kPreparing) {
         c->backend_reason =
             result.reason.empty()
@@ -750,7 +764,7 @@ AJI_EXPORT int aji_infer(aji_ctx* c, const aji_frame* in, const aji_frame* out,
       return AJI_ERR_ENGINE;
     }
     c->pipeline_format = format;
-    c->pipeline->ConfigureFrameRate(c->fps);
+    c->pipeline->ConfigureFrameRate(c->offline ? 0 : c->fps);
     c->plan = c->pipeline->plan();
     c->color = MakeColorConversion(config.frame);
     DescribePlan(*c);
