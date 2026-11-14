@@ -1,7 +1,7 @@
 BangumiToday AnimeJaNai inference dependencies
 
 AnimeJaNai HD V3.1 Standard Performance and Balanced models
-https://github.com/the-database/mpv-AnimeJaNai/tree/7f502d171ab5dd1f78685cb331047e5a7446635d
+https://github.com/the-database/mpv-AnimeJaNai/tree/0e85115cbce2a12f87239ebd4e6606ec9008a782
 License: Creative Commons Attribution-NonCommercial-ShareAlike 4.0
 See licenses/AnimeJaNai.txt. Models are copied without modification.
 

@@ -30,7 +30,7 @@ extern "C" {
 #define AJI_EXPORT __attribute__((visibility("default")))
 #endif
 
-#define AJI_API_VERSION 8
+#define AJI_API_VERSION 9
 
 typedef struct aji_ctx aji_ctx;
 
@@ -39,6 +39,8 @@ enum aji_format {
   AJI_FMT_P010 = 2,
   AJI_FMT_YUV444P16 = 3,
   AJI_FMT_RGB10A2 = 4,
+  AJI_FMT_YUV444P10MSB = 5,
+  AJI_FMT_YUV444P12MSB = 6,
 };
 
 enum aji_matrix {
@@ -116,6 +118,14 @@ AJI_EXPORT int aji_pre_resize(aji_ctx* c, int* work_w, int* work_h);
 AJI_EXPORT int aji_resize(aji_ctx* c, const aji_frame* in,
                           const aji_frame* out, void* cu_stream);
 AJI_EXPORT int aji_poll(aji_ctx* c);
+// The shipped models are spatial: radius is zero and temporal calls are unused.
+// ABI v9 requires these exports even for a spatial-only filter chain.
+AJI_EXPORT int aji_temporal_radius(aji_ctx* c);
+AJI_EXPORT int aji_ingest(aji_ctx* c, const aji_frame* in, uint64_t seq,
+                          void* cu_stream);
+AJI_EXPORT int aji_infer_seq(aji_ctx* c, uint64_t seq, const aji_frame* out,
+                             void* cu_stream);
+AJI_EXPORT void aji_temporal_reset(aji_ctx* c);
 AJI_EXPORT int aji_infer_rife(aji_ctx* c, const aji_frame* a,
                               const aji_frame* b, double t,
                               const aji_frame* out, void* cu_stream);

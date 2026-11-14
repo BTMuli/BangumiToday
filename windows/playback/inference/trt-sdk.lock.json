@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "trtVersion": "11.3.0.99",
-  "trtSource": "https://raw.githubusercontent.com/NVIDIA/TensorRT/98adec82349b3ae22aa3f753d733b9a1a84d497d/include/",
+  "trtVersion": "11.4.0.106",
+  "trtSource": "https://raw.githubusercontent.com/NVIDIA/TensorRT/16ed0636df41e4a27d46f82d9028fc50fadc7200/include/",
   "headers": [
     {
       "name": "NvInferImpl.h",
-      "sha256": "43dd1464f2f10aa674892cad1bba713908ceb23fc5068ff8482bb58c7ad134bb",
-      "bytes": 62613
+      "sha256": "6aa27b9f29cc9bc0ee3d1ab76d864d0e623c461ae516fab3ccb46dce8cc7be99",
+      "bytes": 62978
     },
     {
       "name": "NvInferLegacyDims.h",
@@ -20,8 +20,8 @@
     },
     {
       "name": "NvInferRuntime.h",
-      "sha256": "b847a0f7323135175150fa974b17800cb889b8504c7e737ab8bad42a938b4eaf",
-      "bytes": 221788
+      "sha256": "23ce5d1d5735dbb86b357ce7dca44f4f4a7e908faaee9871149664843ade8a50",
+      "bytes": 226926
     },
     {
       "name": "NvInferRuntimeBase.h",
@@ -40,8 +40,8 @@
     },
     {
       "name": "NvInferVersion.h",
-      "sha256": "fb760a563c680312b7e971702a680f54db38a3d57b5c2d814e4b258acb841363",
-      "bytes": 1838
+      "sha256": "6a29a88a274b25cdaf87dbe6e5be1b3b68e6c430308ae9a2c03f6c4282a7f2e7",
+      "bytes": 1839
     }
   ],
   "cudaPackages": [

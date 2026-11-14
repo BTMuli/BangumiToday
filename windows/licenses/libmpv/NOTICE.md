@@ -3,16 +3,18 @@
 BangumiToday bundles the Windows x64 libmpv build of the pinned AnimeJaNai mpv
 fork from:
 
-https://github.com/the-database/mpv-winbuild/releases/tag/2026-10-07-d6d93599d5
+https://github.com/the-database/mpv-winbuild/releases/tag/2026-11-12-042613482d-addons-43119200800
 
-Artifact: `mpv-dev-x86_64-20261007-git-d6d93599d5.7z`
+Artifact: `mpv-dev-x86_64-20261111-git-042613482d.7z`
 
-Archive SHA-256: `077cb75fed47b185428f97224e1d798e2d4c2f4063fd8cda2662b74f2892327c`
+Archive SHA-256: `6a4ee99fbcba03e99af3190ff60bd8124fc112946646f86e1b6f3d674724c2dc`
 
-DLL SHA-256: `90de8f89fa1421eaec510e5cfe11de75846b445489864220ec811fd0f08b4649`
+DLL SHA-256: `77fec11d11a566c612f68f7fc70863412f9975cf1caa7e2b203442fed4d743b2`
 
-This is the same mpv fork build pinned by the AnimeJaNai 3.7.0
-[release manifest](https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/manifest.json).
+This is the native producer pinned by AnimeJaNai 3.11.1's
+[package builder](https://github.com/the-database/mpv-AnimeJaNai/blob/0e85115cbce2a12f87239ebd4e6606ec9008a782/BuildMpvUpscale2xAnimeJaNai/Program.cs).
+Its [native metadata](https://github.com/the-database/mpv-winbuild/releases/download/2026-11-12-042613482d-addons-43119200800/mpv-addon-native-x86_64.json)
+also records the DLL hash and build configuration.
 
 This runtime is what makes the AnimeJaNai upscaling filter available: media_kit's
 own libmpv build and upstream mpv do not contain `vf_animejanai`, which exists
@@ -42,9 +44,9 @@ are shipped as separate pinned components with their own notices.
 
 - mpv fork (contains `video/filter/vf_animejanai.c` and the fork-only
   `video/filter/refqueue.h` / `filters/filter.h` changes):
-  https://github.com/the-database/mpv/tree/d6d93599d59069b715013a6e77e898056499b905
-- FFmpeg: https://github.com/FFmpeg/FFmpeg/tree/c0c7684d0
-  (the binary reports `FFmpeg version: N-127231-gc0c7684d0`)
+  https://github.com/the-database/mpv/tree/042613482dd6fad51a0cf8dc728cd74d2a9ad665
+- FFmpeg: https://github.com/FFmpeg/FFmpeg/tree/72f8c3376
+  (the binary reports `FFmpeg version: N-128820-g72f8c3376`)
 - FFmpeg licensing: https://ffmpeg.org/legal.html
 - Build recipe and toolchain:
   https://github.com/the-database/mpv-winbuild (workflow `MPV`, inputs

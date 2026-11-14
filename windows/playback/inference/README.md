@@ -1,6 +1,6 @@
 # AnimeJaNai 推理桥
 
-Windows x64 原生实现，通过项目自有 aji ABI v8 垫片接入固定版本 mpv 滤镜，
+Windows x64 原生实现，通过项目自有 aji ABI v9 垫片接入固定版本 mpv 滤镜，
 已接入应用的 AI 流畅 / AI 高质量选项及打包流程。
 默认后端是 TensorRT；`backend=directml` 仅用于显式开发诊断。
 组件缺失、引擎准备期间或推理失败时保持普通播放，不自动切换后端。
@@ -99,15 +99,24 @@ SDK 头文件和 NVIDIA 大运行库不进入应用包；`verify_windows_bundle.
 ## TensorRT 组件与引擎
 
 版本与文件以 [组件锁](trt-components.lock.json) 和 [SDK 锁](trt-sdk.lock.json) 为准。
-当前固定 TensorRT 11.3.0.99 / CUDA 13.4，仅开放 SM89、SM90、SM100、SM120，
+当前对齐 AnimeJaNai 3.11.1 的 ABI v9，固定 TensorRT 11.4.0.106 / CUDA 13.4，
+仅开放 SM89、SM90、SM100、SM120，
 要求实际播放 D3D11 adapter 对应 NVIDIA CUDA device，驱动 API 版本至少 13040。
 
 用户在设置中主动下载组件，选择画质不会自行下载。组件按架构校验并安装到
-系统文档目录下的 `BangumiToday/playback-tensorrt/11.3.0.99/sm<架构>`，通常为
-`Documents/BangumiToday/playback-tensorrt/11.3.0.99/sm<架构>`；
+系统文档目录下的 `BangumiToday/playback-tensorrt/11.4.0.106/sm<架构>`，通常为
+`Documents/BangumiToday/playback-tensorrt/11.4.0.106/sm<架构>`；
 旧版 `%LOCALAPPDATA%/BangumiToday/playback-tensorrt` 中的已知数据会尝试迁移，
 实际路径以应用解析的目录为准，避免 MSIX 对 LocalAppData 的重定向差异。
-不安装 Toolkit、驱动或修改 PATH。开发者可独立准备：
+不安装 Toolkit、驱动或修改 PATH。
+
+组件源为上游 `animejanai-inference` 的 `runtime-2` 固定运行库包；包内文件
+直接位于归档根目录，逐文件清单包含 TensorRT 第三方声明。推理桥继续由本项目
+构建，不使用上游推理 DLL；ABI v9 的时序接口报告无时序模型，不启用 RIFE。
+从旧版升级时需重新准备基础资源和 TensorRT SDK；准备脚本遇到旧版输出会拒绝
+复用，可先清理 `.dart_tool/playback_inference/base`，或指定新的输出目录。
+
+开发者可独立准备：
 
 ```powershell
 ./scripts/prepare_playback_tensorrt.ps1 -HeadersOnly
@@ -128,6 +137,11 @@ SDK 头文件和 NVIDIA 大运行库不进入应用包；`verify_windows_bundle.
 已进入 TensorRT/CUDA 的同步驱动调用仍须返回后才能安全释放资源。
 
 ## 验证边界
+
+3.11.1 适配已核对官方发行清单和各架构组件哈希，并通过 ABI v9 必需导出、
+结构布局、独立推理桥编译、新 libmpv / TensorRT DLL 加载，以及 SM89 组件
+安装和应用端扁平归档解包校验。19 项现有 Dart 功能回归通过；未启动应用或
+构建完整项目，真实播放和其他架构的推理仍需手工验收。
 
 已有隔离检查覆盖帧转换、同步、ABI、缓存、组件安装及纯 Dart 控制逻辑，
 并做过 RTX 4070 Laptop 的独立原生链路短片段复测。

@@ -5,17 +5,17 @@
 # (mpv with rubberband / x264 / x265); see windows/licenses/libmpv/NOTICE.md.
 # The LGPL variant (`mpv-dev-lgpl-*`, produced by that repository's workflow
 # with `lgpl=true`) can replace these constants once it exists.
-# This build matches the mpvfork pinned in mpv-AnimeJaNai 3.7.0's manifest.json.
-set(BANGUMI_LIBMPV_RELEASE "2026-10-07-d6d93599d5")
+# This build matches the native producer pinned by mpv-AnimeJaNai 3.11.1.
+set(BANGUMI_LIBMPV_RELEASE "2026-11-12-042613482d-addons-43119200800")
 set(BANGUMI_LIBMPV_ARCHIVE_NAME
-    "mpv-dev-x86_64-20261007-git-d6d93599d5.7z")
+    "mpv-dev-x86_64-20261111-git-042613482d.7z")
 set(BANGUMI_LIBMPV_ARCHIVE_SHA256
-    "077cb75fed47b185428f97224e1d798e2d4c2f4063fd8cda2662b74f2892327c")
+    "6a4ee99fbcba03e99af3190ff60bd8124fc112946646f86e1b6f3d674724c2dc")
 set(BANGUMI_LIBMPV_DLL_SHA256
-    "90de8f89fa1421eaec510e5cfe11de75846b445489864220ec811fd0f08b4649")
+    "77fec11d11a566c612f68f7fc70863412f9975cf1caa7e2b203442fed4d743b2")
 set(BANGUMI_LIBMPV_ARCHIVE
     "${CMAKE_BINARY_DIR}/${BANGUMI_LIBMPV_ARCHIVE_NAME}")
-set(BANGUMI_LIBMPV_DIR "${CMAKE_BINARY_DIR}/libmpv-ajan-20261007")
+set(BANGUMI_LIBMPV_DIR "${CMAKE_BINARY_DIR}/libmpv-ajan-20261111")
 set(BANGUMI_LIBMPV_DLL "${BANGUMI_LIBMPV_DIR}/libmpv-2.dll")
 
 if(DEFINED FLUTTER_TARGET_PLATFORM AND

@@ -1,6 +1,6 @@
 # AnimeJaNai ONNX 超分
 
-更新：2026-10-08。两档 AI 超分、TensorRT 帧桥、组件安装、引擎预编译和
+更新：2026-11-14。已对齐 AnimeJaNai 3.11.1。两档 AI 超分、TensorRT 帧桥、组件安装、引擎预编译和
 benchmark 推荐已接入。隔离功能验证已有记录，完整播放器与发行环境仍待验收。
 
 ## 1. 当前行为与范围
@@ -44,10 +44,10 @@ TensorRT 的模型输出直接写入 CUDA 映射的 D3D11 缓冲区，转换着�
 | 部分 | 当前版本 / 来源 | 分发方式 |
 |---|---|---|
 | 模型 | HD V3.1 Standard，固定上游源码与文件哈希 | 主包内置两个 ONNX |
-| mpv | JaNai fork `d6d93599d5`，发行包 `2026-10-07-d6d93599d5` | 主包；当前预编译包为 GPL，LGPL 构建待落实 |
-| 推理桥 | 项目自有 aji ABI v8 | 主包 `aji.dll` |
+| mpv | JaNai fork `042613482d`，发行包 `2026-11-12-042613482d-addons-43119200800` | 主包；当前预编译包为 GPL，LGPL 构建待落实 |
+| 推理桥 | 项目自有 aji ABI v9；仅使用空间模型 | 主包 `aji.dll` |
 | ORT / DirectML | 1.24.4 / 1.15.4 | 主包，保留诊断路径 |
-| TensorRT / CUDA | 11.3.0.99 / 13.4，上游 AnimeJaNai 3.7.0 固定归档 | 用户选装公共包与当前 SM 包 |
+| TensorRT / CUDA | 11.4.0.106 / 13.4，上游 `animejanai-inference` 的 `runtime-2` 固定归档 | 用户选装公共包与当前 SM 包 |
 
 版本、文件大小、SHA-256 和来源以
 [基础依赖锁](../../windows/playback/inference/dependencies.lock.json)、
@@ -58,10 +58,10 @@ TensorRT 的模型输出直接写入 CUDA 映射的 D3D11 缓冲区，转换着�
 
 ### 安装与引擎缓存
 
-- 当前选装源为上游 3.7.0 `.7z`，由系统 `tar.exe` 解压。支持字节进度、
+- 当前选装源为上游 `runtime-2` 的扁平目录 `.7z`，由系统 `tar.exe` 解压。支持字节进度、
   Range / ETag 续传、SHA-256、逐文件校验、跨窗口安装锁和 staging 原子发布；
   损坏安装目录通过事务修复，失败或取消不发布半成品。
-- 资源写入 `%LOCALAPPDATA%/BangumiToday/playback-tensorrt/11.3.0.99/sm<架构>`，
+- 资源写入系统文档目录下的 `BangumiToday/playback-tensorrt/11.4.0.106/sm<架构>`，
   引擎位于同一数据根目录的 `engines`。不改写 MSIX 安装目录或系统 SDK。
 - 组件安装后依次准备 `720p / 1080p × AI 流畅 / AI 高质量` 共四个引擎；
   播放时切换到 AI 档位还会按当前模型、解码帧尺寸和实际渲染显卡准备目标引擎。

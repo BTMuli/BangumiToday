@@ -43,9 +43,9 @@ class PlaybackTensorRtResources {
   String get dataDirectory =>
       _dataDirectory ?? (throw StateError('TensorRT 组件目录尚未初始化'));
 
-  static const version = '11.3.0.99';
+  static const version = '11.4.0.106';
   static const manifestSha256 =
-      '4257c34ded46a338f95109b448ad7932cb57b0b9966f04186dc135ef173ffc47';
+      'dbc1d398653d5ad6f35e6a00391dfe39cbcee1c5fb77abb028b91d96702850fc';
   final void Function() onChanged;
   final String bundleDirectory;
   int get _sm => gpu?.sm ?? 0;
@@ -457,7 +457,7 @@ class PlaybackTensorRtResources {
     }
     var manifest = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
     if (manifest['schemaVersion'] != 1 ||
-        manifest['bridgeAbi'] != 8 ||
+        manifest['bridgeAbi'] != 9 ||
         manifest['trtVersion'] != version ||
         !(manifest['supportedSm'] as List).contains(_sm)) {
       throw const FormatException('TensorRT 组件版本不匹配');
@@ -619,12 +619,6 @@ class PlaybackTensorRtResources {
           }
         }
       }
-      // The upstream common archive carries a DirectML license as well; the
-      // optional runtime installs only TensorRT/CUDA's locked file set.
-      var unrelatedLicense = File(
-        path.join(staging.path, 'DirectML_LICENSE.txt'),
-      );
-      if (await unrelatedLicense.exists()) await unrelatedLicense.delete();
       for (var file in files.where((item) => item['group'] == 'crt')) {
         _checkCancelled();
         await File(
@@ -848,11 +842,8 @@ class PlaybackTensorRtResources {
   ) async {
     var names = files
         .where((item) => item['group'] == archive['group'])
-        .map((item) => 'animejanai/inference/${item['name']}')
+        .map((item) => item['name'] as String)
         .toSet();
-    if (archive['group'] == 'common') {
-      names.add('animejanai/inference/DirectML_LICENSE.txt');
-    }
     var listing = await _runTar(['-tf', file.path]);
     var actual = listing
         .split(RegExp(r'[\r\n]+'))
@@ -863,13 +854,7 @@ class PlaybackTensorRtResources {
         actual.toSet().length != actual.length) {
       throw const FormatException('组件归档包含未授权路径');
     }
-    await _runTar([
-      '-xf',
-      file.path,
-      '--strip-components=2',
-      '-C',
-      staging.path,
-    ]);
+    await _runTar(['-xf', file.path, '-C', staging.path]);
   }
 
   /// The verified archive must still be readable before another extraction

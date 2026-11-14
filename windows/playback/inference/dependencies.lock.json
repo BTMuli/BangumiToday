@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "phase": "p0-prerequisites",
-  "modelSource": "https://raw.githubusercontent.com/the-database/mpv-AnimeJaNai/7f502d171ab5dd1f78685cb331047e5a7446635d/",
+  "modelSource": "https://raw.githubusercontent.com/the-database/mpv-AnimeJaNai/0e85115cbce2a12f87239ebd4e6606ec9008a782/",
   "packages": [
     {
       "id": "onnxruntime-directml",

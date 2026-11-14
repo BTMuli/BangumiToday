@@ -874,6 +874,33 @@ AJI_EXPORT int aji_poll(aji_ctx* c) try {
   return 1;
 } catch (...) { return 0; }
 
+AJI_EXPORT int aji_temporal_radius(aji_ctx* c) {
+  (void)c;
+  return 0;
+}
+
+AJI_EXPORT int aji_ingest(aji_ctx* c, const aji_frame* in, uint64_t seq,
+                          void* cu_stream) {
+  (void)c;
+  (void)in;
+  (void)seq;
+  (void)cu_stream;
+  return AJI_ERR;
+}
+
+AJI_EXPORT int aji_infer_seq(aji_ctx* c, uint64_t seq, const aji_frame* out,
+                             void* cu_stream) {
+  (void)c;
+  (void)seq;
+  (void)out;
+  (void)cu_stream;
+  return AJI_ERR;
+}
+
+AJI_EXPORT void aji_temporal_reset(aji_ctx* c) {
+  (void)c;
+}
+
 AJI_EXPORT int aji_infer_rife(aji_ctx* c, const aji_frame* a,
                               const aji_frame* b, double t,
                               const aji_frame* out, void* cu_stream) {

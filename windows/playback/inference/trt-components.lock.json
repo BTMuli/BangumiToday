@@ -1,40 +1,45 @@
 {
   "schemaVersion": 1,
-  "bridgeAbi": 8,
-  "trtVersion": "11.3.0.99",
+  "bridgeAbi": 9,
+  "trtVersion": "11.4.0.106",
   "cudaVersion": 13040,
   "minimumDriver": 13040,
-  "supportedSm": [89, 90, 100, 120],
+  "supportedSm": [
+    89,
+    90,
+    100,
+    120
+  ],
   "archives": [
     {
-      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/component-trt-runtime.7z",
+      "url": "https://github.com/the-database/animejanai-inference/releases/download/runtime-2/trt-runtime-windows-x64.7z",
       "group": "common",
-      "sha256": "282cb9b178db241f61f7aedf1ef214af56c2a342428253d04a8d8916d6729373",
-      "bytes": 186822775
+      "sha256": "e90ecfce92ff35af48a595cb16003e4df7a3f77e812737d8e9d14a4a41722d95",
+      "bytes": 167328448
     },
     {
-      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/component-trt-sm89.7z",
+      "url": "https://github.com/the-database/animejanai-inference/releases/download/runtime-2/trt-sm89-windows-x64.7z",
       "group": "sm89",
-      "sha256": "34bd51be1cb1581db3e494d1b30732c926cd9ac1a340efabdf0f9148911fdc87",
-      "bytes": 158554965
+      "sha256": "0983741bb6fc64a7e991fb4a53c73c051bf127b5a13f4faf0f1ec6b572752833",
+      "bytes": 151608988
     },
     {
-      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/component-trt-sm90.7z",
+      "url": "https://github.com/the-database/animejanai-inference/releases/download/runtime-2/trt-sm90-windows-x64.7z",
       "group": "sm90",
-      "sha256": "b884e983b8b0d61ecebf9990fbed6a3fa13023b5cf9b4c2920933777e5f5ceb5",
-      "bytes": 420452077
+      "sha256": "0704ac813447716a19afcea567840e08b13e24bf4d1491d61bcc0948f07251b3",
+      "bytes": 398376462
     },
     {
-      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/component-trt-sm100.7z",
+      "url": "https://github.com/the-database/animejanai-inference/releases/download/runtime-2/trt-sm100-windows-x64.7z",
       "group": "sm100",
-      "sha256": "98a4ab1a906123ba61db70cc470c13595b60cf94acde6625c53ad5556a58f447",
-      "bytes": 251528952
+      "sha256": "fb3ed7d0c69838e82ddf40409d54d598c6ed2304d1a32b5db5b339f73427445a",
+      "bytes": 229671324
     },
     {
-      "url": "https://github.com/the-database/mpv-AnimeJaNai/releases/download/3.7.0/component-trt-sm120.7z",
+      "url": "https://github.com/the-database/animejanai-inference/releases/download/runtime-2/trt-sm120-windows-x64.7z",
       "group": "sm120",
-      "sha256": "954821ef65824b0c766998db7d2ae49c68041dac7f78328152ec41f674378c15",
-      "bytes": 229417183
+      "sha256": "f36b2ab932e0ce212a2b612ca14c34981f5f11b37d55b00bccd3565e2ec3d292",
+      "bytes": 207817866
     }
   ],
   "files": [
@@ -45,6 +50,12 @@
       "bytes": 68070
     },
     {
+      "name": "TensorRT_Acknowledgements.txt",
+      "sha256": "175f0eff1102f77a9c84973e5e0cd2b5284b63abd4db379108b4d303189e9844",
+      "group": "common",
+      "bytes": 327505
+    },
+    {
       "name": "cudart64_13.dll",
       "sha256": "05bfafcb97bd53b0089568a96e1e5bd6921637bd0853ff7f5342bd31a6a16890",
       "group": "common",
@@ -52,51 +63,51 @@
     },
     {
       "name": "nvinfer_11.dll",
-      "sha256": "ab5148bc65ba53675ffbb7ebd86694937b3cff15e52655f43afc2421b90bdc6b",
+      "sha256": "24c40791e950e17e44fc777e81dd22fc9da0db856d5f45fc379211d34d384044",
       "group": "common",
-      "bytes": 401707120
-    },
-    {
-      "name": "nvinfer_builder_resource_sm89_11.dll",
-      "sha256": "f0bd157c522fe03cab903d4b61ed2e0d15cdf0c639aa824ab0004aef945af79a",
-      "group": "sm89",
-      "bytes": 189048432
-    },
-    {
-      "name": "nvinfer_builder_resource_sm90_11.dll",
-      "sha256": "c9aebade33c685b08367a7268fbda130ccce91aa1679d5ab88d07b099fad9082",
-      "group": "sm90",
-      "bytes": 461991536
-    },
-    {
-      "name": "nvinfer_builder_resource_sm100_11.dll",
-      "sha256": "cb235cd2b03888b10f8eb5f713d148975701b213560279578f9d34157c2d927b",
-      "group": "sm100",
-      "bytes": 290767472
-    },
-    {
-      "name": "nvinfer_builder_resource_sm120_11.dll",
-      "sha256": "7b616872410c519caa7ebfcf2197a748cb5d0b21d9163704e7ca2ae8828ed677",
-      "group": "sm120",
-      "bytes": 269391472
+      "bytes": 394814576
     },
     {
       "name": "nvinfer_plugin_11.dll",
-      "sha256": "55e1dc2948661f323558254e204c859e2e9074ffbe08cc0bfd9caf68aa5d3084",
+      "sha256": "5b9e4e143d2c86978e775f6d08dc2fe0ad4c71ca824ab6427a4e895e338049b1",
       "group": "common",
-      "bytes": 45631600
+      "bytes": 45633136
     },
     {
       "name": "nvonnxparser_11.dll",
-      "sha256": "823f7d6e3d2b0273d438296b14fb1b71f1ef37b2a0a8539d7f04a41960584c8c",
+      "sha256": "4a426d73970ce3af7fc1a1f1f29f8957933a28ce7e0fee18b7fb0227f71d685e",
       "group": "common",
-      "bytes": 2290288
+      "bytes": 2241648
     },
     {
       "name": "trtexec.exe",
-      "sha256": "d32899c4a9fcd254e626092a34ab83631222c1d7904bb61da6a1801feef62139",
+      "sha256": "f57cce2baf75f457b547586daed4e250bb1d64716a76f2f95933901019f47803",
       "group": "common",
-      "bytes": 956528
+      "bytes": 981104
+    },
+    {
+      "name": "nvinfer_builder_resource_sm89_11.dll",
+      "sha256": "7aced8ca0208605eda8cdd77840ddab2eb5a91b3e3a568571be12c0549c61ac2",
+      "group": "sm89",
+      "bytes": 189072496
+    },
+    {
+      "name": "nvinfer_builder_resource_sm90_11.dll",
+      "sha256": "6fd7167a7a7ac76b60a0d32b4d722f734bb303bba6d00f98c0ba3f17cebfd028",
+      "group": "sm90",
+      "bytes": 462014576
+    },
+    {
+      "name": "nvinfer_builder_resource_sm100_11.dll",
+      "sha256": "60645872ef25ae16cb893048d88069f46774f75a5ae5547b21cb8e9bdb4ad844",
+      "group": "sm100",
+      "bytes": 290771568
+    },
+    {
+      "name": "nvinfer_builder_resource_sm120_11.dll",
+      "sha256": "cb69e038787ddf4f1a15f18517ec158ba9e5d581a4248831db6c35a9d806bec0",
+      "group": "sm120",
+      "bytes": 269390448
     },
     {
       "name": "msvcp140.dll",

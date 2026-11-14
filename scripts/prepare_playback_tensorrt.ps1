@@ -16,7 +16,7 @@ $sourceRoot = Join-Path $PSScriptRoot '../windows/playback/inference'
 $sdkLock = Get-Content -LiteralPath (Join-Path $sourceRoot 'trt-sdk.lock.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $componentLock = Get-Content -LiteralPath (Join-Path $sourceRoot 'trt-components.lock.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($sdkLock.schemaVersion -ne 1 -or $componentLock.schemaVersion -ne 1 -or
-    $componentLock.bridgeAbi -ne 8 -or $ComputeCapability -notin $componentLock.supportedSm) {
+    $componentLock.bridgeAbi -ne 9 -or $ComputeCapability -notin $componentLock.supportedSm) {
     throw 'Unsupported TensorRT dependency lock or compute capability'
 }
 if ([string]::IsNullOrWhiteSpace($RuntimeDirectory)) {
@@ -37,8 +37,7 @@ function Save-TrtAsset([object]$Asset, [string]$Extension) {
         throw "Untrusted TensorRT preparation source: $uri"
     }
     New-Item -ItemType Directory -Path $downloadRoot -Force | Out-Null
-    # Only developer preparation consumes the fixed upstream archives. The
-    # application must use project-owned ZIPs and its separate P3 installer.
+    # Developer preparation and the app consume the same pinned runtime packs.
     $handler = [Net.Http.HttpClientHandler]::new()
     $handler.AllowAutoRedirect = $false
     $client = [Net.Http.HttpClient]::new($handler)
@@ -178,27 +177,28 @@ try {
         $names = @(& $tar -tf $download)
         if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect locked TensorRT archive' }
         $seen = @{}
+        $expected = @($runtimeFiles | Where-Object { $_.group -eq $package.group } | ForEach-Object { $_.name })
         foreach ($name in $names) {
             $relative = $name.Replace('\', '/')
-            if ($relative -notmatch '^animejanai/inference/[A-Za-z0-9_.-]+$' -or $seen.ContainsKey($relative)) {
+            if ($relative -notmatch '^[A-Za-z0-9_.-]+$' -or $seen.ContainsKey($relative)) {
                 throw "Unsafe TensorRT archive entry: $relative"
             }
             $seen[$relative] = $true
-            if ([IO.Path]::GetFileName($relative) -notin @($runtimeFiles.name) + @('DirectML_LICENSE.txt')) {
+            if ($relative -cnotin $expected) {
                 throw "Unexpected TensorRT archive entry: $relative"
             }
         }
+        if ($seen.Count -ne $expected.Count) { throw 'TensorRT archive is missing locked files' }
         & $tar -xf $download -C $stage
         if ($LASTEXITCODE -ne 0) { throw 'Cannot extract locked TensorRT archive' }
     }
     foreach ($file in $runtimeFiles) {
-        $source = if ($file.group -eq 'crt') { Join-Path $BaseRuntimeDirectory $file.name } else { Join-Path $stage ('animejanai/inference/' + $file.name) }
+        $source = if ($file.group -eq 'crt') { Join-Path $BaseRuntimeDirectory $file.name } else { Join-Path $stage $file.name }
         Assert-InferenceFile -Path $source -Bytes $file.bytes -Sha256 $file.sha256
-        Copy-Item -LiteralPath $source -Destination (Join-Path $stage $file.name)
+        if ($file.group -eq 'crt') {
+            Copy-Item -LiteralPath $source -Destination (Join-Path $stage $file.name)
+        }
     }
-    $extracted = [IO.Path]::GetFullPath((Join-Path $stage 'animejanai'))
-    if (-not $extracted.StartsWith($stage + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe extraction cleanup' }
-    Remove-Item -LiteralPath $extracted -Recurse -Force
     Assert-TrtRuntime $stage
     Write-TrtInstalledRecord $stage
     Move-Item -LiteralPath $stage -Destination $target
