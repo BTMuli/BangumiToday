@@ -43,6 +43,7 @@ extension _ResourceRss on _SubjectDetailResourcesState {
     if (_bmf.subscriptions.isEmpty) {
       return _emptyState(
         '尚未订阅资源',
+        description: '关联后可在「RSS & BMF」工作台统一管理。',
         action: () => _run(_searchRss),
         label: '搜索订阅',
       );

@@ -47,6 +47,7 @@ extension _ResourceFiles on _SubjectDetailResourcesState {
     if (directory == null || directory.isEmpty) {
       return _emptyState(
         '尚未设置下载目录',
+        description: '关联后可在「RSS & BMF」工作台统一管理。',
         action: () => _run(_chooseDirectory),
         label: '选择目录',
       );

@@ -8,6 +8,7 @@ class BmfFileExpander extends ConsumerStatefulWidget {
   final bool contentScrollable;
   final bool expandable;
   final bool embedded;
+  final bool showEmbeddedTitle;
   final ScrollController? contentScrollController;
   final Widget? toolbar;
 
@@ -20,6 +21,7 @@ class BmfFileExpander extends ConsumerStatefulWidget {
     this.contentScrollable = true,
     this.expandable = true,
     this.embedded = false,
+    this.showEmbeddedTitle = false,
     this.contentScrollController,
     this.toolbar,
   });
@@ -275,7 +277,11 @@ class _BmfFileExpanderState extends ConsumerState<BmfFileExpander> {
     var header = Row(
       children: [
         Text(
-          widget.embedded ? '${files.length} 个文件' : '下载目录',
+          widget.embedded
+              ? widget.showEmbeddedTitle
+                    ? '本地文件 · ${files.length} 个'
+                    : '${files.length} 个文件'
+              : '下载目录',
           style: widget.embedded
               ? BTTypography.caption(context)
               : BTTypography.subtitle(context),

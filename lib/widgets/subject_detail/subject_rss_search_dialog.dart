@@ -880,11 +880,6 @@ class _SubjectRssSearchDialogState extends State<SubjectRssSearchDialog> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  '先展开条目选择番剧或字幕组，再在底部确认；'
-                  '展开字幕组可查看资源详情。',
-                ),
-                const SizedBox(height: 12),
                 Expanded(child: _results()),
               ],
             ),

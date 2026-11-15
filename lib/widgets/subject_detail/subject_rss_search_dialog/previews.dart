@@ -14,14 +14,18 @@ class _AnibtReleasePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    var rawSubtitle = item.subtitle?.trim();
     var subtitle =
-        AnibtFilters.subtitleLabels[item.subtitle?.toUpperCase()] ??
-        item.subtitle ??
-        '字幕类型未知';
+        AnibtFilters.subtitleLabels[rawSubtitle?.toUpperCase()] ?? rawSubtitle;
     var languages = item.languages.map(
       (language) =>
           AnibtFilters.languageLabels[language.toUpperCase()] ?? language,
     );
+    var languageLabel = [
+      ...languages,
+      ?subtitle,
+    ].where((label) => label.isNotEmpty).join(' · ');
+    var resolution = item.resolution?.trim();
     var size = item.size;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -31,7 +35,13 @@ class _AnibtReleasePreview extends StatelessWidget {
           children: [
             Expanded(
               child: Tooltip(
-                message: item.title,
+                message: [
+                  item.title,
+                  if (item.languages.isEmpty) '语言未提供',
+                  if (subtitle == null || subtitle.isEmpty) '字幕类型未提供',
+                  if (resolution == null || resolution.isEmpty) '画质未提供',
+                  if (size == null || size <= 0) '大小未提供',
+                ].join('\n'),
                 child: Text(
                   item.title,
                   maxLines: 3,
@@ -62,20 +72,20 @@ class _AnibtReleasePreview extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
-              AnibtTagChip(
-                label: [...languages, subtitle].join(' · '),
-                highlighted: true,
-                maxWidth: constraints.maxWidth,
-              ),
-              AnibtTagChip(
-                label: item.resolution ?? '画质未知',
-                maxWidth: constraints.maxWidth,
-              ),
-              AnibtTagChip(
-                label: size == null || size <= 0 ? '大小未知' : filesize(size),
-                tooltip: size == null || size <= 0 ? '大小未知' : '$size 字节',
-                maxWidth: constraints.maxWidth,
-              ),
+              if (languageLabel.isNotEmpty)
+                AnibtTagChip(
+                  label: languageLabel,
+                  highlighted: true,
+                  maxWidth: constraints.maxWidth,
+                ),
+              if (resolution != null && resolution.isNotEmpty)
+                AnibtTagChip(label: resolution, maxWidth: constraints.maxWidth),
+              if (size != null && size > 0)
+                AnibtTagChip(
+                  label: filesize(size),
+                  tooltip: '$size 字节',
+                  maxWidth: constraints.maxWidth,
+                ),
               AnibtTagChip(
                 label: _anibtUpdatedAt(item.publishedAt),
                 maxWidth: constraints.maxWidth,

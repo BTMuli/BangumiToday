@@ -9,6 +9,7 @@ class BmfRssExpander extends ConsumerStatefulWidget {
   final bool contentScrollable;
   final bool expandable;
   final bool embedded;
+  final bool showEmbeddedTitle;
   final ScrollController? contentScrollController;
   final Widget? toolbar;
 
@@ -22,6 +23,7 @@ class BmfRssExpander extends ConsumerStatefulWidget {
     this.contentScrollable = true,
     this.expandable = true,
     this.embedded = false,
+    this.showEmbeddedTitle = false,
     this.contentScrollController,
     this.toolbar,
   });
@@ -295,7 +297,11 @@ class _BmfRssExpanderState extends ConsumerState<BmfRssExpander> {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
-          widget.embedded ? '${_data.rssItems.length} 条资源' : 'RSS 订阅',
+          widget.embedded
+              ? widget.showEmbeddedTitle
+                    ? 'RSS 资源 · ${_data.rssItems.length} 条'
+                    : '${_data.rssItems.length} 条资源'
+              : 'RSS 订阅',
           style: widget.embedded
               ? BTTypography.caption(context)
               : BTTypography.subtitle(context),

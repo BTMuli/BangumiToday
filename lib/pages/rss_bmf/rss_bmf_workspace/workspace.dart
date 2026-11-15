@@ -294,7 +294,7 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
       );
     }
 
-    Widget rssPane({Widget? toolbar}) => BmfRssExpander(
+    Widget rssPane({Widget? toolbar, bool showTitle = false}) => BmfRssExpander(
       key: ValueKey(_rssViewKey(bmf, pendingCount)),
       bmf: bmf,
       isConfig: true,
@@ -302,22 +302,25 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
       contentScrollable: false,
       expandable: false,
       embedded: true,
+      showEmbeddedTitle: showTitle,
       contentScrollController: _rssPaneController,
       toolbar: toolbar,
       onDelete: (id) => _removeRss(bmf, id),
     );
-    Widget filePane({Widget? toolbar}) => BmfFileExpander(
-      key: ValueKey('file-${bmf.subject}-${bmf.download}'),
-      downloadDir: bmf.download!,
-      subject: bmf.subject,
-      maxHeight: 320,
-      contentScrollable: false,
-      expandable: false,
-      embedded: true,
-      contentScrollController: _filePaneController,
-      toolbar: toolbar,
-      onDelete: () => _removeDirectory(bmf),
-    );
+    Widget filePane({Widget? toolbar, bool showTitle = false}) =>
+        BmfFileExpander(
+          key: ValueKey('file-${bmf.subject}-${bmf.download}'),
+          downloadDir: bmf.download!,
+          subject: bmf.subject,
+          maxHeight: 320,
+          contentScrollable: false,
+          expandable: false,
+          embedded: true,
+          showEmbeddedTitle: showTitle,
+          contentScrollController: _filePaneController,
+          toolbar: toolbar,
+          onDelete: () => _removeDirectory(bmf),
+        );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -346,13 +349,9 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
                             setState(() => _showLocalFiles = true),
                         child: const Text('本地文件'),
                       ),
-                    ] else
+                    ] else if (!split)
                       Text(
-                        split
-                            ? 'RSS 资源与本地文件'
-                            : hasRss
-                            ? 'RSS 资源'
-                            : '本地文件',
+                        hasRss ? 'RSS 资源' : '本地文件',
                         style: BTTypography.bodyStrong(context),
                       ),
                   ],
@@ -384,9 +383,9 @@ mixin _RssBmfWorkspacePane on _RssBmfWorkspaceStateBase {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: rssPane()),
+                  Expanded(child: rssPane(showTitle: true)),
                   Container(width: 1, color: BTColors.divider(context)),
-                  Expanded(child: filePane()),
+                  Expanded(child: filePane(showTitle: true)),
                 ],
               ),
             ),

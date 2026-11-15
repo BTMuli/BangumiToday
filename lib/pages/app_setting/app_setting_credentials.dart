@@ -126,13 +126,12 @@ class _AppConfigCredentialsWidgetState
     var status = !_loaded
         ? '正在读取…'
         : _hasToken
-        ? '已配置个人订阅 Token'
+        ? '已配置，可获取蜜柑计划个人订阅 RSS'
         : '未配置，个人订阅 RSS 不可用';
     var enabled = _loaded && !_busy;
     return BTSettingSection(
       icon: FluentIcons.permissions,
       title: '订阅源凭证',
-      subtitle: '管理第三方订阅源访问令牌',
       initiallyExpanded: true,
       children: [
         ListTile(
@@ -166,12 +165,6 @@ class _AppConfigCredentialsWidgetState
               ],
             ],
           ),
-        ),
-        const BTSettingHint(
-          icon: FluentIcons.info,
-          message:
-              'Token 用于拉取蜜柑计划个人订阅；'
-              '也可在 RSS & BMF 的 Mikan 页通过「打开设置」进入此处。',
         ),
       ],
     );

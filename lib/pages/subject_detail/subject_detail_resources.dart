@@ -213,10 +213,6 @@ class _SubjectDetailResourcesState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: _buildPathHint(context),
-        ),
-        Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
@@ -227,88 +223,61 @@ class _SubjectDetailResourcesState
               ),
               const SizedBox(width: 8),
               _modeButton('本地文件 · ${_files.length} 个', FluentIcons.video, true),
-              const Spacer(),
-              if (_busy)
-                const Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: SizedBox.square(
-                    dimension: 16,
-                    child: ProgressRing(strokeWidth: 2),
-                  ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 4,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (_busy)
+                      const SizedBox.square(
+                        dimension: 16,
+                        child: ProgressRing(strokeWidth: 2),
+                      ),
+                    _iconAction(
+                      '搜索订阅',
+                      FluentIcons.search,
+                      _busy ? null : () => _run(_searchRss),
+                    ),
+                    _iconAction(
+                      '粘贴 RSS',
+                      FluentIcons.paste,
+                      _busy ? null : () => _run(_addRss),
+                    ),
+                    _iconAction(
+                      '设置下载目录',
+                      FluentIcons.folder,
+                      _busy ? null : () => _run(_chooseDirectory),
+                    ),
+                    _iconAction(
+                      '修改标题',
+                      FluentIcons.edit,
+                      _busy ? null : () => _run(_editTitle),
+                    ),
+                    if (_bmf.id != -1)
+                      _iconAction(
+                        '清除配置',
+                        FluentIcons.delete,
+                        _busy ? null : () => _run(_removeModel),
+                      ),
+                    if (Platform.isWindows)
+                      _iconAction(
+                        '打开下载管理',
+                        FluentIcons.cloud_download,
+                        () =>
+                            ref.read(navStoreProvider.notifier).goToDownload(),
+                      ),
+                  ],
                 ),
-              _iconAction(
-                '搜索订阅',
-                FluentIcons.search,
-                _busy ? null : () => _run(_searchRss),
               ),
-              _iconAction(
-                '粘贴 RSS',
-                FluentIcons.paste,
-                _busy ? null : () => _run(_addRss),
-              ),
-              _iconAction(
-                '设置下载目录',
-                FluentIcons.folder,
-                _busy ? null : () => _run(_chooseDirectory),
-              ),
-              _iconAction(
-                '修改标题',
-                FluentIcons.edit,
-                _busy ? null : () => _run(_editTitle),
-              ),
-              if (_bmf.id != -1)
-                _iconAction(
-                  '清除配置',
-                  FluentIcons.delete,
-                  _busy ? null : () => _run(_removeModel),
-                ),
             ],
           ),
         ),
         Container(height: 1, color: BTColors.divider(context)),
         Expanded(child: _showFiles ? _buildFiles() : _buildRss()),
       ],
-    );
-  }
-
-  Widget _buildPathHint(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: FluentTheme.of(context).accentColor.withValues(alpha: 0.08),
-        borderRadius: BTRadius.smallBR,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(
-              FluentIcons.info,
-              size: 14,
-              color: BTColors.textSecondary(context),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '在此关联 RSS 订阅与本地下载目录；种子任务在下载管理中查看进度，'
-              '关联后的条目也会出现在「RSS & BMF」工作台。',
-              style: BTTypography.caption(
-                context,
-              ).copyWith(color: BTColors.textSecondary(context)),
-            ),
-          ),
-          if (Platform.isWindows) ...[
-            const SizedBox(width: 8),
-            HyperlinkButton(
-              onPressed: () =>
-                  ref.read(navStoreProvider.notifier).goToDownload(),
-              child: const Text('打开下载管理'),
-            ),
-          ],
-        ],
-      ),
     );
   }
 
@@ -331,26 +300,38 @@ class _SubjectDetailResourcesState
         child: IconButton(icon: Icon(icon, size: 16), onPressed: onPressed),
       );
 
-  Widget _emptyState(String text, {VoidCallback? action, String? label}) =>
-      Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                text,
-                style: BTTypography.body(context),
-                textAlign: TextAlign.center,
-              ),
-              if (action != null) ...[
-                const SizedBox(height: 12),
-                Button(onPressed: _busy ? null : action, child: Text(label!)),
-              ],
-            ],
+  Widget _emptyState(
+    String text, {
+    String? description,
+    VoidCallback? action,
+    String? label,
+  }) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            style: BTTypography.body(context),
+            textAlign: TextAlign.center,
           ),
-        ),
-      );
+          if (description != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              description,
+              style: BTTypography.caption(context),
+              textAlign: TextAlign.center,
+            ),
+          ],
+          if (action != null) ...[
+            const SizedBox(height: 12),
+            Button(onPressed: _busy ? null : action, child: Text(label!)),
+          ],
+        ],
+      ),
+    ),
+  );
 
   Widget _badge(String label) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
