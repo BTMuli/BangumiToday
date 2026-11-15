@@ -464,6 +464,7 @@ class _AppConfigPlaybackContentState
         const SizedBox(height: 8),
         Text(
           '组件安装后依次准备 720p、1080p × AI 流畅、AI 高质量，共四个引擎。'
+          'AI 固定放大 2 倍，播放器再适配屏幕尺寸。'
           '已缓存的引擎直接复用，其他输入尺寸首次播放时按需编译。',
           style: BTTypography.caption(context).copyWith(height: 1.5),
         ),
