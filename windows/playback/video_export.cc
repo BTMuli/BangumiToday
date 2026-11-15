@@ -1,6 +1,7 @@
 #include "video_export.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -23,7 +24,31 @@
 
 namespace {
 using Bytes = std::vector<uint8_t>;
+using Frame = std::shared_ptr<Bytes>;
 using Clock = std::chrono::steady_clock;
+
+// Both mpv queues wake the same worker. Callbacks only signal; all core and GL
+// work stays on the rendering thread, including advanced-control updates.
+class RenderWakeup {
+ public:
+  static void Notify(void* context) {
+    auto& wakeup = *static_cast<RenderWakeup*>(context);
+    std::lock_guard<std::mutex> lock(wakeup.mutex_);
+    wakeup.pending_ = true;
+    wakeup.changed_.notify_one();
+  }
+  void Wait(const std::atomic<bool>& cancelled) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    changed_.wait_for(lock, std::chrono::milliseconds(100),
+                      [&] { return pending_ || cancelled; });
+    pending_ = false;
+  }
+
+ private:
+  std::mutex mutex_;
+  std::condition_variable changed_;
+  bool pending_ = false;
+};
 
 void Check(int code, const char* operation) {
   if (code < 0)
@@ -72,12 +97,27 @@ struct Core {
 // Neither a second FFmpeg distribution nor an on-disk frame sequence is needed.
 class FrameStream {
  public:
-  void Push(const Bytes& bytes, const std::atomic<bool>& cancelled) {
+  explicit FrameStream(size_t frame_bytes) : frame_bytes_(frame_bytes) {}
+  Frame Acquire(const std::atomic<bool>& cancelled) {
     std::unique_lock<std::mutex> lock(mutex_);
-    while (frames_.size() >= 2 && !stopped_ && !cancelled)
-      changed_.wait_for(lock, std::chrono::milliseconds(50));
+    for (;;) {
+      if (cancelled || stopped_) throw std::runtime_error("Export interrupted");
+      // A queued frame is immutable, including VFR duplicates. Reuse its
+      // storage only after both the renderer and stream reader release it.
+      for (auto& frame : buffers_) {
+        // Allocate on the export worker, never on the FFI caller's UI thread.
+        if (!frame) frame = std::make_shared<Bytes>(frame_bytes_);
+        if (frame.use_count() == 1) return frame;
+      }
+      changed_.wait(lock);
+    }
+  }
+  void Push(const Frame& frame, const std::atomic<bool>& cancelled) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    changed_.wait(lock,
+                  [&] { return frames_.size() < 2 || stopped_ || cancelled; });
     if (cancelled || stopped_) throw std::runtime_error("Export interrupted");
-    frames_.push_back(bytes);
+    frames_.push_back(frame);
     changed_.notify_all();
   }
   void Finish() {
@@ -107,11 +147,11 @@ class FrameStream {
     if (stopped_) return -1;
     if (frames_.empty()) return 0;
     auto& frame = frames_.front();
-    const size_t count = static_cast<size_t>(
-        std::min<uint64_t>(size, frame.size() - offset_));
-    std::memcpy(data, frame.data() + offset_, count);
+    const size_t count =
+        static_cast<size_t>(std::min<uint64_t>(size, frame->size() - offset_));
+    std::memcpy(data, frame->data() + offset_, count);
     offset_ += count;
-    if (offset_ == frame.size()) {
+    if (offset_ == frame->size()) {
       frames_.pop_front();
       offset_ = 0;
       changed_.notify_all();
@@ -120,7 +160,11 @@ class FrameStream {
   }
   std::mutex mutex_;
   std::condition_variable changed_;
-  std::deque<Bytes> frames_;
+  // Two queued frames plus the renderer's current and previous frame. The
+  // fixed pool bounds memory even when the encoder is slower than rendering.
+  std::array<Frame, 4> buffers_;
+  const size_t frame_bytes_;
+  std::deque<Frame> frames_;
   size_t offset_ = 0;
   bool eof_ = false;
   bool stopped_ = false;
@@ -133,13 +177,15 @@ struct Export {
   std::atomic<bool> cancelled{false};
   std::atomic<int> state{0};
   std::atomic<double> progress{0};
+  RenderWakeup wakeup;
   FrameStream stream;
   std::string error;
   std::thread worker;
 
   explicit Export(const PlaybackExportRequest& r)
       : source(r.source), target(r.target), shaders(r.shaders), filter(r.filter),
-        format(r.format), width(r.width), height(r.height), fps(r.fps) {}
+        format(r.format), width(r.width), height(r.height), fps(r.fps),
+        stream(static_cast<size_t>(r.width) * r.height * 4) {}
 
   void Encode() {
     Core encoder;
@@ -167,7 +213,7 @@ struct Export {
                                FrameStream::Open), "Register frame stream");
     encoder.Load("btexport://frames");
     std::string last_error;
-    while (!cancelled) {
+    for (;;) {
       auto* event = mpv_wait_event(encoder.handle, 0.1);
       if (event->event_id == MPV_EVENT_LOG_MESSAGE) {
         auto* log = static_cast<mpv_event_log_message*>(event->data);
@@ -176,6 +222,9 @@ struct Export {
       }
       if (event->event_id == MPV_EVENT_END_FILE) {
         const auto end = *static_cast<mpv_event_end_file*>(event->data);
+        // Stop() unblocks raw input. Let the encoder finish unloading before
+        // destroying its core, even if cancelled during encoder startup.
+        if (cancelled) return;
         if (end.reason != MPV_END_FILE_REASON_EOF)
           throw std::runtime_error(std::string("Encoding failed: ") +
                                    mpv_error_string(end.error) + " " + last_error);
@@ -198,6 +247,10 @@ struct Export {
     decoder.Set("keep-open", "yes");
     decoder.Set("framedrop", "no");
     decoder.Set("video-sync", "desync");
+    // Frame-step briefly unpauses the core. Accelerate that private clock as
+    // well as disabling presentation waits; output still uses source PTS/fps.
+    decoder.Set("untimed", "yes");
+    decoder.Set("speed", "100");
     decoder.Set("osd-level", "0");
     decoder.Set("gpu-dumb-mode", "no");
     decoder.Set("glsl-shaders", shaders);
@@ -206,6 +259,7 @@ struct Export {
     Check(mpv_request_log_messages(decoder.handle, "error"), "Read render errors");
     Check(mpv_observe_property(decoder.handle, 2, "eof-reached", MPV_FORMAT_FLAG),
           "Observe export EOF");
+    mpv_set_wakeup_callback(decoder.handle, RenderWakeup::Notify, &wakeup);
 
     ANGLESurfaceManager surface(width, height);
     surface.MakeCurrent(true);
@@ -228,9 +282,10 @@ struct Export {
       surface.MakeCurrent(false);
     };
     std::unique_ptr<mpv_render_context, decltype(destroy)> render(raw, destroy);
+    mpv_render_context_set_update_callback(raw, RenderWakeup::Notify, &wakeup);
     decoder.Load(source);
 
-    Bytes current(static_cast<size_t>(width) * height * 4), previous;
+    Frame current = stream.Acquire(cancelled), previous;
     bool have_frame = false, requested_pts = false, eof = false;
     uint64_t output_frames = 0;
     double previous_pts = 0;
@@ -245,7 +300,6 @@ struct Export {
     while (!cancelled) {
       // Advanced render control must be pumped even while awaiting async core
       // replies. Never query the core synchronously on the rendering thread.
-      surface.MakeCurrent(true);
       const uint64_t updates = mpv_render_context_update(raw);
       if (updates & MPV_RENDER_UPDATE_FRAME) {
         mpv_render_frame_info info{};
@@ -253,7 +307,10 @@ struct Export {
         Check(mpv_render_context_get_info(raw, next), "Read frame info");
         if (info.flags & MPV_RENDER_FRAME_INFO_PRESENT) {
           const bool fresh = !(info.flags & MPV_RENDER_FRAME_INFO_REDRAW);
-          surface.Draw([&] {
+          // This private surface belongs to this worker for the entire export.
+          // Keep its context current; no Flutter snapshot or cross-thread
+          // surface publication is needed. ReadPixels synchronizes the draw.
+          {
             mpv_opengl_fbo fbo{0, width, height, 0};
             // glReadPixels reads from the bottom row. mpv's default GL
             // orientation already compensates for this in raw readback.
@@ -264,24 +321,27 @@ struct Export {
                 {MPV_RENDER_PARAM_INVALID, nullptr}};
             Check(mpv_render_context_render(raw, draw), "Render frame");
             if (fresh) {
+              // Let the core answer while GPU readback completes. Pausing
+              // keeps this PTS stable until we explicitly step the next frame.
+              if (!requested_pts) {
+                Check(mpv_get_property_async(decoder.handle, 1, "time-pos",
+                                             MPV_FORMAT_DOUBLE),
+                      "Read frame timestamp");
+                requested_pts = true;
+              }
               glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE,
-                           current.data());
+                           current->data());
               if (glGetError() != GL_NO_ERROR)
                 throw std::runtime_error("GPU frame readback failed");
             }
-          });
+          }
           if (fresh) have_frame = true;
           activity = Clock::now();
         }
       }
       // Paused frame stepping keeps time-pos stable until that frame has been
       // copied. Resampling by PTS preserves VFR timing and the original audio.
-      if (have_frame && !requested_pts) {
-        Check(mpv_get_property_async(decoder.handle, 1, "time-pos",
-                                     MPV_FORMAT_DOUBLE), "Read frame timestamp");
-        requested_pts = true;
-      }
-      auto* event = mpv_wait_event(decoder.handle, 0.001);
+      auto* event = mpv_wait_event(decoder.handle, 0);
       if (event->event_id == MPV_EVENT_GET_PROPERTY_REPLY &&
           event->reply_userdata == 1) {
         Check(event->error, "Read frame timestamp");
@@ -289,9 +349,9 @@ struct Export {
         if (!value->data) throw std::runtime_error("Missing frame timestamp");
         const double pts = *static_cast<double*>(value->data);
         if (!std::isfinite(pts)) throw std::runtime_error("Invalid frame timestamp");
-        if (!previous.empty()) write_until((std::max)(previous_pts, pts));
-        previous.swap(current);
-        current.resize(previous.size());
+        if (previous) write_until((std::max)(previous_pts, pts));
+        previous = std::move(current);
+        current = stream.Acquire(cancelled);
         previous_pts = (std::max)(0.0, pts);
         have_frame = requested_pts = false;
         const char* step[] = {"frame-step", nullptr};
@@ -319,7 +379,7 @@ struct Export {
           throw std::runtime_error(prefix + ": " + log->text);
       }
       if (eof && !have_frame && !requested_pts) {
-        if (previous.empty()) throw std::runtime_error("No video frames decoded");
+        if (!previous) throw std::runtime_error("No video frames decoded");
         // Do not stretch to container duration: the audio can outlast video.
         write_until(previous_pts + 1.0 / fps);
         // mpv's lavc VO does not forward AVFrame.duration. ISO BMFF muxers
@@ -331,11 +391,12 @@ struct Export {
         stream.Finish();
         return;
       }
-      const auto timeout = previous.empty() && !filter.empty()
+      const auto timeout = !previous && !filter.empty()
                                ? std::chrono::seconds(1800)
                                : std::chrono::seconds(30);
       if (Clock::now() - activity > timeout)
         throw std::runtime_error("Video export timed out waiting for a frame");
+      if (event->event_id == MPV_EVENT_NONE) wakeup.Wait(cancelled);
     }
   }
 
@@ -396,6 +457,7 @@ void bt_video_export_cancel(void* job) {
   auto* export_job = static_cast<Export*>(job);
   export_job->cancelled = true;
   export_job->stream.Stop();
+  RenderWakeup::Notify(&export_job->wakeup);
 }
 void bt_video_export_close(void* job) {
   auto* export_job = static_cast<Export*>(job);
