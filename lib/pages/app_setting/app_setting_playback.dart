@@ -354,6 +354,33 @@ class _AppConfigPlaybackContentState
         _heading(
           '组件与引擎',
           subtitle: '支持 NVIDIA $architectures，需 CUDA 13.4 或更高版本驱动',
+          action: Tooltip(
+            message: resources.checking
+                ? '正在刷新 TensorRT 配置'
+                : resources.busy
+                ? '引擎准备完成后可刷新'
+                : '刷新 TensorRT 配置',
+            child: Semantics(
+              label: '刷新 TensorRT 配置',
+              button: true,
+              child: IconButton(
+                onPressed: working
+                    ? null
+                    : () => unawaited(
+                        resources.refresh(detectGpu: true, force: true),
+                      ),
+                style: const ButtonStyle(
+                  padding: WidgetStatePropertyAll(EdgeInsets.all(8)),
+                ),
+                icon: SizedBox.square(
+                  dimension: 18,
+                  child: resources.checking
+                      ? const ProgressRing(strokeWidth: 2)
+                      : const Icon(FluentIcons.refresh, size: 18),
+                ),
+              ),
+            ),
+          ),
         ),
         const SizedBox(height: 12),
         InfoBar(
