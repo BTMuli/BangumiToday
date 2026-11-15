@@ -163,10 +163,13 @@ class _BangumiCalendarPageState extends ConsumerState<BangumiCalendarPage>
   @override
   void initState() {
     super.initState();
-    if (ref.read(bgmUserStoreProvider).user != null) {
-      isShowCollection = true;
-      setState(() {});
-    }
+    isShowCollection = ref.read(isLoggedInProvider);
+    // 账号在首帧后异步恢复，不能只在初始化时读取一次。
+    // 仅随登录状态切换默认筛选，Token 或资料更新不覆盖手动选择。
+    ref.listenManual(isLoggedInProvider, (_, loggedIn) {
+      if (!mounted || isShowCollection == loggedIn) return;
+      unawaited(toggleShowCollection(loggedIn));
+    });
     ref.listenManual(bangumiCollectionTypesProvider, (_, next) {
       next.whenData((types) {
         if (!mounted || !applyCollectionTypes(types)) return;
