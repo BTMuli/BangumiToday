@@ -109,12 +109,13 @@ std::string Identity(const std::filesystem::path& model,
   CUuuid uuid{};
   CudaApi::Check(cuda.cuDeviceGetUuid(&uuid, gpu.cuda_device),
                  "CUDA device UUID");
+  // Adapter LUIDs change after reboot; the CUDA UUID identifies the physical
+  // GPU across boots. Keep the LUID only in process-local keys and locks.
   std::ostringstream result;
   result << "bridge=8;trt-frame=1;trt=" << detail::kTrtVersion
          << ";cuda=" << detail::kCudaVersion
          << ";driver=" << gpu.cuda_driver_version
          << ";sm=" << gpu.compute_major * 10 + gpu.compute_minor
-         << ";luid=" << gpu.luid.HighPart << ':' << gpu.luid.LowPart
          << ";uuid=";
   constexpr char alphabet[] = "0123456789abcdef";
   for (unsigned char byte : uuid.bytes)
