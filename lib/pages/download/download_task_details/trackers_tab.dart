@@ -44,12 +44,7 @@ class _TrackersTab extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
           child: Row(
             children: [
-              Expanded(
-                child: Text(
-                  '点击节点查看详情，悬停 Tracker 查看完整地址',
-                  style: BTTypography.caption(context),
-                ),
-              ),
+              const Spacer(),
               Tooltip(
                 message: reannouncing
                     ? '正在请求重新汇报'

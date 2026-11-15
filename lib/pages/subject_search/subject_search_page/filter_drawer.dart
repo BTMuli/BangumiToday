@@ -109,11 +109,6 @@ class _SubjectFilterDrawerState extends State<_SubjectFilterDrawer> {
               padding: const EdgeInsets.all(16),
               children: [
                 Text('播出 / 发售日期', style: BTTypography.bodyStrong(context)),
-                const SizedBox(height: 6),
-                Text(
-                  '可按年份、季度或具体日期选择；留空表示不限。',
-                  style: BTTypography.caption(context),
-                ),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 6,
