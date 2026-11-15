@@ -38,6 +38,7 @@
 
 ## UI interaction
 
+- Avoid unnecessary auxiliary labels and explanatory text; let grouping, alignment, spacing, and visual hierarchy communicate relationships and purpose. Add supporting text only when it clarifies non-obvious behavior, state, or consequences. Preserve necessary field labels, tooltips, and accessibility semantics.
 - In compact toolbars and list/card action bars, default to flat, icon-only `IconButton`s with `Tooltip`s and accessible action labels. New actions such as playback follow the same pattern; do not introduce a filled icon-and-text button unless the user requests that style. This default does not require form submission, dialog confirmation, or standalone page actions to become icon-only.
 - Keep existing actions directly visible when adding features or optimizing layouts. Do not move them into a "More" menu or dropdown unless the user requests regrouping. When space is limited, wrap the controls or place them on a separate row. Preserve existing tooltips and gestures, including long-press behavior.
 - Match neighboring controls' icon size, hit area, spacing, and hover treatment. Keep the button footprint stable while loading: replace the icon with a compact progress indicator and put status or disabled reasons in the tooltip rather than adding inline text.
