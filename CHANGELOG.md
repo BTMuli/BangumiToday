@@ -2,14 +2,22 @@
 Author: 目棃
 Description: 更新日志
 Date: 2024-04-17
-Update: 2026-11-12
+Update: 2026-11-16
 ---
 
 > 本文档 [`Frontmatter`](https://github.com/BTMuli/MuCli#Frontmatter) 由 [MuCli](https://github.com/BTMuli/Mucli) 自动生成于 `2024-04-17 17:46:15`
 >
-> 更新于 `2026-11-12 23:53:43`
+> 更新于 `2026-11-16 23:51:18`
 
-## [v1.3.1](https://github.com/BTMuli/BangumiToday/releases/tag/v1.3.0) (2026-11-12)
+## [v1.3.2](https://github.com/BTMuli/BangumiToday/releases/tag/v1.3.2) (2026-11-17)
+
+- ✨ 播放窗体超分菜单添加超分视频导出功能
+- 🐛 修复重启后首页收藏筛选未随登录状态恢复
+- 🐛 修复系统重启后 TensorRT 引擎缓存失效
+- 🚸 为 TensorRT 配置增加刷新入口
+- 💄 精简部分UI
+
+## [v1.3.1](https://github.com/BTMuli/BangumiToday/releases/tag/v1.3.1) (2026-11-12)
 
 - ✨ 支持在 BMF 页查看未看进度并快速播放
 - 🩹 修复文件关联剧集的小数集数显示
