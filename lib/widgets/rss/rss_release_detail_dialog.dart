@@ -54,84 +54,90 @@ class RssReleaseDetailDialog extends StatelessWidget {
         maxWidth: 860,
         maxHeight: MediaQuery.sizeOf(context).height * 0.85,
       ),
-      title: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            release.title,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: BTTypography.subtitle(context),
+      title: SelectionArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              release.title,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: BTTypography.subtitle(context),
+            ),
+            if (metadata.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (var label in metadata)
+                    AnibtTagChip(label: label, maxWidth: 280),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+      content: SelectionArea(
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: BTColors.surfaceSecondary(context),
+            borderRadius: BTRadius.mediumBR,
           ),
-          if (metadata.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
+          clipBehavior: Clip.antiAlias,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (var label in metadata)
-                  AnibtTagChip(label: label, maxWidth: 280),
+                if (status != null) ...[status!, const SizedBox(height: 12)],
+                if ((description == null || description.isEmpty) &&
+                    status == null)
+                  Text('该资源未提供详细介绍', style: BTTypography.body(context))
+                else if (description != null && description.isNotEmpty)
+                  HtmlWidget(
+                    description,
+                    baseUrl:
+                        baseUrl ??
+                        Uri.tryParse(
+                          release.detailUrl ?? 'https://comicat.org',
+                        ),
+                    textStyle: BTTypography.body(context),
+                    onTapUrl: onTapUrl,
+                    customWidgetBuilder: (element) {
+                      if (element.localName != 'pre') return null;
+                      return _RssReleaseCodeBlock(
+                        text: rssPreformattedText(element),
+                      );
+                    },
+                    customStylesBuilder: (element) {
+                      if (element.localName == 'a') {
+                        return {'color': '#$accentHex'};
+                      }
+                      if (element.localName == 'strong' ||
+                          element.localName == 'b') {
+                        return {'font-weight': '700'};
+                      }
+                      if (element.localName == 'summary') {
+                        return {'font-weight': '600', 'padding': '8px 0'};
+                      }
+                      if (element.localName == 'img') {
+                        return {'max-width': '100%', 'height': 'auto'};
+                      }
+                      if (element.localName == 'pre') {
+                        return {'white-space': 'pre'};
+                      }
+                      return null;
+                    },
+                    onErrorBuilder: (context, element, error) =>
+                        Text('无法加载这部分内容', style: BTTypography.caption(context)),
+                  ),
+                ?extraContent,
               ],
             ),
-          ],
-        ],
-      ),
-      content: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: BTColors.surfaceSecondary(context),
-          borderRadius: BTRadius.mediumBR,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (status != null) ...[status!, const SizedBox(height: 12)],
-              if ((description == null || description.isEmpty) &&
-                  status == null)
-                Text('该资源未提供详细介绍', style: BTTypography.body(context))
-              else if (description != null && description.isNotEmpty)
-                HtmlWidget(
-                  description,
-                  baseUrl:
-                      baseUrl ??
-                      Uri.tryParse(release.detailUrl ?? 'https://comicat.org'),
-                  textStyle: BTTypography.body(context),
-                  onTapUrl: onTapUrl,
-                  customWidgetBuilder: (element) {
-                    if (element.localName != 'pre') return null;
-                    return _RssReleaseCodeBlock(
-                      text: rssPreformattedText(element),
-                    );
-                  },
-                  customStylesBuilder: (element) {
-                    if (element.localName == 'a') {
-                      return {'color': '#$accentHex'};
-                    }
-                    if (element.localName == 'strong' ||
-                        element.localName == 'b') {
-                      return {'font-weight': '700'};
-                    }
-                    if (element.localName == 'summary') {
-                      return {'font-weight': '600', 'padding': '8px 0'};
-                    }
-                    if (element.localName == 'img') {
-                      return {'max-width': '100%', 'height': 'auto'};
-                    }
-                    if (element.localName == 'pre') {
-                      return {'white-space': 'pre'};
-                    }
-                    return null;
-                  },
-                  onErrorBuilder: (context, element, error) =>
-                      Text('无法加载这部分内容', style: BTTypography.caption(context)),
-                ),
-              ?extraContent,
-            ],
           ),
         ),
       ),
