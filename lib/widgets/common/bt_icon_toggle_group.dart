@@ -27,7 +27,7 @@ class BTIconToggleGroup<T> extends StatelessWidget {
 
   final T value;
   final List<BTIconToggleOption<T>> options;
-  final ValueChanged<T> onChanged;
+  final ValueChanged<T>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -66,9 +66,11 @@ class BTIconToggleGroup<T> extends StatelessWidget {
                 child: ToggleButton(
                   checked: value == options[index].value,
                   style: style,
-                  onChanged: (checked) {
-                    if (checked) onChanged(options[index].value);
-                  },
+                  onChanged: onChanged == null
+                      ? null
+                      : (checked) {
+                          if (checked) onChanged!(options[index].value);
+                        },
                   child: Icon(options[index].icon, size: 14),
                 ),
               ),

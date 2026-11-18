@@ -111,6 +111,32 @@ bool playbackSoftwareRenderer(String renderer) {
   ].any(text.contains);
 }
 
+String? playbackUpscaleSourceUnavailable(
+  PlaybackVideoSource source,
+  PlaybackUpscaleMode mode,
+) {
+  var gamma = source.gamma?.toLowerCase();
+  if (['pq', 'st2084', 'hlg', 'arib-std-b67'].contains(gamma)) {
+    return 'HDR 暂未开放';
+  }
+  if (![
+    'bt.1886',
+    'srgb',
+    'linear',
+    'gamma1.8',
+    'gamma2.2',
+    'gamma2.8',
+    'prophoto',
+  ].contains(gamma)) {
+    return '等待确认 SDR 色彩';
+  }
+  // The AI filter produces fixed 2x frames within its own 4K budget.
+  if (mode.isJanai && (source.width > 1920 || source.height > 1080)) {
+    return 'AI 超分上限为 1080p，保持普通播放';
+  }
+  return null;
+}
+
 PlaybackUpscalePlan playbackUpscalePlan({
   required PlaybackUpscaleMode mode,
   required PlaybackVideoSource? source,
@@ -125,27 +151,8 @@ PlaybackUpscalePlan playbackUpscalePlan({
   if (source == null || source.width <= 0 || source.height <= 0) {
     return const PlaybackUpscalePlan('等待视频参数');
   }
-  var gamma = source.gamma?.toLowerCase();
-  if (['pq', 'st2084', 'hlg', 'arib-std-b67'].contains(gamma)) {
-    return const PlaybackUpscalePlan('HDR 暂未开放');
-  }
-  if (![
-    'bt.1886',
-    'srgb',
-    'linear',
-    'gamma1.8',
-    'gamma2.2',
-    'gamma2.8',
-    'prophoto',
-  ].contains(gamma)) {
-    return const PlaybackUpscalePlan('等待确认 SDR 色彩');
-  }
-  // The AI filter produces fixed 2x frames within its own 4K budget. The final
-  // texture uses the same viewport policy as Anime4K; mpv scales the filtered
-  // frame to that target when its dimensions differ from the model output.
-  if (mode.isJanai && (source.width > 1920 || source.height > 1080)) {
-    return const PlaybackUpscalePlan('AI 超分上限为 1080p，保持普通播放');
-  }
+  var unavailable = playbackUpscaleSourceUnavailable(source, mode);
+  if (unavailable != null) return PlaybackUpscalePlan(unavailable);
   if (viewport == null ||
       [
         viewport.width,

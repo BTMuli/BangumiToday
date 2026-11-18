@@ -1,13 +1,16 @@
 // Dart imports:
 import 'dart:async';
+import 'dart:ffi' hide Size;
 import 'dart:io';
 
 // Flutter imports:
 import 'package:flutter/services.dart';
 
 // Package imports:
+import 'package:ffi/ffi.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:screen_retriever/screen_retriever.dart';
+import 'package:win32/win32.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Project imports:
@@ -30,6 +33,27 @@ class PlaybackWindowMode extends ChangeNotifier {
 
   /// 未载入视频（停止播放）时数字键仍可用的基准尺寸。
   static const defaultVideoSize = Size(1920, 1080);
+
+  /// Queries the current monitor even after a move between equal-DPI screens.
+  static Future<Size?> currentDisplaySize() async {
+    if (!Platform.isWindows) return null;
+    var id = await windowManager.getId();
+    if (id == 0) return null;
+    var monitor = MonitorFromWindow(
+      HWND(Pointer.fromAddress(id)),
+      MONITOR_DEFAULTTONEAREST,
+    );
+    return using((arena) {
+      var info = arena<MONITORINFO>();
+      info.ref.cbSize = sizeOf<MONITORINFO>();
+      if (!GetMonitorInfo(monitor, info)) return null;
+      var bounds = info.ref.rcMonitor;
+      return Size(
+        (bounds.right - bounds.left).toDouble(),
+        (bounds.bottom - bounds.top).toDouble(),
+      );
+    });
+  }
 
   static const _frameChannel = MethodChannel(
     'bangumi_today/playback_window_frame',

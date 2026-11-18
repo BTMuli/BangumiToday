@@ -7,6 +7,7 @@ import 'dart:io';
 // Package imports:
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as path;
+import 'package:win32/win32.dart';
 
 // Project imports:
 import '../../models/playback/playback_export.dart';
@@ -15,29 +16,6 @@ import '../../models/playback/playback_upscale.dart';
 import 'playback_assets.dart';
 import 'playback_build_cancellation.dart';
 import 'playback_tensorrt_resources.dart';
-
-PlaybackPixels playbackExportSize(
-  PlaybackVideoSource source,
-  PlaybackUpscaleMode mode,
-) {
-  if (mode == PlaybackUpscaleMode.off) {
-    throw ArgumentError('请选择超分档位');
-  }
-  var plan = playbackUpscalePlan(
-    mode: mode,
-    source: source,
-    viewport: (
-      width: source.width * 2.0,
-      height: source.height * 2.0,
-      dpr: 1.0,
-    ),
-    renderer: 'export GPU',
-  );
-  var output = plan.output;
-  if (output == null) throw StateError(plan.reason);
-  // H.264 4:2:0 requires even dimensions.
-  return (width: output.width ~/ 2 * 2, height: output.height ~/ 2 * 2);
-}
 
 /// A dialog-scoped export, independent of the playback player and preferences.
 class PlaybackVideoExport {
@@ -56,8 +34,10 @@ class PlaybackVideoExport {
   Future<bool> run({
     required String source,
     required String destination,
+    required bool allowOverwrite,
     required PlaybackVideoSource video,
     required PlaybackUpscaleMode mode,
+    required PlaybackExportResolution resolution,
     required double fps,
     required PlaybackTensorRtResources resources,
     required void Function(double seconds) onProgress,
@@ -74,11 +54,17 @@ class PlaybackVideoExport {
     if (!fps.isFinite || fps <= 0 || fps > 240) {
       throw StateError('无法确定源视频帧率');
     }
-    var size = playbackExportSize(video, mode);
+    var size = playbackExportSize(video, mode, resolution);
+    _cancelled = false;
     _running = true;
     Directory? staging;
     void Function(Pointer<Void>)? close;
     try {
+      if (!allowOverwrite &&
+          await FileSystemEntity.type(destination, followLinks: false) !=
+              FileSystemEntityType.notFound) {
+        throw StateError('目标文件已存在，请选择保存位置');
+      }
       staging = await Directory(
         path.dirname(destination),
       ).createTemp('.bangumi-export-');
@@ -208,9 +194,30 @@ class PlaybackVideoExport {
       if (!await output.exists() || await output.length() == 0) {
         throw StateError('导出未生成视频文件');
       }
-      // Same-volume rename publishes only a fully finalized video. On failure,
-      // an existing destination is left intact and the error is shown.
-      await output.rename(destination);
+      if (_cancelled) return false;
+      // Publish only finalized output. Use a non-replacing rename for the
+      // automatic path in case another export created it in the meantime.
+      if (allowOverwrite) {
+        await output.rename(destination);
+      } else {
+        var result = using(
+          (arena) => MoveFile(
+            PCWSTR(output.absolute.path.toNativeUtf16(allocator: arena)),
+            PCWSTR(path.absolute(destination).toNativeUtf16(allocator: arena)),
+          ),
+        );
+        if (!result.value) {
+          if (result.error == ERROR_FILE_EXISTS ||
+              result.error == ERROR_ALREADY_EXISTS) {
+            throw StateError('目标文件已存在，请选择保存位置');
+          }
+          throw FileSystemException(
+            '无法保存导出文件',
+            destination,
+            OSError('MoveFile', result.error),
+          );
+        }
+      }
       return true;
     } finally {
       if (_job != nullptr) close?.call(_job);

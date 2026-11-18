@@ -23,18 +23,40 @@ extension _PlaybackControlCommands on _PlaybackVideoControlsState {
         var fps = rawFps is num ? rawFps.toDouble() : 0.0;
         if (fps <= 0 || !fps.isFinite) throw StateError('无法确定源视频帧率');
         if (!mounted || store.current?.key != item.key) return;
+        var display = await PlaybackWindowMode.currentDisplaySize();
+        if (!mounted || store.current?.key != item.key) return;
+        var resolution = display == null
+            ? PlaybackExportResolution.qhd
+            : PlaybackExportResolution.forDisplay(
+                width: display.width,
+                height: display.height,
+              );
         await store.pause();
-        if (!mounted) return;
+        if (!mounted || store.current?.key != item.key) return;
         await showDialog<void>(
           context: context,
-          barrierDismissible: false,
-          builder: (_) => PlaybackExportDialog(
-            source: item.filePath,
-            video: video,
-            fps: fps,
-            duration: store.duration,
-            initialMode: store.upscaleMode,
-            resources: store.tensorRtResources,
+          barrierDismissible: true,
+          dismissWithEsc: false,
+          builder: (dialogContext) => CallbackShortcuts(
+            bindings: {
+              const SingleActivator(
+                LogicalKeyboardKey.escape,
+                includeRepeats: false,
+              ): () =>
+                  unawaited(Navigator.of(dialogContext).maybePop()),
+            },
+            child: Focus(
+              autofocus: true,
+              child: PlaybackExportDialog(
+                source: item.filePath,
+                video: video,
+                fps: fps,
+                duration: store.duration,
+                initialMode: store.upscaleMode,
+                initialResolution: resolution,
+                resources: store.tensorRtResources,
+              ),
+            ),
           ),
         );
         _focusVideo();

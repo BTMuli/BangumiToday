@@ -1,6 +1,9 @@
 // Dart imports:
 import 'dart:async';
 
+// Flutter imports:
+import 'package:flutter/material.dart' as material;
+
 // Package imports:
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -11,7 +14,7 @@ import '../../core/services/playback_tensorrt_resources.dart';
 import '../../core/services/playback_video_export.dart';
 import '../../models/playback/playback_export.dart';
 import '../../models/playback/playback_upscale.dart';
-import '../../ui/bt_select.dart';
+import '../../widgets/common/bt_icon_toggle_group.dart';
 
 class PlaybackExportDialog extends StatefulWidget {
   const PlaybackExportDialog({
@@ -21,6 +24,7 @@ class PlaybackExportDialog extends StatefulWidget {
     required this.fps,
     required this.duration,
     required this.initialMode,
+    required this.initialResolution,
     required this.resources,
   });
 
@@ -29,6 +33,7 @@ class PlaybackExportDialog extends StatefulWidget {
   final double fps;
   final Duration duration;
   final PlaybackUpscaleMode initialMode;
+  final PlaybackExportResolution initialResolution;
   final PlaybackTensorRtResources resources;
 
   @override
@@ -36,9 +41,20 @@ class PlaybackExportDialog extends StatefulWidget {
 }
 
 class _PlaybackExportDialogState extends State<PlaybackExportDialog> {
+  static const _modeIcons = {
+    PlaybackUpscaleMode.light: material.Icons.bolt_rounded,
+    PlaybackUpscaleMode.standard: material.Icons.tune_rounded,
+    PlaybackUpscaleMode.high: material.Icons.high_quality_rounded,
+    PlaybackUpscaleMode.janaiSmooth: material.Icons.speed_rounded,
+    PlaybackUpscaleMode.janaiQuality: material.Icons.auto_awesome_rounded,
+  };
+
   final _export = PlaybackVideoExport();
   final _destination = TextEditingController();
   late PlaybackUpscaleMode _mode;
+  late PlaybackExportResolution _resolution;
+  FluentDialogRoute<bool>? _cancelConfirmation;
+  bool _customDestination = false;
   bool _running = false;
   bool _cancelling = false;
   bool _complete = false;
@@ -46,13 +62,10 @@ class _PlaybackExportDialogState extends State<PlaybackExportDialog> {
   double _seconds = 0;
   String? _error;
 
-  String get _sourceExtension => path.extension(widget.source).toLowerCase();
+  PlaybackExportFormat? get _sourceFormat =>
+      PlaybackExportFormat.fromExtension(path.extension(widget.source));
   PlaybackExportFormat get _format =>
-      PlaybackExportFormat.fromExtension(
-        path.extension(_destination.text).isEmpty
-            ? _sourceExtension
-            : path.extension(_destination.text),
-      ) ??
+      PlaybackExportFormat.fromExtension(path.extension(_destination.text)) ??
       PlaybackExportFormat.mkv;
 
   @override
@@ -61,6 +74,8 @@ class _PlaybackExportDialogState extends State<PlaybackExportDialog> {
     _mode = widget.initialMode == PlaybackUpscaleMode.off
         ? PlaybackUpscaleMode.standard
         : widget.initialMode;
+    _resolution = widget.initialResolution;
+    _updateDefaultDestination();
   }
 
   @override
@@ -70,30 +85,36 @@ class _PlaybackExportDialogState extends State<PlaybackExportDialog> {
     super.dispose();
   }
 
-  String? _unavailable(PlaybackUpscaleMode mode) {
-    if (mode.isJanai && !widget.resources.canEnable) {
-      return '请先在应用设置中安装 TensorRT 组件';
-    }
-    try {
-      playbackExportSize(widget.video, mode);
-      return null;
-    } catch (error) {
-      return '$error';
-    }
+  void _updateDefaultDestination() {
+    if (_customDestination) return;
+    var extension = _sourceFormat == null
+        ? '.mkv'
+        : path.extension(widget.source);
+    _destination.text = path.join(
+      path.dirname(widget.source),
+      '${path.basenameWithoutExtension(widget.source)}'
+      '_${_mode.name}_${_resolution.label}$extension',
+    );
+  }
+
+  void _updateOptions({
+    PlaybackUpscaleMode? mode,
+    PlaybackExportResolution? resolution,
+  }) {
+    setState(() {
+      _mode = mode ?? _mode;
+      _resolution = resolution ?? _resolution;
+      _updateDefaultDestination();
+      _error = null;
+    });
   }
 
   Future<void> _pickDestination() async {
     setState(() => _picking = true);
     try {
-      var extension =
-          PlaybackExportFormat.fromExtension(_sourceExtension) == null
-          ? '.mkv'
-          : _sourceExtension;
       var result = await getSaveLocation(
-        initialDirectory: path.dirname(widget.source),
-        suggestedName:
-            '${path.basenameWithoutExtension(widget.source)}'
-            '_${_mode.name}$extension',
+        initialDirectory: path.dirname(_destination.text),
+        suggestedName: path.basename(_destination.text),
         acceptedTypeGroups: [
           for (var format in [
             _format,
@@ -108,6 +129,7 @@ class _PlaybackExportDialogState extends State<PlaybackExportDialog> {
       );
       if (!mounted || result == null) return;
       setState(() {
+        _customDestination = true;
         _destination.text = path.extension(result.path).isEmpty
             ? '${result.path}.${_format.extensions.first}'
             : result.path;
@@ -120,18 +142,58 @@ class _PlaybackExportDialogState extends State<PlaybackExportDialog> {
     }
   }
 
+  Future<void> _requestCancel() async {
+    var navigator = Navigator.of(context);
+    if (!_running) {
+      navigator.pop();
+      return;
+    }
+    if (_cancelling || _cancelConfirmation != null) return;
+    var confirmation = FluentDialogRoute<bool>(
+      context: context,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
+      barrierDismissible: true,
+      builder: (context) => ContentDialog(
+        title: const Text('取消导出？'),
+        content: const Text('取消后，已处理的进度将丢失。'),
+        actions: [
+          Button(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('继续导出'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('确认取消'),
+          ),
+        ],
+      ),
+    );
+    _cancelConfirmation = confirmation;
+    try {
+      var confirmed = await navigator.push(confirmation);
+      if (!mounted || !_running || confirmed != true) return;
+      setState(() => _cancelling = true);
+      _export.cancel();
+    } finally {
+      _cancelConfirmation = null;
+    }
+  }
+
   Future<void> _start() async {
     setState(() {
       _running = true;
       _error = null;
       _seconds = 0;
     });
+    var cancelled = false;
     try {
       var completed = await _export.run(
         source: widget.source,
         destination: _destination.text,
+        allowOverwrite: _customDestination,
         video: widget.video,
         mode: _mode,
+        resolution: _resolution,
         fps: widget.fps,
         resources: widget.resources,
         onProgress: (seconds) {
@@ -139,31 +201,49 @@ class _PlaybackExportDialogState extends State<PlaybackExportDialog> {
         },
       );
       if (!mounted) return;
-      if (!completed) {
-        setState(() => _running = false);
-        Navigator.of(context).pop();
-        return;
-      }
-      setState(() => _complete = true);
+      cancelled = !completed;
+      if (completed) setState(() => _complete = true);
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
     } finally {
-      if (mounted) setState(() => _running = false);
+      if (mounted) {
+        var confirmation = _cancelConfirmation;
+        if (confirmation != null && confirmation.isActive) {
+          Navigator.of(context).removeRoute(confirmation);
+        }
+        setState(() {
+          _running = false;
+          _cancelling = false;
+        });
+      }
     }
+    if (mounted && cancelled) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    var unavailable = _unavailable(_mode);
+    PlaybackPixels? size;
+    String? unavailable;
+    if (_mode.isJanai && !widget.resources.canEnable) {
+      unavailable = '请先在应用设置中安装 TensorRT 组件';
+    } else {
+      try {
+        size = playbackExportSize(widget.video, _mode, _resolution);
+      } on StateError catch (error) {
+        unavailable = error.message;
+      }
+    }
+    var editing = !_running && !_complete && !_picking;
     var total = widget.duration.inMilliseconds / 1000;
     var percent = total > 0 ? (_seconds / total * 100).clamp(0.0, 99.9) : null;
     var percentLabel = percent == null
         ? ''
         : ' · ${percent.toStringAsFixed(1)}%';
-    PlaybackPixels? size;
-    if (unavailable == null) size = playbackExportSize(widget.video, _mode);
     return PopScope(
-      canPop: !_running,
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_requestCancel());
+      },
       child: ContentDialog(
         constraints: const BoxConstraints(maxWidth: 540),
         title: const Text('导出超分视频'),
@@ -174,27 +254,54 @@ class _PlaybackExportDialogState extends State<PlaybackExportDialog> {
             children: [
               Text(path.basename(widget.source)),
               const SizedBox(height: 16),
-              const Text('超分档位'),
-              const SizedBox(height: 6),
-              BtSelect<PlaybackUpscaleMode>(
-                value: _mode,
-                isExpanded: true,
-                items: [
-                  for (var mode in PlaybackUpscaleMode.values)
-                    if (mode != PlaybackUpscaleMode.off)
-                      ComboBoxItem(
-                        value: mode,
-                        child: Text(
-                          '${mode.isJanai ? 'JaNai' : 'Anime4K'}'
-                          ' · ${mode.label}',
+              Row(
+                children: [
+                  const Expanded(child: Text('超分档位')),
+                  BTIconToggleGroup<PlaybackUpscaleMode>(
+                    value: _mode,
+                    options: [
+                      for (var MapEntry(key: mode, value: icon)
+                          in _modeIcons.entries)
+                        BTIconToggleOption(
+                          value: mode,
+                          label:
+                              '${mode.isJanai ? 'JaNai' : 'Anime4K'}'
+                              ' · ${mode.label}',
+                          icon: icon,
                         ),
-                      ),
+                    ],
+                    onChanged: editing
+                        ? (mode) => _updateOptions(mode: mode)
+                        : null,
+                  ),
                 ],
-                onChanged: _running || _complete
-                    ? null
-                    : (mode) {
-                        if (mode != null) setState(() => _mode = mode);
-                      },
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Expanded(child: Text('导出分辨率')),
+                  BTIconToggleGroup<PlaybackExportResolution>(
+                    value: _resolution,
+                    options: [
+                      for (var resolution in PlaybackExportResolution.values)
+                        BTIconToggleOption(
+                          value: resolution,
+                          label:
+                              '${resolution.label} · '
+                              '${resolution.width} × ${resolution.height}',
+                          icon: switch (resolution) {
+                            PlaybackExportResolution.qhd =>
+                              material.Icons.two_k_rounded,
+                            PlaybackExportResolution.uhd =>
+                              material.Icons.four_k_rounded,
+                          },
+                        ),
+                    ],
+                    onChanged: editing
+                        ? (resolution) => _updateOptions(resolution: resolution)
+                        : null,
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Text(
@@ -205,7 +312,7 @@ class _PlaybackExportDialogState extends State<PlaybackExportDialog> {
               ),
               const SizedBox(height: 6),
               const Text('导出完整视频，保留默认音轨，不烧录字幕。'),
-              if (PlaybackExportFormat.fromExtension(_sourceExtension) == null)
+              if (_sourceFormat == null && !_customDestination)
                 const Text('源视频封装暂不支持导出，默认使用 MKV。'),
               const SizedBox(height: 16),
               const Text('目标目录与文件名'),
@@ -216,10 +323,7 @@ class _PlaybackExportDialogState extends State<PlaybackExportDialog> {
                     child: TextBox(
                       controller: _destination,
                       readOnly: true,
-                      placeholder: '选择保存位置…',
-                      onTap: _running || _complete || _picking
-                          ? null
-                          : _pickDestination,
+                      onTap: editing ? _pickDestination : null,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -227,9 +331,7 @@ class _PlaybackExportDialogState extends State<PlaybackExportDialog> {
                     message: '选择目标目录与文件名',
                     child: IconButton(
                       icon: const Icon(FluentIcons.folder_open, size: 18),
-                      onPressed: _running || _complete || _picking
-                          ? null
-                          : _pickDestination,
+                      onPressed: editing ? _pickDestination : null,
                     ),
                   ),
                 ],
@@ -267,27 +369,12 @@ class _PlaybackExportDialogState extends State<PlaybackExportDialog> {
         ),
         actions: [
           Button(
-            onPressed: _cancelling
-                ? null
-                : () {
-                    if (_running) {
-                      setState(() => _cancelling = true);
-                      _export.cancel();
-                    } else {
-                      Navigator.of(context).pop();
-                    }
-                  },
+            onPressed: _cancelling ? null : _requestCancel,
             child: Text(_complete ? '关闭' : '取消'),
           ),
           if (!_complete)
             FilledButton(
-              onPressed:
-                  _running ||
-                      _picking ||
-                      unavailable != null ||
-                      _destination.text.isEmpty
-                  ? null
-                  : _start,
+              onPressed: editing && unavailable == null ? _start : null,
               child: const Text('开始导出'),
             ),
         ],
