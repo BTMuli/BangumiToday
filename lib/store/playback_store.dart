@@ -662,15 +662,48 @@ class PlaybackStore extends ChangeNotifier {
     await player.setSubtitleTrack(track);
   }
 
-  Future<PlaybackSubtitleImport?> importSubtitleDirectory(
-    String directory, {
+  Future<void> loadSubtitleFiles(List<String> files) {
+    var sessionId = _session.id;
+    return _serial(() async {
+      if (_session.id != sessionId) {
+        throw const PlaybackUnavailable('视频已切换，请重新加载字幕');
+      }
+      var player = _mpv.player;
+      if (current == null || player == null) {
+        throw const PlaybackUnavailable('请先打开视频，再加载字幕');
+      }
+      var unique = {
+        for (var file in files) PlaybackItem.pathKey(file): file,
+      }.values.toList();
+      for (var file in unique) {
+        if (_closed) return;
+        if (!await File(file).exists()) {
+          throw PlaybackUnavailable('字幕文件不存在：${path.basename(file)}');
+        }
+      }
+      // Each addition selects its track. Load the first dropped file last.
+      for (var file in unique.reversed) {
+        if (_closed) return;
+        _manualSubtitles = true;
+        await player.setSubtitleTrack(
+          SubtitleTrack.uri(file, title: path.basename(file)),
+        );
+      }
+      _notify();
+    });
+  }
+
+  Future<PlaybackSubtitleImport?> importSubtitleDirectories(
+    List<String> directories, {
     bool matchByEpisode = false,
   }) async {
+    var items = playlist;
     PlaybackSubtitleImport? result;
     await _serial(() async {
-      result = await _subtitleFiles.importDirectory(
-        directory,
-        playlist,
+      if (!identical(playlist, items)) return;
+      result = await _subtitleFiles.importDirectories(
+        directories,
+        items,
         matchByEpisode: matchByEpisode,
       );
       if (_closed || current == null) return;

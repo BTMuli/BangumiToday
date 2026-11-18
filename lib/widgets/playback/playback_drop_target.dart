@@ -1,5 +1,6 @@
 // Dart imports:
 import 'dart:async';
+import 'dart:io';
 
 // Package imports:
 import 'package:fluent_ui/fluent_ui.dart';
@@ -8,6 +9,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 // Project imports:
 import '../../core/errors/playback_unavailable.dart';
+import '../../core/services/playback_subtitle_files.dart';
 import '../../core/utils/download_paths.dart';
 import '../../core/utils/playback_paths.dart';
 import '../../pages/playback/playback_actions.dart';
@@ -20,11 +22,13 @@ class PlaybackDropTarget extends ConsumerStatefulWidget {
     required this.child,
     this.enabled = true,
     this.onTorrentDrop,
+    this.playbackPageKey,
   });
 
   final Widget child;
   final bool enabled;
   final Future<void> Function(List<String> paths)? onTorrentDrop;
+  final GlobalKey? playbackPageKey;
 
   @override
   ConsumerState<PlaybackDropTarget> createState() => _PlaybackDropTargetState();
@@ -36,11 +40,10 @@ class _PlaybackDropTargetState extends ConsumerState<PlaybackDropTarget> {
   String? _error;
   Timer? _errorTimer;
 
-  bool get _canDrop =>
-      mounted &&
-      widget.enabled &&
-      !_opening &&
-      !ref.read(playbackStoreProvider).isClosed;
+  bool get _dropEnabled =>
+      mounted && widget.enabled && !ref.read(playbackStoreProvider).isClosed;
+
+  bool get _canDrop => _dropEnabled && !_opening;
 
   void _setDragging(bool value) {
     if (!mounted || _dragging == value) return;
@@ -85,15 +88,14 @@ class _PlaybackDropTargetState extends ConsumerState<PlaybackDropTarget> {
   }
 
   Future<void> _openDrop(Future<List<Uri?>> pending) async {
+    var store = ref.read(playbackStoreProvider);
+    var currentKey = store.current?.key;
+    var playlist = store.playlist;
     try {
       var uris = await pending;
       // Let the native drag loop finish before invoking window/player plugins.
       await Future<void>.delayed(Duration.zero);
-      if (!mounted ||
-          !widget.enabled ||
-          ref.read(playbackStoreProvider).isClosed) {
-        return;
-      }
+      if (!_dropEnabled) return;
       var torrents = DownloadPaths.droppedTorrents(uris);
       var onTorrentDrop = widget.onTorrentDrop;
       if (torrents.isNotEmpty && onTorrentDrop != null) {
@@ -101,20 +103,60 @@ class _PlaybackDropTargetState extends ConsumerState<PlaybackDropTarget> {
         await onTorrentDrop(torrents);
         return;
       }
-      var filePath = PlaybackPaths.firstDroppedVideo(uris);
-      if (filePath == null) {
-        throw PlaybackUnavailable(
-          onTorrentDrop == null ? '未识别到支持的视频文件' : '未识别到 .torrent 种子或支持的视频文件',
-        );
+      var playbackPageKey = widget.playbackPageKey;
+      var subtitleFiles = <String>[];
+      var directories = <String>[];
+      for (var filePath in PlaybackPaths.droppedLocalPaths(uris)) {
+        var isDirectory =
+            playbackPageKey != null && await Directory(filePath).exists();
+        if (!_dropEnabled) return;
+        if (isDirectory) {
+          directories.add(filePath);
+        } else if (PlaybackPaths.isVideo(filePath)) {
+          _clearError();
+          await openLocalPlaybackFile(ref, filePath);
+          return;
+        } else if (playbackPageKey != null &&
+            PlaybackSubtitleFiles.isSubtitle(filePath)) {
+          subtitleFiles.add(filePath);
+        }
       }
-      _clearError();
-      await openLocalPlaybackFile(ref, filePath);
-    } catch (error) {
-      if (!mounted ||
-          !widget.enabled ||
-          ref.read(playbackStoreProvider).isClosed) {
+      if (subtitleFiles.isNotEmpty || directories.isNotEmpty) {
+        if (currentKey == null || store.current == null) {
+          throw const PlaybackUnavailable('请先打开视频，再加载字幕');
+        }
+        _clearError();
+        if (directories.isNotEmpty) {
+          if (!identical(store.playlist, playlist)) {
+            throw const PlaybackUnavailable('播放列表已切换，请重新导入字幕目录');
+          }
+          var context = playbackPageKey?.currentContext;
+          if (context != null && context.mounted) {
+            await importPlaybackSubtitleDirectories(
+              context,
+              store,
+              directories,
+            );
+          }
+        }
+        if (!_dropEnabled) return;
+        if (subtitleFiles.isNotEmpty) {
+          if (store.current?.key != currentKey) {
+            throw const PlaybackUnavailable('视频已切换，请重新加载字幕');
+          }
+          await store.loadSubtitleFiles(subtitleFiles);
+        }
         return;
       }
+      throw PlaybackUnavailable(
+        onTorrentDrop != null
+            ? '未识别到 .torrent 种子或支持的视频文件'
+            : playbackPageKey != null
+            ? '未识别到支持的视频、字幕文件或字幕目录'
+            : '未识别到支持的视频文件',
+      );
+    } catch (error) {
+      if (!_dropEnabled) return;
       var message = consumePlaybackError(ref, error);
       _errorTimer?.cancel();
       setState(() => _error = message);
@@ -183,9 +225,11 @@ class _PlaybackDropTargetState extends ConsumerState<PlaybackDropTarget> {
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            widget.onTorrentDrop == null
-                                ? '松开以播放视频'
-                                : '松开以添加种子下载或播放视频',
+                            widget.onTorrentDrop != null
+                                ? '松开以添加种子下载或播放视频'
+                                : widget.playbackPageKey != null
+                                ? '松开以播放视频或加载字幕'
+                                : '松开以播放视频',
                           ),
                         ],
                       ),

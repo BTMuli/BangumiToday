@@ -45,16 +45,19 @@ class PlaybackSubtitleFiles {
         : (jsonDecode(value) as List).cast<String>();
   }
 
-  Future<PlaybackSubtitleImport> importDirectory(
-    String directory,
+  Future<PlaybackSubtitleImport> importDirectories(
+    List<String> directories,
     List<PlaybackItem> items, {
     bool matchByEpisode = false,
   }) async {
-    var files = await Directory(directory)
-        .list(recursive: true, followLinks: false)
-        .where((entity) => entity is File && isSubtitle(entity.path))
-        .map((entity) => entity.path)
-        .toList();
+    var files = <String>[];
+    for (var directory in directories) {
+      await for (var entity in Directory(
+        directory,
+      ).list(recursive: true, followLinks: false)) {
+        if (entity is File && isSubtitle(entity.path)) files.add(entity.path);
+      }
+    }
     files.sort();
     var result = match(files, items, matchByEpisode: matchByEpisode);
     for (var item in items) {

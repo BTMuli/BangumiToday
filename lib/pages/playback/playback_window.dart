@@ -619,7 +619,7 @@ class _PlaybackWindow with WindowListener, WidgetsBindingObserver {
 }
 
 class _PlaybackWindowApp extends StatelessWidget {
-  const _PlaybackWindowApp({
+  _PlaybackWindowApp({
     required this.presentation,
     required this.closing,
     required this.mode,
@@ -631,6 +631,7 @@ class _PlaybackWindowApp extends StatelessWidget {
   final PlaybackWindowMode mode;
   final bool Function() canRetryClose;
   final VoidCallback onRetryClose;
+  final _playbackPageKey = GlobalKey();
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<Map<String, Object?>>(
@@ -657,8 +658,11 @@ class _PlaybackWindowApp extends StatelessWidget {
           ),
           builder: (context, child) => ValueListenableBuilder<String?>(
             valueListenable: closing,
-            builder: (context, message, _) =>
-                PlaybackDropTarget(enabled: message == null, child: child!),
+            builder: (context, message, _) => PlaybackDropTarget(
+              enabled: message == null,
+              playbackPageKey: _playbackPageKey,
+              child: child!,
+            ),
           ),
           home: ValueListenableBuilder<String?>(
             valueListenable: closing,
@@ -666,7 +670,11 @@ class _PlaybackWindowApp extends StatelessWidget {
               children: [
                 IgnorePointer(
                   ignoring: message != null,
-                  child: PlaybackPage(independent: true, windowMode: mode),
+                  child: PlaybackPage(
+                    key: _playbackPageKey,
+                    independent: true,
+                    windowMode: mode,
+                  ),
                 ),
                 if (message != null)
                   Positioned.fill(

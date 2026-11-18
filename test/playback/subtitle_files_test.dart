@@ -13,6 +13,7 @@ import 'package:path/path.dart' as path;
 import 'package:bangumi_today/core/services/playback_subtitle_files.dart';
 import 'package:bangumi_today/core/services/playback_window_data_host.dart';
 import 'package:bangumi_today/core/services/playback_window_protocol.dart';
+import 'package:bangumi_today/core/utils/playback_paths.dart';
 import 'package:bangumi_today/data/repositories/playback_window_remote.dart';
 import 'package:bangumi_today/domain/repositories/playback_cover.dart';
 import 'package:bangumi_today/domain/repositories/playback_history.dart';
@@ -68,6 +69,18 @@ RemotePlaybackSettings _remoteSettings(PlaybackSettingsStore settings) {
 }
 
 void main() {
+  test('拖入字幕文件和目录时保留中文、空格及方括号', () {
+    var file = path.absolute('[字幕组] 第 01 集.ASS');
+    var directory = path.absolute('繁体 字幕');
+    var uris = [
+      Uri.https('example.com', '01.ass'),
+      Uri.file(file),
+      Uri.directory(directory),
+      Uri.file(file).replace(query: 'invalid=1'),
+    ];
+    expect(PlaybackPaths.droppedLocalPaths(uris), [file, directory]);
+  });
+
   test('只接受支持的字幕扩展名，忽略无扩展名文件', () {
     expect(PlaybackSubtitleFiles.isSubtitle('readme'), isFalse);
     expect(PlaybackSubtitleFiles.isSubtitle('fonts/font.ttf'), isFalse);
@@ -355,10 +368,10 @@ void main() {
         await File(path.join(directory.path, 'README')).writeAsString('');
         await File(path.join(nested.path, 'font.ttf')).writeAsString('');
 
-        var result = await subtitles.importDirectory(directory.path, [
-          first,
-          second,
-        ]);
+        var result = await subtitles.importDirectories(
+          [directory.path],
+          [first, second],
+        );
         expect(result.files, hasLength(2));
         expect(result.matches, hasLength(2));
         var reopened = PlaybackSubtitleFiles(
@@ -370,12 +383,43 @@ void main() {
         var traditional = await File(
           path.join(directory.path, '01.cht.ass'),
         ).writeAsString('');
-        await reopened.importDirectory(directory.path, [first, second]);
+        await reopened.importDirectories([directory.path], [first, second]);
         expect(await reopened.read(first), [
           firstSubtitle.path,
           traditional.path,
         ]);
         expect(await reopened.read(second), [secondSubtitle.path]);
+      });
+
+      test('多个字幕目录合并匹配，重叠的目录只关联一次', () async {
+        var first = _video('Show - 01.mkv');
+        var second = _video('Show - 02.mkv');
+        var settings = _Settings();
+        var subtitles = PlaybackSubtitleFiles(
+          remote ? _remoteSettings(settings) : settings,
+        );
+        var simplified = await Directory(
+          path.join(directory.path, '简体 字幕'),
+        ).create();
+        var traditional = await Directory(
+          path.join(directory.path, '繁体 字幕'),
+        ).create();
+        var firstSubtitle = await File(
+          path.join(simplified.path, '01.chs.ASS'),
+        ).writeAsString('');
+        var secondSubtitle = await File(
+          path.join(traditional.path, '02.cht.srt'),
+        ).writeAsString('');
+
+        var result = await subtitles.importDirectories(
+          [simplified.path, traditional.path, directory.path],
+          [first, second],
+        );
+
+        expect(result.matchedFiles, 2);
+        expect(result.unmatchedFiles, 0);
+        expect(await subtitles.read(first), [firstSubtitle.path]);
+        expect(await subtitles.read(second), [secondSubtitle.path]);
       });
 
       test('空目录和未匹配文件不写入关联', () async {
@@ -384,12 +428,16 @@ void main() {
           remote ? _remoteSettings(settings) : settings,
         );
         var video = _video('Show - 01.mkv');
-        var empty = await subtitles.importDirectory(directory.path, [video]);
+        var empty = await subtitles.importDirectories(
+          [directory.path],
+          [video],
+        );
         expect(empty.files, isEmpty);
         await File(path.join(directory.path, '03.chs.ass')).writeAsString('');
-        var unmatched = await subtitles.importDirectory(directory.path, [
-          video,
-        ]);
+        var unmatched = await subtitles.importDirectories(
+          [directory.path],
+          [video],
+        );
         expect(unmatched.unmatchedFiles, 1);
         expect(settings.values, isEmpty);
       });
@@ -406,15 +454,18 @@ void main() {
             'Show - 01 (BDrip 1920x1080 x264 FLAC Hi10P).SC-OL.ass',
           ),
         ).writeAsString('');
-        var unmatched = await subtitles.importDirectory(directory.path, [
-          video,
-        ]);
+        var unmatched = await subtitles.importDirectories(
+          [directory.path],
+          [video],
+        );
         expect(unmatched.matches, isEmpty);
         expect(settings.values, isEmpty);
         for (var attempt = 0; attempt < 2; attempt++) {
-          var result = await subtitles.importDirectory(directory.path, [
-            video,
-          ], matchByEpisode: true);
+          var result = await subtitles.importDirectories(
+            [directory.path],
+            [video],
+            matchByEpisode: true,
+          );
           expect(result.matchedFiles, 1);
           expect(await subtitles.read(video), [file.path]);
         }
