@@ -51,11 +51,15 @@ class PlaybackPlaylist {
     List<PlaybackItem> items,
     List<PlaybackLabel> labels,
   ) : indices = List.generate(items.length, (index) => index) {
+    // Seasonless labels share the episode order of the sole explicit season.
+    var seasons = labels.map((label) => label.number?.season).nonNulls.toSet();
     indices.sort((a, b) {
       var left = labels[a].number;
       var right = labels[b].number;
       if (left != null && right != null) {
-        var order = left.compareTo(right);
+        var order = seasons.length > 1
+            ? left.compareTo(right)
+            : left.number.compareTo(right.number);
         if (order != 0) return order;
       } else if (left != null || right != null) {
         return left != null ? -1 : 1;

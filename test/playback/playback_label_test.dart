@@ -224,6 +224,39 @@ void main() {
     });
   });
 
+  test('单季文件混用季号和集号时按可见集数排序', () {
+    var items = [
+      'Anime - 05.mkv',
+      for (var number in [1, 2, 3, 4, 6, 7]) 'Anime.S02E0$number.mkv',
+      'Bonus.mkv',
+    ].map((name) => PlaybackItem(filePath: name, title: name)).toList();
+    var labels = items.map(PlaybackLabel.fromItem).toList();
+    var playlist = PlaybackPlaylist.fromItems(items, labels);
+
+    expect(playlist.indices.map((index) => labels[index].episodeNumber), [
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      null,
+    ]);
+    expect(playlist.positionOf(0), 4);
+  });
+
+  test('存在多个明确季号时按季排序', () {
+    var items = [
+      'Anime.S02E01.mkv',
+      'Anime.S01E10.mkv',
+      'Anime.S02E02.mkv',
+    ].map((name) => PlaybackItem(filePath: name, title: name)).toList();
+    var labels = items.map(PlaybackLabel.fromItem).toList();
+
+    expect(PlaybackPlaylist.fromItems(items, labels).indices, [1, 0, 2]);
+  });
+
   test('规则新增、修改和删除时标签自动更新', () async {
     const file = 'Anime release12.mkv';
     const item = PlaybackItem(filePath: file, title: file, subject: 1);
