@@ -9,6 +9,7 @@ Map<String, dynamic> _taskJson() => {
   'state': 'downloading',
   'sourceKind': 'torrent',
   'manual': false,
+  'uploadEnabled': true,
   'savePath': r'C:\Downloads',
   'downloadMilliseconds': 1000,
   'totalBytes': 100,

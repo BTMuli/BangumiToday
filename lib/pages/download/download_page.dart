@@ -705,6 +705,7 @@ String _etaLabel(BtTaskSnapshot task) {
 String _seedStopReasonLabel(String reason) {
   return switch (reason) {
     'disabled' => '未启用做种',
+    'uploadDisabled' => '已停止上传',
     'ratio' => '达到分享率',
     'time' => '达到时间限制',
     'constrained' => '按流量计费或节能模式',

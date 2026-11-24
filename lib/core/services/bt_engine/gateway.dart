@@ -58,6 +58,7 @@ abstract interface class BtEngineGateway {
   });
   Future<BtTaskSnapshot> stop(String id);
   Future<BtTaskSnapshot> pause(String id);
+  Future<BtTaskSnapshot> setUploadEnabled(String id, {required bool enabled});
   Future<BtTaskSnapshot> resume(String id);
   Future<BtTaskSnapshot> retry(String id);
   Future<BtTaskSnapshot> recheck(String id);

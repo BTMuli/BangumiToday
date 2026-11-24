@@ -616,6 +616,8 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
   }
 
   Future<void> pause(String id) => _runTask(id, () => _client.pause(id));
+  Future<void> setUploadEnabled(String id, {required bool enabled}) =>
+      _runTask(id, () => _client.setUploadEnabled(id, enabled: enabled));
   Future<void> stop(String id) => _runTask(id, () => _client.stop(id));
   Future<void> resume(String id) => _runTask(id, () => _client.resume(id));
   Future<void> retry(String id) => _runTask(id, () => _client.retry(id));
@@ -670,6 +672,7 @@ class BtDownloadStore extends Notifier<BtDownloadState> {
     if (task.state != 'paused') return false;
     if (!_isFileAvailable(task)) return true;
     if (task.sourceKind == 'http' ||
+        !task.uploadEnabled ||
         !config.seedingEnabled ||
         !config.seedingDisclosureAccepted ||
         task.seedStopReason != null) {

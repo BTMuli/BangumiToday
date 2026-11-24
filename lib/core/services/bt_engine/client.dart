@@ -366,6 +366,18 @@ class BtEngineClient implements BtEngineGateway {
   @override
   Future<BtTaskSnapshot> pause(String id) => _taskCommand('task.pause', id);
   @override
+  Future<BtTaskSnapshot> setUploadEnabled(
+    String id, {
+    required bool enabled,
+  }) async {
+    var result = await request('task.setUploadEnabled', {
+      'id': id,
+      'enabled': enabled,
+    });
+    return _taskFromResult(result);
+  }
+
+  @override
   Future<BtTaskSnapshot> resume(String id) => _taskCommand('task.resume', id);
   @override
   Future<BtTaskSnapshot> retry(String id) => _taskCommand('task.retry', id);

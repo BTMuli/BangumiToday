@@ -1,4 +1,4 @@
-const btEngineProtocolVersion = '1.9';
+const btEngineProtocolVersion = '1.10';
 const btEngineMaxProtocolFrameBytes = 1024 * 1024;
 
 T? _requiredNullable<T>(Map<String, dynamic> json, String key) {
@@ -62,6 +62,7 @@ class BtTaskSnapshot {
     required this.state,
     required this.sourceKind,
     required this.manual,
+    required this.uploadEnabled,
     required this.savePath,
     required this.displayName,
     required this.infoHash,
@@ -95,6 +96,7 @@ class BtTaskSnapshot {
       state: json['state'] as String,
       sourceKind: json['sourceKind'] as String,
       manual: json['manual'] as bool,
+      uploadEnabled: json['uploadEnabled'] as bool,
       savePath: json['savePath'] as String,
       displayName: json['displayName'] as String? ?? '',
       infoHash: json['infoHash'] as String?,
@@ -128,6 +130,7 @@ class BtTaskSnapshot {
   final String state;
   final String sourceKind;
   final bool manual;
+  final bool uploadEnabled;
   final String savePath;
   final String displayName;
   final String? infoHash;
@@ -151,6 +154,12 @@ class BtTaskSnapshot {
   final int seeds;
   final bool isPrivate;
   final BtTaskError? lastError;
+
+  /// 分享率上限同样限制下载期间的上传，不改变手动上传开关。
+  bool get uploadRatioLimitReached =>
+      seedRatioLimit > 0 &&
+      totalBytes > 0 &&
+      uploadedBytes >= totalBytes * seedRatioLimit;
 
   /// Info hash in a clean, display-friendly form.
   ///
@@ -176,6 +185,7 @@ class BtTaskSnapshot {
         state == other.state &&
         sourceKind == other.sourceKind &&
         manual == other.manual &&
+        uploadEnabled == other.uploadEnabled &&
         savePath == other.savePath &&
         displayName == other.displayName &&
         infoHash == other.infoHash &&
@@ -205,6 +215,7 @@ class BtTaskSnapshot {
     state,
     sourceKind,
     manual,
+    uploadEnabled,
     savePath,
     displayName,
     infoHash,

@@ -399,6 +399,16 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
     }
   }
 
+  Future<void> _toggleUpload(BtTaskSnapshot task) async {
+    try {
+      await ref
+          .read(btDownloadStoreProvider.notifier)
+          .setUploadEnabled(task.id, enabled: !task.uploadEnabled);
+    } catch (error) {
+      if (mounted) await BtInfobar.error(context, '上传设置更新失败：$error');
+    }
+  }
+
   void _onTabChanged(int index) {
     if (index == _tabIndex) return;
     setState(() {
@@ -426,6 +436,14 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
       }),
     );
     var task = snapshot ?? _details?.task ?? widget.initialTask;
+    var uploadState = ref.watch(
+      btDownloadStoreProvider.select(
+        (store) => (
+          store.engineState == BtEngineClientState.ready,
+          store.busyTaskIds.contains(widget.taskId),
+        ),
+      ),
+    );
     var isDark = FluentTheme.of(context).brightness == Brightness.dark;
     if (_loading && _details == null) {
       return const Center(child: ProgressRing());
@@ -437,7 +455,12 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
       color: BTColors.surfaceSecondary(context).withValues(alpha: 0.28),
       child: Column(
         children: [
-          _DetailsHero(task: task),
+          _DetailsHero(
+            task: task,
+            uploadReady: uploadState.$1,
+            uploadBusy: uploadState.$2,
+            onToggleUpload: () => unawaited(_toggleUpload(task)),
+          ),
           _DetailTabBar(
             tabs: [
               const _DetailTab(icon: FluentIcons.info, label: '信息'),
@@ -658,9 +681,17 @@ class _DownloadTaskDetailsState extends ConsumerState<DownloadTaskDetails> {
 }
 
 class _DetailsHero extends StatelessWidget {
-  const _DetailsHero({required this.task});
+  const _DetailsHero({
+    required this.task,
+    required this.uploadReady,
+    required this.uploadBusy,
+    required this.onToggleUpload,
+  });
 
   final BtTaskSnapshot task;
+  final bool uploadReady;
+  final bool uploadBusy;
+  final VoidCallback onToggleUpload;
 
   @override
   Widget build(BuildContext context) {
@@ -669,6 +700,20 @@ class _DetailsHero extends StatelessWidget {
         : task.displayName;
     var color = _taskStateColor(context, task.state);
     var progress = (task.progress * 100).clamp(0, 100).toDouble();
+    var archived = task.manual && task.state == 'completed';
+    var ratioLimited = task.uploadRatioLimitReached;
+    var uploadAllowed = task.uploadEnabled && !ratioLimited;
+    var uploadTooltip = !uploadReady
+        ? '下载引擎未就绪'
+        : archived
+        ? '任务已归档'
+        : uploadBusy
+        ? '正在更新任务'
+        : ratioLimited
+        ? '已达到分享率上限，上传已停止（下载继续）'
+        : task.uploadEnabled
+        ? '停止上传（继续下载）'
+        : '恢复上传';
     return Container(
       padding: EdgeInsets.fromLTRB(22, 18, 22, 16),
       decoration: BoxDecoration(
@@ -772,10 +817,20 @@ class _DetailsHero extends StatelessWidget {
               else ...[
                 Expanded(
                   child: _HeroMetric(
-                    icon: FluentIcons.upload,
+                    icon: uploadAllowed
+                        ? FluentIcons.upload
+                        : FluentIcons.blocked,
                     label: '上传速度',
                     value: '${BTFileTool.formatSize(task.uploadRate)}/s',
-                    color: BTColors.successLight(context),
+                    color: uploadAllowed
+                        ? BTColors.successLight(context)
+                        : BTColors.textTertiary(context),
+                    tooltip: uploadTooltip,
+                    busy: uploadBusy,
+                    onPressed:
+                        uploadReady && !uploadBusy && !archived && !ratioLimited
+                        ? onToggleUpload
+                        : null,
                   ),
                 ),
                 SizedBox(width: 8),
@@ -803,12 +858,18 @@ class _HeroMetric extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.tooltip,
+    this.busy = false,
+    this.onPressed,
   });
 
   final IconData icon;
   final String label;
   final String value;
   final Color color;
+  final String? tooltip;
+  final bool busy;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -828,7 +889,25 @@ class _HeroMetric extends StatelessWidget {
               color: color.withValues(alpha: 0.1),
               borderRadius: BTRadius.smallBR,
             ),
-            child: Icon(icon, size: 13, color: color),
+            child: tooltip == null
+                ? Icon(icon, size: 13, color: color)
+                : Tooltip(
+                    message: tooltip!,
+                    child: IconButton(
+                      onPressed: onPressed,
+                      icon: busy
+                          ? const SizedBox.square(
+                              dimension: 13,
+                              child: ProgressRing(strokeWidth: 2),
+                            )
+                          : Icon(
+                              icon,
+                              size: 13,
+                              color: color,
+                              semanticLabel: tooltip,
+                            ),
+                    ),
+                  ),
           ),
           SizedBox(width: 8),
           Expanded(

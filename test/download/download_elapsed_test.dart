@@ -9,6 +9,7 @@ Map<String, dynamic> _task(String id, int elapsed) => {
   'state': 'paused',
   'sourceKind': 'http',
   'manual': true,
+  'uploadEnabled': true,
   'savePath': r'C:\Downloads',
   'downloadMilliseconds': elapsed,
 };

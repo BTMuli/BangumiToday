@@ -479,8 +479,8 @@ class _DownloadSettingsPanelState extends ConsumerState<DownloadSettingsPanel> {
             ),
           ),
           _SettingGridCell(
-            title: '做种分享率',
-            description: '0 表示不使用分享率条件',
+            title: '分享率上限',
+            description: '达到上限停止上传，下载继续；0 表示不限',
             control: NumberBox<double>(
               value: _config.seedRatioLimit,
               min: 0,

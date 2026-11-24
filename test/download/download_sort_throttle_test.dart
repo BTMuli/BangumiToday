@@ -16,6 +16,7 @@ Map<String, dynamic> _task({
   'state': state,
   'sourceKind': 'http',
   'manual': true,
+  'uploadEnabled': true,
   'savePath': r'C:\Downloads',
   'downloadMilliseconds': 1000,
   'downloadRate': downloadRate,

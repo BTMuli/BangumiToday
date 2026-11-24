@@ -305,6 +305,7 @@ void main() {
           'state': 'completed',
           'sourceKind': 'torrent',
           'manual': false,
+          'uploadEnabled': true,
           'savePath': r'C:\Downloads',
           'downloadMilliseconds': 0,
         }),
