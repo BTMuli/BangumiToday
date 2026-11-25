@@ -347,10 +347,7 @@ class PlaybackMpvCoordinator {
       created.stream.tracks.listen((_) {
         if (Platform.isWindows) unawaited(janaiSource.refresh());
         var session = readSession();
-        if (isClosed() ||
-            session.completed ||
-            session.manualSubtitles ||
-            session.current == null) {
+        if (isClosed() || session.completed || session.current == null) {
           return;
         }
         var sessionId = session.id;
@@ -360,7 +357,8 @@ class PlaybackMpvCoordinator {
                 readSession().current == null) {
               return;
             }
-            await autoSelectSubtitle();
+            await audio.selectTrack();
+            if (!readSession().manualSubtitles) await autoSelectSubtitle();
           }).catchError((Object _) {}),
         );
       }),

@@ -257,6 +257,7 @@ class PlaybackStore extends ChangeNotifier {
   Future<void> retryTensorRt() => _upscale.retryTensorRt();
 
   bool get loudnessEnabled => _audio.loudnessEnabled;
+  bool get automaticAudioTracks => _audio.automaticTracks;
   bool get hiResEnabled => _audio.hiResEnabled;
   bool get audioExclusiveEnabled => _audio.audioExclusiveEnabled;
   bool get canEnableAudioExclusive => _audio.canEnableAudioExclusive;
@@ -559,6 +560,7 @@ class PlaybackStore extends ChangeNotifier {
       // Keep the previous aspect ratio until the new stream reports its own, so
       // auto-advancing between episodes (usually the same ratio) does not make
       // the playback surface size jump.
+      await timing.measure('设置音频轨道', _audio.prepareMedia);
       await timing.measure(
         '设置字幕轨道',
         () => _mpv.player!.setSubtitleTrack(SubtitleTrack.no()),
@@ -570,6 +572,7 @@ class PlaybackStore extends ChangeNotifier {
       );
       if (_closed) return;
       _setOpeningStatus('正在恢复播放状态…');
+      await timing.measure('选择音轨', _audio.selectTrack);
       _audio.scheduleRefresh();
       await timing.measure('加载外部字幕', _loadImportedSubtitles);
       await timing.measure('选择字幕', _autoSelectSubtitle);
@@ -847,8 +850,16 @@ class PlaybackStore extends ChangeNotifier {
     await _audio.setHiResEnabled(enabled);
   });
 
-  Future<void> setAudioTrack(AudioTrack track) =>
-      _serial(() => _audio.setAudioTrack(track));
+  Future<void> setAudioTrack(AudioTrack track) {
+    var sessionId = _session.id;
+    return _serial(() async {
+      if (_session.id != sessionId) {
+        throw const PlaybackUnavailable('视频已切换，请重新选择音轨');
+      }
+      await _loadPreferences();
+      await _audio.setAudioTrack(track);
+    });
+  }
 
   Future<void> setAudioExclusiveEnabled(bool enabled) => _serial(() async {
     await _loadPreferences();

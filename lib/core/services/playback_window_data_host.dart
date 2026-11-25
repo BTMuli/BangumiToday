@@ -8,6 +8,7 @@ import '../../domain/repositories/playback_history.dart';
 import '../../domain/repositories/playback_library.dart';
 import '../../domain/repositories/playback_settings.dart';
 import '../../domain/repositories/playback_subjects.dart';
+import '../../models/playback/playback_audio_selection.dart';
 import '../../models/playback/playback_item.dart';
 import 'playback_subtitle_files.dart';
 import 'playback_window_protocol.dart';
@@ -35,6 +36,7 @@ class PlaybackWindowDataHost {
   final void Function() onCoverResolved;
   final void Function() onHistoryChanged;
   static const allowedSettings = {
+    PlaybackAudioSelection.settingKey,
     'playbackAutoMarkWatched',
     'playbackHiResEnabled',
     'playbackAudioExclusiveEnabled',

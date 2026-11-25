@@ -178,10 +178,15 @@ List<MenuFlyoutItemBase> _playbackSettingsItems(
     items: (_) => [
       for (var track in player.state.tracks.audio)
         ToggleMenuFlyoutItem(
-          text: _PlaybackMenuLabel(
-            _playbackTrackLabel(track.id, track.title, track.language),
+          text: _playbackAudioMenuLabel(
+            player,
+            track,
+            automatic: store.automaticAudioTracks,
           ),
-          value: player.state.track.audio.id == track.id,
+          value: track.id == 'auto'
+              ? store.automaticAudioTracks
+              : !store.automaticAudioTracks &&
+                    player.state.track.audio.id == track.id,
           onChanged: (_) => unawaited(run(() => store.setAudioTrack(track))),
         ),
     ],
@@ -252,16 +257,26 @@ List<MenuFlyoutItemBase> _playbackRateItems(
     ),
 ];
 
-String _playbackTrackLabel(String id, String? title, String? language) {
-  if (id == 'auto') return '自动选择';
-  if (id == 'no') return '关闭';
-  return [
-    if (title != null && title.isNotEmpty) title,
-    if (language != null && language.isNotEmpty) language,
-    if ((title == null || title.isEmpty) &&
-        (language == null || language.isEmpty))
-      '轨道 $id',
-  ].join(' · ');
+Widget _playbackAudioMenuLabel(
+  Player player,
+  AudioTrack track, {
+  required bool automatic,
+}) {
+  var selecting = track.id == 'auto' && automatic;
+  if (selecting) {
+    track = player.state.tracks.audio.firstWhere(
+      (track) => track.id == player.state.track.audio.id,
+      orElse: () => player.state.track.audio,
+    );
+  }
+  var label = playbackAudioLabel(track);
+  if (selecting && track.id != 'auto') {
+    return _PlaybackMenuLabel(
+      '自动选择',
+      description: [label.title, ?label.description].join(' · '),
+    );
+  }
+  return _PlaybackMenuLabel(label.title, description: label.description);
 }
 
 Widget _playbackSubtitleMenuLabel(

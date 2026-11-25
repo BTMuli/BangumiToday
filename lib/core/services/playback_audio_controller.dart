@@ -7,6 +7,7 @@ import 'package:media_kit/media_kit.dart';
 
 // Project imports:
 import '../../domain/repositories/playback_settings.dart';
+import '../../models/playback/playback_audio_selection.dart';
 import '../../models/playback/playback_hires.dart';
 import '../../models/playback/playback_item.dart';
 import '../utils/playback_audio_recovery.dart';
@@ -57,7 +58,10 @@ class PlaybackAudioController {
   Timer? _audioWatchdog;
   final _audioMetadata = PlaybackAudioMetadata();
   PlaybackWasapiFormat? _wasapiFormat;
+  PlaybackAudioSelection _trackSelection =
+      const PlaybackAudioSelection.automatic();
 
+  bool get automaticTracks => _trackSelection.automatic;
   bool get loudnessEnabled => _loudnessEnabled;
   bool get hiResEnabled => _hiResEnabled;
   bool get audioExclusiveEnabled => _audioExclusiveEnabled;
@@ -111,8 +115,60 @@ class PlaybackAudioController {
   }
 
   Future<void> setAudioTrack(AudioTrack track) async {
+    var player = readPlayer();
+    if (isClosed() || player == null || readSession().item == null) return;
+    var selection = PlaybackAudioSelection.fromTrack(
+      track,
+      player.state.tracks.audio,
+    );
+    await settingsStore.write(
+      PlaybackAudioSelection.settingKey,
+      selection.encode(),
+    );
+    if (isClosed()) return;
+    _trackSelection = selection;
+    if (selection.automatic) {
+      await selectTrack();
+    } else {
+      await _applyTrack(track);
+    }
+    onDiagnostic('音轨偏好改变：automatic=${selection.automatic}，track=${track.id}');
+    onChanged();
+  }
+
+  /// Clear a previous file's numeric aid before load; a disabled preference
+  /// must stay silent even before the new file's track list arrives.
+  Future<void> prepareMedia() async {
+    if (isClosed()) return;
+    await readPlayer()?.setAudioTrack(
+      _trackSelection.disabled ? AudioTrack.no() : AudioTrack.auto(),
+    );
+  }
+
+  /// Called on the session queue both after open and when tracks arrive later.
+  Future<void> selectTrack() async {
+    var player = readPlayer();
+    var session = readSession();
+    if (isClosed() ||
+        player == null ||
+        session.item == null ||
+        session.completed) {
+      return;
+    }
+    var track = _trackSelection.select(player.state.tracks.audio);
+    if (track != null) await _applyTrack(track);
+  }
+
+  Future<void> _applyTrack(AudioTrack track) async {
+    var player = readPlayer();
+    if (isClosed() ||
+        player == null ||
+        player.state.track.audio.id == track.id) {
+      return;
+    }
     await reset();
-    await readPlayer()?.setAudioTrack(track);
+    if (isClosed()) return;
+    await player.setAudioTrack(track);
     scheduleRefresh();
   }
 
@@ -267,6 +323,9 @@ class PlaybackAudioController {
   bool get exclusiveConfigured => _audioExclusiveConfigured;
 
   Future<void> loadPreferences() async {
+    _trackSelection = PlaybackAudioSelection.parse(
+      await settingsStore.read(PlaybackAudioSelection.settingKey),
+    );
     _hiResEnabled =
         await settingsStore.read(PlaybackAudio.settingKey) == 'true';
     _audioExclusiveEnabled =
